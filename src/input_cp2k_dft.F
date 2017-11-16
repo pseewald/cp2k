@@ -7647,7 +7647,7 @@ CONTAINS
       CALL keyword_create(keyword, __LOCATION__, name="DIPOLE_FORM", &
                           variants=(/"DIP_FORM"/), &
                           description="Type of integral to get the oscillator strengths "// &
-                          "in the diipole approximation", &
+                          "in the dipole approximation", &
                           usage="DIPOLE_FORM string", &
                           default_i_val=xas_dip_vel, &
                           enum_c_vals=s2a("LENGTH", "VELOCITY"), &
@@ -7876,19 +7876,64 @@ CONTAINS
 
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, "xas_tdp", &
-                          description="TDDFT XAS", &
-                          n_keywords=0, n_subsections=0, repeats=.FALSE.)
+                          description="XAS simulations using TDDFPT", &
+                          n_keywords=1, n_subsections=0, repeats=.FALSE.)
 
       NULLIFY (keyword)
 
       CALL keyword_create(keyword, name="_SECTION_PARAMETERS_", &
-                          description="controls the activation of XAS via linear response TDDFT", &
+                          description="controls the activation of XAS simulations with linear "// &
+                          "response TDDFT. Either ATOM_LIST or KIND_LIST should be defined", &
                           usage="&TDP XAS ON", &
                           default_l_val=.FALSE., &
                           lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)                  
+
+      CALL keyword_create(keyword, name="ATOM_LIST", &
+                          variants=(/"AT_LIST"/), &
+                          description="Indexes of the atoms to be excited. "// &
+                          "This keyword can be repeated several times"// &
+                          "(useful if you have to specify many indexes).", &
+                          usage="ATOM_LIST {integer}  {integer} ..  {integer} ", &
+                          n_var=-1, type_of_var=integer_t, repeats=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
       
+      CALL keyword_create(keyword, name="KIND_LIST", &
+                          description="Kind of atoms to be excited. "// &
+                          "All atoms of the specified kind are considered"//&
+                          "This keyword can be repeated several times.", &
+                          usage="KIND_LIST {word}  {word} ..  {word} ", &
+                          n_var=-1, type_of_var=char_t, repeats=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="STATE_TYPE", &
+                          variants=(/"TYPE"/), &
+                          description="Type of orbitals that are excited for the xas spectra calculation", &
+                          usage="STATE_TYPE 1S", &
+                          default_i_val=xas_1s_type, &
+                          enum_c_vals=s2a("1S"), &
+                          enum_desc=s2a("1s orbitals"), &
+                          enum_i_vals=(/xas_1s_type/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="DIPOLE_FORM", &
+                          variants=(/"DIP_FORM"/), &
+                          description="Type of integral to get the oscillator strengths "// &
+                          "in the dipole approximation", &
+                          usage="DIPOLE_FORM string", &
+                          default_i_val=xas_dip_vel, &
+                          enum_c_vals=s2a("LENGTH", "VELOCITY"), &
+                          enum_desc=s2a("Length form &lang; 0 | e r | n &rang;", &
+                                        "Velocity form &lang; 0 | d/dr | n &rang;"), &
+                          enum_i_vals=(/xas_dip_len, xas_dip_vel/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+
    END SUBROUTINE create_xas_tdp_section  
 
 ! **************************************************************************************************
