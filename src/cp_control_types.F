@@ -481,6 +481,7 @@ MODULE cp_control_types
                                               sic_scaling_b
       LOGICAL                              :: do_tddfpt_calculation, &
                                               do_xas_calculation, &
+                                              do_xas_tdp_calculation, &
                                               drho_by_collocation, &
                                               use_kinetic_energy_density, &
                                               restricted, &

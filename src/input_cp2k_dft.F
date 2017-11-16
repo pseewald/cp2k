@@ -414,6 +414,10 @@ CONTAINS
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
+      CALL create_xas_tdp_section(subsection)
+      CALL section_add_subsection(section, subsection)
+      CALL section_release(subsection)
+      
       CALL create_localize_section(subsection)
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
@@ -7799,6 +7803,39 @@ CONTAINS
       CALL section_release(subsection)
 
    END SUBROUTINE create_xas_section
+
+! **************************************************************************************************
+!> \brief makes the input section for core-level spectroscopy simulations using
+!> linear response TDDFT
+!> \param section ...
+!> \par History
+!>      11.2017 created [AB]
+! **************************************************************************************************
+   SUBROUTINE create_xas_tdp_section(section)
+      TYPE(section_type), POINTER                        :: section
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'create_xas_tdp_section', &
+         routineP = moduleN//':'//routineN
+
+      TYPE(keyword_type), POINTER                        :: keyword
+!      TYPE(section_type), POINTER                        :: print_key, subsection
+
+      CPASSERT(.NOT. ASSOCIATED(section))
+      CALL section_create(section, "xas_tdp", &
+                          description="TDDFT XAS", &
+                          n_keywords=0, n_subsections=0, repeats=.FALSE.)
+
+      NULLIFY (keyword)
+
+      CALL keyword_create(keyword, name="_SECTION_PARAMETERS_", &
+                          description="controls the activation of XAS via linear response TDDFT", &
+                          usage="&TDP XAS ON", &
+                          default_l_val=.FALSE., &
+                          lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)                  
+      
+   END SUBROUTINE create_xas_tdp_section  
 
 ! **************************************************************************************************
 !> \brief      Create CP2K input section for the smearing of occupation numbers
