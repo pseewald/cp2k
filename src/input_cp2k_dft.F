@@ -7851,13 +7851,14 @@ CONTAINS
                           "All atoms of the specified kind are considered"//&
                           "This keyword can be repeated several times.", &
                           usage="KIND_LIST {word}  {word} ..  {word} ", &
-                          n_var=-1, type_of_var=char_t, repeats=.TRUE.)
+                          n_var=-1, type_of_var=char_t, repeats=.FALSE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="STATE_TYPE", &
                           variants=(/"TYPE"/), &
-                          description="Type of orbitals that are excited for the xas spectra calculation", &
+                          description="Type of orbitals that are excited for the xas spectra "// &
+                          "calculation", &
                           usage="STATE_TYPE 1S", &
                           default_i_val=xas_1s_type, &
                           enum_c_vals=s2a("1S"), &

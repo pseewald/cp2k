@@ -10,6 +10,13 @@
 
 MODULE xas_tdp_methods
 
+   USE cp_control_types,                ONLY: dft_control_type
+   USE input_section_types,             ONLY: section_vals_type,&
+                                              section_vals_get_subs_vals
+   USE qs_environment_types,            ONLY: qs_environment_type
+   USE xas_tdp_control,                 ONLY: xas_tdp_control_type,&
+                                              read_xas_tdp_control,&
+                                              xas_tdp_control_create
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -22,18 +29,34 @@ MODULE xas_tdp_methods
 CONTAINS
                 
 ! **************************************************************************************************
-!> \breif Driver for XAS TDDFT calculations.
+!> \brief Driver for XAS TDDFT calculations.
+!> \param qs_env: the inherited qs_environment
+!> \param dft_control: the set of input DFT keywords and values
 !> \author AB
 !> \note Empty for now...
 ! **************************************************************************************************
-   SUBROUTINE xas_tdp()
+   SUBROUTINE xas_tdp(qs_env, dft_control)
+
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(dft_control_type), POINTER                    :: dft_control
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'xas_tdp', routineP = moduleN//':'//routineN
+
       INTEGER                                            :: handle
+      TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
 
       CALL timeset(routineN, handle)
+      
+      NULLIFY(dft_section, xas_tdp_section)
 
       PRINT*, "Saying 'hi' from the ", routineP, " routine!"
+      PRINT*, "Checking that the xas_tdp_control is created, read and released"
+
+      dft_section => section_vals_get_subs_vals(qs_env%input, "DFT")                                 
+      xas_tdp_section => section_vals_get_subs_vals(dft_section, "XAS_TDP")             
+
+      CALL xas_tdp_control_create(dft_control%xas_tdp_control)
+      CALL read_xas_tdp_control(dft_control%xas_tdp_control,xas_tdp_section)
 
       CALL timestop(handle)
    END SUBROUTINE xas_tdp
