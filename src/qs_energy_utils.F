@@ -291,7 +291,7 @@ CONTAINS
          CALL xas(qs_env, dft_control)
       END IF
       IF (dft_control%do_xas_tdp_calculation) THEN
-         CALL xas_tdp()
+         CALL xas_tdp(qs_env, dft_control)
       END IF      
 
       ! Compute Linear Response properties as post-scf
