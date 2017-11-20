@@ -71,7 +71,7 @@ MODULE input_section_types
    PUBLIC :: section_typo_match, typo_match_section, typo_matching_rank, typo_matching_line
 
 ! **************************************************************************************************
-!> \brief represent a pointer to a section (to make arrays of pointers)
+!> \brief represent a pointer to a section (to make arrays of poection_get_keywordnters)
 !> \param section the pointer to the section
 !> \author fawzi
 ! **************************************************************************************************

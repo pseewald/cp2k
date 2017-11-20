@@ -92,7 +92,7 @@ MODULE input_cp2k_dft
         wfi_use_prev_wf_method_nr, xas_1s_type, xas_2p_type, xas_2s_type, xas_3d_type, &
         xas_3p_type, xas_3s_type, xas_4d_type, xas_4f_type, xas_4p_type, xas_4s_type, xas_dip_len, &
         xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, xas_tp_hh, xas_tp_xfh, &
-        xas_tp_xhh, xes_tp_val
+        xas_tp_xhh, xes_tp_val, xas_tdp_by_index, xas_tdp_by_kind
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
    USE input_cp2k_distribution,         ONLY: create_distribution_section
    USE input_cp2k_field,                ONLY: create_efield_section,&
@@ -7877,34 +7877,44 @@ CONTAINS
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, "xas_tdp", &
                           description="XAS simulations using TDDFPT", &
-                          n_keywords=1, n_subsections=0, repeats=.FALSE.)
+                          n_keywords=5, n_subsections=0, repeats=.FALSE.)
 
       NULLIFY (keyword)
 
       CALL keyword_create(keyword, name="_SECTION_PARAMETERS_", &
                           description="controls the activation of XAS simulations with linear "// &
-                          "response TDDFT. Either ATOM_LIST or KIND_LIST should be defined", &
+                          "response TDDFT.", &
                           usage="&TDP XAS ON", &
                           default_l_val=.FALSE., &
                           lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)                  
 
+      CALL keyword_create(keyword, name="DEFINE_EXCITED", &
+                          description="Whether the atoms to be excited should be defined by "// &
+                          "a list of atom indices or by a list of atom kinds.", &
+                          usage="DEFINE_EXCITED string", &
+                          default_i_val=xas_tdp_by_index, &
+                          enum_c_vals=s2a("BY_INDEX", "BY_KIND"), &
+                          enum_i_vals=(/xas_tdp_by_index, xas_tdp_by_kind/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+
       CALL keyword_create(keyword, name="ATOM_LIST", &
                           variants=(/"AT_LIST"/), &
-                          description="Indexes of the atoms to be excited. "// &
-                          "This keyword can be repeated several times"// &
-                          "(useful if you have to specify many indexes).", &
+                          description="Indices of the atoms to be excited. "// &
+                          "Keyword only taken into account if DEFINE_EXCITED = BY_INDEX", &
                           usage="ATOM_LIST {integer}  {integer} ..  {integer} ", &
-                          n_var=-1, type_of_var=integer_t, repeats=.TRUE.)
+                          n_var=-1, type_of_var=integer_t, repeats=.FALSE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
       
       CALL keyword_create(keyword, name="KIND_LIST", &
                           description="Kind of atoms to be excited. "// &
-                          "All atoms of the specified kind are considered"//&
-                          "This keyword can be repeated several times.", &
-                          usage="KIND_LIST {word}  {word} ..  {word} ", &
+                          "All atoms of the specified kinds are considered"//&
+                          "Keyword only taken into account if DEFINE_EXCITED = BY_KIND", &
+                          usage="KIND_LIST {string}  {string} ..  {string} ", &
                           n_var=-1, type_of_var=char_t, repeats=.FALSE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
