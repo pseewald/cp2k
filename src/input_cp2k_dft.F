@@ -7860,7 +7860,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief makes the input section for core-level spectroscopy simulations using
-!> linear response TDDFT
+!>        linear response TDDFT
 !> \param section ...
 !> \par History
 !>      11.2017 created [AB]

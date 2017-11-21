@@ -14,7 +14,7 @@ MODULE xas_tdp_methods
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_get_subs_vals
    USE qs_environment_types,            ONLY: qs_environment_type
-   USE xas_tdp_control,                 ONLY: xas_tdp_control_type,&
+   USE xas_tdp_types,                   ONLY: xas_tdp_control_type,&
                                               read_xas_tdp_control,&
                                               xas_tdp_control_create
 #include "./base/base_uses.f90"
@@ -30,8 +30,8 @@ CONTAINS
                 
 ! **************************************************************************************************
 !> \brief Driver for XAS TDDFT calculations.
-!> \param qs_env: the inherited qs_environment
-!> \param dft_control: the set of input DFT keywords and values
+!> \param qs_env the inherited qs_environment
+!> \param dft_control the set of input DFT keywords and values
 !> \author AB
 !> \note Empty for now...
 ! **************************************************************************************************
