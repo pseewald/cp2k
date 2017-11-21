@@ -19,7 +19,7 @@ MODULE cp_control_types
                                               cdft_control_type
    USE xas_control,                     ONLY: xas_control_release,&
                                               xas_control_type
-   USE xas_tdp_control,                 ONLY: xas_tdp_control_release,&
+   USE xas_tdp_types,                   ONLY: xas_tdp_control_release,&
                                               xas_tdp_control_type
 #include "./base/base_uses.f90"
 
