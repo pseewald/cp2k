@@ -58,6 +58,14 @@ CONTAINS
       CALL xas_tdp_control_create(dft_control%xas_tdp_control)
       CALL read_xas_tdp_control(dft_control%xas_tdp_control,xas_tdp_section)
 
+
+!  Structure would look like:
+!     - Initialization of the xas_tdp_control
+!     - Initialization of the xas_tdp_env (including each excited_atom type)
+!     - Loop over excited_atoms array of xas_tdp_env for calculations
+!     - Collect and print results
+!     - Release all types
+
       CALL timestop(handle)
    END SUBROUTINE xas_tdp
 END MODULE xas_tdp_methods

@@ -92,7 +92,7 @@ MODULE input_cp2k_dft
         wfi_use_prev_wf_method_nr, xas_1s_type, xas_2p_type, xas_2s_type, xas_3d_type, &
         xas_3p_type, xas_3s_type, xas_4d_type, xas_4f_type, xas_4p_type, xas_4s_type, xas_dip_len, &
         xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, xas_tp_hh, xas_tp_xfh, &
-        xas_tp_xhh, xes_tp_val, xas_tdp_by_index, xas_tdp_by_kind
+        xas_tp_xhh, xes_tp_val, xas_tdp_by_index, xas_tdp_by_kind, xas_not_excited
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
    USE input_cp2k_distribution,         ONLY: create_distribution_section
    USE input_cp2k_field,                ONLY: create_efield_section,&
@@ -7830,7 +7830,7 @@ CONTAINS
       CALL keyword_create(keyword, name="_SECTION_PARAMETERS_", &
                           description="controls the activation of XAS simulations with linear "// &
                           "response TDDFT.", &
-                          usage="&TDP XAS ON", &
+                          usage="&TDP_XAS ON", &
                           default_l_val=.FALSE., &
                           lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
@@ -7865,15 +7865,20 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, name="STATE_TYPE", &
-                          variants=(/"TYPE"/), &
-                          description="Type of orbitals that are excited for the xas spectra "// &
-                          "calculation", &
-                          usage="STATE_TYPE 1S", &
-                          default_i_val=xas_1s_type, &
-                          enum_c_vals=s2a("1S"), &
-                          enum_desc=s2a("1s orbitals"), &
-                          enum_i_vals=(/xas_1s_type/))
+      CALL keyword_create(keyword, name="STATE_TYPES", &
+                          variants=(/"TYPES"/), &
+                          description="Types of orbitals that are excited, for each atom/kind, "//&
+                          "in order to do  tdp  xas spectra calculation."//&
+                          "This keyword MUST have the same number of entries as the relevant "//&
+                          "KIND_LIST or ATOM_LIST. The order of the specified state types must "//&
+                          "correspond to the order of the relevant kinds/indices."//&
+                          "This keyword can be repeated, usefull when  multiple orbital types "//&
+                          "should be excited for specific kinds/atoms.", &
+                          n_var=-1, default_i_val = xas_not_excited, repeats=.TRUE.,&
+                          usage="STATE_TYPES string  string .. string", &
+                          enum_c_vals=s2a("1S", "2S", "NE"), &
+                          enum_desc=s2a("1s orbital", "2s orbital", "not excited"), &
+                          enum_i_vals=(/xas_1s_type, xas_2s_type, xas_not_excited/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
