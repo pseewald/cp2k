@@ -27,30 +27,48 @@ MODULE xas_tdp_types
 
 ! **************************************************************************************************
 !> \brief Type containing control information for TDP XAS calculations
+!> \param define_excited whether excited atoms are chosen by kind or index
+!> \param dipole form whether the dipole moment is computed in the length or velocity representation
+!> \param list_ex_atoms list of excited atom indices, kept empty if define_excited=by_kind
+!> \param list_ex_kinds list of excited atom kinds, kept empty if define_excited=by_index
+!> \param state_types columns correspond to the states to excite for each atom kind/index
+!>                    the number of rows is the number of times the keyword is repeated
 ! **************************************************************************************************
    TYPE xas_tdp_control_type
       INTEGER                                 :: define_excited   
       INTEGER                                 :: dipole_form
-      INTEGER                                 :: state_type
       INTEGER, DIMENSION(:), POINTER          :: list_ex_atoms
       CHARACTER(len=default_string_length),&
                      DIMENSION(:), POINTER    :: list_ex_kinds
+      INTEGER, DIMENSION(:,:), POINTER        :: state_types 
+      
    END TYPE xas_tdp_control_type
    
 !> *************************************************************************************************
 !> \brief Type containing informations such as inputs and results for TDP XAS calculations
 !> \param nex_atoms number of excited atoms
-!> \param ex_atoms list of indices of excited atoms
+!> \param excited_atoms array of excited_atom_type continaing info for each excited type
 !> *************************************************************************************************
    TYPE xas_tdp_env_type
       INTEGER                                 :: nex_atoms
-      INTEGER, DIMENSION(:), POINTER          :: ex_atoms
+      TYPE(excited_atom_type), DIMENSION(:),&
+                        POINTER               :: excited_atoms
    END TYPE xas_tdp_env_type
+
+!> *************************************************************************************************
+!> \brief Type containing informations about a single excited atom
+!> \param index the index of the atom
+!> \param symbol the chemical symbol of the atom
+!> *************************************************************************************************
+   TYPE excited_atom_type
+      INTEGER                                 :: index
+      CHARACTER(len=2)                        :: symbol
+   END TYPE excited_atom_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE  :: moduleN = 'xas_tdp_types'
 
 ! *** Public data types ***
-   PUBLIC :: xas_tdp_control_type, xas_tdp_env_type
+   PUBLIC :: xas_tdp_control_type, xas_tdp_env_type, excited_atom_type
 
 ! *** Public subroutines ***
    PUBLIC :: xas_tdp_control_create, xas_tdp_control_release, read_xas_tdp_control, &
@@ -73,8 +91,8 @@ CONTAINS
       ALLOCATE (xas_tdp_control)
       
       xas_tdp_control%dipole_form = xas_dip_vel
-      xas_tdp_control%state_type = xas_1s_type
       xas_tdp_control%define_excited = xas_tdp_by_index
+      NULLIFY (xas_tdp_control%state_types)
       NULLIFY (xas_tdp_control%list_ex_atoms)
       NULLIFY (xas_tdp_control%list_ex_kinds)
 
@@ -100,6 +118,9 @@ CONTAINS
          IF (ASSOCIATED(xas_tdp_control%list_ex_kinds)) THEN
             DEALLOCATE (xas_tdp_control%list_ex_kinds)
          END IF
+         IF (ASSOCIATED(xas_tdp_control%state_types)) THEN
+            DEALLOCATE(xas_tdp_control%state_types)
+         END IF
          DEALLOCATE (xas_tdp_control)
       END IF
 
@@ -120,10 +141,11 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'read_xas_tdp_control', &
                                                             routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i                                                   
+      INTEGER                                            :: irep,nrep,nexc                                                 
       CHARACTER(len=default_string_length),&
                      DIMENSION(:), POINTER               :: k_list
       INTEGER, DIMENSION(:), POINTER                     :: a_list
+      INTEGER, DIMENSION(:), POINTER                     :: t_list
 
       NULLIFY (k_list,a_list)
       
@@ -132,8 +154,6 @@ CONTAINS
 
       CALL section_vals_val_get(xas_tdp_section, "DIPOLE_FORM", i_val=xas_tdp_control%dipole_form)
 
-      CALL section_vals_val_get(xas_tdp_section, "STATE_TYPE", i_val=xas_tdp_control%state_type)
-      
       IF (.NOT. ASSOCIATED(xas_tdp_control%list_ex_kinds)) THEN
          IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_index) THEN
 
@@ -144,10 +164,9 @@ CONTAINS
             CALL section_vals_val_get(xas_tdp_section, "KIND_LIST", c_vals=k_list)
          
             IF (ASSOCIATED(k_list)) THEN
-               ALLOCATE (xas_tdp_control%list_ex_kinds(SIZE(k_list)))
-               DO i = 1, SIZE(k_list)
-                  xas_tdp_control%list_ex_kinds(i) = k_list(i)
-               END DO
+               nexc = SIZE(k_list)
+               ALLOCATE (xas_tdp_control%list_ex_kinds(nexc))
+               xas_tdp_control%list_ex_kinds = k_list
             END IF
 
          END IF
@@ -163,27 +182,39 @@ CONTAINS
             CALL section_vals_val_get(xas_tdp_section, "ATOM_LIST", i_vals=a_list)
 
             IF (ASSOCIATED(a_list)) THEN
-               CALL reallocate(xas_tdp_control%list_ex_atoms, 1, SIZE(a_list))
-               DO i = 1, SIZE(a_list)
-                  xas_tdp_control%list_ex_atoms(i) = a_list(i)
-               END DO
+               nexc = SIZE(a_list)
+               CALL reallocate(xas_tdp_control%list_ex_atoms, 1, nexc)
+               xas_tdp_control%list_ex_atoms = a_list
             END IF
 
          END IF
+      END IF
+
+      CALL section_vals_val_get(xas_tdp_section, "STATE_TYPES", n_rep_val=nrep)
+
+      IF(.NOT. ASSOCIATED(xas_tdp_control%state_types)) THEN
+         ALLOCATE (xas_tdp_control%state_types(nrep,nexc))
+         DO irep = 1,nrep
+            CALL section_vals_val_get(xas_tdp_section, "STATE_TYPES", i_rep_val=irep, i_vals=t_list)
+            IF (SIZE(t_list) .NE. nexc) THEN
+               CPABORT("The STATE_TYPES keywords do not have the correct number of entries.")
+            END IF
+            xas_tdp_control%state_types(irep,:) = t_list
+         END DO
       END IF
 
       IF (ASSOCIATED(xas_tdp_control) .AND. ASSOCIATED(xas_tdp_section)) THEN
          PRINT*, "Read input for TDP XAS control:"
          PRINT*, "DEFINE_EXCITED: ", xas_tdp_control%define_excited
          PRINT*, "DIPOLE_FORM: ", xas_tdp_control%dipole_form
-         PRINT*, "STATE_TYPE", xas_tdp_control%state_type
+         PRINT*, "STATE_TYPES", xas_tdp_control%state_types
          PRINT*, "Excited atoms by index:"
-         DO i = 1, SIZE(xas_tdp_control%list_ex_atoms)
-            PRINT*, xas_tdp_control%list_ex_atoms(i)
+         DO irep = 1, SIZE(xas_tdp_control%list_ex_atoms)
+            PRINT*, xas_tdp_control%list_ex_atoms(irep)
          END DO
          PRINT*, "Excited kinds: "
-         DO i = 1, SIZE(xas_tdp_control%list_ex_kinds)
-            PRINT*, xas_tdp_control%list_ex_kinds(i)
+         DO irep = 1, SIZE(xas_tdp_control%list_ex_kinds)
+            PRINT*, xas_tdp_control%list_ex_kinds(irep)
          END DO
       END IF
 
@@ -204,7 +235,7 @@ CONTAINS
 
       xas_tdp_env%nex_atoms = 1
 
-      NULLIFY (xas_tdp_env%ex_atoms)
+      NULLIFY (xas_tdp_env%excited_atoms)
 
    END SUBROUTINE xas_tdp_env_create
 
@@ -220,8 +251,8 @@ CONTAINS
                                                             routineP = moduleN//':'//routineN
 
       IF (ASSOCIATED(xas_tdp_env)) THEN
-         IF (ASSOCIATED(xas_tdp_env%ex_atoms)) THEN
-            DEALLOCATE (xas_tdp_env%ex_atoms)
+         IF (ASSOCIATED(xas_tdp_env%excited_atoms)) THEN
+            CALL release_excited_atom_set(xas_tdp_env%excited_atoms)
          END IF
          DEALLOCATE (xas_tdp_env)
       END IF
@@ -230,11 +261,12 @@ CONTAINS
 !> *************************************************************************************************
 !> \brief Returns selected values contained in a TDP XAS environment type
 !***************************************************************************************************
-   SUBROUTINE get_xas_tdp_env(xas_tdp_env, nex_atoms, ex_atoms)
+   SUBROUTINE get_xas_tdp_env(xas_tdp_env, nex_atoms, excited_atoms)
       
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
       INTEGER, INTENT(OUT), OPTIONAL                     :: nex_atoms
-      INTEGER, DIMENSION(:), OPTIONAL, POINTER           :: ex_atoms
+      TYPE(excited_atom_type), DIMENSION(:),&
+                             OPTIONAL, POINTER           :: excited_atoms
       
       CHARACTER(len=*), PARAMETER                        :: routineN = 'get_xas_env_type',&
                                                             routineP = moduleN//':'//routineN
@@ -242,7 +274,7 @@ CONTAINS
       CPASSERT(ASSOCIATED(xas_tdp_env))
 
       IF (PRESENT(nex_atoms)) nex_atoms = xas_tdp_env%nex_atoms
-      IF (PRESENT(ex_atoms)) ex_atoms => xas_tdp_env%ex_atoms
+      IF (PRESENT(excited_atoms)) excited_atoms => xas_tdp_env%excited_atoms
          
 
    END SUBROUTINE get_xas_tdp_env
@@ -260,4 +292,23 @@ CONTAINS
       CPASSERT(ASSOCIATED(xas_tdp_env))
       
    END SUBROUTINE set_xas_tdp_env
+   
+
+!> *************************************************************************************************
+!> \brief Releases an array of  excitetd atom types
+!> \param The excited atom types to release
+!> *************************************************************************************************
+   SUBROUTINE release_excited_atom_set(excited_atoms)
+      TYPE(excited_atom_type), DIMENSION(:) , POINTER   :: excited_atoms
+
+      CHARACTER(len=*), PARAMETER                       :: routineN = 'release_excited_atomi_set',&
+                                                           routineP = moduleN//':'//routineN
+
+      IF (ASSOCIATED(excited_atoms)) THEN
+!        Deallocate all other pointers here
+         DEALLOCATE(excited_atoms)
+      END IF
+
+   END SUBROUTINE release_excited_atom_set
+
 END MODULE xas_tdp_types
