@@ -47,28 +47,33 @@ MODULE xas_tdp_types
 !> *************************************************************************************************
 !> \brief Type containing informations such as inputs and results for TDP XAS calculations
 !> \param nex_atoms number of excited atoms
-!> \param excited_atoms array of excited_atom_type continaing info for each excited type
+!> \param ex_atom_indices array containing the indices of the excited atoms
+!> \param state_types columns correspond to the different donor states of each excited atom
 !> *************************************************************************************************
    TYPE xas_tdp_env_type
       INTEGER                                 :: nex_atoms
-      TYPE(excited_atom_type), DIMENSION(:),&
-                        POINTER               :: excited_atoms
+      INTEGER, DIMENSION(:), POINTER          :: ex_atom_indices
+      INTEGER, DIMENSION(:,:), POINTER        :: state_types
+      TYPE(donor_state_type), DIMENSION(:),&
+                        POINTER               :: donor_states
    END TYPE xas_tdp_env_type
 
 !> *************************************************************************************************
-!> \brief Type containing informations about a single excited atom
-!> \param index the index of the atom
-!> \param symbol the chemical symbol of the atom
+!> \brief Type containing informations about a single donor state
+!> \param index the index of the atom to which the state belongs
+!> \param symbol the chemical symbol of the atom to which the state belongs
+!> \paran state_type whether this is a 1s, 2s, etc state
 !> *************************************************************************************************
-   TYPE excited_atom_type
+TYPE donor_state_type
       INTEGER                                 :: index
       CHARACTER(len=2)                        :: symbol
-   END TYPE excited_atom_type
+      INTEGER                                 :: state_type
+   END TYPE donor_state_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE  :: moduleN = 'xas_tdp_types'
 
 ! *** Public data types ***
-   PUBLIC :: xas_tdp_control_type, xas_tdp_env_type, excited_atom_type
+   PUBLIC :: xas_tdp_control_type, xas_tdp_env_type
 
 ! *** Public subroutines ***
    PUBLIC :: xas_tdp_control_create, xas_tdp_control_release, read_xas_tdp_control, &
@@ -235,7 +240,9 @@ CONTAINS
 
       xas_tdp_env%nex_atoms = 1
 
-      NULLIFY (xas_tdp_env%excited_atoms)
+      NULLIFY (xas_tdp_env%ex_atom_indices)
+      NULLIFY (xas_tdp_env%state_types)
+      NULLIFY (xas_tdp_env%donor_states)
 
    END SUBROUTINE xas_tdp_env_create
 
@@ -251,8 +258,14 @@ CONTAINS
                                                             routineP = moduleN//':'//routineN
 
       IF (ASSOCIATED(xas_tdp_env)) THEN
-         IF (ASSOCIATED(xas_tdp_env%excited_atoms)) THEN
-            CALL release_excited_atom_set(xas_tdp_env%excited_atoms)
+         IF (ASSOCIATED(xas_tdp_env%ex_atom_indices)) THEN
+            DEALLOCATE(xas_tdp_env%ex_atom_indices)
+         END IF
+         IF (ASSOCIATED(xas_tdp_env%state_types)) THEN
+            DEALLOCATE(xas_tdp_env%state_types)
+         END IF
+         IF (ASSOCIATED(xas_tdp_env%donor_states)) THEN
+            CALL deallocate_donor_state_set(xas_tdp_env%donor_states)
          END IF
          DEALLOCATE (xas_tdp_env)
       END IF
@@ -261,54 +274,51 @@ CONTAINS
 !> *************************************************************************************************
 !> \brief Returns selected values contained in a TDP XAS environment type
 !***************************************************************************************************
-   SUBROUTINE get_xas_tdp_env(xas_tdp_env, nex_atoms, excited_atoms)
+   SUBROUTINE get_xas_tdp_env(xas_tdp_env)
       
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
-      INTEGER, INTENT(OUT), OPTIONAL                     :: nex_atoms
-      TYPE(excited_atom_type), DIMENSION(:),&
-                             OPTIONAL, POINTER           :: excited_atoms
       
       CHARACTER(len=*), PARAMETER                        :: routineN = 'get_xas_env_type',&
                                                             routineP = moduleN//':'//routineN
 
       CPASSERT(ASSOCIATED(xas_tdp_env))
 
-      IF (PRESENT(nex_atoms)) nex_atoms = xas_tdp_env%nex_atoms
-      IF (PRESENT(excited_atoms)) excited_atoms => xas_tdp_env%excited_atoms
-         
-
    END SUBROUTINE get_xas_tdp_env
 
 !> *************************************************************************************************
 !> \brief Sets values of selected variables within the TDP XAS environment type
 !> *************************************************************************************************
-   SUBROUTINE set_xas_tdp_env(xas_tdp_env)
+   SUBROUTINE set_xas_tdp_env(xas_tdp_env, nex_atoms)
 
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
 
       CHARACTER(len=*), PARAMETER                        :: routineN = 'set_xas_tdp_env',&
                                                             routineP = moduleN//':'//routineN
+                              
+      INTEGER, INTENT(IN), OPTIONAL                      :: nex_atoms
 
       CPASSERT(ASSOCIATED(xas_tdp_env))
+
+      IF (PRESENT(nex_atoms)) xas_tdp_env%nex_atoms = nex_atoms
       
    END SUBROUTINE set_xas_tdp_env
    
 
 !> *************************************************************************************************
-!> \brief Releases an array of  excitetd atom types
-!> \param The excited atom types to release
+!> \brief Deallocate a set of donor states
+!> \param donor_state_set the set of donor states to deallocate
 !> *************************************************************************************************
-   SUBROUTINE release_excited_atom_set(excited_atoms)
-      TYPE(excited_atom_type), DIMENSION(:) , POINTER   :: excited_atoms
+SUBROUTINE deallocate_donor_state_set(donor_state_set)
+      TYPE(donor_state_type), DIMENSION(:) , POINTER   :: donor_state_set
 
       CHARACTER(len=*), PARAMETER                       :: routineN = 'release_excited_atomi_set',&
                                                            routineP = moduleN//':'//routineN
 
-      IF (ASSOCIATED(excited_atoms)) THEN
+      IF (ASSOCIATED(donor_state_set)) THEN
 !        Deallocate all other pointers here
-         DEALLOCATE(excited_atoms)
+         DEALLOCATE(donor_state_set)
       END IF
 
-   END SUBROUTINE release_excited_atom_set
+   END SUBROUTINE deallocate_donor_state_set
 
 END MODULE xas_tdp_types
