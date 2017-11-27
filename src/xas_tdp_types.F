@@ -60,24 +60,25 @@ MODULE xas_tdp_types
 
 !> *************************************************************************************************
 !> \brief Type containing informations about a single donor state
-!> \param index the index of the atom to which the state belongs
-!> \param symbol the chemical symbol of the atom to which the state belongs
+!> \param at_index the index of the atom to which the state belongs
+!> \param at_symbol the chemical symbol of the atom to which the state belongs
 !> \paran state_type whether this is a 1s, 2s, etc state
 !> *************************************************************************************************
 TYPE donor_state_type
-      INTEGER                                 :: index
-      CHARACTER(len=2)                        :: symbol
+      INTEGER                                 :: at_index
+      CHARACTER(len=2)                        :: at_symbol
       INTEGER                                 :: state_type
    END TYPE donor_state_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE  :: moduleN = 'xas_tdp_types'
 
 ! *** Public data types ***
-   PUBLIC :: xas_tdp_control_type, xas_tdp_env_type
+PUBLIC :: xas_tdp_control_type, xas_tdp_env_type, donor_state_type
 
 ! *** Public subroutines ***
    PUBLIC :: xas_tdp_control_create, xas_tdp_control_release, read_xas_tdp_control, &
-             xas_tdp_env_create, xas_tdp_env_release, get_xas_tdp_env, set_xas_tdp_env
+             xas_tdp_env_create, xas_tdp_env_release, set_xas_tdp_env, &
+             set_donor_state
 
 CONTAINS
 
@@ -100,8 +101,6 @@ CONTAINS
       NULLIFY (xas_tdp_control%state_types)
       NULLIFY (xas_tdp_control%list_ex_atoms)
       NULLIFY (xas_tdp_control%list_ex_kinds)
-
-      PRINT*, "Create TDP XAS control"
 
    END SUBROUTINE xas_tdp_control_create
 
@@ -129,8 +128,6 @@ CONTAINS
          DEALLOCATE (xas_tdp_control)
       END IF
 
-   PRINT*, "Release TDP XAS control"
-      
    END SUBROUTINE xas_tdp_control_release
 
 ! **************************************************************************************************
@@ -208,21 +205,6 @@ CONTAINS
          END DO
       END IF
 
-      IF (ASSOCIATED(xas_tdp_control) .AND. ASSOCIATED(xas_tdp_section)) THEN
-         PRINT*, "Read input for TDP XAS control:"
-         PRINT*, "DEFINE_EXCITED: ", xas_tdp_control%define_excited
-         PRINT*, "DIPOLE_FORM: ", xas_tdp_control%dipole_form
-         PRINT*, "STATE_TYPES", xas_tdp_control%state_types
-         PRINT*, "Excited atoms by index:"
-         DO irep = 1, SIZE(xas_tdp_control%list_ex_atoms)
-            PRINT*, xas_tdp_control%list_ex_atoms(irep)
-         END DO
-         PRINT*, "Excited kinds: "
-         DO irep = 1, SIZE(xas_tdp_control%list_ex_kinds)
-            PRINT*, xas_tdp_control%list_ex_kinds(irep)
-         END DO
-      END IF
-
    END SUBROUTINE read_xas_tdp_control
 
 !> *************************************************************************************************
@@ -272,20 +254,6 @@ CONTAINS
    END SUBROUTINE xas_tdp_env_release
 
 !> *************************************************************************************************
-!> \brief Returns selected values contained in a TDP XAS environment type
-!***************************************************************************************************
-   SUBROUTINE get_xas_tdp_env(xas_tdp_env)
-      
-      TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
-      
-      CHARACTER(len=*), PARAMETER                        :: routineN = 'get_xas_env_type',&
-                                                            routineP = moduleN//':'//routineN
-
-      CPASSERT(ASSOCIATED(xas_tdp_env))
-
-   END SUBROUTINE get_xas_tdp_env
-
-!> *************************************************************************************************
 !> \brief Sets values of selected variables within the TDP XAS environment type
 !> *************************************************************************************************
    SUBROUTINE set_xas_tdp_env(xas_tdp_env, nex_atoms)
@@ -302,16 +270,40 @@ CONTAINS
       IF (PRESENT(nex_atoms)) xas_tdp_env%nex_atoms = nex_atoms
       
    END SUBROUTINE set_xas_tdp_env
-   
+
+!> *************************************************************************************************
+!> \brief sets specified values of the donor state type
+!> \param donor_state the type which values should be set
+!> \param at_index ...
+!> \param at_symbol ...
+!> \param state_type ...   
+!> *************************************************************************************************
+   SUBROUTINE set_donor_state(donor_state, at_index, at_symbol, state_type)
+
+      TYPE(donor_state_type), POINTER                      :: donor_state
+
+      CHARACTER(len=*), PARAMETER                          :: routineN = 'set_donor_state',&
+                                                              routineP = moduleN//':'//routineN
+
+      INTEGER, INTENT(IN), OPTIONAL                        :: at_index, state_type
+      CHARACTER(len=2), INTENT(IN), OPTIONAL               :: at_symbol
+      
+      CPASSERT(ASSOCIATED(donor_state))
+
+      IF (PRESENT(at_index)) donor_state%at_index = at_index
+      IF (PRESENT(state_type)) donor_state%state_type = state_type
+      IF (PRESENT(at_symbol)) donor_state%at_symbol = at_symbol
+
+   END SUBROUTINE set_donor_state   
 
 !> *************************************************************************************************
 !> \brief Deallocate a set of donor states
 !> \param donor_state_set the set of donor states to deallocate
 !> *************************************************************************************************
 SUBROUTINE deallocate_donor_state_set(donor_state_set)
-      TYPE(donor_state_type), DIMENSION(:) , POINTER   :: donor_state_set
+      TYPE(donor_state_type), DIMENSION(:) , POINTER     :: donor_state_set
 
-      CHARACTER(len=*), PARAMETER                       :: routineN = 'release_excited_atomi_set',&
+      CHARACTER(len=*), PARAMETER                        :: routineN = 'release_excited_atomi_set',&
                                                            routineP = moduleN//':'//routineN
 
       IF (ASSOCIATED(donor_state_set)) THEN

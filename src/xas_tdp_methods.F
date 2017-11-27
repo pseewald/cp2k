@@ -14,7 +14,8 @@ MODULE xas_tdp_methods
                                               get_atomic_kind
    USE cp_control_types,                ONLY: dft_control_type
    USE input_constants,                 ONLY: xas_tdp_by_index,&
-                                              xas_tdp_by_kind
+                                              xas_tdp_by_kind,&
+                                              xas_not_excited
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_get_subs_vals
    USE qs_environment_types,            ONLY: qs_environment_type,&
@@ -25,7 +26,9 @@ MODULE xas_tdp_methods
                                               xas_tdp_env_type,&
                                               xas_tdp_env_create,&
                                               xas_tdp_env_release,&
-                                              set_xas_tdp_env
+                                              set_xas_tdp_env,&
+                                              donor_state_type,&
+                                              set_donor_state
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -49,27 +52,68 @@ CONTAINS
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(dft_control_type), POINTER                    :: dft_control
 
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'xas_tdp', routineP = moduleN//':'//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = 'xas_tdp', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle
+      INTEGER                                            :: handle, ikind, iat, istate, tmp_index,&
+                                                            current_state_index
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control
+      TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      CHARACTER(len=2)                                   :: symbol_of_kind
+      INTEGER, DIMENSION(:), POINTER                     :: atoms_of_kind
+      TYPE(donor_state_type), POINTER                    :: current_state
 
-      NULLIFY(xas_tdp_env, xas_tdp_control)
+      NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state)
 
       CALL timeset(routineN, handle)
       
-      PRINT*, "Saying 'hi' from the ", routineP, " routine!"
-
+!  Initialization
       CALL xas_tdp_init(xas_tdp_env, xas_tdp_control, qs_env, dft_control)
       
-!  Test print
-      PRINT*, "Test for environment type:"
-      PRINT*, xas_tdp_env%nex_atoms
-      PRINT*, xas_tdp_env%ex_atom_indices
-      PRINT*, xas_tdp_env%state_types
+      CALL get_qs_env(qs_env=qs_env, atomic_kind_set=atomic_kind_set)      
+      current_state_index = 1
 
+!     Loop over atomic kinds
+      DO ikind = 1,SIZE(atomic_kind_set)
+         
+         CALL get_atomic_kind(atomic_kind=atomic_kind_set(ikind), element_symbol=symbol_of_kind,&
+                              atom_list=atoms_of_kind)
+
+!        Loop over atoms of kind
+         DO iat = 1,SIZE(atoms_of_kind)
+            
+            IF (ANY(xas_tdp_env%ex_atom_indices .EQ. atoms_of_kind(iat))) THEN
+               tmp_index = MINLOC(ABS(xas_tdp_env%ex_atom_indices-atoms_of_kind(iat)),1)  
+
+!              Loop over states of excited atom of kind
+               DO istate = 1,SIZE(xas_tdp_env%state_types,1)
+
+                  IF (xas_tdp_env%state_types(istate, tmp_index) .NE. xas_not_excited) THEN
+                    
+                     current_state => xas_tdp_env%donor_states(current_state_index)
+                     CALL set_donor_state(current_state,&
+                                          at_index=xas_tdp_env%ex_atom_indices(tmp_index),&
+                                          at_symbol=symbol_of_kind,&
+                                          state_type=xas_tdp_env%state_types(istate,tmp_index))
+!                    Do calculations here...
+                     
+                     PRINT*, "Test for donor states: "
+                     PRINT*, current_state%at_symbol
+                     PRINT*, current_state%at_index
+                     PRINT*, current_state%state_type
+
+                     current_state_index = current_state_index + 1
+                     NULLIFY(current_state)
+                  END IF
+               END DO
+            END IF
+         END DO
+      END DO
+
+!  Clean-up
       CALL xas_tdp_env_release(xas_tdp_env)
+
+      CALL timestop(handle)
 
 !  Structure would look like:
 !     - Initialization of the xas_tdp_control
@@ -80,7 +124,7 @@ CONTAINS
 !     - Collect and print results
 !     - Release all types
 
-      CALL timestop(handle)
+
    END SUBROUTINE xas_tdp
    
 ! **************************************************************************************************
@@ -102,7 +146,7 @@ CONTAINS
       TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: at_kind_set
       INTEGER                                            :: nex_atoms, n_kinds, i, nat_of_kind,&
-                                                            j, nex_kinds, k
+                                                            j, nex_kinds, k, n_donor_states
       INTEGER, DIMENSION(:), POINTER                     :: ex_atom_indices, ind_of_kind
       INTEGER, DIMENSION(:,:), POINTER                   :: state_types
       CHARACTER(len=2)                                   :: symbol
@@ -166,6 +210,10 @@ CONTAINS
          CALL set_xas_tdp_env(xas_tdp_env, nex_atoms=nex_atoms)         
 
       END IF
+
+!     Allocating memory for the array of donor states
+      n_donor_states = COUNT(xas_tdp_env%state_types .NE. xas_not_excited)     
+      ALLOCATE(xas_tdp_env%donor_states(n_donor_states))
 
    END SUBROUTINE xas_tdp_init
 
