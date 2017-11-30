@@ -7872,14 +7872,16 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       TYPE(keyword_type), POINTER                        :: keyword
-!      TYPE(section_type), POINTER                        :: print_key, subsection
+      TYPE(section_type), POINTER                        :: subsection
 
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, "xas_tdp", &
-                          description="XAS simulations using TDDFPT", &
-                          n_keywords=5, n_subsections=0, repeats=.FALSE.)
+                          description="XAS simulations using TDDFPT. Excitation from specified "//&
+                          "core orbitals are considered one at a time. In case of high symmetry "//&
+                          "structures, donor core orbitals should be localized.", &
+                          n_keywords=6, n_subsections=1, repeats=.FALSE.)
 
-      NULLIFY (keyword)
+      NULLIFY (keyword, subsection)
 
       CALL keyword_create(keyword, name="_SECTION_PARAMETERS_", &
                           description="controls the activation of XAS simulations with linear "// &
@@ -7936,6 +7938,15 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="STATE_SEARCH", & 
+                          description="Number of MOs to search to find specified donor core "//&
+                          "orbitals, starting from the lowest in energy and upward. By default, "//&
+                          "all HOMOs are searched",&
+                          usage="STATE_SEARCH {integer}",&
+                          default_i_val=-1)
+      CALL section_add_keyword(section, keyword)         
+      CALL keyword_release(keyword)        
+
       CALL keyword_create(keyword, name="DIPOLE_FORM", &
                           variants=(/"DIP_FORM"/), &
                           description="Type of integral to get the oscillator strengths "// &
@@ -7948,7 +7959,10 @@ CONTAINS
                           enum_i_vals=(/xas_dip_len, xas_dip_vel/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
-
+      
+      CALL create_localize_section(subsection)
+      CALL section_add_subsection(section, subsection)         
+      CALL section_release(subsection)
 
    END SUBROUTINE create_xas_tdp_section  
 
