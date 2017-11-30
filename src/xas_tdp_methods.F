@@ -15,11 +15,21 @@ MODULE xas_tdp_methods
    USE cp_control_types,                ONLY: dft_control_type
    USE input_constants,                 ONLY: xas_tdp_by_index,&
                                               xas_tdp_by_kind,&
-                                              xas_not_excited
+                                              xas_not_excited,&
+                                              do_loc_none
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_get_subs_vals
    USE qs_environment_types,            ONLY: qs_environment_type,&
                                               get_qs_env
+   USE qs_loc_methods,                  ONLY: qs_loc_driver
+   USE qs_loc_types,                    ONLY: qs_loc_env_create,&
+                                              qs_loc_env_new_type
+   USE qs_loc_utils,                    ONLY: qs_loc_control_init,&
+                                              qs_loc_env_init,&
+                                              set_loc_centers,&
+                                              set_loc_wfn_lists
+   USE qs_mo_types,                     ONLY: get_mo_set,&
+                                              mo_set_p_type
    USE xas_tdp_types,                   ONLY: xas_tdp_control_type,&
                                               read_xas_tdp_control,&
                                               xas_tdp_control_create,&
@@ -67,9 +77,23 @@ CONTAINS
 
       CALL timeset(routineN, handle)
       
+!  Safety checks
+      IF (dft_control%lsd) THEN
+         CPABORT("XAS TDP only implemented for closed shell ground state calculations")
+      END IF
+      
 !  Initialization
       CALL xas_tdp_init(xas_tdp_env, xas_tdp_control, qs_env, dft_control)
       
+!  Localization of the core orbitals if requested (used for better identification of donor states)
+      IF (xas_tdp_env%qs_loc_env%do_localize) THEN
+!        spin-restricted => myspin=1
+         CALL qs_loc_driver(qs_env, xas_tdp_env%qs_loc_env, xas_tdp_control%print_loc_subsection,&
+                           myspin=1)
+      END IF
+
+!  Loop over donor states for calculation
+
       CALL get_qs_env(qs_env=qs_env, atomic_kind_set=atomic_kind_set)      
       current_state_index = 1
 
@@ -143,15 +167,21 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'xas_tdp_init', routineP = moduleN//':'//routineN
       
-      TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
+      TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section,&
+                                                            loc_section
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: at_kind_set
       INTEGER                                            :: nex_atoms, n_kinds, i, nat_of_kind,&
-                                                            j, nex_kinds, k, n_donor_states
+                                                            j, nex_kinds, k, n_donor_states,&
+                                                            nspins, homo
+      INTEGER, DIMENSION(2)                              :: n_mo, n_moloc
       INTEGER, DIMENSION(:), POINTER                     :: ex_atom_indices, ind_of_kind
       INTEGER, DIMENSION(:,:), POINTER                   :: state_types
       CHARACTER(len=2)                                   :: symbol
+      TYPE(qs_loc_env_new_type), POINTER                 :: qs_loc_env
+      TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
 
       NULLIFY(dft_section, xas_tdp_section, at_kind_set, ex_atom_indices, state_types, ind_of_kind)
+      NULLIFY(qs_loc_env, loc_section, mos)
 
 !  XAS TDP control type initialization
       dft_section => section_vals_get_subs_vals(qs_env%input, "DFT")                     
@@ -165,9 +195,10 @@ CONTAINS
 !  XAS TDP environment type initialization
       CALL xas_tdp_env_create(xas_tdp_env)
 
-!     Retrieving the excited atoms indices and correspondig state types
+!  Retrieving the excited atoms indices and correspondig state types
       IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_index) THEN
 
+!        simply copy from xas_tdp_control
          nex_atoms = SIZE(xas_tdp_control%list_ex_atoms)
          CALL set_xas_tdp_env(xas_tdp_env, nex_atoms=nex_atoms)  
          ALLOCATE(xas_tdp_env%ex_atom_indices(nex_atoms))
@@ -177,6 +208,7 @@ CONTAINS
 
       ELSE IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_kind) THEN
          
+!        need to find out which atom of which kind is excited
          CALL get_qs_env(qs_env=qs_env, atomic_kind_set=at_kind_set)  
          n_kinds = SIZE(at_kind_set) 
          nex_atoms = 0
@@ -211,9 +243,36 @@ CONTAINS
 
       END IF
 
-!     Allocating memory for the array of donor states
+!  Allocating memory for the array of donor states
       n_donor_states = COUNT(xas_tdp_env%state_types .NE. xas_not_excited)     
       ALLOCATE(xas_tdp_env%donor_states(n_donor_states))
+
+!  Initializing the qs_loc_env from the LOCALIZE subsection of XAS_TDP (largely inpired by MI's XAS)
+!  Closed shell ground state calculation is assumed (spin-unpolarized)
+      CALL qs_loc_env_create(xas_tdp_env%qs_loc_env)
+      qs_loc_env => xas_tdp_env%qs_loc_env
+      loc_section => xas_tdp_control%loc_subsection
+!     getting the number of (doubly occupied)  MOs 
+      CALL get_qs_env(qs_env, mos=mos)
+      CALL get_mo_set(mos(1)%mo_set, nmo=n_mo(1), homo=homo) 
+      n_mo(2) = n_mo(1)
+      nspins = 1
+!     by default, all homo are localized
+      IF (xas_tdp_control%n_search .LT. 0) xas_tdp_control%n_search = homo
+      CALL qs_loc_control_init(qs_loc_env, loc_section, do_homo=.TRUE., &  
+                               do_xas=.TRUE., nloc_xas=xas_tdp_control%n_search)
+!     final qs_loc_env initialization
+      IF (.NOT. qs_loc_env%do_localize) THEN
+         qs_loc_env%localized_wfn_control%localization_method = do_loc_none
+      ELSE IF (qs_loc_env%do_localize) THEN
+         n_moloc = qs_loc_env%localized_wfn_control%nloc_states
+         CALL set_loc_wfn_lists(qs_loc_env%localized_wfn_control, n_moloc, n_mo, nspins)  
+         CALL set_loc_centers(qs_loc_env%localized_wfn_control, n_moloc, nspins)  
+!        closed shell => myspin=1
+         CALL qs_loc_env_init(qs_loc_env, qs_loc_env%localized_wfn_control, &    
+                              qs_env, myspin=1, do_localize=qs_loc_env%do_localize) 
+      END IF
+      
 
    END SUBROUTINE xas_tdp_init
 
