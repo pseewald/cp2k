@@ -92,7 +92,7 @@ MODULE input_cp2k_dft
         wfi_use_prev_wf_method_nr, xas_1s_type, xas_2p_type, xas_2s_type, xas_3d_type, &
         xas_3p_type, xas_3s_type, xas_4d_type, xas_4f_type, xas_4p_type, xas_4s_type, xas_dip_len, &
         xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, xas_tp_hh, xas_tp_xfh, &
-        xas_tp_xhh, xes_tp_val, xas_tdp_by_index, xas_tdp_by_kind, xas_not_excited
+        xas_tp_xhh, xes_tp_val
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
    USE input_cp2k_distribution,         ONLY: create_distribution_section
    USE input_cp2k_field,                ONLY: create_efield_section,&
@@ -414,10 +414,6 @@ CONTAINS
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
-      CALL create_xas_tdp_section(subsection)
-      CALL section_add_subsection(section, subsection)
-      CALL section_release(subsection)
-      
       CALL create_localize_section(subsection)
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
@@ -7647,7 +7643,7 @@ CONTAINS
       CALL keyword_create(keyword, __LOCATION__, name="DIPOLE_FORM", &
                           variants=(/"DIP_FORM"/), &
                           description="Type of integral to get the oscillator strengths "// &
-                          "in the dipole approximation", &
+                          "in the diipole approximation", &
                           usage="DIPOLE_FORM string", &
                           default_i_val=xas_dip_vel, &
                           enum_c_vals=s2a("LENGTH", "VELOCITY"), &
@@ -7667,7 +7663,7 @@ CONTAINS
 
       CALL keyword_create(keyword, __LOCATION__, name="STATE_TYPE", &
                           variants=(/"TYPE"/), &
-                          description="Type of the orbitals that are excited for the xas spectra calculation", &
+                          description="Type of the orbitas that are excited for the xas spectra calculation", &
                           usage="STATE_TYPE 1S", &
                           default_i_val=xas_1s_type, &
                           enum_c_vals=s2a("1S", "2S", "2P", "3S", "3P", "3D", "4S", "4P", "4D", "4F"), &

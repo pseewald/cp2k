@@ -1547,7 +1547,7 @@ CONTAINS
             END IF
          END IF
 
-         ! All States or XAS (incl. XAS TDP) specific states
+         ! All States or XAS specific states
          IF (localized_wfn_control%set_of_states == 0) THEN
             IF (my_do_xas) THEN
                localized_wfn_control%set_of_states = state_loc_range
