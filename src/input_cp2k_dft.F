@@ -7818,16 +7818,16 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       TYPE(keyword_type), POINTER                        :: keyword
-      TYPE(section_type), POINTER                        :: subsection
+      TYPE(section_type), POINTER                        :: print_key, subsection
 
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, "xas_tdp", &
                           description="XAS simulations using TDDFPT. Excitation from specified "//&
                           "core orbitals are considered one at a time. In case of high symmetry "//&
                           "structures, donor core orbitals should be localized.", &
-                          n_keywords=6, n_subsections=1, repeats=.FALSE.)
+                          n_keywords=7, n_subsections=2, repeats=.FALSE.)
 
-      NULLIFY (keyword, subsection)
+      NULLIFY (keyword, subsection, print_key)
 
       CALL keyword_create(keyword, name="_SECTION_PARAMETERS_", &
                           description="controls the activation of XAS simulations with linear "// &
@@ -7885,6 +7885,7 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="STATE_SEARCH", & 
+                          variants=(/"NSEARCH"/),&
                           description="Number of MOs to search to find specified donor core "//&
                           "orbitals, starting from the lowest in energy and upward. By default, "//&
                           "all HOMOs are searched",&
@@ -7892,6 +7893,14 @@ CONTAINS
                           default_i_val=-1)
       CALL section_add_keyword(section, keyword)         
       CALL keyword_release(keyword)        
+
+      CALL keyword_create(keyword, name="NGAUSS", & 
+                          description="Number of GTOs used when expanding STOs for core donor  "//&
+                          "states identification.",&
+                          usage="NGAUSS {integer}",&
+                          default_i_val=3)
+      CALL section_add_keyword(section, keyword)         
+      CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="DIPOLE_FORM", &
                           variants=(/"DIP_FORM"/), &
@@ -7908,6 +7917,18 @@ CONTAINS
       
       CALL create_localize_section(subsection)
       CALL section_add_subsection(section, subsection)         
+      CALL section_release(subsection)
+      
+      CALL section_create(subsection, "PRINT", "Controls the printing of information during "//&
+                          "XAS TDP calculations", repeats=.FALSE.)
+      CALL cp_print_key_section_create(print_key, "PROGRAM_RUN_INFO",&
+                                       description="Controls the printing of basic programm steps",&
+                                       print_level=low_print_level, add_last=add_last_numeric,&
+                                       filename="__STD_OUT__")
+      CALL section_add_subsection(subsection, print_key)
+      CALL section_release(print_key)
+
+      CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
    END SUBROUTINE create_xas_tdp_section  
