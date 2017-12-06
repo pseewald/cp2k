@@ -116,7 +116,7 @@ MODULE qs_loc_types
 !>    print_centers:
 !>    print_spreads:
 !> \param loc_states list of states on which the spread is computed
-!> \param centers_set arrays containing centers and spreads of the selected wfn
+!> \param centers_set arrais containing centers and spreads of the selected wfn
 !> \param centers_file_name output file names
 !> \param spreads_file_name output file names
 ! **************************************************************************************************
