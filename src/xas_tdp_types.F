@@ -34,17 +34,19 @@ MODULE xas_tdp_types
 ! **************************************************************************************************
 !> \brief Type containing control information for TDP XAS calculations
 !> \param define_excited whether excited atoms are chosen by kind or index
-!> \param dipole form whether the dipole moment is computed in the length or velocity representation
+!> \param dipole_form whether the dipole moment is computed in the length or velocity representation
+!> \param n_search # of lowest energy MOs to search for donor orbitals
+!> \param n_gauss # of GTOs used in STO expansion for core donor state identification
 !> \param list_ex_atoms list of excited atom indices, kept empty if define_excited=by_kind
 !> \param list_ex_kinds list of excited atom kinds, kept empty if define_excited=by_index
 !> \param state_types columns correspond to the states to excite for each atom kind/index
 !>                    the number of rows is the number of times the keyword is repeated
-!> \param n_search #of lowest energy MOs to search for donor orbitals
 ! **************************************************************************************************
    TYPE xas_tdp_control_type
       INTEGER                                 :: define_excited   
       INTEGER                                 :: dipole_form
       INTEGER                                 :: n_search
+      INTEGER                                 :: n_gauss
       INTEGER, DIMENSION(:), POINTER          :: list_ex_atoms
       CHARACTER(len=default_string_length),&
                      DIMENSION(:), POINTER    :: list_ex_kinds
@@ -60,6 +62,8 @@ MODULE xas_tdp_types
 !> \param ex_atom_indices array containing the indices of the excited atoms
 !> \param state_types columns correspond to the different donor states of each excited atom
 !> \param qs_loc_env the environemnt type dealing with the possible localization of donor orbitals
+!> \param mos_of_ex_atoms links lowest energy MOs to excited atoms. Elements of value 1 mark the
+!>        association between the MO irow and the excited atom icolumn
 !> *************************************************************************************************
    TYPE xas_tdp_env_type
       INTEGER                                 :: nex_atoms
@@ -67,25 +71,28 @@ MODULE xas_tdp_types
       INTEGER, DIMENSION(:,:), POINTER        :: state_types
       TYPE(donor_state_type), DIMENSION(:),&
                         POINTER               :: donor_states
+      INTEGER, DIMENSION(:,:), POINTER        :: mos_of_ex_atoms
       TYPE(qs_loc_env_new_type), POINTER      :: qs_loc_env
    END TYPE xas_tdp_env_type
 
 !> *************************************************************************************************
 !> \brief Type containing informations about a single donor state
 !> \param at_index the index of the atom to which the state belongs
+!> \param kind_index the index of the atomic kind to which the state belongs
 !> \param at_symbol the chemical symbol of the atom to which the state belongs
 !> \param state_type whether this is a 1s, 2s, etc state
 !> \param energy_eval the energy eigenvalue of the donor state (diagonal value epsilon_ii if 
 !>                    non-canonical MOs) 
-!> \param gs_coeffs ground-state MO coeffs corresponding matching the donor state the most
+!> \param mo_index index of the associated MO
 !> \param lr_coeffs solutions of the linear-response TDDFT equation retricted to this state
 !> *************************************************************************************************
 TYPE donor_state_type
       INTEGER                                 :: at_index
+      INTEGER                                 :: kind_index
       CHARACTER(len=2)                        :: at_symbol
       INTEGER                                 :: state_type
       REAL(dp)                                :: energy_eval
-      TYPE(cp_fm_type), POINTER               :: gs_coeffs
+      INTEGER                                 :: mo_index
       TYPE(cp_fm_type), POINTER               :: lr_coeffs
    END TYPE donor_state_type
 
@@ -118,6 +125,7 @@ CONTAINS
       xas_tdp_control%dipole_form = xas_dip_vel
       xas_tdp_control%define_excited = xas_tdp_by_index
       xas_tdp_control%n_search = -1
+      xas_tdp_control%n_gauss = 3
       NULLIFY (xas_tdp_control%state_types)
       NULLIFY (xas_tdp_control%list_ex_atoms)
       NULLIFY (xas_tdp_control%list_ex_kinds)
@@ -234,6 +242,8 @@ CONTAINS
       END IF
       
       CALL section_vals_val_get(xas_tdp_section, "STATE_SEARCH", i_val=xas_tdp_control%n_search)
+
+      CALL section_vals_val_get(xas_tdp_section, "NGAUSS", i_val=xas_tdp_control%n_gauss)
      
       xas_tdp_control%loc_subsection => section_vals_get_subs_vals(xas_tdp_section, "LOCALIZE")       
       xas_tdp_control%print_loc_subsection => section_vals_get_subs_vals(&
@@ -260,6 +270,7 @@ CONTAINS
       NULLIFY (xas_tdp_env%state_types)
       NULLIFY (xas_tdp_env%donor_states)
       NULLIFY (xas_tdp_env%qs_loc_env)
+      NULLIFY (xas_tdp_env%mos_of_ex_atoms)
 
    END SUBROUTINE xas_tdp_env_create
 
@@ -286,6 +297,9 @@ CONTAINS
          END IF
          IF (ASSOCIATED(xas_tdp_env%qs_loc_env)) THEN
             CALL qs_loc_env_release(xas_tdp_env%qs_loc_env)
+         END IF
+         IF (ASSOCIATED(xas_tdp_env%mos_of_ex_atoms)) THEN
+           DEALLOCATE(xas_tdp_env%mos_of_ex_atoms)
          END IF
          DEALLOCATE (xas_tdp_env)
       END IF
@@ -316,21 +330,27 @@ CONTAINS
 !> \param at_symbol ...
 !> \param state_type ...   
 !> *************************************************************************************************
-   SUBROUTINE set_donor_state(donor_state, at_index, at_symbol, state_type)
+   SUBROUTINE set_donor_state(donor_state, at_index, at_symbol, kind_index, mo_index, energy_eval,&
+                              state_type)
 
       TYPE(donor_state_type), POINTER                      :: donor_state
 
       CHARACTER(len=*), PARAMETER                          :: routineN = 'set_donor_state',&
                                                               routineP = moduleN//':'//routineN
 
-      INTEGER, INTENT(IN), OPTIONAL                        :: at_index, state_type
+      INTEGER, INTENT(IN), OPTIONAL                        :: at_index, state_type, kind_index,&
+                                                              mo_index
       CHARACTER(len=2), INTENT(IN), OPTIONAL               :: at_symbol
+      REAL(dp), INTENT(IN), OPTIONAL                       :: energy_eval
       
       CPASSERT(ASSOCIATED(donor_state))
 
       IF (PRESENT(at_index)) donor_state%at_index = at_index
+      IF (PRESENT(kind_index)) donor_state%kind_index = kind_index
+      IF (PRESENT(mo_index)) donor_state%mo_index = mo_index
       IF (PRESENT(state_type)) donor_state%state_type = state_type
       IF (PRESENT(at_symbol)) donor_state%at_symbol = at_symbol
+      IF (PRESENT(energy_eval)) donor_state%energy_eval = energy_eval
 
    END SUBROUTINE set_donor_state   
 
@@ -341,16 +361,13 @@ CONTAINS
 SUBROUTINE deallocate_donor_state_set(donor_state_set)
       TYPE(donor_state_type), DIMENSION(:) , POINTER     :: donor_state_set
 
-      CHARACTER(len=*), PARAMETER                        :: routineN = 'release_excited_atomi_set',&
+      CHARACTER(len=*), PARAMETER                        :: routineN = 'deallocate_donor_state_set',&
                                                            routineP = moduleN//':'//routineN
       INTEGER                                            :: i
 
       IF (ASSOCIATED(donor_state_set)) THEN
          DO i = 1,SIZE(donor_state_set)
 
-            IF (ASSOCIATED(donor_state_set(i)%gs_coeffs)) THEN
-               CALL cp_fm_release(donor_state_set(i)%gs_coeffs)
-            END IF
             IF (ASSOCIATED(donor_state_set(i)%lr_coeffs)) THEN
                CALL cp_fm_release(donor_state_set(i)%lr_coeffs)
             END IF
