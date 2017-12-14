@@ -7927,7 +7927,7 @@ CONTAINS
                           "This keyword can be repeated, usefull when  multiple orbital types "//&
                           "should be excited for specific kinds/atoms.", &
                           n_var=-1, default_i_val = xas_not_excited, repeats=.TRUE.,&
-                          usage="STATE_TYPES string  string .. string", &
+                          usage="STATE_TYPES {string}  {string} .. {string}", &
                           enum_c_vals=s2a("1S", "2S", "NE"), &
                           enum_desc=s2a("1s orbital", "2s orbital", "not excited"), &
                           enum_i_vals=(/xas_1s_type, xas_2s_type, xas_not_excited/))
@@ -7956,7 +7956,7 @@ CONTAINS
                           variants=(/"DIP_FORM"/), &
                           description="Type of integral to get the oscillator strengths "// &
                           "in the dipole approximation", &
-                          usage="DIPOLE_FORM string", &
+                          usage="DIPOLE_FORM {string}", &
                           default_i_val=xas_dip_vel, &
                           enum_c_vals=s2a("LENGTH", "VELOCITY"), &
                           enum_desc=s2a("Length form &lang; 0 | e r | n &rang;", &
