@@ -39,6 +39,7 @@ MODULE xas_tdp_methods
                                               do_loc_none,&
                                               xas_1s_type,&
                                               xas_2s_type,&
+                                              xas_2p_type,&
                                               op_loc_berry
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_get_subs_vals,&
@@ -109,6 +110,7 @@ CONTAINS
       TYPE(donor_state_type), POINTER                    :: current_state
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
+      CHARACTER(len=2), DIMENSION(3)                     :: state_type_char
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state)
 
@@ -137,12 +139,17 @@ CONTAINS
       END IF 
       CALL xas_tdp_init(xas_tdp_env, xas_tdp_control, qs_env, dft_control)
 
+!     Building an array for better writing of donor state info. Indices correspond input constants
+      state_type_char(1) = "1s"
+      state_type_char(2) = "2s"
+      state_type_char(3) = "2p"
+
 !  Safety checks
       IF (dft_control%lsd) THEN
          CPABORT("XAS TDP only implemented for closed shell ground state calculations")
       END IF
       IF (xas_tdp_env%qs_loc_env%do_localize .AND. &
-          xas_tdp_env%qs_loc_env%localized_wfn_control%operator_type .NE. op_loc_berry) THEN
+          xas_tdp_env%qs_loc_env%localized_wfn_control%operator_type /= op_loc_berry) THEN
          CPABORT("Please use the Berry phase operator for MO localization.")
       END IF
 
@@ -165,11 +172,6 @@ CONTAINS
 !  Assign lowest energy orbitals to excited atoms
       CALL assign_mos_to_ex_atoms(xas_tdp_env, xas_tdp_control, qs_env) 
 
-!     for test purposes
-      PRINT*, "Test for mos_of_ex_atoms:"
-      DO iat = 1,xas_tdp_control%n_search
-         PRINT*, xas_tdp_env%mos_of_ex_atoms(iat,:)
-      END DO
       IF (output_unit > 0) THEN
          WRITE(UNIT=output_unit, FMT="(/,T3,A,I4,A,/)") &
             "# Assign the relevant subset of the ", xas_tdp_control%n_search, &
@@ -191,13 +193,13 @@ CONTAINS
 !        Loop over atoms of kind
          DO iat = 1,SIZE(atoms_of_kind)
             
-            IF (ANY(xas_tdp_env%ex_atom_indices .EQ. atoms_of_kind(iat))) THEN
+            IF (ANY(xas_tdp_env%ex_atom_indices == atoms_of_kind(iat))) THEN
                tmp_index = MINLOC(ABS(xas_tdp_env%ex_atom_indices-atoms_of_kind(iat)),1)  
 
 !              Loop over states of excited atom of kind
                DO istate = 1,SIZE(xas_tdp_env%state_types,1)
 
-                  IF (xas_tdp_env%state_types(istate, tmp_index) .NE. xas_not_excited) THEN
+                  IF (xas_tdp_env%state_types(istate, tmp_index) /= xas_not_excited) THEN
                     
                      current_state => xas_tdp_env%donor_states(current_state_index)
                      CALL set_donor_state(current_state,&
@@ -205,28 +207,26 @@ CONTAINS
                                           at_symbol=symbol_of_kind, kind_index=ikind,&
                                           state_type=xas_tdp_env%state_types(istate,tmp_index))
 
-!                    Assign best fitting MO(s) to current donnor core state
-                     
-                     PRINT*, "Assigning MO for donor state with properties: "
-                     PRINT*, "Chemical symbol: ", current_state%at_symbol
-                     PRINT*, "Kind index: ", current_state%kind_index 
-                     PRINT*, "Atom index: ", current_state%at_index
-                     PRINT*, "State type: ", current_state%state_type
-   
-                     CALL assign_mo_to_donor_state(current_state, xas_tdp_env,&
-                                                   xas_tdp_control, qs_env)
+!                    Initial write for the donor state of interest
+                     IF (output_unit > 0) THEN
+                        WRITE(UNIT=output_unit, FMT="(T3,A,A2,A,I4,A,A2,/)") &
+                           "# Start of calculations for donor state(s) of type ", &
+                           state_type_char(current_state%state_type), " for atom",&
+                           current_state%at_index, " of kind ", current_state%at_symbol
+                           
+                     END IF
 
-                     PRINT*, "Indices of newly associated MOs: ", current_state%mo_indices
-                     PRINT*, "Energy evals of donor state: ", current_state%energy_evals
-                     PRINT*, " "
+!                    Assign best fitting MO(s) to current core donnor state
+                     CALL assign_mo_to_donor_state(current_state, xas_tdp_env, xas_tdp_control,&
+                                                   qs_env, output_unit)
 
                      current_state_index = current_state_index + 1
                      NULLIFY(current_state)
                   END IF
-               END DO
-            END IF
-         END DO
-      END DO
+               END DO ! state type
+            END IF ! if excited
+         END DO ! atom of kind 
+      END DO ! kind
 
 !  Clean-up
       CALL xas_tdp_env_release(xas_tdp_env)
@@ -286,7 +286,7 @@ CONTAINS
       CALL xas_tdp_env_create(xas_tdp_env)
 
 !  Retrieving the excited atoms indices and correspondig state types
-      IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_index) THEN
+      IF (xas_tdp_control%define_excited == xas_tdp_by_index) THEN
 
 !        simply copy from xas_tdp_control
          nex_atoms = SIZE(xas_tdp_control%list_ex_atoms)
@@ -296,7 +296,7 @@ CONTAINS
          xas_tdp_env%ex_atom_indices = xas_tdp_control%list_ex_atoms
          xas_tdp_env%state_types = xas_tdp_control%state_types
 
-      ELSE IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_kind) THEN
+      ELSE IF (xas_tdp_control%define_excited == xas_tdp_by_kind) THEN
          
 !        need to find out which atom of which kind is excited
          CALL get_qs_env(qs_env=qs_env, atomic_kind_set=at_kind_set)  
@@ -306,7 +306,7 @@ CONTAINS
          DO i = 1,n_kinds
             CALL get_atomic_kind(atomic_kind=at_kind_set(i), element_symbol=symbol,&
                                  natom=nat_of_kind)
-            IF (ANY(xas_tdp_control%list_ex_kinds .EQ. symbol)) nex_atoms = nex_atoms + nat_of_kind
+            IF (ANY(xas_tdp_control%list_ex_kinds == symbol)) nex_atoms = nex_atoms + nat_of_kind
          END DO
 
          ALLOCATE(xas_tdp_env%ex_atom_indices(nex_atoms))
@@ -318,7 +318,7 @@ CONTAINS
             CALL get_atomic_kind(atomic_kind=at_kind_set(i), element_symbol=symbol,&                 
                                                 natom=nat_of_kind, atom_list=ind_of_kind)
             DO j = 1,nex_kinds
-               IF (xas_tdp_control%list_ex_kinds(j) .EQ. symbol) THEN
+               IF (xas_tdp_control%list_ex_kinds(j) == symbol) THEN
                   xas_tdp_env%ex_atom_indices(nex_atoms+1:nex_atoms + nat_of_kind) = ind_of_kind
                   DO k = 1,SIZE(xas_tdp_control%state_types,1)
                      xas_tdp_env%state_types(k,nex_atoms+1:nex_atoms + nat_of_kind) = &
@@ -334,7 +334,7 @@ CONTAINS
       END IF
 
 !  Allocating memory for the array of donor states
-      n_donor_states = COUNT(xas_tdp_env%state_types .NE. xas_not_excited)     
+      n_donor_states = COUNT(xas_tdp_env%state_types /= xas_not_excited)     
       ALLOCATE(xas_tdp_env%donor_states(n_donor_states))
 
 !  Initializing the qs_loc_env from the LOCALIZE subsection of XAS_TDP (largely inpired by MI's XAS)
@@ -348,7 +348,7 @@ CONTAINS
       n_mo(2) = n_mo(1)
       nspins = 1
 !     by default, all homo are localized
-      IF (xas_tdp_control%n_search .LT. 0) xas_tdp_control%n_search = homo
+      IF (xas_tdp_control%n_search < 0) xas_tdp_control%n_search = homo
       CALL qs_loc_control_init(qs_loc_env, loc_section, do_homo=.TRUE., &  
                                do_xas=.TRUE., nloc_xas=xas_tdp_control%n_search)
 !     final qs_loc_env initialization
@@ -431,14 +431,14 @@ CONTAINS
             dist = SQRT(r_ac(1)*r_ac(1) + r_ac(2)*r_ac(2) + r_ac(3)*r_ac(3))
          
 !           keep memory of which atom is the closest to the wave function center
-            IF (dist .LT. dist_min) THEN
+            IF (dist < dist_min) THEN
                iat_memo = iat
                dist_min = dist
             END IF
          END DO
 
 !        Verify that the closest atom is actually excited and assign the MO if so
-         IF (ANY(xas_tdp_env%ex_atom_indices .EQ. iat_memo)) THEN
+         IF (ANY(xas_tdp_env%ex_atom_indices == iat_memo)) THEN
             at_index = MINLOC(ABS(xas_tdp_env%ex_atom_indices-iat_memo),1)
             mos_of_ex_atoms(imo, at_index) = 1
          END IF
@@ -450,20 +450,23 @@ CONTAINS
    END SUBROUTINE assign_mos_to_ex_atoms
    
 !> *************************************************************************************************
-!> \brief Assign a core MO to a given donor_state, taking the type (1S, 2S, etc) into account.
+!> \brief Assign core MO(s) to a given donor_state, taking the type (1S, 2S, etc) into account.
 !>        The projection on a representative Slater-type orbital is used as a indicator.
 !>        It is assumed that MOs are already assigned to excited atoms based on their center.
 !> \param donor_state the donor_state to which a MO must be assigned
 !> \param xas_tdp_env ...
 !> \param xas_tdp_control ...
 !> \param qs_env ...
+!> \param output_unit ...
 !> *************************************************************************************************
-   SUBROUTINE assign_mo_to_donor_state(donor_state, xas_tdp_env, xas_tdp_control, qs_env)
+   SUBROUTINE assign_mo_to_donor_state(donor_state, xas_tdp_env, xas_tdp_control, qs_env, &
+                                       output_unit)
 
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env        
       TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
       TYPE(qs_environment_type), POINTER              :: qs_env
+      INTEGER, INTENT(IN)                             :: output_unit
 
       CHARACTER(len=*), PARAMETER :: routineN ='assign_mo_to_donor_state', &
                                                       routineP = moduleN//':'//routineN
@@ -475,16 +478,16 @@ CONTAINS
       INTEGER, DIMENSION(4,7)                         :: ne
       INTEGER                                         :: zval, i, l, nj, nsgf_sto, nsgf_kind, j,&
                                                          n_search, imo, iat, nao, at_index, my_mo,&
-                                                         isgf, n_states, k
+                                                         isgf, n_states, k, next_best_overlap_ind
       INTEGER, DIMENSION(:), POINTER                  :: my_mos
-      REAL(dp)                                        :: zeff, max_overlap, overlap
+      REAL(dp)                                        :: zeff, next_best_overlap
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
       TYPE(cp_fm_type), POINTER                       :: mo_coeff, col_coeff_j, work_vector
       INTEGER, DIMENSION(:,:), POINTER                :: mos_of_ex_atoms
       REAL(dp), DIMENSION(:,:), POINTER               :: tmp_coeff, overlap_matrix, work_array
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
-      REAL(dp), DIMENSION(:), POINTER                 :: mo_evals
+      REAL(dp), DIMENSION(:), POINTER                 :: mo_evals, max_overlap, overlap
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_ks
       TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct                               
       TYPE(cp_para_env_type), POINTER                 :: para_env                                    
@@ -493,7 +496,7 @@ CONTAINS
       NULLIFY(sto_basis_set, sto_to_gto_basis_set, qs_kind_set, kind_basis_set, lq, nq, zeta)
       NULLIFY(overlap_matrix, mos, mo_coeff, mos_of_ex_atoms, tmp_coeff, first_sgf, particle_set)
       NULLIFY(mo_evals, matrix_ks, col_vect_struct, para_env, blacs_env, col_coeff_j, work_vector)
-      NULLIFY(work_array)
+      NULLIFY(work_array, max_overlap)
       
       CALL get_qs_env(qs_env=qs_env, qs_kind_set=qs_kind_set, mos=mos, particle_set=particle_set,&
                       matrix_ks=matrix_ks, para_env=para_env, blacs_env=blacs_env)
@@ -503,18 +506,23 @@ CONTAINS
       ALLOCATE(lq(1))
       ALLOCATE(nq(1))
 !     Retrieving quantum numbers
-      IF (donor_state%state_type .EQ. xas_1s_type) THEN
+      IF (donor_state%state_type == xas_1s_type) THEN
          nq(1) = 1
          lq(1) = 0
          n_states = 1
-      ELSE IF (donor_state%state_type .EQ. xas_2s_type) THEN
+      ELSE IF (donor_state%state_type == xas_2s_type) THEN
          nq(1) = 2
          lq(1) = 0
          n_states = 1
+      ELSE IF (donor_state%state_type == xas_2p_type ) THEN
+         nq(1) = 2
+         lq(1) = 1
+         n_states = 3
       ELSE
          CPABORT("Procedure for required type not implemented")
       END IF
       ALLOCATE(my_mos(n_states))
+      ALLOCATE(max_overlap(n_states))
 
 !     Getting the atomic number
       CALL get_qs_kind(qs_kind_set(donor_state%kind_index), zeff=zeff)
@@ -538,6 +546,9 @@ CONTAINS
       CALL allocate_sto_basis_set(sto_basis_set)
       CALL set_sto_basis_set(sto_basis_set, nshell=1, nq=nq, lq=lq, zet=zeta) 
 
+!     Some clean-up
+      DEALLOCATE(nq, lq, zeta)
+
 !  Expanding the STO into (normalized) GTOs for later calculations
       CALL create_gto_from_sto_basis(sto_basis_set=sto_basis_set,&
                                      gto_basis_set=sto_to_gto_basis_set,&
@@ -556,7 +567,11 @@ CONTAINS
 !     Making use of MI's subroutine
       CALL calc_stogto_overlap(sto_to_gto_basis_set ,kind_basis_set, overlap_matrix)
 
-!  Looping over the potential donor states to find the best fit
+!     Some clean-up
+      CALL deallocate_sto_basis_set(sto_basis_set)                                                   
+      CALL deallocate_gto_basis_set(sto_to_gto_basis_set)
+
+!  Looping over the potential donor states to compute overlap with STO basis
       mos_of_ex_atoms => xas_tdp_env%mos_of_ex_atoms
       n_search = xas_tdp_control%n_search
       at_index = donor_state%at_index
@@ -566,7 +581,10 @@ CONTAINS
       CALL get_particle_set(particle_set=particle_set, qs_kind_set=qs_kind_set, first_sgf=first_sgf)
       ALLOCATE(tmp_coeff(nao,1))
 
-      max_overlap = 0.0_dp
+      next_best_overlap = 0.0_dp
+      max_overlap(:) = 0.0_dp
+      ALLOCATE(overlap(n_search))
+      overlap(:) = 0.0_dp
       my_mo = 0
       DO imo = 1,n_search
          IF(mos_of_ex_atoms(imo,iat) > 0) THEN
@@ -575,41 +593,71 @@ CONTAINS
                                      start_col=imo, n_rows=nao, n_cols=1, transpose=.FALSE.)
                                   
 !           Computing the overlap
-            overlap = 0.0_dp
             DO i = 1,nsgf_sto
                DO j = 1,nsgf_kind
                   isgf = first_sgf(at_index)+j-1 
-                  overlap = overlap + overlap_matrix(i,j)*tmp_coeff(isgf,1)
+                  overlap(imo) = overlap(imo) + overlap_matrix(i,j)*tmp_coeff(isgf,1)
                END DO
             END DO
 !           Take the absolute value, we do not care about the sign but we need to compare amplitudes
-            overlap = ABS(overlap)
-            PRINT*, "overlap: ", overlap
-            IF (overlap .GT. max_overlap) THEN
-               my_mo = imo
-               max_overlap = overlap
+            overlap(imo) = ABS(overlap(imo))
+            IF (donor_state%state_type == xas_2s_type) THEN
+               PRINT*,"2s overlap: ", overlap(imo)
+            ELSE IF (donor_state%state_type == xas_2p_type) THEN
+               PRINT*, "2p overlap: ", overlap(imo)
             END IF
+
          END IF
       END DO
 
-!     For now, only case is n_states = 1 => s-type orbitals
-      my_mos(1) = my_mo
+!  Finding the best overlap(s)
+      DO i = 1,n_states
+         my_mo = MAXLOC(overlap,1)
+         my_mos(i) = my_mo 
+         max_overlap(i) = MAXVAL(overlap,1)
+         overlap(my_mo) = 0.0_dp
+      END DO
+!     Getting the next best overlap (for validation purposes)
+      next_best_overlap = MAXVAL(overlap,1) 
+      next_best_overlap_ind = MAXLOC(overlap,1)
+
+!     Some clean-up
+      DEALLOCATE(first_sgf,overlap_matrix, overlap) 
 
 !  Dealing with the result
-      IF (ALL(my_mos .GT. 0) .AND. ALL(my_mos .LE. n_search)) THEN
-!        Assigning th MO indices to the donor_state
+      IF (ALL(my_mos > 0) .AND. ALL(my_mos <= n_search)) THEN
+!        Assigning the MO indices to the donor_state
          ALLOCATE(donor_state%mo_indices(n_states))
          donor_state%mo_indices = my_mos
 
-!        Assigning corresponding energy eigenvalues
+!        Assigning corresponding energy eigenvalues and writing some info in standard input file
          ALLOCATE(donor_state%energy_evals(n_states,n_states)) 
          donor_state%energy_evals = 0.0_dp
          IF (.NOT. xas_tdp_env%qs_loc_env%do_localize) THEN
+            IF (output_unit > 0) THEN
+               WRITE (UNIT=output_unit, FMT="(T5,A,/,T5,A,/,T5,A)") &
+                  "The following canonical MO(s) have been associated with the donor state(s)", &
+                  "based on the overlap with a minimal STO basis: ", &
+                  "                                                     MO index      overlap"
+            END IF
+
 !           Canonical MO, no change in eigenvalues, only diagonal elements
             DO i = 1,n_states 
                donor_state%energy_evals(i,i) = mo_evals(my_mos(i))
+               
+               IF (output_unit > 0 ) THEN
+                  WRITE (UNIT=output_unit, FMT="(T58,I8,F13.5)") &
+                     my_mos(i), max_overlap(i)
+               END IF
             END DO
+            
          ELSE IF (xas_tdp_env%qs_loc_env%do_localize) THEN
+            IF (output_unit > 0) THEN 
+               WRITE (UNIT=output_unit, FMT="(T5,A,/,T5,A,/,T5,A)") &
+                  "The following localized MO(s) have been associated with the donor state(s)", &
+                  "based on the overlap with a minimal STO basis: ", &
+                  "                                                     MO index      overlap"
+            END IF
             
 !           MO have been rotated, need epsilon_ij = <psi_i|F|psi_j> = sum_{pq} c_{qi}c_{pj} F_{pq}
             CALL cp_fm_struct_create(col_vect_struct, nrow_global=nao, ncol_global=1,&
@@ -619,6 +667,11 @@ CONTAINS
             ALLOCATE(work_array(nao,1))
 
             DO j = 1,n_states
+               IF (output_unit > 0 ) THEN
+                  WRITE (UNIT=output_unit, FMT="(T58,I8,F13.5)") &
+                     my_mos(j), max_overlap(j)
+               END IF 
+
 !              Retrieving mo_coeff for psi_j
                CALL cp_fm_to_fm_submat(msource=mo_coeff, mtarget=col_coeff_j, nrow=nao, ncol=1,&
                                       s_firstrow=1, s_firstcol=my_mos(j), t_firstrow=1,&
@@ -644,18 +697,27 @@ CONTAINS
 
             DEALLOCATE(work_array)
          END IF
+         
+         IF (output_unit > 0) THEN
+            WRITE(UNIT=output_unit, FMT="(/,T5,A,F7.5,A,I4/)") &
+               "The next best overlap is ", next_best_overlap, " for MO with index ", &
+               next_best_overlap_ind
+         END IF
+
       ELSE 
          CPABORT("A core donor state could not be assigned MO(s). Increasing NSEARCH might help.")
       END IF
 
+      PRINT*, "energy_evals: "
+      DO i = 1,n_states
+         PRINT*, donor_state%energy_evals(i,:)
+      END DO
          
 !  Clean-up
-      CALL deallocate_sto_basis_set(sto_basis_set)
-      CALL deallocate_gto_basis_set(sto_to_gto_basis_set)
       CALL cp_fm_struct_release(col_vect_struct)
       CALL cp_fm_release(col_coeff_j)
       CALL cp_fm_release(work_vector)
-      DEALLOCATE(nq, lq, zeta, overlap_matrix, tmp_coeff, first_sgf, my_mos)
+      DEALLOCATE( tmp_coeff, my_mos, max_overlap)
 
    END SUBROUTINE assign_mo_to_donor_state
 
@@ -801,7 +863,7 @@ CONTAINS
       IF (output_unit .LE. 0 ) RETURN
 
       WRITE(UNIT=output_unit, FMT="(/,T3,A,/,T3,A,/,T3,A)") &
-         "              Associated    Associated        Distance to     MO spread (Ang)",&
+         "              Associated    Associated        Distance to   MO spread (Ang^2)",&
          "MO index      atom index     atom kind    MO center (Ang)   -w_i ln(|z_ij|^2)",&
          "-----------------------------------------------------------------------------"
 
@@ -819,7 +881,7 @@ CONTAINS
       DO imo = 1,nmo
 
 !        each Mo is associated to at most one atom (only 1 in array of -1)
-         IF (ANY(mos_of_ex_atoms(imo,:) .EQ. 1)) THEN
+         IF (ANY(mos_of_ex_atoms(imo,:) == 1)) THEN
             tmp_index = MAXLOC(mos_of_ex_atoms(imo,:),1) 
             at_index = ex_atom_indices(tmp_index)
             at_symbol = particle_set(at_index)%atomic_kind%element_symbol
@@ -832,7 +894,7 @@ CONTAINS
             dist = dist*angstrom         
          
             mo_spread = xas_tdp_env%qs_loc_env%localized_wfn_control%centers_set(1)%array(4,imo)
-            mo_spread = mo_spread*angstrom
+            mo_spread = mo_spread*angstrom*angstrom
          
             WRITE(UNIT=output_unit, FMT="(T3,I8,I16,A14,ES19.3,ES20.3)") &
                imo, at_index, at_symbol, dist, mo_spread

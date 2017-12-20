@@ -7874,9 +7874,9 @@ CONTAINS
                           "should be excited for specific kinds/atoms.", &
                           n_var=-1, default_i_val = xas_not_excited, repeats=.TRUE.,&
                           usage="STATE_TYPES {string}  {string} .. {string}", &
-                          enum_c_vals=s2a("1S", "2S", "NE"), &
-                          enum_desc=s2a("1s orbital", "2s orbital", "not excited"), &
-                          enum_i_vals=(/xas_1s_type, xas_2s_type, xas_not_excited/))
+                          enum_c_vals=s2a("1S", "2S","2P", "NE"), &
+                          enum_desc=s2a("1s orbital", "2s orbital", "2p orbitals", "not excited"), &
+                          enum_i_vals=(/xas_1s_type, xas_2s_type, xas_2p_type, xas_not_excited/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -7884,7 +7884,8 @@ CONTAINS
                           variants=(/"NSEARCH"/),&
                           description="Number of MOs to search to find specified donor core "//&
                           "orbitals, starting from the lowest in energy and upward. By default, "//&
-                          "all HOMOs are searched",&
+                          "all HOMOs are searched. If the LOCALIZED subsection is used, then "//&
+                          "all searched states are first localized.",&
                           usage="STATE_SEARCH {integer}",&
                           default_i_val=-1)
       CALL section_add_keyword(section, keyword)         
