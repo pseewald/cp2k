@@ -26,7 +26,8 @@ MODULE xas_tdp_methods
                                               cp_fm_struct_release
    USE cp_fm_types,                     ONLY: cp_fm_type, cp_fm_get_submatrix, cp_fm_create,&
                                               cp_fm_release, cp_fm_set_all, cp_fm_p_type,&
-                                              cp_fm_get_info, cp_fm_to_fm_submat
+                                              cp_fm_get_info, cp_fm_to_fm_submat, & 
+                                              cp_fm_set_submatrix
    USE cp_gemm_interface,               ONLY: cp_gemm
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
                                               cp_logger_type
@@ -209,7 +210,7 @@ CONTAINS
 
 !                    Initial write for the donor state of interest
                      IF (output_unit > 0) THEN
-                        WRITE(UNIT=output_unit, FMT="(T3,A,A2,A,I4,A,A2,/)") &
+                        WRITE(UNIT=output_unit, FMT="(/,T3,A,A2,A,I4,A,A2,/)") &
                            "# Start of calculations for donor state(s) of type ", &
                            state_type_char(current_state%state_type), " for atom",&
                            current_state%at_index, " of kind ", current_state%at_symbol
@@ -219,6 +220,13 @@ CONTAINS
 !                    Assign best fitting MO(s) to current core donnor state
                      CALL assign_mo_to_donor_state(current_state, xas_tdp_env, xas_tdp_control,&
                                                    qs_env, output_unit)
+!                    Testing
+                     CALL perform_mulliken_on_donor_state(current_state,qs_env,output_unit)
+
+                     IF (.NOT. xas_tdp_control%check_donor_states) THEN
+!                       Do main calculations here
+                        PRINT*, "Should perform calculations"
+                     END IF
 
                      current_state_index = current_state_index + 1
                      NULLIFY(current_state)
@@ -699,7 +707,7 @@ CONTAINS
          END IF
          
          IF (output_unit > 0) THEN
-            WRITE(UNIT=output_unit, FMT="(/,T5,A,F7.5,A,I4/)") &
+            WRITE(UNIT=output_unit, FMT="(T5,A,F7.5,A,I4/)") &
                "The next best overlap is ", next_best_overlap, " for MO with index ", &
                next_best_overlap_ind
          END IF
@@ -910,5 +918,104 @@ CONTAINS
       cell%perd = perd_init
 
    END SUBROUTINE write_mos_to_ex_atoms_association
+
+!> *************************************************************************************************
+!> \brief Performs Mulliken population analysis for the MO(s) of a donor_state_type so that user
+!>        can verify it is indeed a core state
+!> \param donor_state ...
+!> \param qs_env ...
+!> \param output_unit ...
+!> \note This is a specific case of Mulliken analysis. In general one computes sum_i (SP)_ii, where
+!>       i labels the basis function centered on the atom of interest. For a specific MO with index
+!>       j, one need to compute sum_{ik} c_{ij} S_{ik} c_{kj}, k = 1,nao
+!> *************************************************************************************************
+   SUBROUTINE perform_mulliken_on_donor_state(donor_state, qs_env, output_unit)
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(qs_environment_type), POINTER              :: qs_env
+      INTEGER, INTENT(IN)                             :: output_unit
+      
+      CHARACTER(len=*), PARAMETER :: routineN = "perfomr_mulliken_on_donor_state", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: at_index, imo, i, nao, natom, j
+      INTEGER, DIMENSION(:), POINTER                  :: mo_indices, first_sgf, last_sgf
+      TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
+      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
+      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
+      TYPE(cp_fm_type), POINTER                       :: mo_coeff, col_coeff, work_vect
+      REAL(dp), DIMENSION(:,:), POINTER               :: tmp_coeff, work_array
+      REAL(dp), DIMENSION(:), POINTER                 :: mul_pop
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct
+
+      NULLIFY(mos, mo_indices, qs_kind_set, particle_set, mo_coeff, tmp_coeff, first_sgf, mul_pop)
+      NULLIFY(matrix_s, para_env, blacs_env, col_vect_struct, col_coeff, work_vect)
+
+      IF (output_unit .LE. 0 ) RETURN
+
+!  Initialization
+      at_index = donor_state%at_index
+      mo_indices => donor_state%mo_indices
+      ALLOCATE(mul_pop(SIZE(mo_indices,1)))
+      mul_pop = 0.0_dp
+
+      CALL get_qs_env(qs_env=qs_env, mos=mos, particle_set=particle_set, qs_kind_set=qs_kind_set, &
+                      para_env=para_env, blacs_env=blacs_env, matrix_s=matrix_s)
+      CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao)
+      ALLOCATE(tmp_coeff(nao,1))
+      ALLOCATE(work_array(nao,1))
+
+      natom = SIZE(particle_set,1)
+      ALLOCATE(first_sgf(natom))
+      ALLOCATE(last_sgf(natom))
+
+      CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf, last_sgf=last_sgf)
+
+      CALL cp_fm_struct_create(col_vect_struct, nrow_global=nao, ncol_global=1, para_env=para_env, &
+                               context=blacs_env)
+      CALL cp_fm_create(col_coeff, col_vect_struct)
+      CALL cp_fm_create(work_vect, col_vect_struct)
+
+!  Loop over the MOs assigned to the donor_state
+      DO i = 1,SIZE(mo_indices,1)
+         imo = mo_indices(i)
+         tmp_coeff = 0.0_dp
+         CALL cp_fm_get_submatrix(fm=mo_coeff, target_m=tmp_coeff, start_row=1, start_col=imo, &
+                                  n_rows=nao, n_cols=1, transpose=.FALSE.) 
+
+         CALL cp_fm_set_submatrix(col_coeff, tmp_coeff)
+
+!        Do the matrix product S*c_j, where c_j is the column vector of the relevant MO coefficients
+         CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, col_coeff, work_vect, ncol=1)
+         CALL cp_fm_get_submatrix(work_vect, work_array)
+
+!        We restrict oureselves to the basis function centered on the atom of interest
+         DO j = first_sgf(at_index), last_sgf(at_index)
+            mul_pop(i) = mul_pop(i) + tmp_coeff(j,1)*work_array(j,1)
+         END DO  
+
+!        Factor 2 because doubly occupied MOs
+         mul_pop(i) = 2*mul_pop(i)
+      END DO
+
+!  Printing in main output file
+      WRITE (UNIT=output_unit, FMT="(T5,A,/,T5,A)") &
+         "Mulliken population analysis retricted to the associated MO(s) yields: ", &
+         "                                                     MO index      charge"
+      DO i = 1,SIZE(mo_indices,1) 
+         WRITE (UNIT=output_unit, FMT="(T58,I8,F12.3)") &
+            mo_indices(i), mul_pop(i)
+      END DO
+      
+!  Clean-up
+      DEALLOCATE(first_sgf, last_sgf, tmp_coeff, mul_pop, work_array)
+      CALL cp_fm_struct_release(col_vect_struct)
+      CALL cp_fm_release(col_coeff)
+      CALL cp_fm_release(work_vect)
+
+   END SUBROUTINE perform_mulliken_on_donor_state
+
 
 END MODULE xas_tdp_methods
