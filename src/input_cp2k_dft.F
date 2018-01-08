@@ -7875,7 +7875,7 @@ CONTAINS
                           description="XAS simulations using TDDFPT. Excitation from specified "//&
                           "core orbitals are considered one at a time. In case of high symmetry "//&
                           "structures, donor core orbitals should be localized.", &
-                          n_keywords=7, n_subsections=2, repeats=.FALSE.)
+                          n_keywords=8, n_subsections=2, repeats=.FALSE.)
 
       NULLIFY (keyword, subsection, print_key)
 
@@ -7887,6 +7887,16 @@ CONTAINS
                           lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)                  
+
+      CALL keyword_create(keyword, name="ONLY_CHECK_DONOR_STATES", &
+                          description="This keyword defines whether the full calculation should "//&
+                                      "be done or not. If set to .TRUE., only the determination "//&
+                                      "of donor MOs is conducted for verfification purposes.", &
+                          usage="ONLY_CHECK_DONOR_STATES logical", &
+                          default_l_val=.FALSE., &
+                          repeats=.FALSE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="DEFINE_EXCITED", &
                           description="Whether the atoms to be excited should be defined by "// &
