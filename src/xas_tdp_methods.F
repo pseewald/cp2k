@@ -33,7 +33,14 @@ MODULE xas_tdp_methods
                                               cp_logger_type
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_output_handling,              ONLY: cp_print_key_unit_nr, debug_print_level
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
+   USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_p_type, dbcsr_distribution_type, &
+                                              dbcsr_distribution_get, dbcsr_get_info, &
+                                              dbcsr_distribution_new, dbcsr_distribution_release, &
+                                              dbcsr_create, dbcsr_release, dbcsr_put_block,&
+                                              dbcsr_copy_into_existing, dbcsr_print, &
+                                              dbcsr_put_block, dbcsr_add_on_diag, dbcsr_get_data_p,&
+                                              dbcsr_desymmetrize, dbcsr_copy, dbcsr_set, &
+                                              dbcsr_finalize, dbcsr_get_block_p
    USE input_constants,                 ONLY: xas_tdp_by_index,&
                                               xas_tdp_by_kind,&
                                               xas_not_excited,&
@@ -76,6 +83,7 @@ MODULE xas_tdp_methods
                                               set_xas_tdp_env,&
                                               donor_state_type,&
                                               set_donor_state
+   USE xas_tdp_utils,                   ONLY: build_xas_tdp_matrix
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -220,12 +228,16 @@ CONTAINS
 !                    Assign best fitting MO(s) to current core donnor state
                      CALL assign_mo_to_donor_state(current_state, xas_tdp_env, xas_tdp_control,&
                                                    qs_env, output_unit)
-!                    Testing
+
+!                    Perform MO restricted Mulliken pop analysis for verification
                      CALL perform_mulliken_on_donor_state(current_state,qs_env,output_unit)
 
                      IF (.NOT. xas_tdp_control%check_donor_states) THEN
 !                       Do main calculations here
                         PRINT*, "Should perform calculations"
+
+!                       Testing
+                        CALL build_xas_tdp_matrix(current_state, qs_env)
                      END IF
 
                      current_state_index = current_state_index + 1
@@ -488,7 +500,7 @@ CONTAINS
                                                          n_search, imo, iat, nao, at_index, my_mo,&
                                                          isgf, n_states, k, next_best_overlap_ind
       INTEGER, DIMENSION(:), POINTER                  :: my_mos
-      REAL(dp)                                        :: zeff, next_best_overlap
+      REAL(dp)                                        :: zeff, next_best_overlap, component
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
       TYPE(cp_fm_type), POINTER                       :: mo_coeff, col_coeff_j, work_vector
@@ -602,18 +614,16 @@ CONTAINS
                                   
 !           Computing the overlap
             DO i = 1,nsgf_sto
+               component = 0.0_dp
+!              Here we go line by line and take the absolute value each time, i.e. we add the 
+!              absolute values of the overlap of the MO with each component of the STO basis
+!              This allows us to discriminate between state types even if the basis is rotated
                DO j = 1,nsgf_kind
                   isgf = first_sgf(at_index)+j-1 
-                  overlap(imo) = overlap(imo) + overlap_matrix(i,j)*tmp_coeff(isgf,1)
+                  component = component + overlap_matrix(i,j)*tmp_coeff(isgf,1)
                END DO
+               overlap(imo) = overlap(imo) + ABS(component)
             END DO
-!           Take the absolute value, we do not care about the sign but we need to compare amplitudes
-            overlap(imo) = ABS(overlap(imo))
-            IF (donor_state%state_type == xas_2s_type) THEN
-               PRINT*,"2s overlap: ", overlap(imo)
-            ELSE IF (donor_state%state_type == xas_2p_type) THEN
-               PRINT*, "2p overlap: ", overlap(imo)
-            END IF
 
          END IF
       END DO
@@ -645,8 +655,8 @@ CONTAINS
             IF (output_unit > 0) THEN
                WRITE (UNIT=output_unit, FMT="(T5,A,/,T5,A,/,T5,A)") &
                   "The following canonical MO(s) have been associated with the donor state(s)", &
-                  "based on the overlap with a minimal STO basis: ", &
-                  "                                                     MO index      overlap"
+                  "based on the overlap with the components of a minimal STO basis: ", &
+                  "                                                MO index      overlap(sum)"
             END IF
 
 !           Canonical MO, no change in eigenvalues, only diagonal elements
@@ -654,7 +664,7 @@ CONTAINS
                donor_state%energy_evals(i,i) = mo_evals(my_mos(i))
                
                IF (output_unit > 0 ) THEN
-                  WRITE (UNIT=output_unit, FMT="(T58,I8,F13.5)") &
+                  WRITE (UNIT=output_unit, FMT="(T53,I8,F18.5)") &
                      my_mos(i), max_overlap(i)
                END IF
             END DO
@@ -663,8 +673,8 @@ CONTAINS
             IF (output_unit > 0) THEN 
                WRITE (UNIT=output_unit, FMT="(T5,A,/,T5,A,/,T5,A)") &
                   "The following localized MO(s) have been associated with the donor state(s)", &
-                  "based on the overlap with a minimal STO basis: ", &
-                  "                                                     MO index      overlap"
+                  "based on the overlap with the components of a minimal STO basis: ", &
+                  "                                                MO index      overlap(sum)"
             END IF
             
 !           MO have been rotated, need epsilon_ij = <psi_i|F|psi_j> = sum_{pq} c_{qi}c_{pj} F_{pq}
@@ -676,7 +686,7 @@ CONTAINS
 
             DO j = 1,n_states
                IF (output_unit > 0 ) THEN
-                  WRITE (UNIT=output_unit, FMT="(T58,I8,F13.5)") &
+                  WRITE (UNIT=output_unit, FMT="(T53,I8,F18.5)") &
                      my_mos(j), max_overlap(j)
                END IF 
 
@@ -716,11 +726,6 @@ CONTAINS
          CPABORT("A core donor state could not be assigned MO(s). Increasing NSEARCH might help.")
       END IF
 
-      PRINT*, "energy_evals: "
-      DO i = 1,n_states
-         PRINT*, donor_state%energy_evals(i,:)
-      END DO
-         
 !  Clean-up
       CALL cp_fm_struct_release(col_vect_struct)
       CALL cp_fm_release(col_coeff_j)
@@ -868,12 +873,12 @@ CONTAINS
 
       NULLIFY(cell, particle_set, mos_of_ex_atoms, ex_atom_indices)
 
-      IF (output_unit .LE. 0 ) RETURN
-
-      WRITE(UNIT=output_unit, FMT="(/,T3,A,/,T3,A,/,T3,A)") &
-         "              Associated    Associated        Distance to   MO spread (Ang^2)",&
-         "MO index      atom index     atom kind    MO center (Ang)   -w_i ln(|z_ij|^2)",&
-         "-----------------------------------------------------------------------------"
+      IF (output_unit > 0) THEN
+         WRITE(UNIT=output_unit, FMT="(/,T3,A,/,T3,A,/,T3,A)") &
+            "              Associated    Associated        Distance to   MO spread (Ang^2)",&
+            "MO index      atom index     atom kind    MO center (Ang)   -w_i ln(|z_ij|^2)",&
+            "-----------------------------------------------------------------------------"
+      END IF
 
 !  Initialization
       mos_of_ex_atoms => xas_tdp_env%mos_of_ex_atoms
@@ -904,15 +909,19 @@ CONTAINS
             mo_spread = xas_tdp_env%qs_loc_env%localized_wfn_control%centers_set(1)%array(4,imo)
             mo_spread = mo_spread*angstrom*angstrom
          
-            WRITE(UNIT=output_unit, FMT="(T3,I8,I16,A14,ES19.3,ES20.3)") &
-               imo, at_index, at_symbol, dist, mo_spread
+            IF (output_unit > 0 ) THEN
+               WRITE(UNIT=output_unit, FMT="(T3,I8,I16,A14,ES19.3,ES20.3)") &
+                  imo, at_index, at_symbol, dist, mo_spread
+            END IF
 
          END IF
          
       END DO
 
-      WRITE(UNIT=output_unit, FMT="(T3,A,/)") &
-         "-----------------------------------------------------------------------------"
+      IF (output_unit > 0 ) THEN
+         WRITE(UNIT=output_unit, FMT="(T3,A,/)") &
+            "-----------------------------------------------------------------------------"
+      END IF
 
 !  Go back to initial BCs
       cell%perd = perd_init
@@ -952,8 +961,6 @@ CONTAINS
 
       NULLIFY(mos, mo_indices, qs_kind_set, particle_set, mo_coeff, tmp_coeff, first_sgf, mul_pop)
       NULLIFY(matrix_s, para_env, blacs_env, col_vect_struct, col_coeff, work_vect)
-
-      IF (output_unit .LE. 0 ) RETURN
 
 !  Initialization
       at_index = donor_state%at_index
@@ -1001,14 +1008,16 @@ CONTAINS
       END DO
 
 !  Printing in main output file
-      WRITE (UNIT=output_unit, FMT="(T5,A,/,T5,A)") &
-         "Mulliken population analysis retricted to the associated MO(s) yields: ", &
-         "                                                     MO index      charge"
-      DO i = 1,SIZE(mo_indices,1) 
-         WRITE (UNIT=output_unit, FMT="(T58,I8,F12.3)") &
-            mo_indices(i), mul_pop(i)
-      END DO
-      
+      IF (output_unit > 0 ) THEN
+         WRITE (UNIT=output_unit, FMT="(T5,A,/,T5,A)") &
+            "Mulliken population analysis retricted to the associated MO(s) yields: ", &
+            "                                                     MO index      charge"
+         DO i = 1,SIZE(mo_indices,1) 
+             WRITE (UNIT=output_unit, FMT="(T58,I8,F12.3)") &
+               mo_indices(i), mul_pop(i)
+         END DO
+      END IF
+
 !  Clean-up
       DEALLOCATE(first_sgf, last_sgf, tmp_coeff, mul_pop, work_array)
       CALL cp_fm_struct_release(col_vect_struct)
@@ -1016,6 +1025,4 @@ CONTAINS
       CALL cp_fm_release(work_vect)
 
    END SUBROUTINE perform_mulliken_on_donor_state
-
-
 END MODULE xas_tdp_methods
