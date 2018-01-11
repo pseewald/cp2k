@@ -12,6 +12,7 @@ MODULE xas_tdp_types
    
    USE cp_fm_types,                     ONLY: cp_fm_type,&
                                               cp_fm_release
+   USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_release
    USE input_constants,                 ONLY: xas_1s_type,&
                                               xas_dip_vel,&
                                               xas_tdp_by_index,&
@@ -96,6 +97,7 @@ TYPE donor_state_type
       REAL(dp), DIMENSION(:,:), POINTER       :: energy_evals
       INTEGER, DIMENSION(:), POINTER          :: mo_indices
       TYPE(cp_fm_type), POINTER               :: lr_coeffs
+      TYPE(dbcsr_type), POINTER               :: matrix_tdp
    END TYPE donor_state_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE  :: moduleN = 'xas_tdp_types'
@@ -379,6 +381,11 @@ SUBROUTINE deallocate_donor_state_set(donor_state_set)
 
             IF (ASSOCIATED(donor_state_set(i)%mo_indices)) THEN
                DEALLOCATE(donor_state_set(i)%mo_indices)
+            END IF
+
+            IF (ASSOCIATED(donor_state_set(i)%matrix_tdp)) THEN
+               CALL dbcsr_release(donor_state_set(i)%matrix_tdp)
+               DEALLOCATE(donor_state_set(i)%matrix_tdp)
             END IF
             
          END DO
