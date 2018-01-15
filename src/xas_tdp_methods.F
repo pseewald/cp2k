@@ -33,14 +33,7 @@ MODULE xas_tdp_methods
                                               cp_logger_type
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_output_handling,              ONLY: cp_print_key_unit_nr, debug_print_level
-   USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_p_type, dbcsr_distribution_type, &
-                                              dbcsr_distribution_get, dbcsr_get_info, &
-                                              dbcsr_distribution_new, dbcsr_distribution_release, &
-                                              dbcsr_create, dbcsr_release, dbcsr_put_block,&
-                                              dbcsr_copy_into_existing, dbcsr_print, &
-                                              dbcsr_put_block, dbcsr_add_on_diag, dbcsr_get_data_p,&
-                                              dbcsr_desymmetrize, dbcsr_copy, dbcsr_set, &
-                                              dbcsr_finalize, dbcsr_get_block_p
+   USE dbcsr_api,                       ONLY: dbcsr_p_type, dbcsr_type, dbcsr_release
    USE input_constants,                 ONLY: xas_tdp_by_index,&
                                               xas_tdp_by_kind,&
                                               xas_not_excited,&
@@ -83,7 +76,7 @@ MODULE xas_tdp_methods
                                               set_xas_tdp_env,&
                                               donor_state_type,&
                                               set_donor_state
-   USE xas_tdp_utils,                   ONLY: build_xas_tdp_matrix
+   USE xas_tdp_utils,                   ONLY: setup_xas_tdp_geval_prob
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -120,8 +113,10 @@ CONTAINS
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
       CHARACTER(len=2), DIMENSION(3)                     :: state_type_char
+      TYPE(dbcsr_type), POINTER                          :: matrix_tdp, matrix_lhs
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state)
+      NULLIFY(matrix_tdp, matrix_lhs)
 
       CALL timeset(routineN, handle)
 
@@ -237,7 +232,13 @@ CONTAINS
                         PRINT*, "Should perform calculations"
 
 !                       Testing
-                        CALL build_xas_tdp_matrix(current_state, qs_env)
+                        ALLOCATE(matrix_tdp)
+                        ALLOCATE(matrix_lhs)
+                        CALL setup_xas_tdp_geval_prob(matrix_tdp, matrix_lhs, current_state, qs_env)
+                        CALL dbcsr_release(matrix_tdp)
+                        CALL dbcsr_release(matrix_lhs)
+                        DEALLOCATE(matrix_tdp)
+                        DEALLOCATE(matrix_lhs)
                      END IF
 
                      current_state_index = current_state_index + 1
@@ -282,7 +283,7 @@ CONTAINS
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: at_kind_set
       INTEGER                                            :: nex_atoms, n_kinds, i, nat_of_kind,&
                                                             j, nex_kinds, k, n_donor_states,&
-                                                            nspins, homo
+                                                            nspins, homo, natom, nmatch
       INTEGER, DIMENSION(2)                              :: n_mo, n_moloc
       INTEGER, DIMENSION(:), POINTER                     :: ex_atom_indices, ind_of_kind
       INTEGER, DIMENSION(:,:), POINTER                   :: state_types
@@ -316,6 +317,12 @@ CONTAINS
          xas_tdp_env%ex_atom_indices = xas_tdp_control%list_ex_atoms
          xas_tdp_env%state_types = xas_tdp_control%state_types
 
+!        Test that these indices are within the range of available atoms
+         CALL get_qs_env(qs_env=qs_env, natom=natom)
+         IF (ANY(xas_tdp_env%ex_atom_indices > natom)) THEN
+            CPABORT("Invalid index for the ATOM_LIST keyword.")
+         END IF
+
       ELSE IF (xas_tdp_control%define_excited == xas_tdp_by_kind) THEN
          
 !        need to find out which atom of which kind is excited
@@ -333,6 +340,7 @@ CONTAINS
          ALLOCATE(xas_tdp_env%state_types(SIZE(xas_tdp_control%state_types,1),nex_atoms))
          nex_kinds = SIZE(xas_tdp_control%list_ex_kinds)
          nex_atoms = 0
+         nmatch = 0
 
          DO i = 1,n_kinds
             CALL get_atomic_kind(atomic_kind=at_kind_set(i), element_symbol=symbol,&                 
@@ -345,11 +353,17 @@ CONTAINS
                                                                   xas_tdp_control%state_types(k,j)
                   END DO
                   nex_atoms = nex_atoms + nat_of_kind
+                  nmatch = nmatch + 1
                END IF
             END DO
          END DO
 
          CALL set_xas_tdp_env(xas_tdp_env, nex_atoms=nex_atoms)         
+
+!        Verifying that the input was valid
+         IF (nmatch .NE. SIZE(xas_tdp_control%list_ex_kinds) ) THEN
+            CPABORT("Invalid kind(s) for the KIND_LIST keyword.")
+         END IF
 
       END IF
 
