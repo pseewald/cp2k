@@ -27,60 +27,154 @@ MODULE xas_tdp_utils
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = "xas_tdp_utils"
 
-   PUBLIC :: build_xas_tdp_matrix
+   PUBLIC :: setup_xas_tdp_geval_prob
 
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief Builds the linear response tddft matrix to be diagonlized for excitation energies. The
-!>        donor MOs are restricted to those of the given donor_state    
-!> \param donor_state ...
-!> \param xas_tdp_env ...
-!> \note At this point in time (01.2018), the Kernel is not taken into account, i.e. the matrix has
-!>       the form | A  0 | and other subroutines take care of each submatrix
-!>                | 0  A |
+!> \brief Builds the matrices that define the XAS TDDFPT generalized eigenvalue problem to be solved
+!>        for excitation energies omega. The problem has the form omega*S*C = M*C, where C contains
+!>        the reponse orbitals coefficients.
+!> \param matrix_tdp pointer to the dbcsr matrix M (right hand side)
+!> \parma matrix_lhs pointer to the dbcsr matrix S (left hand side)
+!> \param donor_state donor_state type for which the problem is restricted
+!> \param qs_env ...
+!> \note At this point in time (01.2018), the Kernel is not taken into account, i.e. matrix M  has
+!>       the form | A  0 | and another subroutine builds A. Matrix S has the form | -G  0 |, where
+!>                | 0  A |                                                        |  0  G |
+!>       G is also built elsewhere. Both tdp and lhs matrices have the same block sizes and dbcsr
+!>       distribution, which are refered to as supmat_dist and supmat_blk_size (for supermatrix)
 ! **************************************************************************************************
-   SUBROUTINE build_xas_tdp_matrix(donor_state, qs_env)
+   SUBROUTINE setup_xas_tdp_geval_prob(matrix_tdp, matrix_lhs, donor_state, qs_env)
 
+      TYPE(dbcsr_type), POINTER                       :: matrix_tdp
+      TYPE(dbcsr_type), POINTER                       :: matrix_lhs
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(qs_environment_type), POINTER              :: qs_env
       
       CHARACTER(len=*), PARAMETER :: routineN = 'build_xas_tdp_matrix', &
                                      routineP = moduleN//":"//routineN
       
-      INTEGER                                         :: handle
-      TYPE(dbcsr_type), POINTER                       :: matrix_a
-      TYPE(dbcsr_distribution_type), POINTER          :: submat_dist
-      INTEGER, DIMENSION(:), POINTER                  :: submat_blk_size
+      INTEGER                                         :: handle, group , iblk, jblk, nblk_sub
+      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g
+      TYPE(dbcsr_distribution_type), POINTER          :: submat_dist, supmat_dist
+      INTEGER, DIMENSION(:), POINTER                  :: submat_blk_size, supmat_blk_size, &
+                                                         col_dist_sub, row_dist_sub, &
+                                                         col_dist_sup, row_dist_sup
+      INTEGER, DIMENSION(:,:), POINTER                :: pgrid
+      LOGICAL                                         :: found_block
+      REAL(dp), DIMENSION(:), POINTER                 :: work_block
 
       CALL timeset(routineN, handle)
 
-      NULLIFY(matrix_a, submat_dist, submat_blk_size)
+      NULLIFY(matrix_a, submat_dist, submat_blk_size, supmat_dist, supmat_blk_size, col_dist_sub)
+      NULLIFY(row_dist_sub, col_dist_sup, row_dist_sup, work_block, matrix_g)
 
       CPASSERT(ASSOCIATED(donor_state))
       CPASSERT(ASSOCIATED(qs_env))
 
 !  Get the submatrices distribution and block sizes
       CALL compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_state, qs_env) 
+      nblk_sub = SIZE(submat_blk_size)
 
-!  For now just testing with matrix A
+!  The supermatrices matrix_tdp and matrix_lhs are built with the submatrices as a 2x2 block matrices 
+!  Create the dbcsr dist by repeating the submatrices structure
+      ALLOCATE(supmat_dist)
+      
+      CALL dbcsr_distribution_get(submat_dist, row_dist=row_dist_sub, col_dist=col_dist_sub, &
+                                  group=group, pgrid=pgrid)
+
+      ALLOCATE(row_dist_sup(2*SIZE(row_dist_sub)))
+      ALLOCATE(col_dist_sup(2*SIZE(col_dist_sub)))
+
+      row_dist_sup(1:SIZE(row_dist_sub)) = row_dist_sub
+      col_dist_sup(1:SIZE(col_dist_sub)) = col_dist_sub
+      row_dist_sup(1+SIZE(row_dist_sub):2*SIZE(row_dist_sub)) = row_dist_sub
+      col_dist_sup(1+SIZE(col_dist_sub):2*SIZE(col_dist_sub)) = col_dist_sub
+
+      CALL dbcsr_distribution_new(supmat_dist, group=group, pgrid=pgrid, &
+                                  col_dist=col_dist_sup, row_dist=row_dist_sup)
+      
+      DEALLOCATE(row_dist_sup, col_dist_sup)
+
+!  Creating the symmetric supermatrices matrix_tdp and matrix_lhs with the 2x2 replication of the
+!  submatrices block sizes and distribution
+      ALLOCATE(supmat_blk_size(2*nblk_sub))
+      supmat_blk_size(1:nblk_sub) = submat_blk_size
+      supmat_blk_size(nblk_sub+1:2*nblk_sub) = submat_blk_size 
+      CALL dbcsr_create(matrix=matrix_tdp, name="XAS TDP MATRIX",matrix_type="S", dist=supmat_dist,&
+                        row_blk_size=supmat_blk_size, col_blk_size=supmat_blk_size)
+      CALL dbcsr_create(matrix=matrix_lhs, name="LHS MATRIX", matrix_type="S", dist=supmat_dist, &
+                        row_blk_size=supmat_blk_size, col_blk_size=supmat_blk_size)      
+      DEALLOCATE(supmat_blk_size)
+
+!  Filling the supermatrix matrix_tdp with submatrix A
+
+!     Computing the submatrix A and adding it to the supermatrix matrix_tdp diagonal
       ALLOCATE(matrix_a)
       CALL build_matrix_a(matrix_a, submat_dist, submat_blk_size, donor_state, qs_env)
+
+!     For each diagonal block of the super matrix, loop over super-diagonal blocks of submat A
+      DO iblk = 1,nblk_sub
+         DO jblk = iblk,nblk_sub
+           
+            CALL dbcsr_get_block_p(matrix_a, iblk, jblk, work_block, found_block)
+
+            IF (found_block) THEN
+               CALL dbcsr_put_block(matrix_tdp, iblk, jblk, work_block)
+               CALL dbcsr_put_block(matrix_tdp, nblk_sub+iblk, nblk_sub+jblk, work_block)
+            END IF
+            
+            NULLIFY(work_block)
+
+         END DO
+      END DO
+
       CALL dbcsr_release(matrix_a)
       DEALLOCATE(matrix_a)
 
+!  Filling the supermatrix matrix_lhs with the submatrix G
+
+!     Computing matrix G and add it to matrix_lhs diagonal (with repective sign)
+      ALLOCATE(matrix_g)
+      CALL build_matrix_g(matrix_g, submat_dist, submat_blk_size, donor_state, qs_env)
+
+!     Loop over super-diagonal blocks of submatrix G
+      DO iblk = 1,nblk_sub
+         DO jblk = iblk,nblk_sub
+
+            CALL dbcsr_get_block_p(matrix_g, iblk, jblk, work_block, found_block)
+
+            IF (found_block) THEN
+               CALL dbcsr_put_block(matrix_lhs, iblk, jblk, -work_block)
+               CALL dbcsr_put_block(matrix_lhs, nblk_sub+iblk, nblk_sub+jblk, work_block)
+            END IF
+
+            NULLIFY(work_block)
+
+         END DO
+      END DO 
+
+      CALL dbcsr_release(matrix_g)
+      DEALLOCATE(matrix_g)
+
+!  Finalize
+      CALL dbcsr_finalize(matrix_tdp)
+      CALL dbcsr_finalize(matrix_lhs)
+
 !  Clean-up
       CALL dbcsr_distribution_release(submat_dist)
-      DEALLOCATE(submat_dist, submat_blk_size)
+      CALL dbcsr_distribution_release(supmat_dist)
+      DEALLOCATE(submat_dist, submat_blk_size, supmat_dist)
 
       CALL timestop(handle)
 
-   END SUBROUTINE build_xas_tdp_matrix
+   END SUBROUTINE setup_xas_tdp_geval_prob
 
 ! **************************************************************************************************
 !> \breif This subroutine computes the row/column block structure as well as the dbcsr ditrinution
-!>        for the submatrices making up the supr xas tddft matrix. They all share the same
-!>        properties, which are base on the replication of the KS matrix
+!>        for the submatrices making up the generalized XAS TDP eigenvalue problem. They all share 
+!>        the properties, which are based on the replication of the KS matrix
 !> \param submat_dist the dbcsr distribution of the submatrices
 !> \param submat_blk_size the row/col block sizes for the submatrices 
 !> \param donor_state ...
@@ -109,7 +203,7 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 
 !  The submatrices are indexed by M_{pi,qj}, where p,q label basis functions and i,j donor MOs
 !  We consider them as being made of blocks of size nao x nao and i,j label those blocks 
-!  Each of this block has the distribution and the block sizes of the KS matrix, that we simply
+!  Each of these blocks has the distribution and the block sizes of the KS matrix, that we simply
 !  replicate ndo_mo*ndo_mo (# donor MOs) times
 
 !  Initialization
@@ -163,9 +257,8 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       
       CHARACTER(len=*), PARAMETER :: routineN = 'build_matrix_a', routineP = moduleN//":"//routineN
       
-      INTEGER                                         :: handle, ndo_mo, nao, i, nblk_row,&
-                                                         group, j, iblk, jblk
-      INTEGER, DIMENSION(:,:), POINTER                :: pgrid
+      INTEGER                                         :: handle, ndo_mo, i, nblk_row,&
+                                                         j, iblk, jblk
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_ks
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
       INTEGER, DIMENSION(:), POINTER                  :: row_blk_size 
@@ -176,19 +269,17 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 
       CALL timeset(routineN, handle)
 
-      NULLIFY(matrix_ks, dbcsr_dist, row_blk_size, work_block, pgrid, energy_evals)
+      NULLIFY(matrix_ks, dbcsr_dist, row_blk_size, work_block, energy_evals)
 
 !  Initialization
       ndo_mo = SIZE(donor_state%mo_indices,1)
       CALL get_qs_env(qs_env=qs_env, matrix_ks=matrix_ks, dbcsr_dist=dbcsr_dist)
       CALL dbcsr_get_info(matrix_ks(1)%matrix, row_blk_size=row_blk_size)
-      CALL dbcsr_distribution_get(dbcsr_dist, group=group, pgrid=pgrid)
-      nao = SUM(row_blk_size)
       nblk_row = SIZE(row_blk_size)
       energy_evals => donor_state%energy_evals
 
 !  Creating the matrix A with the right size and distribution (it is symmetric)
-      CALL dbcsr_create(matrix=matrix_a, name="matrix_a", matrix_type="S", dist=dist_a, &
+      CALL dbcsr_create(matrix=matrix_a, name="MATRIX A", matrix_type="S", dist=dist_a, &
                         row_blk_size=blk_size_a, col_blk_size=blk_size_a)
 
 !  Fill the matrix A, looping on blocks the size of matrix_ks, only iterate on upper triangle since
@@ -220,9 +311,6 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 
 !                 Blocks filled with zero are dicsred
                   IF (found_block) THEN
-                     PRINT*, "i,j: ", i,j                    
-                     PRINT*, "iblk,jblk", iblk,jblk 
-                     PRINT*, "block_size: ", SIZE(work_block)
                      
                      CALL dbcsr_put_block(matrix_a,(i-1)*nblk_row+iblk, (j-1)*nblk_row+jblk, &
                                           work_block)
@@ -243,14 +331,80 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
          END DO
       END DO
 
-!  Test print
+!  Finalize
       CALL dbcsr_finalize(matrix_a)
-      CALL dbcsr_print(matrix_a)
-      CALL dbcsr_print(matrix_ks(1)%matrix)
-
+      
       CALL timestop(handle)
 
    END SUBROUTINE build_matrix_a
+
+! **************************************************************************************************
+!> \brief Creates the so-called matrix G needed for the LHS of the generalized eigenvalue problem
+!>        omega*|-G  0| |C+ | = M |C+|, G_{pi,qj} = S_pq*delta_ij
+!>              | 0  G| |C- |     |C-|
+!> \param matrix_g dbcsr matrix containing G
+!> \param dist_g dbcsr distribution of G
+!> \param blk_size_g block sizes of G
+!> \param donor_state ...
+!> \param qs_env ...
+! **************************************************************************************************
+   SUBROUTINE build_matrix_g(matrix_g, dist_g, blk_size_g, donor_state, qs_env)
+
+      TYPE(dbcsr_type), POINTER                       :: matrix_g
+      TYPE(dbcsr_distribution_type), POINTER          :: dist_g
+      INTEGER, DIMENSION(:), POINTER                  :: blk_size_g
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'build_matrix_g', routineP = moduleN//":"//routineN
+      
+      INTEGER                                         :: handle, i, iblk, jblk, ndo_mo, nblk_row
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
+      INTEGER, DIMENSION(:), POINTER                  :: row_blk_size
+      REAL(dp), DIMENSION(:), POINTER                 :: work_block
+      LOGICAL                                         :: found_block
+
+      CALL timeset(routineN, handle)
+
+      NULLIFY(matrix_s, row_blk_size, work_block)
+
+!  Initilization
+      ndo_mo = SIZE(donor_state%mo_indices,1)
+      CALL get_qs_env(qs_env=qs_env, matrix_s=matrix_s)
+      CALL dbcsr_get_info(matrix_s(1)%matrix, row_blk_size=row_blk_size)
+      nblk_row = SIZE(row_blk_size)
+
+!  Creating the symmetric  matrix G with the right size and distribution 
+      CALL dbcsr_create(matrix=matrix_g, name="MATRIX G", matrix_type="S", dist=dist_g, &
+                        row_blk_size=blk_size_g, col_blk_size=blk_size_g)
+
+!  Fill the matrix G. First loop over the superblocks of size nao x nao (only on the diagonal), then
+!  their repective blocks which have the standard cp2k structure.
+      DO i = 1,ndo_mo
+!        loop over blocks of matrix_s
+         DO iblk = 1,nblk_row
+            DO jblk = 1,nblk_row
+
+               CALL dbcsr_get_block_p(matrix_s(1)%matrix, iblk, jblk, work_block, found_block)
+
+!              if non zero-block, copy its content in G
+               IF (found_block) THEN
+                  CALL dbcsr_put_block(matrix_g, (i-1)*nblk_row+iblk, (i-1)*nblk_row+jblk, &
+                                       work_block)
+               END IF
+
+               NULLIFY(work_block)
+
+            END DO
+         END DO
+      END DO
+
+!  Finalize
+      CALL dbcsr_finalize(matrix_g)
+      
+      CALL timestop(handle)
+
+   END SUBROUTINE build_matrix_g
 
 END MODULE xas_tdp_utils
 
