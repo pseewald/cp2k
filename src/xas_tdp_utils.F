@@ -10,15 +10,19 @@
 
 MODULE xas_tdp_utils
    
-   USE dbcsr_api,                       ONLY : dbcsr_type, dbcsr_p_type, dbcsr_distribution_type, &
-                                               dbcsr_get_info, dbcsr_distribution_get, &
-                                               dbcsr_distribution_new, dbcsr_create, dbcsr_copy, &
-                                               dbcsr_add_on_diag, dbcsr_get_block_p, dbcsr_print, &
-                                               dbcsr_put_block, dbcsr_release, dbcsr_finalize,&
-                                               dbcsr_distribution_release
-   USE kinds,                           ONLY : dp
-   USE qs_environment_types,            ONLY : qs_environment_type, get_qs_env
-   USE xas_tdp_types,                   ONLY : donor_state_type
+   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
+   USE cp_dbcsr_diag,                   ONLY: cp_dbcsr_syevd
+   USE cp_para_types,                   ONLY: cp_para_env_type
+   USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_p_type, dbcsr_distribution_type, &
+                                              dbcsr_get_info, dbcsr_distribution_get, &
+                                              dbcsr_distribution_new, dbcsr_create, &
+                                              dbcsr_get_block_p, dbcsr_print, &
+                                              dbcsr_put_block, dbcsr_release, dbcsr_finalize,&
+                                              dbcsr_distribution_release, &
+                                              dbcsr_copy, dbcsr_set
+   USE kinds,                           ONLY: dp
+   USE qs_environment_types,            ONLY: qs_environment_type, get_qs_env
+   USE xas_tdp_types,                   ONLY: donor_state_type
 
 #include "./base/base_uses.f90"
    
@@ -27,7 +31,7 @@ MODULE xas_tdp_utils
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = "xas_tdp_utils"
 
-   PUBLIC :: setup_xas_tdp_geval_prob
+   PUBLIC :: setup_xas_tdp_geeig_prob, solve_xas_tdp_geeig_prob
 
 CONTAINS
 
@@ -45,25 +49,27 @@ CONTAINS
 !>       G is also built elsewhere. Both tdp and lhs matrices have the same block sizes and dbcsr
 !>       distribution, which are refered to as supmat_dist and supmat_blk_size (for supermatrix)
 ! **************************************************************************************************
-   SUBROUTINE setup_xas_tdp_geval_prob(matrix_tdp, matrix_lhs, donor_state, qs_env)
+   SUBROUTINE setup_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, donor_state, qs_env)
 
       TYPE(dbcsr_type), POINTER                       :: matrix_tdp
       TYPE(dbcsr_type), POINTER                       :: matrix_lhs
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(qs_environment_type), POINTER              :: qs_env
       
-      CHARACTER(len=*), PARAMETER :: routineN = 'build_xas_tdp_matrix', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'setup_xas_tdp_geeig_prob', &
                                      routineP = moduleN//":"//routineN
       
       INTEGER                                         :: handle, group , iblk, jblk, nblk_sub
-      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g
+      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g, eigenvectors
       TYPE(dbcsr_distribution_type), POINTER          :: submat_dist, supmat_dist
       INTEGER, DIMENSION(:), POINTER                  :: submat_blk_size, supmat_blk_size, &
                                                          col_dist_sub, row_dist_sub, &
                                                          col_dist_sup, row_dist_sup
       INTEGER, DIMENSION(:,:), POINTER                :: pgrid
       LOGICAL                                         :: found_block
-      REAL(dp), DIMENSION(:), POINTER                 :: work_block
+      REAL(dp), DIMENSION(:), POINTER                 :: work_block, eigenvalues
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
 
       CALL timeset(routineN, handle)
 
@@ -130,6 +136,24 @@ CONTAINS
          END DO
       END DO
 
+!  Test, is matrix_a positive definite ?
+      NULLIFY(eigenvectors, eigenvalues, para_env, blacs_env)
+      ALLOCATE(eigenvalues(SUM(submat_blk_size)))
+      ALLOCATE(eigenvectors)
+      CALL dbcsr_copy(eigenvectors, matrix_a)
+      CALL dbcsr_set(eigenvectors, 0.0_dp)
+
+      CALL get_qs_env(qs_env=qs_env, para_env=para_env, blacs_env=blacs_env)
+
+      CALL cp_dbcsr_syevd(matrix_a, eigenvectors, eigenvalues, para_env, blacs_env)
+
+      PRINT*, "eigenvalues of A: "
+      PRINT*, eigenvalues
+      
+      CALL dbcsr_release(eigenvectors)
+      DEALLOCATE(eigenvectors)
+      DEALLOCATE(eigenvalues)
+
       CALL dbcsr_release(matrix_a)
       DEALLOCATE(matrix_a)
 
@@ -169,7 +193,42 @@ CONTAINS
 
       CALL timestop(handle)
 
-   END SUBROUTINE setup_xas_tdp_geval_prob
+   END SUBROUTINE setup_xas_tdp_geeig_prob
+
+! **************************************************************************************************
+!> \brief Solves the XAS TDP generalized eigenvalue problem omega*matrix_lhs*C = matrix_tdp*C
+!> \param matrix_tdp ...
+!> \param matrix_lhs ...
+!> \param donor_state ...
+!> \param qs_env ...
+!> \note The computed eigenvalues and eigenvectors are stored in the donor_state
+! **************************************************************************************************
+   SUBROUTINE solve_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, donor_state, qs_env)  
+
+      TYPE(dbcsr_type), POINTER                       :: matrix_tdp, matrix_lhs
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "solve_xas_tdp_geeig_prob", &
+                                     routineP = moduleN//":"//routineN
+
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      INTEGER                                         :: handle
+
+      CALL timeset(routineN, handle)
+
+      NULLIFY(para_env, blacs_env)
+
+!  Testing stuff
+      CPASSERT(ASSOCIATED(matrix_tdp))
+      CPASSERT(ASSOCIATED(matrix_lhs))
+      CPASSERT(ASSOCIATED(donor_state))
+      CALL get_qs_env(qs_env=qs_env, para_env=para_env, blacs_env=blacs_env) 
+      
+      CALL timestop(handle)
+
+   END SUBROUTINE solve_xas_tdp_geeig_prob
 
 ! **************************************************************************************************
 !> \breif This subroutine computes the row/column block structure as well as the dbcsr ditrinution
@@ -240,7 +299,7 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 
 ! **************************************************************************************************
 !> \brief Builds the so called matrix A, which is needed for the full xas_tdp matrix
-!>        A_{pi,qj} = F_pq*delta_ij - epsilon_ij*delta_pq
+!>        A_{pi,qj} = F_pq*delta_ij - epsilon_ij*S_pq
 !> \param matrix_a  pointer to a DBCSR matrix containing A
 !> \param dist_a the dbcsr distribution of matrix A
 !> \param blk_size_a the row/col block sizes of matrix A
@@ -259,21 +318,21 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       
       INTEGER                                         :: handle, ndo_mo, i, nblk_row,&
                                                          j, iblk, jblk
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_ks
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_ks, matrix_s
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
       INTEGER, DIMENSION(:), POINTER                  :: row_blk_size 
       REAL(dp), DIMENSION(:,:), POINTER               :: energy_evals     
-      TYPE(dbcsr_type)                                :: work_matrix        
-      REAL(dp), DIMENSION(:), POINTER                 :: work_block 
-      LOGICAL                                         :: found_block 
+      REAL(dp), DIMENSION(:), POINTER                 :: work_block, work_block_ks, work_block_s 
+      LOGICAL                                         :: found_block, found_block_ks 
 
       CALL timeset(routineN, handle)
 
-      NULLIFY(matrix_ks, dbcsr_dist, row_blk_size, work_block, energy_evals)
+      NULLIFY(matrix_ks, dbcsr_dist, row_blk_size, work_block, energy_evals, matrix_s)
+      NULLIFY(work_block_ks, work_block_s)
 
 !  Initialization
       ndo_mo = SIZE(donor_state%mo_indices,1)
-      CALL get_qs_env(qs_env=qs_env, matrix_ks=matrix_ks, dbcsr_dist=dbcsr_dist)
+      CALL get_qs_env(qs_env=qs_env, matrix_ks=matrix_ks, matrix_s=matrix_s, dbcsr_dist=dbcsr_dist)
       CALL dbcsr_get_info(matrix_ks(1)%matrix, row_blk_size=row_blk_size)
       nblk_row = SIZE(row_blk_size)
       energy_evals => donor_state%energy_evals
@@ -287,53 +346,63 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       DO i = 1,ndo_mo
          DO j = i,ndo_mo
 
-            IF (i==j) THEN
-               
-               CALL dbcsr_copy(work_matrix, matrix_ks(1)%matrix, name="work_matrix")
-
-            ELSE
-
-               CALL dbcsr_create(matrix=work_matrix, row_blk_size=row_blk_size, dist=dbcsr_dist,& 
-                                 col_blk_size=row_blk_size, name="work_matrix", matrix_type="S") 
-
-            END IF
-
-!           Substract on the diagonal only if non-zero eval in order to keep nzes to a minimum
-            IF (energy_evals(i,j) .NE. 0.0_dp) THEN
-               CALL dbcsr_add_on_diag(work_matrix,-energy_evals(i,j))
-            END IF
-            CALL dbcsr_finalize(work_matrix)
-
-!           Loop over the blocks of the symmetric submatrix and copy one by one into A
+!           Loop over the blocks of the symmetric submatrices KS and S  and copy one by one into A
             DO iblk = 1,nblk_row
                DO jblk = iblk,nblk_row
-                  CALL dbcsr_get_block_p(work_matrix, iblk, jblk, work_block, found_block)
 
-!                 Blocks filled with zero are dicsred
-                  IF (found_block) THEN
+                  found_block = .FALSE.
+                  found_block_ks = .FALSE.
+                  ALLOCATE(work_block(row_blk_size(iblk)*row_blk_size(jblk)))
+
+!                 Retrieve S_pq
+                  CALL dbcsr_get_block_p(matrix_s(1)%matrix, iblk, jblk, work_block_s, found_block)
+
+!                 Take -epsilon_ij*S_pq
+                  If (found_block) THEN
+                     work_block = -energy_evals(i,j)*work_block_s
+
+                     IF (energy_evals(i,j) == 0.0_dp) THEN
+!                       If the whole block is zero, then equivalent to no block at all
+                        found_block = .FALSE.
+                     END IF
+                  END IF
+
+!                 If on the block diagonal, take F_pq - epsilon_ii*S_pq
+                  IF (i==j) THEN
+                     CALL dbcsr_get_block_p(matrix_ks(1)%matrix, iblk, jblk, work_block_ks, &
+                                            found_block_ks)
+
+                     IF (found_block .AND. found_block_ks) THEN
+                        work_block = work_block + work_block_ks 
+                     ELSE IF ((.NOT. found_block) .AND. found_block_ks) THEN
+                        work_block = work_block_ks 
+                     END IF
+                  END IF
+
+!                 Put the block in A if either found in KS,S or both 
+                  IF (found_block .OR. found_block_ks) THEN
                      
                      CALL dbcsr_put_block(matrix_a,(i-1)*nblk_row+iblk, (j-1)*nblk_row+jblk, &
                                           work_block)
-!                    Need to fill the whole upper aprt of A, by making sure that non-diagonal
-!                    sub-blocks are coiped twice in the non-diagonal upper part of A
+!                    Need to fill the whole upper part of A, by making sure that non-diagonal
+!                    sub-blocks are coiped twice in the upper diagonal part of A
                      IF ((iblk .NE. jblk) .AND. (i .NE. j)) THEN
                         CALL dbcsr_put_block(matrix_a,(i-1)*nblk_row+jblk, (j-1)*nblk_row+iblk, &
                                              work_block)
                      END IF   
                   END IF
 
-                  NULLIFY(work_block)
-               END DO
-            END DO
+                  DEALLOCATE(work_block)
+                  NULLIFY(work_block_ks, work_block_s)
+               END DO ! jblk
+            END DO ! iblk
 
-            CALL dbcsr_release(work_matrix)
-
-         END DO
-      END DO
+         END DO ! j
+      END DO ! i
 
 !  Finalize
-      CALL dbcsr_finalize(matrix_a)
-      
+      CALL dbcsr_finalize(matrix_a)   
+   
       CALL timestop(handle)
 
    END SUBROUTINE build_matrix_a

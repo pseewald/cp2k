@@ -76,7 +76,8 @@ MODULE xas_tdp_methods
                                               set_xas_tdp_env,&
                                               donor_state_type,&
                                               set_donor_state
-   USE xas_tdp_utils,                   ONLY: setup_xas_tdp_geval_prob
+   USE xas_tdp_utils,                   ONLY: setup_xas_tdp_geeig_prob, &
+                                              solve_xas_tdp_geeig_prob
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -234,7 +235,8 @@ CONTAINS
 !                       Testing
                         ALLOCATE(matrix_tdp)
                         ALLOCATE(matrix_lhs)
-                        CALL setup_xas_tdp_geval_prob(matrix_tdp, matrix_lhs, current_state, qs_env)
+                        CALL setup_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, current_state, qs_env)
+                        CALL solve_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, current_state, qs_env)
                         CALL dbcsr_release(matrix_tdp)
                         CALL dbcsr_release(matrix_lhs)
                         DEALLOCATE(matrix_tdp)
