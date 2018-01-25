@@ -1,4 +1,4 @@
-!--------------------------------------------------------------------------------------------------!
+!------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
 !   Copyright (C) 2000 - 2017  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
@@ -77,7 +77,8 @@ MODULE xas_tdp_methods
                                               donor_state_type,&
                                               set_donor_state
    USE xas_tdp_utils,                   ONLY: setup_xas_tdp_geeig_prob, &
-                                              solve_xas_tdp_geeig_prob
+                                              solve_xas_tdp_geeig_prob, &
+                                              compute_oscillator_strength
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -235,8 +236,15 @@ CONTAINS
 !                       Testing
                         ALLOCATE(matrix_tdp)
                         ALLOCATE(matrix_lhs)
-                        CALL setup_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, current_state, qs_env)
-                        CALL solve_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, current_state, qs_env)
+                        CALL setup_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, current_state, &
+                                                      qs_env, xas_tdp_control)
+                        CALL solve_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, current_state, &
+                                                      qs_env, xas_tdp_control)
+                        CALL compute_oscillator_strength(current_state, qs_env, xas_tdp_control)
+
+                        PRINT*, "evals: "
+                        PRINT*, current_state%lr_evals
+
                         CALL dbcsr_release(matrix_tdp)
                         CALL dbcsr_release(matrix_lhs)
                         DEALLOCATE(matrix_tdp)
@@ -287,13 +295,12 @@ CONTAINS
                                                             j, nex_kinds, k, n_donor_states,&
                                                             nspins, homo, natom, nmatch
       INTEGER, DIMENSION(2)                              :: n_mo, n_moloc
-      INTEGER, DIMENSION(:), POINTER                     :: ex_atom_indices, ind_of_kind
-      INTEGER, DIMENSION(:,:), POINTER                   :: state_types
+      INTEGER, DIMENSION(:), POINTER                     :: ind_of_kind
       CHARACTER(len=2)                                   :: symbol
       TYPE(qs_loc_env_new_type), POINTER                 :: qs_loc_env
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
 
-      NULLIFY(dft_section, xas_tdp_section, at_kind_set, ex_atom_indices, state_types, ind_of_kind)
+      NULLIFY(dft_section, xas_tdp_section, at_kind_set, ind_of_kind)
       NULLIFY(qs_loc_env, loc_section, mos)
 
 !  XAS TDP control type initialization
@@ -487,7 +494,7 @@ CONTAINS
    
 !> *************************************************************************************************
 !> \brief Assign core MO(s) to a given donor_state, taking the type (1S, 2S, etc) into account.
-!>        The projection on a representative Slater-type orbital is used as a indicator.
+!>        The projection on a representative Slater-type orbital basis is used as a indicator.
 !>        It is assumed that MOs are already assigned to excited atoms based on their center.
 !> \param donor_state the donor_state to which a MO must be assigned
 !> \param xas_tdp_env ...
@@ -515,7 +522,7 @@ CONTAINS
       INTEGER                                         :: zval, i, l, nj, nsgf_sto, nsgf_kind, j,&
                                                          n_search, imo, iat, nao, at_index, my_mo,&
                                                          isgf, n_states, k, next_best_overlap_ind
-      INTEGER, DIMENSION(:), POINTER                  :: my_mos
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: my_mos
       REAL(dp)                                        :: zeff, next_best_overlap, component
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
@@ -523,7 +530,8 @@ CONTAINS
       INTEGER, DIMENSION(:,:), POINTER                :: mos_of_ex_atoms
       REAL(dp), DIMENSION(:,:), POINTER               :: tmp_coeff, overlap_matrix, work_array
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
-      REAL(dp), DIMENSION(:), POINTER                 :: mo_evals, max_overlap, overlap
+      REAL(dp), DIMENSION(:), POINTER                 :: mo_evals
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: max_overlap, overlap
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_ks
       TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct                               
       TYPE(cp_para_env_type), POINTER                 :: para_env                                    
@@ -532,7 +540,7 @@ CONTAINS
       NULLIFY(sto_basis_set, sto_to_gto_basis_set, qs_kind_set, kind_basis_set, lq, nq, zeta)
       NULLIFY(overlap_matrix, mos, mo_coeff, mos_of_ex_atoms, tmp_coeff, first_sgf, particle_set)
       NULLIFY(mo_evals, matrix_ks, col_vect_struct, para_env, blacs_env, col_coeff_j, work_vector)
-      NULLIFY(work_array, max_overlap)
+      NULLIFY(work_array)
       
       CALL get_qs_env(qs_env=qs_env, qs_kind_set=qs_kind_set, mos=mos, particle_set=particle_set,&
                       matrix_ks=matrix_ks, para_env=para_env, blacs_env=blacs_env)
@@ -656,7 +664,7 @@ CONTAINS
       next_best_overlap_ind = MAXLOC(overlap,1)
 
 !     Some clean-up
-      DEALLOCATE(first_sgf,overlap_matrix, overlap) 
+      DEALLOCATE(first_sgf, overlap_matrix) 
 
 !  Dealing with the result
       IF (ALL(my_mos > 0) .AND. ALL(my_mos <= n_search)) THEN
@@ -746,7 +754,7 @@ CONTAINS
       CALL cp_fm_struct_release(col_vect_struct)
       CALL cp_fm_release(col_coeff_j)
       CALL cp_fm_release(work_vector)
-      DEALLOCATE( tmp_coeff, my_mos, max_overlap)
+      DEALLOCATE( tmp_coeff)
 
    END SUBROUTINE assign_mo_to_donor_state
 
@@ -969,14 +977,14 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
       TYPE(cp_fm_type), POINTER                       :: mo_coeff, col_coeff, work_vect
       REAL(dp), DIMENSION(:,:), POINTER               :: tmp_coeff, work_array
-      REAL(dp), DIMENSION(:), POINTER                 :: mul_pop
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: mul_pop
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct
 
-      NULLIFY(mos, mo_indices, qs_kind_set, particle_set, mo_coeff, tmp_coeff, first_sgf, mul_pop)
-      NULLIFY(matrix_s, para_env, blacs_env, col_vect_struct, col_coeff, work_vect)
+      NULLIFY(mos, mo_indices, qs_kind_set, particle_set, mo_coeff, tmp_coeff, first_sgf,work_array)
+      NULLIFY(matrix_s, para_env, blacs_env, col_vect_struct, col_coeff, work_vect, last_sgf)
 
 !  Initialization
       at_index = donor_state%at_index
@@ -1035,7 +1043,7 @@ CONTAINS
       END IF
 
 !  Clean-up
-      DEALLOCATE(first_sgf, last_sgf, tmp_coeff, mul_pop, work_array)
+      DEALLOCATE(first_sgf, last_sgf, tmp_coeff, work_array)
       CALL cp_fm_struct_release(col_vect_struct)
       CALL cp_fm_release(col_coeff)
       CALL cp_fm_release(work_vect)

@@ -10,8 +10,17 @@
 
 MODULE xas_tdp_utils
    
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
+   USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose, &
+                                              cp_dbcsr_cholesky_invert, &
+                                              cp_dbcsr_cholesky_restore
    USE cp_dbcsr_diag,                   ONLY: cp_dbcsr_syevd
+   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm, cp_dbcsr_sm_fm_multiply
+   USE cp_fm_diag,                      ONLY: cp_fm_geeig
+   USE cp_fm_struct,                    ONLY: cp_fm_struct_create, cp_fm_struct_release, &     
+                                              cp_fm_struct_type
+   USE cp_fm_types,                     ONLY: cp_fm_create, cp_fm_release, cp_fm_type, &
+                                              cp_fm_to_fm_submat, cp_fm_get_submatrix
+   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_p_type, dbcsr_distribution_type, &
                                               dbcsr_get_info, dbcsr_distribution_get, &
@@ -19,10 +28,15 @@ MODULE xas_tdp_utils
                                               dbcsr_get_block_p, dbcsr_print, &
                                               dbcsr_put_block, dbcsr_release, dbcsr_finalize,&
                                               dbcsr_distribution_release, &
-                                              dbcsr_copy, dbcsr_set
+                                              dbcsr_copy, dbcsr_set, dbcsr_deallocate_matrix_set, &
+                                              dbcsr_allocate_matrix_set
+   USE input_constants,                 ONLY: xas_dip_len, xas_dip_vel
    USE kinds,                           ONLY: dp
+   USE particle_types,                  ONLY: particle_type
    USE qs_environment_types,            ONLY: qs_environment_type, get_qs_env
-   USE xas_tdp_types,                   ONLY: donor_state_type
+   USE qs_mo_types,                     ONLY: get_mo_set, mo_set_p_type
+   USE qs_operators_ao,                 ONLY: p_xyz_ao, rRc_xyz_ao
+   USE xas_tdp_types,                   ONLY: donor_state_type, xas_tdp_control_type
 
 #include "./base/base_uses.f90"
    
@@ -31,7 +45,7 @@ MODULE xas_tdp_utils
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = "xas_tdp_utils"
 
-   PUBLIC :: setup_xas_tdp_geeig_prob, solve_xas_tdp_geeig_prob
+   PUBLIC :: setup_xas_tdp_geeig_prob, solve_xas_tdp_geeig_prob, compute_oscillator_strength
 
 CONTAINS
 
@@ -43,153 +57,147 @@ CONTAINS
 !> \parma matrix_lhs pointer to the dbcsr matrix S (left hand side)
 !> \param donor_state donor_state type for which the problem is restricted
 !> \param qs_env ...
+!> \param xas_tdp_control ...
 !> \note At this point in time (01.2018), the Kernel is not taken into account, i.e. matrix M  has
 !>       the form | A  0 | and another subroutine builds A. Matrix S has the form | -G  0 |, where
 !>                | 0  A |                                                        |  0  G |
 !>       G is also built elsewhere. Both tdp and lhs matrices have the same block sizes and dbcsr
 !>       distribution, which are refered to as supmat_dist and supmat_blk_size (for supermatrix)
+!>       If the Tamm-Dancoff approximation is assumed, then C^+ = 0, M = A and S = G
 ! **************************************************************************************************
-   SUBROUTINE setup_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, donor_state, qs_env)
+   SUBROUTINE setup_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, donor_state, qs_env, xas_tdp_control)
 
       TYPE(dbcsr_type), POINTER                       :: matrix_tdp
       TYPE(dbcsr_type), POINTER                       :: matrix_lhs
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(qs_environment_type), POINTER              :: qs_env
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
       
       CHARACTER(len=*), PARAMETER :: routineN = 'setup_xas_tdp_geeig_prob', &
                                      routineP = moduleN//":"//routineN
       
       INTEGER                                         :: handle, group , iblk, jblk, nblk_sub
-      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g, eigenvectors
+      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g
       TYPE(dbcsr_distribution_type), POINTER          :: submat_dist, supmat_dist
       INTEGER, DIMENSION(:), POINTER                  :: submat_blk_size, supmat_blk_size, &
                                                          col_dist_sub, row_dist_sub, &
                                                          col_dist_sup, row_dist_sup
       INTEGER, DIMENSION(:,:), POINTER                :: pgrid
       LOGICAL                                         :: found_block
-      REAL(dp), DIMENSION(:), POINTER                 :: work_block, eigenvalues
-      TYPE(cp_para_env_type), POINTER                 :: para_env
-      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      REAL(dp), DIMENSION(:), POINTER                 :: work_block
 
       CALL timeset(routineN, handle)
 
       NULLIFY(matrix_a, submat_dist, submat_blk_size, supmat_dist, supmat_blk_size, col_dist_sub)
-      NULLIFY(row_dist_sub, col_dist_sup, row_dist_sup, work_block, matrix_g)
+      NULLIFY(row_dist_sub, col_dist_sup, row_dist_sup, work_block, matrix_g, pgrid)
 
       CPASSERT(ASSOCIATED(donor_state))
       CPASSERT(ASSOCIATED(qs_env))
+      CPASSERT(ASSOCIATED(xas_tdp_control))
 
 !  Get the submatrices distribution and block sizes
       CALL compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_state, qs_env) 
       nblk_sub = SIZE(submat_blk_size)
 
-!  The supermatrices matrix_tdp and matrix_lhs are built with the submatrices as a 2x2 block matrices 
-!  Create the dbcsr dist by repeating the submatrices structure
-      ALLOCATE(supmat_dist)
-      
-      CALL dbcsr_distribution_get(submat_dist, row_dist=row_dist_sub, col_dist=col_dist_sub, &
-                                  group=group, pgrid=pgrid)
-
-      ALLOCATE(row_dist_sup(2*SIZE(row_dist_sub)))
-      ALLOCATE(col_dist_sup(2*SIZE(col_dist_sub)))
-
-      row_dist_sup(1:SIZE(row_dist_sub)) = row_dist_sub
-      col_dist_sup(1:SIZE(col_dist_sub)) = col_dist_sub
-      row_dist_sup(1+SIZE(row_dist_sub):2*SIZE(row_dist_sub)) = row_dist_sub
-      col_dist_sup(1+SIZE(col_dist_sub):2*SIZE(col_dist_sub)) = col_dist_sub
-
-      CALL dbcsr_distribution_new(supmat_dist, group=group, pgrid=pgrid, &
-                                  col_dist=col_dist_sup, row_dist=row_dist_sup)
-      
-      DEALLOCATE(row_dist_sup, col_dist_sup)
-
-!  Creating the symmetric supermatrices matrix_tdp and matrix_lhs with the 2x2 replication of the
-!  submatrices block sizes and distribution
-      ALLOCATE(supmat_blk_size(2*nblk_sub))
-      supmat_blk_size(1:nblk_sub) = submat_blk_size
-      supmat_blk_size(nblk_sub+1:2*nblk_sub) = submat_blk_size 
-      CALL dbcsr_create(matrix=matrix_tdp, name="XAS TDP MATRIX",matrix_type="S", dist=supmat_dist,&
-                        row_blk_size=supmat_blk_size, col_blk_size=supmat_blk_size)
-      CALL dbcsr_create(matrix=matrix_lhs, name="LHS MATRIX", matrix_type="S", dist=supmat_dist, &
-                        row_blk_size=supmat_blk_size, col_blk_size=supmat_blk_size)      
-      DEALLOCATE(supmat_blk_size)
-
-!  Filling the supermatrix matrix_tdp with submatrix A
-
-!     Computing the submatrix A and adding it to the supermatrix matrix_tdp diagonal
+!  Compute the submatrices A and G
       ALLOCATE(matrix_a)
-      CALL build_matrix_a(matrix_a, submat_dist, submat_blk_size, donor_state, qs_env)
-
-!     For each diagonal block of the super matrix, loop over super-diagonal blocks of submat A
-      DO iblk = 1,nblk_sub
-         DO jblk = iblk,nblk_sub
-           
-            CALL dbcsr_get_block_p(matrix_a, iblk, jblk, work_block, found_block)
-
-            IF (found_block) THEN
-               CALL dbcsr_put_block(matrix_tdp, iblk, jblk, work_block)
-               CALL dbcsr_put_block(matrix_tdp, nblk_sub+iblk, nblk_sub+jblk, work_block)
-            END IF
-            
-            NULLIFY(work_block)
-
-         END DO
-      END DO
-
-!  Test, is matrix_a positive definite ?
-      NULLIFY(eigenvectors, eigenvalues, para_env, blacs_env)
-      ALLOCATE(eigenvalues(SUM(submat_blk_size)))
-      ALLOCATE(eigenvectors)
-      CALL dbcsr_copy(eigenvectors, matrix_a)
-      CALL dbcsr_set(eigenvectors, 0.0_dp)
-
-      CALL get_qs_env(qs_env=qs_env, para_env=para_env, blacs_env=blacs_env)
-
-      CALL cp_dbcsr_syevd(matrix_a, eigenvectors, eigenvalues, para_env, blacs_env)
-
-      PRINT*, "eigenvalues of A: "
-      PRINT*, eigenvalues
-      
-      CALL dbcsr_release(eigenvectors)
-      DEALLOCATE(eigenvectors)
-      DEALLOCATE(eigenvalues)
-
-      CALL dbcsr_release(matrix_a)
-      DEALLOCATE(matrix_a)
-
-!  Filling the supermatrix matrix_lhs with the submatrix G
-
-!     Computing matrix G and add it to matrix_lhs diagonal (with repective sign)
       ALLOCATE(matrix_g)
-      CALL build_matrix_g(matrix_g, submat_dist, submat_blk_size, donor_state, qs_env)
+      CALL build_matrix_a(matrix_a, submat_dist, submat_blk_size, donor_state, qs_env)
+      CALL build_matrix_g(matrix_g, submat_dist, submat_blk_size, donor_state, qs_env)       
 
-!     Loop over super-diagonal blocks of submatrix G
-      DO iblk = 1,nblk_sub
-         DO jblk = iblk,nblk_sub
+!  Test on Tamm Dancoff approximation 
 
-            CALL dbcsr_get_block_p(matrix_g, iblk, jblk, work_block, found_block)
+      IF (xas_tdp_control%tamm_dancoff) THEN
+!        If TDA is assumed, then the matrix_tdp and the matrix_lhs are basically A and G
+         CALL dbcsr_copy(matrix_tdp, matrix_a, name="MATRIX TDP")
+         CALL dbcsr_copy(matrix_lhs, matrix_g, name="MATRIX LHS")
 
-            IF (found_block) THEN
-               CALL dbcsr_put_block(matrix_lhs, iblk, jblk, -work_block)
-               CALL dbcsr_put_block(matrix_lhs, nblk_sub+iblk, nblk_sub+jblk, work_block)
-            END IF
+      ELSE IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
 
-            NULLIFY(work_block)
+!     The supermatrices matrix_tdp and matrix_lhs are built with the submatrices as a 2x2 block matrices 
+!     Create the dbcsr dist by repeating the submatrices structure
+         ALLOCATE(supmat_dist)
+      
+         CALL dbcsr_distribution_get(submat_dist, row_dist=row_dist_sub, col_dist=col_dist_sub, &
+                                     group=group, pgrid=pgrid)
 
+         ALLOCATE(row_dist_sup(2*SIZE(row_dist_sub)))
+         ALLOCATE(col_dist_sup(2*SIZE(col_dist_sub)))
+
+         row_dist_sup(1:SIZE(row_dist_sub)) = row_dist_sub
+         col_dist_sup(1:SIZE(col_dist_sub)) = col_dist_sub
+         row_dist_sup(1+SIZE(row_dist_sub):2*SIZE(row_dist_sub)) = row_dist_sub
+         col_dist_sup(1+SIZE(col_dist_sub):2*SIZE(col_dist_sub)) = col_dist_sub
+
+         CALL dbcsr_distribution_new(supmat_dist, group=group, pgrid=pgrid, &
+                                     col_dist=col_dist_sup, row_dist=row_dist_sup)
+      
+         DEALLOCATE(row_dist_sup, col_dist_sup)
+
+!        Creating the symmetric supermatrices matrix_tdp and matrix_lhs with the 2x2 replication of the
+!        submatrices block sizes and distribution
+         ALLOCATE(supmat_blk_size(2*nblk_sub))
+         supmat_blk_size(1:nblk_sub) = submat_blk_size
+         supmat_blk_size(nblk_sub+1:2*nblk_sub) = submat_blk_size 
+         CALL dbcsr_create(matrix=matrix_tdp, name="XAS TDP MATRIX",matrix_type="S", dist=supmat_dist,&
+                           row_blk_size=supmat_blk_size, col_blk_size=supmat_blk_size)
+         CALL dbcsr_create(matrix=matrix_lhs, name="LHS MATRIX", matrix_type="S", dist=supmat_dist, &
+                           row_blk_size=supmat_blk_size, col_blk_size=supmat_blk_size)      
+         DEALLOCATE(supmat_blk_size)
+
+!     Filling the supermatrix matrix_tdp with submatrix A
+
+!        For each diagonal block of the super matrix, loop over super-diagonal blocks of submat A
+         DO iblk = 1,nblk_sub
+            DO jblk = iblk,nblk_sub
+           
+               CALL dbcsr_get_block_p(matrix_a, iblk, jblk, work_block, found_block)
+
+               IF (found_block) THEN
+                  CALL dbcsr_put_block(matrix_tdp, iblk, jblk, work_block)
+                  CALL dbcsr_put_block(matrix_tdp, nblk_sub+iblk, nblk_sub+jblk, work_block)
+               END IF
+            
+               NULLIFY(work_block)
+
+            END DO
          END DO
-      END DO 
 
-      CALL dbcsr_release(matrix_g)
-      DEALLOCATE(matrix_g)
+
+!     Filling the supermatrix matrix_lhs with the submatrix G
+
+!        Loop over super-diagonal blocks of submatrix G
+         DO iblk = 1,nblk_sub
+            DO jblk = iblk,nblk_sub
+
+               CALL dbcsr_get_block_p(matrix_g, iblk, jblk, work_block, found_block)
+
+               IF (found_block) THEN
+                  CALL dbcsr_put_block(matrix_lhs, iblk, jblk, -work_block)
+                  CALL dbcsr_put_block(matrix_lhs, nblk_sub+iblk, nblk_sub+jblk, work_block)
+               END IF
+
+               NULLIFY(work_block)
+
+            END DO
+         END DO 
+
+!        Some clean-up
+         CALL dbcsr_distribution_release(supmat_dist)
+         DEALLOCATE(supmat_dist)
+
+      END IF ! Tamm_Dancoff
+
 
 !  Finalize
       CALL dbcsr_finalize(matrix_tdp)
       CALL dbcsr_finalize(matrix_lhs)
 
-!  Clean-up
+!  General Clean-up
       CALL dbcsr_distribution_release(submat_dist)
-      CALL dbcsr_distribution_release(supmat_dist)
-      DEALLOCATE(submat_dist, submat_blk_size, supmat_dist)
+      CALL dbcsr_release(matrix_a)
+      CALL dbcsr_release(matrix_g)
+      DEALLOCATE(submat_dist, submat_blk_size,  matrix_a, matrix_g)
 
       CALL timestop(handle)
 
@@ -201,13 +209,15 @@ CONTAINS
 !> \param matrix_lhs ...
 !> \param donor_state ...
 !> \param qs_env ...
+!> \param xas_tdp_control ...
 !> \note The computed eigenvalues and eigenvectors are stored in the donor_state
 ! **************************************************************************************************
-   SUBROUTINE solve_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, donor_state, qs_env)  
+   SUBROUTINE solve_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, donor_state, qs_env, xas_tdp_control)  
 
       TYPE(dbcsr_type), POINTER                       :: matrix_tdp, matrix_lhs
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(qs_environment_type), POINTER              :: qs_env
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
 
       CHARACTER(len=*), PARAMETER :: routineN = "solve_xas_tdp_geeig_prob", &
                                      routineP = moduleN//":"//routineN
@@ -215,20 +225,189 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       INTEGER                                         :: handle
+      TYPE(cp_fm_struct_type), POINTER                :: fm_struct
+      TYPE(cp_fm_type), POINTER                       :: amatrix, bmatrix, work
+      INTEGER                                         :: nrow
 
       CALL timeset(routineN, handle)
 
       NULLIFY(para_env, blacs_env)
+      NULLIFY(fm_struct, amatrix, bmatrix, work)
 
-!  Testing stuff
-      CPASSERT(ASSOCIATED(matrix_tdp))
-      CPASSERT(ASSOCIATED(matrix_lhs))
-      CPASSERT(ASSOCIATED(donor_state))
       CALL get_qs_env(qs_env=qs_env, para_env=para_env, blacs_env=blacs_env) 
-      
+
+!  Full TDA diagonalization
+
+      IF (xas_tdp_control%tamm_dancoff) THEN
+!        In this case matrix_tdp is symmetric and so is matrix_lhs. The latter is also positive 
+!        definite, which allows us to use Cholesky decomposition to solve the geeig 
+!        We convert to full matrices to make use of the existing machinery
+
+!        Initialization
+         CALL dbcsr_get_info(matrix_tdp, nfullrows_total=nrow)
+         CALL cp_fm_struct_create(fm_struct,context=blacs_env, nrow_global=nrow, para_env=para_env,&
+                                  ncol_global=nrow)
+                               
+         CALL cp_fm_create(amatrix, fm_struct)
+         CALL cp_fm_create(bmatrix, fm_struct)
+         CALL cp_fm_create(work, fm_struct)
+
+!        Copy geeig in full matrix format
+         CALL copy_dbcsr_to_fm(matrix_tdp, amatrix)
+         CALL copy_dbcsr_to_fm(matrix_lhs, bmatrix)
+
+!        Allcoating space for solutions
+         ALLOCATE(donor_state%lr_evals(nrow))
+         CALL cp_fm_create(donor_state%lr_coeffs, fm_struct)  
+
+!        Solve the geeig
+         CALL cp_fm_geeig(amatrix, bmatrix, donor_state%lr_coeffs, donor_state%lr_evals, work)
+
+!        Clean-up
+         CALL cp_fm_release(amatrix)
+         CALL cp_fm_release(bmatrix)
+         CALL cp_fm_release(work)
+         CALL cp_fm_struct_release(fm_struct)
+
+      ELSE IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
+
+      END IF
+
       CALL timestop(handle)
 
    END SUBROUTINE solve_xas_tdp_geeig_prob
+
+! **************************************************************************************************
+!> \brief Computes the oscillator strength based on the dipole moment (velocity or position rep 
+!>        for all available excitation energies of a donor_state. Stores the result in donor_state
+!> \param donor_state the donor state which is excited
+!> \param qs_env ...
+!> \param xas_tdp_control ...
+!> \note The oscillator strength is a scalar: osc_str = 2/3*omega*(dipole_r)^2 
+!>                                                    = -2/(3*omega)*(dipole_v)^2
+! **************************************************************************************************
+   SUBROUTINE compute_oscillator_strength(donor_state, qs_env, xas_tdp_control)
+
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(qs_environment_type), POINTER              :: qs_env
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
+      
+      CHARACTER(len=*), PARAMETER :: routineN = "compute_oscillator_strength", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: handle, nosc, nao, i, ndo_mo,j, k, jdo_mo,l
+      TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
+      TYPE(cp_fm_type), POINTER                       :: mo_coeff
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: dipmat
+      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
+      REAL(dp), DIMENSION(3)                          :: rc, xyz_moments
+      REAL(dp), DIMENSION(:), POINTER                 :: osc_str
+      REAL(dp), DIMENSION(:,:), POINTER               :: gs_coeff, work_array
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
+      TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct
+      TYPE(cp_fm_type), POINTER                       :: c_minus, work_vect
+      REAL(dp)                                        :: contrib
+
+      CALL timeset(routineN, handle)
+
+      NULLIFY(mos, mo_coeff, para_env, blacs_env, dipmat, particle_set, osc_str, matrix_s)
+      NULLIFY(col_vect_struct, c_minus, work_vect, gs_coeff, work_array)
+
+!  Test for TDA because of different data structure (should be unified in the future)
+      IF (xas_tdp_control%tamm_dancoff) THEN
+!        General initialization
+         ndo_mo = SIZE(donor_state%mo_indices)
+         nosc = SIZE(donor_state%lr_evals) 
+         ALLOCATE(donor_state%osc_str(nosc))
+         osc_str => donor_state%osc_str
+         CALL get_qs_env(qs_env, mos=mos, para_env=para_env, blacs_env=blacs_env, &
+                         particle_set=particle_set, matrix_s=matrix_s)
+         CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao)
+
+         CALL dbcsr_allocate_matrix_set(dipmat,3)
+         DO i = 1,3
+            ALLOCATE(dipmat(i)%matrix)
+            CALL dbcsr_copy(dipmat(i)%matrix, matrix_s(1)%matrix, name="XAS TDP dipole matrix")
+            CALL dbcsr_set(dipmat(i)%matrix, 0.0_dp)
+         END DO
+
+         IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
+!           Take the origin of r on the excited atom
+            rc = particle_set(donor_state%at_index)%r
+            CALL rRc_xyz_ao(dipmat, qs_env, rc, order=1)
+!           Add the dipole form specific prefactor 2/3*omega
+            osc_str = 2.0_dp/3.0_dp*donor_state%lr_evals
+
+         ELSE IF (xas_tdp_control%dipole_form == xas_dip_vel) THEN
+!           Simply compute the moment in the basis set
+            CALL p_xyz_ao(dipmat, qs_env)
+!           Add the dipole form specific prefactor 2/(3*omega), no minus sign as p_xyz is real here
+            osc_str = 2.0_dp/3.0_dp*1.0_dp/donor_state%lr_evals
+         END IF
+
+!        Some more initialization before heavy computing
+         CALL cp_fm_struct_create(col_vect_struct, para_env=para_env, context=blacs_env, &
+                                  nrow_global=nao, ncol_global=1)
+         CALL cp_fm_create(c_minus, col_vect_struct)
+         CALL cp_fm_create(work_vect, col_vect_struct)
+         ALLOCATE(gs_coeff(nao,1))
+         ALLOCATE(work_array(nao,1))
+
+!        the dipole moment is <mu> = sum_j C^0_j*M*C^-_j, where j labels donor MOs, M is the dipmat,
+!        C^0_i is the ground state coefficient row vector and and C^- the column vector of lr coeffs
+         DO i = 1,nosc ! loop on excitation energies
+            xyz_moments = 0.0_dp
+            DO j = 1,ndo_mo ! loop on donor MOs
+
+               jdo_mo = donor_state%mo_indices(j)
+
+!              Retrieve column vector C^-
+               CALL cp_fm_to_fm_submat(msource=donor_state%lr_coeffs, mtarget=c_minus, nrow=nao, & 
+                                       ncol=1,s_firstrow=(j-1)*nao+1, s_firstcol=i, t_firstrow=1, &
+                                       t_firstcol=1)
+
+               gs_coeff = 0.0_dp
+!              Retrieve array of ground state MO coeff
+               CALL cp_fm_get_submatrix(fm=mo_coeff, target_m=gs_coeff, start_row=1, & 
+                                        start_col=jdo_mo, n_rows=nao, n_cols=1, transpose=.FALSE.)
+
+               DO k =1,3 ! loop on cartesian coordinates
+!                 Computing M*C^-_j
+                  CALL cp_dbcsr_sm_fm_multiply(dipmat(k)%matrix, c_minus, work_vect, ncol=1)
+                  work_array = 0.0_dp
+                  CALL cp_fm_get_submatrix(work_vect, work_array)
+
+!                 Computing C^0_j*M*C^-_j
+                  DO l = 1,nao 
+                     xyz_moments(k) = xyz_moments(k) + gs_coeff(l,1)*work_array(l,1) 
+                  END DO ! l
+               END DO ! k
+            END DO ! j
+
+!           Compute the oscilaltor strength for this specific energy
+            contrib = 0.0_dp
+            DO k = 1,3
+               contrib = contrib +  osc_str(i)*xyz_moments(k)**2
+            END DO ! k
+            osc_str(i) = contrib
+         END DO ! i
+         
+!        Clean-up
+         DEALLOCATE(gs_coeff, work_array)
+         CALL cp_fm_release(c_minus)
+         CALL cp_fm_release(work_vect)
+         CALL cp_fm_struct_release(col_vect_struct)
+         CALL dbcsr_deallocate_matrix_set(dipmat)
+
+      ELSE IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
+
+      END IF
+
+      CALL timestop(handle)
+
+   END SUBROUTINE compute_oscillator_strength
 
 ! **************************************************************************************************
 !> \breif This subroutine computes the row/column block structure as well as the dbcsr ditrinution
@@ -359,7 +538,7 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 
 !                 Take -epsilon_ij*S_pq
                   If (found_block) THEN
-                     work_block = -energy_evals(i,j)*work_block_s
+                     work_block = -(energy_evals(i,j))*work_block_s
 
                      IF (energy_evals(i,j) == 0.0_dp) THEN
 !                       If the whole block is zero, then equivalent to no block at all

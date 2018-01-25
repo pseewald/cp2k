@@ -10,9 +10,7 @@
 !> *************************************************************************************************
 MODULE xas_tdp_types
    
-   USE cp_fm_types,                     ONLY: cp_fm_type,&
-                                              cp_fm_release
-   USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_release
+   USE cp_fm_types,                     ONLY: cp_fm_type, cp_fm_release
    USE input_constants,                 ONLY: xas_1s_type,&
                                               xas_dip_vel,&
                                               xas_tdp_by_index,&
@@ -39,6 +37,7 @@ MODULE xas_tdp_types
 !> \param n_search # of lowest energy MOs to search for donor orbitals
 !> \param n_gauss # of GTOs used in STO expansion for core donor state identification
 !> \param check_donor_states whether one only checks MO to donor state assignment
+!> \param whether the calculations should be done in the Tamm-Dancoff approximation
 !> \param list_ex_atoms list of excited atom indices, kept empty if define_excited=by_kind
 !> \param list_ex_kinds list of excited atom kinds, kept empty if define_excited=by_index
 !> \param state_types columns correspond to the states to excite for each atom kind/index
@@ -50,6 +49,7 @@ MODULE xas_tdp_types
       INTEGER                                 :: n_search
       INTEGER                                 :: n_gauss
       LOGICAL                                 :: check_donor_states
+      LOGICAL                                 :: tamm_dancoff
       INTEGER, DIMENSION(:), POINTER          :: list_ex_atoms
       CHARACTER(len=default_string_length),&
                      DIMENSION(:), POINTER    :: list_ex_kinds
@@ -87,7 +87,9 @@ MODULE xas_tdp_types
 !> \param energy_evals the energy eigenvalue of the donor state (if canonical orbitals), or the set
 !>        of epsilon_ij (if  non-canonical MOs) 
 !> \param mo_indices indices of associated MOs. Greater than 1 when not a s-type state.
-!> \param lr_coeffs solutions of the linear-response TDDFT equation retricted to this state
+!> \param lr_coeffs solutions of the linear-response TDDFT equation retricted to this state (vector)
+!> \param lr_evals excitation energies => the eigenvalues of the linear response equation
+!> \param osc_str oscillator strengths for the different excitation energies
 !> *************************************************************************************************
 TYPE donor_state_type
       INTEGER                                 :: at_index
@@ -97,6 +99,8 @@ TYPE donor_state_type
       REAL(dp), DIMENSION(:,:), POINTER       :: energy_evals
       INTEGER, DIMENSION(:), POINTER          :: mo_indices
       TYPE(cp_fm_type), POINTER               :: lr_coeffs
+      REAL(dp), DIMENSION(:), POINTER         :: lr_evals
+      REAL(dp), DIMENSION(:), POINTER         :: osc_str
    END TYPE donor_state_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE  :: moduleN = 'xas_tdp_types'
@@ -130,6 +134,7 @@ CONTAINS
       xas_tdp_control%n_search = -1
       xas_tdp_control%n_gauss = 3
       xas_tdp_control%check_donor_states = .FALSE.
+      xas_tdp_control%tamm_dancoff = .FALSE.
       NULLIFY (xas_tdp_control%state_types)
       NULLIFY (xas_tdp_control%list_ex_atoms)
       NULLIFY (xas_tdp_control%list_ex_kinds)
@@ -186,10 +191,9 @@ CONTAINS
       INTEGER                                            :: irep, nrep, nexc                                         
       CHARACTER(len=default_string_length),&
                      DIMENSION(:), POINTER               :: k_list
-      INTEGER, DIMENSION(:), POINTER                     :: a_list
-      INTEGER, DIMENSION(:), POINTER                     :: t_list
+      INTEGER, DIMENSION(:), POINTER                     :: a_list, t_list
 
-      NULLIFY (k_list,a_list)
+      NULLIFY (k_list,a_list,t_list)
       
       CALL section_vals_val_get(xas_tdp_section, "DEFINE_EXCITED", &
                                 i_val=xas_tdp_control%define_excited)
@@ -198,6 +202,9 @@ CONTAINS
 
       CALL section_vals_val_get(xas_tdp_section, "ONLY_CHECK_DONOR_STATES", &
                                 l_val=xas_tdp_control%check_donor_states)
+
+      CALL section_vals_val_get(xas_tdp_section, "TAMM_DANCOFF", &
+                                l_val=xas_tdp_control%tamm_dancoff)
 
       IF (.NOT. ASSOCIATED(xas_tdp_control%list_ex_kinds)) THEN
          IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_index) THEN
@@ -372,6 +379,14 @@ SUBROUTINE deallocate_donor_state_set(donor_state_set)
 
             IF (ASSOCIATED(donor_state_set(i)%lr_coeffs)) THEN
                CALL cp_fm_release(donor_state_set(i)%lr_coeffs)
+            END IF
+
+            IF (ASSOCIATED(donor_state_set(i)%lr_evals)) THEN
+               DEALLOCATE(donor_state_set(i)%lr_evals)
+            END IF
+            
+            IF (ASSOCIATED(donor_state_set(i)%osc_str)) THEN
+               DEALLOCATE(donor_state_set(i)%osc_str)
             END IF
 
             If (ASSOCIATED(donor_state_set(i)%energy_evals)) THEN
