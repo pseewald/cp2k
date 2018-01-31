@@ -76,8 +76,8 @@ MODULE xas_tdp_methods
                                               set_xas_tdp_env,&
                                               donor_state_type,&
                                               set_donor_state
-   USE xas_tdp_utils,                   ONLY: setup_xas_tdp_geeig_prob, &
-                                              solve_xas_tdp_geeig_prob, &
+   USE xas_tdp_utils,                   ONLY: setup_xas_tdp_full_prob, &
+                                              solve_xas_tdp_full_prob, &
                                               compute_oscillator_strength
 #include "./base/base_uses.f90"
 
@@ -105,7 +105,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'xas_tdp', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, ikind, iat, istate, tmp_index,&
-                                                            current_state_index, output_unit
+                                                            current_state_index, output_unit, i
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -231,25 +231,33 @@ CONTAINS
 
                      IF (.NOT. xas_tdp_control%check_donor_states) THEN
 !                       Do main calculations here
-                        PRINT*, "Should perform calculations"
 
-!                       Testing
-                        ALLOCATE(matrix_tdp)
-                        ALLOCATE(matrix_lhs)
-                        CALL setup_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, current_state, &
-                                                      qs_env, xas_tdp_control)
-                        CALL solve_xas_tdp_geeig_prob(matrix_tdp, matrix_lhs, current_state, &
-                                                      qs_env, xas_tdp_control)
-                        CALL compute_oscillator_strength(current_state, qs_env, xas_tdp_control)
+                        IF (xas_tdp_control%full_diag) THEN
+                           ALLOCATE(matrix_tdp)
+                           ALLOCATE(matrix_lhs)
+                           CALL setup_xas_tdp_full_prob(matrix_tdp, matrix_lhs, current_state, &
+                                                        qs_env, xas_tdp_control)
+                           CALL solve_xas_tdp_full_prob(matrix_tdp, matrix_lhs, current_state, &
+                                                        qs_env, xas_tdp_control)
+                           CALL compute_oscillator_strength(current_state, qs_env, xas_tdp_control)
+ 
+                           i=0
+                           PRINT*, "evals, oscillator_strength"
+                           DO i = 1,SIZE(current_state%lr_evals)
+                              PRINT*, current_state%lr_evals(i), "   ,    ", current_state%osc_str(i)
+                           END DO
 
-                        PRINT*, "evals: "
-                        PRINT*, current_state%lr_evals
+                           CALL dbcsr_release(matrix_tdp)
+                           CALL dbcsr_release(matrix_lhs)
+                           DEALLOCATE(matrix_tdp)
+                           DEALLOCATE(matrix_lhs)
+                        ELSE IF (.NOT. xas_tdp_control%full_diag) THEN
+                           
+                           CPABORT("Iterative solver not implemented yet")
 
-                        CALL dbcsr_release(matrix_tdp)
-                        CALL dbcsr_release(matrix_lhs)
-                        DEALLOCATE(matrix_tdp)
-                        DEALLOCATE(matrix_lhs)
-                     END IF
+                        END IF !full_diag
+
+                     END IF !check donor_states
 
                      current_state_index = current_state_index + 1
                      NULLIFY(current_state)
