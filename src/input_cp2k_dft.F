@@ -7875,7 +7875,7 @@ CONTAINS
                           description="XAS simulations using TDDFPT. Excitation from specified "//&
                           "core orbitals are considered one at a time. In case of high symmetry "//&
                           "structures, donor core orbitals should be localized.", &
-                          n_keywords=9, n_subsections=2, repeats=.FALSE.)
+                          n_keywords=10, n_subsections=2, repeats=.FALSE.)
 
       NULLIFY (keyword, subsection, print_key)
 
@@ -7983,6 +7983,14 @@ CONTAINS
                           default_l_val=.FALSE.)
       CALL section_add_keyword(section, keyword)    
       CALL keyword_release(keyword)      
+
+      CALL keyword_create(keyword, name="FULL_DIAG", &
+                          description="Whether the linear response matrix should be fully "//&
+                                      "built and diagonalized using standard methods", &
+                          usage="FULL_DIAG {logical}", &
+                          default_l_val=.FALSE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
       
       CALL create_localize_section(subsection)
       CALL section_add_subsection(section, subsection)         

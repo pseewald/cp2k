@@ -37,7 +37,8 @@ MODULE xas_tdp_types
 !> \param n_search # of lowest energy MOs to search for donor orbitals
 !> \param n_gauss # of GTOs used in STO expansion for core donor state identification
 !> \param check_donor_states whether one only checks MO to donor state assignment
-!> \param whether the calculations should be done in the Tamm-Dancoff approximation
+!> \param tamm_dancoff whether the calculations should be done in the Tamm-Dancoff approximation
+!> \param full_diag whether the LR matrix should be fully built and diagonalized
 !> \param list_ex_atoms list of excited atom indices, kept empty if define_excited=by_kind
 !> \param list_ex_kinds list of excited atom kinds, kept empty if define_excited=by_index
 !> \param state_types columns correspond to the states to excite for each atom kind/index
@@ -50,6 +51,7 @@ MODULE xas_tdp_types
       INTEGER                                 :: n_gauss
       LOGICAL                                 :: check_donor_states
       LOGICAL                                 :: tamm_dancoff
+      LOGICAL                                 :: full_diag
       INTEGER, DIMENSION(:), POINTER          :: list_ex_atoms
       CHARACTER(len=default_string_length),&
                      DIMENSION(:), POINTER    :: list_ex_kinds
@@ -135,6 +137,7 @@ CONTAINS
       xas_tdp_control%n_gauss = 3
       xas_tdp_control%check_donor_states = .FALSE.
       xas_tdp_control%tamm_dancoff = .FALSE.
+      xas_tdp_control%full_diag = .FALSE.
       NULLIFY (xas_tdp_control%state_types)
       NULLIFY (xas_tdp_control%list_ex_atoms)
       NULLIFY (xas_tdp_control%list_ex_kinds)
@@ -205,6 +208,10 @@ CONTAINS
 
       CALL section_vals_val_get(xas_tdp_section, "TAMM_DANCOFF", &
                                 l_val=xas_tdp_control%tamm_dancoff)
+
+      CALL section_vals_val_get(xas_tdp_section, "FULL_DIAG", &
+                                l_val=xas_tdp_control%full_diag)
+
 
       IF (.NOT. ASSOCIATED(xas_tdp_control%list_ex_kinds)) THEN
          IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_index) THEN
