@@ -10,6 +10,9 @@
 
 MODULE xas_tdp_utils
    
+   USE ai_coulomb,                      ONLY: coulomb3
+   USE ai_contraction_sphi,             ONLY: abc_contract
+   USE basis_set_types,                 ONLY: gto_basis_set_type, get_gto_basis_set
    USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose, &
                                               cp_dbcsr_cholesky_invert, &
                                               cp_dbcsr_cholesky_restore
@@ -35,8 +38,11 @@ MODULE xas_tdp_utils
                                               dbcsr_allocate_matrix_set, dbcsr_multiply
    USE input_constants,                 ONLY: xas_dip_len, xas_dip_vel
    USE kinds,                           ONLY: dp
+   USE orbital_pointers,                ONLY: ncoset
+   USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE qs_environment_types,            ONLY: qs_environment_type, get_qs_env
+   USE qs_kind_types,                   ONLY: get_qs_kind, qs_kind_type
    USE qs_mo_types,                     ONLY: get_mo_set, mo_set_p_type
    USE qs_operators_ao,                 ONLY: p_xyz_ao, rRc_xyz_ao
    USE xas_tdp_types,                   ONLY: donor_state_type, xas_tdp_control_type
@@ -463,6 +469,7 @@ CONTAINS
       TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct
       TYPE(cp_fm_type), POINTER                       :: c_vect, work_vect
       REAL(dp)                                        :: contrib
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: int_array
 
       CALL timeset(routineN, handle)
 
@@ -574,6 +581,11 @@ CONTAINS
       CALL dbcsr_deallocate_matrix_set(dipmat)
 
       CALL timestop(handle)
+
+!  Testing three-center integrals
+      NULLIFY(int_array)
+      CALL compute_ri_coulomb3_int(int_array, donor_state, qs_env) 
+      CALL dbcsr_deallocate_matrix_set(int_array)
 
    END SUBROUTINE compute_oscillator_strength
 
@@ -823,6 +835,35 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
    END SUBROUTINE build_matrix_g
 
 ! **************************************************************************************************
+!> \brief Builds the so-called matrix B, which contains the kernel parts (Coulomb, xc, exact 
+!>        exchange) with appropriate weights. Same block structure and distribution as A and G
+!> \param matrix_b pointer to a DBCSR matrix containing B
+!> \param dist_b the dbcsr distribution of b
+!> \param blk_size_b the row/col block sizes of matrix B
+!> \param donor_state ...
+!> \param xas_tdp_env ...
+!> \param qs_env ...
+! **************************************************************************************************
+!   SUBROUTINE build_matrix_b(matrix_b, dist_b, blk_size_b, donor_state, xas_tdp_env, qs_env)
+!
+!      TYPE(dbcsr_type), POINTER                       :: matrix_b
+!      TYPE(donor_state_type), POINTER                 :: donor_state
+!      TYPE(qs_environment_type), POINTER              :: qs_env
+!      TYPE(dbcsr_distribution_type), POINTER          :: dist_b
+!      INTEGER, DIMENSION(:), POINTER                  :: blk_size_b
+!      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+
+!      CHARACTER(len=*), PARAMETER :: routineN = 'build_matrix_b', routineP = moduleN//":"//routineN
+
+!      INTEGER                                         :: handle
+
+!      CALL timeset(routineN, handle)
+
+!      CALL timestop(handle)
+
+!   END SUBROUTINE build_matrix_b
+
+! **************************************************************************************************
 !> \brief Diagonalises a non-symmetric real square matrix. Returns the the assumed real eigenvectors
 !>        and eigenvalues. This is base on the LAPACK library and is not paralellized
 !> \param matrix the full matrix to diagonalize
@@ -912,6 +953,239 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       DEALLOCATE(qmat, vr)
 
    END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief Computes the three-centers Coulomb integrals needed for RI in kernel calculations and 
+!>        returns it in appropriate array of full matrices
+!> \param int_array array containing the integrals in full matrix form
+!> \param donor_state ...
+!> \param qs_env ...
+!> \note  Computes integrals of the form (ai|p)*c_i, where c_i is the ground state coefficient for 
+!>        the donor MO
+! **************************************************************************************************
+   SUBROUTINE compute_ri_coulomb3_int(int_array, donor_state, qs_env)
+
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: int_array
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'compute_ri_coulomb3_int', &
+                                     routinP=moduleN//':'//routineN
+
+      INTEGER                                         :: handle, nsetp, nseti, natom, &
+                                                         nao, nseta, iat, aset, iset, pset, &
+                                                         ncoa, ncoi, ncop, igp, sgfa, sgfp, &
+                                                         sgfi, group, aat, iao, isgf
+      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
+      TYPE(gto_basis_set_type), POINTER               :: p_basis, i_basis, a_basis
+      INTEGER, DIMENSION(:), POINTER                  :: lp_max, lp_min, npgfp, li_max,li_min,&
+                                                         npgfi, la_max, la_min, npgfa, nsgfa, &
+                                                         nsgfi, nsgfp, row_dist, col_dist, &
+                                                         row_blk_size, col_blk_size
+      INTEGER, DIMENSION(:,:), POINTER                :: first_sgfa, first_sgfi, first_sgfp, pgrid
+      REAL(dp), DIMENSION(:,:), POINTER               :: zetp, rpgfp, zeti, rpgfi, zeta, rpgfa,&
+                                                         sphi_p, sphi_a, sphi_i, coeffi
+      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
+      TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos 
+      TYPE(cp_fm_type), POINTER                       :: mo_coeff
+      REAL(dp), DIMENSION(:,:,:,:), ALLOCATABLE       :: v
+      REAL(dp), DIMENSION(:,:,:), ALLOCATABLE         :: int_aip, int_aip_set, int_aip_contr, &
+                                                         int_aip_iat
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: vaip
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: f, gcc
+      REAL(dp), DIMENSION(3)                          :: ra, rb, rc
+      REAL(dp)                                        :: rab2, rac2, rbc2
+      TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
+      TYPE(dbcsr_distribution_type)                   :: int_aip_dist
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: first_sgf_set
+
+      CALL timeset(routineN, handle)
+
+!  We need to screen the which of the atom pairs iat/aat actually have overlaping basis, so that we
+!  don't compute integrals that we now are zero. This way, can also go to full matrices and only
+!  store a short number, along with a system to which matrix is what
+
+      IF (SIZE(donor_state%energy_evals,1) .NE. 1) &
+         CPABORT("RI Coulomb integrals not implemented yet for cases with multiple donor MOs")
+
+      NULLIFY(qs_kind_set, p_basis, i_basis, a_basis, particle_set, mos, mo_coeff)
+      NULLIFY(lp_max, lp_min, npgfp, zetp, rpgfp, sphi_p, first_sgfp)
+      NULLIFY(li_max, li_min, npgfi, zeti, rpgfi, sphi_i, first_sgfi)
+      NULLIFY(la_max, la_min, npgfa, zeta, rpgfa, sphi_a, first_sgfa)
+      NULLIFY(dbcsr_dist, pgrid, row_blk_size, col_blk_size, coeffi)
+
+!  Get all we need from the qs_env
+      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, particle_set=particle_set, mos=mos, & 
+                      natom=natom, dbcsr_dist=dbcsr_dist, matrix_s=matrix_s)
+      ALLOCATE(first_sgf_set(natom))
+      CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf_set)
+      
+!  Get the RI basis set for the excited atom
+      CALL get_qs_kind(qs_kind_set(donor_state%kind_index), basis_set=p_basis, basis_type="RI_AUX")
+
+      CALL get_gto_basis_set(p_basis, lmax=lp_max, npgf=npgfp, zet=zetp, pgf_radius=rpgfp, &
+                             lmin=lp_min, nset=nsetp, nsgf_set=nsgfp, sphi=sphi_p, &
+                             first_sgf=first_sgfp)
+
+!  We also need the coefficients of the donor_state MOs
+      CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao)
+      ALLOCATE(coeffi(nao,1))
+      CALL cp_fm_get_submatrix(fm=mo_coeff,target_m=coeffi,start_row=1, &
+                               start_col=donor_state%mo_indices(1), n_rows=nao, n_cols=1 )
+
+
+!  Build the array of integral matrices. It has an entry for each atomic orbital, which contains
+!  the matrix (ai|p), where a is the atomic orbital (each entry of array has a different a), i spans
+!  all the atomic orbitals (row index of matrix) and p spans the elements of the RI basis 
+!  (column index). 
+      
+      CALL dbcsr_allocate_matrix_set(int_array, nao)
+
+!  Each of the element of the array will be a super-sparse matrix. For now, don't care about the 
+!  performance, we distribute all blocks on the same processor... We put one block for each atom
+      
+      CALL dbcsr_distribution_get(dbcsr_dist, group=group, pgrid=pgrid)      
+      ALLOCATE(row_dist(natom))
+      ALLOCATE(col_dist(1))
+      CALL dbcsr_distribution_new(int_aip_dist, group=group, pgrid=pgrid, row_dist=row_dist, &
+                                  col_dist=col_dist, reuse_arrays=.TRUE.)
+
+      ALLOCATE(col_blk_size(1))
+      col_blk_size(1) = SUM(nsgfp)
+      CALL dbcsr_get_info(matrix_s(1)%matrix, row_blk_size=row_blk_size)
+
+      DO iao = 1,nao
+         ALLOCATE(int_array(iao)%matrix)
+         CALL dbcsr_create(matrix=int_array(iao)%matrix, name="int_array(i)%matrix", &
+                           matrix_type="N", dist=int_aip_dist, col_blk_size=col_blk_size, &
+                           row_blk_size=row_blk_size)
+      END DO
+
+      DEALLOCATE(col_blk_size)
+      CALL dbcsr_distribution_release(int_aip_dist)      
+
+!  Loop over all atoms and compute the three-center integrals
+      DO aat = 1,natom
+!        Retrieve the orbital basis of the current atom (for the a of (ai|p))
+         CALL get_qs_kind(qs_kind_set(particle_set(aat)%atomic_kind%kind_number), &
+                          basis_set=a_basis, basis_type="ORB")
+         CALL get_gto_basis_set(a_basis, lmax=la_max, npgf=npgfa, zet=zeta, pgf_radius=rpgfa, &
+                               lmin=la_min, nset=nseta, nsgf_set=nsgfa, sphi=sphi_a, &
+                               first_sgf=first_sgfa)
+
+         DO iat = 1,natom
+
+!           Retrieve the basis of the second atom (for the i of (ai|p))
+            CALL get_qs_kind(qs_kind_set(particle_set(iat)%atomic_kind%kind_number), &
+                                         basis_set=i_basis, basis_type="ORB")
+
+            CALL get_gto_basis_set(i_basis, lmax=li_max, npgf=npgfi, zet=zeti, pgf_radius=rpgfi, &
+                                   lmin=li_min, nset=nseti, nsgf_set=nsgfi, sphi=sphi_i, &
+                                   first_sgf=first_sgfi)
+
+!           Create an aray where all integrals for the atom iat are strored (contracted sgf form)
+            ALLOCATE(int_aip_iat(SUM(nsgfa), SUM(nsgfi), SUM(nsgfp)))
+            int_aip_iat = 0.0_dp
+
+
+!           Get set the different position/distances 
+            ra = particle_set(aat)%r
+            rb = particle_set(iat)%r
+            rc = particle_set(donor_state%at_index)%r 
+            rab2 = (rb(1)-ra(1))**2+(rb(2)-ra(2))**2+(rb(3)-ra(3))**2                                   
+            rac2 = (rc(1)-ra(1))**2+(rc(2)-ra(2))**2+(rc(3)-ra(3))**2                                   
+            rbc2 = (rc(1)-rb(1))**2+(rc(2)-rb(2))**2+(rc(3)-rb(3))**2
+
+!           Loop over the sets of the three basis
+            DO aset = 1,nseta
+               DO iset = 1,nseti
+                  DO pset = 1,nsetp 
+
+!                    Subroutine coulomb3 only takes one Gaussian at a time for the c of (ab|c)
+!                    Need to loop on the primitive gaussians of the RI basis
+!                    Still, save the integral in part of a big matrix that spans all GTOs of the RI set
+                     ncoa = npgfa(aset)*ncoset(la_max(aset))
+                     ncoi = npgfi(iset)*ncoset(li_max(iset))
+                     ncop = npgfp(pset)*ncoset(lp_max(pset))
+                     ALLOCATE(int_aip_set(ncoa, ncoi, ncop))
+                     int_aip_set = 0.0_dp
+
+                     sgfa = first_sgfa(1, aset)
+                     sgfi = first_sgfi(1, iset)
+                     sgfp = first_sgfp(1, pset)
+
+                     DO igp = 1,npgfp(pset)
+
+!                       Allocate memory for the different work arrays
+                        ALLOCATE(f(0:la_max(aset)+li_max(iset)+lp_max(pset)+2))
+                        ALLOCATE(v(ncoa, ncoi, ncoset(lp_max(pset)), la_max(aset)+li_max(iset)+lp_max(pset)+1))
+                        ALLOCATE(vaip(ncoa, ncoi)) !this one does not play a role here
+                        ALLOCATE(gcc(ncoset(lp_max(pset)))) !this one does not play a role here
+                        ALLOCATE(int_aip(ncoa, ncoi, ncoset(lp_max(pset))))
+
+                        f = 0.0_dp
+                        v = 0.0_dp
+                        vaip = 0.0_dp
+                        gcc = 0.0_dp
+                        int_aip = 0.0_dp
+
+!                       Compute the integral 
+                        CALL coulomb3(la_max(aset), npgfa(aset), zeta(:,aset), rpgfa(:,aset), la_min(aset), &
+                                      li_max(iset), npgfi(iset), zeti(:,iset), rpgfi(:,iset), li_min(iset), &
+                                      lp_max(pset), zetp(igp,pset), rpgfp(igp,pset), lp_min(pset), &
+                                      gcc, rb-ra, rab2, rc-ra, rac2, rbc2, vaip, int_aip, v, f)
+
+!                       Add this as a block in an array that includes all contributions of the GTOs
+!                       of the current set of the RI basis
+                        int_aip_set(:,:,(igp-1)*ncoset(lp_max(pset))+1:igp*ncoset(lp_max(pset)))&
+                                   = int_aip
+
+!                       Deallocate arrays, might have different size in next loop
+                        DEALLOCATE(f, v, vaip, gcc, int_aip)
+                     
+                     END DO ! igp
+
+!                    Perform contraction to get spherical GTOs
+                     ALLOCATE(int_aip_contr(nsgfa(aset), nsgfi(iset), nsgfp(pset)))
+                     CALL abc_contract(int_aip_contr, int_aip_set, sphi_a(:,sgfa:), sphi_i(:,sgfi:),&
+                                       sphi_p(:,sgfp:), ncoa, ncoi, ncop, nsgfa(aset), &
+                                       nsgfi(iset), nsgfp(pset))
+
+!                    Store the specific set combination of integrals
+                     int_aip_iat(sgfa:sgfa+nsgfa(aset)-1,sgfi:sgfi+nsgfi(iset)-1, &
+                                 sgfp:sgfp+nsgfp(pset)-1) = int_aip_contr
+
+!                    Deallocate before next loop
+                     DEALLOCATE(int_aip_set, int_aip_contr)
+
+                  END DO ! pset
+               END DO ! iset
+            END DO !aset
+
+!           We compute the integral for the donor MO (i in (ai|p)), so  we need to consider the
+!           MO coefficients too
+            
+            DO isgf = 1,SUM(nsgfi)
+               iao = first_sgf_set(iat)+isgf-1
+               int_aip_iat(:,isgf,:) = int_aip_iat(:,isgf,:)*coeffi(iao,1)
+            END DO
+
+!           TODO: make sure we compute the right thing... double and even triple check
+!           If so then we have our blocks
+
+!           Deallocate before next loop
+            DEALLOCATE(int_aip_iat)
+
+         END DO !iat
+      END DO ! aat
+
+!  Clean-up
+      DEALLOCATE(coeffi)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE compute_ri_coulomb3_int
 
 END MODULE xas_tdp_utils
 

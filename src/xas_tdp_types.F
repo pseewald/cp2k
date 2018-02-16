@@ -10,7 +10,7 @@
 !> *************************************************************************************************
 MODULE xas_tdp_types
    
-   USE cp_fm_types,                     ONLY: cp_fm_type, cp_fm_release
+   USE cp_fm_types,                     ONLY: cp_fm_type, cp_fm_release, cp_fm_p_type
    USE input_constants,                 ONLY: xas_1s_type,&
                                               xas_dip_vel,&
                                               xas_tdp_by_index,&
@@ -64,20 +64,29 @@ MODULE xas_tdp_types
 !> *************************************************************************************************
 !> \brief Type containing informations such as inputs and results for TDP XAS calculations
 !> \param nex_atoms number of excited atoms
+!> \param nex_kinds number of excited kinds
 !> \param ex_atom_indices array containing the indices of the excited atoms
+!> \param ex_kind_indices array containing the indices of the excited kinds
 !> \param state_types columns correspond to the different donor states of each excited atom
 !> \param qs_loc_env the environemnt type dealing with the possible localization of donor orbitals
 !> \param mos_of_ex_atoms links lowest energy MOs to excited atoms. Elements of value 1 mark the
 !>        association between the MO irow and the excited atom icolumn
+!> \param ri_inv_mats collection of kind specific electron repulsion inverse matrices for each
+!>        excited kinds, based on basis functions of the RI auxiliary basis used for Coulomb and
+!>        exchange kernels
 !> *************************************************************************************************
    TYPE xas_tdp_env_type
       INTEGER                                 :: nex_atoms
+      INTEGER                                 :: nex_kinds
       INTEGER, DIMENSION(:), POINTER          :: ex_atom_indices
+      INTEGER, DIMENSION(:), POINTEr          :: ex_kind_indices
       INTEGER, DIMENSION(:,:), POINTER        :: state_types
       TYPE(donor_state_type), DIMENSION(:),&
                         POINTER               :: donor_states
       INTEGER, DIMENSION(:,:), POINTER        :: mos_of_ex_atoms
       TYPE(qs_loc_env_new_type), POINTER      :: qs_loc_env
+      TYPE(cp_fm_p_type), DIMENSION(:), &
+                                    POINTER   :: ri_inv_mats
    END TYPE xas_tdp_env_type
 
 !> *************************************************************************************************
@@ -286,12 +295,15 @@ CONTAINS
       ALLOCATE (xas_tdp_env)
 
       xas_tdp_env%nex_atoms = 1
+      xas_tdp_env%nex_kinds = 1
 
       NULLIFY (xas_tdp_env%ex_atom_indices)
+      NULLIFY (xas_tdp_env%ex_kind_indices)
       NULLIFY (xas_tdp_env%state_types)
       NULLIFY (xas_tdp_env%donor_states)
       NULLIFY (xas_tdp_env%qs_loc_env)
       NULLIFY (xas_tdp_env%mos_of_ex_atoms)
+      NULLIFY (xas_tdp_env%ri_inv_mats)
 
    END SUBROUTINE xas_tdp_env_create
 
@@ -306,10 +318,16 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'xas_tdp_env_release', &         
                                                             routineP = moduleN//':'//routineN
 
+      INTEGER                                            :: i
+
       IF (ASSOCIATED(xas_tdp_env)) THEN
          IF (ASSOCIATED(xas_tdp_env%ex_atom_indices)) THEN
             DEALLOCATE(xas_tdp_env%ex_atom_indices)
          END IF
+         IF (ASSOCIATED(xas_tdp_env%ex_kind_indices)) THEN
+            DEALLOCATE(xas_tdp_env%ex_kind_indices)
+         END IF
+
          IF (ASSOCIATED(xas_tdp_env%state_types)) THEN
             DEALLOCATE(xas_tdp_env%state_types)
          END IF
@@ -320,7 +338,13 @@ CONTAINS
             CALL qs_loc_env_release(xas_tdp_env%qs_loc_env)
          END IF
          IF (ASSOCIATED(xas_tdp_env%mos_of_ex_atoms)) THEN
-           DEALLOCATE(xas_tdp_env%mos_of_ex_atoms)
+            DEALLOCATE(xas_tdp_env%mos_of_ex_atoms)
+         END IF
+         IF (ASSOCIATED(xas_tdp_env%ri_inv_mats)) THEN
+            DO i =1,SIZE(xas_tdp_env%ri_inv_mats)
+               CALL cp_fm_release(xas_tdp_env%ri_inv_mats(i)%matrix)
+            END DO
+            DEALLOCATE(xas_tdp_env%ri_inv_mats)
          END IF
          DEALLOCATE (xas_tdp_env)
       END IF
@@ -329,7 +353,7 @@ CONTAINS
 !> *************************************************************************************************
 !> \brief Sets values of selected variables within the TDP XAS environment type
 !> *************************************************************************************************
-   SUBROUTINE set_xas_tdp_env(xas_tdp_env, nex_atoms)
+   SUBROUTINE set_xas_tdp_env(xas_tdp_env, nex_atoms, nex_kinds)
 
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
 
@@ -337,10 +361,12 @@ CONTAINS
                                                             routineP = moduleN//':'//routineN
                               
       INTEGER, INTENT(IN), OPTIONAL                      :: nex_atoms
+      INTEGER, INTENT(IN), OPTIONAL                      :: nex_kinds
 
       CPASSERT(ASSOCIATED(xas_tdp_env))
 
       IF (PRESENT(nex_atoms)) xas_tdp_env%nex_atoms = nex_atoms
+      IF (PRESENT(nex_kinds)) xas_tdp_env%nex_kinds = nex_kinds
       
    END SUBROUTINE set_xas_tdp_env
 
