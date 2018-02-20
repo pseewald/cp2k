@@ -35,7 +35,8 @@ MODULE xas_tdp_utils
                                               dbcsr_put_block, dbcsr_release, dbcsr_finalize,&
                                               dbcsr_distribution_release, &
                                               dbcsr_copy, dbcsr_set, dbcsr_deallocate_matrix_set, &
-                                              dbcsr_allocate_matrix_set, dbcsr_multiply
+                                              dbcsr_allocate_matrix_set, dbcsr_multiply, &
+                                              dbcsr_get_stored_coordinates
    USE input_constants,                 ONLY: xas_dip_len, xas_dip_vel
    USE kinds,                           ONLY: dp
    USE orbital_pointers,                ONLY: ncoset
@@ -89,7 +90,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'setup_xas_tdp_full_prob', &
                                      routineP = moduleN//":"//routineN
       
-      INTEGER                                         :: handle, group , iblk, jblk, nblk_sub
+      INTEGER                                         :: handle, group , iblk, jblk, nblk_sub, &
+                                                         mynode, node_holds_blk
       TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g, work_matrix
       TYPE(dbcsr_distribution_type), POINTER          :: submat_dist, supmat_dist
       INTEGER, DIMENSION(:), POINTER                  :: submat_blk_size, supmat_blk_size, &
@@ -191,17 +193,24 @@ CONTAINS
          CALL dbcsr_finalize(work_matrix)
 
 !        For each diagonal block of the super matrix, loop over blocks of G^-1*A
+!        TODO: replace for loops by dbcsr_iterator
+         CALL dbcsr_distribution_get(submat_dist, mynode=mynode)
          DO iblk = 1,nblk_sub
             DO jblk = 1,nblk_sub
            
-               CALL dbcsr_get_block_p(work_matrix, iblk, jblk, work_block, found_block)
+!              Checking that block is stored on current node
+               CALL dbcsr_get_stored_coordinates(work_matrix, iblk, jblk, node_holds_blk)
 
-               IF (found_block) THEN
-                  CALL dbcsr_put_block(matrix_tdp, iblk, jblk, -work_block)
-                  CALL dbcsr_put_block(matrix_tdp, nblk_sub+iblk, nblk_sub+jblk, work_block)
-               END IF
+               IF(node_holds_blk == mynode) THEN
+                  CALL dbcsr_get_block_p(work_matrix, iblk, jblk, work_block, found_block)
+
+                  IF (found_block) THEN
+                     CALL dbcsr_put_block(matrix_tdp, iblk, jblk, -work_block)
+                     CALL dbcsr_put_block(matrix_tdp, nblk_sub+iblk, nblk_sub+jblk, work_block)
+                  END IF
             
-               NULLIFY(work_block)
+                  NULLIFY(work_block)
+               END IF
 
             END DO
          END DO
@@ -676,7 +685,7 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       CHARACTER(len=*), PARAMETER :: routineN = 'build_matrix_a', routineP = moduleN//":"//routineN
       
       INTEGER                                         :: handle, ndo_mo, i, nblk_row,&
-                                                         j, iblk, jblk
+                                                         j, iblk, jblk, mynode, node_holds_blk
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_ks, matrix_s
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
       INTEGER, DIMENSION(:), POINTER                  :: row_blk_size 
@@ -702,57 +711,66 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 
 !  Fill the matrix A, looping on blocks the size of matrix_ks, only iterate on upper triangle since
 !  the matrix is symmetric
+      CALL dbcsr_distribution_get(dbcsr_dist, mynode=mynode)
       DO i = 1,ndo_mo
          DO j = i,ndo_mo
 
 !           Loop over the blocks of the symmetric submatrices KS and S  and copy one by one into A
+!           TODO: replace for loops by dbcsr_operator
             DO iblk = 1,nblk_row
                DO jblk = iblk,nblk_row
 
-                  found_block = .FALSE.
-                  found_block_ks = .FALSE.
-                  ALLOCATE(work_block(row_blk_size(iblk)*row_blk_size(jblk)))
+!                 Check that block of matrix S/KS is on current processor (same distribution for 
+!                 matrix_s and matrix_ks, the same but replicated for matrix_a)
+                  CALL dbcsr_get_stored_coordinates(matrix_s(1)%matrix, iblk, iblk, node_holds_blk)
 
-!                 Retrieve S_pq
-                  CALL dbcsr_get_block_p(matrix_s(1)%matrix, iblk, jblk, work_block_s, found_block)
+                  IF (node_holds_blk == mynode) THEN
+                     found_block = .FALSE.
+                     found_block_ks = .FALSE.
+                     ALLOCATE(work_block(row_blk_size(iblk)*row_blk_size(jblk)))
 
-!                 Take -epsilon_ij*S_pq
-                  If (found_block) THEN
-                     work_block = -(energy_evals(i,j))*work_block_s
+!                    Retrieve S_pq
+                     CALL dbcsr_get_block_p(matrix_s(1)%matrix, iblk, jblk, work_block_s, found_block)
 
-                     IF (energy_evals(i,j) == 0.0_dp) THEN
-!                       If the whole block is zero, then equivalent to no block at all
-                        found_block = .FALSE.
+!                    Take -epsilon_ij*S_pq
+                     If (found_block) THEN
+                        work_block = -(energy_evals(i,j))*work_block_s
+
+                        IF (energy_evals(i,j) == 0.0_dp) THEN
+!                          If the whole block is zero, then equivalent to no block at all
+                           found_block = .FALSE.
+                        END IF
                      END IF
-                  END IF
 
-!                 If on the block diagonal, take F_pq - epsilon_ii*S_pq
-                  IF (i==j) THEN
-                     CALL dbcsr_get_block_p(matrix_ks(1)%matrix, iblk, jblk, work_block_ks, &
-                                            found_block_ks)
+!                    If on the block diagonal, take F_pq - epsilon_ii*S_pq
+                     IF (i==j) THEN
+                        CALL dbcsr_get_block_p(matrix_ks(1)%matrix, iblk, jblk, work_block_ks, &
+                                               found_block_ks)
 
-                     IF (found_block .AND. found_block_ks) THEN
-                        work_block = work_block + work_block_ks 
-                     ELSE IF ((.NOT. found_block) .AND. found_block_ks) THEN
-                        work_block = work_block_ks 
+                        IF (found_block .AND. found_block_ks) THEN
+                           work_block = work_block + work_block_ks 
+                        ELSE IF ((.NOT. found_block) .AND. found_block_ks) THEN
+                           work_block = work_block_ks 
+                        END IF
                      END IF
-                  END IF
 
-!                 Put the block in A if either found in KS,S or both 
-                  IF (found_block .OR. found_block_ks) THEN
+!                    Put the block in A if either found in KS,S or both 
+                     IF (found_block .OR. found_block_ks) THEN
                      
-                     CALL dbcsr_put_block(matrix_a,(i-1)*nblk_row+iblk, (j-1)*nblk_row+jblk, &
-                                          work_block)
-!                    Need to fill the whole upper part of A, by making sure that non-diagonal
-!                    sub-blocks are coiped twice in the upper diagonal part of A
-                     IF ((iblk .NE. jblk) .AND. (i .NE. j)) THEN
-                        CALL dbcsr_put_block(matrix_a,(i-1)*nblk_row+jblk, (j-1)*nblk_row+iblk, &
+                        CALL dbcsr_put_block(matrix_a,(i-1)*nblk_row+iblk, (j-1)*nblk_row+jblk, &
                                              work_block)
-                     END IF   
-                  END IF
+!                       Need to fill the whole upper part of A, by making sure that non-diagonal
+!                       sub-blocks are coiped twice in the upper diagonal part of A
+                        IF ((iblk .NE. jblk) .AND. (i .NE. j)) THEN
+                           CALL dbcsr_put_block(matrix_a,(i-1)*nblk_row+jblk, (j-1)*nblk_row+iblk, &
+                                                work_block)
+                        END IF   
+                     END IF
 
-                  DEALLOCATE(work_block)
-                  NULLIFY(work_block_ks, work_block_s)
+                     DEALLOCATE(work_block)
+                     NULLIFY(work_block_ks, work_block_s)
+
+                  END IF ! node_holds_blk==mynode
                END DO ! jblk
             END DO ! iblk
 
@@ -786,7 +804,8 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 
       CHARACTER(len=*), PARAMETER :: routineN = 'build_matrix_g', routineP = moduleN//":"//routineN
       
-      INTEGER                                         :: handle, i, iblk, jblk, ndo_mo, nblk_row
+      INTEGER                                         :: handle, i, iblk, jblk, ndo_mo, nblk_row, &
+                                                         mynode, node_holds_blk
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
       INTEGER, DIMENSION(:), POINTER                  :: row_blk_size
       REAL(dp), DIMENSION(:), POINTER                 :: work_block
@@ -807,21 +826,30 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
                         row_blk_size=blk_size_g, col_blk_size=blk_size_g)
 
 !  Fill the matrix G. First loop over the superblocks of size nao x nao (only on the diagonal), then
-!  their repective blocks which have the standard cp2k structure.
+!  their respective blocks which have the standard cp2k structure. They also have the standard dbcsr
+!  distribution so one can check for which processor we are on from dist_g
+      CALL dbcsr_distribution_get(dist_g, mynode=mynode)
       DO i = 1,ndo_mo
 !        loop over blocks of matrix_s
+!        TO DO: replace for loops by dbcsr_iterator
          DO iblk = 1,nblk_row
             DO jblk = 1,nblk_row
 
-               CALL dbcsr_get_block_p(matrix_s(1)%matrix, iblk, jblk, work_block, found_block)
+!              Check the the block is stored on current processor.
+               CALL dbcsr_get_stored_coordinates(matrix_s(1)%matrix, iblk, jblk, node_holds_blk)
 
-!              if non zero-block, copy its content in G
-               IF (found_block) THEN
-                  CALL dbcsr_put_block(matrix_g, (i-1)*nblk_row+iblk, (i-1)*nblk_row+jblk, &
-                                       work_block)
-               END IF
+               IF (node_holds_blk == mynode) THEN
+                  CALL dbcsr_get_block_p(matrix_s(1)%matrix, iblk, jblk, work_block, found_block)
 
-               NULLIFY(work_block)
+!                 if non zero-block, copy its content in G
+                  IF (found_block) THEN
+                     CALL dbcsr_put_block(matrix_g, (i-1)*nblk_row+iblk, (i-1)*nblk_row+jblk, &
+                                          work_block)
+                  END IF
+
+                  NULLIFY(work_block)
+
+               END IF 
 
             END DO
          END DO
