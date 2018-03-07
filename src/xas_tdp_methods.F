@@ -190,6 +190,9 @@ CONTAINS
       CALL write_mos_to_ex_atoms_association(xas_tdp_env, qs_env, output_unit)     
 
 !  Loop over donor states for calculation
+!  TODO: I suspect that for parallel run with mpirun, all the processors do not go at the same speed
+!        causing some pointer to be dealloacted before they are called by the other processors
+!        Get bad pointer memory leak
 
       CALL get_qs_env(qs_env=qs_env, atomic_kind_set=atomic_kind_set)      
       current_state_index = 1
@@ -244,12 +247,14 @@ CONTAINS
                            CALL solve_xas_tdp_full_prob(matrix_tdp, matrix_lhs, current_state, &
                                                         qs_env, xas_tdp_control)
                            CALL compute_oscillator_strength(current_state, qs_env, xas_tdp_control)
- 
-                           i=0
-                           PRINT*, "evals, oscillator_strength"
-                           DO i = 1,SIZE(current_state%lr_evals)
-                              PRINT*, current_state%lr_evals(i), "   ,    ", current_state%osc_str(i)
-                           END DO
+                           
+                           IF (output_unit > 0 ) THEN
+                              i=0
+                              PRINT*, "evals, oscillator_strength"
+                              DO i = 1,SIZE(current_state%lr_evals)
+                                 PRINT*, current_state%lr_evals(i), "   ,    ", current_state%osc_str(i)
+                              END DO
+                           END IF
 
                            CALL dbcsr_release(matrix_tdp)
                            CALL dbcsr_release(matrix_lhs)
@@ -807,7 +812,7 @@ CONTAINS
                CALL cp_dbcsr_sm_fm_multiply(matrix_ks(1)%matrix, col_coeff_j, work_vector, ncol=1) 
                CALL cp_fm_get_submatrix(work_vector, work_array)
 
-               DO i = 1,n_states
+               DO i = j,n_states
 !                 Retrieving mo_coeff for psi_i
                   CALL cp_fm_get_submatrix(fm=mo_coeff, target_m=tmp_coeff, start_row=1,&
                                            start_col=my_mos(i), n_rows=nao, n_cols=1,&
@@ -818,6 +823,8 @@ CONTAINS
                      donor_state%energy_evals(i,j) = donor_state%energy_evals(i,j) + &
                                                      tmp_coeff(k,1)*work_array(k,1)
                   END DO
+                  donor_state%energy_evals(j,i) = donor_state%energy_evals(i,j)
+
                END DO
             END DO
 
