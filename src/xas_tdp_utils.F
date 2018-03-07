@@ -19,13 +19,15 @@ MODULE xas_tdp_utils
    USE cp_dbcsr_diag,                   ONLY: cp_dbcsr_syevd
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm, cp_dbcsr_sm_fm_multiply, &
                                               copy_fm_to_dbcsr
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_invert, cp_fm_scale_and_add
+   USE cp_cfm_types,                    ONLY: cp_fm_to_cfm, cp_cfm_to_fm, cp_cfm_type, &
+                                              cp_cfm_create, cp_cfm_release
+   USE cp_fm_basic_linalg,              ONLY: cp_fm_invert, cp_fm_scale_and_add, cp_fm_gemm
    USE cp_fm_diag,                      ONLY: cp_fm_geeig
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create, cp_fm_struct_release, &     
                                               cp_fm_struct_type
    USE cp_fm_types,                     ONLY: cp_fm_create, cp_fm_release, cp_fm_type, &
                                               cp_fm_to_fm_submat, cp_fm_get_submatrix, &
-                                              cp_fm_get_info, cp_fm_set_submatrix
+                                              cp_fm_get_info, cp_fm_set_submatrix, cp_fm_set_all
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_p_type, dbcsr_distribution_type, &
@@ -36,7 +38,8 @@ MODULE xas_tdp_utils
                                               dbcsr_distribution_release, &
                                               dbcsr_copy, dbcsr_set, dbcsr_deallocate_matrix_set, &
                                               dbcsr_allocate_matrix_set, dbcsr_multiply, &
-                                              dbcsr_get_stored_coordinates
+                                              dbcsr_get_stored_coordinates, dbcsr_desymmetrize, &
+                                              dbcsr_complete_redistribute
    USE input_constants,                 ONLY: xas_dip_len, xas_dip_vel
    USE kinds,                           ONLY: dp
    USE orbital_pointers,                ONLY: ncoset
@@ -215,7 +218,6 @@ CONTAINS
             END DO
          END DO
 
-
 !        Some clean-up
          CALL dbcsr_distribution_release(supmat_dist)
          CALL dbcsr_release(work_matrix)
@@ -310,7 +312,7 @@ CONTAINS
 !        Initialization
          CALL dbcsr_get_info(matrix_tdp, nfullrows_total=nrow)
          CALL cp_fm_struct_create(fm_struct,context=blacs_env, nrow_global=nrow, para_env=para_env,&
-                                  ncol_global=nrow) 
+                                  ncol_global=nrow)
 
 !        Need to go to full matrices to diagonalize
          CALL cp_fm_create(amatrix, fm_struct)
@@ -321,7 +323,11 @@ CONTAINS
          CALL cp_fm_create(donor_state%lr_coeffs, fm_struct)
 
 !        Diagonalize the matrix
-         CALL diag_non_symm_mat(amatrix, donor_state%lr_evals, donor_state%lr_coeffs)
+#if defined(__SCALAPACK) 
+         CALL pdiag_nonsymm_mat(amatrix, donor_state%lr_evals, donor_state%lr_coeffs)
+#else
+         CALL diag_nonsymm_mat(amatrix, donor_state%lr_evals, donor_state%lr_coeffs)
+#endif
          
 !        Clean-up
          CALL cp_fm_release(amatrix)
@@ -329,8 +335,8 @@ CONTAINS
 
       END IF
 
-!  Making sure that the respone orbitals are normalized with repect to matrix_s
-!  TO RETEST WHEN KERNEL IS AVAILABLE
+!  Making sure that the response orbitals are normalized with respect to matrix_s
+!  TODO: RETEST WHEN KERNEL IS AVAILABLE
       CALL normalize_lr_orbitals(donor_state, qs_env, xas_tdp_control)
 
       CALL timestop(handle)
@@ -338,7 +344,7 @@ CONTAINS
    END SUBROUTINE solve_xas_tdp_full_prob
 
 ! **************************************************************************************************
-!> \brief Normalizes the reponse orbitals so that <phi^+|phi^+>=1 and <phi^-|phi^->=1
+!> \brief Normalizes the response orbitals so that <phi^+|phi^+>=1 and <phi^-|phi^->=1
 !> \param donor_state ...
 !> \param qs_env ... 
 !> \param xas_tdp_control ...
@@ -405,7 +411,7 @@ CONTAINS
                   IF (.NOT. found_nonzero) THEN
          
                      s_firstrow = (ipm-1)*ndo_mo*nao + (imo-1)*nao + 1
-!                    Retrieving the C^+ (C^- if TDA) coefficients corresponding to the first donor MO
+!                    Retrieving the C^+ (C^- if TDA) coefficients corresponding to the current donor MO
                      CALL cp_fm_to_fm_submat(msource=lr_coeffs, mtarget=c_vect, nrow=nao, ncol=1, &
                                              s_firstrow=s_firstrow, s_firstcol=iex, &
                                              t_firstrow=1, t_firstcol=1)
@@ -444,7 +450,7 @@ CONTAINS
 
       CALL timestop(handle)
       
-   END SUBROUTINE
+   END SUBROUTINE normalize_lr_orbitals
 
 ! **************************************************************************************************
 !> \brief Computes the oscillator strength based on the dipole moment (velocity or position rep 
@@ -452,8 +458,8 @@ CONTAINS
 !> \param donor_state the donor state which is excited
 !> \param qs_env ...
 !> \param xas_tdp_control ...
-!> \note The oscillator strength is a scalar: osc_str = 2/3*omega*(dipole_r)^2 
-!>                                                    = -2/(3*omega)*(dipole_v)^2
+!> \note The oscillator strength is a scalar: osc_str = 2/3*omega*(dipole_r)^2 = -2/(3*omega)*(dipole_v)^2
+!>       But because there is a risk of very tiny omega, multiply both cases by omega to avoid division
 ! **************************************************************************************************
    SUBROUTINE compute_oscillator_strength(donor_state, qs_env, xas_tdp_control)
 
@@ -506,14 +512,14 @@ CONTAINS
 !        Take the origin of r on the excited atom
          rc = particle_set(donor_state%at_index)%r
          CALL rRc_xyz_ao(dipmat, qs_env, rc, order=1)
-!        Add the dipole form specific prefactor 2/3*omega
-         osc_str = 2.0_dp/3.0_dp*donor_state%lr_evals
+!        Add the dipole form specific prefactor 2/3*omega**2
+         osc_str = 2.0_dp/3.0_dp*donor_state%lr_evals**2
 
       ELSE IF (xas_tdp_control%dipole_form == xas_dip_vel) THEN
 !        Simply compute the moment in the basis set
          CALL p_xyz_ao(dipmat, qs_env)
-!        Add the dipole form specific prefactor 2/(3*omega), no minus sign as p_xyz is real here
-         osc_str = 2.0_dp/3.0_dp*1.0_dp/donor_state%lr_evals
+!        Add the dipole form specific prefactor 2/3, no minus sign as p_xyz is real here
+         osc_str = 2.0_dp/3.0_dp
       END IF
 
 !     Some more initialization before heavy computing
@@ -593,8 +599,8 @@ CONTAINS
 
 !  Testing three-center integrals
       NULLIFY(int_array)
-      CALL compute_ri_coulomb3_int(int_array, donor_state, qs_env) 
-      CALL dbcsr_deallocate_matrix_set(int_array)
+!      CALL compute_ri_coulomb3_int(int_array, donor_state, qs_env) 
+!      CALL dbcsr_deallocate_matrix_set(int_array)
 
    END SUBROUTINE compute_oscillator_strength
 
@@ -654,7 +660,7 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
          row_dist_sub((i-1)*srow_dist+1:i*srow_dist) = row_dist         
          col_dist_sub((i-1)*scol_dist+1:i*scol_dist) = col_dist            
       END DO
-
+      
 !  Create the submatrix dbcsr distribution
       ALLOCATE(submat_dist)
       CALL dbcsr_distribution_new(submat_dist, group=group, pgrid=pgrid, row_dist=row_dist_sub, &
@@ -692,11 +698,19 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       REAL(dp), DIMENSION(:,:), POINTER               :: energy_evals     
       REAL(dp), DIMENSION(:), POINTER                 :: work_block, work_block_ks, work_block_s 
       LOGICAL                                         :: found_block, found_block_ks 
+      TYPE(dbcsr_type)                                :: desym_matrix_s, desym_matrix_ks, work_matrix
 
       CALL timeset(routineN, handle)
 
       NULLIFY(matrix_ks, dbcsr_dist, row_blk_size, work_block, energy_evals, matrix_s)
       NULLIFY(work_block_ks, work_block_s)
+
+!  Note: All matrices are based on the basic CP2K dbcsr_distribution. Larger matrices simply replicate
+!        the distribution. For non-symmetric matrices, the outcome is straight forward, not so much
+!        otherwise (pretty much impossible to predict which processors holds which block)
+!  Strategy: Use a non-symmetric work matrix and desymmetrize matrices S and KS, hence the blocks
+!            are kept on the same processors for all matrices. After filling the upper block 
+!            triangle part of the work matrix, redistribute it into a symmetric matrix_a.
 
 !  Initialization
       ndo_mo = SIZE(donor_state%mo_indices,1)
@@ -705,80 +719,99 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       nblk_row = SIZE(row_blk_size)
       energy_evals => donor_state%energy_evals
 
-!  Creating the matrix A with the right size and distribution (it is symmetric)
-      CALL dbcsr_create(matrix=matrix_a, name="MATRIX A", matrix_type="S", dist=dist_a, &
+!  Creating the work matrix, which is not symmetric (as a type)
+      CALL dbcsr_create(matrix=work_matrix, name="WORK MAT", matrix_type="N", dist=dist_a, &
                         row_blk_size=blk_size_a, col_blk_size=blk_size_a)
 
-!  Fill the matrix A, looping on blocks the size of matrix_ks, only iterate on upper triangle since
-!  the matrix is symmetric
-      CALL dbcsr_distribution_get(dbcsr_dist, mynode=mynode)
-      DO i = 1,ndo_mo
-         DO j = i,ndo_mo
+!  Desymmetrize matrices S and KS
+      CALL dbcsr_create(matrix=desym_matrix_s, name="DESYM MATRIX S", matrix_type="N", &
+                        dist=dbcsr_dist, row_blk_size=row_blk_size, col_blk_size=row_blk_size)
+      CALL dbcsr_desymmetrize(matrix_s(1)%matrix, desym_matrix_s)
+   
+      CALL dbcsr_create(matrix=desym_matrix_ks, name="DESYM MATRIX KS", matrix_type="N", &
+                        dist=dbcsr_dist, row_blk_size=row_blk_size, col_blk_size=row_blk_size)
+      CALL dbcsr_desymmetrize(matrix_ks(1)%matrix, desym_matrix_ks)
+   
+!  Loop over the blocks of desymmetrized matrices S and KS and put them in the work matrix
+      CALL dbcsr_distribution_get(dist_a, mynode=mynode)
+      DO iblk = 1,nblk_row
+         DO jblk = 1,nblk_row
 
-!           Loop over the blocks of the symmetric submatrices KS and S  and copy one by one into A
-!           TODO: replace for loops by dbcsr_operator
-            DO iblk = 1,nblk_row
-               DO jblk = iblk,nblk_row
+!           Check if block is on current processor
+            CALL dbcsr_get_stored_coordinates(desym_matrix_s, iblk, jblk, node_holds_blk)
+            IF (node_holds_blk == mynode) THEN
 
-!                 Check that block of matrix S/KS is on current processor (same distribution for 
-!                 matrix_s and matrix_ks, the same but replicated for matrix_a)
-                  CALL dbcsr_get_stored_coordinates(matrix_s(1)%matrix, iblk, iblk, node_holds_blk)
+               found_block = .FALSE.                                                           
+               found_block_ks = .FALSE.                                                        
+               ALLOCATE(work_block(row_blk_size(iblk)*row_blk_size(jblk)))
 
-                  IF (node_holds_blk == mynode) THEN
-                     found_block = .FALSE.
-                     found_block_ks = .FALSE.
-                     ALLOCATE(work_block(row_blk_size(iblk)*row_blk_size(jblk)))
+!              Retrieve S_pq
+               CALL dbcsr_get_block_p(desym_matrix_s, iblk, jblk, work_block_s, found_block)
 
-!                    Retrieve S_pq
-                     CALL dbcsr_get_block_p(matrix_s(1)%matrix, iblk, jblk, work_block_s, found_block)
+!              Retrieve the upper triangular part of F_pq (all we need since only on diag of mat A)
+               IF (jblk .GE. iblk) CALL dbcsr_get_block_p(desym_matrix_ks, iblk, jblk, &
+                                                          work_block_ks, found_block_ks)
 
-!                    Take -epsilon_ij*S_pq
-                     If (found_block) THEN
+!              Now loop over the upper triangular part of the work matrix.
+               DO i = 1,ndo_mo
+                  DO j = i,ndo_mo
+
+!                    Take -epsilon_ij*Spq
+                     IF (found_block .AND. (energy_evals(i,j) .NE. 0.0_dp)) THEN
                         work_block = -(energy_evals(i,j))*work_block_s
 
-                        IF (energy_evals(i,j) == 0.0_dp) THEN
-!                          If the whole block is zero, then equivalent to no block at all
-                           found_block = .FALSE.
-                        END IF
+                     ELSE IF (energy_evals(i,j) ==  0.0_dp) THEN
+!                       If multiplying block by zero, then equivalent to no block at all
+                        found_block = .FALSE.
                      END IF
 
-!                    If on the block diagonal, take F_pq - epsilon_ii*S_pq
-                     IF (i==j) THEN
-                        CALL dbcsr_get_block_p(matrix_ks(1)%matrix, iblk, jblk, work_block_ks, &
-                                               found_block_ks)
+!                    If not on the block digonal of work mat, can simply put the block now
+                     IF ((i .NE. j) .AND. found_block) THEN
+                        CALL dbcsr_put_block(work_matrix,(i-1)*nblk_row+iblk, (j-1)*nblk_row+jblk, & 
+                                             work_block)
+                     END IF ! i != j
+
+!                    If on the block diagonal, take F_pq - epsilon_ii*S_pq and only consider upper part
+                     IF ((i==j) .AND. (jblk .GE. iblk)) THEN
 
                         IF (found_block .AND. found_block_ks) THEN
-                           work_block = work_block + work_block_ks 
+                           work_block = work_block + work_block_ks
+                           CALL dbcsr_put_block(work_matrix,(i-1)*nblk_row+iblk, &
+                                                (j-1)*nblk_row+jblk, work_block)
+
                         ELSE IF ((.NOT. found_block) .AND. found_block_ks) THEN
-                           work_block = work_block_ks 
+                           work_block = work_block_ks
+                           CALL dbcsr_put_block(work_matrix,(i-1)*nblk_row+iblk, &
+                                                (j-1)*nblk_row+jblk, work_block)
                         END IF
-                     END IF
+                        
+                     END IF ! i==j
 
-!                    Put the block in A if either found in KS,S or both 
-                     IF (found_block .OR. found_block_ks) THEN
-                     
-                        CALL dbcsr_put_block(matrix_a,(i-1)*nblk_row+iblk, (j-1)*nblk_row+jblk, &
-                                             work_block)
-!                       Need to fill the whole upper part of A, by making sure that non-diagonal
-!                       sub-blocks are coiped twice in the upper diagonal part of A
-                        IF ((iblk .NE. jblk) .AND. (i .NE. j)) THEN
-                           CALL dbcsr_put_block(matrix_a,(i-1)*nblk_row+jblk, (j-1)*nblk_row+iblk, &
-                                                work_block)
-                        END IF   
-                     END IF
+                  END DO ! j
+               END DO ! i
 
-                     DEALLOCATE(work_block)
-                     NULLIFY(work_block_ks, work_block_s)
+               DEALLOCATE(work_block)
+               NULLIFY(work_block_s, work_block_ks)
 
-                  END IF ! node_holds_blk==mynode
-               END DO ! jblk
-            END DO ! iblk
+            END IF ! node_holds_blk==mynode
+         END DO ! jblk
+      END DO ! iblk
 
-         END DO ! j
-      END DO ! i
+!  Create symmetric matrix A
+      CALL dbcsr_create(matrix=matrix_a, name="MATRIX A", matrix_type="S", dist=dist_a, &
+                        row_blk_size=blk_size_a, col_blk_size=blk_size_a)    
+
+!  Redistribute the work matrix into A so that it is stored as symmetric
+      CALL dbcsr_finalize(work_matrix)
+      CALL dbcsr_complete_redistribute(work_matrix, matrix_a)
 
 !  Finalize
       CALL dbcsr_finalize(matrix_a)   
+
+!  Cleanu-up
+      CALL dbcsr_release(desym_matrix_s)
+      CALL dbcsr_release(desym_matrix_ks)
+      CALL dbcsr_release(work_matrix)
    
       CALL timestop(handle)
 
@@ -827,15 +860,15 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 
 !  Fill the matrix G. First loop over the superblocks of size nao x nao (only on the diagonal), then
 !  their respective blocks which have the standard cp2k structure. They also have the standard dbcsr
-!  distribution so one can check for which processor we are on from dist_g
+!  distribution. Since G is block diagonal, no trap like for build_matrix_a
       CALL dbcsr_distribution_get(dist_g, mynode=mynode)
       DO i = 1,ndo_mo
-!        loop over blocks of matrix_s
+!        loop over blocks of matrix_s (upper triangular part, symmetric anyway)
 !        TO DO: replace for loops by dbcsr_iterator
          DO iblk = 1,nblk_row
-            DO jblk = 1,nblk_row
+            DO jblk = iblk,nblk_row
 
-!              Check the the block is stored on current processor.
+!              Check that the block is stored on current processor.
                CALL dbcsr_get_stored_coordinates(matrix_s(1)%matrix, iblk, jblk, node_holds_blk)
 
                IF (node_holds_blk == mynode) THEN
@@ -899,21 +932,24 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 !> \param evecs the square matrix where the eigenvectors are stored
 !> \note the input matrix is changed during the subroutine
 ! **************************************************************************************************
-   SUBROUTINE diag_non_symm_mat(matrix, evals, evecs)
+   SUBROUTINE diag_nonsymm_mat(matrix, evals, evecs)
 
       TYPE(cp_fm_type), POINTER                       :: matrix
       REAL(dp), DIMENSION(:), POINTER                 :: evals
       TYPE(cp_fm_type), POINTER                       :: evecs
 
-      CHARACTER(len=*), PARAMETER :: routineN = "diag_non_symm_mat", &
+      CHARACTER(len=*), PARAMETER :: routineN = "diag_nonsymm_mat", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: order, lda, ilo, ihi, info, lwork, m
+      INTEGER                                         :: order, lda, ilo, ihi, info, lwork, m, &
+                                                         handle
       REAL(dp), DIMENSION(:,:), POINTER               :: qmat, vr, wmat
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: scal, work, tau, wi
       LOGICAL, DIMENSION(:), ALLOCATABLE              :: sel
 
       NULLIFY(qmat, vr, wmat)
+
+      CALL timeset(routineN, handle)
 
 !  Initialization
       CPASSERT(ASSOCIATED(matrix))
@@ -924,6 +960,7 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       CALL cp_fm_get_info(matrix, nrow_global=order)
       lda = order
       wmat => matrix%local_data
+!     Not implemented for parallel run yet !
       CPASSERT(SIZE(wmat,1) == order)
       CPASSERT(SIZE(wmat,2) == order)
 
@@ -980,7 +1017,194 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 ! Clean-up
       DEALLOCATE(qmat, vr)
 
-   END SUBROUTINE
+      CALL timestop(handle)
+
+   END SUBROUTINE diag_nonsymm_mat
+
+
+! **************************************************************************************************
+!> \brief Solves the non-symmetric eigenvalue problem in parallel using ScaLapack. It is assumed
+!>        that the eigenvectors and eigenvalues are real
+!> \param matrix the full matrix to be diagonalised
+!> \param evals the array the will contain the real eigenvalues as output
+!> \param evecs the full matrix containing the real eigenvectors
+!> \note  The input matrix is modified during execution
+! **************************************************************************************************
+   SUBROUTINE pdiag_nonsymm_mat(matrix, evals, evecs)
+
+      TYPE(cp_fm_type), POINTER                       :: matrix 
+      REAL(dp), DIMENSION(:), POINTER                 :: evals    
+      TYPE(cp_fm_type), POINTER                       :: evecs       
+
+      CHARACTER(len=*), PARAMETER :: routineN = "pdiag_nonsymm_mat", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: handle, order, ilo, ihi, ia, ja, info, &
+                                                         lwork, m, liwork
+      REAL(dp), DIMENSION(:,:), POINTER               :: amat, wmat
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: work, tau, wi
+      COMPLEX(dp), DIMENSION(:), ALLOCATABLE          :: cwork
+      COMPLEX(dp), DIMENSION(:,:), POINTER            :: cmat, cevecs
+      LOGICAL, DIMENSION(:), ALLOCATABLE              :: selec
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: iwork
+      INTEGER, DIMENSION(9)                           :: desca, descw, descvr
+      TYPE(cp_fm_type), POINTER                       :: work_mat, work_evecs
+      TYPE(cp_cfm_type), POINTER                      :: comp_mat, comp_evecs
+
+      NULLIFY(amat, work_mat, wmat, comp_mat, comp_evecs, cmat, cevecs, work_evecs)
+
+!  We assume SCALAPACK is available
+      CALL timeset(routineN, handle)
+      CPASSERT(ASSOCIATED(matrix))
+      CPASSERT(ASSOCIATED(evals))
+      CPASSERT(ASSOCIATED(evecs))
+
+!  Initialization
+      order = matrix%matrix_struct%nrow_global 
+      amat => matrix%local_data
+      desca = matrix%matrix_struct%descriptor
+!     intereseted in the whole matrix
+      ilo = 1
+      ihi = order
+      ia = 1
+      ja = 1
+
+!  Workspace querry
+      info = -1
+      lwork = -1
+      ALLOCATE(work(1))
+      ALLOCATE(tau(ja+order-2))
+
+#if defined(__SCALAPACK)
+      CALL pdgehrd(order, ilo, ihi, amat(1,1), ia, ja, desca, tau, work(1), lwork, info)
+#endif
+
+      IF (info .NE. 0) CPABORT("Routine pdgehrd of ScaLAPACK failed for non-symmetric matrix diag")
+      lwork = INT(work(1))
+      DEALLOCATE(work)
+      ALLOCATE(work(lwork))
+
+!  Actual call to pdgehrd => Reduction to upper Hessenberg form
+#if defined(__SCALAPACK)                                                                             
+      CALL pdgehrd(order, ilo, ihi, amat(1,1), ia, ja, desca, tau(1), work(1), lwork, info)                     
+#endif
+
+      IF (info .NE. 0) CPABORT("Routine pdgehrd of ScaLAPACK failed for non-symmetric matrix diag")
+
+!  Need to get the orthogonal transormation matrix Q, do that by multiplying the ouput of pdgehrd by
+!  identity (hack since output of pdgehrd is in a very weird format)
+      CALL cp_fm_create(work_mat, matrix%matrix_struct)
+      CALL cp_fm_set_all(work_mat, alpha=0.0_dp, beta=1.0_dp)
+      wmat => work_mat%local_data
+      descw = work_mat%matrix_struct%descriptor
+
+!  First work space querry
+      DEALLOCATE(work)
+      ALLOCATE(work(1))
+      lwork = -1
+
+#if defined(__SCALAPACK) 
+      CALL pdormhr('R', 'N', order, order, ilo, ihi, amat(1,1), ia, ja, desca, tau(1), wmat(1,1), ia, ja, descw,&
+                   work(1), lwork, info)
+#endif
+
+      IF (info .NE. 0 ) CPABORT("Routine pdormhr of ScaLAPACK failed for non-symmetric matrix diag")
+
+      lwork = INT(work(1))
+      DEALLOCATE(work)
+      ALLOCATE(work(lwork))
+
+!  Actual call of pdormhr
+
+#if defined(__SCALAPACK)                                                                             
+      CALL pdormhr('R', 'N', order, order, ilo, ihi, amat(1,1), ia, ja, desca, tau(1), wmat(1,1), ia, ja, descw,& 
+                   work(1), lwork, info)                                                                
+#endif 
+
+      IF (info .NE. 0 ) CPABORT("Routine pdormhr of ScaLAPACK failed for non-symmetric matrix diag")
+      DEALLOCATE(work)
+      DEALLOCATE(tau)
+
+!  Compute eigenvalues and Schur factorization using pdlaqr1
+      CPASSERT(SIZE(evals) == order)
+
+!  workspace querry
+      lwork = -1
+      liwork = -1
+      ALLOCATE(work(1))
+      ALLOCATE(iwork(1)) 
+      ALLOCATE(wi(order))
+
+#if defined(__SCALAPACK)  
+      CALL pdlaqr1(.TRUE., .TRUE., order, ilo, ihi, amat, desca, evals, wi, ilo, ihi, wmat, &
+                   descw, work, lwork, iwork, liwork, info)
+#endif
+      
+      IF (info .NE. 0 ) CPABORT("Routine pdlaqr1 of ScaLAPACK failed for non-symmetric matrix diag")
+
+      lwork = INT(work(1))
+      liwork = INT(iwork(1)) 
+      DEALLOCATE(work, iwork)         
+      ALLOCATE(work(lwork))
+      ALLOCATE(iwork(liwork))
+
+!  Actual call to pdlaqr1
+
+#if defined(__SCALAPACK)                                                                             
+      CALL pdlaqr1(.TRUE., .TRUE., order, ilo, ihi, amat, desca, evals, wi, ilo, ihi, wmat, &
+                   descw, work, lwork, iwork, liwork, info)                                    
+#endif
+      IF (info .NE. 0 ) CPABORT("Routine pdlaqr1 of ScaLAPACK failed for non-symmetric matrix diag")
+            
+      DEALLOCATE(iwork)
+      DEALLOCATE(wi)
+
+!  Now get the eigenvectors. Note: we have a real matrix and expect real eigenvectors. However,
+!  ScalLAPACK only has such a routine for complex cases => need to convert
+      
+!     real to complex conversion, keep same matrix structure
+      CALL cp_cfm_create(comp_mat, matrix%matrix_struct)
+      CALL cp_cfm_create(comp_evecs, evecs%matrix_struct)
+      CALL cp_fm_to_cfm(msourcer=matrix, mtarget=comp_mat)
+      descvr = comp_evecs%matrix_struct%descriptor
+      cmat => comp_mat%local_data
+      cevecs => comp_evecs%local_data
+
+!     other initializations
+      ALLOCATE(selec(1))
+      selec(1) = .TRUE.
+      DEALLOCATE(work)
+      ALLOCATE(work(desca(9))) !local leading dimension
+      ALLOCATE(cwork(2*desca(9)))
+      m = 0
+
+!  todo: need to properly check the performances of this guy.. Apparently slow
+!        also, can only compute a subset of the eigenvectors. Maybe do that to
+
+#if defined(__SCALAPACK) 
+      CALL pztrevc('R', 'A', selec(1), order, cmat(1,1), desca, cevecs(1,1), descvr, cevecs(1,1), descvr, order, m, &
+                   cwork(1), work(1), info)
+#endif
+
+      IF (info .NE. 0 ) CPABORT("Routine pztrevc of ScaLAPACK failed for non-symmetric matrix diag")
+
+!  Go back to real matrices (assume no imaginary part)
+      CALL cp_fm_create(work_evecs, evecs%matrix_struct)
+      CALL cp_cfm_to_fm(msource=comp_mat, mtargetr=matrix)
+      CALL cp_cfm_to_fm(msource=comp_evecs, mtargetr=work_evecs)
+
+!  To obtain the proper eigenvectors, need to compute evecs = Q*evecs, Q stored in work_mat
+      CALL cp_fm_gemm('N', 'N', order, order, order, 1.0_dp, work_mat, work_evecs, 0.0_dp, evecs)
+
+!  Clean-up
+      CALL cp_fm_release(work_mat)
+      CALL cp_fm_release(work_evecs)
+      CALL cp_cfm_release(comp_mat)
+      CALL cp_cfm_release(comp_evecs)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE pdiag_nonsymm_mat
 
 ! **************************************************************************************************
 !> \brief Computes the three-centers Coulomb integrals needed for RI in kernel calculations and 
@@ -1034,8 +1258,8 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 !  don't compute integrals that we now are zero. This way, can also go to full matrices and only
 !  store a short number, along with a system to which matrix is what
 
-      IF (SIZE(donor_state%energy_evals,1) .NE. 1) &
-         CPABORT("RI Coulomb integrals not implemented yet for cases with multiple donor MOs")
+!      IF (SIZE(donor_state%energy_evals,1) .NE. 1) &
+!         CPABORT("RI Coulomb integrals not implemented yet for cases with multiple donor MOs")
 
       NULLIFY(qs_kind_set, p_basis, i_basis, a_basis, particle_set, mos, mo_coeff)
       NULLIFY(lp_max, lp_min, npgfp, zetp, rpgfp, sphi_p, first_sgfp)
@@ -1076,6 +1300,7 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       CALL dbcsr_distribution_get(dbcsr_dist, group=group, pgrid=pgrid)      
       ALLOCATE(row_dist(natom))
       ALLOCATE(col_dist(1))
+!     TODO: do not use reuse array, it detroys pgrid on release
       CALL dbcsr_distribution_new(int_aip_dist, group=group, pgrid=pgrid, row_dist=row_dist, &
                                   col_dist=col_dist, reuse_arrays=.TRUE.)
 
