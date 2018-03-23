@@ -12,7 +12,9 @@ MODULE xas_tdp_utils
    
    USE ai_coulomb,                      ONLY: coulomb3
    USE ai_contraction_sphi,             ONLY: abc_contract
-   USE basis_set_types,                 ONLY: gto_basis_set_type, get_gto_basis_set
+   USE basis_set_types,                 ONLY: gto_basis_set_type, get_gto_basis_set, &
+                                              gto_basis_set_p_type
+   USE cell_types,                      ONLY: cell_type, pbc
    USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose, &
                                               cp_dbcsr_cholesky_invert, &
                                               cp_dbcsr_cholesky_restore
@@ -27,7 +29,8 @@ MODULE xas_tdp_utils
                                               cp_fm_struct_type
    USE cp_fm_types,                     ONLY: cp_fm_create, cp_fm_release, cp_fm_type, &
                                               cp_fm_to_fm_submat, cp_fm_get_submatrix, &
-                                              cp_fm_get_info, cp_fm_set_submatrix, cp_fm_set_all
+                                              cp_fm_get_info, cp_fm_set_submatrix, cp_fm_set_all, &
+                                              cp_fm_p_type
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_p_type, dbcsr_distribution_type, &
@@ -47,9 +50,16 @@ MODULE xas_tdp_utils
    USE particle_types,                  ONLY: particle_type
    USE qs_environment_types,            ONLY: qs_environment_type, get_qs_env
    USE qs_kind_types,                   ONLY: get_qs_kind, qs_kind_type
+   USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_mo_types,                     ONLY: get_mo_set, mo_set_p_type
+   USE qs_neighbor_list_types,          ONLY: get_iterator_info, neighbor_list_iterate, &
+                                              neighbor_list_iterator_create, &
+                                              neighbor_list_iterator_p_type, &
+                                              neighbor_list_iterator_release,&
+                                              neighbor_list_set_p_type
    USE qs_operators_ao,                 ONLY: p_xyz_ao, rRc_xyz_ao
-   USE xas_tdp_types,                   ONLY: donor_state_type, xas_tdp_control_type
+   USE xas_tdp_types,                   ONLY: donor_state_type, xas_tdp_control_type, &
+                                              xas_tdp_env_type
 
 #include "./base/base_uses.f90"
    
@@ -71,6 +81,7 @@ CONTAINS
 !> \parma matrix_lhs pointer to the dbcsr matrix S (left hand side)
 !> \param donor_state donor_state type for which the problem is restricted
 !> \param qs_env ...
+!> \param xas_tdp_env ...
 !> \param xas_tdp_control ...
 !> \note At this point in time (01.2018), the Kernel is not taken into account, i.e. matrix M  has
 !>       the form | A  0 | and another subroutine builds A. Matrix S has the form | -G  0 |, where
@@ -82,12 +93,14 @@ CONTAINS
 !>       S^-1*M*C  = | -G^-1*A   0    |
 !>                   |   0    G^-1*A  |  
 ! **************************************************************************************************
-   SUBROUTINE setup_xas_tdp_full_prob(matrix_tdp, matrix_lhs, donor_state, qs_env, xas_tdp_control)
+   SUBROUTINE setup_xas_tdp_full_prob(matrix_tdp, matrix_lhs, donor_state, qs_env, xas_tdp_env, & 
+                                      xas_tdp_control)
 
       TYPE(dbcsr_type), POINTER                       :: matrix_tdp
       TYPE(dbcsr_type), POINTER                       :: matrix_lhs
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(qs_environment_type), POINTER              :: qs_env
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
       
       CHARACTER(len=*), PARAMETER :: routineN = 'setup_xas_tdp_full_prob', &
@@ -95,7 +108,8 @@ CONTAINS
       
       INTEGER                                         :: handle, group , iblk, jblk, nblk_sub, &
                                                          mynode, node_holds_blk
-      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g, work_matrix
+      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g, work_matrix, & 
+                                                         matrix_test
       TYPE(dbcsr_distribution_type), POINTER          :: submat_dist, supmat_dist
       INTEGER, DIMENSION(:), POINTER                  :: submat_blk_size, supmat_blk_size, &
                                                          col_dist_sub, row_dist_sub, &
@@ -112,10 +126,11 @@ CONTAINS
 
       NULLIFY(matrix_a, submat_dist, submat_blk_size, supmat_dist, supmat_blk_size, col_dist_sub)
       NULLIFY(row_dist_sub, col_dist_sup, row_dist_sup, work_block, matrix_g, pgrid, work_matrix)
-      NULLIFY(fm_matrix_g, fm_matrix_inv_g, fm_struct, para_env, blacs_env)
+      NULLIFY(fm_matrix_g, fm_matrix_inv_g, fm_struct, para_env, blacs_env, matrix_test)
 
       CPASSERT(ASSOCIATED(donor_state))
       CPASSERT(ASSOCIATED(qs_env))
+      CPASSERT(ASSOCIATED(xas_tdp_env))
       CPASSERT(ASSOCIATED(xas_tdp_control))
 
 !  Get the submatrices distribution and block sizes
@@ -127,6 +142,13 @@ CONTAINS
       ALLOCATE(matrix_g)
       CALL build_matrix_a(matrix_a, submat_dist, submat_blk_size, donor_state, qs_env)
       CALL build_matrix_g(matrix_g, submat_dist, submat_blk_size, donor_state, qs_env)       
+
+!  Test on coulomb kernel
+      ALLOCATE(matrix_test)
+      CALL build_kernel_coulomb(matrix_test, submat_dist, submat_blk_size, donor_state, xas_tdp_env, &
+                                qs_env)
+      CALL dbcsr_release(matrix_test)
+      DEALLOCATE(matrix_test)
 
 !  Test on Tamm Dancoff approximation 
 
@@ -484,7 +506,6 @@ CONTAINS
       TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct
       TYPE(cp_fm_type), POINTER                       :: c_vect, work_vect
       REAL(dp)                                        :: contrib
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: int_array
 
       CALL timeset(routineN, handle)
 
@@ -596,11 +617,6 @@ CONTAINS
       CALL dbcsr_deallocate_matrix_set(dipmat)
 
       CALL timestop(handle)
-
-!  Testing three-center integrals
-      NULLIFY(int_array)
-!      CALL compute_ri_coulomb3_int(int_array, donor_state, qs_env) 
-!      CALL dbcsr_deallocate_matrix_set(int_array)
 
    END SUBROUTINE compute_oscillator_strength
 
@@ -733,6 +749,7 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       CALL dbcsr_desymmetrize(matrix_ks(1)%matrix, desym_matrix_ks)
    
 !  Loop over the blocks of desymmetrized matrices S and KS and put them in the work matrix
+!  TODO: switch to dbcsr iterator
       CALL dbcsr_distribution_get(dist_a, mynode=mynode)
       DO iblk = 1,nblk_row
          DO jblk = 1,nblk_row
@@ -802,6 +819,7 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
                         row_blk_size=blk_size_a, col_blk_size=blk_size_a)    
 
 !  Redistribute the work matrix into A so that it is stored as symmetric
+!  TODO: need to desymmetrize later anyways, might as well store it as normal matrix...
       CALL dbcsr_finalize(work_matrix)
       CALL dbcsr_complete_redistribute(work_matrix, matrix_a)
 
@@ -1208,17 +1226,24 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 
 ! **************************************************************************************************
 !> \brief Computes the three-centers Coulomb integrals needed for RI in kernel calculations and 
-!>        returns it in appropriate array of full matrices
+!>        returns it in appropriate array of full matrices. Each entry of the output array corresponds
+!>        to the sgfs centered on atom a of: sum_i c_i*(ai|p), {p} is the RI basis centered on the 
+!>        excited atom.
 !> \param int_array array containing the integrals in full matrix form
+!)> \param nonzero_int array containing the indices of the atoms, for which there is a nonzero integral 
 !> \param donor_state ...
+!> \param domo_index the index of donor_state's MO to consider (1 for 1s or 2s, 1,2,3 for 2p)
 !> \param qs_env ...
-!> \note  Computes integrals of the form (ai|p)*c_i, where c_i is the ground state coefficient for 
-!>        the donor MO
+!> \note  Computes integrals of the form: sum_i (ai|p)*c_i, where c_i are the ground state coefficient
+!>        for the donor MO. TODO: there is probably a high potential for parallelization since we have
+!>        many loop that do their own stuff...
 ! **************************************************************************************************
-   SUBROUTINE compute_ri_coulomb3_int(int_array, donor_state, qs_env)
+SUBROUTINE compute_ri_coulomb3_int(int_array, nonzero_int, donor_state, domo_index, qs_env)
 
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: int_array
+      TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: int_array
       TYPE(donor_state_type), POINTER                 :: donor_state
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: nonzero_int
+      INTEGER, INTENT(IN)                             :: domo_index
       TYPE(qs_environment_type), POINTER              :: qs_env
 
       CHARACTER(len=*), PARAMETER :: routineN = 'compute_ri_coulomb3_int', &
@@ -1227,14 +1252,16 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       INTEGER                                         :: handle, nsetp, nseti, natom, &
                                                          nao, nseta, iat, aset, iset, pset, &
                                                          ncoa, ncoi, ncop, igp, sgfa, sgfp, &
-                                                         sgfi, group, aat, iao, isgf
+                                                         sgfi, aat, iao, isgf, akind, ikind, n_int,&
+                                                         asgf, aao, i, nsgf, nkind
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
+      TYPE(gto_basis_set_p_type), DIMENSION(:), &
+                                             POINTER  :: basis_set_list_a, basis_set_list_i
       TYPE(gto_basis_set_type), POINTER               :: p_basis, i_basis, a_basis
       INTEGER, DIMENSION(:), POINTER                  :: lp_max, lp_min, npgfp, li_max,li_min,&
                                                          npgfi, la_max, la_min, npgfa, nsgfa, &
-                                                         nsgfi, nsgfp, row_dist, col_dist, &
-                                                         row_blk_size, col_blk_size
-      INTEGER, DIMENSION(:,:), POINTER                :: first_sgfa, first_sgfi, first_sgfp, pgrid
+                                                         nsgfi, nsgfp
+      INTEGER, DIMENSION(:,:), POINTER                :: first_sgfa, first_sgfi, first_sgfp
       REAL(dp), DIMENSION(:,:), POINTER               :: zetp, rpgfp, zeti, rpgfi, zeta, rpgfa,&
                                                          sphi_p, sphi_a, sphi_i, coeffi
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
@@ -1242,203 +1269,469 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       TYPE(cp_fm_type), POINTER                       :: mo_coeff
       REAL(dp), DIMENSION(:,:,:,:), ALLOCATABLE       :: v
       REAL(dp), DIMENSION(:,:,:), ALLOCATABLE         :: int_aip, int_aip_set, int_aip_contr, &
-                                                         int_aip_iat
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: vaip
+                                                         int_aip_atom
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: vaip, int_coeff_contr
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: f, gcc
-      REAL(dp), DIMENSION(3)                          :: ra, rb, rc
-      REAL(dp)                                        :: rab2, rac2, rbc2
-      TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
-      TYPE(dbcsr_distribution_type)                   :: int_aip_dist
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
-      INTEGER, DIMENSION(:), ALLOCATABLE              :: first_sgf_set
+      REAL(dp), DIMENSION(3)                          :: ra, ri, rp, rai, rap, rip
+      REAL(dp)                                        :: rai2, rap2, rip2, dap, dip, rada, radi, &
+                                                         radp
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: first_sgf_set, last_sgf_set, wnonzero_int
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), & 
+                                          POINTER     :: sab_orb
+      TYPE(neighbor_list_iterator_p_type), &                                                         
+                            DIMENSION(:), POINTER     :: nl_iterator   
+      TYPE(cp_fm_struct_type), POINTER                :: fm_struct
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      TYPE(cell_type), POINTER                        :: cell
 
       CALL timeset(routineN, handle)
-
-!  We need to screen the which of the atom pairs iat/aat actually have overlaping basis, so that we
-!  don't compute integrals that we now are zero. This way, can also go to full matrices and only
-!  store a short number, along with a system to which matrix is what
-
-!      IF (SIZE(donor_state%energy_evals,1) .NE. 1) &
-!         CPABORT("RI Coulomb integrals not implemented yet for cases with multiple donor MOs")
 
       NULLIFY(qs_kind_set, p_basis, i_basis, a_basis, particle_set, mos, mo_coeff)
       NULLIFY(lp_max, lp_min, npgfp, zetp, rpgfp, sphi_p, first_sgfp)
       NULLIFY(li_max, li_min, npgfi, zeti, rpgfi, sphi_i, first_sgfi)
       NULLIFY(la_max, la_min, npgfa, zeta, rpgfa, sphi_a, first_sgfa)
-      NULLIFY(dbcsr_dist, pgrid, row_blk_size, col_blk_size, coeffi)
+      NULLIFY(coeffi, int_array, sab_orb, nl_iterator, fm_struct, para_env, blacs_env, cell)
+      NULLIFY(basis_set_list_a, basis_set_list_i)
 
 !  Get all we need from the qs_env
       CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, particle_set=particle_set, mos=mos, & 
-                      natom=natom, dbcsr_dist=dbcsr_dist, matrix_s=matrix_s)
+                      natom=natom, sab_orb=sab_orb, para_env=para_env, blacs_env=blacs_env, &
+                      cell=cell)
       ALLOCATE(first_sgf_set(natom))
-      CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf_set)
+      ALLOCATE(last_sgf_set(natom))
+      CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf_set, last_sgf=last_sgf_set)
       
 !  Get the RI basis set for the excited atom
       CALL get_qs_kind(qs_kind_set(donor_state%kind_index), basis_set=p_basis, basis_type="RI_AUX")
 
       CALL get_gto_basis_set(p_basis, lmax=lp_max, npgf=npgfp, zet=zetp, pgf_radius=rpgfp, &
                              lmin=lp_min, nset=nsetp, nsgf_set=nsgfp, sphi=sphi_p, &
-                             first_sgf=first_sgfp)
+                             first_sgf=first_sgfp, kind_radius=radp)
 
-!  We also need the coefficients of the donor_state MOs
+!  Create lists of basis for atoms a and i
+      nkind = SIZE(qs_kind_set)
+      ALLOCATE(basis_set_list_a(nkind))
+      ALLOCATE(basis_Set_list_i(nkind))
+      CALL basis_set_list_setup(basis_set_list_a, "ORB", qs_kind_set)
+      CALL basis_set_list_setup(basis_set_list_i, "ORB", qs_kind_set)
+      
+
+!  We also need the coefficients of the donor_state MO
       CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao)
       ALLOCATE(coeffi(nao,1))
       CALL cp_fm_get_submatrix(fm=mo_coeff,target_m=coeffi,start_row=1, &
-                               start_col=donor_state%mo_indices(1), n_rows=nao, n_cols=1 )
+         start_col=donor_state%mo_indices(domo_index), n_rows=nao, n_cols=1 )
 
+!  Get the atoms aat and iat that will give a non-zero integral (ai|p). They all need to be neighbor
+!  or they are screened away in the coulomb3 subroutine. 
+      n_int = 0 
+      ALLOCATE(wnonzero_int(natom))
+      wnonzero_int = 0
+      rp = pbc(particle_set(donor_state%at_index)%r, cell) 
+      CALL neighbor_list_iterator_create(nl_iterator, sab_orb)
+      DO WHILE (neighbor_list_iterate(nl_iterator) == 0) 
+         CALL get_iterator_info(nl_iterator, iatom=aat, jatom=iat, ikind=akind, jkind=ikind, r=rai)
 
-!  Build the array of integral matrices. It has an entry for each atomic orbital, which contains
-!  the matrix (ai|p), where a is the atomic orbital (each entry of array has a different a), i spans
-!  all the atomic orbitals (row index of matrix) and p spans the elements of the RI basis 
-!  (column index). 
-      
-      CALL dbcsr_allocate_matrix_set(int_array, nao)
+!        Check if atoms a, i and p are all neighbors by checking sum of radii versus distance
+         ra = pbc(particle_set(aat)%r, cell)
+         ri = rai + ra
+         rap = pbc(ra, rp, cell)
+         rip = rap - rai
+         dap = SQRT(rap(1)**2+rap(2)**2+rap(3)**2)
+         dip = SQRT(rip(1)**2+rip(2)**2+rai(3)**2)
+         a_basis => basis_set_list_a(akind)%gto_basis_set
+         CALL get_gto_basis_set(a_basis, kind_radius=rada)
+         i_basis => basis_set_list_i(ikind)%gto_basis_set
+         CALL get_gto_basis_set(i_basis, kind_radius=radi)
 
-!  Each of the element of the array will be a super-sparse matrix. For now, don't care about the 
-!  performance, we distribute all blocks on the same processor... We put one block for each atom
-      
-      CALL dbcsr_distribution_get(dbcsr_dist, group=group, pgrid=pgrid)      
-      ALLOCATE(row_dist(natom))
-      ALLOCATE(col_dist(1))
-!     TODO: do not use reuse array, it detroys pgrid on release
-      CALL dbcsr_distribution_new(int_aip_dist, group=group, pgrid=pgrid, row_dist=row_dist, &
-                                  col_dist=col_dist, reuse_arrays=.TRUE.)
+!        Add both aat and iat as nonzero integrals if not there already
+         IF (rada+radp >= dap .AND. radi+radi >= dip) THEN
+            IF (.NOT. MINVAL(ABS(wnonzero_int - aat))==0 ) THEN
+               n_int = n_int+1
+               wnonzero_int(n_int) = aat
+            END IF
+            IF (.NOT. MINVAL(ABS(wnonzero_int - iat))==0) THEN
+               n_int = n_int+1
+               wnonzero_int(n_int) = iat
+            END IF
+         END IF
+      END DO
+      CALL neighbor_list_iterator_release(nl_iterator)
 
-      ALLOCATE(col_blk_size(1))
-      col_blk_size(1) = SUM(nsgfp)
-      CALL dbcsr_get_info(matrix_s(1)%matrix, row_blk_size=row_blk_size)
+      ALLOCATE(nonzero_int(n_int)) 
+      nonzero_int(:) = wnonzero_int(1:n_int)
+      DEALLOCATE(wnonzero_int)
+      ALLOCATE(int_array(n_int))
 
-      DO iao = 1,nao
-         ALLOCATE(int_array(iao)%matrix)
-         CALL dbcsr_create(matrix=int_array(iao)%matrix, name="int_array(i)%matrix", &
-                           matrix_type="N", dist=int_aip_dist, col_blk_size=col_blk_size, &
-                           row_blk_size=row_blk_size)
+!  Create fm as elements of the int_array
+!  TODO: many very small non-square fm. Should we just store arrays and then parallelized with open MP ?
+!  TODO: causes same issue in parallel as with multiple donor states in a row: it looks like the 
+!        cp_fm_struct get mixed up because processors do not go at same speed
+      DO i = 1,n_int
+         iat = nonzero_int(i)
+         nsgf = last_sgf_set(iat) - first_sgf_set(iat) + 1
+         
+         CALL cp_fm_struct_create(fm_struct, context=blacs_env, para_env=para_env, &
+                                  nrow_global=nsgf, ncol_global=SUM(nsgfp)) 
+
+         CALL cp_fm_create(int_array(i)%matrix, fm_struct)
+         CALL cp_fm_struct_release(fm_struct)
       END DO
 
-      DEALLOCATE(col_blk_size)
-      CALL dbcsr_distribution_release(int_aip_dist)      
+!  Loop over all neighbouring atoms, compute (ai|p) only if all three atoms are neighbors.
+      CALL neighbor_list_iterator_create(nl_iterator, sab_orb)
+      DO WHILE (neighbor_list_iterate(nl_iterator) == 0)
+         CALL get_iterator_info(nl_iterator, ikind=akind, jkind=ikind, iatom=aat, jatom=iat, &
+                                r=rai)
 
-!  Loop over all atoms and compute the three-center integrals
-      DO aat = 1,natom
-!        Retrieve the orbital basis of the current atom (for the a of (ai|p))
-         CALL get_qs_kind(qs_kind_set(particle_set(aat)%atomic_kind%kind_number), &
-                          basis_set=a_basis, basis_type="ORB")
+!        the iterator does not do double counting => compute (ai|p) and (ia|p) in the same loop
+!        that is: compute one integral and contract with MO coeff once on i and once on a
+
+!        Retrieve the basis sets for both atoms
+         a_basis => basis_set_list_a(akind)%gto_basis_set
+         i_basis => basis_set_list_i(ikind)%gto_basis_Set
+
+
+!        Retrieve the quantum numbers for both basis sets
          CALL get_gto_basis_set(a_basis, lmax=la_max, npgf=npgfa, zet=zeta, pgf_radius=rpgfa, &
-                               lmin=la_min, nset=nseta, nsgf_set=nsgfa, sphi=sphi_a, &
-                               first_sgf=first_sgfa)
-
-         DO iat = 1,natom
-
-!           Retrieve the basis of the second atom (for the i of (ai|p))
-            CALL get_qs_kind(qs_kind_set(particle_set(iat)%atomic_kind%kind_number), &
-                                         basis_set=i_basis, basis_type="ORB")
-
-            CALL get_gto_basis_set(i_basis, lmax=li_max, npgf=npgfi, zet=zeti, pgf_radius=rpgfi, &
-                                   lmin=li_min, nset=nseti, nsgf_set=nsgfi, sphi=sphi_i, &
-                                   first_sgf=first_sgfi)
-
-!           Create an aray where all integrals for the atom iat are strored (contracted sgf form)
-            ALLOCATE(int_aip_iat(SUM(nsgfa), SUM(nsgfi), SUM(nsgfp)))
-            int_aip_iat = 0.0_dp
-
-
-!           Get set the different position/distances 
-            ra = particle_set(aat)%r
-            rb = particle_set(iat)%r
-            rc = particle_set(donor_state%at_index)%r 
-            rab2 = (rb(1)-ra(1))**2+(rb(2)-ra(2))**2+(rb(3)-ra(3))**2                                   
-            rac2 = (rc(1)-ra(1))**2+(rc(2)-ra(2))**2+(rc(3)-ra(3))**2                                   
-            rbc2 = (rc(1)-rb(1))**2+(rc(2)-rb(2))**2+(rc(3)-rb(3))**2
-
-!           Loop over the sets of the three basis
-            DO aset = 1,nseta
-               DO iset = 1,nseti
-                  DO pset = 1,nsetp 
-
-!                    Subroutine coulomb3 only takes one Gaussian at a time for the c of (ab|c)
-!                    Need to loop on the primitive gaussians of the RI basis
-!                    Still, save the integral in part of a big matrix that spans all GTOs of the RI set
-                     ncoa = npgfa(aset)*ncoset(la_max(aset))
-                     ncoi = npgfi(iset)*ncoset(li_max(iset))
-                     ncop = npgfp(pset)*ncoset(lp_max(pset))
-                     ALLOCATE(int_aip_set(ncoa, ncoi, ncop))
-                     int_aip_set = 0.0_dp
-
-                     sgfa = first_sgfa(1, aset)
-                     sgfi = first_sgfi(1, iset)
-                     sgfp = first_sgfp(1, pset)
-
-                     DO igp = 1,npgfp(pset)
-
-!                       Allocate memory for the different work arrays
-                        ALLOCATE(f(0:la_max(aset)+li_max(iset)+lp_max(pset)+2))
-                        ALLOCATE(v(ncoa, ncoi, ncoset(lp_max(pset)), la_max(aset)+li_max(iset)+lp_max(pset)+1))
-                        ALLOCATE(vaip(ncoa, ncoi)) !this one does not play a role here
-                        ALLOCATE(gcc(ncoset(lp_max(pset)))) !this one does not play a role here
-                        ALLOCATE(int_aip(ncoa, ncoi, ncoset(lp_max(pset))))
-
-                        f = 0.0_dp
-                        v = 0.0_dp
-                        vaip = 0.0_dp
-                        gcc = 0.0_dp
-                        int_aip = 0.0_dp
-
-!                       Compute the integral 
-                        CALL coulomb3(la_max(aset), npgfa(aset), zeta(:,aset), rpgfa(:,aset), la_min(aset), &
-                                      li_max(iset), npgfi(iset), zeti(:,iset), rpgfi(:,iset), li_min(iset), &
-                                      lp_max(pset), zetp(igp,pset), rpgfp(igp,pset), lp_min(pset), &
-                                      gcc, rb-ra, rab2, rc-ra, rac2, rbc2, vaip, int_aip, v, f)
-
-!                       Add this as a block in an array that includes all contributions of the GTOs
-!                       of the current set of the RI basis
-                        int_aip_set(:,:,(igp-1)*ncoset(lp_max(pset))+1:igp*ncoset(lp_max(pset)))&
-                                   = int_aip
-
-!                       Deallocate arrays, might have different size in next loop
-                        DEALLOCATE(f, v, vaip, gcc, int_aip)
-                     
-                     END DO ! igp
-
-!                    Perform contraction to get spherical GTOs
-                     ALLOCATE(int_aip_contr(nsgfa(aset), nsgfi(iset), nsgfp(pset)))
-                     CALL abc_contract(int_aip_contr, int_aip_set, sphi_a(:,sgfa:), sphi_i(:,sgfi:),&
-                                       sphi_p(:,sgfp:), ncoa, ncoi, ncop, nsgfa(aset), &
-                                       nsgfi(iset), nsgfp(pset))
-
-!                    Store the specific set combination of integrals
-                     int_aip_iat(sgfa:sgfa+nsgfa(aset)-1,sgfi:sgfi+nsgfi(iset)-1, &
-                                 sgfp:sgfp+nsgfp(pset)-1) = int_aip_contr
-
-!                    Deallocate before next loop
-                     DEALLOCATE(int_aip_set, int_aip_contr)
-
-                  END DO ! pset
-               END DO ! iset
-            END DO !aset
-
-!           We compute the integral for the donor MO (i in (ai|p)), so  we need to consider the
-!           MO coefficients too
+                                lmin=la_min, nset=nseta, nsgf_set=nsgfa, sphi=sphi_a, & 
+                                first_sgf=first_sgfa, kind_radius=rada) 
+         CALL get_gto_basis_set(i_basis, lmax=li_max, npgf=npgfi, zet=zeti, pgf_radius=rpgfi, &
+                                lmin=li_min, nset=nseti, nsgf_set=nsgfi, sphi=sphi_i, &
+                                first_sgf=first_sgfi, kind_radius=radi)
             
+!        Get the different postition/distances
+         ra = pbc(particle_set(aat)%r, cell)                                                                 
+         ri = rai + ra
+         rp = pbc(particle_set(donor_state%at_index)%r, cell) 
+         rap = pbc(ra, rp, cell)
+         rip = rap - rai
+         rai2 = rai(1)**2+rai(2)**2+rai(3)**2                                
+         rap2 = rap(1)**2+rap(2)**2+rap(3)**2                                
+         rip2 = rip(1)**2+rip(2)**2+rai(3)**2
+         dap = SQRT(rap2)
+         dip = SQRT(rip2)
+
+!        Check for nonzero integral 
+         IF (rada+radp < dap .OR. radi+radp < dip) CYCLE
+
+!        Allocate an array where the integrals for the current atoms is stored (in contracted sgf form)
+         ALLOCATE(int_aip_atom(SUM(nsgfa), SUM(nsgfi), SUM(nsgfp)))
+         int_aip_atom = 0.0_dp 
+         
+!        Loop over the sets of the three basis
+         DO aset = 1,nseta
+            DO iset = 1,nseti
+               DO pset = 1,nsetp
+
+!                 Some initialization
+                  ncoa = npgfa(aset)*ncoset(la_max(aset))
+                  ncoi = npgfi(iset)*ncoset(li_max(iset))
+                  ncop = npgfp(pset)*ncoset(lp_max(pset))
+                  sgfa = first_sgfa(1, aset)
+                  sgfi = first_sgfi(1, iset)
+                  sgfp = first_sgfp(1, pset) 
+
+!                 Subroutine coulomb3 only takes one Gaussian at a time for the c of (ab|c)       
+!                 Need to loop on the primitive gaussians of the RI basis                         
+!                 Still, save the integral in part of a big matrix that spans all GTOs of the RI set
+                  ALLOCATE(int_aip_set(ncoa, ncoi, ncop))
+                  int_aip_set = 0.0_dp
+
+                  DO igp = 1,npgfp(pset)    
+
+!                    Allocate work array memory
+                     ALLOCATE(f(0:la_max(aset)+li_max(iset)+lp_max(pset)+2))    
+                     ALLOCATE(v(ncoa, ncoi, ncoset(lp_max(pset)), la_max(aset)+li_max(iset)+lp_max(pset)+1))
+                     ALLOCATE(vaip(ncoa, ncoi)) !this one does not play a role here
+                     ALLOCATE(gcc(ncoset(lp_max(pset)))) !this one does not play a role here
+                     ALLOCATE(int_aip(ncoa, ncoi, ncoset(lp_max(pset))))
+
+                     f = 0.0_dp
+                     v = 0.0_dp
+                     vaip = 0.0_dp
+                     gcc = 0.0_dp
+                     int_aip = 0.0_dp
+
+!                    Compute the integral 
+                     CALL coulomb3(la_max(aset), npgfa(aset), zeta(:,aset), rpgfa(:,aset), la_min(aset), &
+                                   li_max(iset), npgfi(iset), zeti(:,iset), rpgfi(:,iset), li_min(iset), &
+                                   lp_max(pset), zetp(igp,pset), rpgfp(igp,pset), lp_min(pset), &
+                                   gcc, rai, rai2, rap, rap2, rip2, vaip, int_aip, v, f)
+
+!                    Add this as a block in an array that includes all contributions of the GTOs
+!                    of the current set of the RI basis
+                     int_aip_set(:,:,(igp-1)*ncoset(lp_max(pset))+1:igp*ncoset(lp_max(pset))) = int_aip
+
+!                    Deallocate arrays, might have different size in next loop
+                     DEALLOCATE(f, v, vaip, gcc, int_aip)
+
+                  END DO ! igp
+
+!                 Perform contraction to get spherical GTOs
+                  ALLOCATE(int_aip_contr(nsgfa(aset), nsgfi(iset), nsgfp(pset)))
+                  CALL abc_contract(int_aip_contr, int_aip_set, sphi_a(:,sgfa:), sphi_i(:,sgfi:),&
+                                    sphi_p(:,sgfp:), ncoa, ncoi, ncop, nsgfa(aset), &
+                                    nsgfi(iset), nsgfp(pset))
+
+!                 Store the set specific combination of integrals
+                  int_aip_atom(sgfa:sgfa+nsgfa(aset)-1,sgfi:sgfi+nsgfi(iset)-1, &
+                               sgfp:sgfp+nsgfp(pset)-1) = int_aip_contr
+
+!                 Deallocate before next loop
+                  DEALLOCATE(int_aip_set, int_aip_contr)
+
+               END DO ! pset
+            END DO !iset
+         END DO ! aset
+
+!        Need to contract with the donor MO coefficient. 3 possible cases: aat == iat and do
+!        contraction once on either a or i. aat /= iat and need to do contraction on each
+!        TODO: can we make those contraction product more efficient using LAPACK gemm instead ?
+         IF (aat == iat) THEN
+
+            ALLOCATE(int_coeff_contr(SUM(nsgfa),SUM(nsgfp)))
+            int_coeff_contr = 0.0_dp
             DO isgf = 1,SUM(nsgfi)
-               iao = first_sgf_set(iat)+isgf-1
-               int_aip_iat(:,isgf,:) = int_aip_iat(:,isgf,:)*coeffi(iao,1)
+               iao = first_sgf_set(iat) + isgf -1
+               int_coeff_contr(:,:) = int_coeff_contr(:,:) + int_aip_atom(:,isgf,:)*coeffi(iao,1)
             END DO
+!           Add to existing full matrix of int_array, at the right spot
+            i = MINLOC(ABS(nonzero_int-aat), 1)
+            CALL cp_fm_set_submatrix(int_array(i)%matrix, int_coeff_contr, alpha=1.0_dp, beta=1.0_dp)
+            DEALLOCATE(int_coeff_contr)
 
-!           TODO: make sure we compute the right thing... double and even triple check
-!           If so then we have our blocks
+         ELSE ! iat /= aat
 
-!           Deallocate before next loop
-            DEALLOCATE(int_aip_iat)
+!           First contract with coeff c_i as entry aat in int_array
+            ALLOCATE(int_coeff_contr(SUM(nsgfa),SUM(nsgfp)))
+            int_coeff_contr = 0.0_dp
+            DO isgf = 1,SUM(nsgfi)
+               iao = first_sgf_set(iat) + isgf -1
+               int_coeff_contr(:,:) = int_coeff_contr(:,:) + int_aip_atom(:,isgf,:)*coeffi(iao,1)
+            END DO
+!           Add to existing full matrix in int_array at the right spot
+            i = MINLOC(ABS(nonzero_int-aat), 1)
+            CALL cp_fm_set_submatrix(int_array(i)%matrix, int_coeff_contr, alpha=1.0_dp, beta=1.0_dp)
+            DEALLOCATE(int_coeff_contr)
 
-         END DO !iat
-      END DO ! aat
+!           Then contract with c_a as entry iat in int_array
+            ALLOCATE(int_coeff_contr(SUM(nsgfi),SUM(nsgfp)))
+            int_coeff_contr = 0.0_dp
+            DO asgf = 1,SUM(nsgfa)
+               aao = first_sgf_set(aat) + asgf -1
+               int_coeff_contr(:,:) = int_coeff_contr(:,:) + int_aip_atom(asgf,:,:)*coeffi(aao,1)
+            END DO
+!           Add to existing fm in int_array at the right spot
+            i = MINLOC(ABS(nonzero_int-iat), 1)
+            CALL cp_fm_set_submatrix(int_array(i)%matrix, int_coeff_contr, alpha=1.0_dp, beta=1.0_dp)
+            DEALLOCATE(int_coeff_contr)
+         END IF ! iat==aat
+            
+         DEALLOCATE(int_aip_atom)
+
+      END DO ! nl_iterator
+      CALL neighbor_list_iterator_release(nl_iterator)
 
 !  Clean-up
-      DEALLOCATE(coeffi)
+      DEALLOCATE(coeffi, basis_set_list_a, basis_set_list_i)
 
       CALL timestop(handle)
 
    END SUBROUTINE compute_ri_coulomb3_int
+
+! **************************************************************************************************
+!> \brief Creates a matrix Wab = sum_k Q_ak*(kI|P)*(P|Q)^-1(Q|Jb) based on the RI 3 centers integrals
+!>        from compute_ri_coulomb3 and the projector Q on the unperturbed, unoccupied ground-state. 
+!>        Returns a dbcsr matrix the size of the KS matrix. 
+!> \param ker_coulomb_block the dbcsr block containing the RI Coulomb integrals for I, J
+!> \param int_arri the ri integral array for donor MO I
+!> \param int_arrj the ri integral array for donor MO J
+!> \param nonzero_inti the indices of non-zero integrals for donor MO I
+!> \param nonzero_intj the indices of non-zero integrals for donor MO J
+!> \param donor_state the core donor state from which we excite an electron 
+!> \param xas_tdp_env ...
+!> \param qs_env ...
+!> \notes for excitation from a s state, I=J=1, for a p state I,J = 1,2,3
+! **************************************************************************************************
+   SUBROUTINE build_ri_coulomb_block(ker_coulomb_blk, int_arri, int_arrj, nonzero_inti, &
+                                     nonzero_intj, donor_state, xas_tdp_env,qs_env)
+
+      TYPE(dbcsr_type), POINTER                       :: ker_coulomb_blk
+      TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: int_arri, int_arrj
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: nonzero_inti, nonzero_intj
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'build_ri_coulomb_block', &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: handle, iat, i, jat, j, ikind, mynode, &
+                                                         nrowi, ncoli, ncolj, node_holds_blk
+      TYPE(cp_fm_type), POINTER                       :: pq_inv, worki, workj
+      TYPE(cp_fm_struct_type), POINTER                :: fm_structi, fm_structj
+      TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
+      INTEGER, DIMENSION(:), POINTER                  :: blk_size
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
+      TYPE(cp_para_env_type), POINTER                 :: para_env 
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: block_data
+      TYPE(dbcsr_type), POINTER                       :: q_projector, work_coulomb
+
+      CALL timeset(routineN, handle)
+      
+      NULLIFY(pq_inv, dbcsr_dist, matrix_s, worki, workj, fm_structi, fm_structj, para_env, &
+              blacs_env, q_projector, blk_size)
+
+!  Get what we need from the qs_env
+      CALL get_qs_env(qs_env, dbcsr_dist=dbcsr_dist, matrix_s=matrix_s, blacs_env=blacs_env, &
+                      para_env=para_env)
+
+!  Create the dbcsr_matrix that will hold everything
+!  TODO: check that empty blocks are stores as such
+      CALL dbcsr_get_info(matrix_s(1)%matrix, row_blk_size=blk_size)
+      CALL dbcsr_create(matrix=ker_coulomb_blk, name="RI COULOMB BLK", dist=dbcsr_dist, matrix_type="N", &
+                        row_blk_size=blk_size, col_blk_size=blk_size)
+      ALLOCATE(work_coulomb)
+      CALL dbcsr_create(matrix=work_coulomb, name="WORK COULOMB", dist=dbcsr_dist, matrix_type="N", &
+                        row_blk_size=blk_size, col_blk_size=blk_size)
+
+!  Retrieve the (P|Q)^-1 matrix from xas_tdp_env, and the Q projector 
+      ikind = MINLOC(ABS(xas_tdp_env%ex_kind_indices-donor_state%kind_index),1)
+      pq_inv => xas_tdp_env%ri_inv_mats(ikind)%matrix
+      q_projector => xas_tdp_env%q_projector
+      
+!  Loop over the nonzero coulomb integrals and fill work_coulomb
+      CALL dbcsr_distribution_get(dbcsr_dist, mynode=mynode)
+      DO i = 1,SIZE(nonzero_inti)
+         DO j = 1,SIZE(nonzero_intj)
+
+            iat = nonzero_inti(i)
+            jat = nonzero_intj(j)
+
+!           Create work structures
+            CALL cp_fm_get_info(int_arri(i)%matrix, nrow_global=nrowi, ncol_global=ncoli)
+            CALL cp_fm_get_info(int_arrj(j)%matrix, nrow_global=ncolj)
+            CALL cp_fm_struct_create(fm_structi, context=blacs_env, para_env=para_env, &
+                                     nrow_global=nrowi, ncol_global=ncoli)
+            CALL cp_fm_struct_create(fm_structj, context=blacs_env, para_env=para_env, &
+                                     nrow_global=ncoli, ncol_global=ncolj)
+            CALL cp_fm_create(worki, fm_structi)
+            CALL cp_fm_create(workj, fm_structj)
+
+!           Compute the matrix product (aI|P)*(P|Q)^-1
+            CALL cp_fm_gemm('N', 'N', nrowi, ncoli, ncoli, 1.0_dp, int_arri(i)%matrix, pq_inv, &
+                             0.0_dp, worki)
+
+!           Compute the product [(aI|P)*(P|Q)^-1]*(Q|Jb)
+            CALL cp_fm_gemm('N', 'T', nrowi, ncolj, ncoli, 1.0_dp, worki, int_arrj(j)%matrix, &
+                            0.0_dp, workj)
+
+!           Get the whole data block
+            ALLOCATE(block_data(nrowi, ncolj))
+            CALL cp_fm_get_submatrix(workj, block_data)
+
+!           Put it in the dbcsr_matrix
+            CALL dbcsr_get_stored_coordinates(work_coulomb, iat, jat, node_holds_blk)
+            IF (node_holds_blk == mynode) CALL dbcsr_put_block(work_coulomb, iat, jat, block_data) 
+
+!           Clean-up
+            DEALLOCATE(block_data)
+            CALL cp_fm_struct_release(fm_structi)
+            CALL cp_fm_struct_release(fm_structj)
+            CALL cp_fm_release(worki)
+            CALL cp_fm_release(workj)
+
+         END DO ! j
+      END DO !i
+      CALL dbcsr_finalize(work_coulomb)
+!      CALL dbcsr_print(work_coulomb)
+
+!  Multiply by the projector Q
+      CALL dbcsr_multiply('N','N',1.0_dp, q_projector, work_coulomb, 0.0_dp, ker_coulomb_blk)
+      CALL dbcsr_finalize(ker_coulomb_blk)
+      CALL dbcsr_print(ker_coulomb_blk)
+       
+!  Clean-up
+      CALL dbcsr_release(work_coulomb)
+      DEALLOCATE(work_coulomb)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE build_ri_coulomb_block
+
+! **************************************************************************************************
+!> \brief Computes the Coulomb part of the kernel matrix using RI
+!> \param coulomb_kernel the dbcsr matrix containing the Coulomb part of the kernel, base on RI
+!> \param dist the dbcsr ditribution of the coulomb_kernel matrix
+!> \param blk_size the block sizes of the coulomb_kernel matrix
+!> \param donor_state the donor_state from which we excite a core electron
+!> \param xas_tdp_env ...
+!> \param qs_env ...
+! **************************************************************************************************
+   SUBROUTINE build_kernel_coulomb(coulomb_kernel, dist, blk_size, donor_state, xas_tdp_env, qs_env)
+
+      TYPE(dbcsr_type), POINTER                       :: coulomb_kernel
+      TYPE(dbcsr_distribution_type), POINTER          :: dist
+      INTEGER, DIMENSION(:), POINTER                  :: blk_size
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "build_kernel_coulomb", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: handle, i, j, ndo_mo, k
+      TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: int_arri, int_arrj
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: nonzero_inti, nonzero_intj
+      TYPE(dbcsr_type), POINTER                       :: coulomb_blk
+
+      CALL timeset(routineN, handle)
+
+      NULLIFY(int_arri, int_arrj, coulomb_blk)
+
+!  Initilaization
+      ndo_mo = SIZE(donor_state%mo_indices,1)
+
+!  Create the dbcsr matrix for the coulomb kernel (as normal matrix for now)
+      CPASSERT(ASSOCIATED(coulomb_kernel))
+      CALL dbcsr_create(matrix=coulomb_kernel, name="COULOMB KERNEL", matrix_type="N", dist=dist, &
+                        row_blk_size=blk_size, col_blk_size=blk_size)
+
+!  Loop over donor MOs  TODO: compute int_array only once for each I and then loop over that) 
+      DO i = 1,ndo_mo
+!        Compute the RI int_array for donor MO I
+         CALL compute_ri_coulomb3_int(int_arri, nonzero_inti, donor_state, i, qs_env)
+
+         DO j = i,ndo_mo
+!           Compute the RI int_array for donor MO J
+            CALL compute_ri_coulomb3_int(int_arrj, nonzero_intj, donor_state, j, qs_env)
+
+!           Build th IJ block
+            ALLOCATE(coulomb_blk)
+            CALL build_ri_coulomb_block(coulomb_blk, int_arri, int_arrj, nonzero_inti, nonzero_intj, &
+                                        donor_state, xas_tdp_env, qs_env)
+
+!           Clean-up for J
+            CALL dbcsr_release(coulomb_blk)
+            DO k = 1,SIZE(nonzero_intj)
+               CALL cp_fm_release(int_arrj(k)%matrix)
+            END DO ! k
+            DEALLOCATE(int_arrj, nonzero_intj, coulomb_blk)
+         END DO !j
+
+!        Clean-up for I
+         DO k = 1,SIZE(nonzero_inti)
+            CALL cp_fm_release(int_arri(k)%matrix)
+         END DO ! k
+         DEALLOCATE(int_arri, nonzero_inti)
+      END DO !i
+
+      CALL timestop(handle)
+
+   END SUBROUTINE build_kernel_coulomb
 
 END MODULE xas_tdp_utils
 
