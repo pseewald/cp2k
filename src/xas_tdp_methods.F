@@ -35,7 +35,9 @@ MODULE xas_tdp_methods
                                               cp_logger_type
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_output_handling,              ONLY: cp_print_key_unit_nr, debug_print_level
-   USE dbcsr_api,                       ONLY: dbcsr_p_type, dbcsr_type, dbcsr_release
+   USE dbcsr_api,                       ONLY: dbcsr_p_type, dbcsr_type, dbcsr_release, dbcsr_print, &
+                                              dbcsr_create, dbcsr_multiply, dbcsr_add_on_diag, &
+                                              dbcsr_finalize
    USE generic_os_integrals,            ONLY: int_operators_r12_ab_os
    USE input_constants,                 ONLY: xas_tdp_by_index,&
                                               xas_tdp_by_kind,&
@@ -50,6 +52,7 @@ MODULE xas_tdp_methods
                                               section_vals_val_set
    USE kinds,                           ONLY: dp
    USE memory_utilities,                ONLY: reallocate
+   USE message_passing,                 ONLY: mp_sync
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE periodic_table,                  ONLY: ptable
@@ -70,6 +73,7 @@ MODULE xas_tdp_methods
                                               set_loc_wfn_lists
    USE qs_mo_types,                     ONLY: get_mo_set,&
                                               mo_set_p_type
+   USE qs_rho_types,                    ONLY: qs_rho_get, qs_rho_type
    USE xas_methods,                     ONLY: calc_stogto_overlap
    USE xas_tdp_types,                   ONLY: xas_tdp_control_type,&
                                               read_xas_tdp_control,&
@@ -120,9 +124,10 @@ CONTAINS
       TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
       CHARACTER(len=2), DIMENSION(3)                     :: state_type_char
       TYPE(dbcsr_type), POINTER                          :: matrix_tdp, matrix_lhs
+      TYPE(cp_para_env_type), POINTER                    :: para_env
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state)
-      NULLIFY(matrix_tdp, matrix_lhs)
+      NULLIFY(matrix_tdp, matrix_lhs, para_env)
 
       CALL timeset(routineN, handle)
 
@@ -194,7 +199,7 @@ CONTAINS
 !        causing some pointer to be dealloacted before they are called by the other processors
 !        Get bad pointer memory leak
 
-      CALL get_qs_env(qs_env=qs_env, atomic_kind_set=atomic_kind_set)      
+      CALL get_qs_env(qs_env=qs_env, atomic_kind_set=atomic_kind_set, para_env=para_env)      
       current_state_index = 1
 
 !     Loop over atomic kinds
@@ -243,17 +248,17 @@ CONTAINS
                            ALLOCATE(matrix_tdp)
                            ALLOCATE(matrix_lhs)
                            CALL setup_xas_tdp_full_prob(matrix_tdp, matrix_lhs, current_state, &
-                                                        qs_env, xas_tdp_control)
+                                                        qs_env, xas_tdp_env, xas_tdp_control)
                            CALL solve_xas_tdp_full_prob(matrix_tdp, matrix_lhs, current_state, &
                                                         qs_env, xas_tdp_control)
                            CALL compute_oscillator_strength(current_state, qs_env, xas_tdp_control)
                            
                            IF (output_unit > 0 ) THEN
                               i=0
-                              PRINT*, "evals, oscillator_strength"
-                              DO i = 1,SIZE(current_state%lr_evals)
-                                 PRINT*, current_state%lr_evals(i), "   ,    ", current_state%osc_str(i)
-                              END DO
+!                              PRINT*, "evals, oscillator_strength"
+!                              DO i = 1,SIZE(current_state%lr_evals)
+!                                 PRINT*, current_state%lr_evals(i), "   ,    ", current_state%osc_str(i)
+!                              END DO
                            END IF
 
                            CALL dbcsr_release(matrix_tdp)
@@ -270,6 +275,10 @@ CONTAINS
 
                      current_state_index = current_state_index + 1
                      NULLIFY(current_state)
+
+!                    Making sure we are synchronized before going to the next state
+                     CALL mp_sync(para_env%group)
+
                   END IF
                END DO ! state type
             END IF ! if excited
@@ -326,10 +335,12 @@ CONTAINS
       TYPE(cp_fm_type), POINTER                          :: work_fm
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s, rho_ao
+      TYPE(qs_rho_type), POINTER                         :: rho
 
       NULLIFY(dft_section, xas_tdp_section, at_kind_set, ind_of_kind, work_array, para_env, blacs_env)
       NULLIFY(qs_loc_env, loc_section, mos, qs_kind_set, particle_set, ex_kind_ri_basis, fm_struct)
-      NULLIFY(work_fm)
+      NULLIFY(work_fm, rho, rho_ao)
 
 !  XAS TDP control type initialization
       dft_section => section_vals_get_subs_vals(qs_env%input, "DFT")                     
@@ -451,7 +462,7 @@ CONTAINS
          qs_loc_env%localized_wfn_control%localization_method = do_loc_none
       ELSE IF (qs_loc_env%do_localize) THEN
          n_moloc = qs_loc_env%localized_wfn_control%nloc_states
-         CALL set_loc_wfn_lists(qs_loc_env%localized_wfn_control, n_moloc, n_mo, nspins)  
+         CALL set_loc_wfn_lists(qs_loc_env%localized_wfn_control, n_moloc, n_mo, nspins, my_spin=1)  
          CALL set_loc_centers(qs_loc_env%localized_wfn_control, n_moloc, nspins)  
 !        closed shell => myspin=1
          CALL qs_loc_env_init(qs_loc_env, qs_loc_env%localized_wfn_control, &    
@@ -476,6 +487,7 @@ CONTAINS
          CALL get_qs_kind(qs_kind_set(k), basis_set=ex_kind_ri_basis, basis_type="RI_AUX")   
 
 !        Computing the two-centers two-electrons Coulomb repulsion between the basis and itself
+!        TODO: should we consider PBCs here ?
          rab = 0.0_dp
          CALL get_gto_basis_set(ex_kind_ri_basis, nsgf=nsgf)
          ALLOCATE(work_array(nsgf,nsgf))
@@ -497,10 +509,19 @@ CONTAINS
          CALL cp_fm_release(work_fm)
          NULLIFY(ex_kind_ri_basis)
          DEALLOCATE(work_array)
-
       END DO
-      
 
+!  Compute the projector on the unoccupied, unperturbed ground state: Q = 1 - SP
+      CALL get_qs_env(qs_env, rho=rho, matrix_s=matrix_s)
+      CALL qs_rho_get(rho, rho_ao=rho_ao)
+      ALLOCATE(xas_tdp_env%q_projector)
+      CALL dbcsr_create(xas_tdp_env%q_projector, name="Q PROJECTOR", template=matrix_s(1)%matrix, &
+                        matrix_type="N") 
+      CALL dbcsr_multiply('N', 'N', -1.0_dp, matrix_s(1)%matrix, rho_ao(1)%matrix, 0.0_dp, &
+                          xas_tdp_env%q_projector, filter_eps=1.0E-12_dp)
+      CALL dbcsr_add_on_diag(xas_tdp_env%q_projector, 1.0_dp)
+      CALL dbcsr_finalize(xas_tdp_env%q_projector)
+      
    END SUBROUTINE xas_tdp_init
 
 !> *************************************************************************************************
