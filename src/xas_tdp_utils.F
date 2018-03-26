@@ -23,14 +23,13 @@ MODULE xas_tdp_utils
                                               copy_fm_to_dbcsr
    USE cp_cfm_types,                    ONLY: cp_fm_to_cfm, cp_cfm_to_fm, cp_cfm_type, &
                                               cp_cfm_create, cp_cfm_release
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_invert, cp_fm_scale_and_add, cp_fm_gemm
-   USE cp_fm_diag,                      ONLY: cp_fm_geeig
+   USE cp_fm_basic_linalg,              ONLY: cp_fm_scale_and_add, cp_fm_gemm, cp_fm_column_scale
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create, cp_fm_struct_release, &     
                                               cp_fm_struct_type
    USE cp_fm_types,                     ONLY: cp_fm_create, cp_fm_release, cp_fm_type, &
                                               cp_fm_to_fm_submat, cp_fm_get_submatrix, &
                                               cp_fm_get_info, cp_fm_set_submatrix, cp_fm_set_all, &
-                                              cp_fm_p_type
+                                              cp_fm_p_type, cp_fm_get_element
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_p_type, dbcsr_distribution_type, &
@@ -42,8 +41,12 @@ MODULE xas_tdp_utils
                                               dbcsr_copy, dbcsr_set, dbcsr_deallocate_matrix_set, &
                                               dbcsr_allocate_matrix_set, dbcsr_multiply, &
                                               dbcsr_get_stored_coordinates, dbcsr_desymmetrize, &
-                                              dbcsr_complete_redistribute
+                                              dbcsr_complete_redistribute, dbcsr_iterator_type, &
+                                              dbcsr_iterator_blocks_left, dbcsr_iterator_start, &
+                                              dbcsr_iterator_stop, dbcsr_iterator_next_block, &
+                                              dbcsr_add
    USE input_constants,                 ONLY: xas_dip_len, xas_dip_vel
+   USE iterate_matrix,                  ONLY: invert_Hotelling
    USE kinds,                           ONLY: dp
    USE orbital_pointers,                ONLY: ncoset
    USE particle_methods,                ONLY: get_particle_set
@@ -73,31 +76,21 @@ MODULE xas_tdp_utils
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief Builds the matrices that define the XAS TDDFPT generalized eigenvalue problem to be solved
-!>        for excitation energies omega. The problem has the form omega*S*C = M*C, where C contains
-!>        the reponse orbitals coefficients. This is a full build, so that conventional diag
-!>        methods can be applied.
-!> \param matrix_tdp pointer to the dbcsr matrix M (right hand side)
-!> \parma matrix_lhs pointer to the dbcsr matrix S (left hand side)
-!> \param donor_state donor_state type for which the problem is restricted
+!> \brief Builds the matrix that define the XAS TDDFPT generalized eigenvalue problem to be solved
+!>        for excitation energies omega. The problem has the form omega*C = M*C, where C contains
+!>        the reponse orbitals coefficients. The matrix is stored in the given donor_state 
+!> \param donor_state the donor_state for which the problem is restricted
 !> \param qs_env ...
 !> \param xas_tdp_env ...
 !> \param xas_tdp_control ...
 !> \note At this point in time (01.2018), the Kernel is not taken into account, i.e. matrix M  has
-!>       the form | A  0 | and another subroutine builds A. Matrix S has the form | -G  0 |, where
-!>                | 0  A |                                                        |  0  G |
-!>       G is also built elsewhere. Both tdp and lhs matrices have the same block sizes and dbcsr
-!>       distribution, which are refered to as supmat_dist and supmat_blk_size (for supermatrix)
-!>       If the Tamm-Dancoff approximation is assumed, then C^+ = 0, M = A and S = G
-!>       If TDA not required then need to solve the non-hermitian problem omega*C = S^-1*M*C, where
-!>       S^-1*M*C  = | -G^-1*A   0    |
-!>                   |   0    G^-1*A  |  
+!>       the form | -G^-1*A  0 | where other subroutines builds A and G.
+!>                | 0   G^-1*A |                                       
+!>       The matrix M (matrix_tdp) has the same (i.e. 2x2 replicated) dbcsr_dist as usual
+!>       If the Tamm-Dancoff approximation is assumed, then C^+ = 0, M = G^-1*A 
 ! **************************************************************************************************
-   SUBROUTINE setup_xas_tdp_full_prob(matrix_tdp, matrix_lhs, donor_state, qs_env, xas_tdp_env, & 
-                                      xas_tdp_control)
+   SUBROUTINE setup_xas_tdp_full_prob(donor_state, qs_env, xas_tdp_env, xas_tdp_control)
 
-      TYPE(dbcsr_type), POINTER                       :: matrix_tdp
-      TYPE(dbcsr_type), POINTER                       :: matrix_lhs
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(qs_environment_type), POINTER              :: qs_env
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
@@ -106,10 +99,11 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'setup_xas_tdp_full_prob', &
                                      routineP = moduleN//":"//routineN
       
-      INTEGER                                         :: handle, group , iblk, jblk, nblk_sub, &
-                                                         mynode, node_holds_blk
-      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g, work_matrix, & 
-                                                         matrix_test
+      INTEGER                                         :: handle, group , iblk, jblk, nblk_sub, blk
+      
+      TYPE(dbcsr_type), POINTER                       :: matrix_tdp
+      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g, dia_work_matrix, & 
+                                                         matrix_test, matrix_g_inv
       TYPE(dbcsr_distribution_type), POINTER          :: submat_dist, supmat_dist
       INTEGER, DIMENSION(:), POINTER                  :: submat_blk_size, supmat_blk_size, &
                                                          col_dist_sub, row_dist_sub, &
@@ -117,21 +111,20 @@ CONTAINS
       INTEGER, DIMENSION(:,:), POINTER                :: pgrid
       LOGICAL                                         :: found_block
       REAL(dp), DIMENSION(:), POINTER                 :: work_block
-      TYPE(cp_fm_type), POINTER                       :: fm_matrix_g, fm_matrix_inv_g
-      TYPE(cp_fm_struct_type), POINTER                :: fm_struct
-      TYPE(cp_para_env_type), POINTER                 :: para_env
-      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      TYPE(dbcsr_iterator_type)                       :: iter     
 
       CALL timeset(routineN, handle)
 
       NULLIFY(matrix_a, submat_dist, submat_blk_size, supmat_dist, supmat_blk_size, col_dist_sub)
-      NULLIFY(row_dist_sub, col_dist_sup, row_dist_sup, work_block, matrix_g, pgrid, work_matrix)
-      NULLIFY(fm_matrix_g, fm_matrix_inv_g, fm_struct, para_env, blacs_env, matrix_test)
+      NULLIFY(row_dist_sub, col_dist_sup, row_dist_sup, work_block, matrix_g, pgrid, dia_work_matrix)
+      NULLIFY(matrix_test, matrix_tdp)
 
       CPASSERT(ASSOCIATED(donor_state))
       CPASSERT(ASSOCIATED(qs_env))
       CPASSERT(ASSOCIATED(xas_tdp_env))
       CPASSERT(ASSOCIATED(xas_tdp_control))
+      ALLOCATE(donor_state%matrix_tdp)
+      matrix_tdp => donor_state%matrix_tdp
 
 !  Get the submatrices distribution and block sizes
       CALL compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_state, qs_env) 
@@ -143,6 +136,27 @@ CONTAINS
       CALL build_matrix_a(matrix_a, submat_dist, submat_blk_size, donor_state, qs_env)
       CALL build_matrix_g(matrix_g, submat_dist, submat_blk_size, donor_state, qs_env)       
 
+!  Invert matrix G
+      ALLOCATE(matrix_g_inv)
+      CALL dbcsr_create(matrix=matrix_g_inv, name="MATRIX G INV", matrix_type="S", &              
+                        dist=submat_dist, row_blk_size=submat_blk_size, col_blk_size=submat_blk_size)
+!     TODO: impose values of threshold and eps_filter or not?. Current values taken from LRI
+      CALL invert_Hotelling(matrix_g_inv, matrix_g, threshold=1.0E-10_dp, use_inv_as_guess=.FALSE., &
+                            norm_convergence=1.0E-10_dp, filter_eps=1.0E-12_dp, silent=.TRUE.)
+      CALL dbcsr_finalize(matrix_g_inv)
+
+!  Create the matrix that will be on the diagonal of matrix_tdp (for now: G^-1*A)
+      ALLOCATE(dia_work_matrix)
+      CALL dbcsr_create(matrix=dia_work_matrix, name="DIA WORK MATRIX", matrix_type="N", & 
+                        dist=submat_dist, row_blk_size=submat_blk_size, col_blk_size=submat_blk_size)
+
+      CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, matrix_a, 0.0_dp, dia_work_matrix)
+      CALL dbcsr_finalize(dia_work_matrix)
+
+!  Some clean-up
+      CALL dbcsr_release(matrix_g_inv)
+      DEALLOCATE(matrix_g_inv)
+
 !  Test on coulomb kernel
       ALLOCATE(matrix_test)
       CALL build_kernel_coulomb(matrix_test, submat_dist, submat_blk_size, donor_state, xas_tdp_env, &
@@ -153,13 +167,13 @@ CONTAINS
 !  Test on Tamm Dancoff approximation 
 
       IF (xas_tdp_control%tamm_dancoff) THEN
-!        If TDA is assumed, then the matrix_tdp and the matrix_lhs are basically A and G
-         CALL dbcsr_copy(matrix_tdp, matrix_a, name="MATRIX TDP")
-         CALL dbcsr_copy(matrix_lhs, matrix_g, name="MATRIX LHS")
+
+!        If TDA is assumed, then the matrix_tdp is G^-1*A (for now)
+         CALL dbcsr_copy(matrix_tdp, dia_work_matrix, name="MATRIX TDP")
 
       ELSE IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
 
-!     The supermatrices matrix_tdp and matrix_lhs are built with the submatrices as a 2x2 block matrices 
+!     The supermatrix matrix_tdp is built with the submatrices as a 2x2 block matrices 
 !     Create the dbcsr dist by repeating the submatrices structure
          ALLOCATE(supmat_dist)
       
@@ -180,7 +194,7 @@ CONTAINS
          DEALLOCATE(row_dist_sup, col_dist_sup)
 
 !        Creating the non-symmetric supermatrix matrix_tdp  with the 2x2 replication of the submatrices
-!        block sizes and distribution. In this case, no need of matrix_lhs
+!        block sizes and distribution.
          ALLOCATE(supmat_blk_size(2*nblk_sub))
          supmat_blk_size(1:nblk_sub) = submat_blk_size
          supmat_blk_size(nblk_sub+1:2*nblk_sub) = submat_blk_size 
@@ -190,176 +204,102 @@ CONTAINS
 
 !     Filling the supermatrix matrix_tdp with submatrix with +- G^-1*A
 
-!        Creating a work matrix where the product G^-1*A will be stored. Same dist and blk_size as
-!        A and G but non-symmetric
-         ALLOCATE(work_matrix) 
-         CALL dbcsr_create(matrix=work_matrix, name="WORK MATRIX", matrix_type="N",dist=submat_dist,&
-                           row_blk_size=submat_blk_size, col_blk_size=submat_blk_size)
-
-!        Inversion of matrix G, need to go through full matrix
-         CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env)
-         CALL cp_fm_struct_create(fm_struct, context=blacs_env, para_env=para_env, &
-                                  nrow_global=SUM(submat_blk_size),ncol_global=SUM(submat_blk_size))
-         CALL cp_fm_create(fm_matrix_g, fm_struct)
-         CALL cp_fm_create(fm_matrix_inv_g, fm_struct)
-
-         CALL copy_dbcsr_to_fm(matrix_g, fm_matrix_g)
-         CALL cp_fm_invert(fm_matrix_g, fm_matrix_inv_g)
-
-!        Store the inverse of G in G itself (inverse is symmetric too)
-         CALL copy_fm_to_dbcsr(fm_matrix_inv_g, matrix_g)
-
-         CALL cp_fm_release(fm_matrix_g)
-         CALL cp_fm_release(fm_matrix_inv_g)
-         CALL cp_fm_struct_release(fm_struct)
-
-!        Compute the product G^-1*A
-         CALL dbcsr_multiply('N','N',1.0_dp, matrix_g, matrix_a, 0.0_dp, work_matrix)
-         CALL dbcsr_finalize(work_matrix)
-
 !        For each diagonal block of the super matrix, loop over blocks of G^-1*A
-!        TODO: replace for loops by dbcsr_iterator
-         CALL dbcsr_distribution_get(submat_dist, mynode=mynode)
-         DO iblk = 1,nblk_sub
-            DO jblk = 1,nblk_sub
-           
-!              Checking that block is stored on current node
-               CALL dbcsr_get_stored_coordinates(work_matrix, iblk, jblk, node_holds_blk)
+         CALL dbcsr_iterator_start(iter, dia_work_matrix)
+         DO WHILE(dbcsr_iterator_blocks_left(iter))
 
-               IF(node_holds_blk == mynode) THEN
-                  CALL dbcsr_get_block_p(work_matrix, iblk, jblk, work_block, found_block)
+            found_block = .FALSE.
+            CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
+            CALL dbcsr_get_block_p(dia_work_matrix, iblk, jblk, work_block, found_block)
 
-                  IF (found_block) THEN
-                     CALL dbcsr_put_block(matrix_tdp, iblk, jblk, -work_block)
-                     CALL dbcsr_put_block(matrix_tdp, nblk_sub+iblk, nblk_sub+jblk, work_block)
-                  END IF
-            
-                  NULLIFY(work_block)
-               END IF
+            IF (found_block) THEN
+!              Put -G^-1*A in the upper left block and G^-1*A in the lower right block
+               CALL dbcsr_put_block(matrix_tdp, iblk, jblk, -work_block) 
+               CALL dbcsr_put_block(matrix_tdp, nblk_sub+iblk, nblk_sub+jblk, work_block)
+            END IF
 
-            END DO
-         END DO
+            NULLIFY(work_block)
+
+         END DO ! iterator
+         CALL dbcsr_iterator_stop(iter) 
 
 !        Some clean-up
          CALL dbcsr_distribution_release(supmat_dist)
-         CALL dbcsr_release(work_matrix)
-         DEALLOCATE(supmat_dist, work_matrix)
+         DEALLOCATE(supmat_dist)
 
       END IF ! Tamm_Dancoff
 
-
 !  Finalize
       CALL dbcsr_finalize(matrix_tdp)
-      IF(xas_tdp_control%tamm_dancoff) CALL dbcsr_finalize(matrix_lhs)
 
 !  General Clean-up
       CALL dbcsr_distribution_release(submat_dist)
       CALL dbcsr_release(matrix_a)
       CALL dbcsr_release(matrix_g)
-      DEALLOCATE(submat_dist, submat_blk_size,  matrix_a, matrix_g)
+      CALL dbcsr_release(dia_work_matrix)
+      DEALLOCATE(submat_dist, submat_blk_size,  matrix_a, matrix_g, dia_work_matrix)
 
       CALL timestop(handle)
 
    END SUBROUTINE setup_xas_tdp_full_prob
 
 ! **************************************************************************************************
-!> \brief Solves the XAS TDP generalized eigenvalue problem omega*matrix_lhs*C = matrix_tdp*C
-!>        using standard full diagonalization methods
-!> \param matrix_tdp ...
-!> \param matrix_lhs ...
+!> \brief Solves the XAS TDP generalized eigenvalue problem omega*C = matrix_tdp*C using standard
+!>        full diagonalization methods (for non-hermitian matrices), for a given donor state
 !> \param donor_state ...
 !> \param qs_env ...
-!> \param xas_tdp_control ...
 !> \note The computed eigenvalues and eigenvectors are stored in the donor_state
 ! **************************************************************************************************
-   SUBROUTINE solve_xas_tdp_full_prob(matrix_tdp, matrix_lhs, donor_state, qs_env, xas_tdp_control)  
+   SUBROUTINE solve_xas_tdp_full_prob(donor_state, qs_env)  
 
-      TYPE(dbcsr_type), POINTER                       :: matrix_tdp, matrix_lhs
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(qs_environment_type), POINTER              :: qs_env
-      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
 
       CHARACTER(len=*), PARAMETER :: routineN = "solve_xas_tdp_full_prob", &
                                      routineP = moduleN//":"//routineN
 
       TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(dbcsr_type), POINTER                       :: matrix_tdp
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       INTEGER                                         :: handle
       TYPE(cp_fm_struct_type), POINTER                :: fm_struct
-      TYPE(cp_fm_type), POINTER                       :: amatrix, bmatrix, work
+      TYPE(cp_fm_type), POINTER                       :: amatrix
       INTEGER                                         :: nrow
 
       CALL timeset(routineN, handle)
 
-      NULLIFY(para_env, blacs_env)
-      NULLIFY(fm_struct, amatrix, bmatrix, work)
+      NULLIFY(para_env, blacs_env, fm_struct, amatrix, matrix_tdp)
 
+      matrix_tdp => donor_state%matrix_tdp
       CALL get_qs_env(qs_env=qs_env, para_env=para_env, blacs_env=blacs_env) 
 
-      IF (xas_tdp_control%tamm_dancoff) THEN
-!        In this case matrix_tdp is symmetric and so is matrix_lhs. The latter is also positive 
-!        definite, which allows us to use Cholesky decomposition to solve the geeig 
-!        We convert to full matrices to make use of the existing machinery
-
-!        Initialization
-         CALL dbcsr_get_info(matrix_tdp, nfullrows_total=nrow)
-         CALL cp_fm_struct_create(fm_struct,context=blacs_env, nrow_global=nrow, para_env=para_env,&
-                                  ncol_global=nrow)
-                               
-         CALL cp_fm_create(amatrix, fm_struct)
-         CALL cp_fm_create(bmatrix, fm_struct)
-         CALL cp_fm_create(work, fm_struct)
-
-!        Copy geeig in full matrix format
-         CALL copy_dbcsr_to_fm(matrix_tdp, amatrix)
-         CALL copy_dbcsr_to_fm(matrix_lhs, bmatrix)
-
-!        Allcoating space for solutions
-         ALLOCATE(donor_state%lr_evals(nrow))
-         CALL cp_fm_create(donor_state%lr_coeffs, fm_struct)  
-
-!        Solve the geeig
-         CALL cp_fm_geeig(amatrix, bmatrix, donor_state%lr_coeffs, donor_state%lr_evals, work)
-
-!        Clean-up
-         CALL cp_fm_release(amatrix)
-         CALL cp_fm_release(bmatrix)
-         CALL cp_fm_release(work)
-         CALL cp_fm_struct_release(fm_struct)
-
-      ELSE IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
-!        In this case matrix_lhs is irrelevant and matrix_tdp is non-symmetric. We do a direct
-!        diagonalization of the latter using inefficient, non-parallelized methods
-
-!        Initialization
-         CALL dbcsr_get_info(matrix_tdp, nfullrows_total=nrow)
-         CALL cp_fm_struct_create(fm_struct,context=blacs_env, nrow_global=nrow, para_env=para_env,&
+!     Initialization
+      CALL dbcsr_get_info(matrix_tdp, nfullrows_total=nrow)
+      CALL cp_fm_struct_create(fm_struct,context=blacs_env, nrow_global=nrow, para_env=para_env,&
                                   ncol_global=nrow)
 
-!        Need to go to full matrices to diagonalize
-         CALL cp_fm_create(amatrix, fm_struct)
-         CALL copy_dbcsr_to_fm(matrix_tdp, amatrix)
+!     Need to go to full matrices to diagonalize
+      CALL cp_fm_create(amatrix, fm_struct)
+      CALL copy_dbcsr_to_fm(matrix_tdp, amatrix)
          
-!        Allocating space for solutions
-         ALLOCATE(donor_state%lr_evals(nrow))
-         CALL cp_fm_create(donor_state%lr_coeffs, fm_struct)
+!     Allocating space for solutions
+      ALLOCATE(donor_state%lr_evals(nrow))
+      CALL cp_fm_create(donor_state%lr_coeffs, fm_struct)
 
-!        Diagonalize the matrix
+!     Diagonalize the matrix
 #if defined(__SCALAPACK) 
-         CALL pdiag_nonsymm_mat(amatrix, donor_state%lr_evals, donor_state%lr_coeffs)
+      CALL pdiag_nonsymm_mat(amatrix, donor_state%lr_evals, donor_state%lr_coeffs)
 #else
-         CALL diag_nonsymm_mat(amatrix, donor_state%lr_evals, donor_state%lr_coeffs)
+      CALL diag_nonsymm_mat(amatrix, donor_state%lr_evals, donor_state%lr_coeffs)
 #endif
          
-!        Clean-up
-         CALL cp_fm_release(amatrix)
-         CALL cp_fm_struct_release(fm_struct)
-
-      END IF
+!     Clean-up
+      CALL cp_fm_release(amatrix)
+      CALL cp_fm_struct_release(fm_struct)
 
 !  Making sure that the response orbitals are normalized with respect to matrix_s
 !  TODO: RETEST WHEN KERNEL IS AVAILABLE
-      CALL normalize_lr_orbitals(donor_state, qs_env, xas_tdp_control)
+      CALL normalize_lr_orbitals(donor_state, qs_env)
 
       CALL timestop(handle)
 
@@ -369,106 +309,85 @@ CONTAINS
 !> \brief Normalizes the response orbitals so that <phi^+|phi^+>=1 and <phi^-|phi^->=1
 !> \param donor_state ...
 !> \param qs_env ... 
-!> \param xas_tdp_control ...
 ! **************************************************************************************************
-   SUBROUTINE normalize_lr_orbitals(donor_state, qs_env, xas_tdp_control)
+   SUBROUTINE normalize_lr_orbitals(donor_state, qs_env)
 
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(qs_environment_type), POINTER              :: qs_env
-      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control               
 
       CHARACTER(len=*), PARAMETER :: routineN = "normalize_lr_orbitals", &
                                       routineP = moduleN//":"//routineN     
 
-      INTEGER                                         :: handle, nao, iex, j, ipm, imo, npm, &
-                                                         s_firstrow, ndo_mo
+      INTEGER                                         :: handle, nao, iex
       TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos 
       TYPE(cp_fm_type), POINTER                       :: mo_coeff
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
-      REAL(dp), DIMENSION(:,:), POINTER               :: coeff_array, work_array, full_col
-      TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct
-      TYPE(cp_fm_type), POINTER                       :: c_vect, work_vect, lr_coeffs
+      TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct, scal_struct
+      TYPE(cp_fm_type), POINTER                       :: c_vect, work_vect, lr_coeffs, fm_norm
       REAL(dp)                                        :: norm
-      LOGICAL                                         :: found_nonzero
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: scaling
       
       CALL timeset(routineN, handle) 
 
-      NULLIFY(mos, mo_coeff, para_env, blacs_env, matrix_s, coeff_array, work_array)
-      NULLIFY(col_vect_struct, c_vect, work_vect, lr_coeffs, full_col)
+      NULLIFY(mos, mo_coeff, para_env, blacs_env, matrix_s)
+      NULLIFY(col_vect_struct, c_vect, work_vect, lr_coeffs, fm_norm, scal_struct)
+      
+      CPASSERT(ASSOCIATED(donor_state%lr_coeffs))
 
-!  Notes: we could simply take one coefficient vector C^+_j from lr_coeffs, compute the norm
-!  C^+_j*S*C^+_j and divide the whole column of lr_coeffs by SQRT(norm). The problem is that
-!  there is a chance that a linear response orbital has zero coefficient, which could be a
-!  catastrophy when dividing. So instead we span all vectors C^+-_j until we find a non-zero one
+!  Strategy: make sure that the response orbitals are normalized: i.e. <phi^+|phi^+>=1 and <phi^-|phi^->=1
+!  by taking the first set of LR coefficients for each energy eigenvalues, computing norm = C^T*S*C
+!  for the given orbital and then scaling the whole column of lr_coeffs with 1./sqrt(norm)
 
 !  Initialization
       CALL get_qs_env(qs_env, mos=mos, para_env=para_env, blacs_env=blacs_env, matrix_s=matrix_s)
       CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao)
 
-      CALL cp_fm_struct_create(col_vect_struct, para_env=para_env, context=blacs_env, &              
-                               nrow_global=nao, ncol_global=1)                                      
-      CALL cp_fm_create(c_vect, col_vect_struct)                                                     
-      CALL cp_fm_create(work_vect, col_vect_struct)                                                  
-      ALLOCATE(coeff_array(nao,1))                                                                      
-      ALLOCATE(work_array(nao,1))  
+      CALL cp_fm_struct_create(col_vect_struct, para_env=para_env, context=blacs_env, &
+                               nrow_global=nao, ncol_global=1) 
+      CALL cp_fm_struct_create(scal_struct, para_env=para_env, context=blacs_env, & 
+                               nrow_global=1, ncol_global=1)   
+
+      CALL cp_fm_create(c_vect, col_vect_struct)
+      CALL cp_fm_create(work_vect, col_vect_struct)
+      CALL cp_fm_create(fm_norm, scal_struct)
+
+      ALLOCATE(scaling(SIZE(donor_state%lr_evals)))
+      scaling = 0.0_dp
+
       lr_coeffs => donor_state%lr_coeffs
 
-      npm = 2
-      IF (xas_tdp_control%tamm_dancoff) npm=1
-      ndo_mo = SIZE(donor_state%mo_indices)
-      ALLOCATE(full_col(npm*ndo_mo*nao,1))
-
-!  Loop over the response orbital for different excitation energies
+!  Loop over the the excitation energies so that lr_coeffs are all normalized
       DO iex = 1,SIZE(donor_state%lr_evals)
-         norm = 0.0_dp
-         found_nonzero = .FALSE.
-!        Loop over the coeffs for different donor MOs
-         DO imo = 1,ndo_mo
-            IF (.NOT. found_nonzero) THEN
-!              Loop over C^+/C^-
-               DO ipm = 1,npm
-                  
-                  IF (.NOT. found_nonzero) THEN
-         
-                     s_firstrow = (ipm-1)*ndo_mo*nao + (imo-1)*nao + 1
-!                    Retrieving the C^+ (C^- if TDA) coefficients corresponding to the current donor MO
-                     CALL cp_fm_to_fm_submat(msource=lr_coeffs, mtarget=c_vect, nrow=nao, ncol=1, &
-                                             s_firstrow=s_firstrow, s_firstcol=iex, &
-                                             t_firstrow=1, t_firstcol=1)
-                     CALL cp_fm_get_submatrix(c_vect, coeff_array)
 
-!                    Computing matrix_s*c_vect
-                     CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, c_vect, work_vect, ncol=1)
-                     CALL cp_fm_get_submatrix(work_vect, work_array)
+!        Take the first nao elements of vector C^+/- for normalization
+         CALL cp_fm_to_fm_submat(msource=lr_coeffs, mtarget=c_vect, nrow=nao, ncol=1, s_firstrow=1, & 
+                                 s_firstcol=iex, t_firstrow=1, t_firstcol=1 ) 
 
-                     DO j = 1,nao
-                        norm = norm + coeff_array(j,1)*work_array(j,1)
-                     END DO
-                     If (norm .NE. 0.0_dp) found_nonzero = .TRUE.
+!        Compute matrix_s*c_vect
+         CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, c_vect, work_vect, ncol=1)
 
-                  END IF ! found_nonzero
-               END DO ! ipm
-            END IF ! found_nonzero
-         END DO ! imo
+!        Compute fm_norm = c_vect^T*matrix_s*c_vect
+         CALL cp_fm_gemm('T', 'N', 1, 1, nao, 1.0_dp, c_vect, work_vect, 0.0_dp, fm_norm)
 
-!        Scaling the lr_coeff for this energy
-         full_col = 0.0_dp
-         CALL cp_fm_get_submatrix(fm=lr_coeffs, target_m=full_col, start_row=1, start_col = iex, &
-                                  n_rows=nao*ndo_mo*npm, n_cols=1, transpose=.FALSE.)
-         full_col  = 1.0_dp/SQRT(norm) * full_col
-         CALL cp_fm_set_submatrix(fm=lr_coeffs, new_values=full_col, start_row=1, start_col = iex,&
-                                  n_rows=nao*ndo_mo*npm, n_cols=1, alpha=1.0_dp, beta=0.0_dp, &
-                                  transpose=.FALSE.)
+!        Get the norm as a real
+         CALL cp_fm_get_element(fm_norm, 1, 1, norm)
+         scaling(iex) = 1.0_dp/SQRT(norm)
+         PRINT*, "iex:", iex, "norm:", norm
 
       END DO ! iex
 
+!  Normalizing all the lr_coeffs at once
+      IF (ANY(scaling == 0.0_dp)) CPABORT("Cannot normalize response orbitals with zero coeffs")
+      CALL cp_fm_column_scale(lr_coeffs, scaling)
+
 !  Clean-up
       CALL cp_fm_struct_release(col_vect_struct)
+      CALL cp_fm_struct_release(scal_struct)
       CALL cp_fm_release(c_vect)
       CALL cp_fm_release(work_vect)
-      DEALLOCATE(coeff_array, work_array, full_col)
+      CALL cp_fm_release(fm_norm)
 
       CALL timestop(handle)
       
@@ -707,19 +626,19 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       CHARACTER(len=*), PARAMETER :: routineN = 'build_matrix_a', routineP = moduleN//":"//routineN
       
       INTEGER                                         :: handle, ndo_mo, i, nblk_row,&
-                                                         j, iblk, jblk, mynode, node_holds_blk
+                                                         j, iblk, jblk, blk
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_ks, matrix_s
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
       INTEGER, DIMENSION(:), POINTER                  :: row_blk_size 
       REAL(dp), DIMENSION(:,:), POINTER               :: energy_evals     
-      REAL(dp), DIMENSION(:), POINTER                 :: work_block, work_block_ks, work_block_s 
-      LOGICAL                                         :: found_block, found_block_ks 
+      REAL(dp), DIMENSION(:), POINTER                 :: work_block
+      LOGICAL                                         :: found_block
       TYPE(dbcsr_type)                                :: desym_matrix_s, desym_matrix_ks, work_matrix
+      TYPE(dbcsr_iterator_type)                       :: iter
 
       CALL timeset(routineN, handle)
 
       NULLIFY(matrix_ks, dbcsr_dist, row_blk_size, work_block, energy_evals, matrix_s)
-      NULLIFY(work_block_ks, work_block_s)
 
 !  Note: All matrices are based on the basic CP2K dbcsr_distribution. Larger matrices simply replicate
 !        the distribution. For non-symmetric matrices, the outcome is straight forward, not so much
@@ -739,6 +658,10 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       CALL dbcsr_create(matrix=work_matrix, name="WORK MAT", matrix_type="N", dist=dist_a, &
                         row_blk_size=blk_size_a, col_blk_size=blk_size_a)
 
+!  Creating the matrix A 
+      CALL dbcsr_create(matrix=work_matrix, name="MATRIX A", matrix_type="N", dist=dist_a, &
+                        row_blk_size=blk_size_a, col_blk_size=blk_size_a)        
+
 !  Desymmetrize matrices S and KS
       CALL dbcsr_create(matrix=desym_matrix_s, name="DESYM MATRIX S", matrix_type="N", &
                         dist=dbcsr_dist, row_blk_size=row_blk_size, col_blk_size=row_blk_size)
@@ -748,81 +671,74 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
                         dist=dbcsr_dist, row_blk_size=row_blk_size, col_blk_size=row_blk_size)
       CALL dbcsr_desymmetrize(matrix_ks(1)%matrix, desym_matrix_ks)
    
-!  Loop over the blocks of desymmetrized matrices S and KS and put them in the work matrix
-!  TODO: switch to dbcsr iterator
-      CALL dbcsr_distribution_get(dist_a, mynode=mynode)
-      DO iblk = 1,nblk_row
-         DO jblk = 1,nblk_row
+!  Loop over the blocks of desymmetrized matrix KS and put them in the work matrix
+      CALL dbcsr_iterator_start(iter, desym_matrix_ks)
+      DO WHILE (dbcsr_iterator_blocks_left(iter))
 
-!           Check if block is on current processor
-            CALL dbcsr_get_stored_coordinates(desym_matrix_s, iblk, jblk, node_holds_blk)
-            IF (node_holds_blk == mynode) THEN
+         CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
 
-               found_block = .FALSE.                                                           
-               found_block_ks = .FALSE.                                                        
-               ALLOCATE(work_block(row_blk_size(iblk)*row_blk_size(jblk)))
+!        Get the block
+         found_block = .FALSE.
+         CALL dbcsr_get_block_p(desym_matrix_ks, iblk, jblk, work_block, found_block)
 
-!              Retrieve S_pq
-               CALL dbcsr_get_block_p(desym_matrix_s, iblk, jblk, work_block_s, found_block)
+         IF (found_block) THEN
+   
+!           The KS matrix only appears on diagonal of matrix A => loop over II donor MOs
+            DO i = 1,ndo_mo
 
-!              Retrieve the upper triangular part of F_pq (all we need since only on diag of mat A)
-               IF (jblk .GE. iblk) CALL dbcsr_get_block_p(desym_matrix_ks, iblk, jblk, &
-                                                          work_block_ks, found_block_ks)
+!              Put the block as it is
+               CALL dbcsr_put_block(work_matrix,(i-1)*nblk_row+iblk, (i-1)*nblk_row+jblk, work_block)
 
-!              Now loop over the upper triangular part of the work matrix.
-               DO i = 1,ndo_mo
-                  DO j = i,ndo_mo
+            END DO ! i
 
-!                    Take -epsilon_ij*Spq
-                     IF (found_block .AND. (energy_evals(i,j) .NE. 0.0_dp)) THEN
-                        work_block = -(energy_evals(i,j))*work_block_s
+         END IF ! found_block
+         NULLIFY(work_block)
 
-                     ELSE IF (energy_evals(i,j) ==  0.0_dp) THEN
-!                       If multiplying block by zero, then equivalent to no block at all
-                        found_block = .FALSE.
-                     END IF
-
-!                    If not on the block digonal of work mat, can simply put the block now
-                     IF ((i .NE. j) .AND. found_block) THEN
-                        CALL dbcsr_put_block(work_matrix,(i-1)*nblk_row+iblk, (j-1)*nblk_row+jblk, & 
-                                             work_block)
-                     END IF ! i != j
-
-!                    If on the block diagonal, take F_pq - epsilon_ii*S_pq and only consider upper part
-                     IF ((i==j) .AND. (jblk .GE. iblk)) THEN
-
-                        IF (found_block .AND. found_block_ks) THEN
-                           work_block = work_block + work_block_ks
-                           CALL dbcsr_put_block(work_matrix,(i-1)*nblk_row+iblk, &
-                                                (j-1)*nblk_row+jblk, work_block)
-
-                        ELSE IF ((.NOT. found_block) .AND. found_block_ks) THEN
-                           work_block = work_block_ks
-                           CALL dbcsr_put_block(work_matrix,(i-1)*nblk_row+iblk, &
-                                                (j-1)*nblk_row+jblk, work_block)
-                        END IF
-                        
-                     END IF ! i==j
-
-                  END DO ! j
-               END DO ! i
-
-               DEALLOCATE(work_block)
-               NULLIFY(work_block_s, work_block_ks)
-
-            END IF ! node_holds_blk==mynode
-         END DO ! jblk
-      END DO ! iblk
-
-!  Create symmetric matrix A
-      CALL dbcsr_create(matrix=matrix_a, name="MATRIX A", matrix_type="S", dist=dist_a, &
-                        row_blk_size=blk_size_a, col_blk_size=blk_size_a)    
-
-!  Redistribute the work matrix into A so that it is stored as symmetric
-!  TODO: need to desymmetrize later anyways, might as well store it as normal matrix...
+      END DO ! iteration on KS blocks
+      CALL dbcsr_iterator_stop(iter)
       CALL dbcsr_finalize(work_matrix)
-      CALL dbcsr_complete_redistribute(work_matrix, matrix_a)
 
+!  Put the current work matrix into the matrix A
+      CALL dbcsr_copy(matrix_a, work_matrix, name="MATRIX A")
+
+!  Reinitialize the work matrix
+      CALL dbcsr_release(work_matrix)
+      CALL dbcsr_create(matrix=work_matrix, name="WORK MAT", matrix_type="N", dist=dist_a, & 
+                        row_blk_size=blk_size_a, col_blk_size=blk_size_a)      
+
+!  Iterate over the desymmetrized matrix S
+      CALL dbcsr_iterator_start(iter, desym_matrix_s)
+      DO WHILE (dbcsr_iterator_blocks_left(iter))
+
+         CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)                                    
+
+!        Get the block
+         found_block = .FALSE.
+         CALL dbcsr_get_block_p(desym_matrix_s, iblk, jblk, work_block, found_block) 
+
+         IF (found_block) THEN
+
+!           The S matrix appears everywhere, need to loop over all donor MOs
+            DO i = 1,ndo_mo
+               DO j = 1,ndo_mo
+
+!                 Put epsilon_ij*S_pq
+                  CALL dbcsr_put_block(work_matrix,(i-1)*nblk_row+iblk, (j-1)*nblk_row+jblk, & 
+                                       energy_evals(i,j)*work_block)   
+
+               END DO ! j
+            END DO ! i
+
+         END IF ! found_block
+         NULLIFY(work_block)
+
+      END DO ! iteration over S
+      CALL dbcsr_iterator_stop(iter)
+      CALL dbcsr_finalize(work_matrix)
+
+!  Substract the current work matrix to matrix A to get the full F_pq*delta_ij - epsilon_ij*S_pq
+      CALL dbcsr_add(matrix_a, work_matrix, 1.0_dp, -1.0_dp)
+      
 !  Finalize
       CALL dbcsr_finalize(matrix_a)   
 
@@ -856,11 +772,12 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       CHARACTER(len=*), PARAMETER :: routineN = 'build_matrix_g', routineP = moduleN//":"//routineN
       
       INTEGER                                         :: handle, i, iblk, jblk, ndo_mo, nblk_row, &
-                                                         mynode, node_holds_blk
+                                                         blk
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
       INTEGER, DIMENSION(:), POINTER                  :: row_blk_size
       REAL(dp), DIMENSION(:), POINTER                 :: work_block
       LOGICAL                                         :: found_block
+      TYPE(dbcsr_iterator_type)                       :: iter     
 
       CALL timeset(routineN, handle)
 
@@ -876,35 +793,28 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
       CALL dbcsr_create(matrix=matrix_g, name="MATRIX G", matrix_type="S", dist=dist_g, &
                         row_blk_size=blk_size_g, col_blk_size=blk_size_g)
 
-!  Fill the matrix G. First loop over the superblocks of size nao x nao (only on the diagonal), then
-!  their respective blocks which have the standard cp2k structure. They also have the standard dbcsr
-!  distribution. Since G is block diagonal, no trap like for build_matrix_a
-      CALL dbcsr_distribution_get(dist_g, mynode=mynode)
-      DO i = 1,ndo_mo
-!        loop over blocks of matrix_s (upper triangular part, symmetric anyway)
-!        TO DO: replace for loops by dbcsr_iterator
-         DO iblk = 1,nblk_row
-            DO jblk = iblk,nblk_row
+!  Fill the matrix G by looping over the block of S and putting them on the diagonal
+      CALL dbcsr_iterator_start(iter, matrix_s(1)%matrix)
+      DO WHILE (dbcsr_iterator_blocks_left(iter))
 
-!              Check that the block is stored on current processor.
-               CALL dbcsr_get_stored_coordinates(matrix_s(1)%matrix, iblk, jblk, node_holds_blk)
+         CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
 
-               IF (node_holds_blk == mynode) THEN
-                  CALL dbcsr_get_block_p(matrix_s(1)%matrix, iblk, jblk, work_block, found_block)
+!        Get the block
+         found_block = .FALSE.
+         CALL dbcsr_get_block_p(matrix_s(1)%matrix, iblk, jblk, work_block, found_block)
 
-!                 if non zero-block, copy its content in G
-                  IF (found_block) THEN
-                     CALL dbcsr_put_block(matrix_g, (i-1)*nblk_row+iblk, (i-1)*nblk_row+jblk, &
-                                          work_block)
-                  END IF
+         IF (found_block) THEN
 
-                  NULLIFY(work_block)
-
-               END IF 
-
+!           Go over the diagonal of G => donor MOs ii
+            DO i = 1,ndo_mo
+               CALL dbcsr_put_block(matrix_g, (i-1)*nblk_row+iblk, (i-1)*nblk_row+jblk, work_block)
             END DO
-         END DO
-      END DO
+
+         END IF
+         NULLIFY(work_block)
+
+      END DO ! dbcsr_iterator
+      CALL dbcsr_iterator_stop(iter)
 
 !  Finalize
       CALL dbcsr_finalize(matrix_g)
@@ -1590,7 +1500,6 @@ SUBROUTINE compute_ri_coulomb3_int(int_array, nonzero_int, donor_state, domo_ind
                       para_env=para_env)
 
 !  Create the dbcsr_matrix that will hold everything
-!  TODO: check that empty blocks are stores as such
       CALL dbcsr_get_info(matrix_s(1)%matrix, row_blk_size=blk_size)
       CALL dbcsr_create(matrix=ker_coulomb_blk, name="RI COULOMB BLK", dist=dbcsr_dist, matrix_type="N", &
                         row_blk_size=blk_size, col_blk_size=blk_size)
@@ -1647,12 +1556,10 @@ SUBROUTINE compute_ri_coulomb3_int(int_array, nonzero_int, donor_state, domo_ind
          END DO ! j
       END DO !i
       CALL dbcsr_finalize(work_coulomb)
-!      CALL dbcsr_print(work_coulomb)
 
 !  Multiply by the projector Q
       CALL dbcsr_multiply('N','N',1.0_dp, q_projector, work_coulomb, 0.0_dp, ker_coulomb_blk)
       CALL dbcsr_finalize(ker_coulomb_blk)
-      CALL dbcsr_print(ker_coulomb_blk)
        
 !  Clean-up
       CALL dbcsr_release(work_coulomb)

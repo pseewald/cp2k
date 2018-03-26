@@ -104,6 +104,7 @@ MODULE xas_tdp_types
 !> \param lr_coeffs solutions of the linear-response TDDFT equation retricted to this state (vector)
 !> \param lr_evals excitation energies => the eigenvalues of the linear response equation
 !> \param osc_str oscillator strengths for the different excitation energies
+!> \param matrix_tdp the dbcsr matrix to be diagonalized to solve the problem
 !> *************************************************************************************************
 TYPE donor_state_type
       INTEGER                                 :: at_index
@@ -115,6 +116,7 @@ TYPE donor_state_type
       TYPE(cp_fm_type), POINTER               :: lr_coeffs
       REAL(dp), DIMENSION(:), POINTER         :: lr_evals
       REAL(dp), DIMENSION(:), POINTER         :: osc_str
+      TYPE(dbcsr_type), POINTER               :: matrix_tdp
    END TYPE donor_state_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE  :: moduleN = 'xas_tdp_types'
@@ -125,7 +127,7 @@ PUBLIC :: xas_tdp_control_type, xas_tdp_env_type, donor_state_type
 ! *** Public subroutines ***
    PUBLIC :: xas_tdp_control_create, xas_tdp_control_release, read_xas_tdp_control, &
              xas_tdp_env_create, xas_tdp_env_release, set_xas_tdp_env, &
-             set_donor_state
+             set_donor_state, free_ds_memory
 
 CONTAINS
 
@@ -437,11 +439,36 @@ SUBROUTINE deallocate_donor_state_set(donor_state_set)
             IF (ASSOCIATED(donor_state_set(i)%mo_indices)) THEN
                DEALLOCATE(donor_state_set(i)%mo_indices)
             END IF
+
+            IF (ASSOCIATED(donor_state_set(i)%matrix_tdp)) THEN
+               CALL dbcsr_release(donor_state_set(i)%matrix_tdp)
+               DEALLOCATE(donor_state_set(i)%matrix_tdp)
+            END IF
                         
          END DO
          DEALLOCATE(donor_state_set)
       END IF
 
    END SUBROUTINE deallocate_donor_state_set
+
+!> *************************************************************************************************
+!> \brief Deallocate a donor_state's heavy attributes
+!> \param donor_state ...
+!> *************************************************************************************************
+   SUBROUTINE free_ds_memory(donor_state)
+      
+      TYPE(donor_state_type), POINTER                    :: donor_state
+
+      CHARACTER(len=*), PARAMETER :: routineN = "free_ds_memory", routineP = moduleN//":"//routineN
+
+      IF (ASSOCIATED(donor_state%lr_evals)) DEALLOCATE(donor_state%lr_evals)
+      IF (ASSOCIATED(donor_state%osc_str)) DEALLOCATE(donor_state%osc_str)
+      IF (ASSOCIATED(donor_state%lr_coeffs)) CALL cp_fm_release(donor_state%lr_coeffs)
+      IF (ASSOCIATED(donor_state%matrix_tdp)) THEN
+         CALL dbcsr_release(donor_state%matrix_tdp)
+         DEALLOCATE(donor_state%matrix_tdp)
+      END IF
+
+   END SUBROUTINE free_ds_memory
 
 END MODULE xas_tdp_types

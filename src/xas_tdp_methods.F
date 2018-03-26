@@ -83,7 +83,8 @@ MODULE xas_tdp_methods
                                               xas_tdp_env_release,&
                                               set_xas_tdp_env,&
                                               donor_state_type,&
-                                              set_donor_state
+                                              set_donor_state, &
+                                              free_ds_memory
    USE xas_tdp_utils,                   ONLY: setup_xas_tdp_full_prob, &
                                               solve_xas_tdp_full_prob, &
                                               compute_oscillator_strength
@@ -123,11 +124,9 @@ CONTAINS
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
       CHARACTER(len=2), DIMENSION(3)                     :: state_type_char
-      TYPE(dbcsr_type), POINTER                          :: matrix_tdp, matrix_lhs
       TYPE(cp_para_env_type), POINTER                    :: para_env
 
-      NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state)
-      NULLIFY(matrix_tdp, matrix_lhs, para_env)
+      NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state, para_env)
 
       CALL timeset(routineN, handle)
 
@@ -245,26 +244,19 @@ CONTAINS
 !                       Do main calculations here
 
                         IF (xas_tdp_control%full_diag) THEN
-                           ALLOCATE(matrix_tdp)
-                           ALLOCATE(matrix_lhs)
-                           CALL setup_xas_tdp_full_prob(matrix_tdp, matrix_lhs, current_state, &
+                           CALL setup_xas_tdp_full_prob(current_state, &
                                                         qs_env, xas_tdp_env, xas_tdp_control)
-                           CALL solve_xas_tdp_full_prob(matrix_tdp, matrix_lhs, current_state, &
-                                                        qs_env, xas_tdp_control)
+                           CALL solve_xas_tdp_full_prob(current_state, qs_env)
                            CALL compute_oscillator_strength(current_state, qs_env, xas_tdp_control)
                            
                            IF (output_unit > 0 ) THEN
                               i=0
-!                              PRINT*, "evals, oscillator_strength"
-!                              DO i = 1,SIZE(current_state%lr_evals)
-!                                 PRINT*, current_state%lr_evals(i), "   ,    ", current_state%osc_str(i)
-!                              END DO
+                              PRINT*, "evals, oscillator_strength"
+                              DO i = 1,SIZE(current_state%lr_evals)
+                                 PRINT*, current_state%lr_evals(i), "   ,    ", current_state%osc_str(i)
+                              END DO
                            END IF
 
-                           CALL dbcsr_release(matrix_tdp)
-                           CALL dbcsr_release(matrix_lhs)
-                           DEALLOCATE(matrix_tdp)
-                           DEALLOCATE(matrix_lhs)
                         ELSE IF (.NOT. xas_tdp_control%full_diag) THEN
                            
                            CPABORT("Iterative solver not implemented yet")
@@ -273,10 +265,14 @@ CONTAINS
 
                      END IF !check donor_states
 
+!                    Free some unneeded attributes of current_state
+                     CALL free_ds_memory(current_state)
+
                      current_state_index = current_state_index + 1
                      NULLIFY(current_state)
 
 !                    Making sure we are synchronized before going to the next state
+!                    TODO: does not seem to work as intended
                      CALL mp_sync(para_env%group)
 
                   END IF
@@ -517,8 +513,9 @@ CONTAINS
       ALLOCATE(xas_tdp_env%q_projector)
       CALL dbcsr_create(xas_tdp_env%q_projector, name="Q PROJECTOR", template=matrix_s(1)%matrix, &
                         matrix_type="N") 
+!     TODO: Add a filter_eps in the multiplication ? Cuz many almost zero blocks
       CALL dbcsr_multiply('N', 'N', -1.0_dp, matrix_s(1)%matrix, rho_ao(1)%matrix, 0.0_dp, &
-                          xas_tdp_env%q_projector, filter_eps=1.0E-12_dp)
+                          xas_tdp_env%q_projector)
       CALL dbcsr_add_on_diag(xas_tdp_env%q_projector, 1.0_dp)
       CALL dbcsr_finalize(xas_tdp_env%q_projector)
       
