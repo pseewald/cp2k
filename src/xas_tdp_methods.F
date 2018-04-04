@@ -246,7 +246,7 @@ CONTAINS
                         IF (xas_tdp_control%full_diag) THEN
                            CALL setup_xas_tdp_full_prob(current_state, &
                                                         qs_env, xas_tdp_env, xas_tdp_control)
-                           CALL solve_xas_tdp_full_prob(current_state, qs_env)
+                           CALL solve_xas_tdp_full_prob(current_state, xas_tdp_control, qs_env)
                            CALL compute_oscillator_strength(current_state, qs_env, xas_tdp_control)
                            
                            IF (output_unit > 0 ) THEN

@@ -29,7 +29,7 @@ MODULE xas_tdp_utils
    USE cp_fm_types,                     ONLY: cp_fm_create, cp_fm_release, cp_fm_type, &
                                               cp_fm_to_fm_submat, cp_fm_get_submatrix, &
                                               cp_fm_get_info, cp_fm_set_submatrix, cp_fm_set_all, &
-                                              cp_fm_p_type, cp_fm_get_element
+                                              cp_fm_p_type, cp_fm_get_diag
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_p_type, dbcsr_distribution_type, &
@@ -247,12 +247,14 @@ CONTAINS
 !> \brief Solves the XAS TDP generalized eigenvalue problem omega*C = matrix_tdp*C using standard
 !>        full diagonalization methods (for non-hermitian matrices), for a given donor state
 !> \param donor_state ...
+!> \param xas_tdp_control ...
 !> \param qs_env ...
 !> \note The computed eigenvalues and eigenvectors are stored in the donor_state
 ! **************************************************************************************************
-   SUBROUTINE solve_xas_tdp_full_prob(donor_state, qs_env)  
+   SUBROUTINE solve_xas_tdp_full_prob(donor_state, xas_tdp_control, qs_env)  
 
       TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
       TYPE(qs_environment_type), POINTER              :: qs_env
 
       CHARACTER(len=*), PARAMETER :: routineN = "solve_xas_tdp_full_prob", &
@@ -299,96 +301,122 @@ CONTAINS
 
 !  Making sure that the response orbitals are normalized with respect to matrix_s
 !  TODO: RETEST WHEN KERNEL IS AVAILABLE
-      CALL normalize_lr_orbitals(donor_state, qs_env)
+      CALL normalize_lr_orbitals(donor_state, xas_tdp_control, qs_env)
 
       CALL timestop(handle)
 
    END SUBROUTINE solve_xas_tdp_full_prob
 
 ! **************************************************************************************************
-!> \brief Normalizes the response orbitals so that <phi^+|phi^+>=1 and <phi^-|phi^->=1
+!> \brief Normalizes the response orbitals so that |C^-T * G * C^- - C^+T * G *C^+| = 1 
 !> \param donor_state ...
+!> \param xas_tdp_control ...
 !> \param qs_env ... 
 ! **************************************************************************************************
-   SUBROUTINE normalize_lr_orbitals(donor_state, qs_env)
+   SUBROUTINE normalize_lr_orbitals(donor_state, xas_tdp_control, qs_env)
 
       TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
       TYPE(qs_environment_type), POINTER              :: qs_env
 
       CHARACTER(len=*), PARAMETER :: routineN = "normalize_lr_orbitals", &
                                       routineP = moduleN//":"//routineN     
 
-      INTEGER                                         :: handle, nao, iex
-      TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos 
-      TYPE(cp_fm_type), POINTER                       :: mo_coeff
+      INTEGER                                         :: handle, nao, nvals, ndo_mo, ido_mo 
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
-      TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct, scal_struct
-      TYPE(cp_fm_type), POINTER                       :: c_vect, work_vect, lr_coeffs, fm_norm
-      REAL(dp)                                        :: norm
-      REAL(dp), DIMENSION(:), ALLOCATABLE             :: scaling
+      TYPE(cp_fm_struct_type), POINTER                :: c_struct, norm_struct
+      TYPE(cp_fm_type), POINTER                       :: c_plus, c_minus, work_vect, lr_coeffs, &
+                                                         fm_norm
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: scaling, norm
       
       CALL timeset(routineN, handle) 
 
-      NULLIFY(mos, mo_coeff, para_env, blacs_env, matrix_s)
-      NULLIFY(col_vect_struct, c_vect, work_vect, lr_coeffs, fm_norm, scal_struct)
+      NULLIFY(para_env, blacs_env, matrix_s)
+      NULLIFY(c_struct, c_plus, c_minus, work_vect, lr_coeffs, fm_norm, norm_struct)
       
       CPASSERT(ASSOCIATED(donor_state%lr_coeffs))
 
-!  Strategy: make sure that the response orbitals are normalized: i.e. <phi^+|phi^+>=1 and <phi^-|phi^->=1
-!  by taking the first set of LR coefficients for each energy eigenvalues, computing norm = C^T*S*C
-!  for the given orbital and then scaling the whole column of lr_coeffs with 1./sqrt(norm)
-
 !  Initialization
-      CALL get_qs_env(qs_env, mos=mos, para_env=para_env, blacs_env=blacs_env, matrix_s=matrix_s)
-      CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao)
+      CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env, matrix_s=matrix_s)
+      CALL dbcsr_get_info(matrix_s(1)%matrix, nfullrows_total=nao)
+      nvals = SIZE(donor_state%lr_evals)
 
-      CALL cp_fm_struct_create(col_vect_struct, para_env=para_env, context=blacs_env, &
-                               nrow_global=nao, ncol_global=1) 
-      CALL cp_fm_struct_create(scal_struct, para_env=para_env, context=blacs_env, & 
-                               nrow_global=1, ncol_global=1)   
+      CALL cp_fm_struct_create(c_struct, para_env=para_env, context=blacs_env, &
+                               nrow_global=nao, ncol_global= nvals)
+      CALL cp_fm_struct_create(norm_struct, para_env=para_env, context=blacs_env, & 
+                               nrow_global=nvals, ncol_global=nvals)   
 
-      CALL cp_fm_create(c_vect, col_vect_struct)
-      CALL cp_fm_create(work_vect, col_vect_struct)
-      CALL cp_fm_create(fm_norm, scal_struct)
+      CALL cp_fm_create(c_plus, c_struct)
+      CALL cp_fm_create(c_minus, c_struct)
+      CALL cp_fm_create(work_vect, c_struct)
+      CALL cp_fm_create(fm_norm, norm_struct)
 
-      ALLOCATE(scaling(SIZE(donor_state%lr_evals)))
+      ndo_mo = SIZE(donor_state%mo_indices)
+      ALLOCATE(scaling(nvals))
       scaling = 0.0_dp
+      ALLOCATE(norm(nvals))
+      norm = 0.0_dp
 
       lr_coeffs => donor_state%lr_coeffs
 
-!  Loop over the the excitation energies so that lr_coeffs are all normalized
-      DO iex = 1,SIZE(donor_state%lr_evals)
+!  Loop over the different donor MOs, consider all eigenvectors at once
+      DO ido_mo = 1,ndo_mo
 
-!        Take the first nao elements of vector C^+/- for normalization
-         CALL cp_fm_to_fm_submat(msource=lr_coeffs, mtarget=c_vect, nrow=nao, ncol=1, s_firstrow=1, & 
-                                 s_firstcol=iex, t_firstrow=1, t_firstcol=1 ) 
+!        If TDA, only have the C^-
+         IF (xas_tdp_control%tamm_dancoff) THEN
 
-!        Compute matrix_s*c_vect
-         CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, c_vect, work_vect, ncol=1)
+!           Retrieve the C^- coeff for current donor_state
+            CALL cp_fm_to_fm_submat(msource=lr_coeffs, mtarget=c_minus, nrow=nao, ncol=nvals, &
+                                    s_firstrow=(ido_mo-1)*nao+1, s_firstcol=1, t_firstrow=1, &
+                                    t_firstcol=1)
 
-!        Compute fm_norm = c_vect^T*matrix_s*c_vect
-         CALL cp_fm_gemm('T', 'N', 1, 1, nao, 1.0_dp, c_vect, work_vect, 0.0_dp, fm_norm)
+         ELSE ! not TDA
 
-!        Get the norm as a real
-         CALL cp_fm_get_element(fm_norm, 1, 1, norm)
-         scaling(iex) = 1.0_dp/SQRT(norm)
-         PRINT*, "iex:", iex, "norm:", norm
+!           Retrieve the C^+ coeff for current donor_state
+            CALL cp_fm_to_fm_submat(msource=lr_coeffs, mtarget=c_plus, nrow=nao, ncol=nvals, &      
+                                    s_firstrow=(ido_mo-1)*nao+1, s_firstcol=1, t_firstrow=1, &
+                                    t_firstcol=1)  
 
-      END DO ! iex
+!           Retrieve the C^- coeff for current donor_state
+            CALL cp_fm_to_fm_submat(msource=lr_coeffs, mtarget=c_minus, nrow=nao, ncol=nvals, &
+                                    s_firstrow=(ndo_mo+ido_mo-1)*nao+1, s_firstcol=1, t_firstrow=1, &
+                                    t_firstcol=1)
 
-!  Normalizing all the lr_coeffs at once
-      IF (ANY(scaling == 0.0_dp)) CPABORT("Cannot normalize response orbitals with zero coeffs")
+         END IF ! TDA
+
+!        Compute C^-T * S * C^- for current donor state
+         CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, c_minus, work_vect, ncol=nvals)
+         CALL cp_fm_gemm('T', 'N', nvals, nvals, nao, 1.0_dp, c_minus, work_vect, 0.0_dp, fm_norm)
+
+!        Add the diagonal (corrsponding to the product for each eigenvector) to the scaling array
+         CALL cp_fm_get_diag(fm_norm, norm) 
+         scaling(:) = scaling(:) + norm(:)
+
+!        If not TDA, need to substract the C^+T * S * C^+ product
+         IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
+   
+            CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, c_plus, work_vect, ncol=nvals)
+            CALL cp_fm_gemm('T', 'N', nvals, nvals, nao, 1.0_dp, c_plus, work_vect, 0.0_dp, fm_norm)
+            CALL cp_fm_get_diag(fm_norm, norm)
+            scaling(:) = scaling(:) - norm(:)
+
+         END IF ! not TDA
+
+      END DO ! ido_mo
+
+!  Need to scale each eigenvector 
+      scaling = 1.0_dp/SQRT(ABS(scaling))
       CALL cp_fm_column_scale(lr_coeffs, scaling)
 
 !  Clean-up
-      CALL cp_fm_struct_release(col_vect_struct)
-      CALL cp_fm_struct_release(scal_struct)
-      CALL cp_fm_release(c_vect)
+      CALL cp_fm_struct_release(c_struct)
+      CALL cp_fm_struct_release(norm_struct)
+      CALL cp_fm_release(c_plus)
+      CALL cp_fm_release(c_minus)
       CALL cp_fm_release(work_vect)
       CALL cp_fm_release(fm_norm)
-
       CALL timestop(handle)
       
    END SUBROUTINE normalize_lr_orbitals
@@ -399,8 +427,10 @@ CONTAINS
 !> \param donor_state the donor state which is excited
 !> \param qs_env ...
 !> \param xas_tdp_control ...
-!> \note The oscillator strength is a scalar: osc_str = 2/3*omega*(dipole_r)^2 = -2/(3*omega)*(dipole_v)^2
+!> \note The oscillator strength is a scalar: osc_str = 2/3*omega*(dipole_r)^2 = 2/(3*omega)*(dipole_v)^2
 !>       But because there is a risk of very tiny omega, multiply both cases by omega to avoid division
+!>       The formulae for the dipoles come from the trace of the dipole operator with the transition
+!>       densities, i.e. what we get from digonalizing the matrix_tdp
 ! **************************************************************************************************
    SUBROUTINE compute_oscillator_strength(donor_state, qs_env, xas_tdp_control)
 
@@ -452,14 +482,14 @@ CONTAINS
 !        Take the origin of r on the excited atom
          rc = particle_set(donor_state%at_index)%r
          CALL rRc_xyz_ao(dipmat, qs_env, rc, order=1)
-!        Add the dipole form specific prefactor 2/3*omega**2
-         osc_str = 2.0_dp/3.0_dp*donor_state%lr_evals**2
+!        Add the dipole form specific prefactor 2/3*omega
+         osc_str = 2.0_dp/3.0_dp*donor_state%lr_evals
 
       ELSE IF (xas_tdp_control%dipole_form == xas_dip_vel) THEN
 !        Simply compute the moment in the basis set
          CALL p_xyz_ao(dipmat, qs_env)
-!        Add the dipole form specific prefactor 2/3, no minus sign as p_xyz is real here
-         osc_str = 2.0_dp/3.0_dp
+!        Add the dipole form specific prefactor 2/3/omega, no minus sign as p_xyz is real here
+         osc_str = 2.0_dp/3.0_dp/donor_state%lr_evals 
       END IF
 
 !     Some more initialization before heavy computing
