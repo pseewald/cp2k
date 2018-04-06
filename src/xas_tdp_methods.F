@@ -37,16 +37,12 @@ MODULE xas_tdp_methods
    USE cp_output_handling,              ONLY: cp_print_key_unit_nr, debug_print_level
    USE dbcsr_api,                       ONLY: dbcsr_p_type, dbcsr_type, dbcsr_release, dbcsr_print, &
                                               dbcsr_create, dbcsr_multiply, dbcsr_add_on_diag, &
-                                              dbcsr_finalize
+                                              dbcsr_finalize, dbcsr_allocate_matrix_set, dbcsr_copy,&
+                                              dbcsr_set, dbcsr_deallocate_matrix_set
    USE generic_os_integrals,            ONLY: int_operators_r12_ab_os
-   USE input_constants,                 ONLY: xas_tdp_by_index,&
-                                              xas_tdp_by_kind,&
-                                              xas_not_excited,&
-                                              do_loc_none,&
-                                              xas_1s_type,&
-                                              xas_2s_type,&
-                                              xas_2p_type,&
-                                              op_loc_berry
+   USE input_constants,                 ONLY: xas_tdp_by_index, xas_tdp_by_kind, xas_not_excited,&
+                                              do_loc_none, xas_1s_type, xas_2s_type, xas_2p_type,&
+                                              op_loc_berry, xas_dip_len, xas_dip_vel
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_get_subs_vals,&
                                               section_vals_val_set
@@ -73,6 +69,7 @@ MODULE xas_tdp_methods
                                               set_loc_wfn_lists
    USE qs_mo_types,                     ONLY: get_mo_set,&
                                               mo_set_p_type
+   USE qs_operators_ao,                 ONLY: p_xyz_ao, rRc_xyz_ao       
    USE qs_rho_types,                    ONLY: qs_rho_get, qs_rho_type
    USE xas_methods,                     ONLY: calc_stogto_overlap
    USE xas_tdp_types,                   ONLY: xas_tdp_control_type,&
@@ -118,6 +115,7 @@ CONTAINS
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set       
       CHARACTER(len=2)                                   :: symbol_of_kind
       INTEGER, DIMENSION(:), POINTER                     :: atoms_of_kind
       TYPE(donor_state_type), POINTER                    :: current_state
@@ -125,8 +123,10 @@ CONTAINS
       TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
       CHARACTER(len=2), DIMENSION(3)                     :: state_type_char
       TYPE(cp_para_env_type), POINTER                    :: para_env
+      REAL(dp), DIMENSION(3)                             :: rc
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state, para_env)
+      NULLIFY(particle_set)
 
       CALL timeset(routineN, handle)
 
@@ -213,6 +213,16 @@ CONTAINS
             IF (ANY(xas_tdp_env%ex_atom_indices == atoms_of_kind(iat))) THEN
                tmp_index = MINLOC(ABS(xas_tdp_env%ex_atom_indices-atoms_of_kind(iat)),1)  
 
+!              If length representation for the dipole, compute it here in the AO basis, for this atom
+               IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
+                  CALL get_qs_env(qs_env, particle_set=particle_set)
+                  rc = particle_set(tmp_index)%r    
+                  CALL dbcsr_set(xas_tdp_env%dipmat(1)%matrix, 0.0_dp)
+                  CALL dbcsr_set(xas_tdp_env%dipmat(2)%matrix, 0.0_dp)
+                  CALL dbcsr_set(xas_tdp_env%dipmat(3)%matrix, 0.0_dp)
+                  CALL rRc_xyz_ao(xas_tdp_env%dipmat, qs_env, rc, order=1)
+               END IF
+
 !              Loop over states of excited atom of kind
                DO istate = 1,SIZE(xas_tdp_env%state_types,1)
 
@@ -247,7 +257,8 @@ CONTAINS
                            CALL setup_xas_tdp_full_prob(current_state, &
                                                         qs_env, xas_tdp_env, xas_tdp_control)
                            CALL solve_xas_tdp_full_prob(current_state, xas_tdp_control, qs_env)
-                           CALL compute_oscillator_strength(current_state, qs_env, xas_tdp_control)
+                           CALL compute_oscillator_strength(current_state, xas_tdp_control, &
+                                                            xas_tdp_env, qs_env)
                            
                            IF (output_unit > 0 ) THEN
                               i=0
@@ -518,7 +529,18 @@ CONTAINS
                           xas_tdp_env%q_projector)
       CALL dbcsr_add_on_diag(xas_tdp_env%q_projector, 1.0_dp)
       CALL dbcsr_finalize(xas_tdp_env%q_projector)
-      
+
+!  Create the structure for the dipole in the AO basis 
+      CALL dbcsr_allocate_matrix_set(xas_tdp_env%dipmat, 3)           
+      DO i =1,3
+         ALLOCATE(xas_tdp_env%dipmat(i)%matrix)          
+         CALL dbcsr_copy(xas_tdp_env%dipmat(i)%matrix, matrix_s(1)%matrix, name="XAS TDP dipole matrix")
+         CALL dbcsr_set(xas_tdp_env%dipmat(i)%matrix, 0.0_dp)
+      END DO
+
+!     Precompute it if velocity represnetation. If length, need to do it for each excited atom 
+      IF (xas_tdp_control%dipole_form == xas_dip_vel) CALL p_xyz_ao(xas_tdp_env%dipmat, qs_env)      
+     
    END SUBROUTINE xas_tdp_init
 
 !> *************************************************************************************************
