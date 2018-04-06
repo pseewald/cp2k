@@ -425,18 +425,20 @@ CONTAINS
 !> \brief Computes the oscillator strength based on the dipole moment (velocity or position rep 
 !>        for all available excitation energies of a donor_state. Stores the result in donor_state
 !> \param donor_state the donor state which is excited
-!> \param qs_env ...
 !> \param xas_tdp_control ...
+!> \param xas_tdp_env ...
+!> \param qs_env ...
 !> \note The oscillator strength is a scalar: osc_str = 2/3*omega*(dipole_r)^2 = 2/(3*omega)*(dipole_v)^2
 !>       But because there is a risk of very tiny omega, multiply both cases by omega to avoid division
 !>       The formulae for the dipoles come from the trace of the dipole operator with the transition
 !>       densities, i.e. what we get from digonalizing the matrix_tdp
 ! **************************************************************************************************
-   SUBROUTINE compute_oscillator_strength(donor_state, qs_env, xas_tdp_control)
+   SUBROUTINE compute_oscillator_strength(donor_state, xas_tdp_control, xas_tdp_env, qs_env)
 
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(qs_environment_type), POINTER              :: qs_env
       TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       
       CHARACTER(len=*), PARAMETER :: routineN = "compute_oscillator_strength", &
                                      routineP = moduleN//":"//routineN
@@ -448,7 +450,7 @@ CONTAINS
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: dipmat
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
-      REAL(dp), DIMENSION(3)                          :: rc, xyz_moments
+      REAL(dp), DIMENSION(3)                          :: xyz_moments
       REAL(dp), DIMENSION(:), POINTER                 :: osc_str
       REAL(dp), DIMENSION(:,:), POINTER               :: gs_coeff, work_array
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
@@ -470,26 +472,16 @@ CONTAINS
       CALL get_qs_env(qs_env, mos=mos, para_env=para_env, blacs_env=blacs_env, &
                       particle_set=particle_set, matrix_s=matrix_s)
       CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao)
-
-      CALL dbcsr_allocate_matrix_set(dipmat,3)
-      DO i = 1,3
-         ALLOCATE(dipmat(i)%matrix)
-         CALL dbcsr_copy(dipmat(i)%matrix, matrix_s(1)%matrix, name="XAS TDP dipole matrix")
-         CALL dbcsr_set(dipmat(i)%matrix, 0.0_dp)
-      END DO
+      dipmat => xas_tdp_env%dipmat
 
       IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
-!        Take the origin of r on the excited atom
-         rc = particle_set(donor_state%at_index)%r
-         CALL rRc_xyz_ao(dipmat, qs_env, rc, order=1)
 !        Add the dipole form specific prefactor 2/3*omega
          osc_str = 2.0_dp/3.0_dp*donor_state%lr_evals
-
+         
       ELSE IF (xas_tdp_control%dipole_form == xas_dip_vel) THEN
-!        Simply compute the moment in the basis set
-         CALL p_xyz_ao(dipmat, qs_env)
 !        Add the dipole form specific prefactor 2/3/omega, no minus sign as p_xyz is real here
          osc_str = 2.0_dp/3.0_dp/donor_state%lr_evals 
+
       END IF
 
 !     Some more initialization before heavy computing
@@ -563,7 +555,6 @@ CONTAINS
       CALL cp_fm_release(c_vect)
       CALL cp_fm_release(work_vect)
       CALL cp_fm_struct_release(col_vect_struct)
-      CALL dbcsr_deallocate_matrix_set(dipmat)
 
       CALL timestop(handle)
 

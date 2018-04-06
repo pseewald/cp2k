@@ -11,7 +11,8 @@
 MODULE xas_tdp_types
    
    USE cp_fm_types,                     ONLY: cp_fm_type, cp_fm_release, cp_fm_p_type
-   USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_release
+   USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_release, dbcsr_p_type, &
+                                              dbcsr_deallocate_matrix_set
    USE input_constants,                 ONLY: xas_1s_type,&
                                               xas_dip_vel,&
                                               xas_tdp_by_index,&
@@ -76,6 +77,10 @@ MODULE xas_tdp_types
 !>        excited kinds, based on basis functions of the RI auxiliary basis used for Coulomb and
 !>        exchange kernels
 !> \param q_projector the projector on the unperturbed, unoccupied ground state as a dbcsr matrix
+!> \param dipmat the dbcsr matrices containing the dipole in x,y,z directions evaluated on the 
+!>        contracted spherical gaussians. It can either be in the length or the velocity 
+!>        representation. For length representation, it has to be computed once with the origin on 
+!>        each excited atom
 !> *************************************************************************************************
    TYPE xas_tdp_env_type
       INTEGER                                 :: nex_atoms
@@ -90,6 +95,8 @@ MODULE xas_tdp_types
       TYPE(cp_fm_p_type), DIMENSION(:), &
                                     POINTER   :: ri_inv_mats
       TYPE(dbcsr_type), POINTER               :: q_projector
+      TYPE(dbcsr_p_type), DIMENSION(:), &
+                                    POINTER   :: dipmat
    END TYPE xas_tdp_env_type
 
 !> *************************************************************************************************
@@ -122,7 +129,7 @@ TYPE donor_state_type
    CHARACTER(len=*), PARAMETER, PRIVATE  :: moduleN = 'xas_tdp_types'
 
 ! *** Public data types ***
-PUBLIC :: xas_tdp_control_type, xas_tdp_env_type, donor_state_type
+   PUBLIC :: xas_tdp_control_type, xas_tdp_env_type, donor_state_type
 
 ! *** Public subroutines ***
    PUBLIC :: xas_tdp_control_create, xas_tdp_control_release, read_xas_tdp_control, &
@@ -310,6 +317,7 @@ CONTAINS
       NULLIFY (xas_tdp_env%mos_of_ex_atoms)
       NULLIFY (xas_tdp_env%ri_inv_mats)
       NULLIFY (xas_tdp_env%q_projector)
+      NULLIFY (xas_tdp_env%dipmat)
 
    END SUBROUTINE xas_tdp_env_create
 
@@ -355,6 +363,9 @@ CONTAINS
          IF (ASSOCIATED(xas_tdp_env%q_projector)) THEN
             CALL dbcsr_release(xas_tdp_env%q_projector)
             DEALLOCATE(xas_tdp_env%q_projector)
+         END IF
+         IF (ASSOCIATED(xas_tdp_env%dipmat)) THEN
+            CALL dbcsr_deallocate_matrix_set(xas_tdp_env%dipmat)
          END IF
          DEALLOCATE (xas_tdp_env)
       END IF
