@@ -83,11 +83,10 @@ CONTAINS
 !> \param qs_env ...
 !> \param xas_tdp_env ...
 !> \param xas_tdp_control ...
-!> \note At this point in time (01.2018), the Kernel is not taken into account, i.e. matrix M  has
-!>       the form | -G^-1*A  0 | where other subroutines builds A and G.
-!>                | 0   G^-1*A |                                       
+!> \note the matrix M has the form |-G^-1*(A+B)  -G^-1*B  | where other subroutines builds A, B and G.
+!>                                 |   G^-1*B   G^-1*(A+B)|                                       
 !>       The matrix M (matrix_tdp) has the same (i.e. 2x2 replicated) dbcsr_dist as usual
-!>       If the Tamm-Dancoff approximation is assumed, then C^+ = 0, M = G^-1*A 
+!>       If the Tamm-Dancoff approximation is assumed, then C^+ = 0, M = G^-1*(A+B) 
 ! **************************************************************************************************
    SUBROUTINE setup_xas_tdp_full_prob(donor_state, qs_env, xas_tdp_env, xas_tdp_control)
 
@@ -102,8 +101,8 @@ CONTAINS
       INTEGER                                         :: handle, group , iblk, jblk, nblk_sub, blk
       
       TYPE(dbcsr_type), POINTER                       :: matrix_tdp
-      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g, dia_work_matrix, & 
-                                                         matrix_test, matrix_g_inv
+      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g, diag_mat, & 
+                                                         matrix_b, matrix_g_inv, offdiag_mat
       TYPE(dbcsr_distribution_type), POINTER          :: submat_dist, supmat_dist
       INTEGER, DIMENSION(:), POINTER                  :: submat_blk_size, supmat_blk_size, &
                                                          col_dist_sub, row_dist_sub, &
@@ -116,8 +115,8 @@ CONTAINS
       CALL timeset(routineN, handle)
 
       NULLIFY(matrix_a, submat_dist, submat_blk_size, supmat_dist, supmat_blk_size, col_dist_sub)
-      NULLIFY(row_dist_sub, col_dist_sup, row_dist_sup, work_block, matrix_g, pgrid, dia_work_matrix)
-      NULLIFY(matrix_test, matrix_tdp)
+      NULLIFY(row_dist_sub, col_dist_sup, row_dist_sup, work_block, matrix_g, pgrid, diag_mat)
+      NULLIFY(matrix_b, matrix_tdp, offdiag_mat)
 
       CPASSERT(ASSOCIATED(donor_state))
       CPASSERT(ASSOCIATED(qs_env))
@@ -130,10 +129,12 @@ CONTAINS
       CALL compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_state, qs_env) 
       nblk_sub = SIZE(submat_blk_size)
 
-!  Compute the submatrices A and G
+!  Compute the submatrices A, B  and G
       ALLOCATE(matrix_a)
       ALLOCATE(matrix_g)
+      ALLOCATE(matrix_b)
       CALL build_matrix_a(matrix_a, submat_dist, submat_blk_size, donor_state, qs_env)
+      CALL build_matrix_b(matrix_b, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
       CALL build_matrix_g(matrix_g, submat_dist, submat_blk_size, donor_state, qs_env)       
 
 !  Invert matrix G
@@ -145,31 +146,33 @@ CONTAINS
                             norm_convergence=1.0E-10_dp, filter_eps=1.0E-12_dp, silent=.TRUE.)
       CALL dbcsr_finalize(matrix_g_inv)
 
-!  Create the matrix that will be on the diagonal of matrix_tdp (for now: G^-1*A)
-      ALLOCATE(dia_work_matrix)
-      CALL dbcsr_create(matrix=dia_work_matrix, name="DIA WORK MATRIX", matrix_type="N", & 
-                        dist=submat_dist, row_blk_size=submat_blk_size, col_blk_size=submat_blk_size)
+!  Create the matrix that will be on the diagonal of matrix_tdp: G^-1*(A+B)
+      ALLOCATE(diag_mat)
+      CALL dbcsr_copy(diag_mat, matrix_a, name="Diag TDP block")
+      CALL dbcsr_add(diag_mat, matrix_b, 1.0_dp, 1.0_dp)
+      CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, diag_mat, 0.0_dp, diag_mat)
+      CALL dbcsr_finalize(diag_mat)
 
-      CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, matrix_a, 0.0_dp, dia_work_matrix)
-      CALL dbcsr_finalize(dia_work_matrix)
+!  Create the matrix that will be in the off-diagonal of matrix_tdp: G^-1*B
+      ALLOCATE(offdiag_mat)
+      CALL dbcsr_copy(offdiag_mat, matrix_b, name="Offdiag TDP block")
+      CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, offdiag_mat, 0.0_dp, offdiag_mat)
+      CALL dbcsr_finalize(offdiag_mat)
 
 !  Some clean-up
       CALL dbcsr_release(matrix_g_inv)
-      DEALLOCATE(matrix_g_inv)
-
-!  Test on coulomb kernel
-      ALLOCATE(matrix_test)
-      CALL build_kernel_coulomb(matrix_test, submat_dist, submat_blk_size, donor_state, xas_tdp_env, &
-                                qs_env)
-      CALL dbcsr_release(matrix_test)
-      DEALLOCATE(matrix_test)
+      CALL dbcsr_release(matrix_a)
+      CALL dbcsr_release(matrix_b)
+      CALL dbcsr_release(matrix_g)
+      DEALLOCATE(matrix_g_inv, matrix_a, matrix_b, matrix_g)
 
 !  Test on Tamm Dancoff approximation 
 
       IF (xas_tdp_control%tamm_dancoff) THEN
 
-!        If TDA is assumed, then the matrix_tdp is G^-1*A (for now)
-         CALL dbcsr_copy(matrix_tdp, dia_work_matrix, name="MATRIX TDP")
+!        If TDA is assumed, then the matrix_tdp is G^-1*(A+2B)
+         CALL dbcsr_copy(matrix_tdp, diag_mat, name="MATRIX TDP")
+         CALL dbcsr_add(matrix_tdp, offdiag_mat, 1.0_dp, 1.0_dp)
 
       ELSE IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
 
@@ -202,26 +205,43 @@ CONTAINS
                            row_blk_size=supmat_blk_size, col_blk_size=supmat_blk_size)
          DEALLOCATE(supmat_blk_size)
 
-!     Filling the supermatrix matrix_tdp with submatrix with +- G^-1*A
+!     Filling the supermatrix matrix_tdp with submatrices +-G^-1*(A+B) and +-G^-1*B
 
-!        For each diagonal block of the super matrix, loop over blocks of G^-1*A
-         CALL dbcsr_iterator_start(iter, dia_work_matrix)
+!        For each diagonal block of the super matrix, loop over blocks of G^-1*(A+B)
+         CALL dbcsr_iterator_start(iter, diag_mat)
          DO WHILE(dbcsr_iterator_blocks_left(iter))
 
             found_block = .FALSE.
             CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
-            CALL dbcsr_get_block_p(dia_work_matrix, iblk, jblk, work_block, found_block)
+            CALL dbcsr_get_block_p(diag_mat, iblk, jblk, work_block, found_block)
 
             IF (found_block) THEN
-!              Put -G^-1*A in the upper left block and G^-1*A in the lower right block
+!              Put -G^-1*(A+B) in the upper left block and G^-1*(A+B) in the lower right block
                CALL dbcsr_put_block(matrix_tdp, iblk, jblk, -work_block) 
                CALL dbcsr_put_block(matrix_tdp, nblk_sub+iblk, nblk_sub+jblk, work_block)
             END IF
-
             NULLIFY(work_block)
 
          END DO ! iterator
          CALL dbcsr_iterator_stop(iter) 
+
+!        For each off-diagonal block of supermatrix, loop over blocks of G^-1*B
+         CALL dbcsr_iterator_start(iter, offdiag_mat)
+         DO WHILE(dbcsr_iterator_blocks_left(iter))
+
+            found_block = .FALSE.
+            CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
+            CALL dbcsr_get_block_p(offdiag_mat, iblk, jblk, work_block, found_block) 
+
+            IF (found_block) THEN 
+!              Put -G^-1*B in the upper right and G^-1*B in the lower left
+               CALL dbcsr_put_block(matrix_tdp, iblk, nblk_sub+jblk, -work_block)
+               CALL dbcsr_put_block(matrix_tdp, nblk_sub+iblk, jblk, work_block)
+            END IF
+            NULLIFY(work_block)
+
+         END DO ! iterator
+         CALL dbcsr_iterator_stop(iter)
 
 !        Some clean-up
          CALL dbcsr_distribution_release(supmat_dist)
@@ -234,10 +254,9 @@ CONTAINS
 
 !  General Clean-up
       CALL dbcsr_distribution_release(submat_dist)
-      CALL dbcsr_release(matrix_a)
-      CALL dbcsr_release(matrix_g)
-      CALL dbcsr_release(dia_work_matrix)
-      DEALLOCATE(submat_dist, submat_blk_size,  matrix_a, matrix_g, dia_work_matrix)
+      CALL dbcsr_release(diag_mat)
+      CALL dbcsr_release(offdiag_mat)
+      DEALLOCATE(submat_dist, submat_blk_size, diag_mat, offdiag_mat)
 
       CALL timestop(handle)
 
@@ -474,6 +493,8 @@ CONTAINS
       CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao)
       dipmat => xas_tdp_env%dipmat
 
+!     TODO: The normalization of the response coeff is kind of abitrary (but consistent) 
+!     => factor 2/3 can probably be dropped
       IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
 !        Add the dipole form specific prefactor 2/3*omega
          osc_str = 2.0_dp/3.0_dp*donor_state%lr_evals
@@ -661,12 +682,8 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 
       NULLIFY(matrix_ks, dbcsr_dist, row_blk_size, work_block, energy_evals, matrix_s)
 
-!  Note: All matrices are based on the basic CP2K dbcsr_distribution. Larger matrices simply replicate
-!        the distribution. For non-symmetric matrices, the outcome is straight forward, not so much
-!        otherwise (pretty much impossible to predict which processors holds which block)
-!  Strategy: Use a non-symmetric work matrix and desymmetrize matrices S and KS, hence the blocks
-!            are kept on the same processors for all matrices. After filling the upper block 
-!            triangle part of the work matrix, redistribute it into a symmetric matrix_a.
+!  Note: build matrix A as a non-symmetric matrix. Ok since need to desymmetrixe matrix S and KS and
+!        will be later added to the matrix B (kernel), which is itslef non-symmetric
 
 !  Initialization
       ndo_mo = SIZE(donor_state%mo_indices,1)
@@ -678,10 +695,6 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 !  Creating the work matrix, which is not symmetric (as a type)
       CALL dbcsr_create(matrix=work_matrix, name="WORK MAT", matrix_type="N", dist=dist_a, &
                         row_blk_size=blk_size_a, col_blk_size=blk_size_a)
-
-!  Creating the matrix A 
-      CALL dbcsr_create(matrix=work_matrix, name="MATRIX A", matrix_type="N", dist=dist_a, &
-                        row_blk_size=blk_size_a, col_blk_size=blk_size_a)        
 
 !  Desymmetrize matrices S and KS
       CALL dbcsr_create(matrix=desym_matrix_s, name="DESYM MATRIX S", matrix_type="N", &
@@ -854,24 +867,39 @@ SUBROUTINE compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_
 !> \param xas_tdp_env ...
 !> \param qs_env ...
 ! **************************************************************************************************
-!   SUBROUTINE build_matrix_b(matrix_b, dist_b, blk_size_b, donor_state, xas_tdp_env, qs_env)
-!
-!      TYPE(dbcsr_type), POINTER                       :: matrix_b
-!      TYPE(donor_state_type), POINTER                 :: donor_state
-!      TYPE(qs_environment_type), POINTER              :: qs_env
-!      TYPE(dbcsr_distribution_type), POINTER          :: dist_b
-!      INTEGER, DIMENSION(:), POINTER                  :: blk_size_b
-!      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+   SUBROUTINE build_matrix_b(matrix_b, dist_b, blk_size_b, donor_state, xas_tdp_env, qs_env)
 
-!      CHARACTER(len=*), PARAMETER :: routineN = 'build_matrix_b', routineP = moduleN//":"//routineN
+      TYPE(dbcsr_type), POINTER                       :: matrix_b
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(qs_environment_type), POINTER              :: qs_env
+      TYPE(dbcsr_distribution_type), POINTER          :: dist_b
+      INTEGER, DIMENSION(:), POINTER                  :: blk_size_b
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
 
-!      INTEGER                                         :: handle
+      CHARACTER(len=*), PARAMETER :: routineN = 'build_matrix_b', routineP = moduleN//":"//routineN
 
-!      CALL timeset(routineN, handle)
+      INTEGER                                         :: handle
+      TYPE(dbcsr_type), POINTER                       :: coulomb_kernel
 
-!      CALL timestop(handle)
+      CALL timeset(routineN, handle)
 
-!   END SUBROUTINE build_matrix_b
+!  Creating the kernel matrix B
+      CALL dbcsr_create(matrix=matrix_b, name="MATRIX B", matrix_type='N', dist=dist_b, &
+                        row_blk_size=blk_size_b, col_blk_size=blk_size_b)
+
+!  Compute the Coulomb part of the kernel
+      ALLOCATE(coulomb_kernel) 
+      CALL build_kernel_coulomb(coulomb_kernel, dist_b, blk_size_b, donor_state, xas_tdp_env, qs_env)
+      CALL dbcsr_add(matrix_b, coulomb_kernel, 0.0_dp, 1.0_dp)
+      CALL dbcsr_release(coulomb_kernel)
+      DEALLOCATE(coulomb_kernel)
+
+!  Finalize 
+      CALL dbcsr_finalize(matrix_b)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE build_matrix_b
 
 ! **************************************************************************************************
 !> \brief Diagonalises a non-symmetric real square matrix. Returns the the assumed real eigenvectors
@@ -1592,7 +1620,7 @@ SUBROUTINE compute_ri_coulomb3_int(int_array, nonzero_int, donor_state, domo_ind
 
 ! **************************************************************************************************
 !> \brief Computes the Coulomb part of the kernel matrix using RI
-!> \param coulomb_kernel the dbcsr matrix containing the Coulomb part of the kernel, base on RI
+!> \param coulomb_kernel the dbcsr matrix containing the Coulomb part of the kernel, based on RI
 !> \param dist the dbcsr ditribution of the coulomb_kernel matrix
 !> \param blk_size the block sizes of the coulomb_kernel matrix
 !> \param donor_state the donor_state from which we excite a core electron
@@ -1611,19 +1639,24 @@ SUBROUTINE compute_ri_coulomb3_int(int_array, nonzero_int, donor_state, domo_ind
       CHARACTER(len=*), PARAMETER :: routineN = "build_kernel_coulomb", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: handle, i, j, ndo_mo, k
+      INTEGER                                         :: handle, i, j, ndo_mo, k, iblk, jblk, blk, &
+                                                         nblk_row
       TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: int_arri, int_arrj
       INTEGER, DIMENSION(:), ALLOCATABLE              :: nonzero_inti, nonzero_intj
       TYPE(dbcsr_type), POINTER                       :: coulomb_blk
+      TYPE(dbcsr_iterator_type)                       :: iter
+      REAL(dp), DIMENSION(:), POINTER                 :: work_block
+      LOGICAL                                         :: found_block
 
       CALL timeset(routineN, handle)
 
-      NULLIFY(int_arri, int_arrj, coulomb_blk)
+      NULLIFY(int_arri, int_arrj, coulomb_blk, work_block)
 
 !  Initilaization
       ndo_mo = SIZE(donor_state%mo_indices,1)
+      nblk_row = SIZE(blk_size)/ndo_mo
 
-!  Create the dbcsr matrix for the coulomb kernel (as normal matrix for now)
+!  Create the dbcsr matrix for the coulomb kernel
       CPASSERT(ASSOCIATED(coulomb_kernel))
       CALL dbcsr_create(matrix=coulomb_kernel, name="COULOMB KERNEL", matrix_type="N", dist=dist, &
                         row_blk_size=blk_size, col_blk_size=blk_size)
@@ -1633,14 +1666,34 @@ SUBROUTINE compute_ri_coulomb3_int(int_array, nonzero_int, donor_state, domo_ind
 !        Compute the RI int_array for donor MO I
          CALL compute_ri_coulomb3_int(int_arri, nonzero_inti, donor_state, i, qs_env)
 
-         DO j = i,ndo_mo
+         DO j = 1,ndo_mo
 !           Compute the RI int_array for donor MO J
             CALL compute_ri_coulomb3_int(int_arrj, nonzero_intj, donor_state, j, qs_env)
 
-!           Build th IJ block
+!           Build the IJ block
             ALLOCATE(coulomb_blk)
             CALL build_ri_coulomb_block(coulomb_blk, int_arri, int_arrj, nonzero_inti, nonzero_intj, &
                                         donor_state, xas_tdp_env, qs_env)
+
+!           And put it in the coulomb kernel at the right spot
+            CALL dbcsr_iterator_start(iter, coulomb_blk)
+            DO WHILE (dbcsr_iterator_blocks_left(iter))
+
+               CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
+
+               found_block = .FALSE.
+               CALL dbcsr_get_block_p(coulomb_blk, iblk, jblk, work_block, found_block)
+
+               IF (found_block) THEN
+
+                  CALL dbcsr_put_block(coulomb_kernel, (i-1)*nblk_row+iblk, (j-1)*nblk_row+jblk, &
+                                       work_block)
+                  
+               END IF
+               NULLIFY(work_block)
+
+            END DO ! dbcsr_iterator
+            CALL dbcsr_iterator_stop(iter)
 
 !           Clean-up for J
             CALL dbcsr_release(coulomb_blk)
@@ -1656,6 +1709,9 @@ SUBROUTINE compute_ri_coulomb3_int(int_array, nonzero_int, donor_state, domo_ind
          END DO ! k
          DEALLOCATE(int_arri, nonzero_inti)
       END DO !i
+
+!  Finalize
+      CALL dbcsr_finalize(coulomb_kernel)
 
       CALL timestop(handle)
 
