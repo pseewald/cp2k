@@ -124,9 +124,10 @@ CONTAINS
       CHARACTER(len=2), DIMENSION(3)                     :: state_type_char
       TYPE(cp_para_env_type), POINTER                    :: para_env
       REAL(dp), DIMENSION(3)                             :: rc
+      TYPE(cell_type), POINTER                           :: cell
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state, para_env)
-      NULLIFY(particle_set)
+      NULLIFY(particle_set, cell)
 
       CALL timeset(routineN, handle)
 
@@ -161,6 +162,11 @@ CONTAINS
 !  Safety checks
       IF (dft_control%lsd) THEN
          CPABORT("XAS TDP only implemented for closed shell ground state calculations")
+      END IF
+!     Only non-periodic systems because of exact exchange (will impose range later)
+      CALL get_qs_env(qs_env, cell=cell)
+      IF (ANY(cell%perd == 1)) THEN
+         CPABORT("PBCs not available yet for XAS TDP calculations (because of exact-exchange)")
       END IF
       IF (xas_tdp_env%qs_loc_env%do_localize .AND. &
           xas_tdp_env%qs_loc_env%localized_wfn_control%operator_type /= op_loc_berry) THEN

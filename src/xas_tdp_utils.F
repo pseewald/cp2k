@@ -10,7 +10,6 @@
 
 MODULE xas_tdp_utils
    
-   USE ai_coulomb,                      ONLY: coulomb3
    USE ai_contraction_sphi,             ONLY: abc_contract
    USE basis_set_types,                 ONLY: gto_basis_set_type, get_gto_basis_set, &
                                               gto_basis_set_p_type
@@ -63,6 +62,7 @@ MODULE xas_tdp_utils
    USE qs_operators_ao,                 ONLY: p_xyz_ao, rRc_xyz_ao
    USE xas_tdp_types,                   ONLY: donor_state_type, xas_tdp_control_type, &
                                               xas_tdp_env_type
+   USE xas_tdp_coulomb3_tmp,            ONLY: xas_tdp_coulomb3
 
 #include "./base/base_uses.f90"
    
@@ -1282,6 +1282,8 @@ SUBROUTINE compute_ri_coulomb3_int(int_array, nonzero_int, donor_state, domo_ind
       CALL cp_fm_get_submatrix(fm=mo_coeff,target_m=coeffi,start_row=1, &
          start_col=donor_state%mo_indices(domo_index), n_rows=nao, n_cols=1 )
 
+!  TODO: can we make use of o3c_iterator and container ? Would be readily optimized
+
 !  Get the atoms aat and iat that will give a non-zero integral (ai|p). They all need to be neighbor
 !  or they are screened away in the coulomb3 subroutine. 
       n_int = 0 
@@ -1414,7 +1416,7 @@ SUBROUTINE compute_ri_coulomb3_int(int_array, nonzero_int, donor_state, domo_ind
                      int_aip = 0.0_dp
 
 !                    Compute the integral 
-                     CALL coulomb3(la_max(aset), npgfa(aset), zeta(:,aset), rpgfa(:,aset), la_min(aset), &
+                     CALL xas_tdp_coulomb3(la_max(aset), npgfa(aset), zeta(:,aset), rpgfa(:,aset), la_min(aset), &
                                    li_max(iset), npgfi(iset), zeti(:,iset), rpgfi(:,iset), li_min(iset), &
                                    lp_max(pset), zetp(igp,pset), rpgfp(igp,pset), lp_min(pset), &
                                    gcc, rai, rai2, rap, rap2, rip2, vaip, int_aip, v, f)

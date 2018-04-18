@@ -92,7 +92,8 @@ MODULE input_cp2k_dft
         wfi_use_prev_wf_method_nr, xas_1s_type, xas_2p_type, xas_2s_type, xas_3d_type, &
         xas_3p_type, xas_3s_type, xas_4d_type, xas_4f_type, xas_4p_type, xas_4s_type, xas_dip_len, &
         xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, xas_tp_hh, xas_tp_xfh, &
-        xas_tp_xhh, xes_tp_val
+        xas_tp_xhh, xes_tp_val, xas_not_excited, xas_tdp_by_kind, xas_tdp_by_index, &
+        xas_tdp_exop_coulomb
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
    USE input_cp2k_distribution,         ONLY: create_distribution_section
    USE input_cp2k_field,                ONLY: create_efield_section,&
@@ -7875,7 +7876,7 @@ CONTAINS
                           description="XAS simulations using TDDFPT. Excitation from specified "//&
                           "core orbitals are considered one at a time. In case of high symmetry "//&
                           "structures, donor core orbitals should be localized.", &
-                          n_keywords=10, n_subsections=2, repeats=.FALSE.)
+                          n_keywords=11, n_subsections=2, repeats=.FALSE.)
 
       NULLIFY (keyword, subsection, print_key)
 
@@ -7991,7 +7992,20 @@ CONTAINS
                           default_l_val=.FALSE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
-      
+
+      CALL keyword_create(keyword, name="EXCHANGE_OPERATOR", &
+                          variants=s2a("EX_OP", "EX_OPERATOR"), &
+                          description="Which operator to use for the exact exchange part of the "//&
+                                       "kernel", &
+                          usage="EX_OP {string}", &
+                          default_i_val=xas_tdp_exop_coulomb, &
+                          enum_c_vals=s2a("COULOMB"), &
+                          enum_desc=s2a("Usual Coulomb operator 1/|r-r'|, not compatible with "//&
+                                        "periodic systms"), &     
+                          enum_i_vals=(/xas_tdp_exop_coulomb/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL create_localize_section(subsection)
       CALL section_add_subsection(section, subsection)         
       CALL section_release(subsection)
