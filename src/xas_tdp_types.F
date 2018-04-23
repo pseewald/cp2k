@@ -77,12 +77,14 @@ MODULE xas_tdp_types
 !>        association between the MO irow and the excited atom icolumn
 !> \param ri_inv_mats collection of kind specific electron repulsion inverse matrices for each
 !>        excited kinds, based on basis functions of the RI auxiliary basis used for Coulomb and
-!>        exchange kernels
+!>        exchange kernels. TODO: adapt the type when switching to dbcsr_tensor
 !> \param q_projector the projector on the unperturbed, unoccupied ground state as a dbcsr matrix
 !> \param dipmat the dbcsr matrices containing the dipole in x,y,z directions evaluated on the 
 !>        contracted spherical gaussians. It can either be in the length or the velocity 
 !>        representation. For length representation, it has to be computed once with the origin on 
 !>        each excited atom
+!> \param ri_coul3 the 3D array (TODO: dbcsr tensor in the future) containing the 3-center coulomb
+!>        integrals (ab|P) with the RI basis centered on P. Updated for each new excited atom
 !> *************************************************************************************************
    TYPE xas_tdp_env_type
       INTEGER                                 :: nex_atoms
@@ -90,6 +92,7 @@ MODULE xas_tdp_types
       INTEGER, DIMENSION(:), POINTER          :: ex_atom_indices
       INTEGER, DIMENSION(:), POINTEr          :: ex_kind_indices
       INTEGER, DIMENSION(:,:), POINTER        :: state_types
+      REAL(dp), DIMENSION(:,:,:), POINTER     :: ri_coul3
       TYPE(donor_state_type), DIMENSION(:),&
                         POINTER               :: donor_states
       INTEGER, DIMENSION(:,:), POINTER        :: mos_of_ex_atoms
@@ -323,6 +326,7 @@ CONTAINS
       NULLIFY (xas_tdp_env%ri_inv_mats)
       NULLIFY (xas_tdp_env%q_projector)
       NULLIFY (xas_tdp_env%dipmat)
+      NULLIFY (xas_tdp_env%ri_coul3)
 
    END SUBROUTINE xas_tdp_env_create
 
@@ -371,6 +375,9 @@ CONTAINS
          END IF
          IF (ASSOCIATED(xas_tdp_env%dipmat)) THEN
             CALL dbcsr_deallocate_matrix_set(xas_tdp_env%dipmat)
+         END IF
+         IF (ASSOCIATED(xas_tdp_env%ri_coul3)) THEN
+            DEALLOCATE(xas_tdp_env%ri_coul3)
          END IF
          DEALLOCATE (xas_tdp_env)
       END IF
