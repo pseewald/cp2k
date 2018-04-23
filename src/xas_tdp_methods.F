@@ -84,7 +84,8 @@ MODULE xas_tdp_methods
                                               free_ds_memory
    USE xas_tdp_utils,                   ONLY: setup_xas_tdp_full_prob, &
                                               solve_xas_tdp_full_prob, &
-                                              compute_oscillator_strength
+                                              compute_oscillator_strength, &
+                                              compute_ri_coulomb3_int
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -228,6 +229,9 @@ CONTAINS
                   CALL dbcsr_set(xas_tdp_env%dipmat(3)%matrix, 0.0_dp)
                   CALL rRc_xyz_ao(xas_tdp_env%dipmat, qs_env, rc, order=1)
                END IF
+
+!              For this excited atom, also compute the RI coulomb integrals
+               CALL compute_ri_coulomb3_int(tmp_index, xas_tdp_env, qs_env)
 
 !              Loop over states of excited atom of kind
                DO istate = 1,SIZE(xas_tdp_env%state_types,1)
