@@ -10,16 +10,13 @@
 
 MODULE xas_tdp_utils
    
-   USE ai_contraction_sphi,             ONLY: abc_contract
    USE basis_set_types,                 ONLY: gto_basis_set_type, get_gto_basis_set, &
                                               gto_basis_set_p_type
    USE cell_types,                      ONLY: cell_type, pbc
-   USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose, &
-                                              cp_dbcsr_cholesky_invert, &
-                                              cp_dbcsr_cholesky_restore
-   USE cp_dbcsr_diag,                   ONLY: cp_dbcsr_syevd
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm, cp_dbcsr_sm_fm_multiply, &
                                               copy_fm_to_dbcsr
+   USE cp_eri_mme_interface,            ONLY: cp_eri_mme_finalize, cp_eri_mme_param, &
+                                              cp_eri_mme_set_params, cp_eri_mme_init_read_input
    USE cp_cfm_types,                    ONLY: cp_fm_to_cfm, cp_cfm_to_fm, cp_cfm_type, &
                                               cp_cfm_create, cp_cfm_release
    USE cp_fm_basic_linalg,              ONLY: cp_fm_scale_and_add, cp_fm_gemm, cp_fm_column_scale
@@ -44,10 +41,11 @@ MODULE xas_tdp_utils
                                               dbcsr_iterator_blocks_left, dbcsr_iterator_start, &
                                               dbcsr_iterator_stop, dbcsr_iterator_next_block, &
                                               dbcsr_add
-   USE input_constants,                 ONLY: xas_dip_len, xas_dip_vel
+   USE eri_mme_types,                   ONLY: eri_mme_init
+   USE input_constants,                 ONLY: xas_dip_len, xas_dip_vel, do_eri_mme
    USE iterate_matrix,                  ONLY: invert_Hotelling
    USE kinds,                           ONLY: dp
-   USE orbital_pointers,                ONLY: ncoset
+   USE mp2_eri,                         ONLY: integrate_set_3c
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE qs_environment_types,            ONLY: qs_environment_type, get_qs_env
@@ -59,10 +57,8 @@ MODULE xas_tdp_utils
                                               neighbor_list_iterator_p_type, &
                                               neighbor_list_iterator_release,&
                                               neighbor_list_set_p_type
-   USE qs_operators_ao,                 ONLY: p_xyz_ao, rRc_xyz_ao
    USE xas_tdp_types,                   ONLY: donor_state_type, xas_tdp_control_type, &
                                               xas_tdp_env_type
-   USE xas_tdp_coulomb3_tmp,            ONLY: xas_tdp_coulomb3
 
 #include "./base/base_uses.f90"
    
@@ -163,7 +159,7 @@ CONTAINS
 !  Create the matrix that will be on the diagonal of matrix_tdp: G^-1*(A+B-D)
       ALLOCATE(diag_mat)
       CALL dbcsr_copy(diag_mat, matrix_a, name="Diag TDP block")
-      CALL dbcsr_add(diag_mat, matrix_b, 1.0_dp, 1.0_dp)
+      CALL dbcsr_add(diag_mat, matrix_b, 1.0_dp, 2.0_dp)
       CALL dbcsr_add(diag_mat, matrix_d, 1.0_dp, -1.0_dp)
       CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, diag_mat, 0.0_dp, diag_mat)
       CALL dbcsr_finalize(diag_mat)
@@ -171,7 +167,7 @@ CONTAINS
 !  Create the matrix that will be in the off-diagonal of matrix_tdp: G^-1*(B-E)
       ALLOCATE(offdiag_mat)
       CALL dbcsr_copy(offdiag_mat, matrix_b, name="Offdiag TDP block")
-      CALL dbcsr_add(offdiag_mat, matrix_e, 1.0_dp, -1.0_dp)
+      CALL dbcsr_add(offdiag_mat, matrix_e, 2.0_dp, -1.0_dp)
       CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, offdiag_mat, 0.0_dp, offdiag_mat)
       CALL dbcsr_finalize(offdiag_mat)
 
@@ -1166,24 +1162,26 @@ CONTAINS
 !> \param exat_index the index of the excited atom, on which the RI basis P is centered
 !> \param xas_tdp_env the xas_tdp_Env to update with the 3-center Coulomb integrals
 !> \param qs_env ...
+!> \param xas_tdp_control ...
 !> \note Currently creates a 3D array, will later switch to DBCSR tensors (TODO). Will be used for 
 !>       the Coulomb kernel after contraction (aI|P) = sum_b C_b (ab|P) and possibly for the exchange
 !>       part too (if non-PBCs and coulomb operator requested). TODO: if exchange operator is not
-!        coulomb, screen the integrals to only compute (ab|P) where C_b is non-zero
+!>       coulomb, screen the integrals to only compute (ab|P) where C_b is non-zero
+!>       Based on the 3-center ERI_MME integrals
 ! **************************************************************************************************
-   SUBROUTINE compute_ri_coulomb3_int(exat_index, xas_tdp_env, qs_env)
+   SUBROUTINE compute_ri_coulomb3_int(exat_index, xas_tdp_env, qs_env, xas_tdp_control)
 
       INTEGER, INTENT(IN)                             :: exat_index
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(qs_environment_type), POINTER              :: qs_env
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
 
       CHARACTER(len=*), PARAMETER :: routineN = 'compute_ri_coulomb3_int', &
                                      routinP=moduleN//':'//routineN
 
       INTEGER                                         :: handle, nsetp, nsetb, natom, &
                                                          nao, nseta, bat, aset, bset, pset, &
-                                                         ncoa, ncob, ncop, sgfa, sgfp, &
-                                                         sgfb, aat, akind, bkind, & 
+                                                         sgfa, sgfp, sgfb, aat, akind, bkind, & 
                                                          nkind, exat_kind, idx, igp, i
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(gto_basis_set_p_type), DIMENSION(:), &
@@ -1197,19 +1195,16 @@ CONTAINS
                                                          sphi_p, sphi_a, sphi_b
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
       TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos 
-      REAL(dp), DIMENSION(:,:,:,:), ALLOCATABLE       :: v
-      REAL(dp), DIMENSION(:,:,:), ALLOCATABLE         :: int_abp, int_abp_set, int_abp_contr, &
-                                                         int_array
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: vabp
-      REAL(dp), DIMENSION(:), ALLOCATABLE             :: f, gcc
-      REAL(dp), DIMENSION(3)                          :: ra, rb, rp, rab, rap, rbp
-      REAL(dp)                                        :: rab2, rap2, rbp2, rada, radb, radp
+      REAL(dp), DIMENSION(:,:,:), ALLOCATABLE         :: int_abp_set, int_array
+      REAL(dp), DIMENSION(3)                          :: ra, rb, rp, rab
       INTEGER, DIMENSION(:), ALLOCATABLE              :: first_sgf_set
       TYPE(neighbor_list_set_p_type), DIMENSION(:), & 
                                           POINTER     :: sab_orb
       TYPE(neighbor_list_iterator_p_type), &                                                         
                             DIMENSION(:), POINTER     :: nl_iterator   
       TYPE(cell_type), POINTER                        :: cell
+      TYPE(cp_eri_mme_param), POINTER                 :: eri_param   
+      TYPE(cp_para_env_type), POINTER                 :: para_env
 
       CALL timeset(routineN, handle)
 
@@ -1217,11 +1212,11 @@ CONTAINS
       NULLIFY(lp_max, lp_min, npgfp, zetp, rpgfp, sphi_p, first_sgfp)
       NULLIFY(lb_max, lb_min, npgfb, zetb, rpgfb, sphi_b, first_sgfb)
       NULLIFY(la_max, la_min, npgfa, zeta, rpgfa, sphi_a, first_sgfa)
-      NULLIFY(sab_orb, nl_iterator, cell, basis_set_list_a, basis_set_list_b)
+      NULLIFY(sab_orb, nl_iterator, cell, basis_set_list_a, basis_set_list_b, eri_param, para_env)
 
 !  Get all we need from the qs_env
       CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, particle_set=particle_set, mos=mos, &
-                      sab_orb=sab_orb, cell=cell, natom=natom)
+                      sab_orb=sab_orb, cell=cell, natom=natom, para_env=para_env)
       CALL get_mo_set(mos(1)%mo_set, nao=nao)
       ALLOCATE(first_sgf_set(natom))
       CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf_set)
@@ -1231,20 +1226,27 @@ CONTAINS
       exat_kind = xas_tdp_env%ex_kind_indices(idx)
       CALL get_qs_kind(qs_kind_set(exat_kind), basis_set=p_basis, basis_type="RI_AUX")
 
-      CALL get_gto_basis_set(p_basis, lmax=lp_max, npgf=npgfp, zet=zetp, pgf_radius=rpgfp, &       
-                             lmin=lp_min, nset=nsetp, nsgf_set=nsgfp, sphi=sphi_p, &
-                             first_sgf=first_sgfp, kind_radius=radp) 
+      CALL get_gto_basis_set(p_basis, lmax=lp_max, npgf=npgfp, zet=zetp, lmin=lp_min, nset=nsetp, &
+                             nsgf_set=nsgfp, sphi=sphi_p, first_sgf=first_sgfp) 
 
 !  Allocate the 3D array where results will be stored
       ALLOCATE(int_array(nao, nao, SUM(nsgfp)))
       int_array = 0.0_dp
 
 !  Create lists of basis for atoms a and b
+!  TODO: probably can use a single list
       nkind = SIZE(qs_kind_set)
       ALLOCATE(basis_set_list_a(nkind))
       ALLOCATE(basis_Set_list_b(nkind))
       CALL basis_set_list_setup(basis_set_list_a, "ORB", qs_kind_set)
       CALL basis_set_list_setup(basis_set_list_b, "ORB", qs_kind_set)
+
+!  Get the mme params form the ERI_MME subsection. Do that here to avoid circular dependency
+!  TODO: is that expensive, is there a way around ?
+      ALLOCATE(eri_param)
+      CALL cp_eri_mme_init_read_input(xas_tdp_control%eri_mme_subsection, eri_param)
+      CALL cp_eri_mme_set_params(eri_param, cell, qs_kind_set, basis_type_1="ORB", & 
+                                              basis_type_2="RI_AUX", para_env=para_env)
 
 !  Loop over all neighbouring atoms a,b and compute (ab|P)
       CALL neighbor_list_iterator_create(nl_iterator, sab_orb)
@@ -1256,22 +1258,15 @@ CONTAINS
          b_basis => basis_set_list_b(bkind)%gto_basis_set
          
 !        Retrieve the quantum numbers for both basis sets
-         CALL get_gto_basis_set(a_basis, lmax=la_max, npgf=npgfa, zet=zeta, pgf_radius=rpgfa, & 
-                                lmin=la_min, nset=nseta, nsgf_set=nsgfa, sphi=sphi_a, &
-                                first_sgf=first_sgfa, kind_radius=rada)   
-         CALL get_gto_basis_set(b_basis, lmax=lb_max, npgf=npgfb, zet=zetb, pgf_radius=rpgfb, & 
-                                lmin=lb_min, nset=nsetb, nsgf_set=nsgfb, sphi=sphi_b, &
-                                first_sgf=first_sgfb, kind_radius=radb)         
+         CALL get_gto_basis_set(a_basis, lmax=la_max, npgf=npgfa, zet=zeta, lmin=la_min, &
+                                nset=nseta, nsgf_set=nsgfa, sphi=sphi_a, first_sgf=first_sgfa)   
+         CALL get_gto_basis_set(b_basis, lmax=lb_max, npgf=npgfb, zet=zetb, lmin=lb_min, &
+                                nset=nsetb, nsgf_set=nsgfb, sphi=sphi_b, first_sgf=first_sgfb)         
 
 !        Get the different positions/distances
          ra = pbc(particle_set(aat)%r, cell) 
          rb = rab + ra 
          rp = pbc(particle_set(exat_index)%r, cell)
-         rap = pbc(ra, rp, cell)
-         rbp = rap - rab
-         rab2 = rab(1)**2+rab(2)**2+rab(3)**2
-         rap2 = rap(1)**2+rap(2)**2+rap(3)**2
-         rbp2 = rbp(1)**2+rbp(2)**2+rbp(3)**2         
  
 !        Loop over sets of the 3 basis
          DO aset = 1,nseta
@@ -1279,68 +1274,41 @@ CONTAINS
                DO pset = 1,nsetp
 
 !                 Some initialization
-                  ncoa = npgfa(aset)*ncoset(la_max(aset)) 
-                  ncob = npgfb(bset)*ncoset(lb_max(bset))
-                  ncop = npgfp(pset)*ncoset(lp_max(pset)) 
                   sgfa = first_sgfa(1, aset) 
                   sgfb = first_sgfb(1, bset)
                   sgfp = first_sgfp(1, pset)   
 
 !                 Allocate array for the current comnbination of sets
-                  ALLOCATE(int_abp_set(ncoa, ncob, ncop))
+                  ALLOCATE(int_abp_set(nsgfa(aset), nsgfb(bset), nsgfp(pset)))
                   int_abp_set = 0.0_dp
 
-!                 Current coulomb3 method only takes one pgf at a time for p in (ab|p) loop on those
-                  DO igp =1,npgfp(pset)
+!                 Took inspiration form mp2. Integrals are already contracted as sgf
+!                 the do_symmetric argument only matters for forces
+!                 TODO: double check the arguments
+                  CALL integrate_set_3c(eri_param%par, la_min(aset), la_max(aset), lb_min(bset), &
+                                        lb_max(bset), lp_min(pset), lp_max(pset), npgfa(aset), &
+                                        npgfb(bset), npgfp(pset), zeta(:, aset), zetb(:, bset), &
+                                        zetp(:, pset), ra, rb, rp, int_abp_set, nsgfa(aset), &
+                                        nsgfb(bset), nsgfp(pset), 0, 0, 0, 0, 0, 0, sphi_a, &
+                                        sphi_b, sphi_p, sgfa, sgfb, sgfp, nsgfa(aset), &
+                                        nsgfb(bset), nsgfp(pset), do_eri_mme, do_symmetric=.FALSE.)
 
-!                    Allocate work arrays
-                     ALLOCATE(f(0:la_max(aset)+lb_max(bset)+lp_max(pset)+2))
-                     ALLOCATE(v(ncoa, ncob, ncoset(lp_max(pset)),la_max(aset)+lb_max(bset)+lp_max(pset)+1))
-                     ALLOCATE(vabp(ncoa, ncob)) !this one does not play a role here      
-                     ALLOCATE(gcc(ncoset(lp_max(pset)))) !this one does not play a role here 
-                     ALLOCATE(int_abp(ncoa, ncob, ncoset(lp_max(pset))))
+!                 Put it at the right place in the final array
+!                 TODO: in case of PBCs, might need to do += since pair a,b might involve images
+                  int_array(first_sgf_set(aat)+sgfa-1:first_sgf_set(aat)+sgfa+nsgfa(aset)-2, &
+                            first_sgf_set(bat)+sgfb-1:first_sgf_set(bat)+sgfb+nsgfb(bset)-2, &
+                            sgfp:sgfp+nsgfp(pset)-1) = int_abp_set
 
-                     f = 0.0_dp
-                     v = 0.0_dp
-                     vabp = 0.0_dp
-                     gcc = 0.0_dp
-                     int_abp = 0.0_dp
+!                 In the neighbor list iterator, only get a,b pair once. But (ab|P) = (ba|P) 
+                  DO i = 1,nsgfp(pset)
+                     igp = sgfp -1 +i
+                     int_array(first_sgf_set(bat)+sgfb-1:first_sgf_set(bat)+sgfb+nsgfb(bset)-2, &
+                               first_sgf_set(aat)+sgfa-1:first_sgf_set(aat)+sgfa+nsgfa(aset)-2, &       
+                               igp) = TRANSPOSE(int_abp_set(:,:,i))
+                  END DO
 
-!                    Compute the integral
-                     CALL xas_tdp_coulomb3(la_max(aset), npgfa(aset), zeta(:,aset), rpgfa(:,aset), la_min(aset), &
-                                           lb_max(bset), npgfb(bset), zetb(:,bset), rpgfb(:,bset), lb_min(bset), &
-                                           lp_max(pset), zetp(igp,pset), rpgfp(igp,pset), lp_min(pset), &
-                                           gcc, rab, rab2, rap, rap2, rbp2, vabp, int_abp, v, f)
-
-!                    Update the array for the current set combination
-                     int_abp_set(:,:,(igp-1)*ncoset(lp_max(pset))+1:igp*ncoset(lp_max(pset))) = int_abp
-
-!                    Deallocate work arrays
-                     DEALLOCATE(f, v, vabp, gcc, int_abp)
-
-                  END DO ! igp
-
-!                 Perform contraction to get the spherical GTOs
-                  ALLOCATE(int_abp_contr(nsgfa(aset), nsgfb(bset), nsgfp(pset)))
-                  CALL abc_contract(int_abp_contr, int_abp_set, sphi_a(:,sgfa:), sphi_b(:,sgfb:),&
-                                    sphi_p(:,sgfp:), ncoa, ncob, ncop, nsgfa(aset), & 
-                                    nsgfb(bset), nsgfp(pset)) 
-
-!              Put it at the right place in the final array
-               int_array(first_sgf_set(aat)+sgfa-1:first_sgf_set(aat)+sgfa+nsgfa(aset)-2, &
-                         first_sgf_set(bat)+sgfb-1:first_sgf_set(bat)+sgfb+nsgfb(bset)-2, &
-                         sgfp:sgfp+nsgfp(pset)-1) = int_abp_contr
-
-!              In the neighbor list iterator, only get a,b pair once. But (ab|P) = (ba|P) 
-               DO i = 1,nsgfp(pset)
-                  igp = sgfp -1 +i
-                  int_array(first_sgf_set(bat)+sgfb-1:first_sgf_set(bat)+sgfb+nsgfb(bset)-2, &
-                            first_sgf_set(aat)+sgfa-1:first_sgf_set(aat)+sgfa+nsgfa(aset)-2, &       
-                            igp) = TRANSPOSE(int_abp_contr(:,:,i))
-               END DO
-
-!              Deallocate before next loop
-               DEALLOCATE(int_abp_set, int_abp_contr)
+!                 Deallocate before next loop
+                  DEALLOCATE(int_abp_set)
 
                END DO ! pset
             END DO ! bset
@@ -1348,6 +1316,10 @@ CONTAINS
       
       END DO !neighbor iteration on a,b
       CALL neighbor_list_iterator_release(nl_iterator)
+
+!  Clean the eri params 
+      CALL cp_eri_mme_finalize(eri_param)
+      DEALLOCATE(eri_param)
 
 !  Updating the xas_tdp_env with the new integrals
       IF (ASSOCIATED(xas_tdp_env%ri_coul3)) DEALLOCATE(xas_tdp_env%ri_coul3)
