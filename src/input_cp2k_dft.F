@@ -27,6 +27,7 @@ MODULE input_cp2k_dft
                                               medium_print_level,&
                                               silent_print_level
    USE cp_units,                        ONLY: cp_unit_to_cp2k
+   USE cp_eri_mme_interface,            ONLY: create_eri_mme_section
    USE input_constants,                 ONLY: &
         atomic_guess, becke_cutoff_element, becke_cutoff_global, broyden_type_1, &
         broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, broyden_type_2, &
@@ -7876,7 +7877,7 @@ CONTAINS
                           description="XAS simulations using TDDFPT. Excitation from specified "//&
                           "core orbitals are considered one at a time. In case of high symmetry "//&
                           "structures, donor core orbitals should be localized.", &
-                          n_keywords=11, n_subsections=2, repeats=.FALSE.)
+                          n_keywords=11, n_subsections=3, repeats=.FALSE.)
 
       NULLIFY (keyword, subsection, print_key)
 
@@ -8009,6 +8010,10 @@ CONTAINS
       CALL create_localize_section(subsection)
       CALL section_add_subsection(section, subsection)         
       CALL section_release(subsection)
+
+      CALL create_eri_mme_section(subsection)
+      CALL section_add_subsection(section, subsection)
+      CALL section_release(subsection) 
       
       CALL section_create(subsection, "PRINT", "Controls the printing of information during "//&
                           "XAS TDP calculations", repeats=.FALSE.)

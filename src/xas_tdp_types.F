@@ -46,6 +46,7 @@ MODULE xas_tdp_types
 !> \param state_types columns correspond to the states to excite for each atom kind/index
 !>                    the number of rows is the number of times the keyword is repeated
 !> \param ex_op the operator used for the computation of the exact exchange kernel
+!> \param eri_mme_subsection the subsection dealing with the param for the eri_mme for the kernels
 ! **************************************************************************************************
    TYPE xas_tdp_control_type
       INTEGER                                 :: define_excited   
@@ -62,7 +63,8 @@ MODULE xas_tdp_types
       INTEGER, DIMENSION(:,:), POINTER        :: state_types 
       TYPE(section_vals_type), POINTER        :: loc_subsection
       TYPE(section_vals_type), POINTER        :: print_loc_subsection
-      
+      TYPE(section_vals_type), POINTER        :: eri_mme_subsection
+
    END TYPE xas_tdp_control_type
    
 !> *************************************************************************************************
@@ -170,6 +172,7 @@ CONTAINS
       NULLIFY (xas_tdp_control%list_ex_kinds)
       NULLIFY (xas_tdp_control%loc_subsection)
       NULLIFY (xas_tdp_control%print_loc_subsection)
+      NULLIFY (xas_tdp_control%eri_mme_subsection)
 
    END SUBROUTINE xas_tdp_control_create
 
@@ -199,6 +202,9 @@ CONTAINS
          END IF
          IF (ASSOCIATED(xas_tdp_control%print_loc_subsection)) THEN
             DEALLOCATE(xas_tdp_control%print_loc_subsection)
+         END IF
+         IF (ASSOCIATED(xas_tdp_control%eri_mme_subsection)) THEN
+            DEALLOCATE(xas_tdp_control%eri_mme_subsection)
          END IF
          DEALLOCATE (xas_tdp_control)
       END IF
@@ -298,6 +304,12 @@ CONTAINS
       xas_tdp_control%loc_subsection => section_vals_get_subs_vals(xas_tdp_section, "LOCALIZE")       
       xas_tdp_control%print_loc_subsection => section_vals_get_subs_vals(&
                                                          xas_tdp_control%loc_subsection, "PRINT")                      
+      
+      xas_tdp_control%eri_mme_subsection => section_vals_get_subs_vals(xas_tdp_section, "ERI_MME")   
+
+      IF (.NOT. ASSOCIATED(xas_tdp_control%eri_mme_subsection)) THEN
+         CPABORT("The ERI_MME subsection is needed for the computation of the Coulomb kernel")
+      END IF
 
    END SUBROUTINE read_xas_tdp_control
 

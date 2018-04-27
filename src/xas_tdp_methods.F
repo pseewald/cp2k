@@ -223,7 +223,7 @@ CONTAINS
 !              If length representation for the dipole, compute it here in the AO basis, for this atom
                IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
                   CALL get_qs_env(qs_env, particle_set=particle_set)
-                  rc = particle_set(tmp_index)%r    
+                  rc = particle_set(xas_tdp_env%ex_atom_indices(tmp_index))%r    
                   CALL dbcsr_set(xas_tdp_env%dipmat(1)%matrix, 0.0_dp)
                   CALL dbcsr_set(xas_tdp_env%dipmat(2)%matrix, 0.0_dp)
                   CALL dbcsr_set(xas_tdp_env%dipmat(3)%matrix, 0.0_dp)
@@ -231,7 +231,8 @@ CONTAINS
                END IF
 
 !              For this excited atom, also compute the RI coulomb integrals
-               CALL compute_ri_coulomb3_int(tmp_index, xas_tdp_env, qs_env)
+               CALL compute_ri_coulomb3_int(xas_tdp_env%ex_atom_indices(tmp_index), &
+                                            xas_tdp_env, qs_env, xas_tdp_control)
 
 !              Loop over states of excited atom of kind
                DO istate = 1,SIZE(xas_tdp_env%state_types,1)
@@ -520,7 +521,7 @@ CONTAINS
 
          CALL cp_fm_create(xas_tdp_env%ri_inv_mats(i)%matrix, fm_struct)
          CALL cp_fm_invert(work_fm, xas_tdp_env%ri_inv_mats(i)%matrix)
-
+         
 !        Clean-up
          CALL cp_fm_struct_release(fm_struct)
          CALL cp_fm_release(work_fm)
