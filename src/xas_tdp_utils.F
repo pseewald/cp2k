@@ -80,8 +80,14 @@ CONTAINS
 !> \param qs_env ...
 !> \param xas_tdp_env ...
 !> \param xas_tdp_control ...
-!> \note the matrix M has the form |-G^-1*(A+B-D)  -G^-1*(B-E)  | 
-!>                                 |  G^-1*(B-E)   G^-1*(A+B-D) |,                                        
+!> \note the matrix M has the form | -G^-1*M_d   -G^-1*M_o | 
+!>                                 |  G^-1*M_o    G^-1*M_d |,                                        
+!>       depending on whther we consider singlet or triplet excitation, the diagonal (M_d) and 
+!>       off-diagonal (M_o) parts of M differ:
+!>       - For singlet: M_d = A + 2B - D
+!>                      M_o = 2B - E
+!>       - For triplet: M_d = A - D
+!>                      M_o - E
 !>       where other subroutines computes the matrices A, B, E, D and G, which are:
 !>       - A: the ground-state contribution F_ab*delta_IJ - epsilon_IJ*S_ab
 !>       - B: the Coulob kernel ~(aI|Jb)
@@ -90,7 +96,6 @@ CONTAINS
 !>       - G: the metric  S_ab*delta_IJ
 !>       In the above definitions, I,J label the donnor MOs and a,b the sgfs of the basis
 !>       The matrix M (matrix_tdp) has the same (i.e. 2x2 replicated) dbcsr_dist as usual
-!>       If the Tamm-Dancoff approximation is assumed, then C^+ = 0, M = G^-1*(A+2B-D-E) 
 ! **************************************************************************************************
    SUBROUTINE setup_xas_tdp_full_prob(donor_state, qs_env, xas_tdp_env, xas_tdp_control)
 
@@ -159,7 +164,7 @@ CONTAINS
 !  Create the matrix that will be on the diagonal of matrix_tdp: G^-1*(A+B-D)
       ALLOCATE(diag_mat)
       CALL dbcsr_copy(diag_mat, matrix_a, name="Diag TDP block")
-      CALL dbcsr_add(diag_mat, matrix_b, 1.0_dp, 2.0_dp)
+      IF (xas_tdp_control%do_singlet) CALL dbcsr_add(diag_mat, matrix_b, 1.0_dp, 2.0_dp)
       CALL dbcsr_add(diag_mat, matrix_d, 1.0_dp, -1.0_dp)
       CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, diag_mat, 0.0_dp, diag_mat)
       CALL dbcsr_finalize(diag_mat)
@@ -167,7 +172,11 @@ CONTAINS
 !  Create the matrix that will be in the off-diagonal of matrix_tdp: G^-1*(B-E)
       ALLOCATE(offdiag_mat)
       CALL dbcsr_copy(offdiag_mat, matrix_b, name="Offdiag TDP block")
-      CALL dbcsr_add(offdiag_mat, matrix_e, 2.0_dp, -1.0_dp)
+      IF (xas_tdp_control%do_singlet) THEN
+         CALL dbcsr_add(offdiag_mat, matrix_e, 2.0_dp, -1.0_dp)
+      ELSE
+         CALL dbcsr_add(offdiag_mat, matrix_e, 0.0_dp, -1.0_dp)
+      END IF
       CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, offdiag_mat, 0.0_dp, offdiag_mat)
       CALL dbcsr_finalize(offdiag_mat)
 

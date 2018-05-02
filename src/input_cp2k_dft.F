@@ -7823,7 +7823,7 @@ CONTAINS
                           description="XAS simulations using TDDFPT. Excitation from specified "//&
                           "core orbitals are considered one at a time. In case of high symmetry "//&
                           "structures, donor core orbitals should be localized.", &
-                          n_keywords=11, n_subsections=3, repeats=.FALSE.)
+                          n_keywords=12, n_subsections=3, repeats=.FALSE.)
 
       NULLIFY (keyword, subsection, print_key)
 
@@ -7922,6 +7922,17 @@ CONTAINS
                                         "Velocity form &lang; 0 | d/dr | n &rang;"), &
                           enum_i_vals=(/xas_dip_len, xas_dip_vel/))
       CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="EXCITATIONS", &
+                          variants=(/"EXCITATION"/), &
+                          description="Whether singlet or triplet excitations should be "// &
+                                     "considered (starting from the spin-restricted ground state)",&
+                          usage="EXCITATIONS {string}", &
+                          default_i_val=tddfpt_singlet, &
+                          enum_c_vals=s2a("SINGLET", "TRIPLET"), & 
+                          enum_i_vals=(/tddfpt_singlet, tddfpt_triplet/))
+      CALL section_add_keyword(section, keyword)      
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="TAMM_DANCOFF", &

@@ -16,7 +16,8 @@ MODULE xas_tdp_types
    USE input_constants,                 ONLY: xas_1s_type,&
                                               xas_dip_vel,&
                                               xas_tdp_by_index,&
-                                              xas_tdp_by_kind
+                                              xas_tdp_by_kind, &
+                                              tddfpt_singlet
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_val_get,&
                                               section_vals_get_subs_vals
@@ -43,6 +44,7 @@ MODULE xas_tdp_types
 !> \param full_diag whether the LR matrix should be fully built and diagonalized
 !> \param list_ex_atoms list of excited atom indices, kept empty if define_excited=by_kind
 !> \param list_ex_kinds list of excited atom kinds, kept empty if define_excited=by_index
+!> \param do_singlet whether the excitations to consider are singlet (versus triplet)
 !> \param state_types columns correspond to the states to excite for each atom kind/index
 !>                    the number of rows is the number of times the keyword is repeated
 !> \param ex_op the operator used for the computation of the exact exchange kernel
@@ -57,6 +59,7 @@ MODULE xas_tdp_types
       LOGICAL                                 :: check_donor_states
       LOGICAL                                 :: tamm_dancoff
       LOGICAL                                 :: full_diag
+      LOGICAL                                 :: do_singlet
       INTEGER, DIMENSION(:), POINTER          :: list_ex_atoms
       CHARACTER(len=default_string_length),&
                      DIMENSION(:), POINTER    :: list_ex_kinds
@@ -167,6 +170,7 @@ CONTAINS
       xas_tdp_control%check_donor_states = .FALSE.
       xas_tdp_control%tamm_dancoff = .FALSE.
       xas_tdp_control%full_diag = .FALSE.
+      xas_tdp_control%do_singlet = .TRUE.
       NULLIFY (xas_tdp_control%state_types)
       NULLIFY (xas_tdp_control%list_ex_atoms)
       NULLIFY (xas_tdp_control%list_ex_kinds)
@@ -224,7 +228,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'read_xas_tdp_control', &
                                                             routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: irep, nrep, nexc                                         
+      INTEGER                                            :: irep, nrep, nexc, excitation 
       CHARACTER(len=default_string_length),&
                      DIMENSION(:), POINTER               :: k_list
       INTEGER, DIMENSION(:), POINTER                     :: a_list, t_list
@@ -245,6 +249,12 @@ CONTAINS
       CALL section_vals_val_get(xas_tdp_section, "FULL_DIAG", &
                                 l_val=xas_tdp_control%full_diag)
 
+      CALL section_vals_val_get(xas_tdp_section, "EXCITATIONS", i_val=excitation)
+      IF (excitation == tddfpt_singlet) THEN
+         xas_tdp_control%do_singlet = .TRUE.
+      ELSE
+         xas_tdp_control%do_singlet = .FALSE.
+      END IF
 
       IF (.NOT. ASSOCIATED(xas_tdp_control%list_ex_kinds)) THEN
          IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_index) THEN
