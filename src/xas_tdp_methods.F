@@ -49,6 +49,7 @@ MODULE xas_tdp_methods
    USE kinds,                           ONLY: dp
    USE memory_utilities,                ONLY: reallocate
    USE message_passing,                 ONLY: mp_sync
+   USE orbital_pointers,                ONLY: init_orbital_pointers
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE periodic_table,                  ONLY: ptable
@@ -277,6 +278,7 @@ CONTAINS
                               DO i = 1,SIZE(current_state%lr_evals)
                                  PRINT*, current_state%lr_evals(i), "   ,    ", current_state%osc_str(i)
                               END DO
+                              PRINT*, "sum:", SUM(ABS(current_state%osc_str))
                            END IF
 
                         ELSE IF (.NOT. xas_tdp_control%full_diag) THEN
@@ -340,7 +342,7 @@ CONTAINS
                                                             nspins, homo, natom, nmatch, kind_ind, &
                                                             nsgf
       INTEGER, DIMENSION(2)                              :: n_mo, n_moloc
-      INTEGER, DIMENSION(:), POINTER                     :: ind_of_kind
+      INTEGER, DIMENSION(:), POINTER                     :: ind_of_kind, lmax
       CHARACTER(len=2)                                   :: symbol
       TYPE(qs_loc_env_new_type), POINTER                 :: qs_loc_env
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
@@ -358,7 +360,7 @@ CONTAINS
 
       NULLIFY(dft_section, xas_tdp_section, at_kind_set, ind_of_kind, work_array, para_env, blacs_env)
       NULLIFY(qs_loc_env, loc_section, mos, qs_kind_set, particle_set, ex_kind_ri_basis, fm_struct)
-      NULLIFY(work_fm, rho, rho_ao)
+      NULLIFY(work_fm, rho, rho_ao, lmax)
 
 !  XAS TDP control type initialization
       dft_section => section_vals_get_subs_vals(qs_env%input, "DFT")                     
@@ -507,7 +509,10 @@ CONTAINS
 !        Computing the two-centers two-electrons Coulomb repulsion between the basis and itself
 !        TODO: should we consider PBCs here ?
          rab = 0.0_dp
-         CALL get_gto_basis_set(ex_kind_ri_basis, nsgf=nsgf)
+         CALL get_gto_basis_set(ex_kind_ri_basis, nsgf=nsgf, lmax=lmax)
+!        Reinitialize orbital pointers with lmax+1, needed for the int_operators... subroutine
+         CALL init_orbital_pointers(MAXVAL(lmax)+1)
+
          ALLOCATE(work_array(nsgf,nsgf))
          CALL int_operators_r12_ab_os(r12_operator=operator_coulomb, vab=work_array, rab=rab, &
                                       fba=ex_kind_ri_basis, fbb=ex_kind_ri_basis, &
