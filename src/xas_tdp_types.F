@@ -47,7 +47,6 @@ MODULE xas_tdp_types
 !> \param do_singlet whether the excitations to consider are singlet (versus triplet)
 !> \param state_types columns correspond to the states to excite for each atom kind/index
 !>                    the number of rows is the number of times the keyword is repeated
-!> \param ex_op the operator used for the computation of the exact exchange kernel
 !> \param eri_mme_subsection the subsection dealing with the param for the eri_mme for the kernels
 ! **************************************************************************************************
    TYPE xas_tdp_control_type
@@ -55,7 +54,6 @@ MODULE xas_tdp_types
       INTEGER                                 :: dipole_form
       INTEGER                                 :: n_search
       INTEGER                                 :: n_gauss
-      INTEGER                                 :: ex_op
       LOGICAL                                 :: check_donor_states
       LOGICAL                                 :: tamm_dancoff
       LOGICAL                                 :: full_diag
@@ -166,7 +164,6 @@ CONTAINS
       xas_tdp_control%define_excited = xas_tdp_by_index
       xas_tdp_control%n_search = -1
       xas_tdp_control%n_gauss = 3
-      xas_tdp_control%ex_op = 1
       xas_tdp_control%check_donor_states = .FALSE.
       xas_tdp_control%tamm_dancoff = .FALSE.
       xas_tdp_control%full_diag = .FALSE.
@@ -309,8 +306,6 @@ CONTAINS
 
       CALL section_vals_val_get(xas_tdp_section, "NGAUSS", i_val=xas_tdp_control%n_gauss)
 
-      CALL section_vals_val_get(xas_tdp_section, "EXCHANGE_OPERATOR", i_val=xas_tdp_control%ex_op)
-      
       xas_tdp_control%loc_subsection => section_vals_get_subs_vals(xas_tdp_section, "LOCALIZE")       
       xas_tdp_control%print_loc_subsection => section_vals_get_subs_vals(&
                                                          xas_tdp_control%loc_subsection, "PRINT")                      
