@@ -78,7 +78,8 @@ MODULE mp2_eri
              mp2_eri_allocate_forces, &
              mp2_eri_deallocate_forces, &
              mp2_eri_force, &
-             integrate_set_3c
+             integrate_set_3c, &
+             integrate_set_2c
 
    TYPE mp2_eri_force
       REAL(KIND=dp), DIMENSION(:, :), ALLOCATABLE :: forces
