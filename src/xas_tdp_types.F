@@ -70,6 +70,7 @@ MODULE xas_tdp_types
    
 !> *************************************************************************************************
 !> \brief Type containing informations such as inputs and results for TDP XAS calculations
+!> \param state_type_char an array containing the general donor state types as char (1s, 2s, 2p, ...)
 !> \param nex_atoms number of excited atoms
 !> \param nex_kinds number of excited kinds
 !> \param ex_atom_indices array containing the indices of the excited atoms
@@ -90,6 +91,7 @@ MODULE xas_tdp_types
 !>        integrals (ab|P) with the RI basis centered on P. Updated for each new excited atom
 !> *************************************************************************************************
    TYPE xas_tdp_env_type
+      CHARACTER(len=2), DIMENSION(3)          :: state_type_char
       INTEGER                                 :: nex_atoms
       INTEGER                                 :: nex_kinds
       INTEGER, DIMENSION(:), POINTER          :: ex_atom_indices
@@ -344,6 +346,11 @@ CONTAINS
       NULLIFY (xas_tdp_env%q_projector)
       NULLIFY (xas_tdp_env%dipmat)
       NULLIFY (xas_tdp_env%ri_coul3)
+
+!     Putting the state types as char manually
+      xas_tdp_env%state_type_char(1) = "1s"
+      xas_tdp_env%state_type_char(2) = "2s"
+      xas_tdp_env%state_type_char(3) = "2p"
 
    END SUBROUTINE xas_tdp_env_create
 
