@@ -32,7 +32,8 @@ MODULE xas_tdp_methods
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
                                               cp_logger_type
    USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_output_handling,              ONLY: cp_print_key_unit_nr, debug_print_level
+   USE cp_output_handling,              ONLY: cp_print_key_unit_nr, debug_print_level, &
+                                              cp_print_key_finished_output
    USE dbcsr_api,                       ONLY: dbcsr_p_type, dbcsr_type, dbcsr_release, dbcsr_print, &
                                               dbcsr_create, dbcsr_multiply, dbcsr_add_on_diag, &
                                               dbcsr_finalize, dbcsr_allocate_matrix_set, dbcsr_copy,&
@@ -45,11 +46,10 @@ MODULE xas_tdp_methods
                                               section_vals_val_set
    USE kinds,                           ONLY: dp
    USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_sync
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE periodic_table,                  ONLY: ptable
-   USE physcon,                         ONLY: angstrom
+   USE physcon,                         ONLY: angstrom, evolt
    USE qs_environment_types,            ONLY: qs_environment_type,&
                                               get_qs_env
    USE qs_kind_types,                   ONLY: get_qs_kind,&   
@@ -110,7 +110,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'xas_tdp', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, ikind, iat, istate, tmp_index,&
-                                                            current_state_index, output_unit, i
+                                                            current_state_index, output_unit
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -120,7 +120,6 @@ CONTAINS
       TYPE(donor_state_type), POINTER                    :: current_state
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
-      CHARACTER(len=2), DIMENSION(3)                     :: state_type_char
       TYPE(cp_para_env_type), POINTER                    :: para_env
       REAL(dp), DIMENSION(3)                             :: rc
       TYPE(cell_type), POINTER                           :: cell
@@ -152,11 +151,6 @@ CONTAINS
             "# Create and initialize the XAS_TDP environment"
       END IF 
       CALL xas_tdp_init(xas_tdp_env, xas_tdp_control, qs_env, dft_control)
-
-!     Building an array for better writing of donor state info. Indices correspond input constants
-      state_type_char(1) = "1s"
-      state_type_char(2) = "2s"
-      state_type_char(3) = "2p"
 
 !  Safety checks
       IF (dft_control%lsd) THEN
@@ -234,7 +228,7 @@ CONTAINS
 !              If length representation for the dipole, compute it here in the AO basis, for this atom
                IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
                   CALL get_qs_env(qs_env, particle_set=particle_set)
-                  rc = particle_set(xas_tdp_env%ex_atom_indices(tmp_index))%r    
+                  rc = particle_set(iat)%r    
                   CALL dbcsr_set(xas_tdp_env%dipmat(1)%matrix, 0.0_dp)
                   CALL dbcsr_set(xas_tdp_env%dipmat(2)%matrix, 0.0_dp)
                   CALL dbcsr_set(xas_tdp_env%dipmat(3)%matrix, 0.0_dp)
@@ -242,8 +236,7 @@ CONTAINS
                END IF
 
 !              For this excited atom, also compute the RI coulomb integrals
-               CALL compute_ri_coulomb3_int(xas_tdp_env%ex_atom_indices(tmp_index), &
-                                            xas_tdp_env, qs_env, xas_tdp_control)
+               CALL compute_ri_coulomb3_int(iat, ikind, xas_tdp_env, qs_env, xas_tdp_control)
 
 !              Loop over states of excited atom of kind
                DO istate = 1,SIZE(xas_tdp_env%state_types,1)
@@ -260,7 +253,7 @@ CONTAINS
                      IF (output_unit > 0) THEN
                         WRITE(UNIT=output_unit, FMT="(/,T3,A,A2,A,I4,A,A2,/)") &
                            "# Start of calculations for donor state(s) of type ", &
-                           state_type_char(current_state%state_type), " for atom",&
+                           xas_tdp_env%state_type_char(current_state%state_type), " for atom",&
                            current_state%at_index, " of kind ", current_state%at_symbol
                            
                      END IF
@@ -282,20 +275,13 @@ CONTAINS
                            CALL compute_oscillator_strength(current_state, xas_tdp_control, &
                                                             xas_tdp_env, qs_env)
                            
-                           IF (output_unit > 0 ) THEN
-                              i=0
-                              PRINT*, "evals, oscillator_strength"
-                              DO i = 1,SIZE(current_state%lr_evals)
-                                 PRINT*, current_state%lr_evals(i), "   ,    ", current_state%osc_str(i)
-                              END DO
-                              PRINT*, "sum:", SUM(ABS(current_state%osc_str))
-                           END IF
-
                         ELSE IF (.NOT. xas_tdp_control%full_diag) THEN
                            
                            CPABORT("Iterative solver not implemented yet")
 
                         END IF !full_diag
+
+                        CALL print_xas_tdp_to_file(current_state,xas_tdp_env,  xas_tdp_section)
 
                      END IF !check donor_states
 
@@ -304,10 +290,6 @@ CONTAINS
 
                      current_state_index = current_state_index + 1
                      NULLIFY(current_state)
-
-!                    Making sure we are synchronized before going to the next state
-!                    TODO: does not seem to work as intended
-                     CALL mp_sync(para_env%group)
 
                   END IF
                END DO ! state type
@@ -323,6 +305,9 @@ CONTAINS
             "!     End of TDDFPT driven X-rays absorption spectroscopy calculations      !", &
             "!===========================================================================!"   
       END IF
+
+      CALL cp_print_key_finished_output(output_unit, logger, xas_tdp_section, &
+                                        "PRINT%PROGRAM_RUN_INFO")
 
       CALL timestop(handle)
 
@@ -980,7 +965,6 @@ CONTAINS
       DEALLOCATE(zij_fm_set)
       qs_loc_env%do_localize = .FALSE.
 
-
    END SUBROUTINE find_mo_centers
 
 !> *************************************************************************************************
@@ -1161,4 +1145,57 @@ CONTAINS
       CALL cp_fm_release(work_vect)
 
    END SUBROUTINE perform_mulliken_on_donor_state
+
+! **************************************************************************************************
+!> \brief Prints the excitation energies and the oscillator strengths for a given donor_state in a file 
+!> \param donor_state the donor_state to print
+! **************************************************************************************************
+   SUBROUTINE print_xas_tdp_to_file(donor_state, xas_tdp_env, xas_tdp_section)
+
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(section_vals_type), POINTER                :: xas_tdp_section   
+
+      CHARACTER(len=*), PARAMETER :: routineN = "print_xas_tdp_to_file", &
+                                     routineP = moduleN//":"//routineN
+
+      TYPE(cp_logger_type), POINTER                   :: logger
+      INTEGER                                         :: xas_tdp_unit, i
+
+      NULLIFY(logger)
+      logger => cp_get_default_logger()
+
+      xas_tdp_unit = cp_print_key_unit_nr(logger, xas_tdp_section, "PRINT%SPECTRUM", &
+                                      extension=".spectrum", file_position="APPEND", &
+                                      file_action="WRITE", file_form="FORMATTED")
+
+      IF (xas_tdp_unit > 0) THEN
+
+!        Printing the general donor state information
+         WRITE(xas_tdp_unit, FMT="(A,/,A,A,A/,A,I5,A,I5,A,A,/,A)") &
+            "================================================================", &
+            "XAS TDP spectral data for DONOR STATE: ", xas_tdp_env%state_type_char(donor_state%state_type), ",",&
+            "from EXCITED ATOM: ", donor_state%at_index, ", of KIND (index/symbol): ", donor_state%kind_index,&
+            "/", donor_state%at_symbol,&
+            "================================================================"
+
+!        Simply dump the excitation energies/ oscillator strength as they come
+!        Carefull analysis is the user's responsibilty 
+         WRITE(xas_tdp_unit, FMT="(T3,A)") &
+            "Excitation energy (eV)            Oscillator strength (a.u.)"
+
+         DO i =1,SIZE(donor_state%lr_evals)
+            WRITE(xas_tdp_unit, FMT="(T3,F22.6,F38.6)") &
+               donor_state%lr_evals(i)*evolt, donor_state%osc_str(i)
+               !donor_state%lr_evals(i), donor_state%osc_str(i)
+         END DO
+
+         WRITE(xas_tdp_unit, FMT="(A,/)") " "
+            
+      END IF
+
+
+      CALL cp_print_key_finished_output(xas_tdp_unit, logger, xas_tdp_section, "PRINT%SPECTRUM")
+
+   END SUBROUTINE print_xas_tdp_to_file
 END MODULE xas_tdp_methods

@@ -147,7 +147,7 @@ CONTAINS
       ALLOCATE(matrix_d)
       ALLOCATE(matrix_e)
       ALLOCATE(matrix_g)
-      CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, qs_env)
+      CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
       CALL build_kernel_coulomb(matrix_b, submat_dist, submat_blk_size, donor_state, xas_tdp_env, &
                                 qs_env)
       CALL build_kernel_exchange(matrix_d, matrix_e, submat_dist, submat_blk_size, &
@@ -195,9 +195,8 @@ CONTAINS
 
       IF (xas_tdp_control%tamm_dancoff) THEN
 
-!        If TDA is assumed, then the matrix_tdp is G^-1*(A+2B-D-E)
+!        If TDA is assumed, then the matrix_tdp is G^-1*(A+B-D)
          CALL dbcsr_copy(matrix_tdp, diag_mat, name="MATRIX TDP")
-         CALL dbcsr_add(matrix_tdp, offdiag_mat, 1.0_dp, 1.0_dp)
 
       ELSE IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
 
@@ -366,21 +365,28 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "normalize_lr_orbitals", &
                                       routineP = moduleN//":"//routineN     
 
-      INTEGER                                         :: handle, nao, nvals, ndo_mo, ido_mo 
+      INTEGER                                         :: handle, nao, nvals, ndo_mo, ido_mo!, nmo, i
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
-      TYPE(cp_fm_struct_type), POINTER                :: c_struct, norm_struct
+      TYPE(cp_fm_struct_type), POINTER                :: c_struct, norm_struct !, check_struct
       TYPE(cp_fm_type), POINTER                       :: c_plus, c_minus, work_vect, lr_coeffs, &
-                                                         fm_norm
+                                                         fm_norm !, check
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: scaling, norm
+!      TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
+!      TYPE(cp_fm_type), POINTER                       :: mo_coeff
       
       CALL timeset(routineN, handle) 
 
+!      NULLIFY(mos, mo_coeff, check, check_strucy)
       NULLIFY(para_env, blacs_env, matrix_s)
       NULLIFY(c_struct, c_plus, c_minus, work_vect, lr_coeffs, fm_norm, norm_struct)
       
       CPASSERT(ASSOCIATED(donor_state%lr_coeffs))
+
+!  Test: checking orhtogonality by computing <Phi^0_k|Phi^-_l> => C^0^T * S * C^-   
+!      CALL get_qs_env(qs_env, mos=mos)
+!      CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nmo=nmo)   
 
 !  Initialization
       CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env, matrix_s=matrix_s)
@@ -391,11 +397,14 @@ CONTAINS
                                nrow_global=nao, ncol_global= nvals)
       CALL cp_fm_struct_create(norm_struct, para_env=para_env, context=blacs_env, & 
                                nrow_global=nvals, ncol_global=nvals)   
+!      CALL cp_fm_struct_create(check_struct, para_env=para_env, context=blacs_env, & 
+!                               nrow_global=nmo, ncol_global=nvals)   
 
       CALL cp_fm_create(c_plus, c_struct)
       CALL cp_fm_create(c_minus, c_struct)
       CALL cp_fm_create(work_vect, c_struct)
       CALL cp_fm_create(fm_norm, norm_struct)
+!      CALL cp_fm_create(check, check_struct)
 
       ndo_mo = SIZE(donor_state%mo_indices)
       ALLOCATE(scaling(nvals))
@@ -448,9 +457,21 @@ CONTAINS
 
          END IF ! not TDA
 
+!        Test on orthogonality
+!         CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, c_minus, work_vect, ncol=nvals)
+!         CALL cp_fm_gemm('T', 'N', nmo, nvals, nao, 1.0_dp, mo_coeff, work_vect, 0.0_dp, check)
+
+!         IF (donor_state%state_type==1) THEN
+!            DO i = 1, nvals
+!               PRINT*, check%local_data(:,i)
+!               PRINT*, " "
+!            END DO
+!         END IF
+
       END DO ! ido_mo
 
 !  Need to scale each eigenvector 
+!  TODO: deal with special case where divison by zero
       scaling = 1.0_dp/SQRT(ABS(scaling))
       CALL cp_fm_column_scale(lr_coeffs, scaling)
 
@@ -461,6 +482,8 @@ CONTAINS
       CALL cp_fm_release(c_minus)
       CALL cp_fm_release(work_vect)
       CALL cp_fm_release(fm_norm)
+!      CALL cp_fm_struct_release(check_struct)
+!      CALL cp_fm_release(check)
       CALL timestop(handle)
       
    END SUBROUTINE normalize_lr_orbitals
@@ -675,17 +698,21 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Builds the matrix containing the ground state contribution to the matrix_tdp (aka matrix A)
-!>         => A_{pi,qj} = F_pq*delta_ij - epsilon_ij*S_pq
+!>         => A_{pi,qj} = sum_s Q_ps* (F_sq*delta_ij - epsilon_ij*S_sq), where:
+!>         Q = 1 - SP is the projector on the unoccupied unperturbed ground state
+!>         F is the KS matrix
+!>         S is the overlap matrix
 !> \param matrix_a  pointer to a DBCSR matrix containing A
 !> \param dist_a the dbcsr distribution of matrix A
 !> \param blk_size_a the row/col block sizes of matrix A
 !> \param donor_state ...
 !> \param qs_env ...
 ! **************************************************************************************************
-   SUBROUTINE build_gs_contribution(matrix_a, dist_a, blk_size_a, donor_state, qs_env)
+   SUBROUTINE build_gs_contribution(matrix_a, dist_a, blk_size_a, donor_state, xas_tdp_env, qs_env)
 
       TYPE(dbcsr_type), POINTER                       :: matrix_a
       TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(qs_environment_type), POINTER              :: qs_env
       TYPE(dbcsr_distribution_type), POINTER          :: dist_a
       INTEGER, DIMENSION(:), POINTER                  :: blk_size_a
@@ -708,8 +735,7 @@ CONTAINS
 
       NULLIFY(matrix_ks, dbcsr_dist, row_blk_size, work_block, energy_evals, matrix_s)
 
-!  Note: build matrix A as a non-symmetric matrix. Ok since need to desymmetrixe matrix S and KS and
-!        will be later added to kernel elements, which are non-symmetric themselves
+!  Note: build matrix A as a non-symmetric matrix. Need to desymmetrixe matrix S and KS 
 
 !  Initialization
       ndo_mo = SIZE(donor_state%mo_indices,1)
@@ -730,7 +756,12 @@ CONTAINS
       CALL dbcsr_create(matrix=desym_matrix_ks, name="DESYM MATRIX KS", matrix_type="N", &
                         dist=dbcsr_dist, row_blk_size=row_blk_size, col_blk_size=row_blk_size)
       CALL dbcsr_desymmetrize(matrix_ks(1)%matrix, desym_matrix_ks)
-   
+
+!  multiply S and KS by proj_Q from the left (keep the names)
+      CPASSERT(ASSOCIATED(xas_tdp_env))
+      CALL dbcsr_multiply('N', 'N', 1.0_dp, xas_tdp_env%q_projector, desym_matrix_s, 0.0_dp, desym_matrix_s)
+      CALL dbcsr_multiply('N', 'N', 1.0_dp, xas_tdp_env%q_projector, desym_matrix_ks,0.0_dp, desym_matrix_ks)
+
 !  Loop over the blocks of desymmetrized matrix KS and put them in the work matrix
       CALL dbcsr_iterator_start(iter, desym_matrix_ks)
       DO WHILE (dbcsr_iterator_blocks_left(iter))
@@ -862,7 +893,7 @@ CONTAINS
          found_block = .FALSE.
          CALL dbcsr_get_block_p(matrix_s(1)%matrix, iblk, jblk, work_block, found_block)
 
-         IF (found_block) THEN
+         IF (found_block .AND. jblk>=iblk) THEN
 
 !           Go over the diagonal of G => donor MOs ii
             DO i = 1,ndo_mo
@@ -1298,6 +1329,7 @@ CONTAINS
 !>        of the returned array corresponds to sgf a, the second to sgf b and the third to sgf P.
 !>        Keep the result in xas_tdp_env as the integrals for the current excited atom
 !> \param exat_index the index of the excited atom, on which the RI basis P is centered
+!> \para, exat_kind the kind of the excited atom, to get the RI basis
 !> \param xas_tdp_env the xas_tdp_Env to update with the 3-center Coulomb integrals
 !> \param qs_env ...
 !> \param xas_tdp_control ...
@@ -1307,9 +1339,9 @@ CONTAINS
 !>       coulomb, screen the integrals to only compute (ab|P) where C_b is non-zero
 !>       Based on the 3-center ERI_MME integrals
 ! **************************************************************************************************
-   SUBROUTINE compute_ri_coulomb3_int(exat_index, xas_tdp_env, qs_env, xas_tdp_control)
+   SUBROUTINE compute_ri_coulomb3_int(exat_index, exat_kind, xas_tdp_env, qs_env, xas_tdp_control)
 
-      INTEGER, INTENT(IN)                             :: exat_index
+      INTEGER, INTENT(IN)                             :: exat_index, exat_kind
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(qs_environment_type), POINTER              :: qs_env
       TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
@@ -1320,7 +1352,7 @@ CONTAINS
       INTEGER                                         :: handle, nsetp, nsetb, natom, &
                                                          nao, nseta, bat, aset, bset, pset, &
                                                          sgfa, sgfp, sgfb, aat, akind, bkind, & 
-                                                         nkind, exat_kind, idx, igp, i, GG_count, &
+                                                         nkind, igp, i, GG_count, &
                                                          GR_count, RR_count, inode, last_bat, &
                                                          eri_method
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
@@ -1345,7 +1377,6 @@ CONTAINS
       TYPE(cell_type), POINTER                        :: cell
       TYPE(cp_eri_mme_param), POINTER                 :: eri_param   
       TYPE(cp_para_env_type), POINTER                 :: para_env
-      REAL(dp)                                        :: dap, dbp
 
       CALL timeset(routineN, handle)
 
@@ -1363,8 +1394,6 @@ CONTAINS
       CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf_set)
 
 !  Retrieve the basis set P centered on the excited atom
-      idx = MINLOC(ABS(xas_tdp_env%ex_atom_indices-exat_index), 1) 
-      exat_kind = xas_tdp_env%ex_kind_indices(idx)
       CALL get_qs_kind(qs_kind_set(exat_kind), basis_set=p_basis, basis_type="RI_AUX")
 
       CALL get_gto_basis_set(p_basis, lmax=lp_max, npgf=npgfp, zet=zetp, lmin=lp_min, nset=nsetp, &
@@ -1436,15 +1465,6 @@ CONTAINS
                      IF (SIZE(rpgfp,1) .GT. 1) THEN
                         CPABORT("For OS scheme in NPBCs, only one pgf per set is allowed in the RI basis")
                      END IF
-
-                     dap = SQRT((rp(1)-ra(1))**2+(rp(2)-ra(2))**2+(rp(3)-ra(3))**2)
-                     dbp = SQRT((rp(1)-rb(1))**2+(rp(2)-rb(2))**2+(rp(3)-rb(3))**2) 
-
-                     IF (dap .GT. MINVAL(rpgfa(:,aset))+rpgfp(1,pset) .OR. &
-                         dbp .GT. MINVAL(rpgfb(:,bset))+rpgfp(1,pset)) THEN
-                        CPABORT("Coulomb3 subroutine screens some if the ERI integrals...")
-                     END IF
-
                   END IF
 
 !                 Some initialization
@@ -1682,6 +1702,15 @@ CONTAINS
             CALL dgemm('N', 'N', nao, nao, nao,  1.0_dp, proj_Q, nao, work2, nao, 0.0_dp, &
                        aIJb_prod, nao)
 
+            !IF ((i==1 .AND. j==2) .OR. (i==2 .AND. j==1)) THEN
+            !   PRINT*, i, j
+            !   PRINT*, " "
+            !   DO iblk = 1,nao
+            !      PRINT*, work2(iblk,:)
+            !   END DO
+            !   PRINT*, " "
+            !END IF
+
 !           Put it in the dbcsr matrix, for the right I,J and block by block
             DO iblk = 1,nblk
                DO jblk = 1,nblk
@@ -1703,6 +1732,8 @@ CONTAINS
       END DO ! donor MO i
       
       CALL dbcsr_finalize(coulomb_kernel)
+
+!      CALL dbcsr_print(coulomb_kernel)
 
       CALL timestop(handle)
 
@@ -1824,6 +1855,12 @@ CONTAINS
             CALL dgemm('N', 'T', nsgfp, 1, nsgfp, 1.0_dp, PQ, nsgfp, int_IJ, 1, 0.0_dp, &
                        work3, nsgfp)
 
+            !IF ((i==1 .AND. j==2) .OR. (i==2 .AND. j==1)) THEN
+            !   PRINT*, i, j
+            !   PRINT*, int_IJ(1,:)
+            !   PRINT*, " "
+            !END IF
+
 !           Multiply by (ab|P) from the left 
             DO k = 1,nsgfp
                work4(:,:) = work4(:,:) + xas_tdp_env%ri_coul3(:,:,k)*work3(k,1)
@@ -1853,8 +1890,9 @@ CONTAINS
                   
                END DO !jblk
             END DO !iblk
-            
+            DEALLOCATE(int_aJ, int_IJ) 
          END DO !j
+         DEALLOCATE(int_bI)
       END DO !i
 
       CALL dbcsr_finalize(ex_ker_diag)
