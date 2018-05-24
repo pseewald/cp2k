@@ -1240,7 +1240,7 @@ CONTAINS
 
 !  Initialization
       CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, cell=cell, para_env=para_env, blacs_env=blacs_env)
-      ex_kinds => xas_tdp_env%ex_atom_indices
+      ex_kinds => xas_tdp_env%ex_kind_indices
       ALLOCATE(xas_tdp_env%ri_inv_mats(SIZE(ex_kinds)))
 
 !  Check on the periodicity to choose the eri method
@@ -1702,15 +1702,6 @@ CONTAINS
             CALL dgemm('N', 'N', nao, nao, nao,  1.0_dp, proj_Q, nao, work2, nao, 0.0_dp, &
                        aIJb_prod, nao)
 
-            !IF ((i==1 .AND. j==2) .OR. (i==2 .AND. j==1)) THEN
-            !   PRINT*, i, j
-            !   PRINT*, " "
-            !   DO iblk = 1,nao
-            !      PRINT*, work2(iblk,:)
-            !   END DO
-            !   PRINT*, " "
-            !END IF
-
 !           Put it in the dbcsr matrix, for the right I,J and block by block
             DO iblk = 1,nblk
                DO jblk = 1,nblk
@@ -1854,12 +1845,6 @@ CONTAINS
 !           (P|Q)^-1 *(Q|IJ)
             CALL dgemm('N', 'T', nsgfp, 1, nsgfp, 1.0_dp, PQ, nsgfp, int_IJ, 1, 0.0_dp, &
                        work3, nsgfp)
-
-            !IF ((i==1 .AND. j==2) .OR. (i==2 .AND. j==1)) THEN
-            !   PRINT*, i, j
-            !   PRINT*, int_IJ(1,:)
-            !   PRINT*, " "
-            !END IF
 
 !           Multiply by (ab|P) from the left 
             DO k = 1,nsgfp
