@@ -334,7 +334,8 @@ CONTAINS
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: at_kind_set
       INTEGER                                            :: nex_atoms, n_kinds, i, nat_of_kind,&
                                                             j, nex_kinds, k, n_donor_states,&
-                                                            nspins, homo, natom, nmatch, kind_ind
+                                                            nspins, homo, natom, nmatch, kind_ind, &
+                                                            at_ind
       INTEGER, DIMENSION(2)                              :: n_mo, n_moloc
       INTEGER, DIMENSION(:), POINTER                     :: ind_of_kind
       CHARACTER(len=2)                                   :: symbol
@@ -382,7 +383,8 @@ CONTAINS
          k = 0
          CALL get_qs_env(qs_env, particle_set=particle_set)
          DO i =1,nex_atoms
-            CALL get_atomic_kind(particle_set(i)%atomic_kind, kind_number=j)
+            at_ind = xas_tdp_env%ex_atom_indices(i)
+            CALL get_atomic_kind(particle_set(at_ind)%atomic_kind, kind_number=j)
             IF (ALL(ABS(xas_tdp_env%ex_kind_indices-j) .NE. 0)) THEN
                k = k +1
                xas_tdp_env%ex_kind_indices(k) = j
@@ -390,7 +392,7 @@ CONTAINS
          END DO
          nex_kinds = k
          CALL set_xas_tdp_env(xas_tdp_env, nex_kinds=nex_kinds)
-         CALL reallocate(xas_tdp_env%ex_kind_indices, 1 , k)
+         CALL reallocate(xas_tdp_env%ex_kind_indices, 1 , nex_kinds)
          
 
       ELSE IF (xas_tdp_control%define_excited == xas_tdp_by_kind) THEN
@@ -487,6 +489,7 @@ CONTAINS
 !  Compute the projector on the unoccupied, unperturbed ground state: Q = 1 - SP
       CALL get_qs_env(qs_env, rho=rho, matrix_s=matrix_s)
       CALL qs_rho_get(rho, rho_ao=rho_ao)
+
       ALLOCATE(xas_tdp_env%q_projector)
       CALL dbcsr_create(xas_tdp_env%q_projector, name="Q PROJECTOR", template=matrix_s(1)%matrix, &
                         matrix_type="N") 
