@@ -122,6 +122,7 @@ MODULE xas_tdp_types
 !> \param lr_evals excitation energies => the eigenvalues of the linear response equation
 !> \param osc_str oscillator strengths for the different excitation energies
 !> \param matrix_tdp the dbcsr matrix to be diagonalized to solve the problem
+!> \param metric the metric of the linear response problem M*c = omega*S*c
 !> *************************************************************************************************
 TYPE donor_state_type
       INTEGER                                 :: at_index
@@ -134,6 +135,7 @@ TYPE donor_state_type
       REAL(dp), DIMENSION(:), POINTER         :: lr_evals
       REAL(dp), DIMENSION(:), POINTER         :: osc_str
       TYPE(dbcsr_type), POINTER               :: matrix_tdp
+      TYPE(dbcsr_type), POINTER               :: metric
    END TYPE donor_state_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE  :: moduleN = 'xas_tdp_types'
@@ -457,7 +459,7 @@ CONTAINS
 !> \brief Deallocate a set of donor states
 !> \param donor_state_set the set of donor states to deallocate
 !> *************************************************************************************************
-SUBROUTINE deallocate_donor_state_set(donor_state_set)
+   SUBROUTINE deallocate_donor_state_set(donor_state_set)
       TYPE(donor_state_type), DIMENSION(:) , POINTER     :: donor_state_set
 
       CHARACTER(len=*), PARAMETER                        :: routineN = 'deallocate_donor_state_set',&
@@ -491,6 +493,11 @@ SUBROUTINE deallocate_donor_state_set(donor_state_set)
                CALL dbcsr_release(donor_state_set(i)%matrix_tdp)
                DEALLOCATE(donor_state_set(i)%matrix_tdp)
             END IF
+
+            IF (ASSOCIATED(donor_state_set(i)%metric)) THEN  
+               CALL dbcsr_release(donor_state_set(i)%metric)      
+               DEALLOCATE(donor_state_set(i)%metric)           
+            END IF
                         
          END DO
          DEALLOCATE(donor_state_set)
@@ -511,9 +518,15 @@ SUBROUTINE deallocate_donor_state_set(donor_state_set)
       IF (ASSOCIATED(donor_state%lr_evals)) DEALLOCATE(donor_state%lr_evals)
       IF (ASSOCIATED(donor_state%osc_str)) DEALLOCATE(donor_state%osc_str)
       IF (ASSOCIATED(donor_state%lr_coeffs)) CALL cp_fm_release(donor_state%lr_coeffs)
+
       IF (ASSOCIATED(donor_state%matrix_tdp)) THEN
          CALL dbcsr_release(donor_state%matrix_tdp)
          DEALLOCATE(donor_state%matrix_tdp)
+      END IF
+
+      IF (ASSOCIATED(donor_state%metric)) THEN   
+         CALL dbcsr_release(donor_state%metric) 
+         DEALLOCATE(donor_state%metric)  
       END IF
 
    END SUBROUTINE free_ds_memory

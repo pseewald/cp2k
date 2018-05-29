@@ -494,7 +494,8 @@ CONTAINS
       CALL dbcsr_create(xas_tdp_env%q_projector, name="Q PROJECTOR", template=matrix_s(1)%matrix, &
                         matrix_type="N") 
 !     TODO: Add a filter_eps in the multiplication ? Cuz many almost zero blocks
-      CALL dbcsr_multiply('N', 'N', -1.0_dp, matrix_s(1)%matrix, rho_ao(1)%matrix, 0.0_dp, &
+!     Spin-restricted ground state: occupation number 2 included in density matrix => hence factor 0.5
+      CALL dbcsr_multiply('N', 'N', -0.5_dp, matrix_s(1)%matrix, rho_ao(1)%matrix, 0.0_dp, &
                           xas_tdp_env%q_projector)
       CALL dbcsr_add_on_diag(xas_tdp_env%q_projector, 1.0_dp)
       CALL dbcsr_finalize(xas_tdp_env%q_projector)
