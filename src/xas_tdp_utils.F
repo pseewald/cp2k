@@ -170,6 +170,7 @@ CONTAINS
       ELSE IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
 
 !     Compute the submatrices A, G and the different kernels (B, D and E)
+         ALLOCATE(tmp_mat)
          ALLOCATE(matrix_a)
          ALLOCATE(matrix_b)
          ALLOCATE(matrix_d)
@@ -191,38 +192,32 @@ CONTAINS
          CALL dbcsr_finalize(matrix_g_inv)
 
 !     Create the matrix that will be on the diagonal of matrix_tdp: G^-1*(A+B-D)
-         ALLOCATE(tmp_mat)
-         CALL dbcsr_copy(tmp_mat, matrix_a, name="TMP TDP block")
-         IF (xas_tdp_control%do_singlet) CALL dbcsr_add(tmp_mat, matrix_b, 1.0_dp, 2.0_dp)
-         CALL dbcsr_add(tmp_mat, matrix_d, 1.0_dp, -1.0_dp)
-         CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, tmp_mat, 0.0_dp, tmp_mat)
-         CALL dbcsr_finalize(tmp_mat)
-
-!        Recast the symmetric tmp_mat into the normal diag_mat
          ALLOCATE(diag_mat)
          CALL dbcsr_create(matrix=diag_mat, name="Diag TDP block", matrix_type="N", dist=submat_dist,&
                            row_blk_size=submat_blk_size, col_blk_size=submat_blk_size)
-         CALL dbcsr_desymmetrize(tmp_mat, diag_mat)
+
+         CALL dbcsr_copy(tmp_mat, matrix_a, name="TMP TDP block")
+         IF (xas_tdp_control%do_singlet) CALL dbcsr_add(tmp_mat, matrix_b, 1.0_dp, 2.0_dp)
+         CALL dbcsr_add(tmp_mat, matrix_d, 1.0_dp, -1.0_dp)
+         CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, tmp_mat, 0.0_dp, diag_mat)
          CALL dbcsr_finalize(diag_mat)
 
 !        Reinitializ the tmp matrix
          CALL dbcsr_release(tmp_mat)
 
 !     Create the matrix that will be in the off-diagonal of matrix_tdp: G^-1*(B-E)
+         ALLOCATE(offdiag_mat)
+         CALL dbcsr_create(matrix=offdiag_mat, name="Offdiag TDP block", matrix_type="N", & 
+                           dist=submat_dist, row_blk_size=submat_blk_size, col_blk_size=submat_blk_size)
+
+
          CALL dbcsr_copy(tmp_mat, matrix_b, name="TMP TDP block")
          IF (xas_tdp_control%do_singlet) THEN
             CALL dbcsr_add(tmp_mat, matrix_e, 2.0_dp, -1.0_dp)
          ELSE
             CALL dbcsr_add(tmp_mat, matrix_e, 0.0_dp, -1.0_dp)
          END IF
-         CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, tmp_mat, 0.0_dp, tmp_mat)
-         CALL dbcsr_finalize(tmp_mat)
-
-!        Recast into a non-symmetric matrix
-         ALLOCATE(offdiag_mat)
-         CALL dbcsr_create(matrix=offdiag_mat, name="Offdiag TDP block", matrix_type="N", &
-                           dist=submat_dist, row_blk_size=submat_blk_size, col_blk_size=submat_blk_size)
-         CALL dbcsr_desymmetrize(tmp_mat, offdiag_mat)     
+         CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, tmp_mat, 0.0_dp, offdiag_mat)
          CALL dbcsr_finalize(offdiag_mat)
 
 !     Some clean-up
@@ -1777,6 +1772,9 @@ CONTAINS
             DO iblk = 1,nblk
                DO jblk = 1,nblk
 
+!                 If on the block diagonal, just take jblk >= iblk
+                  IF (jblk < iblk .AND. i==j) CYCLE
+
 !                 Size of the current block
                   nrow_blk = blk_size(iblk)
                   ncol_blk = blk_size(jblk)
@@ -1948,6 +1946,9 @@ CONTAINS
 !           Put it all in the dbcsr matrices, at the right I,J and block by block
             DO iblk = 1,nblk
                DO jblk = 1,nblk
+
+!                 If on the block digonal, only take jblk >= iblk
+                  IF (jblk < iblk .AND. i==j) CYCLE
 
 !                 Size of the current block
                   nrow_blk = blk_size(iblk)
