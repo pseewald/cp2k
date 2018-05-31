@@ -90,7 +90,7 @@ CONTAINS
 !>       - For singlet: M_d = A + 2B - D
 !>                      M_o = 2B - E
 !>       - For triplet: M_d = A - D
-!>                      M_o - E
+!>                      M_o = - E
 !>       where other subroutines computes the matrices A, B, E, D and G, which are:
 !>       - A: the ground-state contribution F_ab*delta_IJ - epsilon_IJ*S_ab
 !>       - B: the Coulob kernel ~(aI|Jb)
@@ -583,94 +583,103 @@ CONTAINS
       ALLOCATE(donor_state%osc_str(nosc))
       osc_str => donor_state%osc_str
       osc_str = 0.0_dp
-      CALL get_qs_env(qs_env, mos=mos, para_env=para_env, blacs_env=blacs_env, &
-                      particle_set=particle_set, matrix_s=matrix_s)
-      CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao)
-      dipmat => xas_tdp_env%dipmat
 
-!     TODO: The normalization of the response coeff is kind of abitrary (but consistent) 
-!     => factor 2/3 can probably be dropped
-      IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
-!        Add the dipole form specific prefactor 2/3*omega
-         osc_str = 2.0_dp/3.0_dp*donor_state%lr_evals
+!     For spin-unpolarized ground state, only have transition density if singlet 
+      IF (xas_tdp_control%do_singlet) THEN
+
+         CALL get_qs_env(qs_env, mos=mos, para_env=para_env, blacs_env=blacs_env, &
+                         particle_set=particle_set, matrix_s=matrix_s)
+         CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao)
+         dipmat => xas_tdp_env%dipmat
+
+!        TODO: The normalization of the response coeff is kind of abitrary (but consistent) 
+!        => factor 2/3 can probably be dropped
+         IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
+!           Add the dipole form specific prefactor 2/3*omega
+            osc_str = 2.0_dp/3.0_dp*donor_state%lr_evals
          
-      ELSE IF (xas_tdp_control%dipole_form == xas_dip_vel) THEN
-!        Add the dipole form specific prefactor 2/3/omega, no minus sign as p_xyz is real here
-         osc_str = 2.0_dp/3.0_dp/donor_state%lr_evals 
+         ELSE IF (xas_tdp_control%dipole_form == xas_dip_vel) THEN
+!           Add the dipole form specific prefactor 2/3/omega, no minus sign as p_xyz is real here
+            osc_str = 2.0_dp/3.0_dp/donor_state%lr_evals 
 
-      END IF
+         END IF
 
-!     Some more initialization before heavy computing
-      CALL cp_fm_struct_create(col_vect_struct, para_env=para_env, context=blacs_env, &
-                                nrow_global=nao, ncol_global=1)
-      CALL cp_fm_create(c_vect, col_vect_struct)
-      CALL cp_fm_create(work_vect, col_vect_struct)
-      ALLOCATE(gs_coeff(nao,1))
-      ALLOCATE(work_array(nao,1))
+!        Some more initialization before heavy computing
+         CALL cp_fm_struct_create(col_vect_struct, para_env=para_env, context=blacs_env, &
+                                   nrow_global=nao, ncol_global=1)
+         CALL cp_fm_create(c_vect, col_vect_struct)
+         CALL cp_fm_create(work_vect, col_vect_struct)
+         ALLOCATE(gs_coeff(nao,1))
+         ALLOCATE(work_array(nao,1))
 
-!     the dipole moment is <mu> = sum_j C^0_j*M*C^1_j, where j labels donor MOs, M is the dipmat,
-!     C^0_i is the ground state coefficient row vector and and C^1 the column vector of lr coeffs
-      DO i = 1,nosc ! loop on excitation energies
-          xyz_moments = 0.0_dp
-          DO j = 1,ndo_mo ! loop on donor MOs
+!        the dipole moment is <mu> = sum_j C^0_j*M*C^1_j, where j labels donor MOs, M is the dipmat,
+!        C^0_i is the ground state coefficient row vector and and C^1 the column vector of lr coeffs
+         DO i = 1,nosc ! loop on excitation energies
+            xyz_moments = 0.0_dp
+            DO j = 1,ndo_mo ! loop on donor MOs
 
-            jdo_mo = donor_state%mo_indices(j)
+               jdo_mo = donor_state%mo_indices(j)
 
-!           Retrieve column vector C^1. Test for Tamm Dancoff
-            IF (xas_tdp_control%tamm_dancoff) THEN
+!              Retrieve column vector C^1. Test for Tamm Dancoff
+               IF (xas_tdp_control%tamm_dancoff) THEN
 
-!              For TDA, C^+ = 0, hence C^1 = C^- and lr_coeffs = C^-
-               CALL cp_fm_to_fm_submat(msource=donor_state%lr_coeffs, mtarget=c_vect, nrow=nao, & 
-                                       ncol=1,s_firstrow=(j-1)*nao+1, s_firstcol=i, t_firstrow=1, &
-                                       t_firstcol=1)
+!                 For TDA, C^+ = 0, hence C^1 = C^- and lr_coeffs = C^-
+                  CALL cp_fm_to_fm_submat(msource=donor_state%lr_coeffs, mtarget=c_vect, nrow=nao, & 
+                                          ncol=1,s_firstrow=(j-1)*nao+1, s_firstcol=i, t_firstrow=1, &
+                                          t_firstcol=1)
 
-            ELSE IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
+               ELSE IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
 
-!              In the general case, C^1 = C^+ + C^-, which are both stored in lr_coeffs
-               CALL cp_fm_to_fm_submat(msource=donor_state%lr_coeffs, mtarget=c_vect, nrow=nao, &
-                                       ncol=1, s_firstrow=(j-1)*nao+1, s_firstcol=i, t_firstrow=1, &
-                                       t_firstcol=1) ! C^+
+!                 In the general case, C^1 = C^+ + C^-, which are both stored in lr_coeffs
+                  CALL cp_fm_to_fm_submat(msource=donor_state%lr_coeffs, mtarget=c_vect, nrow=nao, &
+                                          ncol=1, s_firstrow=(j-1)*nao+1, s_firstcol=i, t_firstrow=1, &
+                                          t_firstcol=1) ! C^+
 
-               CALL cp_fm_to_fm_submat(msource=donor_state%lr_coeffs, mtarget=work_vect, nrow=nao, &
-                                       ncol=1, s_firstrow=(ndo_mo+j-1)*nao+1, s_firstcol=i, & 
-                                       t_firstrow=1, t_firstcol=1) ! C^-
+                  CALL cp_fm_to_fm_submat(msource=donor_state%lr_coeffs, mtarget=work_vect, nrow=nao, &
+                                          ncol=1, s_firstrow=(ndo_mo+j-1)*nao+1, s_firstcol=i, & 
+                                          t_firstrow=1, t_firstcol=1) ! C^-
 
-!              store the sum in c_vect
-               CALL cp_fm_scale_and_add(1.0_dp, c_vect, 1.0_dp, work_vect)
+!                 store the sum in c_vect
+                  CALL cp_fm_scale_and_add(1.0_dp, c_vect, 1.0_dp, work_vect)
 
-            END IF
+               END IF
 
-            gs_coeff = 0.0_dp
-!           Retrieve array of ground state MO coeff
-            CALL cp_fm_get_submatrix(fm=mo_coeff, target_m=gs_coeff, start_row=1, & 
-                                     start_col=jdo_mo, n_rows=nao, n_cols=1, transpose=.FALSE.)
+               gs_coeff = 0.0_dp
+!              Retrieve array of ground state MO coeff
+               CALL cp_fm_get_submatrix(fm=mo_coeff, target_m=gs_coeff, start_row=1, & 
+                                        start_col=jdo_mo, n_rows=nao, n_cols=1, transpose=.FALSE.)
 
-            DO k =1,3 ! loop on cartesian coordinates
-!              Computing M*C^-_j
-               CALL cp_dbcsr_sm_fm_multiply(dipmat(k)%matrix, c_vect, work_vect, ncol=1)
-               work_array = 0.0_dp
-               CALL cp_fm_get_submatrix(work_vect, work_array)
+               DO k =1,3 ! loop on cartesian coordinates
+!                 Computing M*C^-_j
+                  CALL cp_dbcsr_sm_fm_multiply(dipmat(k)%matrix, c_vect, work_vect, ncol=1)
+                  work_array = 0.0_dp
+                  CALL cp_fm_get_submatrix(work_vect, work_array)
 
-!              Computing C^0_j*M*C^-_j
-               DO l = 1,nao 
-                  xyz_moments(k) = xyz_moments(k) + gs_coeff(l,1)*work_array(l,1) 
-               END DO ! l
+!                 Computing C^0_j*M*C^-_j
+                  DO l = 1,nao 
+                     xyz_moments(k) = xyz_moments(k) + gs_coeff(l,1)*work_array(l,1) 
+                  END DO ! l
+               END DO ! k
+            END DO ! j
+
+!           Compute the oscilaltor strength for this specific energy
+            contrib = 0.0_dp
+            DO k = 1,3
+               contrib = contrib +  osc_str(i)*xyz_moments(k)**2
             END DO ! k
-         END DO ! j
+            osc_str(i) = contrib
+         END DO ! i
 
-!        Compute the oscilaltor strength for this specific energy
-         contrib = 0.0_dp
-         DO k = 1,3
-            contrib = contrib +  osc_str(i)*xyz_moments(k)**2
-         END DO ! k
-         osc_str(i) = contrib
-      END DO ! i
+!        Add a factor of 2 coming from the singlet definition u = 0.5(c_alpha + c_beta)
+         osc_str = 2*osc_str
          
-!     Clean-up
-      DEALLOCATE(gs_coeff, work_array)
-      CALL cp_fm_release(c_vect)
-      CALL cp_fm_release(work_vect)
-      CALL cp_fm_struct_release(col_vect_struct)
+!        Clean-up
+         DEALLOCATE(gs_coeff, work_array)
+         CALL cp_fm_release(c_vect)
+         CALL cp_fm_release(work_vect)
+         CALL cp_fm_struct_release(col_vect_struct)
+
+      END IF ! do_singlet
 
       CALL timestop(handle)
 
