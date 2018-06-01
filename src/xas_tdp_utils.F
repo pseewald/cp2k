@@ -412,28 +412,19 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "normalize_lr_orbitals", &
                                       routineP = moduleN//":"//routineN     
 
-      INTEGER                                         :: handle, nao, nvals, ndo_mo, ido_mo!, nmo, i
+      INTEGER                                         :: nao, nvals, ndo_mo, ido_mo
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
-      TYPE(cp_fm_struct_type), POINTER                :: c_struct, norm_struct !, check_struct
+      TYPE(cp_fm_struct_type), POINTER                :: c_struct, norm_struct 
       TYPE(cp_fm_type), POINTER                       :: c_plus, c_minus, work_vect, lr_coeffs, &
-                                                         fm_norm !, check
+                                                         fm_norm 
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: scaling, norm
-!      TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
-!      TYPE(cp_fm_type), POINTER                       :: mo_coeff
       
-      CALL timeset(routineN, handle) 
-
-!      NULLIFY(mos, mo_coeff, check, check_strucy)
       NULLIFY(para_env, blacs_env, matrix_s)
       NULLIFY(c_struct, c_plus, c_minus, work_vect, lr_coeffs, fm_norm, norm_struct)
       
       CPASSERT(ASSOCIATED(donor_state%lr_coeffs))
-
-!  Test: checking orhtogonality by computing <Phi^0_k|Phi^-_l> => C^0^T * S * C^-   
-!      CALL get_qs_env(qs_env, mos=mos)
-!      CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nmo=nmo)   
 
 !  Initialization
       CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env, matrix_s=matrix_s)
@@ -444,14 +435,11 @@ CONTAINS
                                nrow_global=nao, ncol_global= nvals)
       CALL cp_fm_struct_create(norm_struct, para_env=para_env, context=blacs_env, & 
                                nrow_global=nvals, ncol_global=nvals)   
-!      CALL cp_fm_struct_create(check_struct, para_env=para_env, context=blacs_env, & 
-!                               nrow_global=nmo, ncol_global=nvals)   
 
       CALL cp_fm_create(c_plus, c_struct)
       CALL cp_fm_create(c_minus, c_struct)
       CALL cp_fm_create(work_vect, c_struct)
       CALL cp_fm_create(fm_norm, norm_struct)
-!      CALL cp_fm_create(check, check_struct)
 
       ndo_mo = SIZE(donor_state%mo_indices)
       ALLOCATE(scaling(nvals))
@@ -504,17 +492,6 @@ CONTAINS
 
          END IF ! not TDA
 
-!        Test on orthogonality
-!         CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, c_minus, work_vect, ncol=nvals)
-!         CALL cp_fm_gemm('T', 'N', nmo, nvals, nao, 1.0_dp, mo_coeff, work_vect, 0.0_dp, check)
-
-!         IF (donor_state%state_type==1) THEN
-!            DO i = 1, nvals
-!               PRINT*, check%local_data(:,i)
-!               PRINT*, " "
-!            END DO
-!         END IF
-
       END DO ! ido_mo
 
 !  Need to scale each eigenvector 
@@ -529,9 +506,6 @@ CONTAINS
       CALL cp_fm_release(c_minus)
       CALL cp_fm_release(work_vect)
       CALL cp_fm_release(fm_norm)
-!      CALL cp_fm_struct_release(check_struct)
-!      CALL cp_fm_release(check)
-      CALL timestop(handle)
       
    END SUBROUTINE normalize_lr_orbitals
 
@@ -557,7 +531,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "compute_oscillator_strength", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: handle, nosc, nao, i, ndo_mo,j, k, jdo_mo,l
+      INTEGER                                         :: nosc, nao, i, ndo_mo,j, k, jdo_mo,l
       TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
       TYPE(cp_fm_type), POINTER                       :: mo_coeff
       TYPE(cp_para_env_type), POINTER                 :: para_env
@@ -571,8 +545,6 @@ CONTAINS
       TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct
       TYPE(cp_fm_type), POINTER                       :: c_vect, work_vect
       REAL(dp)                                        :: contrib
-
-      CALL timeset(routineN, handle)
 
       NULLIFY(mos, mo_coeff, para_env, blacs_env, dipmat, particle_set, osc_str, matrix_s)
       NULLIFY(col_vect_struct, c_vect, work_vect, gs_coeff, work_array)
@@ -681,8 +653,6 @@ CONTAINS
 
       END IF ! do_singlet
 
-      CALL timestop(handle)
-
    END SUBROUTINE compute_oscillator_strength
 
 ! **************************************************************************************************
@@ -776,8 +746,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'build_gs_contribution', &
                                      routineP = moduleN//":"//routineN
       
-      INTEGER                                         :: handle, ndo_mo, i, nblk_row,&
-                                                         j, iblk, jblk, blk
+      INTEGER                                         :: ndo_mo, i, nblk_row, j, iblk, jblk, blk
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_ks, matrix_s
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
       INTEGER, DIMENSION(:), POINTER                  :: row_blk_size 
@@ -787,8 +756,6 @@ CONTAINS
       TYPE(dbcsr_type)                                :: desym_matrix_s, desym_matrix_ks, &
                                                          work_matrix, tmp_matrix
       TYPE(dbcsr_iterator_type)                       :: iter
-
-      CALL timeset(routineN, handle)
 
       NULLIFY(matrix_ks, dbcsr_dist, row_blk_size, work_block, energy_evals, matrix_s)
 
@@ -910,8 +877,6 @@ CONTAINS
 !  Finalize
       CALL dbcsr_finalize(matrix_a)   
    
-      CALL timestop(handle)
-
    END SUBROUTINE build_gs_contribution
 
 ! **************************************************************************************************
@@ -933,15 +898,12 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'build_metric', routineP = moduleN//":"//routineN
       
-      INTEGER                                         :: handle, i, iblk, jblk, ndo_mo, nblk_row, &
-                                                         blk
+      INTEGER                                         :: i, iblk, jblk, ndo_mo, nblk_row, blk
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
       INTEGER, DIMENSION(:), POINTER                  :: row_blk_size
       REAL(dp), DIMENSION(:), POINTER                 :: work_block
       LOGICAL                                         :: found_block
       TYPE(dbcsr_iterator_type)                       :: iter     
-
-      CALL timeset(routineN, handle)
 
       NULLIFY(matrix_s, row_blk_size, work_block)
 
@@ -981,8 +943,6 @@ CONTAINS
 !  Finalize
       CALL dbcsr_finalize(matrix_g)
       
-      CALL timestop(handle)
-
    END SUBROUTINE build_metric
 
 ! **************************************************************************************************
@@ -1002,15 +962,12 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "diag_nonsymm_mat", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: order, lda, ilo, ihi, info, lwork, m, &
-                                                         handle
+      INTEGER                                         :: order, lda, ilo, ihi, info, lwork, m
       REAL(dp), DIMENSION(:,:), POINTER               :: qmat, vr, wmat
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: scal, work, tau, wi
       LOGICAL, DIMENSION(:), ALLOCATABLE              :: sel
 
       NULLIFY(qmat, vr, wmat)
-
-      CALL timeset(routineN, handle)
 
 !  Initialization
       CPASSERT(ASSOCIATED(matrix))
@@ -1078,8 +1035,6 @@ CONTAINS
 ! Clean-up
       DEALLOCATE(qmat, vr)
 
-      CALL timestop(handle)
-
    END SUBROUTINE diag_nonsymm_mat
 
 
@@ -1100,7 +1055,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "pdiag_nonsymm_mat", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: handle, order, ilo, ihi, ia, ja, info, &
+      INTEGER                                         :: order, ilo, ihi, ia, ja, info, &
                                                          lwork, m, liwork
       REAL(dp), DIMENSION(:,:), POINTER               :: amat, wmat
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: work, tau, wi
@@ -1115,7 +1070,6 @@ CONTAINS
       NULLIFY(amat, work_mat, wmat, comp_mat, comp_evecs, cmat, cevecs, work_evecs)
 
 !  We assume SCALAPACK is available
-      CALL timeset(routineN, handle)
       CPASSERT(ASSOCIATED(matrix))
       CPASSERT(ASSOCIATED(evals))
       CPASSERT(ASSOCIATED(evecs))
@@ -1263,8 +1217,6 @@ CONTAINS
       CALL cp_cfm_release(comp_mat)
       CALL cp_cfm_release(comp_evecs)
 
-      CALL timestop(handle)
-
    END SUBROUTINE pdiag_nonsymm_mat
 
 ! **************************************************************************************************!
@@ -1286,7 +1238,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "compute_ri_coulomb2_int", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: handle, nset, pset, qset, G_count, & 
+      INTEGER                                         :: nset, pset, qset, G_count, & 
                                                          R_count, ikind, i, offset_p_start, &
                                                          offset_p_end, offset_q_start, &
                                                          offset_q_end, sgfp, sgfq, eri_method
@@ -1304,8 +1256,6 @@ CONTAINS
       TYPE(cp_fm_struct_type), POINTER                :: fm_struct 
       REAL(dp), DIMENSION(3)                          :: r
 
-      CALL timeset(routineN, handle)
-      
       NULLIFY(ri_basis, zet, sphi, qs_kind_set, lmax, lmin, first_sgf, eri_param, para_env)
       NULLIFY(work_fm, fm_struct, blacs_env)
       CPASSERT(ASSOCIATED(xas_tdp_env))
@@ -1390,8 +1340,6 @@ CONTAINS
       CALL cp_eri_mme_finalize(eri_param)
       DEALLOCATE(eri_param)
 
-      CALL timestop(handle)
-
    END SUBROUTINE compute_ri_coulomb2_int
 
 ! **************************************************************************************************
@@ -1421,7 +1369,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'compute_ri_coulomb3_int', &
                                      routineP = moduleN//':'//routineN
 
-      INTEGER                                         :: handle, nsetp, nsetb, natom, &
+      INTEGER                                         :: nsetp, nsetb, natom, &
                                                          nao, nseta, bat, aset, bset, pset, &
                                                          sgfa, sgfp, sgfb, aat, akind, bkind, & 
                                                          nkind, igp, i, GG_count, &
@@ -1449,8 +1397,6 @@ CONTAINS
       TYPE(cell_type), POINTER                        :: cell
       TYPE(cp_eri_mme_param), POINTER                 :: eri_param   
       TYPE(cp_para_env_type), POINTER                 :: para_env
-
-      CALL timeset(routineN, handle)
 
       NULLIFY(qs_kind_set, p_basis, b_basis, a_basis, particle_set, mos)
       NULLIFY(lp_max, lp_min, npgfp, zetp, rpgfp, sphi_p, first_sgfp)
@@ -1596,8 +1542,6 @@ CONTAINS
 
 !  Clean-up
       DEALLOCATE(basis_set_list)
-
-      CALL timestop(handle)
 
    END SUBROUTINE compute_ri_coulomb3_int
 
