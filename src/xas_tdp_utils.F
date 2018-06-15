@@ -1273,8 +1273,8 @@ CONTAINS
 !  Reading the ERI_MME params and calibrate them (not centralized to avoid circular dependency)
       ALLOCATE(eri_param)
       CALL cp_eri_mme_init_read_input(xas_tdp_control%eri_mme_subsection, eri_param)
-      CALL cp_eri_mme_set_params(eri_param, cell, qs_kind_set, basis_type_1="RI_AUX", &
-                                 basis_type_2="RI_AUX", para_env=para_env)      
+      CALL cp_eri_mme_set_params(eri_param, cell, qs_kind_set, basis_type_1="RI_XAS", &
+                                 basis_type_2="RI_XAS", para_env=para_env)      
       G_count = 0
       R_count = 0
 
@@ -1283,7 +1283,7 @@ CONTAINS
          ikind = ex_kinds(i) 
 
 !        Get the RI basis of interest and its quantum numbers
-         CALL get_qs_kind(qs_kind_set(ikind), basis_set=ri_basis, basis_type="RI_AUX")
+         CALL get_qs_kind(qs_kind_set(ikind), basis_set=ri_basis, basis_type="RI_XAS")
          CALL get_gto_basis_set(ri_basis, lmax=lmax, npgf=npgf, zet=zet, lmin=lmin, nset=nset, &
                                 nsgf_set=nsgf, sphi=sphi, first_sgf=first_sgf) 
 
@@ -1412,7 +1412,7 @@ CONTAINS
       CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf_set)
 
 !  Retrieve the basis set P centered on the excited atom
-      CALL get_qs_kind(qs_kind_set(exat_kind), basis_set=p_basis, basis_type="RI_AUX")
+      CALL get_qs_kind(qs_kind_set(exat_kind), basis_set=p_basis, basis_type="RI_XAS")
 
       CALL get_gto_basis_set(p_basis, lmax=lp_max, npgf=npgfp, zet=zetp, lmin=lp_min, nset=nsetp, &
                              nsgf_set=nsgfp, sphi=sphi_p, first_sgf=first_sgfp, pgf_radius=rpgfp) 
@@ -1435,7 +1435,7 @@ CONTAINS
       ALLOCATE(eri_param)
       CALL cp_eri_mme_init_read_input(xas_tdp_control%eri_mme_subsection, eri_param)
       CALL cp_eri_mme_set_params(eri_param, cell, qs_kind_set, basis_type_1="ORB", & 
-                                              basis_type_2="RI_AUX", para_env=para_env)
+                                              basis_type_2="RI_XAS", para_env=para_env)
       GG_count = 0
       GR_count = 0
       RR_count = 0
