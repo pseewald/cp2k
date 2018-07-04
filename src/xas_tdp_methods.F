@@ -20,7 +20,9 @@ MODULE xas_tdp_methods
    USE cell_types,                      ONLY: cell_type,&
                                               pbc
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
+   USE cp_control_types,                ONLY: dft_control_type, xas_tdp_control_type, &
+                                              xas_tdp_control_create
+   USE cp_control_utils,                ONLY: read_xas_tdp_control
    USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
    USE cp_fm_basic_linalg,              ONLY: cp_fm_gemm
    USE cp_fm_struct,                    ONLY: cp_fm_struct_type, cp_fm_struct_create,&
@@ -70,10 +72,7 @@ MODULE xas_tdp_methods
    USE qs_operators_ao,                 ONLY: p_xyz_ao, rRc_xyz_ao       
    USE qs_rho_types,                    ONLY: qs_rho_get, qs_rho_type
    USE xas_methods,                     ONLY: calc_stogto_overlap
-   USE xas_tdp_types,                   ONLY: xas_tdp_control_type,&
-                                              read_xas_tdp_control,&
-                                              xas_tdp_control_create,&
-                                              xas_tdp_env_type,&
+   USE xas_tdp_types,                   ONLY: xas_tdp_env_type,&
                                               xas_tdp_env_create,&
                                               xas_tdp_env_release,&
                                               set_xas_tdp_env,&
