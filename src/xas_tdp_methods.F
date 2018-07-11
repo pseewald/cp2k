@@ -70,13 +70,15 @@ MODULE xas_tdp_methods
    USE qs_operators_ao,                 ONLY: p_xyz_ao, rRc_xyz_ao       
    USE qs_rho_types,                    ONLY: qs_rho_get, qs_rho_type
    USE xas_methods,                     ONLY: calc_stogto_overlap
+   USE xas_tdp_gapw,                    ONLY: ri_gapw_env_type, init_ri_gapw_env, &
+                                              release_ri_gapw_env, integrate_ri_gapw_smooth
    USE xas_tdp_types,                   ONLY: xas_tdp_env_type,&
                                               xas_tdp_env_create,&
                                               xas_tdp_env_release,&
-                                              xas_tdp_control_type,&
-                                              read_xas_tdp_control,&
-                                              xas_tdp_control_create,&
                                               set_xas_tdp_env,&
+                                              xas_tdp_control_type, &
+                                              read_xas_tdp_control, &
+                                              xas_tdp_control_create, & 
                                               donor_state_type,&
                                               set_donor_state, &
                                               free_ds_memory
@@ -124,6 +126,7 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                    :: para_env
       REAL(dp), DIMENSION(3)                             :: rc
       TYPE(cell_type), POINTER                           :: cell
+      TYPE(ri_gapw_env_type), POINTER                   :: ri_gapw_env
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state, para_env)
       NULLIFY(particle_set, cell)
@@ -220,9 +223,17 @@ CONTAINS
          CALL get_atomic_kind(atomic_kind=atomic_kind_set(ikind), element_symbol=symbol_of_kind,&
                               atom_list=atoms_of_kind)
 
+!     Random testing of the ri_gapw
+         IF (ANY(xas_tdp_env%ex_kind_indices == ikind)) THEN
+            NULLIFY(ri_gapw_env)
+            CALL init_ri_gapw_env(ri_gapw_env, xas_tdp_env%ex_kind_indices, qs_env, dft_control%qs_control)
+            CALL integrate_ri_gapw_smooth(ri_gapw_env, qs_env)
+            CALL release_ri_gapw_env(ri_gapw_env)
+         END IF
+
 !        Loop over atoms of kind
          DO iat = 1,SIZE(atoms_of_kind)
-            
+
             IF (ANY(xas_tdp_env%ex_atom_indices == atoms_of_kind(iat))) THEN
                tmp_index = MINLOC(ABS(xas_tdp_env%ex_atom_indices-atoms_of_kind(iat)),1)  
 
@@ -511,7 +522,7 @@ CONTAINS
 
 !     Precompute it if velocity represnetation. If length, need to do it for each excited atom 
       IF (xas_tdp_control%dipole_form == xas_dip_vel) CALL p_xyz_ao(xas_tdp_env%dipmat, qs_env)      
-     
+
    END SUBROUTINE xas_tdp_init
 
 !> *************************************************************************************************
