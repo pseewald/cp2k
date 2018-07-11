@@ -12,17 +12,16 @@ MODULE cp_control_types
    USE cp_fm_types,                     ONLY: cp_fm_p_type,&
                                               cp_fm_release
    USE input_constants,                 ONLY: do_full_density
-   USE input_section_types,             ONLY: section_vals_type
    USE kinds,                           ONLY: default_path_length,&
                                               default_string_length,&
                                               dp
    USE qs_cdft_types,                   ONLY: cdft_control_create,&
-   USE qs_loc_types,                    ONLY: qs_loc_env_new_type,&
-                                              qs_loc_env_release
                                               cdft_control_release,&
                                               cdft_control_type
    USE xas_control,                     ONLY: xas_control_release,&
                                               xas_control_type
+   USE xas_tdp_types,                   ONLY: xas_tdp_control_release,&
+                                              xas_tdp_control_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -453,40 +452,6 @@ MODULE cp_control_types
    END TYPE tddfpt2_control_type
 
 ! **************************************************************************************************
-!> \brief Type containing control information for TDP XAS calculations 
-!> \param define_excited whether excited atoms are chosen by kind or index
-!> \param dipole_form whether the dipole moment is computed in the length or velocity representation
-!> \param n_search # of lowest energy MOs to search for donor orbitals
-!> \param n_gauss # of GTOs used in STO expansion for core donor state identification
-!> \param check_donor_states whether one only checks MO to donor state assignment
-!> \param tamm_dancoff whether the calculations should be done in the Tamm-Dancoff approximation
-!> \param full_diag whether the LR matrix should be fully built and diagonalized 
-!> \param list_ex_atoms list of excited atom indices, kept empty if define_excited=by_kind 
-!> \param list_ex_kinds list of excited atom kinds, kept empty if define_excited=by_index
-!> \param do_singlet whether the excitations to consider are singlet (versus triplet)
-!> \param state_types columns correspond to the states to excite for each atom kind/index
-!>                    the number of rows is the number of times the keyword is repeated
-!> \param eri_mme_subsection the subsection dealing with the param for the eri_mme for the kernels
-! **************************************************************************************************
-   TYPE xas_tdp_control_type    
-      INTEGER                                 :: define_excited
-      INTEGER                                 :: dipole_form 
-      INTEGER                                 :: n_search
-      INTEGER                                 :: n_gauss
-      LOGICAL                                 :: check_donor_states
-      LOGICAL                                 :: tamm_dancoff  
-      LOGICAL                                 :: full_diag 
-      LOGICAL                                 :: do_singlet    
-      INTEGER, DIMENSION(:), POINTER          :: list_ex_atoms
-      CHARACTER(len=default_string_length),&
-                     DIMENSION(:), POINTER    :: list_ex_kinds
-      INTEGER, DIMENSION(:,:), POINTER        :: state_types  
-      TYPE(section_vals_type), POINTER        :: loc_subsection 
-      TYPE(section_vals_type), POINTER        :: print_loc_subsection
-      TYPE(section_vals_type), POINTER        :: eri_mme_subsection
-   END TYPE xas_tdp_control_type
-
-! **************************************************************************************************
 ! \brief Control parameters for a DFT calculation
 ! **************************************************************************************************
    TYPE dft_control_type
@@ -556,7 +521,6 @@ MODULE cp_control_types
              gapw_control_type, &
              tddfpt_control_type, &
              tddfpt2_control_type, &
-             xas_tdp_control_type, &
              efield_type, &
              mulliken_restraint_type, &
              ddapc_restraint_type, &
@@ -574,7 +538,6 @@ MODULE cp_control_types
              dft_control_release, &
              dft_control_create, &
              tddfpt_control_create, &
-             xas_tdp_control_create, &
              admm_control_create, &
              ddapc_control_create, &
              sccs_control_create
@@ -1043,73 +1006,6 @@ CONTAINS
 
       CALL timestop(handle)
    END SUBROUTINE tddfpt2_control_release
-
-
-! **************************************************************************************************
-!> \brief Creates and initializes the xas_tdp_control_type
-!> \param xas_tdp_control the type to initialize
-! **************************************************************************************************
-   SUBROUTINE xas_tdp_control_create(xas_tdp_control)
-
-      TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control          
-
-      CHARACTER(len=*), PARAMETER                        :: routineN = 'xas_tdp_control_create', &
-                                                            routineP = moduleN//':'//routineN
-
-      CPASSERT(.NOT. ASSOCIATED(xas_tdp_control)) 
-      ALLOCATE (xas_tdp_control) 
-
-      xas_tdp_control%dipole_form = 1
-      xas_tdp_control%define_excited = 1
-      xas_tdp_control%n_search = -1 
-      xas_tdp_control%n_gauss = 3
-      xas_tdp_control%check_donor_states = .FALSE.
-      xas_tdp_control%tamm_dancoff = .FALSE.
-      xas_tdp_control%full_diag = .FALSE.
-      xas_tdp_control%do_singlet = .TRUE.
-      NULLIFY (xas_tdp_control%state_types)
-      NULLIFY (xas_tdp_control%list_ex_atoms)
-      NULLIFY (xas_tdp_control%list_ex_kinds)
-      NULLIFY (xas_tdp_control%loc_subsection)
-      NULLIFY (xas_tdp_control%print_loc_subsection)
-      NULLIFY (xas_tdp_control%eri_mme_subsection) 
-
-   END SUBROUTINE xas_tdp_control_create
-
-! ************************************************************************************************** 
-!> \brief Releases the xas_tdp_control_type                                                          
-!> \param xas_tdp_control the type to release                                                        
-! **************************************************************************************************
-   SUBROUTINE xas_tdp_control_release(xas_tdp_control)
-
-      TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control
-
-      CHARACTER(len=*), PARAMETER                        :: routineN = 'xas_tdp_control_release', & 
-                                                            routineP = moduleN//':'//routineN
-
-      IF (ASSOCIATED(xas_tdp_control)) THEN
-         IF (ASSOCIATED(xas_tdp_control%list_ex_atoms)) THEN
-            DEALLOCATE (xas_tdp_control%list_ex_atoms)
-         END IF
-         IF (ASSOCIATED(xas_tdp_control%list_ex_kinds)) THEN
-            DEALLOCATE (xas_tdp_control%list_ex_kinds)   
-         END IF
-         IF (ASSOCIATED(xas_tdp_control%state_types)) THEN
-            DEALLOCATE(xas_tdp_control%state_types)
-         END IF
-         IF (ASSOCIATED(xas_tdp_control%loc_subsection)) THEN       
-            DEALLOCATE(xas_tdp_control%loc_subsection)
-         END IF
-         IF (ASSOCIATED(xas_tdp_control%print_loc_subsection)) THEN
-            DEALLOCATE(xas_tdp_control%print_loc_subsection)
-         END IF
-         IF (ASSOCIATED(xas_tdp_control%eri_mme_subsection)) THEN     
-            DEALLOCATE(xas_tdp_control%eri_mme_subsection)   
-         END IF
-         DEALLOCATE (xas_tdp_control)          
-      END IF
-
-   END SUBROUTINE xas_tdp_control_release
 
 ! **************************************************************************************************
 !> \brief ...
