@@ -16,8 +16,7 @@ MODULE cp_control_utils
    USE cp_control_types,                ONLY: &
         admm_control_create, admm_control_type, ddapc_control_create, ddapc_restraint_type, &
         dft_control_create, dft_control_type, efield_type, qs_control_type, sccs_control_create, &
-        tddfpt2_control_type, tddfpt_control_create, tddfpt_control_type, xtb_control_type, &
-        xas_tdp_control_type
+        tddfpt2_control_type, tddfpt_control_create, tddfpt_control_type, xtb_control_type
    USE cp_files,                        ONLY: close_file,&
                                               open_file
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
@@ -41,8 +40,7 @@ MODULE cp_control_utils
         real_time_propagation, sccs_andreussi, sccs_derivative_cd3, sccs_derivative_cd5, &
         sccs_derivative_cd7, sccs_derivative_fft, sccs_fattebert_gygi, sic_ad, sic_eo, &
         sic_list_all, sic_list_unpaired, sic_mauri_spz, sic_mauri_us, sic_none, slater, &
-        tddfpt_excitations, use_mom_ref_user, xas_dip_len, xas_dip_vel, xas_tdp_by_index, &
-        xas_tdp_by_kind, tddfpt_singlet
+        tddfpt_excitations, use_mom_ref_user, xas_dip_len
    USE input_cp2k_dft,                  ONLY: create_dft_section,&
                                               create_qs_section
    USE input_enumeration_types,         ONLY: enum_i2c,&
@@ -56,7 +54,6 @@ MODULE cp_control_utils
                                               default_string_length,&
                                               dp
    USE qs_cdft_utils,                   ONLY: read_cdft_control_section
-   USE memory_utilities,                ONLY: reallocate
    USE string_utilities,                ONLY: uppercase
    USE util,                            ONLY: sort
    USE xc_derivatives,                  ONLY: xc_functionals_get_needs
@@ -76,7 +73,6 @@ MODULE cp_control_utils
              read_qs_section, &
              read_tddfpt_control, &
              read_tddfpt2_control, &
-             read_xas_tdp_control, &
              write_dft_control, &
              write_qs_control, &
              read_ddapc_section
@@ -1286,112 +1282,6 @@ CONTAINS
 
       CALL timestop(handle)
    END SUBROUTINE read_tddfpt2_control
-
-! **************************************************************************************************
-!> \brief Reads the inputs and stores in xas_tdp_control_type                                        
-!> \param xas_tdp_control the type where inputs are stored                                           
-!> \param xas_tdp_section the section from which input are read  
-! **************************************************************************************************
-   SUBROUTINE read_xas_tdp_control(xas_tdp_control, xas_tdp_section)
-
-      TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control  
-      TYPE(section_vals_type), POINTER                   :: xas_tdp_section     
-
-      CHARACTER(len=*), PARAMETER                        :: routineN = 'read_xas_tdp_control', & 
-                                                            routineP = moduleN//':'//routineN 
-
-      INTEGER                                            :: irep, nrep, nexc, excitation     
-      CHARACTER(len=default_string_length),&                                 
-                     DIMENSION(:), POINTER               :: k_list  
-      INTEGER, DIMENSION(:), POINTER                     :: a_list, t_list             
-
-      NULLIFY (k_list,a_list,t_list)
-
-      CALL section_vals_val_get(xas_tdp_section, "DEFINE_EXCITED", & 
-                                 i_val=xas_tdp_control%define_excited)    
-
-      CALL section_vals_val_get(xas_tdp_section, "DIPOLE_FORM", i_val=xas_tdp_control%dipole_form)
-
-      CALL section_vals_val_get(xas_tdp_section, "ONLY_CHECK_DONOR_STATES", &   
-                                l_val=xas_tdp_control%check_donor_states)
-
-      CALL section_vals_val_get(xas_tdp_section, "TAMM_DANCOFF", &
-                                l_val=xas_tdp_control%tamm_dancoff)  
-
-      CALL section_vals_val_get(xas_tdp_section, "FULL_DIAG", &
-                                l_val=xas_tdp_control%full_diag)   
-
-      CALL section_vals_val_get(xas_tdp_section, "EXCITATIONS", i_val=excitation)    
-      IF (excitation == tddfpt_singlet) THEN                                                         
-         xas_tdp_control%do_singlet = .TRUE.                                                         
-      ELSE                                                                                           
-         xas_tdp_control%do_singlet = .FALSE.                                                        
-      END IF   
-
-      IF (.NOT. ASSOCIATED(xas_tdp_control%list_ex_kinds)) THEN
-         IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_index) THEN 
-
-            ALLOCATE (xas_tdp_control%list_ex_kinds(0))  
-
-         ELSE IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_kind) THEN   
-
-            CALL section_vals_val_get(xas_tdp_section, "KIND_LIST", c_vals=k_list) 
-
-            IF (ASSOCIATED(k_list)) THEN
-               nexc = SIZE(k_list)
-               ALLOCATE (xas_tdp_control%list_ex_kinds(nexc)) 
-               xas_tdp_control%list_ex_kinds = k_list
-            END IF   
-
-         END IF
-      END IF  
-
-      IF (.NOT. ASSOCIATED(xas_tdp_control%list_ex_atoms)) THEN
-         IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_kind) THEN 
-
-            ALLOCATE (xas_tdp_control%list_ex_atoms(0))  
-
-         ELSE IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_index) THEN
-
-            CALL section_vals_val_get(xas_tdp_section, "ATOM_LIST", i_vals=a_list)
-
-            IF (ASSOCIATED(a_list)) THEN
-               nexc = SIZE(a_list)
-               CALL reallocate(xas_tdp_control%list_ex_atoms, 1, nexc) 
-               xas_tdp_control%list_ex_atoms = a_list
-            END IF       
-
-         END IF 
-      END IF  
-
-      CALL section_vals_val_get(xas_tdp_section, "STATE_TYPES", n_rep_val=nrep)
-
-      IF(.NOT. ASSOCIATED(xas_tdp_control%state_types)) THEN  
-         ALLOCATE (xas_tdp_control%state_types(nrep,nexc))
-         DO irep = 1,nrep
-            CALL section_vals_val_get(xas_tdp_section, "STATE_TYPES", i_rep_val=irep, i_vals=t_list) 
-            IF (SIZE(t_list) .NE. nexc) THEN
-               CPABORT("The STATE_TYPES keywords do not have the correct number of entries.")  
-            END IF 
-            xas_tdp_control%state_types(irep,:) = t_list              
-         END DO  
-      END IF   
-
-      CALL section_vals_val_get(xas_tdp_section, "STATE_SEARCH", i_val=xas_tdp_control%n_search)
-
-      CALL section_vals_val_get(xas_tdp_section, "NGAUSS", i_val=xas_tdp_control%n_gauss)   
-
-      xas_tdp_control%loc_subsection => section_vals_get_subs_vals(xas_tdp_section, "LOCALIZE")
-      xas_tdp_control%print_loc_subsection => section_vals_get_subs_vals(&
-                                                         xas_tdp_control%loc_subsection, "PRINT")
-
-      xas_tdp_control%eri_mme_subsection => section_vals_get_subs_vals(xas_tdp_section, "ERI_MME")
-
-      IF (.NOT. ASSOCIATED(xas_tdp_control%eri_mme_subsection)) THEN                
-         CPABORT("The ERI_MME subsection is needed for the computation of the Coulomb kernel") 
-      END IF 
-
-   END SUBROUTINE read_xas_tdp_control 
 
 ! **************************************************************************************************
 !> \brief Write the DFT control parameters to the output unit.

@@ -13,7 +13,6 @@ MODULE xas_tdp_utils
    USE basis_set_types,                 ONLY: gto_basis_set_type, get_gto_basis_set, &
                                               gto_basis_set_p_type
    USE cell_types,                      ONLY: cell_type, pbc
-   USE cp_control_types,                ONLY: xas_tdp_control_type
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm, cp_dbcsr_sm_fm_multiply, &
                                               copy_fm_to_dbcsr
    USE cp_eri_mme_interface,            ONLY: cp_eri_mme_finalize, cp_eri_mme_param, &
@@ -61,7 +60,8 @@ MODULE xas_tdp_utils
                                               neighbor_list_iterator_p_type, &
                                               neighbor_list_iterator_release,&
                                               neighbor_list_set_p_type
-   USE xas_tdp_types,                   ONLY: donor_state_type, xas_tdp_env_type
+   USE xas_tdp_types,                   ONLY: donor_state_type, xas_tdp_env_type, &
+                                              xas_tdp_control_type
 
 #include "./base/base_uses.f90"
    
