@@ -87,6 +87,7 @@ MODULE xas_tdp_types
 !>        each excited atom
 !> \param ri_coul3 the 3D array (TODO: dbcsr tensor in the future) containing the 3-center coulomb
 !>        integrals (ab|P) with the RI basis centered on P. Updated for each new excited atom
+!> \param ri_gapw_int the dbcsr matrix in which the RI gapw integrals for the xc kernel are stored
 !> *************************************************************************************************
    TYPE xas_tdp_env_type
       CHARACTER(len=2), DIMENSION(3)          :: state_type_char
@@ -105,6 +106,7 @@ MODULE xas_tdp_types
       TYPE(dbcsr_type), POINTER               :: q_projector
       TYPE(dbcsr_p_type), DIMENSION(:), &
                                     POINTER   :: dipmat
+      TYPE(dbcsr_p_type)                      :: ri_gapw_int
    END TYPE xas_tdp_env_type
 
 !> *************************************************************************************************
@@ -346,6 +348,7 @@ CONTAINS
       NULLIFY (xas_tdp_env%q_projector)
       NULLIFY (xas_tdp_env%dipmat)
       NULLIFY (xas_tdp_env%ri_coul3)
+      NULLIFY (xas_tdp_env%ri_gapw_int%matrix)
 
 !     Putting the state types as char manually
       xas_tdp_env%state_type_char(1) = "1s"
@@ -402,6 +405,10 @@ CONTAINS
          END IF
          IF (ASSOCIATED(xas_tdp_env%ri_coul3)) THEN
             DEALLOCATE(xas_tdp_env%ri_coul3)
+         END IF
+         IF (ASSOCIATED(xas_tdp_env%ri_gapw_int%matrix)) THEN
+            CALL dbcsr_release(xas_tdp_env%ri_gapw_int%matrix)
+            DEALLOCATE(xas_tdp_env%ri_gapw_int%matrix)
          END IF
          DEALLOCATE (xas_tdp_env)
       END IF

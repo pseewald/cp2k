@@ -87,16 +87,19 @@ CONTAINS
 !>                                 |  G^-1*M_o    G^-1*M_d |,                                        
 !>       depending on whther we consider singlet or triplet excitation, the diagonal (M_d) and 
 !>       off-diagonal (M_o) parts of M differ:
-!>       - For singlet: M_d = A + 2B - D
-!>                      M_o = 2B - E
-!>       - For triplet: M_d = A - D
-!>                      M_o = - E
+!>       - For singlet: M_d = A + 2B + C_aa + C_ab - D
+!>                      M_o = 2B + C_aa + C_ab - E 
+!>       - For triplet: M_d = A + C_aa - C_ab - D
+!>                      M_o = C_aa - C_ab - E
 !>       where other subroutines computes the matrices A, B, E, D and G, which are:
 !>       - A: the ground-state contribution F_ab*delta_IJ - epsilon_IJ*S_ab
 !>       - B: the Coulob kernel ~(aI|Jb)
+!>       - C: the xc kernel c_aa (double derivatibe wrt to n_alpha) and C_ab (wrt n_alpha and n_beta)
 !>       - D: the on-digonal exact exchange kernel ~(ab|IJ)
 !>       - E: the off-diagonal exact exchange kernel ~(aJ|Ib)
 !>       - G: the metric  S_ab*delta_IJ
+!>       For the PADE xc functional, C_aa + C_ab is the same as 2*C (with d2fxc_d2n)
+!>                               and C_aa - C_ab simplifies a lot
 !>       In the above definitions, I,J label the donnor MOs and a,b the sgfs of the basis
 !>       The matrix M (matrix_tdp) has the same (i.e. 2x2 replicated) dbcsr_dist as usual
 ! **************************************************************************************************
@@ -111,11 +114,10 @@ CONTAINS
                                      routineP = moduleN//":"//routineN
       
       INTEGER                                         :: handle, group , iblk, jblk, nblk_sub, blk
-      
       TYPE(dbcsr_type), POINTER                       :: matrix_tdp
       TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g, diag_mat, & 
                                                          matrix_g_inv, offdiag_mat, matrix_b, &
-                                                         matrix_d, matrix_e, tmp_mat
+                                                         matrix_d, matrix_e, tmp_mat, matrix_c
       TYPE(dbcsr_distribution_type), POINTER          :: submat_dist, supmat_dist
       INTEGER, DIMENSION(:), POINTER                  :: submat_blk_size, supmat_blk_size, &
                                                          col_dist_sub, row_dist_sub, &
@@ -129,7 +131,7 @@ CONTAINS
 
       NULLIFY(matrix_a, submat_dist, submat_blk_size, supmat_dist, supmat_blk_size, col_dist_sub)
       NULLIFY(row_dist_sub, col_dist_sup, row_dist_sup, work_block, matrix_g, pgrid, diag_mat)
-      NULLIFY(matrix_tdp, offdiag_mat, matrix_b, matrix_d, matrix_e, tmp_mat) 
+      NULLIFY(matrix_tdp, offdiag_mat, matrix_b, matrix_d, matrix_e, tmp_mat, matrix_c) 
 
       CPASSERT(ASSOCIATED(donor_state))
       CPASSERT(ASSOCIATED(qs_env))
@@ -148,10 +150,12 @@ CONTAINS
 !     Compute the submatrices, store the metric and ignore the offdiag exchange kernel
          ALLOCATE(matrix_a)
          ALLOCATE(matrix_b)
+         ALLOCATE(matrix_c)
          ALLOCATE(matrix_d)
          ALLOCATE(donor_state%metric)
          CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
          CALL build_kernel_coulomb(matrix_b, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
+         CALL build_kernel_xc(matrix_c, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
          CALL build_kernel_exchange(ex_ker_diag=matrix_d, dist=submat_dist, blk_size=submat_blk_size, &
                                     donor_state=donor_state, xas_tdp_env=xas_tdp_env, qs_env=qs_env)     
          CALL build_metric(donor_state%metric, submat_dist, submat_blk_size, donor_state, qs_env)
@@ -164,20 +168,23 @@ CONTAINS
 !     Some clean-up
          CALL dbcsr_release(matrix_a)   
          CALL dbcsr_release(matrix_b) 
+         CALL dbcsr_release(matrix_c)
          CALL dbcsr_release(matrix_d)
-         DEALLOCATE(matrix_a, matrix_b, matrix_d)
+         DEALLOCATE(matrix_a, matrix_b, matrix_c, matrix_d)
 
       ELSE IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
 
-!     Compute the submatrices A, G and the different kernels (B, D and E)
+!     Compute the submatrices A, G and the different kernels (B, C, D and E)
          ALLOCATE(tmp_mat)
          ALLOCATE(matrix_a)
          ALLOCATE(matrix_b)
+         ALLOCATE(matrix_c)
          ALLOCATE(matrix_d)
          ALLOCATE(matrix_e)
          ALLOCATE(matrix_g)
          CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
          CALL build_kernel_coulomb(matrix_b, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
+         CALL build_kernel_xc(matrix_c, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
          CALL build_kernel_exchange(matrix_d, matrix_e, submat_dist, submat_blk_size, &
                                     donor_state, xas_tdp_env, qs_env)
          CALL build_metric(matrix_g, submat_dist, submat_blk_size, donor_state, qs_env)       
@@ -224,6 +231,7 @@ CONTAINS
          CALL dbcsr_release(matrix_g_inv)
          CALL dbcsr_release(matrix_a)
          CALL dbcsr_release(matrix_b)
+         CALL dbcsr_release(matrix_c)
          CALL dbcsr_release(matrix_d)
          CALL dbcsr_release(matrix_e)
          CALL dbcsr_release(matrix_g)
@@ -1933,6 +1941,155 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE build_kernel_exchange
+
+! **************************************************************************************************
+!> \brief Computes the XC part of the kernel using RI and GAPW
+!> \param xc_kernel the dbcsr_matrix where the xc kernel is stored
+!> \param dist the dbcsr_distribution of the matrix. Same as for matrices A,B or G
+!> \param blk_size the block sizes of the matrix 
+!> \param donor_state the donor_state for which we compute the kernel 
+!> \param xas_tdp_env ...
+!> \param qs_env ...
+!> \note currently coded with arrays and such low level types. TODO: switch to dbcsr tensors         
+!>       Everythin is gonna change later on, so don't care about performance
+! **************************************************************************************************
+   SUBROUTINE build_kernel_xc(xc_kernel, dist, blk_size, donor_state, xas_tdp_env, qs_env)
+
+      TYPE(dbcsr_type), POINTER                       :: xc_kernel
+      TYPE(dbcsr_distribution_type), POINTER          :: dist
+      INTEGER, DIMENSION(:), POINTER                  :: blk_size
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "build_kernel_xc", &                            
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: handle, ndo_mo, nblk, i, nsgfp, nao, j, &
+                                                         iblk, jblk, nrow_blk, ncol_blk
+      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
+      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set 
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: first_sgf
+      TYPE(cp_blacs_env_type), POINTER                :: context
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: PQ, proj_Q, int_aI, int_bJ, work1, &
+                                                         work2, aIJb_prod, work3
+      REAL(dp), DIMENSION(:,:), POINTER               :: fxc
+      TYPE(cp_fm_struct_type), POINTER                :: fm_struct
+      TYPE(cp_fm_type), POINTER                       :: work_fm
+      LOGICAL                                         :: found_block
+
+      CALL timeset(routineN, handle)
+
+      NULLIFY(particle_set, qs_kind_set, context, para_env, fm_struct, work_fm)
+
+!  Initialization
+      ndo_mo = SIZE(donor_state%mo_indices,1) 
+      CALL get_qs_env(qs_env, natom=nblk, particle_set=particle_set, qs_kind_set=qs_kind_set)
+      ALLOCATE(first_sgf(nblk))
+      CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf)
+
+!     Get the (P|Q)^-1 as an array
+      i = MINLOC(ABS(xas_tdp_env%ex_kind_indices-donor_state%kind_index), 1)
+      CALL cp_fm_get_info(xas_tdp_env%ri_inv_mats(i)%matrix, ncol_global=nsgfp, &                    
+                          context=context, para_env=para_env)
+      nao = SIZE(xas_tdp_env%ri_coul3, 1)
+      ALLOCATE(PQ(nsgfp, nsgfp))
+      CALL cp_fm_get_submatrix(fm=xas_tdp_env%ri_inv_mats(i)%matrix, target_m=PQ)
+
+!     Get the projector Q as an array (dbcsr => fm => array)
+      ALLOCATE(proj_Q(nao,nao))
+      CALL cp_fm_struct_create(fm_struct, context=context, para_env=para_env, nrow_global=nao, &     
+                                        ncol_global=nao)
+      CALL cp_fm_create(work_fm, fm_struct)
+      CALL copy_dbcsr_to_fm(xas_tdp_env%q_projector, work_fm)
+      CALL cp_fm_get_submatrix(fm=work_fm, target_m=proj_Q)
+      CALL cp_fm_struct_release(fm_struct)
+      CALL cp_fm_release(work_fm)
+
+!     Get the 2-center integrel (Q|fxc|R) as an array (a block from a dbcsr matrix)
+!     For now assume serial => don't check for which proc the block is on
+      found_block = .FALSE.
+      CALL dbcsr_get_block_p(xas_tdp_env%ri_gapw_int%matrix, donor_state%at_index, &
+                            donor_state%at_index, fxc, found_block)
+      CPASSERT(found_block)
+      CPASSERT(ALL(SHAPE(fxc)==nsgfp))
+
+!     Build the dbcsr matrix for the kernel
+      CALL dbcsr_create(matrix=xc_kernel, name="XC KERNEL", matrix_type='S', dist=dist, &
+                        row_blk_size=blk_size, col_blk_size=blk_size)
+
+!     Allocating work arrays to store the intemediate products
+      ALLOCATE(work1(nao, nsgfp))
+      ALLOCATE(work2(nao, nsgfp))
+      ALLOCATE(work3(nao, nao))
+      ALLOCATE(aIJb_prod(nao, nao))
+
+!  Loop over the donor MOs and compute the matrix product projQ * W *projQ^T, where W is
+!  W_ab = (aI|P) * (P|Q)^-1 * (Q|fxc|R) * (R|S)^-1 * (S|Jb) ~= (aI|fxc|Jb)
+!  Symmetric matrix => only span upper triangle
+      DO i = 1,ndo_mo
+         CALL contract_int_kernel(int_aI, (/donor_state%mo_indices(i)/), xas_tdp_env, qs_env)
+         DO j = i,ndo_mo
+            CALL contract_int_kernel(int_bJ, (/donor_state%mo_indices(j)/), xas_tdp_env, qs_env)
+
+            work1 = 0.0_dp
+            work2 = 0.0_dp
+            work3 = 0.0_dp
+            aIJb_prod = 0.0_dp
+
+!           Do the product (aI|P)*(P|Q)^-1 and stroe in work1
+            CALL dgemm('N', 'N', nao, nsgfp, nsgfp, 1.0_dp, int_aI, nao, PQ, nsgfp, 0.0_dp, & 
+                        work1, nao)
+
+!           Muliply the above by (Q|fxc|R) and store in work2
+            CALL dgemm('N', 'N', nao, nsgfp, nsgfp, 1.0_dp, work1, nao, fxc, nsgfp, 0.0_dp, &
+                       work2, nao)
+            work1 = 0.0_dp
+
+!           Multiply the above by (R|S)^-1 => (aI|P)*(P|Q)^-1 *(Q|fxc|R)*(R|S)^-1 = work1
+            CALL dgemm('N', 'N', nao, nsgfp, nsgfp, 1.0_dp, work2, nao, PQ, nsgfp, 0.0_dp, &
+                       work1, nao)
+
+!           Multiply the above by (S|Jb) = (Jb|S)^T and temporarly store in aIJb_prod
+            CALL dgemm('N', 'T', nao, nao, nsgfp, 1.0_dp, work1, nao, int_bJ, nao, 0.0_dp, &
+                       aIJb_prod, nao)
+
+!           Muliply by the projector from both sides => projQ * W *projQ^T
+            CALL dgemm('N', 'N', nao, nao, nao,  1.0_dp, proj_Q, nao, aIJb_prod, nao, 0.0_dp, &      
+                        work3, nao)
+            aIJb_prod = 0.0_dp
+            CALL dgemm('N', 'T', nao, nao, nao,  1.0_dp, work3, nao, proj_Q, nao, 0.0_dp, &          
+                        aIJb_prod, nao)
+
+!           Put the product in the dbcsr_matrix, for the right I,J block
+            DO iblk = 1,nblk
+               DO jblk = 1,nblk
+
+!                 If on the block diagonal, just take jblk >= iblk
+                  IF (jblk < iblk .AND. i==j) CYCLE
+
+!                 Size of the current block
+                  nrow_blk = blk_size(iblk)
+                  ncol_blk = blk_size(jblk)
+
+                  CALL dbcsr_put_block(xc_kernel, (i-1)*nblk+iblk, (j-1)*nblk+jblk, & 
+                                       aIJb_prod(first_sgf(iblk):first_sgf(iblk)+nrow_blk-1, &
+                                                 first_sgf(jblk):first_sgf(jblk)+ncol_blk-1))
+
+               END DO ! jblk
+            END DO ! iblk
+
+            DEALLOCATE(int_bJ)
+         END DO ! donor MO j
+         DEALLOCATE(int_aI)
+      END DO ! donor MO i
+
+      CALL dbcsr_finalize(xc_kernel)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE build_kernel_xc
 
 END MODULE xas_tdp_utils
 

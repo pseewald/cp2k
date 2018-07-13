@@ -51,6 +51,7 @@ MODULE xas_tdp_methods
    USE particle_types,                  ONLY: particle_type
    USE periodic_table,                  ONLY: ptable
    USE physcon,                         ONLY: angstrom, evolt
+   USE pw_types,                        ONLY: pw_p_type, pw_release
    USE qs_environment_types,            ONLY: qs_environment_type,&
                                               get_qs_env
    USE qs_kind_types,                   ONLY: get_qs_kind,&   
@@ -71,7 +72,8 @@ MODULE xas_tdp_methods
    USE qs_rho_types,                    ONLY: qs_rho_get, qs_rho_type
    USE xas_methods,                     ONLY: calc_stogto_overlap
    USE xas_tdp_gapw,                    ONLY: ri_gapw_env_type, init_ri_gapw_env, &
-                                              release_ri_gapw_env, integrate_ri_gapw_smooth
+                                              release_ri_gapw_env, integrate_ri_gapw_smooth, &
+                                              pade_kernel_pw_create
    USE xas_tdp_types,                   ONLY: xas_tdp_env_type,&
                                               xas_tdp_env_create,&
                                               xas_tdp_env_release,&
@@ -126,10 +128,13 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                    :: para_env
       REAL(dp), DIMENSION(3)                             :: rc
       TYPE(cell_type), POINTER                           :: cell
-      TYPE(ri_gapw_env_type), POINTER                   :: ri_gapw_env
+      TYPE(ri_gapw_env_type), POINTER                    :: ri_gapw_env
+      TYPE(pw_p_type)                                    :: fxc_rspace
+      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r
+      TYPE(qs_rho_type), POINTER                         :: rho_struct
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state, para_env)
-      NULLIFY(particle_set, cell)
+      NULLIFY(particle_set, cell, rho_r, rho_struct, ri_gapw_env, fxc_rspace%pw)
 
       CALL timeset(routineN, handle)
 
@@ -209,6 +214,21 @@ CONTAINS
       END IF
       CALL write_mos_to_ex_atoms_association(xas_tdp_env, qs_env, output_unit)     
 
+!  Setup a ri_gapw_env and compute the xc kernel gapw integrals for all excited kinds once
+      CALL init_ri_gapw_env(ri_gapw_env, xas_tdp_env%ex_kind_indices, qs_env, dft_control%qs_control) 
+
+!     Deal with the smooth interatomic part (only PADE for now)
+      CALL get_qs_env(qs_env, rho=rho_struct)
+      CALL qs_rho_get(rho_struct, rho_r=rho_r) 
+!     WARNING: here take rho_r(1) but since it is spin-restricted ground state, it's the whole density
+      CALL pade_kernel_pw_create(fxc_rspace, rho_r(1), ri_gapw_env%eps_rho)
+      ALLOCATE(xas_tdp_env%ri_gapw_int%matrix)
+      CALL integrate_ri_gapw_smooth(fxc_rspace, xas_tdp_env%ri_gapw_int, ri_gapw_env, qs_env)
+
+      CALL pw_release(fxc_rspace%pw)
+      CALL release_ri_gapw_env(ri_gapw_env)
+      CPASSERT(ASSOCIATED(xas_tdp_env%ri_gapw_int%matrix))
+
 !  Loop over donor states for calculation
 !  TODO: I suspect that for parallel run with mpirun, all the processors do not go at the same speed
 !        causing some pointer to be dealloacted before they are called by the other processors
@@ -222,14 +242,6 @@ CONTAINS
          
          CALL get_atomic_kind(atomic_kind=atomic_kind_set(ikind), element_symbol=symbol_of_kind,&
                               atom_list=atoms_of_kind)
-
-!     Random testing of the ri_gapw
-         IF (ANY(xas_tdp_env%ex_kind_indices == ikind)) THEN
-            NULLIFY(ri_gapw_env)
-            CALL init_ri_gapw_env(ri_gapw_env, xas_tdp_env%ex_kind_indices, qs_env, dft_control%qs_control)
-            CALL integrate_ri_gapw_smooth(ri_gapw_env, qs_env)
-            CALL release_ri_gapw_env(ri_gapw_env)
-         END IF
 
 !        Loop over atoms of kind
          DO iat = 1,SIZE(atoms_of_kind)
