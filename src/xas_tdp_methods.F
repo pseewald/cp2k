@@ -38,7 +38,7 @@ MODULE xas_tdp_methods
    USE dbcsr_api,                       ONLY: dbcsr_p_type, dbcsr_type, dbcsr_release, dbcsr_print, &
                                               dbcsr_create, dbcsr_multiply, dbcsr_add_on_diag, &
                                               dbcsr_finalize, dbcsr_allocate_matrix_set, dbcsr_copy,&
-                                              dbcsr_set, dbcsr_deallocate_matrix_set
+                                              dbcsr_set, dbcsr_deallocate_matrix_set, dbcsr_add
    USE input_constants,                 ONLY: xas_tdp_by_index, xas_tdp_by_kind, xas_not_excited,&
                                               do_loc_none, xas_1s_type, xas_2s_type, xas_2p_type,&
                                               op_loc_berry, xas_dip_len, xas_dip_vel
@@ -47,6 +47,8 @@ MODULE xas_tdp_methods
                                               section_vals_val_set
    USE kinds,                           ONLY: dp
    USE memory_utilities,                ONLY: reallocate
+   USE orbital_pointers,                ONLY: init_orbital_pointers
+   USE orbital_transformation_matrices, ONLY: init_spherical_harmonics
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE periodic_table,                  ONLY: ptable
@@ -55,7 +57,8 @@ MODULE xas_tdp_methods
    USE qs_environment_types,            ONLY: qs_environment_type,&
                                               get_qs_env
    USE qs_kind_types,                   ONLY: get_qs_kind,&   
-                                              qs_kind_type
+                                              qs_kind_type,&
+                                              get_qs_kind_set
    USE qs_loc_methods,                  ONLY: qs_loc_driver,&
                                               centers_spreads_berry
    USE qs_loc_types,                    ONLY: localized_wfn_control_type,&
@@ -73,7 +76,7 @@ MODULE xas_tdp_methods
    USE xas_methods,                     ONLY: calc_stogto_overlap
    USE xas_tdp_gapw,                    ONLY: ri_gapw_env_type, init_ri_gapw_env, &
                                               release_ri_gapw_env, integrate_ri_gapw_smooth, &
-                                              pade_kernel_pw_create
+                                              integrate_ri_gapw_atoms
    USE xas_tdp_types,                   ONLY: xas_tdp_env_type,&
                                               xas_tdp_env_create,&
                                               xas_tdp_env_release,&
@@ -129,12 +132,10 @@ CONTAINS
       REAL(dp), DIMENSION(3)                             :: rc
       TYPE(cell_type), POINTER                           :: cell
       TYPE(ri_gapw_env_type), POINTER                    :: ri_gapw_env
-      TYPE(pw_p_type)                                    :: fxc_rspace
-      TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r
-      TYPE(qs_rho_type), POINTER                         :: rho_struct
+      TYPE(dbcsr_p_type)                                 :: int_mat_h, int_mat_s
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state, para_env)
-      NULLIFY(particle_set, cell, rho_r, rho_struct, ri_gapw_env, fxc_rspace%pw)
+      NULLIFY(particle_set, cell, ri_gapw_env)
 
       CALL timeset(routineN, handle)
 
@@ -218,14 +219,25 @@ CONTAINS
       CALL init_ri_gapw_env(ri_gapw_env, xas_tdp_env%ex_kind_indices, qs_env, dft_control%qs_control) 
 
 !     Deal with the smooth interatomic part (only PADE for now)
-      CALL get_qs_env(qs_env, rho=rho_struct)
-      CALL qs_rho_get(rho_struct, rho_r=rho_r) 
-!     WARNING: here take rho_r(1) but since it is spin-restricted ground state, it's the whole density
-      CALL pade_kernel_pw_create(fxc_rspace, rho_r(1), ri_gapw_env%eps_rho)
       ALLOCATE(xas_tdp_env%ri_gapw_int%matrix)
-      CALL integrate_ri_gapw_smooth(fxc_rspace, xas_tdp_env%ri_gapw_int, ri_gapw_env, qs_env)
+      CALL integrate_ri_gapw_smooth(xas_tdp_env%ri_gapw_int, ri_gapw_env, qs_env)
 
-      CALL pw_release(fxc_rspace%pw)
+!     Test the atomic grid integration
+      NULLIFY(int_mat_h%matrix, int_mat_h%matrix)
+      ALLOCATE(int_mat_h%matrix, int_mat_s%matrix)
+      CALL integrate_ri_gapw_atoms(int_mat_h, int_mat_s, ri_gapw_env, qs_env)
+
+      !CALL dbcsr_add(xas_tdp_env%ri_gapw_int%matrix, int_mat_h%matrix, 1.0_dp, 1.0_dp)
+      !CALL dbcsr_add(xas_tdp_env%ri_gapw_int%matrix, int_mat_s%matrix, 1.0_dp, -1.0_dp)
+      CALL dbcsr_print(xas_tdp_env%ri_gapw_int%matrix) 
+      CALL dbcsr_print(int_mat_h%matrix)
+      CALL dbcsr_print(int_mat_s%matrix)
+
+      CALL dbcsr_release(int_mat_h%matrix)
+      CALL dbcsr_release(int_mat_s%matrix)
+
+      DEALLOCATE(int_mat_h%matrix, int_mat_s%matrix)
+
       CALL release_ri_gapw_env(ri_gapw_env)
       CPASSERT(ASSOCIATED(xas_tdp_env%ri_gapw_int%matrix))
 
@@ -359,7 +371,7 @@ CONTAINS
       INTEGER                                            :: nex_atoms, n_kinds, i, nat_of_kind,&
                                                             j, nex_kinds, k, n_donor_states,&
                                                             nspins, homo, natom, nmatch, kind_ind, &
-                                                            at_ind
+                                                            at_ind, maxlgto
       INTEGER, DIMENSION(2)                              :: n_mo, n_moloc
       INTEGER, DIMENSION(:), POINTER                     :: ind_of_kind
       CHARACTER(len=2)                                   :: symbol
@@ -368,8 +380,9 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s, rho_ao
       TYPE(qs_rho_type), POINTER                         :: rho
+      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
 
-      NULLIFY(dft_section, xas_tdp_section, at_kind_set, ind_of_kind)
+      NULLIFY(dft_section, xas_tdp_section, at_kind_set, ind_of_kind, qs_kind_set)
       NULLIFY(qs_loc_env, loc_section, mos, particle_set, rho, rho_ao)
 
 !  XAS TDP control type initialization
@@ -504,6 +517,12 @@ CONTAINS
 !  Allocating memory for the array of excited atoms MOs. Worst case senario, all searched MOs are
 !  associated to the same atom
       ALLOCATE(xas_tdp_env%mos_of_ex_atoms(xas_tdp_control%n_search, nex_atoms))
+
+!  Make sure that the spherical harmonics and orbital pointers go high enough for the RI_XAS basis
+      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set) 
+      CALL get_qs_kind_set(qs_kind_set, maxlgto=maxlgto, basis_type="RI_XAS")
+      CALL init_orbital_pointers(2*maxlgto)
+      CALL init_spherical_harmonics(2*maxlgto,0)
 
 !  Precomputing for RI => compute and invert the two-center two-electron repulsion matrix for the RI
 !  aux basis, for each excited kind
