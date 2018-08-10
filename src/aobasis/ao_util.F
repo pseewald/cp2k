@@ -96,7 +96,7 @@ MODULE ao_util
              exp_radius_very_extended, &
              gauss_exponent, &
              gaussint_sph, &
-             trace_r_AxB
+             trace_r_AxB, transform_s2c
 
 CONTAINS
 

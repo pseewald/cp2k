@@ -756,8 +756,9 @@ CONTAINS
          routineP = moduleN//':'//routineN
       CHARACTER(LEN=8), DIMENSION(4), PARAMETER :: &
          pbas = (/"ORB     ", "AUX_FIT ", "MAO     ", "HARRIS  "/)
-      CHARACTER(LEN=8), DIMENSION(8), PARAMETER :: sbas = (/"ORB     ", "AUX     ", "RI_AUX  ", &
-         "MAO     ", "HARRIS  ", "RI_HXC  ", "RI_K    ", "LRI_AUX "/)
+      CHARACTER(LEN=11), DIMENSION(9), PARAMETER :: sbas = (/"ORB        ", "AUX        ", &
+         "RI_AUX     ","MAO        ", "HARRIS     ", "RI_HXC     ", "RI_K       ", "LRI_AUX    ", &
+         "RI_XAS_SOFT"/)
       REAL(KIND=dp), PARAMETER                           :: safety_factor = 1.015_dp
 
       INTEGER :: handle, ibasis_set_type, igrid_level, igrid_zet0_s, ikind, ipgf, iset, ishell, &

@@ -109,6 +109,7 @@ CONTAINS
 !>          [Manuel Guidon]
 !>          Generalized for derivatives and force calculations [JHU]
 !>          Kpoints, returns overlap matrices in real space index form
+!>          CYCLE if 0 cartesian orbitals in set (may happen for soft basis) [08.2018 AB]
 !> \author  MK
 !> \version 1.0
 ! **************************************************************************************************
@@ -364,6 +365,7 @@ CONTAINS
             ncoa = npgfa(iset)*ncoset(la_max(iset))
             n1 = npgfa(iset)*(ncoset(la_max(iset))-ncoset(la_min(iset)-1))
             sgfa = first_sgfa(1, iset)
+            IF (n1 == 0) CYCLE
 
             DO jset = 1, nsetb
 
@@ -372,6 +374,7 @@ CONTAINS
                ncob = npgfb(jset)*ncoset(lb_max(jset))
                n2 = npgfb(jset)*(ncoset(lb_max(jset))-ncoset(lb_min(jset)-1))
                sgfb = first_sgfb(1, jset)
+               IF (n2 == 0) CYCLE
 
                ! calculate integrals and derivatives
                SELECT CASE (nder)
