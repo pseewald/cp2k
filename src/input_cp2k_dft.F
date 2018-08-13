@@ -94,7 +94,7 @@ MODULE input_cp2k_dft
         xas_3p_type, xas_3s_type, xas_4d_type, xas_4f_type, xas_4p_type, xas_4s_type, xas_dip_len, &
         xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, xas_tp_hh, xas_tp_xfh, &
         xas_tp_xhh, xes_tp_val, xas_not_excited, xas_tdp_by_kind, xas_tdp_by_index, &
-        xas_tdp_exop_coulomb
+        xas_tdp_hfx, xas_tdp_pade
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
    USE input_cp2k_distribution,         ONLY: create_distribution_section
    USE input_cp2k_field,                ONLY: create_efield_section,&
@@ -7877,7 +7877,7 @@ CONTAINS
                           description="XAS simulations using TDDFPT. Excitation from specified "//&
                           "core orbitals are considered one at a time. In case of high symmetry "//&
                           "structures, donor core orbitals should be localized.", &
-                          n_keywords=11, n_subsections=3, repeats=.FALSE.)
+                          n_keywords=12, n_subsections=3, repeats=.FALSE.)
 
       NULLIFY (keyword, subsection, print_key)
 
@@ -7889,6 +7889,17 @@ CONTAINS
                           lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)                  
+
+      CALL keyword_create(keyword, name="FUNCTIONAL", &
+                          description="This keyword is used to chose the functional with which "//&
+                                      "the XC kernel should be evaluated. Currently only exact "//&
+                                      "exchange and the PADE(LDA) are available.", &
+                          usage="FUNCTIONAL string", &
+                          default_i_val=xas_tdp_hfx, &
+                          enum_c_vals=s2a("HFX", "PADE"), &
+                          enum_i_vals=(/xas_tdp_hfx, xas_tdp_pade/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="ONLY_CHECK_DONOR_STATES", &
                           description="This keyword defines whether the full calculation should "//&

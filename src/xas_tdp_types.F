@@ -12,7 +12,7 @@ MODULE xas_tdp_types
    
    USE cp_fm_types,                     ONLY: cp_fm_type, cp_fm_release, cp_fm_p_type
    USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_release, dbcsr_p_type, &
-                                              dbcsr_deallocate_matrix_set
+                                              dbcsr_release_p
    USE input_constants,                 ONLY: xas_dip_vel,&
                                               xas_tdp_by_index,&
                                               xas_tdp_by_kind, &
@@ -37,6 +37,7 @@ MODULE xas_tdp_types
 !> \param dipole_form whether the dipole moment is computed in the length or velocity representation
 !> \param n_search # of lowest energy MOs to search for donor orbitals
 !> \param n_gauss # of GTOs used in STO expansion for core donor state identification
+!> \param fxc_func which xc functional should be used for the xc kernel computation
 !> \param check_donor_states whether one only checks MO to donor state assignment
 !> \param tamm_dancoff whether the calculations should be done in the Tamm-Dancoff approximation
 !> \param full_diag whether the LR matrix should be fully built and diagonalized
@@ -52,6 +53,7 @@ MODULE xas_tdp_types
       INTEGER                                 :: dipole_form
       INTEGER                                 :: n_search
       INTEGER                                 :: n_gauss
+      INTEGER                                 :: fxc_func
       LOGICAL                                 :: check_donor_states
       LOGICAL                                 :: tamm_dancoff
       LOGICAL                                 :: full_diag
@@ -168,6 +170,7 @@ CONTAINS
       xas_tdp_control%define_excited = xas_tdp_by_index
       xas_tdp_control%n_search = -1
       xas_tdp_control%n_gauss = 3
+      xas_tdp_control%fxc_func = 1
       xas_tdp_control%check_donor_states = .FALSE.
       xas_tdp_control%tamm_dancoff = .FALSE.
       xas_tdp_control%full_diag = .FALSE.
@@ -249,6 +252,8 @@ CONTAINS
 
       CALL section_vals_val_get(xas_tdp_section, "FULL_DIAG", &
                                 l_val=xas_tdp_control%full_diag)
+
+      CALL section_vals_val_get(xas_tdp_section, "FUNCTIONAL", i_val=xas_tdp_control%fxc_func)
 
       CALL section_vals_val_get(xas_tdp_section, "EXCITATIONS", i_val=excitation)
       IF (excitation == tddfpt_singlet) THEN
@@ -401,7 +406,10 @@ CONTAINS
             DEALLOCATE(xas_tdp_env%q_projector)
          END IF
          IF (ASSOCIATED(xas_tdp_env%dipmat)) THEN
-            CALL dbcsr_deallocate_matrix_set(xas_tdp_env%dipmat)
+            DO i = 1,SIZE(xas_tdp_env%dipmat)
+               CALL dbcsr_release_p(xas_tdp_env%dipmat(i)%matrix)
+            END DO
+            DEALLOCATE(xas_tdp_env%dipmat)
          END IF
          IF (ASSOCIATED(xas_tdp_env%ri_coul3)) THEN
             DEALLOCATE(xas_tdp_env%ri_coul3)

@@ -37,11 +37,10 @@ MODULE xas_tdp_methods
                                               cp_print_key_finished_output
    USE dbcsr_api,                       ONLY: dbcsr_p_type, dbcsr_type, dbcsr_release, dbcsr_print, &
                                               dbcsr_create, dbcsr_multiply, dbcsr_add_on_diag, &
-                                              dbcsr_finalize, dbcsr_allocate_matrix_set, dbcsr_copy,&
-                                              dbcsr_set, dbcsr_deallocate_matrix_set, dbcsr_add
+                                              dbcsr_finalize, dbcsr_copy, dbcsr_set, dbcsr_add
    USE input_constants,                 ONLY: xas_tdp_by_index, xas_tdp_by_kind, xas_not_excited,&
                                               do_loc_none, xas_1s_type, xas_2s_type, xas_2p_type,&
-                                              op_loc_berry, xas_dip_len, xas_dip_vel
+                                              op_loc_berry, xas_dip_len, xas_dip_vel, xas_tdp_hfx
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_get_subs_vals,&
                                               section_vals_val_set
@@ -106,14 +105,12 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Driver for XAS TDDFT calculations.
 !> \param qs_env the inherited qs_environment
-!> \param dft_control the set of input DFT keywords and values
 !> \author AB
 !> \note Empty for now...
 ! **************************************************************************************************
-   SUBROUTINE xas_tdp(qs_env, dft_control)
+   SUBROUTINE xas_tdp(qs_env)
 
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      TYPE(dft_control_type), POINTER                    :: dft_control
 
       CHARACTER(len=*), PARAMETER :: routineN = 'xas_tdp', routineP = moduleN//':'//routineN
 
@@ -133,9 +130,10 @@ CONTAINS
       TYPE(cell_type), POINTER                           :: cell
       TYPE(ri_gapw_env_type), POINTER                    :: ri_gapw_env
       TYPE(dbcsr_p_type)                                 :: int_mat_h, int_mat_s
+      TYPE(dft_control_type), POINTER                    :: dft_control
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state, para_env)
-      NULLIFY(particle_set, cell, ri_gapw_env)
+      NULLIFY(particle_set, cell, ri_gapw_env, dft_control)
 
       CALL timeset(routineN, handle)
 
@@ -160,7 +158,8 @@ CONTAINS
          WRITE(UNIT=output_unit, FMT="(/,T3,A)") &
             "# Create and initialize the XAS_TDP environment"
       END IF 
-      CALL xas_tdp_init(xas_tdp_env, xas_tdp_control, qs_env, dft_control)
+      CALL get_qs_env(qs_env, dft_control=dft_control)
+      CALL xas_tdp_init(xas_tdp_env, xas_tdp_control, qs_env)
 
 !  Safety checks
       IF (dft_control%lsd) THEN
@@ -215,31 +214,31 @@ CONTAINS
       END IF
       CALL write_mos_to_ex_atoms_association(xas_tdp_env, qs_env, output_unit)     
 
-!  Setup a ri_gapw_env and compute the xc kernel gapw integrals for all excited kinds once
-      CALL init_ri_gapw_env(ri_gapw_env, xas_tdp_env%ex_kind_indices, qs_env, dft_control%qs_control) 
+!  If not simply exact exchange, setup a ri_gapw_env and compute the xc integrals within gapw
+!  Done before looping on atoms as it's all done at once
+      IF (.NOT. xas_tdp_control%fxc_func == xas_tdp_hfx) THEN
+         CALL init_ri_gapw_env(ri_gapw_env, xas_tdp_env%ex_kind_indices, qs_env) 
 
-!     Deal with the smooth interatomic part (only PADE for now)
-      ALLOCATE(xas_tdp_env%ri_gapw_int%matrix)
-      CALL integrate_ri_gapw_smooth(xas_tdp_env%ri_gapw_int, ri_gapw_env, qs_env)
+!        Deal with the smooth interatomic part on the pw grid
+         ALLOCATE(xas_tdp_env%ri_gapw_int%matrix)
+         CALL integrate_ri_gapw_smooth(xas_tdp_env%ri_gapw_int, xas_tdp_control%do_singlet, &
+                                       ri_gapw_env, qs_env)
 
-!     Test the atomic grid integration
-      NULLIFY(int_mat_h%matrix, int_mat_h%matrix)
-      ALLOCATE(int_mat_h%matrix, int_mat_s%matrix)
-      CALL integrate_ri_gapw_atoms(int_mat_h, int_mat_s, ri_gapw_env, qs_env)
+!        Deal with the hard and soft parts on the atomic grids
+         NULLIFY(int_mat_h%matrix, int_mat_h%matrix)
+         ALLOCATE(int_mat_h%matrix, int_mat_s%matrix)
+         CALL integrate_ri_gapw_atoms(int_mat_h, int_mat_s, xas_tdp_control%do_singlet, ri_gapw_env, qs_env)
 
-      !CALL dbcsr_add(xas_tdp_env%ri_gapw_int%matrix, int_mat_h%matrix, 1.0_dp, 1.0_dp)
-      !CALL dbcsr_add(xas_tdp_env%ri_gapw_int%matrix, int_mat_s%matrix, 1.0_dp, -1.0_dp)
-      CALL dbcsr_print(xas_tdp_env%ri_gapw_int%matrix) 
-      CALL dbcsr_print(int_mat_h%matrix)
-      CALL dbcsr_print(int_mat_s%matrix)
+!        Store the smooth + hard - soft matrix in the xas_tdp_env
+         CALL dbcsr_add(xas_tdp_env%ri_gapw_int%matrix, int_mat_h%matrix, 1.0_dp, 1.0_dp)
+         CALL dbcsr_add(xas_tdp_env%ri_gapw_int%matrix, int_mat_s%matrix, 1.0_dp, -1.0_dp)
 
-      CALL dbcsr_release(int_mat_h%matrix)
-      CALL dbcsr_release(int_mat_s%matrix)
-
-      DEALLOCATE(int_mat_h%matrix, int_mat_s%matrix)
-
-      CALL release_ri_gapw_env(ri_gapw_env)
-      CPASSERT(ASSOCIATED(xas_tdp_env%ri_gapw_int%matrix))
+!        clean-up
+         CALL dbcsr_release(int_mat_h%matrix)
+         CALL dbcsr_release(int_mat_s%matrix)
+         DEALLOCATE(int_mat_h%matrix, int_mat_s%matrix)
+         CALL release_ri_gapw_env(ri_gapw_env)
+      END IF
 
 !  Loop over donor states for calculation
 !  TODO: I suspect that for parallel run with mpirun, all the processors do not go at the same speed
@@ -354,14 +353,12 @@ CONTAINS
 !> \param xas_tdp_env the environment type to initialize
 !> \param xas_tdp_control the control type to initialize
 !> \param qs_env the inherited qs environement type
-!> \param dft_control the type in which xas_tdp_control lives
 ! **************************************************************************************************
-   SUBROUTINE xas_tdp_init(xas_tdp_env, xas_tdp_control, qs_env, dft_control)
+   SUBROUTINE xas_tdp_init(xas_tdp_env, xas_tdp_control, qs_env)
       
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      TYPE(dft_control_type),    POINTER                 :: dft_control
 
       CHARACTER(len=*), PARAMETER :: routineN = 'xas_tdp_init', routineP = moduleN//':'//routineN
       
@@ -381,14 +378,16 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s, rho_ao
       TYPE(qs_rho_type), POINTER                         :: rho
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
+      TYPE(dft_control_type), POINTER                    :: dft_control
 
-      NULLIFY(dft_section, xas_tdp_section, at_kind_set, ind_of_kind, qs_kind_set)
+      NULLIFY(dft_section, xas_tdp_section, at_kind_set, ind_of_kind, qs_kind_set, dft_control)
       NULLIFY(qs_loc_env, loc_section, mos, particle_set, rho, rho_ao)
 
 !  XAS TDP control type initialization
       dft_section => section_vals_get_subs_vals(qs_env%input, "DFT")                     
       xas_tdp_section => section_vals_get_subs_vals(dft_section, "XAS_TDP")
 
+      CALL get_qs_env(qs_env, dft_control=dft_control)
       CALL xas_tdp_control_create(dft_control%xas_tdp_control)
       CALL read_xas_tdp_control(dft_control%xas_tdp_control,xas_tdp_section)   
 
@@ -544,7 +543,7 @@ CONTAINS
       CALL dbcsr_finalize(xas_tdp_env%q_projector)
 
 !  Create the structure for the dipole in the AO basis 
-      CALL dbcsr_allocate_matrix_set(xas_tdp_env%dipmat, 3)           
+      ALLOCATE(xas_tdp_env%dipmat(3))
       DO i =1,3
          ALLOCATE(xas_tdp_env%dipmat(i)%matrix)          
          CALL dbcsr_copy(xas_tdp_env%dipmat(i)%matrix, matrix_s(1)%matrix, name="XAS TDP dipole matrix")
