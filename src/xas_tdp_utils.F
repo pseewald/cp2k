@@ -37,15 +37,15 @@ MODULE xas_tdp_utils
                                               dbcsr_get_block_p, dbcsr_print, &
                                               dbcsr_put_block, dbcsr_release, dbcsr_finalize,&
                                               dbcsr_distribution_release, &
-                                              dbcsr_copy, dbcsr_set, dbcsr_deallocate_matrix_set, &
-                                              dbcsr_allocate_matrix_set, dbcsr_multiply, &
+                                              dbcsr_copy, dbcsr_set, dbcsr_multiply, &
                                               dbcsr_get_stored_coordinates, dbcsr_desymmetrize, &
                                               dbcsr_complete_redistribute, dbcsr_iterator_type, &
                                               dbcsr_iterator_blocks_left, dbcsr_iterator_start, &
                                               dbcsr_iterator_stop, dbcsr_iterator_next_block, &
                                               dbcsr_add
    USE eri_mme_types,                   ONLY: eri_mme_init
-   USE input_constants,                 ONLY: xas_dip_len, xas_dip_vel, do_eri_mme, do_eri_os
+   USE input_constants,                 ONLY: xas_dip_len, xas_dip_vel, do_eri_mme, do_eri_os, &
+                                              xas_tdp_hfx, xas_tdp_pade
    USE iterate_matrix,                  ONLY: invert_Hotelling
    USE kinds,                           ONLY: dp
    USE mp2_eri,                         ONLY: integrate_set_3c, integrate_set_2c
@@ -113,7 +113,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'setup_xas_tdp_full_prob', &
                                      routineP = moduleN//":"//routineN
       
-      INTEGER                                         :: handle, group , iblk, jblk, nblk_sub, blk
+      INTEGER                                         :: handle, group , iblk, jblk, nblk_sub, blk,&
+                                                         fxc
       TYPE(dbcsr_type), POINTER                       :: matrix_tdp
       TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_g, diag_mat, & 
                                                          matrix_g_inv, offdiag_mat, matrix_b, &
@@ -139,6 +140,7 @@ CONTAINS
       CPASSERT(ASSOCIATED(xas_tdp_control))
       ALLOCATE(donor_state%matrix_tdp)
       matrix_tdp => donor_state%matrix_tdp
+      fxc = xas_tdp_control%fxc_func
 
 !  Get the submatrices distribution and block sizes
       CALL compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_state, qs_env) 
@@ -148,6 +150,7 @@ CONTAINS
       IF (xas_tdp_control%tamm_dancoff) THEN
 
 !     Compute the submatrices, store the metric and ignore the offdiag exchange kernel
+!     Only compute needed forms of the kernel according to the functional
          ALLOCATE(matrix_a)
          ALLOCATE(matrix_b)
          ALLOCATE(matrix_c)
@@ -155,15 +158,19 @@ CONTAINS
          ALLOCATE(donor_state%metric)
          CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
          CALL build_kernel_coulomb(matrix_b, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
-         CALL build_kernel_xc(matrix_c, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
-         CALL build_kernel_exchange(ex_ker_diag=matrix_d, dist=submat_dist, blk_size=submat_blk_size, &
-                                    donor_state=donor_state, xas_tdp_env=xas_tdp_env, qs_env=qs_env)     
+         IF (fxc == xas_tdp_pade) CALL build_kernel_xc(matrix_c, submat_dist, &
+                                                       submat_blk_size, donor_state, xas_tdp_env, qs_env)
+         IF (fxc == xas_tdp_hfx ) CALL build_kernel_exchange(ex_ker_diag=matrix_d, &
+                                                            dist=submat_dist, blk_size=submat_blk_size, &
+                                                            donor_state=donor_state, xas_tdp_env=xas_tdp_env, &
+                                                            qs_env=qs_env)     
          CALL build_metric(donor_state%metric, submat_dist, submat_blk_size, donor_state, qs_env)
 
 !     Create the simplfied TDA matrix_tdp
          CALL dbcsr_copy(matrix_tdp, matrix_a, name="MATRIX TDP")
          IF (xas_tdp_control%do_singlet) CALL dbcsr_add(matrix_tdp, matrix_b, 1.0_dp, 2.0_dp) 
-         CALL dbcsr_add(matrix_tdp, matrix_d, 1.0_dp, -1.0_dp)
+         IF (fxc == xas_tdp_pade) CALL dbcsr_add(matrix_tdp, matrix_c, 1.0_dp, 1.0_dp) !pure pade
+         IF (fxc == xas_tdp_hfx) CALL dbcsr_add(matrix_tdp, matrix_d, 1.0_dp, -1.0_dp) !pure hfx
 
 !     Some clean-up
          CALL dbcsr_release(matrix_a)   
@@ -184,9 +191,10 @@ CONTAINS
          ALLOCATE(matrix_g)
          CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
          CALL build_kernel_coulomb(matrix_b, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
-         CALL build_kernel_xc(matrix_c, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
-         CALL build_kernel_exchange(matrix_d, matrix_e, submat_dist, submat_blk_size, &
-                                    donor_state, xas_tdp_env, qs_env)
+         IF (fxc == xas_tdp_pade )CALL build_kernel_xc(matrix_c, submat_dist, submat_blk_size, &
+                                                       donor_state, xas_tdp_env, qs_env)
+         IF (fxc == xas_tdp_hfx) CALL build_kernel_exchange(matrix_d, matrix_e, submat_dist, &
+                                                            submat_blk_size, donor_state, xas_tdp_env, qs_env)
          CALL build_metric(matrix_g, submat_dist, submat_blk_size, donor_state, qs_env)       
 
 !     Invert matrix G
@@ -205,7 +213,8 @@ CONTAINS
 
          CALL dbcsr_copy(tmp_mat, matrix_a, name="TMP TDP block")
          IF (xas_tdp_control%do_singlet) CALL dbcsr_add(tmp_mat, matrix_b, 1.0_dp, 2.0_dp)
-         CALL dbcsr_add(tmp_mat, matrix_d, 1.0_dp, -1.0_dp)
+         IF (fxc == xas_tdp_pade) CALL dbcsr_add(matrix_tdp, matrix_c, 1.0_dp, 1.0_dp) !pure pade
+         IF (fxc == xas_tdp_hfx) CALL dbcsr_add(tmp_mat, matrix_d, 1.0_dp, -1.0_dp) !pure hfx
          CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, tmp_mat, 0.0_dp, diag_mat)
          CALL dbcsr_finalize(diag_mat)
 
@@ -220,9 +229,11 @@ CONTAINS
 
          CALL dbcsr_copy(tmp_mat, matrix_b, name="TMP TDP block")
          IF (xas_tdp_control%do_singlet) THEN
-            CALL dbcsr_add(tmp_mat, matrix_e, 2.0_dp, -1.0_dp)
+            IF (fxc == xas_tdp_pade) CALL dbcsr_add(tmp_mat, matrix_c, 2.0_dp, 1.0_dp) ! pure pade
+            IF (fxc == xas_tdp_hfx) CALL dbcsr_add(tmp_mat, matrix_e, 2.0_dp, -1.0_dp) ! pure hfx
          ELSE
-            CALL dbcsr_add(tmp_mat, matrix_e, 0.0_dp, -1.0_dp)
+            IF (fxc == xas_tdp_pade) CALL dbcsr_add(tmp_mat, matrix_c, 0.0_dp, 1.0_dp) ! pure pade
+            IF (fxc == xas_tdp_hfx) CALL dbcsr_add(tmp_mat, matrix_e, 0.0_dp, -1.0_dp) ! pure hfx
          END IF
          CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, tmp_mat, 0.0_dp, offdiag_mat)
          CALL dbcsr_finalize(offdiag_mat)

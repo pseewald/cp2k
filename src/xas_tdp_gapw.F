@@ -26,7 +26,7 @@ MODULE xas_tdp_gapw
    USE dbcsr_api,                       ONLY: dbcsr_p_type, dbcsr_distribution_type,&
                                               dbcsr_create, dbcsr_print, dbcsr_put_block, &
                                               dbcsr_finalize, dbcsr_release, dbcsr_multiply, &
-                                              dbcsr_type, dbcsr_deallocate_matrix_set, &
+                                              dbcsr_type, dbcsr_release_p, &
                                               dbcsr_get_block_p
    USE gaussian_gridlevels,             ONLY: gridlevel_info_type, gaussian_gridlevel
    USE kinds,                           ONLY: dp
@@ -104,7 +104,6 @@ MODULE xas_tdp_gapw
 
 ! **************************************************************************************************
 !> \brief a environment type that contains all the info needed for the RI GAPW calculations 
-!> \param eps_rho the density cutoff in rreal space
 !> \param rho_atom the type containing the grid integral info for all excited atoms 
 !> \param grid_atom_set the set of atomic grid for each kind
 !> \param task_list the task list associated with the RI_XAS_SOFT basis for the pw integration
@@ -120,7 +119,6 @@ MODULE xas_tdp_gapw
 !>       same for harmonics_atom_set
 ! **************************************************************************************************
    TYPE ri_gapw_env_type
-      REAL(dp)                                        :: eps_rho
       INTEGER, DIMENSION(:), POINTER                  :: excited_kinds
       TYPE(rho_atom_type), DIMENSION(:) , POINTER     :: rho_atom_set
       TYPE(grid_atom_p_type), DIMENSION(:), POINTER   :: grid_atom_set
@@ -144,17 +142,15 @@ MODULE xas_tdp_gapw
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief Initializes a ri_gapw_env type given the qs_env and the qs_control
+!> \brief Initializes a ri_gapw_env type given the qs_env
 !> \param ri_gapw_env the ri_gapw_env to initialize
 !> \param excited_kinds the indices of the excited kinds
 !> \param qs_env ...
-!> \param qs_control ...
 ! **************************************************************************************************
-   SUBROUTINE init_ri_gapw_env(ri_gapw_env, excited_kinds, qs_env, qs_control)
+   SUBROUTINE init_ri_gapw_env(ri_gapw_env, excited_kinds, qs_env)
 
       TYPE(ri_gapw_env_type), POINTER                 :: ri_gapw_env
       TYPE(qs_environment_type), POINTER              :: qs_env
-      TYPE(qs_control_type), POINTER                  :: qs_control
       INTEGER, DIMENSION(:), POINTER                  :: excited_kinds
 
       CHARACTER(len=*), PARAMETER :: routineN = 'init_ri_gapw_env', routineP = moduleN//":"//routineN
@@ -175,21 +171,24 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
       REAL(dp), DIMENSION(:,:), POINTER               :: sphi_h, sphi_s
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: radius_backup
+      TYPE(qs_control_type), POINTER                  :: qs_control
+      TYPE(dft_control_type), POINTER                 :: dft_control
 
-      NULLIFY(qs_kind_set, soft_basis, ri_basis, basis_set_a, ks_env, particle_set)
-      NULLIFY(sphi_s, sphi_h, lmax, npgf, nshell, l, first_sgf, last_sgf)
+      NULLIFY(qs_kind_set, soft_basis, ri_basis, basis_set_a, ks_env, particle_set, qs_control)
+      NULLIFY(sphi_s, sphi_h, lmax, npgf, nshell, l, first_sgf, last_sgf, dft_control)
 
       CALL timeset(routineN, handle)
 
 !  Initializing the type
       CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, ks_env=ks_env, natom=natom, &
-                      particle_set=particle_set)
+                      particle_set=particle_set, dft_control=dft_control)
+
+      qs_control => dft_control%qs_control
       nkind = SIZE(qs_kind_set)   
       nex_kinds = SIZE(excited_kinds)
       eps_fit = qs_control%gapw_control%eps_fit
 
       ALLOCATE(ri_gapw_env)
-      ri_gapw_env%eps_rho = qs_control%eps_rho_rspace
       CALL allocate_rho_atom_set(ri_gapw_env%rho_atom_set, natom)
       CALL allocate_task_list(ri_gapw_env%task_list)
       ALLOCATE(ri_gapw_env%excited_kinds(nex_kinds))
@@ -204,7 +203,7 @@ CONTAINS
 !  Allocate and initialize the atomic grids and harmonics
 !  lmax_sphere should be at least maxlgto and max 2*maxlgto
       lmax_sphere = 60
-      CALL init_ri_gapw_grid_harmo(lmax_sphere, ri_gapw_env, qs_env, qs_control)
+      CALL init_ri_gapw_grid_harmo(lmax_sphere, ri_gapw_env, qs_env)
 
 !  Go over all qs_kind and make sure the RI_XAS_SOFT basis is computed and stored
       DO ikind = 1,nkind
@@ -384,15 +383,13 @@ CONTAINS
 !> \param lmax_sphere maximum L for the Clebsch-Gordan coeffs
 !> \param ri_gapw_env the RI gapw environement 
 !> \param qs_env ...
-!> \param qs_control ...
 !> \note Largely inspired by init_rho_atom subroutine (which is sadly restricted to orbital basis set)
 ! **************************************************************************************************
-   SUBROUTINE init_ri_gapw_grid_harmo(lmax_sphere, ri_gapw_env, qs_env, qs_control)
+   SUBROUTINE init_ri_gapw_grid_harmo(lmax_sphere, ri_gapw_env, qs_env)
 
       INTEGER                                         :: lmax_sphere
       TYPE(ri_gapw_env_type), POINTER                 :: ri_gapw_env
       TYPE(qs_environment_type), POINTER              :: qs_env
-      TYPE(qs_control_type), POINTER                  :: qs_control
 
       CHARACTER(len=*), PARAMETER :: routineN = "init_ri_gapw_grid_harmo", &
                                      routineP = moduleN//":"//routineN
@@ -408,12 +405,15 @@ CONTAINS
       TYPE(gto_basis_set_type), POINTER               :: tmp_basis
       TYPE(grid_atom_type), POINTER                   :: grid_atom
       TYPE(harmonics_atom_type), POINTER              :: harmonics
+      TYPE(qs_control_type), POINTER                  :: qs_control
+      TYPE(dft_control_type), POINTER                 :: dft_control
 
-      NULLIFY(my_CG, qs_kind_set, tmp_basis, grid_atom, harmonics)
+      NULLIFY(my_CG, qs_kind_set, tmp_basis, grid_atom, harmonics, qs_control, dft_control)
 
 !  Initialization of some integer for the CG coeff generation
-      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set)
+      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, dft_control=dft_control)
       CALL get_qs_kind_set(qs_kind_set, maxlgto=maxlgto, basis_type="RI_XAS")
+      qs_control => dft_control%qs_control
 
       llmax = MIN(lmax_sphere, 2*maxlgto)
       max_s_harm = nsoset(llmax)
@@ -595,7 +595,8 @@ CONTAINS
             CALL get_pseudo_inverse_svd(block, sinv_h(ikind)%array, 1.0E-8_dp)
          END IF
       END DO
-      CALL dbcsr_deallocate_matrix_set(matrix_s)
+      CALL dbcsr_release_p(matrix_s(1)%matrix)
+      DEALLOCATE(matrix_s)
 
       ALLOCATE(sinv_s(nkind))
       CALL build_overlap_matrix(ks_env=ks_env, matrix_s=matrix_s, basis_type_a="RI_XAS_SOFT", & 
@@ -608,7 +609,8 @@ CONTAINS
             CALL get_pseudo_inverse_svd(block, sinv_s(ikind)%array, 1.0E-8_dp)
          END IF
       END DO
-      CALL dbcsr_deallocate_matrix_set(matrix_s)
+      CALL dbcsr_release_p(matrix_s(1)%matrix)
+      DEALLOCATE(matrix_s)
 
 !  Create the hard and soft o3c 
       ALLOCATE(o3c_h, o3c_s)
@@ -698,7 +700,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE put_density_on_atomic_grid(n_h, n_s, atom_index, atom_kind, ri_gapw_env, qs_env)
 
-      REAL(dp), DIMENSION(:,:,:), POINTER             :: n_h, n_s
+      REAL(dp), DIMENSION(:,:,:), ALLOCATABLE         :: n_h, n_s
       INTEGER, INTENT(IN)                             :: atom_index, atom_kind
       TYPE(ri_gapw_env_type), POINTER                 :: ri_gapw_env
       TYPE(qs_environment_type), POINTER              :: qs_env
@@ -724,9 +726,6 @@ CONTAINS
 !            then on the angular part (multiplying by the spherical harmonics). From there, one
 !            should transform into co, and contract to sgf. Once we have the value of each sgf on 
 !            the whole grid, one can take their weight
-
-      CPASSERT(ASSOCIATED(n_h))
-      CPASSERT(ASSOCIATED(n_s))
 
 !  Generalities
       CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set)
@@ -821,14 +820,16 @@ CONTAINS
 !> \brief Integrate a funcion of r on the atomic grids, for the hard and the soft RI_XAS basis sets
 !> \param int_mat_h the dbcsr_matrix in the usual block format where the hard integrals are stored
 !> \param int_mat_s the dbcsr_matrix in the usual block format where the soft integrals are stored
+!> \param singlet whether we want singlet or triplet excitations
 !> \param ri_gapw_env ...
 !> \param qs_env ...
 !> \note test phase: we allocate/deallcoate everything locally
 ! **************************************************************************************************
-   SUBROUTINE integrate_ri_gapw_atoms(int_mat_h, int_mat_s, ri_gapw_env, qs_env)
+   SUBROUTINE integrate_ri_gapw_atoms(int_mat_h, int_mat_s, singlet, ri_gapw_env, qs_env)
 
       TYPE(dbcsr_p_type)                              :: int_mat_h
       TYPE(dbcsr_p_type)                              :: int_mat_s
+      LOGICAL, INTENT(IN)                             :: singlet
       TYPE(ri_gapw_env_type), POINTER                 :: ri_gapw_env  
       TYPE(qs_environment_type), POINTER              :: qs_env   
 
@@ -836,12 +837,13 @@ CONTAINS
                                      routineP = moduleN//":"//routineN
 
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
-      REAL(dp), DIMENSION(:, :, :), POINTER           :: test_h, test_s
+      REAL(dp), DIMENSION(:, :, :), ALLOCATABLE       :: rho_h, rho_s
+      REAL(dp), DIMENSION(:, :, :), POINTER           :: fxc_h, fxc_s
       INTEGER                                         :: natom, iat, ikind, na, nr, nsotot, nset, &
                                                          maxso, iset, jset, nsgf, ia, ir, sgfi, &
                                                          sgfj, maxco, ncoi, ncoj, ipgf, jpgf, &
                                                          starti_s, startj_s, starti_c, startj_c, &
-                                                         ncotot, li, lj
+                                                         ncotot, li, lj, n
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set 
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(grid_atom_type), POINTER                   :: grid_atom 
@@ -852,10 +854,12 @@ CONTAINS
       REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: int_h, int_s, int_c_h, int_c_s
       INTEGER, DIMENSION(:), POINTER                  :: nsgf_set, npgf, lmax
       INTEGER, DIMENSION(:,:), POINTER                :: first_sgf
-      REAL(dp)                                        :: integral_h, integral_s
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: rs_h, rs_s
+      TYPE(dft_control_type), POINTER                 :: dft_control
 
-      NULLIFY(dbcsr_dist, test_h, test_s, particle_set, qs_kind_set, grid_atom, harmonics, rho_atom)
+      NULLIFY(dbcsr_dist, particle_set, qs_kind_set, grid_atom, harmonics, rho_atom, dft_control)
       NULLIFY(ri_basis, nsgf_set, first_sgf, lmax, npgf, sphi_h, sphi_s, int_s_h, int_s_s)
+      NULLIFY(fxc_h, fxc_s)
 
 !  Create the integral matrices based on the usual dbcsr_dist and the custom ri_gapw_env block sizes
       CALL get_qs_env(qs_env, dbcsr_dist=dbcsr_dist)
@@ -866,8 +870,10 @@ CONTAINS
                         dist=dbcsr_dist, row_blk_size=ri_gapw_env%blk_size, &                        
                         col_blk_size=ri_gapw_env%blk_size)
 
-      CALL get_qs_env(qs_env, particle_set=particle_set, qs_kind_set=qs_kind_set, natom=natom)
+      CALL get_qs_env(qs_env, particle_set=particle_set, qs_kind_set=qs_kind_set, natom=natom, &
+                      dft_control=dft_control)
 
+!  TODO: think carfully when parallelizing
 !  Loop over the atoms of interest. 
       DO iat = 1, natom
          ikind = particle_set(iat)%atomic_kind%kind_number
@@ -878,14 +884,18 @@ CONTAINS
          CALL get_qs_kind(qs_kind_set(ikind), basis_set=ri_basis, basis_type="RI_XAS")
          rho_atom => ri_gapw_env%rho_atom_set(iat)
 
-!     Doing a test: integrate the density over the atomic grid
+!     Allocate the density, kernel and integral arrays
          na = grid_atom%ng_sphere
          nr = grid_atom%nr
          CALL get_gto_basis_set(ri_basis, nset=nset, maxso=maxso, maxco=maxco)
          nsotot = nset*maxso 
 
-         ALLOCATE(test_h(na, nr, 1)) ! 1 spin
-         ALLOCATE(test_s(na, nr, 1)) ! 1 spin
+         ALLOCATE(rho_h(na, nr, 1)) ! 1 spin
+         ALLOCATE(rho_s(na, nr, 1)) ! 1 spin
+
+         ALLOCATE(fxc_h(na, nr, 1)) ! 1 spin                                                         
+         ALLOCATE(fxc_s(na, nr, 1)) ! 1 spin
+
          NULLIFY(rho_atom%ga_Vlocal_gb_h)
          NULLIFY(rho_atom%ga_Vlocal_gb_s)
          ALLOCATE(rho_atom%ga_Vlocal_gb_h(1))
@@ -896,25 +906,40 @@ CONTAINS
          ALLOCATE(rho_atom%ga_Vlocal_gb_s(1)%r_coef(nsotot, nsotot))
 
 !     Put the density on the grid
-         CALL put_density_on_atomic_grid(test_h, test_s, iat, ikind, ri_gapw_env, qs_env)
+         CALL put_density_on_atomic_grid(rho_h, rho_s, iat, ikind, ri_gapw_env, qs_env)
+
+!     Compute the fxc kernel on the atomic grids. Use calc_rs_pw because it takes 3d arrays as arg
+         CALL set_util(dft_control%qs_control%eps_rho_rspace)
+         n = PRODUCT(SHAPE(rho_h))
+         ALLOCATE(rs_h(n))
+         ALLOCATE(rs_s(n))
+
+         CALL calc_rs_pw(rho_h, rs_h, n)
+         CALL calc_rs_pw(rho_s, rs_s, n)
+         fxc_h = 0.0_dp
+         fxc_s = 0.0_dp
+
+         IF (singlet) THEN
+            CALL pade_kernel_singlet(n, rho_h, rs_h, fxc_h, dft_control%qs_control%eps_rho_rspace)
+            CALL pade_kernel_singlet(n, rho_s, rs_s, fxc_s, dft_control%qs_control%eps_rho_rspace)
+         ELSE
+            CALL pade_kernel_triplet(n, rho_h, rs_h, fxc_h, dft_control%qs_control%eps_rho_rspace)
+            CALL pade_kernel_triplet(n, rho_s, rs_s, fxc_s, dft_control%qs_control%eps_rho_rspace)
+         END IF
 
 !     Take the grid weights into account
-         integral_h = 0.0_dp
-         integral_s = 0.0_dp
          DO ia = 1,na
             DO ir = 1,nr
-               test_h(ia,ir,1) = test_h(ia,ir,1)*grid_atom%wa(ia)*grid_atom%wr(ir)
-               test_s(ia,ir,1) = test_s(ia,ir,1)*grid_atom%wa(ia)*grid_atom%wr(ir)
-               integral_h = integral_h + test_h(ia,ir,1)
-               integral_s = integral_s + test_s(ia,ir,1)
+               fxc_h(ia,ir,1) = fxc_h(ia,ir,1)*grid_atom%wa(ia)*grid_atom%wr(ir)
+               fxc_s(ia,ir,1) = fxc_s(ia,ir,1)*grid_atom%wa(ia)*grid_atom%wr(ir)
             END DO
          END DO
-         PRINT*, "The integral of the hard density is:", integral_h
-         PRINT*, "The integral of the soft density is:", integral_s
 
-         CALL gaVxcgb_noGC(test_h, test_s, qs_kind_set(ikind), rho_atom, 1, ri_basis, harmonics, &
+!     Integrate
+         CALL gaVxcgb_noGC(fxc_h, fxc_s, qs_kind_set(ikind), rho_atom, 1, ri_basis, harmonics, &
                            grid_atom)
 
+         DEALLOCATE(rs_h, rs_s, fxc_h, fxc_s)
 
 !     Turn the integrals (in spherical orbital representation) into something we can work with
          CALL get_gto_basis_set(ri_basis, nsgf=nsgf, nsgf_set=nsgf_set, first_sgf=first_sgf, &
@@ -1013,7 +1038,7 @@ CONTAINS
          CALL dbcsr_put_block(int_mat_s%matrix, iat, iat, int_s)
 
 !     Clean-up 
-         DEALLOCATE(test_h, test_s, int_h, int_s, int_c_h, int_c_s)
+         DEALLOCATE(rho_h, rho_s, int_h, int_s, int_c_h, int_c_s)
 
       END DO !iat
 
@@ -1171,7 +1196,7 @@ CONTAINS
                END DO 
                offset = offset+1
 
-               !Actually evaluating the basis on the grid
+               !Actually evaluating the density on the grid
                IF (ANY(map_it(1:npgfa(iset)))) THEN
                   sgfa = first_sgfa(1, iset)
                   ncoa = npgfa(iset)*ncoset(la_max(iset))
@@ -1243,31 +1268,34 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Integrate a function of r on the PW grid wrt the RI_XAS_SOFT basis
 !> \param int_mat the matrix containing the integrals
+!> \param singlet whther we consider singlet or triplet excitations
 !> \param ri_gapw_env ...
 !> \param qs_env ...
-!> \note  Takes the default pw_env, (TODO) might want to make our own
-!>        The matrix int_mat gets its shape in this routine
+!> \note Only the PADE functional is available 
 ! **************************************************************************************************
-   SUBROUTINE integrate_ri_gapw_smooth(int_mat, ri_gapw_env, qs_env)
+   SUBROUTINE integrate_ri_gapw_smooth(int_mat, singlet, ri_gapw_env, qs_env)
 
       TYPE(dbcsr_p_type)                              :: int_mat
+      LOGICAL                                         :: singlet
       TYPE(ri_gapw_env_type), POINTER                 :: ri_gapw_env
       TYPE(qs_environment_type), POINTER              :: qs_env
 
       CHARACTER(len=*), PARAMETER :: routineN = "integrate_ri_gapw_smooth", &
                                      routineP = moduleN//":"//routineN
 
+      INTEGER                                         :: n
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
-      TYPE(pw_p_type)                                 :: rho_smooth_r, rho_smooth_g
+      TYPE(pw_p_type)                                 :: rho_smooth_r, rho_smooth_g, fxc_r
       TYPE(pw_env_type), POINTER                      :: pw_env
       TYPE(pw_pool_type), POINTER                     :: auxbas_pw_pool
-      REAL(dp)                                        :: integral_smooth
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: rs
+      TYPE(dft_control_type), POINTER                 :: dft_control
 
-      NULLIFY(dbcsr_dist, pw_env, auxbas_pw_pool)
+      NULLIFY(dbcsr_dist, pw_env, auxbas_pw_pool, dft_control)
 
 !  Create a dbcsr_matrix with the same distribution as the normal ones, but with the size of the 
 !  orbital basis for non interesting atoms and the size of the RI basis for the ones we like
-      CALL get_qs_env(qs_env, dbcsr_dist=dbcsr_dist)
+      CALL get_qs_env(qs_env, dbcsr_dist=dbcsr_dist, dft_control=dft_control)
       CALL dbcsr_create(matrix=int_mat%matrix, name="RI GAPW SMOOTH INT", matrix_type='S', &
                         dist=dbcsr_dist, row_blk_size=ri_gapw_env%blk_size, &
                         col_blk_size=ri_gapw_env%blk_size)
@@ -1276,81 +1304,62 @@ CONTAINS
       pw_env => ri_gapw_env%pw_env
       CALL pw_env_get(pw_env, auxbas_pw_pool=auxbas_pw_pool)
       CALL pw_pool_create_pw(auxbas_pw_pool, rho_smooth_r%pw, use_data=REALDATA3D, in_space=REALSPACE)
+      CALL pw_pool_create_pw(auxbas_pw_pool, fxc_r%pw, use_data=REALDATA3D, in_space=REALSPACE)
       CALL pw_pool_create_pw(auxbas_pw_pool, rho_smooth_g%pw, use_data=COMPLEXDATA1D, &
                              in_space=RECIPROCALSPACE)
 
 !  Put the density on the pw grid
       CALL put_density_on_pw_grid(rho_smooth_r, rho_smooth_g, ri_gapw_env, qs_env)
 
-!  Test: integrate the density
-      integral_smooth = pw_integrate_function(rho_smooth_r%pw)
-      PRINT*, "Integral of the smooth density over space: ", integral_smooth
+!  Evaluate the functional on the grid
+      CALL set_util(dft_control%qs_control%eps_rho_rspace)
+      n = PRODUCT(SHAPE(rho_smooth_r%pw%cr3d))
+      ALLOCATE(rs(n))
+      CALL calc_rs_pw(rho_smooth_r%pw%cr3d, rs, n)
+      CALL pw_zero(fxc_r%pw)
+
+      IF (singlet) THEN
+         CALL pade_kernel_singlet(n, rho_smooth_r%pw%cr3d, rs, fxc_r%pw%cr3d, &
+                                  dft_control%qs_control%eps_rho_rspace)
+
+      ELSE 
+         CALL pade_kernel_triplet(n, rho_smooth_r%pw%cr3d, rs, fxc_r%pw%cr3d, &                         
+                                  dft_control%qs_control%eps_rho_rspace)
+      END IF
+
 
 !  Before integration, need to multiply integrand by the volume element...
-      rho_smooth_r%pw%cr3d = rho_smooth_r%pw%cr3d * rho_smooth_r%pw%pw_grid%dvol
+      fxc_r%pw%cr3d = fxc_r%pw%cr3d * fxc_r%pw%pw_grid%dvol
 
 !  Integrate 
-      CALL integrate_v_rspace(rho_smooth_r, int_mat, qs_env=qs_env, calculate_forces=.FALSE., & 
+      CALL integrate_v_rspace(fxc_r, int_mat, qs_env=qs_env, calculate_forces=.FALSE., & 
                               basis_type="RI_XAS_SOFT", task_list_external=ri_gapw_env%task_list, &
                               pw_env_external=ri_gapw_env%pw_env)
 
 !  Clean-up
       CALL pw_pool_give_back_pw(auxbas_pw_pool, rho_smooth_r%pw)
       CALL pw_pool_give_back_pw(auxbas_pw_pool, rho_smooth_g%pw)
+      CALL pw_pool_give_back_pw(auxbas_pw_pool, fxc_r%pw)
 
    END SUBROUTINE integrate_ri_gapw_smooth
 
 ! **************************************************************************************************
-!> \brief Computes the PADE fxc kernel on the real space grid for integration
-!> \fxc_rspace the kernel on the real space grid
-!> \rho_r the density on the real space grid
-!> \note We assume that fxc will always be a function of r
-! **************************************************************************************************
-   SUBROUTINE pade_kernel_pw_create(fxc_rspace, rho_r, eps_rho)
-
-      TYPE(pw_p_type)                                 :: fxc_rspace
-      TYPE(pw_p_type)                                 :: rho_r
-      REAL(dp)                                        :: eps_rho
-
-      CHARACTER(len=*), PARAMETER :: routineN = "pade_kernel_pw_create", &
-                                     routineP = moduleN//":"//routineN
-
-      INTEGER                                         :: n
-      REAL(dp), DIMENSION(:), ALLOCATABLE             :: rs
-
-!  Create the pw_p_type of fxc based on the grid of rho_r
-      CALL pw_create(fxc_rspace%pw, rho_r%pw%pw_grid, use_data=REALDATA3D, in_space=REALSPACE)
-      fxc_rspace%pw%cr3d = 0.0_dp
-
-!  Get rs on the grid
-      CALL set_util(eps_rho)
-      n = PRODUCT(SHAPE(rho_r%pw%cr3d))
-      ALLOCATE(rs(n))
-      CALL calc_rs_pw(rho_r%pw%cr3d, rs, n)
-
-!  It seems that all the distribution is taken care of by itself, so just work on the local data
-!  We assume unpolarized spins PADE LDA, we do not multiply by rho (as in xc_pade)
-      CALL pade_kernel_singlet(n, rho_r%pw%cr3d, rs, fxc_rspace%pw%cr3d, eps_rho)
-
-   END SUBROUTINE pade_kernel_pw_create
-
-! **************************************************************************************************
 !> \brief The actual pade kernel evaluation in the singlet case. Inspired from xc_pade.F
-!> \n the number of grid points
-!> \rho the array of the values of the density on the grid
-!> \rs the array of the values of rs on the grid
-!> \fxc the array of the values of fxc on the grid
-!> \eps_rho the density cutoff
+!> \param n the number of grid points
+!> \param rho the array of the values of the density on the grid
+!> \param rs the array of the values of rs on the grid
+!> \param fxc the array of the values of fxc on the grid
+!> \param eps_rho the density cutoff
 !> \note TODO: OMP parallelize as in xc_pade.F
 !>             In the singlet case, take d2exc_d2na + d2exc_dnadnb, can be shown to be the formula
 !>             below, only dependent on n (spin-unpolarized)
 ! **************************************************************************************************
    SUBROUTINE pade_kernel_singlet(n, rho, rs, fxc, eps_rho)
 
-      INTEGER, INTENT(IN)                             :: n
       REAL(dp), DIMENSION(*), INTENT(IN)              :: rho, rs
       REAL(dp), DIMENSION(*), INTENT(INOUT)           :: fxc
       REAL(dp), INTENT(IN)                            :: eps_rho
+      INTEGER                                         :: n
 
       CHARACTER(len=*), PARAMETER :: routineN = "pade_kernel_singlet", routineP=moduleN//":"//routineN 
 
@@ -1418,21 +1427,21 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief The actual pade kernel evaluation in the triplet case. Inspired from xc_pade.F
-!> \n the number of grid points                                                                      
-!> \rho the array of the values of the density on the grid                                           
-!> \rs the array of the values of rs on the grid                                                     
-!> \fxc the array of the values of fxc on the grid                                                   
-!> \eps_rho the density cutoff                                                                       
+!> \param n the number of grid points
+!> \param rho the array of the values of the density on the grid                                           
+!> \param rs the array of the values of rs on the grid                                                     
+!> \param fxc the array of the values of fxc on the grid                                                   
+!> \param eps_rho the density cutoff                                                                       
 !> \note TODO: OMP parallelize as in xc_pade.F                                                       
 !>             In the triplet case, take d2exc_d2na - d2exc_dnadnb, can be shown to be the formula   
 !>             below, only dependent on n (spin-unpolarized) 
 ! **************************************************************************************************
    SUBROUTINE pade_kernel_triplet(n, rho, rs, fxc, eps_rho)
       
-      INTEGER, INTENT(IN)                             :: n
       REAL(dp), DIMENSION(*), INTENT(IN)              :: rho, rs  
       REAL(dp), DIMENSION(*), INTENT(INOUT)           :: fxc  
       REAL(dp), INTENT(IN)                            :: eps_rho
+      INTEGER                                         :: n
 
       CHARACTER(len=*), PARAMETER :: routineN = "pade_kernel_triplet", routineP=moduleN//":"//routineN
 
