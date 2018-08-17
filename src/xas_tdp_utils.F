@@ -9,15 +9,14 @@
 ! ************************************************************************************************** 
 
 MODULE xas_tdp_utils
-   
+   USE ai_contraction_sphi,             ONLY: abc_contract
+   USE ai_coulomb,                      ONLY: coulomb3
    USE basis_set_types,                 ONLY: gto_basis_set_type, get_gto_basis_set, &
                                               gto_basis_set_p_type
    USE cell_types,                      ONLY: cell_type, pbc
+   USE constants_operator,              ONLY: operator_coulomb
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm, cp_dbcsr_sm_fm_multiply, &
                                               copy_fm_to_dbcsr
-   USE cp_eri_mme_interface,            ONLY: cp_eri_mme_finalize, cp_eri_mme_param, &
-                                              cp_eri_mme_set_params, cp_eri_mme_init_read_input, &
-                                              cp_eri_mme_update_local_counts
    USE cp_cfm_types,                    ONLY: cp_fm_to_cfm, cp_cfm_to_fm, cp_cfm_type, &
                                               cp_cfm_create, cp_cfm_release
    USE cp_fm_basic_linalg,              ONLY: cp_fm_scale_and_add, cp_fm_gemm, cp_fm_column_scale, &
@@ -43,12 +42,13 @@ MODULE xas_tdp_utils
                                               dbcsr_iterator_blocks_left, dbcsr_iterator_start, &
                                               dbcsr_iterator_stop, dbcsr_iterator_next_block, &
                                               dbcsr_add
-   USE eri_mme_types,                   ONLY: eri_mme_init
+   USE generic_os_integrals,            ONLY: int_operators_r12_ab_os
    USE input_constants,                 ONLY: xas_dip_len, xas_dip_vel, do_eri_mme, do_eri_os, &
                                               xas_tdp_hfx, xas_tdp_pade
    USE iterate_matrix,                  ONLY: invert_Hotelling
    USE kinds,                           ONLY: dp
-   USE mp2_eri,                         ONLY: integrate_set_3c, integrate_set_2c
+   USE mathlib,                         ONLY: invmat_symm
+   USE orbital_pointers,                ONLY: ncoset
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE qs_environment_types,            ONLY: qs_environment_type, get_qs_env
@@ -60,6 +60,7 @@ MODULE xas_tdp_utils
                                               neighbor_list_iterator_p_type, &
                                               neighbor_list_iterator_release,&
                                               neighbor_list_set_p_type
+   USE util,                            ONLY: locate
    USE xas_tdp_types,                   ONLY: donor_state_type, xas_tdp_env_type, &
                                               xas_tdp_control_type
 
@@ -550,7 +551,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "compute_oscillator_strength", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: nosc, nao, i, ndo_mo,j, k, jdo_mo,l
+      INTEGER                                         :: nosc, nao, i, ndo_mo,j, k, jdo_mo
       TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
       TYPE(cp_fm_type), POINTER                       :: mo_coeff
       TYPE(cp_para_env_type), POINTER                 :: para_env
@@ -583,8 +584,6 @@ CONTAINS
          CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao)
          dipmat => xas_tdp_env%dipmat
 
-!        TODO: The normalization of the response coeff is kind of abitrary (but consistent) 
-!        => factor 2/3 can probably be dropped
          IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
 !           Add the dipole form specific prefactor 2/3*omega
             osc_str = 2.0_dp/3.0_dp*donor_state%lr_evals
@@ -647,9 +646,10 @@ CONTAINS
                   CALL cp_fm_get_submatrix(work_vect, work_array)
 
 !                 Computing C^0_j*M*C^-_j
-                  DO l = 1,nao 
-                     xyz_moments(k) = xyz_moments(k) + gs_coeff(l,1)*work_array(l,1) 
-                  END DO ! l
+                  !DO l = 1,nao 
+                  !   xyz_moments(k) = xyz_moments(k) + gs_coeff(l,1)*work_array(l,1) 
+                  !END DO ! l
+                  xyz_moments(k) = DOT_PRODUCT(gs_coeff(:,1), work_array(:,1))
                END DO ! k
             END DO ! j
 
@@ -1245,57 +1245,29 @@ CONTAINS
 !> \param nao the number of AOs
 !> \param xas_tdp_env ...
 !> \param qs_env ...
-!> \param xas_tdp_control ...
-!> \note Stores  (P|Q)^-1 in the xas_tdp_env, for now, uses eri_mme and only works for PBCs
+!> \note Stores  (P|Q)^-1 in the xas_tdp_env, use the OS scheme
 ! **************************************************************************************************
-   SUBROUTINE compute_ri_coulomb2_int(xas_tdp_env, qs_env, xas_tdp_control)
+   SUBROUTINE compute_ri_coulomb2_int(xas_tdp_env, qs_env)
 
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(qs_environment_type), POINTER              :: qs_env 
-      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control  
 
       CHARACTER(len=*), PARAMETER :: routineN = "compute_ri_coulomb2_int", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: nset, pset, qset, G_count, & 
-                                                         R_count, ikind, i, offset_p_start, &
-                                                         offset_p_end, offset_q_start, &
-                                                         offset_q_end, sgfp, sgfq, eri_method
+      INTEGER                                         :: ikind, i, nsgf
       TYPE(gto_basis_set_type), POINTER               :: ri_basis
-      REAL(dp), DIMENSION(:,:), POINTER               :: zet, sphi
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set        
-      INTEGER, DIMENSION(:), POINTER                  :: lmax, lmin, ex_kinds, nsgf, npgf
-      INTEGER, DIMENSION(:,:), POINTER                :: first_sgf
-      TYPE(cp_eri_mme_param), POINTER                 :: eri_param
-      TYPE(cp_para_env_type), POINTER                 :: para_env
-      TYPE(cell_type), POINTER                        :: cell 
+      INTEGER, DIMENSION(:), POINTER                  :: ex_kinds
       REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: tmp_int
-      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
-      TYPE(cp_fm_type), POINTER                       :: work_fm  
-      TYPE(cp_fm_struct_type), POINTER                :: fm_struct 
-      REAL(dp), DIMENSION(3)                          :: r
 
-      NULLIFY(ri_basis, zet, sphi, qs_kind_set, lmax, lmin, first_sgf, eri_param, para_env)
-      NULLIFY(work_fm, fm_struct, blacs_env)
+      NULLIFY(ri_basis, qs_kind_set)
       CPASSERT(ASSOCIATED(xas_tdp_env))
 
 !  Initialization
-      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, cell=cell, para_env=para_env, blacs_env=blacs_env)
+      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set)
       ex_kinds => xas_tdp_env%ex_kind_indices
       ALLOCATE(xas_tdp_env%ri_inv_mats(SIZE(ex_kinds)))
-
-!  Check on the periodicity to choose the eri method
-      IF (ALL(cell%perd == 1)) eri_method = do_eri_mme
-      IF (ALL(cell%perd == 0)) eri_method = do_eri_os
-      
-
-!  Reading the ERI_MME params and calibrate them (not centralized to avoid circular dependency)
-      ALLOCATE(eri_param)
-      CALL cp_eri_mme_init_read_input(xas_tdp_control%eri_mme_subsection, eri_param)
-      CALL cp_eri_mme_set_params(eri_param, cell, qs_kind_set, basis_type_1="RI_XAS", &
-                                 basis_type_2="RI_XAS", para_env=para_env)      
-      G_count = 0
-      R_count = 0
 
 !  Loop over the excited kinds
       DO i = 1,SIZE(ex_kinds)
@@ -1303,61 +1275,26 @@ CONTAINS
 
 !        Get the RI basis of interest and its quantum numbers
          CALL get_qs_kind(qs_kind_set(ikind), basis_set=ri_basis, basis_type="RI_XAS")
-         CALL get_gto_basis_set(ri_basis, lmax=lmax, npgf=npgf, zet=zet, lmin=lmin, nset=nset, &
-                                nsgf_set=nsgf, sphi=sphi, first_sgf=first_sgf) 
+         CALL get_gto_basis_set(ri_basis, nsgf=nsgf) 
 
 !        The 2D array with the integrals for this kind
-         ALLOCATE(tmp_int(SUM(nsgf,1), SUM(nsgf,1)))
+         ALLOCATE(tmp_int(nsgf, nsgf))
          tmp_int = 0.0_dp
 
-!        Loop over the sets of the basis
-!        TODO: can probably avoid to go over all sets by using some symmetry
+         CALL int_operators_r12_ab_os(r12_operator=operator_coulomb, vab=tmp_int, &
+                                      rab=(/0.0_dp,0.0_dp,0.0_dp/), fba=ri_basis, fbb=ri_basis, &
+                                      calculate_forces=.FALSE.)
 
-         offset_p_end = 0
+!        Inverting and storing in the xas_tdp_env
+         CALL invmat_symm(tmp_int)  
 
-         DO pset = 1,nset
-            offset_p_start = offset_p_end
-            offset_p_end = offset_p_end+nsgf(pset)
-            offset_q_end = 0
-            sgfp = first_sgf(1, pset)
-            
-            DO qset = 1,nset
-               offset_q_start = offset_q_end 
-               offset_q_end = offset_q_end+nsgf(qset) 
-               sgfq = first_sgf(1, qset)
-
-               r = 0.0_dp
-               CALL integrate_set_2c(eri_param%par, lmin(pset), lmax(pset), lmin(qset), lmax(qset),&
-                                     npgf(pset), npgf(qset), zet(:,pset), zet(:,qset), r, r, tmp_int, &
-                                     nsgf(pset), nsgf(qset), offset_p_start, offset_q_start, 0, 0,&
-                                     sphi, sphi, sgfp, sgfq, nsgf(pset), nsgf(qset), eri_method, &
-                                     G_count=G_count, R_count=R_count)
-
-            END DO ! qset
-         END DO !pset
-
-!        Storing it into the xas_tdp_env
-         CALL cp_fm_struct_create(fm_struct, context=blacs_env, para_env=para_env, & 
-                                  nrow_global=SUM(nsgf,1), ncol_global=SUM(nsgf,1))
-
-         CALL cp_fm_create(work_fm, fm_struct)
-         CALL cp_fm_set_submatrix(work_fm, tmp_int)
-
-         CALL cp_fm_create(xas_tdp_env%ri_inv_mats(i)%matrix, fm_struct)
-         CALL cp_fm_invert(work_fm, xas_tdp_env%ri_inv_mats(i)%matrix) 
+         ALLOCATE(xas_tdp_env%ri_inv_mats(i)%array(nsgf,nsgf))
+         xas_tdp_env%ri_inv_mats(i)%array(:,:) = tmp_int(:,:)
 
 !        clean-up before next kind
-         CALL cp_fm_struct_release(fm_struct)   
-         CALL cp_fm_release(work_fm)       
          DEALLOCATE(tmp_int)
 
       END DO ! loop on kinds
-
-!  Clean-up
-      CALL cp_eri_mme_update_local_counts(eri_param, para_env, G_count_2c=G_count, &
-                                          R_count_2c=R_count)
-      CALL cp_eri_mme_finalize(eri_param)
-      DEALLOCATE(eri_param)
 
    END SUBROUTINE compute_ri_coulomb2_int
 
@@ -1371,19 +1308,16 @@ CONTAINS
 !> \para, exat_kind the kind of the excited atom, to get the RI basis
 !> \param xas_tdp_env the xas_tdp_Env to update with the 3-center Coulomb integrals
 !> \param qs_env ...
-!> \param xas_tdp_control ...
 !> \note Currently creates a 3D array, will later switch to DBCSR tensors (TODO). Will be used for 
 !>       the Coulomb kernel after contraction (aI|P) = sum_b C_b (ab|P) and possibly for the exchange
 !>       part too (if non-PBCs and coulomb operator requested). TODO: if exchange operator is not
 !>       coulomb, screen the integrals to only compute (ab|P) where C_b is non-zero
-!>       Based on the 3-center ERI_MME integrals
 ! **************************************************************************************************
-   SUBROUTINE compute_ri_coulomb3_int(exat_index, exat_kind, xas_tdp_env, qs_env, xas_tdp_control)
+   SUBROUTINE compute_ri_coulomb3_int(exat_index, exat_kind, xas_tdp_env, qs_env)
 
       INTEGER, INTENT(IN)                             :: exat_index, exat_kind
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(qs_environment_type), POINTER              :: qs_env
-      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
 
       CHARACTER(len=*), PARAMETER :: routineN = 'compute_ri_coulomb3_int', &
                                      routineP = moduleN//':'//routineN
@@ -1391,9 +1325,9 @@ CONTAINS
       INTEGER                                         :: nsetp, nsetb, natom, &
                                                          nao, nseta, bat, aset, bset, pset, &
                                                          sgfa, sgfp, sgfb, aat, akind, bkind, & 
-                                                         nkind, igp, i, GG_count, &
-                                                         GR_count, RR_count, inode, last_bat, &
-                                                         eri_method
+                                                         nkind, igp, i, ncoa, ncob, ncop, ipgf, &
+                                                         startp, endp
+      REAL(dp)                                        :: rab2, rap2, rbp2, rpgfp
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(gto_basis_set_p_type), DIMENSION(:), &
                                              POINTER  :: basis_set_list
@@ -1402,11 +1336,11 @@ CONTAINS
                                                          npgfb, la_max, la_min, npgfa, nsgfa, &
                                                          nsgfb, nsgfp
       INTEGER, DIMENSION(:,:), POINTER                :: first_sgfa, first_sgfb, first_sgfp
-      REAL(dp), DIMENSION(:,:), POINTER               :: zetp, rpgfp, zetb, rpgfb, zeta, rpgfa,&
+      REAL(dp), DIMENSION(:,:), POINTER               :: zetp, zetb, zeta, &
                                                          sphi_p, sphi_a, sphi_b
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
       TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos 
-      REAL(dp), DIMENSION(:,:,:), ALLOCATABLE         :: int_abp_set, int_array
+      REAL(dp), DIMENSION(:,:,:), ALLOCATABLE         :: int_abp_set, int_array, int_abp
       REAL(dp), DIMENSION(3)                          :: ra, rb, rp, rab
       INTEGER, DIMENSION(:), ALLOCATABLE              :: first_sgf_set
       TYPE(neighbor_list_set_p_type), DIMENSION(:), & 
@@ -1414,14 +1348,16 @@ CONTAINS
       TYPE(neighbor_list_iterator_p_type), &                                                         
                             DIMENSION(:), POINTER     :: nl_iterator   
       TYPE(cell_type), POINTER                        :: cell
-      TYPE(cp_eri_mme_param), POINTER                 :: eri_param   
       TYPE(cp_para_env_type), POINTER                 :: para_env
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: gccc, f, rpgfa, rpgfb
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: vabc
+      REAL(dp), DIMENSION(:,:,:,:), ALLOCATABLE       :: v
 
       NULLIFY(qs_kind_set, p_basis, b_basis, a_basis, particle_set, mos)
-      NULLIFY(lp_max, lp_min, npgfp, zetp, rpgfp, sphi_p, first_sgfp)
-      NULLIFY(lb_max, lb_min, npgfb, zetb, rpgfb, sphi_b, first_sgfb)
-      NULLIFY(la_max, la_min, npgfa, zeta, rpgfa, sphi_a, first_sgfa)
-      NULLIFY(sab_orb, nl_iterator, cell, basis_set_list, eri_param, para_env)
+      NULLIFY(lp_max, lp_min, npgfp, zetp, sphi_p, first_sgfp)
+      NULLIFY(lb_max, lb_min, npgfb, zetb, sphi_b, first_sgfb)
+      NULLIFY(la_max, la_min, npgfa, zeta, sphi_a, first_sgfa)
+      NULLIFY(sab_orb, nl_iterator, cell, basis_set_list, para_env)
 
 !  Get all we need from the qs_env
       CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, particle_set=particle_set, mos=mos, &
@@ -1434,11 +1370,7 @@ CONTAINS
       CALL get_qs_kind(qs_kind_set(exat_kind), basis_set=p_basis, basis_type="RI_XAS")
 
       CALL get_gto_basis_set(p_basis, lmax=lp_max, npgf=npgfp, zet=zetp, lmin=lp_min, nset=nsetp, &
-                             nsgf_set=nsgfp, sphi=sphi_p, first_sgf=first_sgfp, pgf_radius=rpgfp) 
-
-!  Check on periodicity to impose ERI method
-      IF (ALL(cell%perd == 1)) eri_method = do_eri_mme                                               
-      IF (ALL(cell%perd == 0)) eri_method = do_eri_os
+                             nsgf_set=nsgfp, sphi=sphi_p, first_sgf=first_sgfp) 
 
 !  Allocate the 3D array where results will be stored
       ALLOCATE(int_array(nao, nao, SUM(nsgfp)))
@@ -1449,30 +1381,11 @@ CONTAINS
       ALLOCATE(basis_set_list(nkind))
       CALL basis_set_list_setup(basis_set_list, "ORB", qs_kind_set)
 
-!  Get the mme params form the ERI_MME subsection. Do that here to avoid circular dependency
-!  TODO: is that expensive, is there a way around ?
-      ALLOCATE(eri_param)
-      CALL cp_eri_mme_init_read_input(xas_tdp_control%eri_mme_subsection, eri_param)
-      CALL cp_eri_mme_set_params(eri_param, cell, qs_kind_set, basis_type_1="ORB", & 
-                                              basis_type_2="RI_XAS", para_env=para_env)
-      GG_count = 0
-      GR_count = 0
-      RR_count = 0
-
+!  TODO: be very carfeul when enabeling PBCs
 !  Loop over all neighbouring atoms a,b and compute (ab|P)
       CALL neighbor_list_iterator_create(nl_iterator, sab_orb)
       DO WHILE (neighbor_list_iterate(nl_iterator) == 0)
-         CALL get_iterator_info(nl_iterator, ikind=akind, jkind=bkind, iatom=aat, jatom=bat, r=rab,&
-                                inode=inode)
-
-!        Discard periodic images because ERI_MME intrinsically periodic
-         IF (inode == 1) last_bat = 0
-
-         IF (bat /= last_bat) THEN
-            last_bat = bat
-         ELSE
-            CYCLE
-         END IF
+         CALL get_iterator_info(nl_iterator, ikind=akind, jkind=bkind, iatom=aat, jatom=bat, r=rab)
 
 !        Retrieve the basis sets for a and b
          a_basis => basis_set_list(akind)%gto_basis_set
@@ -1480,16 +1393,17 @@ CONTAINS
          
 !        Retrieve the quantum numbers for both basis sets
          CALL get_gto_basis_set(a_basis, lmax=la_max, npgf=npgfa, zet=zeta, lmin=la_min, &
-                                nset=nseta, nsgf_set=nsgfa, sphi=sphi_a, first_sgf=first_sgfa, &
-                                pgf_radius=rpgfa)   
+                                nset=nseta, nsgf_set=nsgfa, sphi=sphi_a, first_sgf=first_sgfa)   
          CALL get_gto_basis_set(b_basis, lmax=lb_max, npgf=npgfb, zet=zetb, lmin=lb_min, &
-                                nset=nsetb, nsgf_set=nsgfb, sphi=sphi_b, first_sgf=first_sgfb, &
-                                pgf_radius=rpgfb)         
+                                nset=nsetb, nsgf_set=nsgfb, sphi=sphi_b, first_sgf=first_sgfb)         
 
 !        Get the different positions/distances
          ra = pbc(particle_set(aat)%r, cell) 
          rb = pbc(particle_set(bat)%r, cell)         
          rp = pbc(particle_set(exat_index)%r, cell)
+         rab2 = DOT_PRODUCT(rb-ra,rb-ra)
+         rap2 = DOT_PRODUCT(rp-ra,rp-ra)
+         rbp2 = DOT_PRODUCT(rp-rb,rp-rb) 
 
 !        Loop over sets of the 3 basis
          DO aset = 1,nseta
@@ -1498,34 +1412,59 @@ CONTAINS
 
 !                 Abort if coulomb3 subroutine screens stuff out, abort if more than one pgf per 
 !                 set in RI basis
-                  IF (eri_method == do_eri_os) THEN
-                     IF (SIZE(rpgfp,1) .GT. 1) THEN
-                        CPABORT("For OS scheme in NPBCs, only one pgf per set is allowed in the RI basis")
-                     END IF
-                  END IF
+                  !IF (npgfp(pset) .GT. 1) THEN
+                  !   CPABORT("For OS scheme in NPBCs, only one pgf per set is allowed in the RI basis")
+                  !END IF
 
 !                 Some initialization
                   sgfa = first_sgfa(1, aset) 
                   sgfb = first_sgfb(1, bset)
                   sgfp = first_sgfp(1, pset)   
+                  ncoa = npgfa(aset)*ncoset(la_max(aset))
+                  ncob = npgfb(bset)*ncoset(lb_max(bset))
+                  ncop = npgfp(pset)*ncoset(lp_max(pset))
 
 !                 Allocate array for the current comnbination of sets
                   ALLOCATE(int_abp_set(nsgfa(aset), nsgfb(bset), nsgfp(pset)))
                   int_abp_set = 0.0_dp
 
-!                 Took inspiration form mp2. Integrals are already contracted as sgf
-!                 the do_symmetric argument only matters for forces
-                  CALL integrate_set_3c(eri_param%par, la_min(aset), la_max(aset), lb_min(bset), &
-                                        lb_max(bset), lp_min(pset), lp_max(pset), npgfa(aset), &
-                                        npgfb(bset), npgfp(pset), zeta(:, aset), zetb(:, bset), &
-                                        zetp(:, pset), ra, rb, rp, int_abp_set, nsgfa(aset), &
-                                        nsgfb(bset), nsgfp(pset), 0, 0, 0, 0, 0, 0, sphi_a, &
-                                        sphi_b, sphi_p, sgfa, sgfb, sgfp, nsgfa(aset), &
-                                        nsgfb(bset), nsgfp(pset), eri_method, do_symmetric=.FALSE.,&
-                                        GG_count=GG_count, GR_count=GR_count, RR_count=RR_count)
+!                 Allocate some work arrays
+                  ALLOCATE(f(0:la_max(aset)+lb_max(bset)+lp_max(pset)+2))
+                  ALLOCATE(v(ncoa, ncob, ncop, la_max(aset)+lb_max(bset)+lp_max(pset)+1))
+                  ALLOCATE(gccc(ncop))
+                  ALLOCATE(vabc(ncoa, ncob))
+                  ALLOCATE(int_abp(ncoa, ncob, ncop))
+                  f = 0.0_dp
+                  v = 0.0_dp
+                  gccc = 0.0_dp
+                  vabc = 0.0_dp
+                  int_abp = 0.0_dp
+
+!                 hack: set the rpgf to avoid screening out
+                  ALLOCATE(rpgfa(npgfa(aset)))
+                  ALLOCATE(rpgfb(npgfb(bset)))
+                  rpgfa = 1.0E10_dp
+                  rpgfb = 1.0E10_dp
+                  rpgfp = 1.0E10_dp
+
+!                 Go one pgf at a time because of how coulomb3 is designed
+                  endp = 0
+                  DO ipgf = 1, npgfp(pset)
+                     startp = endp + ncoset(lp_min(pset)-1) + 1
+                     endp = endp + ncoset(lp_max(pset))
+                     CALL coulomb3(la_max(aset), npgfa(aset), zeta(:,aset), rpgfa(:), la_min(aset), &
+                                   lb_max(bset), npgfb(bset), zetb(:,bset), rpgfb(:), lb_min(bset), &
+                                   lp_max(pset), zetp(1,pset), rpgfp, lp_min(pset), gccc, &
+                                   rb-ra, rab2, rp-ra, rap2, rbp2, vabc, &
+                                   int_abp(:,:,startp:endp), v, f)
+                  END DO !ipgf
+
+!                 Contract into sgf
+                  CALL abc_contract(int_abp_set, int_abp, sphi_a(:,sgfa:), sphi_b(:,sgfb:), &
+                                    sphi_p(:,sgfp:), ncoa, ncob, ncop, nsgfa(aset), nsgfb(bset), &
+                                    nsgfp(pset)) 
 
 !                 Put it at the right place in the final array
-!                 TODO: in case of PBCs, might need to do += since pair a,b might involve images
                   int_array(first_sgf_set(aat)+sgfa-1:first_sgf_set(aat)+sgfa+nsgfa(aset)-2, &
                             first_sgf_set(bat)+sgfb-1:first_sgf_set(bat)+sgfb+nsgfb(bset)-2, &
                             sgfp:sgfp+nsgfp(pset)-1) = int_abp_set
@@ -1539,7 +1478,7 @@ CONTAINS
                   END DO
 
 !                 Deallocate before next loop
-                  DEALLOCATE(int_abp_set)
+                  DEALLOCATE(int_abp_set, int_abp, f, v, gccc, vabc, rpgfa, rpgfb)
 
                END DO ! pset
             END DO ! bset
@@ -1547,12 +1486,6 @@ CONTAINS
       
       END DO !neighbor iteration on a,b
       CALL neighbor_list_iterator_release(nl_iterator)
-
-!  Clean the eri params 
-      CALL cp_eri_mme_update_local_counts(eri_param, para_env, GG_count_3c=GG_count, &
-                                          GR_count_3c=GR_count, RR_count_3c=RR_count)
-      CALL cp_eri_mme_finalize(eri_param)
-      DEALLOCATE(eri_param)
 
 !  Updating the xas_tdp_env with the new integrals
       IF (ASSOCIATED(xas_tdp_env%ri_coul3)) DEALLOCATE(xas_tdp_env%ri_coul3)
@@ -1617,7 +1550,8 @@ CONTAINS
                                n_rows=nao, n_cols=1, transpose=.FALSE.) 
 
       DO i = 1,nao
-         contr_once(:,:) = contr_once(:,:) + coeffs(i,1)*integrals(:,i,:) 
+         !contr_once(:,:) = contr_once(:,:) + coeffs(i,1)*integrals(:,i,:) 
+         CALL daxpy(nao*nsgfp, coeffs(i,1), integrals(:,i,:), 1, contr_once(:,:), 1)
       END DO
 
 !  Do the second contraction if requested
@@ -1627,7 +1561,8 @@ CONTAINS
                                   start_col=domo_index(2), n_rows=nao, n_cols=1, transpose=.FALSE.)
 
          DO i = 1,nao
-            contr_twice(1,:) = contr_twice(1,:) + coeffs(i,1)*contr_once(i,:)
+            !contr_twice(1,:) = contr_twice(1,:) + coeffs(i,1)*contr_once(i,:)
+            CALL daxpy(nsgfp, coeffs(i,1), contr_once(i,:), 1, contr_twice(1,:), 1)
          END DO
       END IF
 
@@ -1667,8 +1602,9 @@ CONTAINS
 
       INTEGER                                         :: handle, ndo_mo, i, j, nsgfp, nao, iblk, &
                                                          jblk, nblk,  nrow_blk, ncol_blk
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: int_aI, int_bJ, PQ, proj_Q, work1, work2, &
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: int_aI, int_bJ, proj_Q, work1, work2, &
                                                          aIJb_prod
+      REAL(dp), DIMENSION(:,:), POINTER               :: PQ
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: context
       TYPE(cp_fm_type), POINTER                       :: work_fm     
@@ -1679,22 +1615,21 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      NULLIFY(para_env, context, work_fm, fm_struct, qs_kind_set, particle_set)
+      NULLIFY(PQ, para_env, context, work_fm, fm_struct, qs_kind_set, particle_set)
 
 !  Initialization
       ndo_mo = SIZE(donor_state%mo_indices,1)                       
-      CALL get_qs_env(qs_env, natom=nblk, particle_set=particle_set, qs_kind_set=qs_kind_set)
+      CALL get_qs_env(qs_env, natom=nblk, particle_set=particle_set, qs_kind_set=qs_kind_set, &
+                      blacs_env=context, para_env=para_env)
       ALLOCATE(first_sgf(nblk))
       CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf)
 
-!     Get the (P|Q)^-1 as an array
-      i = MINLOC(ABS(xas_tdp_env%ex_kind_indices-donor_state%kind_index), 1)
-      CALL cp_fm_get_info(xas_tdp_env%ri_inv_mats(i)%matrix, ncol_global=nsgfp, &
-                          context=context, para_env=para_env) 
+!     Get the (P|Q)^-1 from the ri_inv_mats
+      i = locate(xas_tdp_env%ex_kind_indices, donor_state%kind_index)
+      PQ => xas_tdp_env%ri_inv_mats(i)%array
+      nsgfp = SIZE(PQ,1)
       nao = SIZE(xas_tdp_env%ri_coul3, 1)
-      ALLOCATE(PQ(nsgfp, nsgfp))
-      CALL cp_fm_get_submatrix(fm=xas_tdp_env%ri_inv_mats(i)%matrix, target_m=PQ)
-
+      
 !     Get the projector Q as an array (dbcsr => fm => array)
       ALLOCATE(proj_Q(nao,nao))
       CALL cp_fm_struct_create(fm_struct, context=context, para_env=para_env, nrow_global=nao, &
@@ -1804,31 +1739,31 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE              :: first_sgf          
       TYPE(cp_blacs_env_type), POINTER                :: context
       TYPE(cp_para_env_type), POINTER                 :: para_env
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: PQ, proj_Q, int_aJ, int_bI, int_IJ, work1,&
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: proj_Q, int_aJ, int_bI, int_IJ, work1,&
                                                          work2, work3, abIJ_prod, aJIb_prod, work4
+      REAL(dp), DIMENSION(:,:), POINTER               :: PQ
       TYPE(cp_fm_type), POINTER                       :: work_fm                      
       TYPE(cp_fm_struct_type), POINTER                :: fm_struct      
       LOGICAL                                         :: do_offdiag
 
       CALL timeset(routineN, handle)
 
-      NULLIFY(particle_set, qs_kind_set, para_env, context, work_fm, fm_struct)
+      NULLIFY(particle_set, qs_kind_set, para_env, context, work_fm, fm_struct, PQ)
 
 !  Initialization
       do_offdiag = .FALSE.
       IF (PRESENT(ex_ker_offdiag)) do_offdiag = .TRUE.
       ndo_mo = SIZE(donor_state%mo_indices,1)
-      CALL get_qs_env(qs_env, natom=nblk, particle_set=particle_set, qs_kind_set=qs_kind_set)       
+      CALL get_qs_env(qs_env, natom=nblk, particle_set=particle_set, qs_kind_set=qs_kind_set, &
+                      blacs_env=context, para_env=para_env)       
       ALLOCATE(first_sgf(nblk))        
       CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf)
 
-!     Get the (P|Q)^-1 as an array      
-      i = MINLOC(ABS(xas_tdp_env%ex_kind_indices-donor_state%kind_index), 1)          
-      CALL cp_fm_get_info(xas_tdp_env%ri_inv_mats(i)%matrix, ncol_global=nsgfp, &
-                          context=context, para_env=para_env)                                 
-      nao = SIZE(xas_tdp_env%ri_coul3, 1)    
-      ALLOCATE(PQ(nsgfp, nsgfp))
-      CALL cp_fm_get_submatrix(fm=xas_tdp_env%ri_inv_mats(i)%matrix, target_m=PQ)               
+!     Get the (P|Q)^-1 from the xas_tdp_env 
+      i = locate(xas_tdp_env%ex_kind_indices, donor_state%kind_index)
+      PQ => xas_tdp_env%ri_inv_mats(i)%array
+      nsgfp = SIZE(PQ,1)
+      nao = SIZE(xas_tdp_env%ri_coul3, 1)
 
 !     Get the projector Q as an array (dbcsr => fm => array)
       ALLOCATE(proj_Q(nao,nao))
@@ -1905,7 +1840,8 @@ CONTAINS
 
 !           Multiply by (ab|P) from the left 
             DO k = 1,nsgfp
-               abIJ_prod(:,:) = abIJ_prod(:,:) + xas_tdp_env%ri_coul3(:,:,k)*work3(k,1)
+               !abIJ_prod(:,:) = abIJ_prod(:,:) + xas_tdp_env%ri_coul3(:,:,k)*work3(k,1)
+               CALL daxpy(nao*nao, work3(k,1), xas_tdp_env%ri_coul3(:,:,k), 1, abIJ_prod(:,:), 1)
             END DO !k
 
 !           Multiply by the Q projector
@@ -1954,7 +1890,7 @@ CONTAINS
    END SUBROUTINE build_kernel_exchange
 
 ! **************************************************************************************************
-!> \brief Computes the XC part of the kernel using RI and GAPW
+!> \brief Computes the XC part of the kernel base on atomic grid integrals
 !> \param xc_kernel the dbcsr_matrix where the xc kernel is stored
 !> \param dist the dbcsr_distribution of the matrix. Same as for matrices A,B or G
 !> \param blk_size the block sizes of the matrix 
@@ -1983,8 +1919,9 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE              :: first_sgf
       TYPE(cp_blacs_env_type), POINTER                :: context
       TYPE(cp_para_env_type), POINTER                 :: para_env
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: PQ, proj_Q, int_aI, int_bJ, work1, &
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: proj_Q, int_aI, int_bJ, work1, &
                                                          work2, aIJb_prod, work3
+      REAL(dp), DIMENSION(:,:), POINTER               :: PQ
       REAL(dp), DIMENSION(:,:), POINTER               :: fxc
       TYPE(cp_fm_struct_type), POINTER                :: fm_struct
       TYPE(cp_fm_type), POINTER                       :: work_fm
@@ -1992,21 +1929,20 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      NULLIFY(particle_set, qs_kind_set, context, para_env, fm_struct, work_fm)
+      NULLIFY(particle_set, qs_kind_set, context, para_env, fm_struct, work_fm, PQ)
 
 !  Initialization
       ndo_mo = SIZE(donor_state%mo_indices,1) 
-      CALL get_qs_env(qs_env, natom=nblk, particle_set=particle_set, qs_kind_set=qs_kind_set)
+      CALL get_qs_env(qs_env, natom=nblk, particle_set=particle_set, qs_kind_set=qs_kind_set, &
+                      blacs_env=context, para_env=para_env)
       ALLOCATE(first_sgf(nblk))
       CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf)
 
 !     Get the (P|Q)^-1 as an array
-      i = MINLOC(ABS(xas_tdp_env%ex_kind_indices-donor_state%kind_index), 1)
-      CALL cp_fm_get_info(xas_tdp_env%ri_inv_mats(i)%matrix, ncol_global=nsgfp, &                    
-                          context=context, para_env=para_env)
+      i = locate(xas_tdp_env%ex_kind_indices, donor_state%kind_index)
+      PQ => xas_tdp_env%ri_inv_mats(i)%array
+      nsgfp = SIZE(PQ, 1)
       nao = SIZE(xas_tdp_env%ri_coul3, 1)
-      ALLOCATE(PQ(nsgfp, nsgfp))
-      CALL cp_fm_get_submatrix(fm=xas_tdp_env%ri_inv_mats(i)%matrix, target_m=PQ)
 
 !     Get the projector Q as an array (dbcsr => fm => array)
       ALLOCATE(proj_Q(nao,nao))
@@ -2020,8 +1956,9 @@ CONTAINS
 
 !     Get the 2-center integrel (Q|fxc|R) as an array (a block from a dbcsr matrix)
 !     For now assume serial => don't check for which proc the block is on
+!     TODO: maybe that storing the atom integrals in a dbcsr matrix is not the best
       found_block = .FALSE.
-      CALL dbcsr_get_block_p(xas_tdp_env%ri_gapw_int%matrix, donor_state%at_index, &
+      CALL dbcsr_get_block_p(xas_tdp_env%ri_atom_int%matrix, donor_state%at_index, &
                             donor_state%at_index, fxc, found_block)
       CPASSERT(found_block)
       CPASSERT(ALL(SHAPE(fxc)==nsgfp))

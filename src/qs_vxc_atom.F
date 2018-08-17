@@ -982,19 +982,13 @@ CONTAINS
 !> \param qs_kind ...
 !> \param rho_atom ...
 !> \param nspins ...
-!> \par History
-!>      - 07.2018 modified to have optional external basis_set, harmonics and grid_atom [A. Bussy]
 ! **************************************************************************************************
-   SUBROUTINE gaVxcgb_noGC(vxc_h, vxc_s, qs_kind, rho_atom, nspins, basis_external, &
-                           harmonics_external, grid_atom_external)
+   SUBROUTINE gaVxcgb_noGC(vxc_h, vxc_s, qs_kind, rho_atom, nspins)
 
       REAL(dp), DIMENSION(:, :, :), POINTER              :: vxc_h, vxc_s
       TYPE(qs_kind_type), INTENT(IN)                     :: qs_kind
       TYPE(rho_atom_type), POINTER                       :: rho_atom
       INTEGER, INTENT(IN)                                :: nspins
-      TYPE(gto_basis_set_type), POINTER, OPTIONAL        :: basis_external
-      TYPE(harmonics_atom_type), POINTER, OPTIONAL       :: harmonics_external
-      TYPE(grid_atom_type), POINTER, OPTIONAL            :: grid_atom_external
 
       CHARACTER(len=*), PARAMETER :: routineN = 'gaVxcgb_noGC', routineP = moduleN//':'//routineN
 
@@ -1021,14 +1015,6 @@ CONTAINS
 
       CALL get_qs_kind(qs_kind, basis_set=orb_basis, &
                        harmonics=harmonics, grid_atom=grid_atom)
-
-!     Treat the case with externals
-      IF (PRESENT(basis_external)) orb_basis => basis_external
-      IF (PRESENT(harmonics_external)) harmonics => harmonics_external
-      IF (PRESENT(grid_atom_external)) grid_atom => grid_atom_external
-      CPASSERT(ASSOCIATED(orb_basis))
-      CPASSERT(ASSOCIATED(harmonics))
-      CPASSERT(ASSOCIATED(grid_atom))
 
       CALL get_gto_basis_set(gto_basis_set=orb_basis, lmax=lmax, lmin=lmin, &
                              maxso=maxso, maxl=maxl, npgf=npgf, &

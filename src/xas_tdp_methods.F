@@ -46,8 +46,6 @@ MODULE xas_tdp_methods
                                               section_vals_val_set
    USE kinds,                           ONLY: dp
    USE memory_utilities,                ONLY: reallocate
-   USE orbital_pointers,                ONLY: init_orbital_pointers
-   USE orbital_transformation_matrices, ONLY: init_spherical_harmonics
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE periodic_table,                  ONLY: ptable
@@ -72,10 +70,10 @@ MODULE xas_tdp_methods
                                               mo_set_p_type
    USE qs_operators_ao,                 ONLY: p_xyz_ao, rRc_xyz_ao       
    USE qs_rho_types,                    ONLY: qs_rho_get, qs_rho_type
+   USE util,                            ONLY: locate
    USE xas_methods,                     ONLY: calc_stogto_overlap
-   USE xas_tdp_gapw,                    ONLY: ri_gapw_env_type, init_ri_gapw_env, &
-                                              release_ri_gapw_env, integrate_ri_gapw_smooth, &
-                                              integrate_ri_gapw_atoms
+   USE xas_tdp_atom,                    ONLY: xas_atom_env_type, init_xas_atom_env, &
+                                              release_xas_atom_env, integrate_xas_atoms
    USE xas_tdp_types,                   ONLY: xas_tdp_env_type,&
                                               xas_tdp_env_create,&
                                               xas_tdp_env_release,&
@@ -128,12 +126,11 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                    :: para_env
       REAL(dp), DIMENSION(3)                             :: rc
       TYPE(cell_type), POINTER                           :: cell
-      TYPE(ri_gapw_env_type), POINTER                    :: ri_gapw_env
-      TYPE(dbcsr_p_type)                                 :: int_mat_h, int_mat_s
+      TYPE(xas_atom_env_type), POINTER                   :: xas_atom_env
       TYPE(dft_control_type), POINTER                    :: dft_control
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state, para_env)
-      NULLIFY(particle_set, cell, ri_gapw_env, dft_control)
+      NULLIFY(particle_set, cell, xas_atom_env, dft_control)
 
       CALL timeset(routineN, handle)
 
@@ -165,23 +162,10 @@ CONTAINS
       IF (dft_control%lsd) THEN
          CPABORT("XAS TDP only implemented for closed shell ground state calculations")
       END IF
-!     Check on periodicity: inform on which ERI scheme is used and potentially issue warnings
+!     Check on periodicity: only deal with non-periodic systems for now
       CALL get_qs_env(qs_env, cell=cell)
-      IF (ALL(cell%perd .EQ. 1)) THEN
-         IF (output_unit > 0) THEN
-            WRITE(UNIT=output_unit, FMT="(/,T5,A,/,T5,A,/)") &
-               "INFO: Fully periodic boundary conditions: the two- and three-center electron ", &
-               "      repulsion integrals are computed using the ERI_MME scheme."
-         END IF
-      ELSE IF (ALL(cell%perd .EQ. 0)) THEN
-         IF (output_unit > 0) THEN
-            WRITE(UNIT=output_unit, FMT="(/,T5,A,/,T5,A,/,T5,A,/)") &
-               "INFO: Non-periodic boundary conditions: the two- and three-center electron ", & 
-               "      repulsion integrals are computed using the OS scheme.", &
-               "CAUTION: Currently, only RI basis with a single pgf per set can be used. "
-         END IF
-      ELSE
-         CPABORT("XAS TDP calculation only support fully periodic or non-periodic BCs")
+      IF (.NOT. ALL(cell%perd .EQ. 0)) THEN
+         CPABORT("XAS TDP calculation only supports non-periodic BCs (for now)")
       END IF
       IF (xas_tdp_env%qs_loc_env%do_localize .AND. &
           xas_tdp_env%qs_loc_env%localized_wfn_control%operator_type /= op_loc_berry) THEN
@@ -214,30 +198,18 @@ CONTAINS
       END IF
       CALL write_mos_to_ex_atoms_association(xas_tdp_env, qs_env, output_unit)     
 
-!  If not simply exact exchange, setup a ri_gapw_env and compute the xc integrals within gapw
+!  If not simply exact exchange, setup a xas_atom_env and compute the xc integrals on the atomic grids
 !  Done before looping on atoms as it's all done at once
       IF (.NOT. xas_tdp_control%fxc_func == xas_tdp_hfx) THEN
-         CALL init_ri_gapw_env(ri_gapw_env, xas_tdp_env%ex_kind_indices, qs_env) 
+         CALL init_xas_atom_env(xas_atom_env, xas_tdp_env%ex_atom_indices, &
+                                xas_tdp_env%ex_kind_indices, xas_tdp_control%grid_info, qs_env) 
 
-!        Deal with the smooth interatomic part on the pw grid
-         ALLOCATE(xas_tdp_env%ri_gapw_int%matrix)
-         CALL integrate_ri_gapw_smooth(xas_tdp_env%ri_gapw_int, xas_tdp_control%do_singlet, &
-                                       ri_gapw_env, qs_env)
+         ALLOCATE(xas_tdp_env%ri_atom_int%matrix)
 
-!        Deal with the hard and soft parts on the atomic grids
-         NULLIFY(int_mat_h%matrix, int_mat_h%matrix)
-         ALLOCATE(int_mat_h%matrix, int_mat_s%matrix)
-         CALL integrate_ri_gapw_atoms(int_mat_h, int_mat_s, xas_tdp_control%do_singlet, ri_gapw_env, qs_env)
+         CALL integrate_xas_atoms(xas_tdp_env%ri_atom_int, xas_tdp_control%do_singlet, &
+                                  xas_atom_env, qs_env)
 
-!        Store the smooth + hard - soft matrix in the xas_tdp_env
-         CALL dbcsr_add(xas_tdp_env%ri_gapw_int%matrix, int_mat_h%matrix, 1.0_dp, 1.0_dp)
-         CALL dbcsr_add(xas_tdp_env%ri_gapw_int%matrix, int_mat_s%matrix, 1.0_dp, -1.0_dp)
-
-!        clean-up
-         CALL dbcsr_release(int_mat_h%matrix)
-         CALL dbcsr_release(int_mat_s%matrix)
-         DEALLOCATE(int_mat_h%matrix, int_mat_s%matrix)
-         CALL release_ri_gapw_env(ri_gapw_env)
+         CALL release_xas_atom_env(xas_atom_env)
       END IF
 
 !  Loop over donor states for calculation
@@ -257,78 +229,75 @@ CONTAINS
 !        Loop over atoms of kind
          DO iat = 1,SIZE(atoms_of_kind)
 
-            IF (ANY(xas_tdp_env%ex_atom_indices == atoms_of_kind(iat))) THEN
-               tmp_index = MINLOC(ABS(xas_tdp_env%ex_atom_indices-atoms_of_kind(iat)),1)  
+            IF (.NOT. ANY(xas_tdp_env%ex_atom_indices == atoms_of_kind(iat))) CYCLE
+            tmp_index = locate(xas_tdp_env%ex_atom_indices, atoms_of_kind(iat))
 
-!              If length representation for the dipole, compute it here in the AO basis, for this atom
-               IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
-                  CALL get_qs_env(qs_env, particle_set=particle_set)
-                  rc = particle_set(iat)%r    
-                  CALL dbcsr_set(xas_tdp_env%dipmat(1)%matrix, 0.0_dp)
-                  CALL dbcsr_set(xas_tdp_env%dipmat(2)%matrix, 0.0_dp)
-                  CALL dbcsr_set(xas_tdp_env%dipmat(3)%matrix, 0.0_dp)
-                  CALL rRc_xyz_ao(xas_tdp_env%dipmat, qs_env, rc, order=1)
+!           If length representation for the dipole, compute it here in the AO basis, for this atom
+            IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
+               CALL get_qs_env(qs_env, particle_set=particle_set)
+               rc = particle_set(iat)%r    
+               CALL dbcsr_set(xas_tdp_env%dipmat(1)%matrix, 0.0_dp)
+               CALL dbcsr_set(xas_tdp_env%dipmat(2)%matrix, 0.0_dp)
+               CALL dbcsr_set(xas_tdp_env%dipmat(3)%matrix, 0.0_dp)
+               CALL rRc_xyz_ao(xas_tdp_env%dipmat, qs_env, rc, order=1)
+            END IF
+
+!           For this excited atom, also compute the RI coulomb integrals
+            CALL compute_ri_coulomb3_int(iat, ikind, xas_tdp_env, qs_env)
+
+!           Loop over states of excited atom of kind
+            DO istate = 1,SIZE(xas_tdp_env%state_types,1)
+
+               IF (xas_tdp_env%state_types(istate, tmp_index) == xas_not_excited) CYCLE
+                    
+               current_state => xas_tdp_env%donor_states(current_state_index)
+               CALL set_donor_state(current_state,&
+                                    at_index=xas_tdp_env%ex_atom_indices(tmp_index),&
+                                    at_symbol=symbol_of_kind, kind_index=ikind,&
+                                    state_type=xas_tdp_env%state_types(istate,tmp_index))
+
+!              Initial write for the donor state of interest
+               IF (output_unit > 0) THEN
+                  WRITE(UNIT=output_unit, FMT="(/,T3,A,A2,A,I4,A,A2,/)") &
+                     "# Start of calculations for donor state(s) of type ", &
+                     xas_tdp_env%state_type_char(current_state%state_type), " for atom",&
+                     current_state%at_index, " of kind ", current_state%at_symbol
+                           
                END IF
 
-!              For this excited atom, also compute the RI coulomb integrals
-               CALL compute_ri_coulomb3_int(iat, ikind, xas_tdp_env, qs_env, xas_tdp_control)
+!              Assign best fitting MO(s) to current core donnor state
+               CALL assign_mo_to_donor_state(current_state, xas_tdp_env, xas_tdp_control,&
+                                             qs_env, output_unit)
 
-!              Loop over states of excited atom of kind
-               DO istate = 1,SIZE(xas_tdp_env%state_types,1)
+!              Perform MO restricted Mulliken pop analysis for verification
+               CALL perform_mulliken_on_donor_state(current_state,qs_env,output_unit)
 
-                  IF (xas_tdp_env%state_types(istate, tmp_index) /= xas_not_excited) THEN
-                    
-                     current_state => xas_tdp_env%donor_states(current_state_index)
-                     CALL set_donor_state(current_state,&
-                                          at_index=xas_tdp_env%ex_atom_indices(tmp_index),&
-                                          at_symbol=symbol_of_kind, kind_index=ikind,&
-                                          state_type=xas_tdp_env%state_types(istate,tmp_index))
+               IF (xas_tdp_control%check_donor_states) CYCLE
+!              Do main calculations here
 
-!                    Initial write for the donor state of interest
-                     IF (output_unit > 0) THEN
-                        WRITE(UNIT=output_unit, FMT="(/,T3,A,A2,A,I4,A,A2,/)") &
-                           "# Start of calculations for donor state(s) of type ", &
-                           xas_tdp_env%state_type_char(current_state%state_type), " for atom",&
-                           current_state%at_index, " of kind ", current_state%at_symbol
+               IF (xas_tdp_control%full_diag) THEN
+                  CALL setup_xas_tdp_full_prob(current_state, qs_env, xas_tdp_env, xas_tdp_control)
+                  CALL solve_xas_tdp_full_prob(current_state, xas_tdp_control, qs_env)
+                  CALL compute_oscillator_strength(current_state, xas_tdp_control, xas_tdp_env, qs_env)
                            
-                     END IF
-
-!                    Assign best fitting MO(s) to current core donnor state
-                     CALL assign_mo_to_donor_state(current_state, xas_tdp_env, xas_tdp_control,&
-                                                   qs_env, output_unit)
-
-!                    Perform MO restricted Mulliken pop analysis for verification
-                     CALL perform_mulliken_on_donor_state(current_state,qs_env,output_unit)
-
-                     IF (.NOT. xas_tdp_control%check_donor_states) THEN
-!                       Do main calculations here
-
-                        IF (xas_tdp_control%full_diag) THEN
-                           CALL setup_xas_tdp_full_prob(current_state, &
-                                                        qs_env, xas_tdp_env, xas_tdp_control)
-                           CALL solve_xas_tdp_full_prob(current_state, xas_tdp_control, qs_env)
-                           CALL compute_oscillator_strength(current_state, xas_tdp_control, &
-                                                            xas_tdp_env, qs_env)
+               ELSE IF (.NOT. xas_tdp_control%full_diag) THEN
                            
-                        ELSE IF (.NOT. xas_tdp_control%full_diag) THEN
-                           
-                           CPABORT("Iterative solver not implemented yet")
+                  CPABORT("Iterative solver not implemented yet")
 
-                        END IF !full_diag
+               END IF !full_diag
 
-                        CALL print_xas_tdp_to_file(current_state,xas_tdp_env,  xas_tdp_section)
+               CALL print_xas_tdp_to_file(current_state, xas_tdp_env, xas_tdp_section)
 
-                     END IF !check donor_states
+                  
 
-!                    Free some unneeded attributes of current_state
-                     CALL free_ds_memory(current_state)
+!              Free some unneeded attributes of current_state
+               CALL free_ds_memory(current_state)
 
-                     current_state_index = current_state_index + 1
-                     NULLIFY(current_state)
+               current_state_index = current_state_index + 1
+               NULLIFY(current_state)
 
-                  END IF
-               END DO ! state type
-            END IF ! if excited
+                  
+            END DO ! state type
          END DO ! atom of kind 
       END DO ! kind
 
@@ -368,7 +337,7 @@ CONTAINS
       INTEGER                                            :: nex_atoms, n_kinds, i, nat_of_kind,&
                                                             j, nex_kinds, k, n_donor_states,&
                                                             nspins, homo, natom, nmatch, kind_ind, &
-                                                            at_ind, maxlgto
+                                                            at_ind
       INTEGER, DIMENSION(2)                              :: n_mo, n_moloc
       INTEGER, DIMENSION(:), POINTER                     :: ind_of_kind
       CHARACTER(len=2)                                   :: symbol
@@ -517,16 +486,10 @@ CONTAINS
 !  associated to the same atom
       ALLOCATE(xas_tdp_env%mos_of_ex_atoms(xas_tdp_control%n_search, nex_atoms))
 
-!  Make sure that the spherical harmonics and orbital pointers go high enough for the RI_XAS basis
-      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set) 
-      CALL get_qs_kind_set(qs_kind_set, maxlgto=maxlgto, basis_type="RI_XAS")
-      CALL init_orbital_pointers(2*maxlgto)
-      CALL init_spherical_harmonics(2*maxlgto,0)
-
 !  Precomputing for RI => compute and invert the two-center two-electron repulsion matrix for the RI
 !  aux basis, for each excited kind
 
-      CALL compute_ri_coulomb2_int(xas_tdp_env, qs_env, xas_tdp_control)
+      CALL compute_ri_coulomb2_int(xas_tdp_env, qs_env)
 
 !  Compute the projector on the unoccupied, unperturbed ground state: Q = 1 - SP
       CALL get_qs_env(qs_env, rho=rho, matrix_s=matrix_s)
@@ -623,7 +586,7 @@ CONTAINS
 
 !        Verify that the closest atom is actually excited and assign the MO if so
          IF (ANY(xas_tdp_env%ex_atom_indices == iat_memo)) THEN
-            at_index = MINLOC(ABS(xas_tdp_env%ex_atom_indices-iat_memo),1)
+            at_index = locate(xas_tdp_env%ex_atom_indices, iat_memo)
             mos_of_ex_atoms(imo, at_index) = 1
          END IF
       END DO
@@ -734,10 +697,10 @@ CONTAINS
 !     Some clean-up
       DEALLOCATE(nq, lq, zeta)
 
-!  Expanding the STO into (normalized) GTOs for later calculations
+!  Expanding the STO into (normalized) GTOs for later calculations, use standard 3 gaussians
       CALL create_gto_from_sto_basis(sto_basis_set=sto_basis_set,&
                                      gto_basis_set=sto_to_gto_basis_set,&
-                                     ngauss=xas_tdp_control%n_gauss)
+                                     ngauss=3)
       sto_to_gto_basis_set%norm_type = 2
       CALL init_orb_basis_set(sto_to_gto_basis_set)
 
@@ -760,7 +723,7 @@ CONTAINS
       mos_of_ex_atoms => xas_tdp_env%mos_of_ex_atoms
       n_search = xas_tdp_control%n_search
       at_index = donor_state%at_index
-      iat = MINLOC(ABS(xas_tdp_env%ex_atom_indices-at_index),1)
+      iat = locate(xas_tdp_env%ex_atom_indices, at_index)
       CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao, eigenvalues=mo_evals)
       ALLOCATE(first_sgf(SIZE(particle_set)))
       CALL get_particle_set(particle_set=particle_set, qs_kind_set=qs_kind_set, first_sgf=first_sgf)
