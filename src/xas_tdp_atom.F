@@ -11,22 +11,28 @@
 ! **************************************************************************************************
 MODULE xas_tdp_atom
    USE ai_contraction_sphi,             ONLY: ab_contract
+   USE atomic_kind_types,               ONLY: atomic_kind_type
    USE ao_util,                         ONLY: transform_s2c
    USE basis_set_types,                 ONLY: gto_basis_set_type, gto_basis_set_p_type, &
                                               get_gto_basis_set, set_gto_basis_set
+   USE cell_types,                      ONLY: cell_type
    USE cp_array_utils,                  ONLY: cp_2d_r_p_type, cp_1d_r_p_type
    USE cp_control_types,                ONLY: qs_control_type, dft_control_type
    USE dbcsr_api,                       ONLY: dbcsr_p_type, dbcsr_distribution_type,&
                                               dbcsr_create, dbcsr_print, dbcsr_put_block, &
                                               dbcsr_finalize, dbcsr_release, dbcsr_get_block_p, &
                                               dbcsr_release_p
+   USE distribution_1d_types,           ONLY: distribution_1d_type
+   USE distribution_2d_types,           ONLY: distribution_2d_type
    USE generic_os_integrals,            ONLY: int_overlap_ab_os
+   USE input_section_types,             ONLY: section_vals_val_get
    USE kinds,                           ONLY: dp, default_string_length
    USE lebedev,                         ONLY: deallocate_lebedev_grids, get_number_of_lebedev_grid,&
                                               init_lebedev_grids, lebedev_grid
    USE mathconstants,                   ONLY: dfac, pi
    USE mathlib,                         ONLY: invmat_symm
    USE memory_utilities,                ONLY: reallocate
+   USE molecule_types,                  ONLY: molecule_type
    USE orbital_pointers,                ONLY: nsoset, indso, ncoset, nco, nso, indco
    USE orbital_transformation_matrices, ONLY: orbtramat
    USE particle_methods,                ONLY: get_particle_set
@@ -39,7 +45,8 @@ MODULE xas_tdp_atom
                                               deallocate_harmonics_atom, get_none0_cg_list
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_kind_types,                   ONLY: qs_kind_type, get_qs_kind, get_qs_kind_set
-   USE qs_neighbor_lists,               ONLY: setup_neighbor_list
+   USE qs_neighbor_lists,               ONLY: build_neighbor_lists, local_atoms_type, &
+                                              pair_radius_setup, atom2d_cleanup, atom2d_build
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type, &
                                               deallocate_neighbor_list_set
    USE qs_o3c_methods,                  ONLY: calculate_o3c_integrals, contract12_o3c
@@ -386,6 +393,97 @@ CONTAINS
    END SUBROUTINE init_xas_atom_grid_harmo
 
 ! **************************************************************************************************
+!> \brief Builds a neighbor lists set taylored for 3-center integral within XAS TDP, such that only
+!>        excited atoms are taken into account for the list_b
+!> \param ac_list the neighbor list ready for 3-center integrals
+!> \param basis_a basis set list for atom a
+!> \param basis_c basis set list for atom c
+!> \param op_type to indicate whther the list should be built with overlap or Coulomb in mind
+!> \param excited_atoms the indices of the excited atoms to consider
+!> \param excited_kinds the indices of the excited kinds to consider
+!> \param qs_env ...
+!> \note Based on setup_neighbor_list with added features
+! **************************************************************************************************
+   SUBROUTINE build_xas_tdp_3c_nl(ac_list, basis_a, basis_c, op_type, excited_atoms, &
+                                  excited_kinds, qs_env)
+
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), &                                                
+                                             POINTER  :: ac_list
+      TYPE(gto_basis_set_p_type), DIMENSION(:), &
+                                             POINTER  :: basis_a, basis_c
+      CHARACTER(len=*), INTENT(IN)                    :: op_type
+      INTEGER, DIMENSION(:), POINTER                  :: excited_atoms, excited_kinds
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN =  "build_xas_tdp_3c_nl", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: nkind, ikind
+      REAL(dp)                                        :: subcells
+      LOGICAL, DIMENSION(:), ALLOCATABLE              :: a_present, c_present
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: a_radius, c_radius
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: pair_radius
+      TYPE(atomic_kind_type), DIMENSION(:), POINTER   :: atomic_kind_set
+      TYPE(cell_type), POINTER                        :: cell
+      TYPE(distribution_1d_type), POINTER             :: distribution_1d
+      TYPE(distribution_2d_type), POINTER             :: distribution_2d
+      TYPE(local_atoms_type), DIMENSION(:), &
+                                          ALLOCATABLE :: atom2d
+      TYPE(molecule_type), DIMENSION(:), POINTER      :: molecule_set
+      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
+
+      NULLIFY(atomic_kind_set, distribution_1d, distribution_2d, molecule_set, particle_set, cell)
+      
+      IF (op_type == "COULOMB ") CPABORT("3-center Coulomb neighbor list NYI")
+
+!  Initialization
+      CALL get_qs_env(qs_env, nkind=nkind)
+      CALL section_vals_val_get(qs_env%input, "DFT%SUBCELLS", r_val=subcells)
+
+      ALLOCATE(a_present(nkind), c_present(nkind))
+      a_present = .FALSE.
+      c_present = .FALSE.
+      ALLOCATE(a_radius(nkind), c_radius(nkind))
+      a_radius = 0.0_dp
+      c_radius = 0.0_dp
+
+!  Set up the radii
+      DO ikind = 1,nkind
+         !orbital basis set
+         IF (ASSOCIATED(basis_a(ikind)%gto_basis_set)) THEN
+            a_present(ikind) = .TRUE.
+            CALL get_gto_basis_set(basis_a(ikind)%gto_basis_set, kind_radius=a_radius(ikind))
+         END IF
+         !RI_XAS basis set, take only excited kinds
+         IF (ASSOCIATED(basis_c(ikind)%gto_basis_set) .AND. ANY(excited_kinds == ikind)) THEN
+            c_present(ikind) = .TRUE.
+            CALL get_gto_basis_set(basis_c(ikind)%gto_basis_set, kind_radius=c_radius(ikind))
+         END IF
+      END DO !ikind
+
+      ALLOCATE(pair_radius(nkind, nkind))
+      pair_radius = 0.0_dp
+      CALL pair_radius_setup(a_present, c_present, a_radius, c_radius, pair_radius)
+
+!  Actually setup the list
+      CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, cell=cell, &
+                      distribution_2d=distribution_2d, local_particles=distribution_1d, &
+                      particle_set=particle_set, molecule_set=molecule_set)
+
+      ALLOCATE(atom2d(nkind))
+      CALL atom2d_build(atom2d, distribution_1d, distribution_2d, atomic_kind_set, &
+                        molecule_set, .FALSE., particle_set)
+
+      CALL build_neighbor_lists(ac_list, particle_set, atom2d, cell, pair_radius, subcells, &
+                                operator_type = "ABC", atomb_to_keep=excited_atoms, &
+                                nlname="XAS_TDP_3c_nl")
+
+!  Clean-up
+      CALL atom2d_cleanup(atom2d) 
+
+   END SUBROUTINE build_xas_tdp_3c_nl
+
+! **************************************************************************************************
 !> \brief Compute the coefficients to project the density on the RI_XAS basis set
 !> \param xas_atom_env ...
 !> \param qs_env ...
@@ -435,7 +533,8 @@ CONTAINS
       ALLOCATE(basis_set_orb(nkind))
       CALL basis_set_list_setup(basis_set_ri, "RI_XAS", qs_kind_set)
       CALL basis_set_list_setup(basis_set_orb, "ORB", qs_kind_set)
-      CALL setup_neighbor_list(ac_list, basis_set_ri, basis_set_orb, qs_env, operator_type="ABC") 
+      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "OVERLAP", &
+                               xas_atom_env%excited_atoms, xas_atom_env%excited_kinds, qs_env)
 
 !  Create the inverse RI overlap matrices. 
       ALLOCATE(sinv(nkind))
