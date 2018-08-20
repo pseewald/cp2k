@@ -1410,12 +1410,6 @@ CONTAINS
             DO bset = 1,nsetb
                DO pset = 1,nsetp
 
-!                 Abort if coulomb3 subroutine screens stuff out, abort if more than one pgf per 
-!                 set in RI basis
-                  !IF (npgfp(pset) .GT. 1) THEN
-                  !   CPABORT("For OS scheme in NPBCs, only one pgf per set is allowed in the RI basis")
-                  !END IF
-
 !                 Some initialization
                   sgfa = first_sgfa(1, aset) 
                   sgfb = first_sgfb(1, bset)
@@ -1454,7 +1448,7 @@ CONTAINS
                      endp = endp + ncoset(lp_max(pset))
                      CALL coulomb3(la_max(aset), npgfa(aset), zeta(:,aset), rpgfa(:), la_min(aset), &
                                    lb_max(bset), npgfb(bset), zetb(:,bset), rpgfb(:), lb_min(bset), &
-                                   lp_max(pset), zetp(1,pset), rpgfp, lp_min(pset), gccc, &
+                                   lp_max(pset), zetp(ipgf,pset), rpgfp, lp_min(pset), gccc, &
                                    rb-ra, rab2, rp-ra, rap2, rbp2, vabc, &
                                    int_abp(:,:,startp:endp), v, f)
                   END DO !ipgf
