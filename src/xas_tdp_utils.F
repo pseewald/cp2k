@@ -649,11 +649,11 @@ CONTAINS
                   !DO l = 1,nao 
                   !   xyz_moments(k) = xyz_moments(k) + gs_coeff(l,1)*work_array(l,1) 
                   !END DO ! l
-                  xyz_moments(k) = DOT_PRODUCT(gs_coeff(:,1), work_array(:,1))
+                  xyz_moments(k) = xyz_moments(k) +  DOT_PRODUCT(gs_coeff(:,1), work_array(:,1))
                END DO ! k
             END DO ! j
 
-!           Compute the oscilaltor strength for this specific energy
+!           Compute the oscillator strength for this specific energy
             contrib = 0.0_dp
             DO k = 1,3
                contrib = contrib +  osc_str(i)*xyz_moments(k)**2
