@@ -646,9 +646,6 @@ CONTAINS
                   CALL cp_fm_get_submatrix(work_vect, work_array)
 
 !                 Computing C^0_j*M*C^-_j
-                  !DO l = 1,nao 
-                  !   xyz_moments(k) = xyz_moments(k) + gs_coeff(l,1)*work_array(l,1) 
-                  !END DO ! l
                   xyz_moments(k) = xyz_moments(k) +  DOT_PRODUCT(gs_coeff(:,1), work_array(:,1))
                END DO ! k
             END DO ! j
@@ -1544,7 +1541,6 @@ CONTAINS
                                n_rows=nao, n_cols=1, transpose=.FALSE.) 
 
       DO i = 1,nao
-         !contr_once(:,:) = contr_once(:,:) + coeffs(i,1)*integrals(:,i,:) 
          CALL daxpy(nao*nsgfp, coeffs(i,1), integrals(:,i,:), 1, contr_once(:,:), 1)
       END DO
 
@@ -1555,7 +1551,6 @@ CONTAINS
                                   start_col=domo_index(2), n_rows=nao, n_cols=1, transpose=.FALSE.)
 
          DO i = 1,nao
-            !contr_twice(1,:) = contr_twice(1,:) + coeffs(i,1)*contr_once(i,:)
             CALL daxpy(nsgfp, coeffs(i,1), contr_once(i,:), 1, contr_twice(1,:), 1)
          END DO
       END IF
@@ -1834,7 +1829,6 @@ CONTAINS
 
 !           Multiply by (ab|P) from the left 
             DO k = 1,nsgfp
-               !abIJ_prod(:,:) = abIJ_prod(:,:) + xas_tdp_env%ri_coul3(:,:,k)*work3(k,1)
                CALL daxpy(nao*nao, work3(k,1), xas_tdp_env%ri_coul3(:,:,k), 1, abIJ_prod(:,:), 1)
             END DO !k
 
