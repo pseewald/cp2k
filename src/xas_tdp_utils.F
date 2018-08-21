@@ -1477,7 +1477,7 @@ CONTAINS
                END DO ! pset
             END DO ! bset
          END DO !aset
-      
+
       END DO !neighbor iteration on a,b
       CALL neighbor_list_iterator_release(nl_iterator)
 
