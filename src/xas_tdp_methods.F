@@ -113,7 +113,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'xas_tdp', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, ikind, iat, istate, tmp_index,&
-                                                            current_state_index, output_unit
+                                                            current_state_index, output_unit, iatom
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -228,14 +228,15 @@ CONTAINS
 
 !        Loop over atoms of kind
          DO iat = 1,SIZE(atoms_of_kind)
+            iatom = atoms_of_kind(iat)
 
-            IF (.NOT. ANY(xas_tdp_env%ex_atom_indices == atoms_of_kind(iat))) CYCLE
-            tmp_index = locate(xas_tdp_env%ex_atom_indices, atoms_of_kind(iat))
+            IF (.NOT. ANY(xas_tdp_env%ex_atom_indices == iatom)) CYCLE
+            tmp_index = locate(xas_tdp_env%ex_atom_indices, iatom)
 
 !           If length representation for the dipole, compute it here in the AO basis, for this atom
             IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
                CALL get_qs_env(qs_env, particle_set=particle_set)
-               rc = particle_set(iat)%r    
+               rc = particle_set(iatom)%r    
                CALL dbcsr_set(xas_tdp_env%dipmat(1)%matrix, 0.0_dp)
                CALL dbcsr_set(xas_tdp_env%dipmat(2)%matrix, 0.0_dp)
                CALL dbcsr_set(xas_tdp_env%dipmat(3)%matrix, 0.0_dp)
@@ -243,7 +244,7 @@ CONTAINS
             END IF
 
 !           For this excited atom, also compute the RI coulomb integrals
-            CALL compute_ri_coulomb3_int(iat, ikind, xas_tdp_env, qs_env)
+            CALL compute_ri_coulomb3_int(iatom, ikind, xas_tdp_env, qs_env)
 
 !           Loop over states of excited atom of kind
             DO istate = 1,SIZE(xas_tdp_env%state_types,1)
@@ -251,8 +252,7 @@ CONTAINS
                IF (xas_tdp_env%state_types(istate, tmp_index) == xas_not_excited) CYCLE
                     
                current_state => xas_tdp_env%donor_states(current_state_index)
-               CALL set_donor_state(current_state,&
-                                    at_index=xas_tdp_env%ex_atom_indices(tmp_index),&
+               CALL set_donor_state(current_state, at_index=iatom,&
                                     at_symbol=symbol_of_kind, kind_index=ikind,&
                                     state_type=xas_tdp_env%state_types(istate,tmp_index))
 
