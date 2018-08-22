@@ -28,7 +28,7 @@ MODULE xas_tdp_atom
    USE kinds,                           ONLY: dp, default_string_length
    USE lebedev,                         ONLY: deallocate_lebedev_grids, get_number_of_lebedev_grid,&
                                               init_lebedev_grids, lebedev_grid
-   USE mathconstants,                   ONLY: dfac, pi
+   USE mathconstants,                   ONLY: dfac, pi, gamma1
    USE mathlib,                         ONLY: invmat_symm
    USE memory_utilities,                ONLY: reallocate
    USE molecule_types,                  ONLY: molecule_type
@@ -135,13 +135,13 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
       TYPE(qs_control_type), POINTER                  :: qs_control
       TYPE(dft_control_type), POINTER                 :: dft_control
-      INTEGER, DIMENSION(:), POINTER                  :: lmax, npgf, nsgf_set
+      INTEGER, DIMENSION(:), POINTER                  :: lmax, npgf, nsgf_set, lmin
       INTEGER, DIMENSION(:,:), POINTER                :: first_sgf
       REAL(dp), DIMENSION(:,:), POINTER               :: sphi_so, sphi
       REAL(dp)                                        :: factor
 
       NULLIFY(qs_kind_set, ri_basis, basis_set_ri, particle_set, qs_control, dft_control, lmax) 
-      NULLIFY(nsgf_set, npgf, sphi_so, sphi, first_sgf)
+      NULLIFY(nsgf_set, npgf, sphi_so, sphi, first_sgf, lmin)
 
       CALL timeset(routineN, handle)
 
@@ -179,7 +179,7 @@ CONTAINS
       DO ikind = 1,nkind 
          IF (.NOT. ANY(excited_kinds == ikind)) CYCLE
          CALL get_qs_kind(qs_kind_set(ikind), basis_set=ri_basis, basis_type="RI_XAS")
-         CALL get_gto_basis_set(ri_basis, lmax=lmax, nset=nset, npgf=npgf, maxso=maxso, &
+         CALL get_gto_basis_set(ri_basis, lmax=lmax, nset=nset, npgf=npgf, maxso=maxso, lmin=lmin, &
                                 nsgf_set=nsgf_set, sphi=sphi, first_sgf=first_sgf)
 
          ALLOCATE(xas_atom_env%sphi_so(ikind)%array(maxso,SUM(nsgf_set)))
@@ -192,7 +192,7 @@ CONTAINS
                start_s = (ipgf-1)*nsoset(lmax(iset))
                start_c = (ipgf-1)*ncoset(lmax(iset))
 
-               DO l = 0, lmax(iset)
+               DO l = lmin(iset), lmax(iset)
                   DO iso = 1, nso(l)
                      DO ico = 1, nco(l)
 
@@ -200,7 +200,6 @@ CONTAINS
                         ly = indco(2, ico+ncoset(l-1))
                         lz = indco(3, ico+ncoset(l-1))
 
-                        ! is it really the same fator as for s2c ?
                         factor = orbtramat(l)%c2s(iso,ico) &
                                * SQRT(4.0_dp*pi/dfac(2*l+1)*dfac(2*lx-1)*dfac(2*ly-1)*dfac(2*lz-1))
 
@@ -317,6 +316,7 @@ CONTAINS
       TYPE(qs_control_type), POINTER                  :: qs_control
       TYPE(dft_control_type), POINTER                 :: dft_control
       CHARACTER(len=2)                                :: symbol
+      REAL(dp)                                        :: kind_radius
 
       NULLIFY(my_CG, qs_kind_set, tmp_basis, grid_atom, harmonics, qs_control, dft_control)
 
@@ -429,12 +429,12 @@ CONTAINS
             CPWARN("To fix this (l too low), increase the value of 'na' inder the GRID keyword.")
          END IF
 
-         CALL create_grid_atom(grid_atom, nr, na, llmax, ll, quadrature)
-
          CALL get_qs_kind(qs_kind_set(ikind), basis_set=tmp_basis, basis_type="RI_XAS")
-         CALL get_gto_basis_set(gto_basis_set=tmp_basis, maxl=maxl)
-         grid_atom%ng_sphere = na
-         grid_atom%nr = nr
+         CALL get_gto_basis_set(gto_basis_set=tmp_basis, maxl=maxl, kind_radius=kind_radius)
+
+         CALL create_grid_atom(grid_atom, nr, na, llmax, ll, quadrature)
+         CALL truncate_radial_grid(grid_atom, kind_radius)
+
          maxs = nsoset(maxl)
          CALL create_harmonics_atom(harmonics, &
                                     my_CG, na, llmax, maxs, max_s_harm, ll, grid_atom%wa, &
@@ -447,6 +447,56 @@ CONTAINS
       DEALLOCATE(my_CG)
 
    END SUBROUTINE init_xas_atom_grid_harmo
+
+! **************************************************************************************************
+!> \brief Reduces the radial extension of an atomic grid such that it only covers a given radius
+!> \param grid_atom the atomic grid from which we truncate the radial part
+!> \param max_radius the maximal radial extension of the resulting grid
+!> \note Since the RI density used for <P|fxc|Q> is only of quality close to the atom, and the
+!>       integrand only non-zero within the radius of the gaussian P,Q. One can reduce the grid
+!>       extansion to the largest radius of the RI basis set
+! **************************************************************************************************
+   SUBROUTINE truncate_radial_grid(grid_atom, max_radius)
+
+      TYPE(grid_atom_type), POINTER                   :: grid_atom
+      REAL(dp), INTENT(IN)                            :: max_radius
+
+      CHARACTER(len=*), PARAMETER :: routineN = "truncate_radial_grid", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: first_ir, ir, nr, na, llmax_p1, new_nr
+
+      nr = grid_atom%nr
+      na = grid_atom%ng_sphere
+      llmax_p1 = SIZE(grid_atom%rad2l,2) - 1
+
+!     Find the index corresponding to the limiting radius (small ir => large radius)
+      DO ir = 1, nr
+         IF(grid_atom%rad(ir) < max_radius) THEN
+            first_ir = ir
+            EXIT
+         END IF
+      END DO
+      new_nr = nr-first_ir+1
+
+!     Reallcoate everything that depends on r
+      grid_atom%nr = new_nr
+
+      grid_atom%rad(1:new_nr) = grid_atom%rad(first_ir:nr)
+      grid_atom%rad2(1:new_nr) = grid_atom%rad2(first_ir:nr)
+      grid_atom%wr(1:new_nr) = grid_atom%wr(first_ir:nr)
+      grid_atom%weight(:,1:new_nr) = grid_atom%weight(:,first_ir:nr)
+      grid_atom%rad2l(1:new_nr,:) = grid_atom%rad2l(first_ir:nr,:)
+      grid_atom%oorad2l(1:new_nr,:) = grid_atom%oorad2l(first_ir:nr,:)
+
+      CALL reallocate(grid_atom%rad, 1, new_nr)
+      CALL reallocate(grid_atom%rad2, 1, new_nr)
+      CALL reallocate(grid_atom%wr, 1, new_nr)
+      CALL reallocate(grid_atom%weight, 1, na, 1, new_nr)
+      CALL reallocate(grid_atom%rad2l, 1, new_nr, 0, llmax_p1)
+      CALL reallocate(grid_atom%oorad2l, 1, new_nr, 0, llmax_p1)
+      
+   END SUBROUTINE truncate_radial_grid
 
 ! **************************************************************************************************
 !> \brief Builds a neighbor lists set taylored for 3-center integral within XAS TDP, such that only
@@ -1030,7 +1080,7 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE integrate_so_fxc_prod
-
+  
 ! **************************************************************************************************
 !> \brief The actual pade kernel evaluation in the singlet case. Inspired from xc_pade.F
 !> \param n the number of grid points
