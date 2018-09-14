@@ -214,7 +214,7 @@ CONTAINS
 
          CALL dbcsr_copy(tmp_mat, matrix_a, name="TMP TDP block")
          IF (xas_tdp_control%do_singlet) CALL dbcsr_add(tmp_mat, matrix_b, 1.0_dp, 2.0_dp)
-         IF (fxc == xas_tdp_pade) CALL dbcsr_add(matrix_tdp, matrix_c, 1.0_dp, 1.0_dp) !pure pade
+         IF (fxc == xas_tdp_pade) CALL dbcsr_add(tmp_mat, matrix_c, 1.0_dp, 1.0_dp) !pure pade
          IF (fxc == xas_tdp_hfx) CALL dbcsr_add(tmp_mat, matrix_d, 1.0_dp, -1.0_dp) !pure hfx
          CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_g_inv, tmp_mat, 0.0_dp, diag_mat)
          CALL dbcsr_finalize(diag_mat)
@@ -248,7 +248,7 @@ CONTAINS
          CALL dbcsr_release(matrix_e)
          CALL dbcsr_release(matrix_g)
          CALL dbcsr_release(tmp_mat)
-         DEALLOCATE(matrix_g_inv, matrix_a, matrix_b, matrix_g, matrix_d, matrix_e, tmp_mat)
+         DEALLOCATE(matrix_g_inv, matrix_a, matrix_b, matrix_c, matrix_g, matrix_d, matrix_e, tmp_mat)
 
 !     The supermatrix matrix_tdp is built with the submatrices as a 2x2 block matrices 
 !     Create the dbcsr dist by repeating the submatrices structure
