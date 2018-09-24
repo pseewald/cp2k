@@ -121,10 +121,12 @@ MODULE xas_tdp_types
 !>        of epsilon_ij (if  non-canonical MOs) 
 !> \param mo_indices indices of associated MOs. Greater than 1 when not a s-type state.
 !> \param lr_coeffs solutions of the linear-response TDDFT equation retricted to this state (vector)
+!> \param gs_coeffs the ground state MO coefficients 
 !> \param lr_evals excitation energies => the eigenvalues of the linear response equation
 !> \param osc_str oscillator strengths for the different excitation energies
 !> \param matrix_tdp the dbcsr matrix to be diagonalized to solve the problem
-!> \param metric the metric of the linear response problem M*c = omega*S*c
+!> \param metric the metric of the linear response problem M*c = omega*S*c and its inverse
+!> \param matrix_aux the auxiliary matrix (A-D+E)^1/2 used to make the problem Hermitian
 !> *************************************************************************************************
 TYPE donor_state_type
       INTEGER                                 :: at_index
@@ -133,11 +135,15 @@ TYPE donor_state_type
       INTEGER                                 :: state_type
       REAL(dp), DIMENSION(:,:), POINTER       :: energy_evals
       INTEGER, DIMENSION(:), POINTER          :: mo_indices
-      TYPE(cp_fm_type), POINTER               :: lr_coeffs
+      TYPE(cp_fm_p_type), DIMENSION(:), &
+                                    POINTER   :: lr_coeffs
+      TYPE(cp_fm_type), POINTER               :: gs_coeffs
       REAL(dp), DIMENSION(:), POINTER         :: lr_evals
       REAL(dp), DIMENSION(:), POINTER         :: osc_str
       TYPE(dbcsr_type), POINTER               :: matrix_tdp
-      TYPE(dbcsr_type), POINTER               :: metric
+      TYPE(dbcsr_p_type), DIMENSION(:), &
+                                    POINTER   :: metric
+      TYPE(dbcsr_type), POINTER               :: matrix_aux
    END TYPE donor_state_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE  :: moduleN = 'xas_tdp_types'
@@ -473,13 +479,22 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER                        :: routineN = 'deallocate_donor_state_set',&
                                                            routineP = moduleN//':'//routineN
-      INTEGER                                            :: i
+      INTEGER                                            :: i, j
 
       IF (ASSOCIATED(donor_state_set)) THEN
          DO i = 1,SIZE(donor_state_set)
 
             IF (ASSOCIATED(donor_state_set(i)%lr_coeffs)) THEN
-               CALL cp_fm_release(donor_state_set(i)%lr_coeffs)
+               DO j = 1,SIZE(donor_state_set(i)%lr_coeffs)
+                  IF(ASSOCIATED(donor_state_set(i)%lr_coeffs(j)%matrix)) THEN
+                     CALL cp_fm_release(donor_state_set(i)%lr_coeffs(j)%matrix)
+                  END IF
+               END DO
+               DEALLOCATE(donor_state_set(i)%lr_coeffs)
+            END IF
+
+            IF (ASSOCIATED(donor_state_set(i)%gs_coeffs)) THEN
+               CALL cp_fm_release(donor_state_set(i)%gs_coeffs)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%lr_evals)) THEN
@@ -503,11 +518,21 @@ CONTAINS
                DEALLOCATE(donor_state_set(i)%matrix_tdp)
             END IF
 
-            IF (ASSOCIATED(donor_state_set(i)%metric)) THEN  
-               CALL dbcsr_release(donor_state_set(i)%metric)      
-               DEALLOCATE(donor_state_set(i)%metric)           
+            IF (ASSOCIATED(donor_state_set(i)%metric)) THEN
+               DO j = 1,SIZE(donor_state_set(i)%metric)
+                  IF (ASSOCIATED(donor_state_set(i)%metric(j)%matrix)) THEN  
+                     CALL dbcsr_release(donor_state_set(i)%metric(j)%matrix)      
+                     DEALLOCATE(donor_state_set(i)%metric(j)%matrix)           
+                  END IF
+               END DO
+               DEALLOCATE(donor_state_set(i)%metric)
             END IF
-                        
+
+            IF (ASSOCIATED(donor_state_set(i)%matrix_aux)) THEN
+               CALL dbcsr_release(donor_state_set(i)%matrix_aux)
+               DEALLOCATE(donor_state_set(i)%matrix_aux)
+            END IF
+
          END DO
          DEALLOCATE(donor_state_set)
       END IF
@@ -524,19 +549,38 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = "free_ds_memory", routineP = moduleN//":"//routineN
 
+      INTEGER                                            :: i
+
       IF (ASSOCIATED(donor_state%lr_evals)) DEALLOCATE(donor_state%lr_evals)
       IF (ASSOCIATED(donor_state%osc_str)) DEALLOCATE(donor_state%osc_str)
-      IF (ASSOCIATED(donor_state%lr_coeffs)) CALL cp_fm_release(donor_state%lr_coeffs)
+      IF (ASSOCIATED(donor_state%gs_coeffs)) CALL cp_fm_release(donor_state%gs_coeffs)
+
+      IF (ASSOCIATED(donor_state%lr_coeffs)) THEN
+         DO i = 1,SIZE(donor_state%lr_coeffs)
+            CALL cp_fm_release(donor_state%lr_coeffs(i)%matrix)
+         END DO
+         DEALLOCATE(donor_state%lr_coeffs)
+      END IF   
 
       IF (ASSOCIATED(donor_state%matrix_tdp)) THEN
          CALL dbcsr_release(donor_state%matrix_tdp)
          DEALLOCATE(donor_state%matrix_tdp)
       END IF
 
-      IF (ASSOCIATED(donor_state%metric)) THEN   
-         CALL dbcsr_release(donor_state%metric) 
-         DEALLOCATE(donor_state%metric)  
+      IF (ASSOCIATED(donor_state%metric)) THEN
+         DO i = 1,SIZE(donor_state%metric)
+            IF (ASSOCIATED(donor_state%metric(i)%matrix)) THEN   
+               CALL dbcsr_release(donor_state%metric(i)%matrix) 
+               DEALLOCATE(donor_state%metric(i)%matrix)  
+            END IF
+         END DO
+         DEALLOCATE(donor_state%metric)
       END IF
+
+      IF (ASSOCIATED(donor_state%matrix_aux)) THEN
+         CALL dbcsr_release(donor_state%matrix_aux)
+         DEALLOCATE(donor_state%matrix_aux)
+      END IF 
 
    END SUBROUTINE free_ds_memory
 
