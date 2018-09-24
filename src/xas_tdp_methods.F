@@ -86,7 +86,7 @@ MODULE xas_tdp_methods
                                               free_ds_memory
    USE xas_tdp_utils,                   ONLY: setup_xas_tdp_full_prob, &
                                               solve_xas_tdp_full_prob, &
-                                              compute_oscillator_strength, &
+                                              compute_dipole_fosc, &
                                               compute_ri_coulomb3_int, &
                                               compute_ri_coulomb2_int
 #include "./base/base_uses.f90"
@@ -278,7 +278,7 @@ CONTAINS
                IF (xas_tdp_control%full_diag) THEN
                   CALL setup_xas_tdp_full_prob(current_state, qs_env, xas_tdp_env, xas_tdp_control)
                   CALL solve_xas_tdp_full_prob(current_state, xas_tdp_control, qs_env)
-                  CALL compute_oscillator_strength(current_state, xas_tdp_control, xas_tdp_env, qs_env)
+                  CALL compute_dipole_fosc(current_state, xas_tdp_control, xas_tdp_env)
                            
                ELSE IF (.NOT. xas_tdp_control%full_diag) THEN
                            
@@ -630,21 +630,21 @@ CONTAINS
       REAL(dp)                                        :: zeff, next_best_overlap
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
-      TYPE(cp_fm_type), POINTER                       :: mo_coeff, col_coeff, work_mat, eval_mat
+      TYPE(cp_fm_type), POINTER                       :: mo_coeff, work_mat, eval_mat, gs_coeffs
       INTEGER, DIMENSION(:,:), POINTER                :: mos_of_ex_atoms
       REAL(dp), DIMENSION(:,:), POINTER               :: tmp_coeff, overlap_matrix
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
       REAL(dp), DIMENSION(:), POINTER                 :: mo_evals
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: max_overlap, overlap, sto_overlap
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_ks
-      TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct, eval_mat_struct                               
+      TYPE(cp_fm_struct_type), POINTER                :: eval_mat_struct, gs_struct 
       TYPE(cp_para_env_type), POINTER                 :: para_env                                    
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env 
       
       NULLIFY(sto_basis_set, sto_to_gto_basis_set, qs_kind_set, kind_basis_set, lq, nq, zeta)
       NULLIFY(overlap_matrix, mos, mo_coeff, mos_of_ex_atoms, tmp_coeff, first_sgf, particle_set)
-      NULLIFY(mo_evals, matrix_ks, col_vect_struct, para_env, blacs_env, col_coeff, work_mat)
-      NULLIFY(eval_mat_struct, eval_mat)
+      NULLIFY(mo_evals, matrix_ks, para_env, blacs_env, work_mat)
+      NULLIFY(eval_mat_struct, eval_mat, gs_struct, gs_coeffs)
       
       CALL get_qs_env(qs_env=qs_env, qs_kind_set=qs_kind_set, mos=mos, particle_set=particle_set,&
                       matrix_ks=matrix_ks, para_env=para_env, blacs_env=blacs_env)
@@ -777,6 +777,18 @@ CONTAINS
          ALLOCATE(donor_state%mo_indices(n_states))
          donor_state%mo_indices = my_mos
 
+!        Storing the MOs in the donor_state, as vectors column
+         CALL cp_fm_struct_create(gs_struct, nrow_global=nao, ncol_global=n_states, &
+                                  para_env=para_env, context=blacs_env) 
+         CALL cp_fm_create(donor_state%gs_coeffs, gs_struct)
+
+         DO i = 1, n_states
+            CALL cp_fm_to_fm_submat(msource=mo_coeff, mtarget=donor_state%gs_coeffs, nrow=nao, &
+                                    ncol=1, s_firstrow=1, s_firstcol=my_mos(i), t_firstrow=1, &           
+                                    t_firstcol=i)
+         END DO
+         gs_coeffs => donor_state%gs_coeffs
+
 !        Assigning corresponding energy eigenvalues and writing some info in standard input file
          ALLOCATE(donor_state%energy_evals(n_states,n_states)) 
          donor_state%energy_evals = 0.0_dp
@@ -807,16 +819,12 @@ CONTAINS
             END IF
             
 !           MO have been rotated, need epsilon_ij = <psi_i|F|psi_j> = sum_{pq} c_{qi}c_{pj} F_{pq}
-            CALL cp_fm_struct_create(col_vect_struct, nrow_global=nao, ncol_global=n_states,&
-                                     para_env=para_env, context=blacs_env)
-            CALL cp_fm_create(col_coeff, col_vect_struct)
-            CALL cp_fm_create(work_mat, col_vect_struct)
-
+            CALL cp_fm_create(work_mat, gs_struct)
             CALL cp_fm_struct_create(eval_mat_struct, nrow_global=n_states, ncol_global=n_states, &
                                      para_env=para_env, context=blacs_env)
             CALL cp_fm_create(eval_mat, eval_mat_struct)
 
-!           Loop over the donor states and fill the col_coeff fm with the localized donor MOs
+!           Loop over the donor states  and print
             DO j = 1,n_states
 
 !              Print info
@@ -825,28 +833,25 @@ CONTAINS
                      my_mos(j), max_overlap(j) 
                END IF
 
-               CALL cp_fm_to_fm_submat(msource=mo_coeff, mtarget=col_coeff, nrow=nao, ncol=1, &
-                                       s_firstrow=1, s_firstcol=my_mos(j), t_firstrow=1, &
-                                       t_firstcol=j)
-
             END DO
 
-!           Compute col_coeff^T * matrix_ks * col_coeff to get the epsilon_ij matrix
-            CALL cp_dbcsr_sm_fm_multiply(matrix_ks(1)%matrix, col_coeff, work_mat, ncol=n_states)
-            CALL cp_fm_gemm('T', 'N', n_states, n_states, nao, 1.0_dp, col_coeff, work_mat, 0.0_dp,&
+!           Compute gs_coeff^T * matrix_ks * gs_coeff to get the epsilon_ij matrix
+            CALL cp_dbcsr_sm_fm_multiply(matrix_ks(1)%matrix, gs_coeffs, work_mat, ncol=n_states)
+            CALL cp_fm_gemm('T', 'N', n_states, n_states, nao, 1.0_dp, gs_coeffs, work_mat, 0.0_dp,&
                             eval_mat)
 
 !           Put the epsilon_ij into the donor_state
             CALL cp_fm_get_submatrix(fm=eval_mat,target_m=donor_state%energy_evals)
 
 !           Clean-up
-            CALL cp_fm_release(col_coeff)
             CALL cp_fm_release(work_mat)
             CALL cp_fm_release(eval_mat)
-            CALL cp_fm_struct_release(col_vect_struct)
             CALL cp_fm_struct_release(eval_mat_struct)
 
          END IF ! do_localize
+
+!        Clean-up
+         CALL cp_fm_struct_release(gs_struct) 
          
          IF (output_unit > 0) THEN
             WRITE(UNIT=output_unit, FMT="(T5,A,F7.5,A,I4/)") &
@@ -1071,12 +1076,12 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "perfomr_mulliken_on_donor_state", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: at_index, imo, i, nao, natom, ndo_mo, nsgf
+      INTEGER                                         :: at_index, i, nao, natom, ndo_mo, nsgf
       INTEGER, DIMENSION(:), POINTER                  :: mo_indices, first_sgf, last_sgf
       TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
-      TYPE(cp_fm_type), POINTER                       :: mo_coeff, col_coeff, work_vect
+      TYPE(cp_fm_type), POINTER                       :: work_vect, gs_coeffs
       REAL(dp), DIMENSION(:,:), POINTER               :: tmp_coeff, work_array
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: mul_pop
       REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: pop_mat
@@ -1085,8 +1090,8 @@ CONTAINS
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct
 
-      NULLIFY(mos, mo_indices, qs_kind_set, particle_set, mo_coeff, tmp_coeff, first_sgf,work_array)
-      NULLIFY(matrix_s, para_env, blacs_env, col_vect_struct, col_coeff, work_vect, last_sgf)
+      NULLIFY(mos, mo_indices, qs_kind_set, particle_set, tmp_coeff, first_sgf,work_array)
+      NULLIFY(matrix_s, para_env, blacs_env, col_vect_struct, work_vect, last_sgf)
 
 !  Initialization
       at_index = donor_state%at_index
@@ -1094,10 +1099,11 @@ CONTAINS
       ndo_mo = SIZE(donor_state%mo_indices,1)
       ALLOCATE(mul_pop(ndo_mo))
       mul_pop = 0.0_dp
+      gs_coeffs => donor_state%gs_coeffs
 
       CALL get_qs_env(qs_env=qs_env, mos=mos, particle_set=particle_set, qs_kind_set=qs_kind_set, &
                       para_env=para_env, blacs_env=blacs_env, matrix_s=matrix_s)
-      CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao)
+      CALL cp_fm_get_info(gs_coeffs, nrow_global=nao, matrix_struct=col_vect_struct)
 
       natom = SIZE(particle_set,1)
       ALLOCATE(first_sgf(natom))
@@ -1106,27 +1112,17 @@ CONTAINS
       CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf, last_sgf=last_sgf)
       nsgf = last_sgf(at_index)-first_sgf(at_index)+1
 
-      CALL cp_fm_struct_create(col_vect_struct, nrow_global=nao, ncol_global=ndo_mo, &
-                               para_env=para_env, context=blacs_env)
-      CALL cp_fm_create(col_coeff, col_vect_struct)
       CALL cp_fm_create(work_vect, col_vect_struct)
 
-!  Loop over the MOs assigned to donor_state and collect coeffs
-      DO i = 1,ndo_mo
-         imo = mo_indices(i)
-         CALL cp_fm_to_fm_submat(msource=mo_coeff, mtarget=col_coeff, nrow=nao, ncol=1, &
-                            s_firstrow=1, s_firstcol=imo, t_firstrow=1, t_firstcol=i)
-      END DO
-
 !  Take the product of S*coeffs
-      CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, col_coeff, work_vect, ncol=ndo_mo) 
+      CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, gs_coeffs, work_vect, ncol=ndo_mo) 
 
 !  Only consider the product coeffs^T * S * coeffs on the atom of interest
       ALLOCATE(tmp_coeff(ndo_mo,nsgf))
       ALLOCATE(work_array(nsgf,ndo_mo))
       ALLOCATE(pop_mat(ndo_mo,ndo_mo))
 
-      CALL cp_fm_get_submatrix(fm=col_coeff, target_m=tmp_coeff, start_row=first_sgf(at_index), &
+      CALL cp_fm_get_submatrix(fm=gs_coeffs, target_m=tmp_coeff, start_row=first_sgf(at_index), &
                                start_col=1, n_rows=nsgf, n_cols=ndo_mo, transpose=.TRUE.)
 
       CALL cp_fm_get_submatrix(fm=work_vect, target_m=work_array, start_row=first_sgf(at_index), &
@@ -1153,8 +1149,6 @@ CONTAINS
 
 !  Clean-up
       DEALLOCATE(first_sgf, last_sgf, tmp_coeff, work_array)
-      CALL cp_fm_struct_release(col_vect_struct)
-      CALL cp_fm_release(col_coeff)
       CALL cp_fm_release(work_vect)
 
    END SUBROUTINE perform_mulliken_on_donor_state
