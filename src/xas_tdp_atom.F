@@ -84,9 +84,9 @@ MODULE xas_tdp_atom
 !> \param blk_size the block sizes of the dbcsr_matrix that will hold the integrals
 !> \param dcoeff the expansion coefficients to express the density in the RI basis for each atom
 !> \param sphi_so contains the coefficient for direct contraction from so to sgf
-!> \note The grid_atom_set and harmonics_atom_set have the size of nkind, but only elements for
-!>       the excited kinds are allocated. Same with dcoeff (but with eexcited atoms)
-!>       Droped the "tdp" in the type name to make it shorter
+!> \note The grid_atom_set and harmonics_atom_set are defined for each kind, even those that are not
+!>       excited. They are needed for SOC. If the grid dimensions are not provided in the input,
+!>       those of the GAPW are taken
 ! **************************************************************************************************
    TYPE xas_atom_env_type
       INTEGER, DIMENSION(:), POINTER                  :: excited_atoms
@@ -200,7 +200,7 @@ CONTAINS
                         ly = indco(2, ico+ncoset(l-1))
                         lz = indco(3, ico+ncoset(l-1))
 
-                        factor = orbtramat(l)%c2s(iso,ico) &
+                        factor = orbtramat(l)%s2c(iso,ico) &
                                * SQRT(4.0_dp*pi/dfac(2*l+1)*dfac(2*lx-1)*dfac(2*ly-1)*dfac(2*lz-1))
 
                         CALL daxpy(nsgf_set(iset), factor, &
@@ -307,7 +307,7 @@ CONTAINS
       INTEGER                                         :: llmax, maxlgto, max_s_harm, max_s_set, &
                                                          lcleb, lc1, iso1, l1, m1, lc2, iso2, &
                                                          l2, m2, l1l2, mp, mm, lp, il, iso, &
-                                                         ikind, quadrature, i, ll, na, la, nr, &
+                                                         ikind, quadrature, ll, na, la, nr, &
                                                          maxs, maxl, igrid, stat
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(gto_basis_set_type), POINTER               :: tmp_basis
@@ -389,8 +389,7 @@ CONTAINS
       CALL init_lebedev_grids()
       quadrature = qs_control%gapw_control%quadrature
       
-      DO i = 1,SIZE(xas_atom_env%excited_kinds)
-         ikind = xas_atom_env%excited_kinds(i)
+      DO ikind = 1,SIZE(xas_atom_env%grid_atom_set)
 
 !        Allocate the grid and the harmonics for this kind
          CALL allocate_grid_atom(xas_atom_env%grid_atom_set(ikind)%grid_atom)
@@ -429,11 +428,15 @@ CONTAINS
             CPWARN("To fix this (l too low), increase the value of 'na' inder the GRID keyword.")
          END IF
 
-         CALL get_qs_kind(qs_kind_set(ikind), basis_set=tmp_basis, basis_type="RI_XAS")
+!        If this is an excited kind, create the harmonics with the RI_XAS basis, otherwise the ORB
+         IF (ANY(xas_atom_env%excited_atoms == ikind)) THEN
+            CALL get_qs_kind(qs_kind_set(ikind), basis_set=tmp_basis, basis_type="RI_XAS")
+         ELSE
+            CALL get_qs_kind(qs_kind_set(ikind), basis_set=tmp_basis, basis_type="ORB")
+         END IF
          CALL get_gto_basis_set(gto_basis_set=tmp_basis, maxl=maxl, kind_radius=kind_radius)
 
          CALL create_grid_atom(grid_atom, nr, na, llmax, ll, quadrature)
-         CALL truncate_radial_grid(grid_atom, kind_radius)
 
          maxs = nsoset(maxl)
          CALL create_harmonics_atom(harmonics, &
@@ -447,56 +450,6 @@ CONTAINS
       DEALLOCATE(my_CG)
 
    END SUBROUTINE init_xas_atom_grid_harmo
-
-! **************************************************************************************************
-!> \brief Reduces the radial extension of an atomic grid such that it only covers a given radius
-!> \param grid_atom the atomic grid from which we truncate the radial part
-!> \param max_radius the maximal radial extension of the resulting grid
-!> \note Since the RI density used for <P|fxc|Q> is only of quality close to the atom, and the
-!>       integrand only non-zero within the radius of the gaussian P,Q. One can reduce the grid
-!>       extansion to the largest radius of the RI basis set
-! **************************************************************************************************
-   SUBROUTINE truncate_radial_grid(grid_atom, max_radius)
-
-      TYPE(grid_atom_type), POINTER                   :: grid_atom
-      REAL(dp), INTENT(IN)                            :: max_radius
-
-      CHARACTER(len=*), PARAMETER :: routineN = "truncate_radial_grid", &
-                                     routineP = moduleN//":"//routineN
-
-      INTEGER                                         :: first_ir, ir, nr, na, llmax_p1, new_nr
-
-      nr = grid_atom%nr
-      na = grid_atom%ng_sphere
-      llmax_p1 = SIZE(grid_atom%rad2l,2) - 1
-
-!     Find the index corresponding to the limiting radius (small ir => large radius)
-      DO ir = 1, nr
-         IF(grid_atom%rad(ir) < max_radius) THEN
-            first_ir = ir
-            EXIT
-         END IF
-      END DO
-      new_nr = nr-first_ir+1
-
-!     Reallcoate everything that depends on r
-      grid_atom%nr = new_nr
-
-      grid_atom%rad(1:new_nr) = grid_atom%rad(first_ir:nr)
-      grid_atom%rad2(1:new_nr) = grid_atom%rad2(first_ir:nr)
-      grid_atom%wr(1:new_nr) = grid_atom%wr(first_ir:nr)
-      grid_atom%weight(:,1:new_nr) = grid_atom%weight(:,first_ir:nr)
-      grid_atom%rad2l(1:new_nr,:) = grid_atom%rad2l(first_ir:nr,:)
-      grid_atom%oorad2l(1:new_nr,:) = grid_atom%oorad2l(first_ir:nr,:)
-
-      CALL reallocate(grid_atom%rad, 1, new_nr)
-      CALL reallocate(grid_atom%rad2, 1, new_nr)
-      CALL reallocate(grid_atom%wr, 1, new_nr)
-      CALL reallocate(grid_atom%weight, 1, na, 1, new_nr)
-      CALL reallocate(grid_atom%rad2l, 1, new_nr, 0, llmax_p1)
-      CALL reallocate(grid_atom%oorad2l, 1, new_nr, 0, llmax_p1)
-      
-   END SUBROUTINE truncate_radial_grid
 
 ! **************************************************************************************************
 !> \brief Builds a neighbor lists set taylored for 3-center integral within XAS TDP, such that only
@@ -732,12 +685,13 @@ CONTAINS
       TYPE(harmonics_atom_type), POINTER              :: harmonics
       TYPE(gto_basis_set_type), POINTER               :: ri_basis
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
-      INTEGER, DIMENSION(:), POINTER                  :: lmax, npgf, nsgf_set
+      INTEGER, DIMENSION(:), POINTER                  :: lmax, npgf, nsgf_set, lmin
       REAL(dp), DIMENSION(:,:), POINTER               :: zet, sphi_so
       REAL(dp), DIMENSION(:,:,:), ALLOCATABLE         :: so, sgf
       INTEGER, DIMENSION(:,:), POINTER                :: first_sgf
 
-      NULLIFY(grid_atom, ri_basis, qs_kind_set, harmonics, lmax, npgf, zet, nsgf_set, sphi_so, first_sgf)
+      NULLIFY(grid_atom, ri_basis, qs_kind_set, harmonics, lmax, npgf, zet, nsgf_set, sphi_so)
+      NULLIFY(lmin, first_sgf)
 
 !  Strategy: it makes sense to evaluate the spherical orbital on the grid (because of symmetry)
 !            From there, one can directly contract into sgf using sphi_so and then take the weight
@@ -746,7 +700,7 @@ CONTAINS
       CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set)
       CALL get_qs_kind(qs_kind_set(atom_kind), basis_set=ri_basis, basis_type="RI_XAS")
       CALL get_gto_basis_set(ri_basis, lmax=lmax, npgf=npgf, zet=zet, nset=nset, nsgf_set=nsgf_set,&
-                             first_sgf=first_sgf)
+                             first_sgf=first_sgf, lmin=lmin)
 
 !  Get the grid, the harmonics and the info we need from it
       grid_atom => xas_atom_env%grid_atom_set(atom_kind)%grid_atom
@@ -768,7 +722,7 @@ CONTAINS
             start = (ipgf-1)*nsoset(lmax(iset))
 
             !loop over the spherical gaussian orbitals 
-            DO iso = 1,nsoset(lmax(iset))
+            DO iso = nsoset(lmin(iset)-1)+1, nsoset(lmax(iset))
                l = indso(1, iso)
                DO ia = 1,na
                   !compute: g = r**l * Y_lm * exp(-zet* r**2)
@@ -894,7 +848,7 @@ CONTAINS
          END DO
 
 !     Integrate
-         CALL integrate_so_fxc_prod(int_so, fxc, ikind, xas_atom_env, qs_env) 
+         CALL integrate_so_prod(int_so, fxc, ikind, xas_atom_env, qs_env) 
 
          DEALLOCATE(rs, fxc, rho)
 
@@ -950,7 +904,7 @@ CONTAINS
 !>       it would have been messy. Also we do not need rho_atom (too big and fancy for us)
 !>       We also go over the whole range of angular momentum l
 ! **************************************************************************************************
-   SUBROUTINE integrate_so_fxc_prod(intso, fxc, ikind, xas_atom_env, qs_env)
+   SUBROUTINE integrate_so_prod(intso, fxc, ikind, xas_atom_env, qs_env)
 
       REAL(dp), DIMENSION(:,:), INTENT(INOUT)         :: intso
       REAL(dp), DIMENSION(:,:), INTENT(IN)            :: fxc
@@ -958,7 +912,7 @@ CONTAINS
       TYPE(xas_atom_env_type), POINTER                :: xas_atom_env
       TYPE(qs_environment_type), POINTER              :: qs_env
 
-      CHARACTER(len=*), PARAMETER :: routineN = "integrate_so_fxc_prod", &
+      CHARACTER(len=*), PARAMETER :: routineN = "integrate_so_prod", &
                                      routineP = moduleN//":"//routineN 
 
       INTEGER                                         :: handle, nset, maxso, maxl, nr, na, &
@@ -1079,7 +1033,7 @@ CONTAINS
 
       CALL timestop(handle)
 
-   END SUBROUTINE integrate_so_fxc_prod
+   END SUBROUTINE integrate_so_prod
   
 ! **************************************************************************************************
 !> \brief The actual pade kernel evaluation in the singlet case. Inspired from xc_pade.F
@@ -1244,5 +1198,159 @@ CONTAINS
       END DO
 
    END SUBROUTINE pade_kernel_triplet
+
+! **************************************************************************************************
+!> \brief This routine computes the integral of a potential V wrt the derivitive of the spherical 
+!>        orbitals, that is <df/dx|V|dg/dy> on the atomic grid.
+!> \param intso the integral in terms of the spherical orbitals (well, their derivitive)
+!> \param V the potential (put on the grid and wieghted) to integrate
+!> \param ikind the atomic kind for which we integrate
+!> \param xas_atom_env ...
+!> \param qs_env ... 
+!> \note The atomic grids are taken fron xas_atom_env and the orbitals are the normal ones. Ok since
+!>       the grid and spherical harmonics for those grids are at least as good as the GAPW ones
+! **************************************************************************************************
+   SUBROUTINE integrate_so_dxdy_prod(intso, V, ikind, xas_atom_env, qs_env)
+      
+      REAL(dp), DIMENSION(:,:), INTENT(INOUT)         :: intso
+      REAL(dp), DIMENSION(:,:), INTENT(IN)            :: V
+      INTEGER, INTENT(IN)                             :: ikind
+      TYPE(xas_atom_env_type), POINTER                :: xas_atom_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+      !***!
+      INTEGER                                         :: na, nr, iso, jso, nsgf, maxso, nset, iset,&
+                                                         jset, ipgf, jpgf, l, starti, startj
+      TYPE(grid_atom_type), POINTER                   :: grid_atom
+      TYPE(harmonics_atom_type), POINTER              :: harmonics
+      TYPE(gto_basis_set_type), POINTER               :: basis
+      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
+      REAL(dp), DIMENSION(:, :), POINTER              :: slm
+      REAL(dp), DIMENSION(:,:,:), POINTER             :: dslm_dxyz
+      INTEGER, DIMENSION(:), POINTER                  :: lmax, lmin, npgf
+      REAL(dp), DIMENSION(:, :), POINTER              :: zet
+      REAL(dp), ALLOCATABLE, DIMENSION(:,:)           :: fa1, r1, ga1, work, fga, fgr, ga2, fa2, r2
+
+      NULLIFY(grid_atom, harmonics, basis, qs_kind_set, dslm_dxyz, slm, lmin, lmax, npgf, zet)
+
+!  Getting what we need from the atom_env
+      harmonics => xas_atom_env%harmonics_atom_set(ikind)%harmonics_atom      
+      grid_atom => xas_atom_env%grid_atom_set(ikind)%grid_atom
+
+      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set)
+      CALL get_qs_kind(qs_kind_set(ikind), basis_set=basis, basis_type="ORB")
+
+      na = grid_atom%ng_sphere
+      nr = grid_atom%nr
+
+      slm => harmonics%slm
+      dslm_dxyz => harmonics%dslm_dxyz
+
+!  Getting what we need from the orbital basis
+      CALL get_gto_basis_set(gto_basis_set=basis, lmax=lmax, lmin=lmin, nsgf=nsgf, &
+                             maxso=maxso, npgf=npgf, nset=nset, zet=zet )
+
+
+!  Separate the functions into purely r and purely angular parts, compute them all
+!  and use matrix mutliplication for the integral. We use f for x derivative ang g for y
+
+   ! Separating the functions. Note that the radial part is the same for x and y derivatives
+      ALLOCATE(fa1(na,nset*maxso), fa2(na,nset*maxso))
+      ALLOCATE(ga1(na,nset*maxso), ga2(na,nset*maxso))
+      ALLOCATE(r1(nr,nset*maxso), r2(nr,nset*maxso))
+
+      DO iset = 1,nset
+         DO ipgf = 1,npgf(iset)
+            starti = (iset-1)*maxso + (ipgf-1)*nsoset(lmax(iset))
+            DO iso = nsoset(lmin(iset)-1)+1,nsoset(lmax(iset))
+               l = indso(1,iso)
+
+               ! The x derivitive of the spherical orbital, divided in angular and radial parts
+               ! Two of each are needed because d/dx(r^l Y_lm) * exp(-al*r^2) + r^l Y_lm * ! d/dx(exp-al*r^2)
+
+               ! the purely radial part of d/dx(r^l Y_lm) * exp(-al*r^2) (same for y)
+               r1(1:nr,starti+iso) = grid_atom%rad(1:nr)**(l-1)*EXP(-zet(ipgf,iset)*grid_atom%rad2(1:nr))
+
+               ! the purely radial part of r^l Y_lm * d/dx(exp-al*r^2) (same for y)
+               r2(1:nr,starti+iso) = -2.0_dp*zet(ipgf,iset)*grid_atom%rad(1:nr)**(l+1) &
+                                      *EXP(-zet(ipgf, iset)*grid_atom%rad2(1:nr))
+
+               ! the purely angular part of d/dx(r^l Y_lm) * exp(-al*r^2)
+               fa1(1:na,starti+iso) = dslm_dxyz(1,1:na, iso)
+
+               ! the purely angular part of r^l Y_lm * d/dx(exp-al*r^2)
+               fa2(1:na,starti+iso) = harmonics%a(1,1:na)*slm(1:na, iso)
+
+               ! the purely angular part of d/dy(r^l Y_lm) * exp(-al*r^2)
+               ga1(1:na,starti+iso) = dslm_dxyz(2,1:na, iso)
+
+               ! the purely angular part of r^l Y_lm * d/dy(exp-al*r^2)
+               ga2(1:na,starti+iso) = harmonics%a(2,1:na)*slm(1:na, iso)
+
+            END DO !iso
+         END DO !ipgf
+      END DO !iset
+
+   ! Do the integration in terms of so using matrix products
+      intso = 0.0_dp
+      ALLOCATE(fga(na,1))
+      ALLOCATE(fgr(nr,1))
+      fga = 0.0_dp
+      fgr = 0.0_dp
+      ALLOCATE(work(na,1))
+      work = 0.0_dp
+
+      DO iset = 1,nset
+         DO jset = 1,nset
+            DO ipgf = 1,npgf(iset)
+               starti = (iset-1)*maxso + (ipgf-1)*nsoset(lmax(iset))
+               DO jpgf = 1,npgf(jset)
+                  startj = (jset-1)*maxso + (jpgf-1)*nsoset(lmax(jset))
+
+                  DO iso = nsoset(lmin(iset)-1)+1,nsoset(lmax(iset))
+                     DO jso = nsoset(lmin(jset)-1)+1,nsoset(lmax(jset))
+
+                        !Two component per function => 4 terms in total
+
+                        ! take r1*fa1 * V * r1*ga1
+                        fgr(1:nr,1) = r1(1:nr,starti+iso)*r1(1:nr,startj+jso)
+                        fga(1:na,1) = fa1(1:na,starti+iso)*ga1(1:na,startj+jso)
+
+                        CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V, na, fgr, nr, 0.0_dp, work, na)
+                        CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, fga, na, 0.0_dp, &
+                                   intso(starti+iso, startj+jso), 1)
+
+                        ! add r1*fa1 * V * r2*ga2
+                        fgr(1:nr,1) = r1(1:nr,starti+iso)*r2(1:nr,startj+jso)
+                        fga(1:na,1) = fa1(1:na,starti+iso)*ga2(1:na,startj+jso)
+
+                        CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V, na, fgr, nr, 0.0_dp, work, na)
+                        CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, fga, na, 1.0_dp, &
+                                   intso(starti+iso, startj+jso), 1)
+
+                        ! add r2*fa2 * V * r1*ga1
+                        fgr(1:nr,1) = r1(1:nr,starti+iso)*r2(1:nr,startj+jso) 
+                        fga(1:na,1) = fa2(1:na,starti+iso)*ga1(1:na,startj+jso)
+
+                        CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V, na, fgr, nr, 0.0_dp, work, na)
+                        CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, fga, na, 1.0_dp, &
+                                   intso(starti+iso, startj+jso), 1)
+
+                        ! add the last term: r2*fa2 * V * r2*ga2
+                        fgr(1:nr,1) = r2(1:nr,starti+iso)*r2(1:nr,startj+jso)
+                        fga(1:na,1) = fa2(1:na,starti+iso)*ga2(1:na,startj+jso)
+
+                        CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V, na, fgr, nr, 0.0_dp, work, na)
+                        CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, fga, na, 1.0_dp, &
+                                   intso(starti+iso, startj+jso), 1)
+
+                     END DO !jso
+                  END DO !iso
+
+               END DO !jpgf
+            END DO !ipgf
+         END DO !jset
+      END DO !iset
+
+   END SUBROUTINE integrate_so_dxdy_prod
 
 END MODULE xas_tdp_atom
