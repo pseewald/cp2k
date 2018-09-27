@@ -514,7 +514,7 @@ CONTAINS
       END DO
 
 !     Precompute it if velocity represnetation. If length, need to do it for each excited atom 
-      IF (xas_tdp_control%dipole_form == xas_dip_vel) CALL p_xyz_ao(xas_tdp_env%dipmat, qs_env)      
+      IF (xas_tdp_control%dipole_form == xas_dip_vel) CALL p_xyz_ao(xas_tdp_env%dipmat, qs_env)
 
    END SUBROUTINE xas_tdp_init
 
