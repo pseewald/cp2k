@@ -72,8 +72,8 @@ MODULE xas_tdp_methods
    USE qs_rho_types,                    ONLY: qs_rho_get, qs_rho_type
    USE util,                            ONLY: locate
    USE xas_methods,                     ONLY: calc_stogto_overlap
-   USE xas_tdp_atom,                    ONLY: xas_atom_env_type, init_xas_atom_env, &
-                                              release_xas_atom_env, integrate_xas_atoms
+   USE xas_tdp_atom,                    ONLY: init_xas_atom_env, &
+                                              integrate_xas_atoms
    USE xas_tdp_types,                   ONLY: xas_tdp_env_type,&
                                               xas_tdp_env_create,&
                                               xas_tdp_env_release,&
@@ -83,7 +83,10 @@ MODULE xas_tdp_methods
                                               xas_tdp_control_create, & 
                                               donor_state_type,&
                                               set_donor_state, &
-                                              free_ds_memory
+                                              free_ds_memory, &
+                                              xas_atom_env_type, &
+                                              xas_atom_env_create, &
+                                              xas_atom_env_release
    USE xas_tdp_utils,                   ONLY: setup_xas_tdp_full_prob, &
                                               solve_xas_tdp_full_prob, &
                                               compute_dipole_fosc, &
@@ -201,15 +204,21 @@ CONTAINS
 !  If not simply exact exchange, setup a xas_atom_env and compute the xc integrals on the atomic grids
 !  Done before looping on atoms as it's all done at once
       IF (.NOT. xas_tdp_control%fxc_func == xas_tdp_hfx) THEN
+
+         CALL xas_atom_env_create(xas_atom_env)
          CALL init_xas_atom_env(xas_atom_env, xas_tdp_env%ex_atom_indices, &
                                 xas_tdp_env%ex_kind_indices, xas_tdp_control%grid_info, qs_env) 
 
-         ALLOCATE(xas_tdp_env%ri_atom_int%matrix)
+         IF (xas_tdp_control%do_singlet) THEN
+            ALLOCATE(xas_tdp_env%ri_fxc_sg%matrix)
+            CALL integrate_xas_atoms(xas_tdp_env%ri_fxc_sg, xas_atom_env, qs_env, singlet=.TRUE.)
+         END IF
+         IF (xas_tdp_control%do_triplet) THEN
+            ALLOCATE(xas_tdp_env%ri_fxc_tp%matrix)
+            CALL integrate_xas_atoms(xas_tdp_env%ri_fxc_tp, xas_atom_env, qs_env, singlet=.FALSE.)
+         END IF
 
-         CALL integrate_xas_atoms(xas_tdp_env%ri_atom_int, xas_tdp_control%do_singlet, &
-                                  xas_atom_env, qs_env)
-
-         CALL release_xas_atom_env(xas_atom_env)
+         CALL xas_atom_env_release(xas_atom_env)
       END IF
 
 !  Loop over donor states for calculation
@@ -273,22 +282,26 @@ CONTAINS
                CALL perform_mulliken_on_donor_state(current_state,qs_env,output_unit)
 
                IF (xas_tdp_control%check_donor_states) CYCLE
-!              Do main calculations here
 
+!              Do main calculations here
                IF (xas_tdp_control%full_diag) THEN
                   CALL setup_xas_tdp_full_prob(current_state, qs_env, xas_tdp_env, xas_tdp_control)
-                  CALL solve_xas_tdp_full_prob(current_state, xas_tdp_control, qs_env)
-                  CALL compute_dipole_fosc(current_state, xas_tdp_control, xas_tdp_env)
-                           
+
+                  IF (xas_tdp_control%do_singlet) THEN
+                     CALL solve_xas_tdp_full_prob(current_state, xas_tdp_control, qs_env, singlet=.TRUE.)
+                     CALL compute_dipole_fosc(current_state, xas_tdp_control, xas_tdp_env)
+                  END IF
+                  IF (xas_tdp_control%do_triplet) THEN
+                     CALL solve_xas_tdp_full_prob(current_state, xas_tdp_control, qs_env, singlet=.FALSE.)
+                  END IF
+
                ELSE IF (.NOT. xas_tdp_control%full_diag) THEN
                            
                   CPABORT("Iterative solver not implemented yet")
 
                END IF !full_diag
 
-               CALL print_xas_tdp_to_file(current_state, xas_tdp_env, xas_tdp_section)
-
-                  
+               CALL print_xas_tdp_to_file(current_state, xas_tdp_env, xas_tdp_control, xas_tdp_section)
 
 !              Free some unneeded attributes of current_state
                CALL free_ds_memory(current_state)
@@ -1157,10 +1170,11 @@ CONTAINS
 !> \brief Prints the excitation energies and the oscillator strengths for a given donor_state in a file 
 !> \param donor_state the donor_state to print
 ! **************************************************************************************************
-   SUBROUTINE print_xas_tdp_to_file(donor_state, xas_tdp_env, xas_tdp_section)
+   SUBROUTINE print_xas_tdp_to_file(donor_state, xas_tdp_env, xas_tdp_control, xas_tdp_section)
 
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
       TYPE(section_vals_type), POINTER                :: xas_tdp_section   
 
       CHARACTER(len=*), PARAMETER :: routineN = "print_xas_tdp_to_file", &
@@ -1178,29 +1192,53 @@ CONTAINS
 
       IF (xas_tdp_unit > 0) THEN
 
-!        Printing the general donor state information
-         WRITE(xas_tdp_unit, FMT="(A,/,A,A,A/,A,I5,A,I5,A,A,/,A)") &
-            "================================================================", &
-            "XAS TDP spectral data for DONOR STATE: ", xas_tdp_env%state_type_char(donor_state%state_type), ",",&
-            "from EXCITED ATOM: ", donor_state%at_index, ", of KIND (index/symbol): ", donor_state%kind_index,&
-            "/", donor_state%at_symbol,&
-            "================================================================"
+         IF (xas_tdp_control%do_singlet) THEN
 
-!        Simply dump the excitation energies/ oscillator strength as they come
-!        Carefull analysis is the user's responsibilty 
-         WRITE(xas_tdp_unit, FMT="(T3,A)") &
-            "Excitation energy (eV)            Oscillator strength (a.u.)"
+!           Printing the general donor state information
+            WRITE(xas_tdp_unit, FMT="(A,/,A,A,A/,A,I5,A,I5,A,A,/,A)") &
+               "================================================================", &
+               "XAS TDP singlet excitations for DONOR STATE: ", &
+                xas_tdp_env%state_type_char(donor_state%state_type), ",",&
+               "from EXCITED ATOM: ", donor_state%at_index, ", of KIND (index/symbol): ", &
+               donor_state%kind_index, "/", donor_state%at_symbol,&
+               "================================================================"
 
-         DO i =1,SIZE(donor_state%lr_evals)
-            WRITE(xas_tdp_unit, FMT="(T3,F22.6,F38.6)") &
-               donor_state%lr_evals(i)*evolt, donor_state%osc_str(i)
-               !donor_state%lr_evals(i), donor_state%osc_str(i)
-         END DO
+!           Simply dump the excitation energies/ oscillator strength as they come
+            WRITE(xas_tdp_unit, FMT="(T3,A)") &
+               "Excitation energy (eV)            Oscillator strength (a.u.)"
 
-         WRITE(xas_tdp_unit, FMT="(A,/)") " "
-            
+            DO i =1,SIZE(donor_state%sg_evals)
+               WRITE(xas_tdp_unit, FMT="(T3,F22.6,F38.6)") &
+                  donor_state%sg_evals(i)*evolt, donor_state%sg_osc_str(i)
+            END DO
+
+            WRITE(xas_tdp_unit, FMT="(A,/)") " "
+         END IF ! do_singlet
+
+         IF (xas_tdp_control%do_triplet) THEN
+
+!           Printing the general donor state information
+            WRITE(xas_tdp_unit, FMT="(A,/,A,A,A/,A,I5,A,I5,A,A,/,A)") &
+               "================================================================", &
+               "XAS TDP triplet excitations for DONOR STATE: ", &
+                xas_tdp_env%state_type_char(donor_state%state_type), ",",&
+               "from EXCITED ATOM: ", donor_state%at_index, ", of KIND (index/symbol): ", &
+               donor_state%kind_index, "/", donor_state%at_symbol,&
+               "================================================================"
+
+!           Simply dump the excitation energies/ oscillator strength as they come
+            WRITE(xas_tdp_unit, FMT="(T3,A)") &
+               "Excitation energy (eV)            Oscillator strength (a.u.)"
+
+            DO i =1,SIZE(donor_state%tp_evals)
+               WRITE(xas_tdp_unit, FMT="(T3,F22.6,F38.6)") &
+                  donor_state%tp_evals(i)*evolt, donor_state%tp_osc_str(i)
+            END DO
+
+            WRITE(xas_tdp_unit, FMT="(A,/)") " "
+         END IF ! do_triplet
+
       END IF
-
 
       CALL cp_print_key_finished_output(xas_tdp_unit, logger, xas_tdp_section, "PRINT%SPECTRUM")
 

@@ -15,7 +15,7 @@ MODULE xas_tdp_atom
    USE basis_set_types,                 ONLY: gto_basis_set_type, gto_basis_set_p_type, &
                                               get_gto_basis_set, set_gto_basis_set
    USE cell_types,                      ONLY: cell_type
-   USE cp_array_utils,                  ONLY: cp_2d_r_p_type, cp_1d_r_p_type
+   USE cp_array_utils,                  ONLY: cp_2d_r_p_type
    USE cp_control_types,                ONLY: qs_control_type, dft_control_type
    USE dbcsr_api,                       ONLY: dbcsr_p_type, dbcsr_distribution_type,&
                                               dbcsr_create, dbcsr_print, dbcsr_put_block, &
@@ -38,10 +38,10 @@ MODULE xas_tdp_atom
    USE particle_types,                  ONLY: particle_type
    USE qs_environment_types,            ONLY: qs_environment_type, get_qs_env
    USE qs_grid_atom,                    ONLY: grid_atom_type, allocate_grid_atom, &
-                                              deallocate_grid_atom, create_grid_atom
+                                              create_grid_atom
    USE qs_harmonics_atom,               ONLY: create_harmonics_atom, get_maxl_CG, &
                                               harmonics_atom_type, allocate_harmonics_atom, &
-                                              deallocate_harmonics_atom, get_none0_cg_list
+                                              get_none0_cg_list
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_kind_types,                   ONLY: qs_kind_type, get_qs_kind, get_qs_kind_set
    USE qs_neighbor_lists,               ONLY: build_neighbor_lists, local_atoms_type, &
@@ -57,6 +57,7 @@ MODULE xas_tdp_atom
    USE qs_rho_types,                    ONLY: qs_rho_type, qs_rho_get
    USE spherical_harmonics,             ONLY: clebsch_gordon, clebsch_gordon_deallocate, &
                                               clebsch_gordon_init
+   USE xas_tdp_types,                   ONLY: xas_atom_env_type
    USE xc_functionals_utilities,        ONLY: set_util, calc_rs_pw
 
 #include "./base/base_uses.f90"
@@ -67,41 +68,7 @@ MODULE xas_tdp_atom
    
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = "xas_tdp_atom"
 
-!  Some helper types
-   TYPE grid_atom_p_type
-      TYPE(grid_atom_type), POINTER                   :: grid_atom
-   END TYPE grid_atom_p_type
-
-   TYPE harmonics_atom_p_type
-      TYPE(harmonics_atom_type), POINTER              :: harmonics_atom
-   END TYPE harmonics_atom_p_type
-
-! **************************************************************************************************
-!> \brief a environment type that contains all the info needed for the RI atomic grid calculations 
-!> \param excited_atoms the atoms for whcih calculations must be done
-!> \param excited_kinds the kinds for which calculations must be done
-!> \param grid_atom_set the set of atomic grid for each kind
-!> \param blk_size the block sizes of the dbcsr_matrix that will hold the integrals
-!> \param dcoeff the expansion coefficients to express the density in the RI basis for each atom
-!> \param sphi_so contains the coefficient for direct contraction from so to sgf
-!> \note The grid_atom_set and harmonics_atom_set are defined for each kind, even those that are not
-!>       excited. They are needed for SOC. If the grid dimensions are not provided in the input,
-!>       those of the GAPW are taken
-! **************************************************************************************************
-   TYPE xas_atom_env_type
-      INTEGER, DIMENSION(:), POINTER                  :: excited_atoms
-      INTEGER, DIMENSION(:), POINTER                  :: excited_kinds
-      TYPE(grid_atom_p_type), DIMENSION(:), POINTER   :: grid_atom_set
-      TYPE(harmonics_atom_p_type), DIMENSION(:), &
-                                            POINTER   :: harmonics_atom_set
-      INTEGER, DIMENSION(:), POINTER                  :: blk_size
-      TYPE(cp_1d_r_p_type), DIMENSION(:), POINTER     :: dcoeff
-      TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: sphi_so
-   END TYPE xas_atom_env_type
-
-   PUBLIC :: xas_atom_env_type
-
-   PUBLIC :: init_xas_atom_env, release_xas_atom_env, integrate_xas_atoms
+   PUBLIC :: init_xas_atom_env, integrate_xas_atoms
 
 CONTAINS
 
@@ -154,7 +121,6 @@ CONTAINS
       nex_kinds = SIZE(excited_kinds)
       nex_atoms = SIZE(excited_atoms)
 
-      ALLOCATE(xas_atom_env)
       ALLOCATE(xas_atom_env%excited_atoms(nex_atoms))
       ALLOCATE(xas_atom_env%excited_kinds(nex_kinds))
       ALLOCATE(xas_atom_env%grid_atom_set(nkind))
@@ -220,71 +186,6 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE init_xas_atom_env
-
-! **************************************************************************************************
-!> \brief Releases the xas_atom_env type
-!> \param xas_atom_env the type to release
-! **************************************************************************************************
-   SUBROUTINE release_xas_atom_env(xas_atom_env)
-
-      TYPE(xas_atom_env_type), POINTER                :: xas_atom_env              
-
-      CHARACTER(len=*), PARAMETER :: routineN = "release_xas_atom_env", &
-                                     routineP = moduleN//":"//routineN
-
-      INTEGER                                         :: i
-
-      IF (ASSOCIATED(xas_atom_env%grid_atom_set)) THEN
-         DO i = 1,SIZE(xas_atom_env%grid_atom_set) 
-            IF (ASSOCIATED(xas_atom_env%grid_atom_set(i)%grid_atom)) THEN
-               CALL deallocate_grid_atom(xas_atom_env%grid_atom_set(i)%grid_atom)
-            END IF
-         END DO
-         DEALLOCATE(xas_atom_env%grid_atom_set)
-      END IF
-
-      IF (ASSOCIATED(xas_atom_env%harmonics_atom_set)) THEN
-         DO i = 1,SIZE(xas_atom_env%harmonics_atom_set)
-            IF (ASSOCIATED(xas_atom_env%harmonics_atom_set(i)%harmonics_atom)) THEN
-               CALL deallocate_harmonics_atom(xas_atom_env%harmonics_atom_set(i)%harmonics_atom)
-            END IF
-         END DO
-         DEALLOCATE(xas_atom_env%harmonics_atom_set)
-      END IF
-
-      IF (ASSOCIATED(xas_atom_env%excited_kinds)) THEN
-         DEALLOCATE(xas_atom_env%excited_kinds)
-      END IF
-
-      IF (ASSOCIATED(xas_atom_env%excited_atoms)) THEN
-         DEALLOCATE(xas_atom_env%excited_atoms)
-      END IF
-
-      IF (ASSOCIATED(xas_atom_env%blk_size)) THEN
-         DEALLOCATE(xas_atom_env%blk_size)
-      END IF
-      
-      IF (ASSOCIATED(xas_atom_env%dcoeff)) THEN
-         DO i = 1,SIZE(xas_atom_env%dcoeff)
-            IF (ASSOCIATED(xas_atom_env%dcoeff(i)%array)) THEN
-               DEALLOCATE(xas_atom_env%dcoeff(i)%array)
-            END IF
-         END DO
-         DEALLOCATE(xas_atom_env%dcoeff)
-      END IF
-
-      IF (ASSOCIATED(xas_atom_env%sphi_so)) THEN
-         DO i = 1,SIZE(xas_atom_env%sphi_so)
-            IF (ASSOCIATED(xas_atom_env%sphi_so(i)%array)) THEN
-               DEALLOCATE(xas_atom_env%sphi_so(i)%array)
-            END IF
-         END DO
-         DEALLOCATE(xas_atom_env%sphi_so)
-      END IF
-
-      DEALLOCATE(xas_atom_env)
-
-   END SUBROUTINE release_xas_atom_env
 
 ! **************************************************************************************************
 !> \brief Initializes the atomic grids and harmonics for the RI atomic calculations
@@ -759,16 +660,16 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Integrate the xc kernel as a function of r on the atomic grids for the RI_XAS basis
 !> \param int_mat the dbcsr_matrix in the usual block format where the integrals are stored
-!> \param singlet whether we want singlet or triplet excitations
 !> \param xas_atom_env ...
 !> \param qs_env ...
+!> \param singlet whether we want singlet or triplet excitations
 ! **************************************************************************************************
-   SUBROUTINE integrate_xas_atoms(int_mat, singlet, xas_atom_env, qs_env)
+   SUBROUTINE integrate_xas_atoms(int_mat, xas_atom_env, qs_env, singlet)
 
       TYPE(dbcsr_p_type)                              :: int_mat
-      LOGICAL, INTENT(IN)                             :: singlet
       TYPE(xas_atom_env_type), POINTER                :: xas_atom_env  
       TYPE(qs_environment_type), POINTER              :: qs_env   
+      LOGICAL, INTENT(IN)                             :: singlet
 
       CHARACTER(len=*), PARAMETER :: routineN = "integrate_xas_atoms", &
                                      routineP = moduleN//":"//routineN
@@ -776,7 +677,7 @@ CONTAINS
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
       REAL(dp), DIMENSION(:, :), ALLOCATABLE          :: fxc, int_so, int_sgf, rho
       INTEGER                                         :: natom, iat, ikind, na, nr, nsotot, nset, &
-                                                         maxso, iset, jset, nsgf, ia, ir, sgfi, &
+                                                         maxso, iset, jset, nsgf, sgfi, &
                                                          sgfj, n, nsoi, nsoj, starti, startj
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set 
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
@@ -841,11 +742,7 @@ CONTAINS
          END IF
 
 !     Take the grid weights into account
-         DO ia = 1,na
-            DO ir = 1,nr
-               fxc(ia,ir) = fxc(ia,ir)*grid_atom%weight(ia,ir)
-            END DO
-         END DO
+         fxc(1:na,1:nr) = fxc(1:na,1:nr)*grid_atom%weight(1:na,1:nr)
 
 !     Integrate
          CALL integrate_so_prod(int_so, fxc, ikind, xas_atom_env, qs_env) 

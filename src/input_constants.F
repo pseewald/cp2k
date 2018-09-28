@@ -547,7 +547,8 @@ MODULE input_constants
    INTEGER, PARAMETER, PUBLIC               :: sic_list_all = 1, &
                                                sic_list_unpaired = 2
    INTEGER, PARAMETER, PUBLIC               :: tddfpt_singlet = 0, &
-                                               tddfpt_triplet = 1
+                                               tddfpt_triplet = 1, &
+                                               tddfpt_both = 2
    INTEGER, PARAMETER, PUBLIC               :: tddfpt_lanczos = 0, &
                                                tddfpt_davidson = 1
    INTEGER, PARAMETER, PUBLIC               :: oe_none = 0, &
