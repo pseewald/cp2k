@@ -416,6 +416,10 @@ CONTAINS
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
+      CALL create_xas_tdp_section(subsection)
+      CALL section_add_subsection(section, subsection)
+      CALL section_release(subsection)
+
       CALL create_localize_section(subsection)
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
@@ -3254,12 +3258,8 @@ CONTAINS
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
-      ! Embedding subsections: DFET and DMFET
+      ! Embedding subsections
       CALL create_optimize_embed(subsection)
-      CALL section_add_subsection(section, subsection)
-      CALL section_release(subsection)
-
-      CALL create_optimize_dmfet(subsection)
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
@@ -6187,7 +6187,7 @@ CONTAINS
                           description="The stride (X,Y,Z) used to write the cube file "// &
                           "(larger values result in smaller cube files). You can provide 3 numbers (for X,Y,Z) or"// &
                           " 1 number valid for all components.", &
-                          usage="STRIDE 1 1 1", n_var=-1, default_i_vals=(/1, 1, 1/), type_of_var=integer_t)
+                          usage="STRIDE 2 2 2", n_var=-1, default_i_vals=(/2, 2, 2/), type_of_var=integer_t)
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
 
@@ -6241,7 +6241,7 @@ CONTAINS
                           description="The stride (X,Y,Z) used to write the cube file "// &
                           "(larger values result in smaller cube files). You can provide 3 numbers (for X,Y,Z) or"// &
                           " 1 number valid for all components.", &
-                          usage="STRIDE 1 1 1", n_var=-1, default_i_vals=(/1, 1, 1/), type_of_var=integer_t)
+                          usage="STRIDE 1 1 1", n_var=-1, default_i_vals=(/2, 2, 2/), type_of_var=integer_t)
       CALL section_add_keyword(print_key, keyword)
       CALL keyword_release(keyword)
 
@@ -7665,7 +7665,7 @@ CONTAINS
 
       CALL keyword_create(keyword, __LOCATION__, name="STATE_TYPE", &
                           variants=(/"TYPE"/), &
-                          description="Type of the orbitas that are excited for the xas spectra calculation", &
+                          description="Type of the orbitals that are excited for the xas spectra calculation", &
                           usage="STATE_TYPE 1S", &
                           default_i_val=xas_1s_type, &
                           enum_c_vals=s2a("1S", "2S", "2P", "3S", "3P", "3D", "4S", "4P", "4D", "4F"), &
@@ -8063,6 +8063,7 @@ CONTAINS
       CALL section_release(subsection)
 
    END SUBROUTINE create_xas_tdp_section  
+ 
 
 ! **************************************************************************************************
 !> \brief      Create CP2K input section for the smearing of occupation numbers

@@ -616,7 +616,8 @@ MODULE input_constants
                                                xas_tp_xfh = 5, &
                                                xas_dscf = 6, &
                                                xas_tp_flex = 7
-   INTEGER, PARAMETER, PUBLIC               :: xas_1s_type = 1, &
+   INTEGER, PARAMETER, PUBLIC               :: xas_not_excited = 0, &
+                                               xas_1s_type = 1, &
                                                xas_2s_type = 2, &
                                                xas_2p_type = 3, &
                                                xas_3s_type = 4, &
@@ -641,11 +642,6 @@ MODULE input_constants
    INTEGER, PARAMETER, PUBLIC               :: tddfpt_dipole_berry = 1, &
                                                tddfpt_dipole_length = 2, &
                                                tddfpt_dipole_velocity = 3
-
-   ! Time-dependent XAS
-   INTEGER, PARAMETER, PUBLIC               :: xas_tdp_by_index = 1, &
-                                               xas_tdp_by_kind = 2, &
-                                               xas_tdp_exop_coulomb = 1
 
    ! Linear Response for properties
    INTEGER, PARAMETER, PUBLIC               :: lr_none = 0, &
