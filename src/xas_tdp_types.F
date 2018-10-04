@@ -98,6 +98,7 @@ MODULE xas_tdp_types
 !>        integrals (ab|P) with the RI basis centered on P. Updated for each new excited atom
 !> \param ri_fxc_sg the matrix in which the singlet kernel RI integrals on the atomic grid are stored
 !> \param ri_fxc_tp the matrix in which the triplet kernel RI integrals on the atomic grid are stored
+!> \param orb_soc the matrix where the SOC is evaluated wrt the orbital basis set
 !> *************************************************************************************************
    TYPE xas_tdp_env_type
       CHARACTER(len=2), DIMENSION(3)          :: state_type_char
@@ -118,6 +119,7 @@ MODULE xas_tdp_types
                                     POINTER   :: dipmat
       TYPE(dbcsr_p_type)                      :: ri_fxc_sg
       TYPE(dbcsr_p_type)                      :: ri_fxc_tp
+      TYPE(dbcsr_p_type)                      :: orb_soc
    END TYPE xas_tdp_env_type
 
 !> *************************************************************************************************
@@ -134,8 +136,10 @@ MODULE xas_tdp_types
 !> \param gs_coeffs the ground state MO coefficients 
 !> \param sg_evals singlet excitation energies => the eigenvalues of the linear response equation
 !> \param tp_evals triplet excitation energies => the eigenvalues of the linear response equation
+!> \param soc_evals excitation energies after inclusion of SOC
 !> \param sg_osc_str oscillator strengths for the different excitation energies of singlets
 !> \param tp_osc_str oscillator strengths for the different excitation energies of triplets
+!> \param soc_osc_str oscillator strengths after the inclusion of SOC
 !> \param sg_matrix_tdp the dbcsr matrix to be diagonalized to solve the problem for singlets
 !> \param tp_matrix_tdp the dbcsr matrix to be diagonalized to solve the problem for triplets
 !> \param metric the metric of the linear response problem M*c = omega*S*c and its inverse
@@ -155,6 +159,8 @@ TYPE donor_state_type
       TYPE(cp_fm_type), POINTER               :: gs_coeffs
       REAL(dp), DIMENSION(:), POINTER         :: sg_evals
       REAL(dp), DIMENSION(:), POINTER         :: tp_evals
+      REAL(dp), DIMENSION(:), POINTER         :: soc_evals
+      REAL(dp), DIMENSION(:), POINTER         :: soc_osc_str
       REAL(dp), DIMENSION(:), POINTER         :: sg_osc_str
       REAL(dp), DIMENSION(:), POINTER         :: tp_osc_str
       TYPE(dbcsr_type), POINTER               :: sg_matrix_tdp
@@ -178,9 +184,10 @@ TYPE donor_state_type
 !> \param excited_atoms the atoms for which RI xc-kernel calculations must be done
 !> \param excited_kinds the kinds for which RI xc-kernel calculations must be done 
 !> \param grid_atom_set the set of atomic grid for each kind
-!> \param blk_size the block sizes of the dbcsr_matrix that will hold the RI integrals 
-!> \param dcoeff the expansion coefficients to express the density in the RI basis for each atom
-!> \param sphi_so contains the coefficient for direct contraction from so to sgf
+!> \param ri_blk_size the block sizes of the dbcsr_matrix that will hold the RI integrals 
+!> \param ri_dcoeff the expansion coefficients to express the density in the RI basis for each atom
+!> \param ri_sphi_so contains the coefficient for direct contraction from so to sgf, for the ri basis
+!> \param orb_sphi_so contains the coefficient for direct contraction from so to sgf, for the orb basis
 !> *************************************************************************************************
    TYPE xas_atom_env_type
       INTEGER, DIMENSION(:), POINTER                  :: excited_atoms
@@ -188,9 +195,10 @@ TYPE donor_state_type
       TYPE(grid_atom_p_type), DIMENSION(:), POINTER   :: grid_atom_set
       TYPE(harmonics_atom_p_type), DIMENSION(:), & 
                                              POINTER  :: harmonics_atom_set
-      INTEGER, DIMENSION(:), POINTER                  :: blk_size
-      TYPE(cp_1d_r_p_type), DIMENSION(:), POINTER     :: dcoeff
-      TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: sphi_so
+      INTEGER, DIMENSION(:), POINTER                  :: ri_blk_size
+      TYPE(cp_1d_r_p_type), DIMENSION(:), POINTER     :: ri_dcoeff
+      TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: ri_sphi_so
+      TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: orb_sphi_so
    END TYPE xas_atom_env_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE  :: moduleN = 'xas_tdp_types'
@@ -284,9 +292,8 @@ CONTAINS
       CHARACTER(len=default_string_length),&
                      DIMENSION(:), POINTER               :: k_list
       INTEGER, DIMENSION(:), POINTER                     :: a_list, t_list
-      TYPE(section_vals_type), POINTER                   :: kernel_subsection
 
-      NULLIFY (k_list,a_list,t_list, kernel_subsection)
+      NULLIFY (k_list, a_list, t_list)
       
       CALL section_vals_val_get(xas_tdp_section, "DEFINE_EXCITED", &
                                 i_val=xas_tdp_control%define_excited)
@@ -367,14 +374,13 @@ CONTAINS
       
       CALL section_vals_val_get(xas_tdp_section, "STATE_SEARCH", i_val=xas_tdp_control%n_search)
 
-      kernel_subsection => section_vals_get_subs_vals(xas_tdp_section, "XC_KERNEL")
-      CALL section_vals_val_get(kernel_subsection, "FUNCTIONAL", i_val=xas_tdp_control%fxc_func)
-      CALL section_vals_val_get(kernel_Subsection, "GRID", n_rep_val=nrep)
+      CALL section_vals_val_get(xas_tdp_section, "XC_KERNEL", i_val=xas_tdp_control%fxc_func)
+      CALL section_vals_val_get(xas_tdp_section, "GRID", n_rep_val=nrep)
 
       IF (.NOT. ASSOCIATED(xas_tdp_control%grid_info)) THEN
          ALLOCATE(xas_tdp_control%grid_info(nrep,3))
          DO irep = 1, nrep
-            CALL section_vals_val_get(kernel_subsection, "GRID", i_rep_val=irep, c_vals=k_list)
+            CALL section_vals_val_get(xas_tdp_section, "GRID", i_rep_val=irep, c_vals=k_list)
             IF (SIZE(k_list) .NE. 3) CPABORT("The GRID keyword needs three values")
             xas_tdp_control%grid_info(irep,:) = k_list
          END DO
@@ -414,6 +420,7 @@ CONTAINS
       NULLIFY (xas_tdp_env%ri_coul3)
       NULLIFY (xas_tdp_env%ri_fxc_sg%matrix)
       NULLIFY (xas_tdp_env%ri_fxc_tp%matrix)
+      NULLIFY (xas_tdp_env%orb_soc%matrix)
 
 !     Putting the state types as char manually
       xas_tdp_env%state_type_char(1) = "1s"
@@ -481,6 +488,10 @@ CONTAINS
          IF (ASSOCIATED(xas_tdp_env%ri_fxc_tp%matrix)) THEN
             CALL dbcsr_release(xas_tdp_env%ri_fxc_tp%matrix)
             DEALLOCATE(xas_tdp_env%ri_fxc_tp%matrix)
+         END IF
+         IF (ASSOCIATED(xas_tdp_env%orb_soc%matrix)) THEN
+            CALL dbcsr_release(xas_tdp_env%orb_soc%matrix)
+            DEALLOCATE(xas_tdp_env%orb_soc%matrix)
          END IF
          DEALLOCATE (xas_tdp_env)
       END IF
@@ -575,6 +586,10 @@ CONTAINS
             IF (ASSOCIATED(donor_state_set(i)%tp_evals)) THEN
                DEALLOCATE(donor_state_set(i)%tp_evals)
             END IF
+
+             IF (ASSOCIATED(donor_state_set(i)%soc_evals)) THEN
+               DEALLOCATE(donor_state_set(i)%soc_evals)
+            END IF
             
             IF (ASSOCIATED(donor_state_set(i)%sg_osc_str)) THEN
                DEALLOCATE(donor_state_set(i)%sg_osc_str)
@@ -583,6 +598,10 @@ CONTAINS
             IF (ASSOCIATED(donor_state_set(i)%tp_osc_str)) THEN
                DEALLOCATE(donor_state_set(i)%tp_osc_str)
             END IF 
+
+            IF (ASSOCIATED(donor_state_set(i)%soc_osc_str)) THEN
+               DEALLOCATE(donor_state_set(i)%soc_osc_str)
+            END IF
 
             If (ASSOCIATED(donor_state_set(i)%energy_evals)) THEN
                DEALLOCATE(donor_state_set(i)%energy_evals)
@@ -637,8 +656,10 @@ CONTAINS
 
       IF (ASSOCIATED(donor_state%sg_evals)) DEALLOCATE(donor_state%sg_evals)
       IF (ASSOCIATED(donor_state%tp_evals)) DEALLOCATE(donor_state%tp_evals)
+      IF (ASSOCIATED(donor_state%soc_evals)) DEALLOCATE(donor_state%soc_evals)
       IF (ASSOCIATED(donor_state%sg_osc_str)) DEALLOCATE(donor_state%sg_osc_str)
       IF (ASSOCIATED(donor_state%tp_osc_str)) DEALLOCATE(donor_state%tp_osc_str)
+      IF (ASSOCIATED(donor_state%soc_osc_str)) DEALLOCATE(donor_state%soc_osc_str)
       IF (ASSOCIATED(donor_state%gs_coeffs)) CALL cp_fm_release(donor_state%gs_coeffs)
 
       IF (ASSOCIATED(donor_state%sg_coeffs)) THEN
@@ -700,9 +721,10 @@ CONTAINS
       NULLIFY(xas_atom_env%excited_kinds)
       NULLIFY(xas_atom_env%grid_atom_set)
       NULLIFY(xas_atom_env%harmonics_atom_set)
-      NULLIFY(xas_atom_env%blk_size)
-      NULLIFY(xas_atom_env%dcoeff)
-      NULLIFY(xas_atom_env%sphi_so)
+      NULLIFY(xas_atom_env%ri_blk_size)
+      NULLIFY(xas_atom_env%ri_dcoeff)
+      NULLIFY(xas_atom_env%ri_sphi_so)
+      NULLIFY(xas_atom_env%orb_sphi_so)
 
    END SUBROUTINE xas_atom_env_create
 
@@ -745,26 +767,35 @@ CONTAINS
          DEALLOCATE(xas_atom_env%excited_atoms)
       END IF
 
-      IF (ASSOCIATED(xas_atom_env%blk_size)) THEN
-         DEALLOCATE(xas_atom_env%blk_size)
+      IF (ASSOCIATED(xas_atom_env%ri_blk_size)) THEN
+         DEALLOCATE(xas_atom_env%ri_blk_size)
       END IF
 
-      IF (ASSOCIATED(xas_atom_env%dcoeff)) THEN
-         DO i = 1,SIZE(xas_atom_env%dcoeff)
-            IF (ASSOCIATED(xas_atom_env%dcoeff(i)%array)) THEN
-               DEALLOCATE(xas_atom_env%dcoeff(i)%array)
+      IF (ASSOCIATED(xas_atom_env%ri_dcoeff)) THEN
+         DO i = 1,SIZE(xas_atom_env%ri_dcoeff)
+            IF (ASSOCIATED(xas_atom_env%ri_dcoeff(i)%array)) THEN
+               DEALLOCATE(xas_atom_env%ri_dcoeff(i)%array)
             END IF
          END DO
-         DEALLOCATE(xas_atom_env%dcoeff)
+         DEALLOCATE(xas_atom_env%ri_dcoeff)
       END IF
 
-      IF (ASSOCIATED(xas_atom_env%sphi_so)) THEN
-         DO i = 1,SIZE(xas_atom_env%sphi_so)
-            IF (ASSOCIATED(xas_atom_env%sphi_so(i)%array)) THEN 
-               DEALLOCATE(xas_atom_env%sphi_so(i)%array)
+      IF (ASSOCIATED(xas_atom_env%ri_sphi_so)) THEN
+         DO i = 1,SIZE(xas_atom_env%ri_sphi_so)
+            IF (ASSOCIATED(xas_atom_env%ri_sphi_so(i)%array)) THEN 
+               DEALLOCATE(xas_atom_env%ri_sphi_so(i)%array)
             END IF
          END DO
-         DEALLOCATE(xas_atom_env%sphi_so)
+         DEALLOCATE(xas_atom_env%ri_sphi_so)
+      END IF
+
+      IF (ASSOCIATED(xas_atom_env%orb_sphi_so)) THEN
+         DO i = 1,SIZE(xas_atom_env%orb_sphi_so)
+            IF (ASSOCIATED(xas_atom_env%orb_sphi_so(i)%array)) THEN 
+               DEALLOCATE(xas_atom_env%orb_sphi_so(i)%array)
+            END IF
+         END DO
+         DEALLOCATE(xas_atom_env%orb_sphi_so)
       END IF
 
       DEALLOCATE(xas_atom_env)
