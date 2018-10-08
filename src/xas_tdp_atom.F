@@ -1268,7 +1268,7 @@ CONTAINS
                                    intso(starti+iso, startj+jso), 1)
 
                         ! add r2*fa2 * V * r1*ga1
-                        fgr(1:nr,1) = r1(1:nr,starti+iso)*r2(1:nr,startj+jso) 
+                        fgr(1:nr,1) = r2(1:nr,starti+iso)*r1(1:nr,startj+jso) 
                         fga(1:na,1) = fa2(1:na,starti+iso)*ga1(1:na,startj+jso)
 
                         CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V, na, fgr, nr, 0.0_dp, work, na)
