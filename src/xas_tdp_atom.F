@@ -17,7 +17,7 @@ MODULE xas_tdp_atom
    USE basis_set_types,                 ONLY: gto_basis_set_type, gto_basis_set_p_type, &
                                               get_gto_basis_set, set_gto_basis_set
    USE cell_types,                      ONLY: cell_type
-   USE cp_array_utils,                  ONLY: cp_2d_r_p_type
+   USE cp_array_utils,                  ONLY: cp_2d_r_p_type, cp_3d_r_p_type
    USE cp_control_types,                ONLY: qs_control_type, dft_control_type
    USE dbcsr_api,                       ONLY: dbcsr_p_type, dbcsr_distribution_type,&
                                               dbcsr_create, dbcsr_print, dbcsr_put_block, &
@@ -1152,14 +1152,17 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE integrate_so_dxdy_prod(intso, V, ikind, xas_atom_env, qs_env)
       
-      REAL(dp), DIMENSION(:,:), INTENT(INOUT)         :: intso
+      REAL(dp), DIMENSION(:,:,:), INTENT(INOUT)       :: intso
       REAL(dp), DIMENSION(:,:), INTENT(IN)            :: V
       INTEGER, INTENT(IN)                             :: ikind
       TYPE(xas_atom_env_type), POINTER                :: xas_atom_env
       TYPE(qs_environment_type), POINTER              :: qs_env
-      !***!
-      INTEGER                                         :: na, nr, iso, jso, nsgf, maxso, nset, iset,&
-                                                         jset, ipgf, jpgf, l, starti, startj
+
+      CHARACTER(len=*), PARAMETER :: routineN = "integrate_so_dxdy_prod", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: na, nr, iso, jso, maxso, nset, iset,&
+                                                         jset, ipgf, jpgf, l, starti, startj, i, j,k
       TYPE(grid_atom_type), POINTER                   :: grid_atom
       TYPE(harmonics_atom_type), POINTER              :: harmonics
       TYPE(gto_basis_set_type), POINTER               :: basis
@@ -1168,7 +1171,8 @@ CONTAINS
       REAL(dp), DIMENSION(:,:,:), POINTER             :: dslm_dxyz
       INTEGER, DIMENSION(:), POINTER                  :: lmax, lmin, npgf
       REAL(dp), DIMENSION(:, :), POINTER              :: zet
-      REAL(dp), ALLOCATABLE, DIMENSION(:,:)           :: fa1, r1, ga1, work, fga, fgr, ga2, fa2, r2
+      REAL(dp), ALLOCATABLE, DIMENSION(:,:)           :: r1,  work, fga, fgr, r2
+      REAL(dp), ALLOCATABLE, DIMENSION(:,:,:)         :: a1, a2
 
       NULLIFY(grid_atom, harmonics, basis, qs_kind_set, dslm_dxyz, slm, lmin, lmax, npgf, zet)
 
@@ -1186,7 +1190,7 @@ CONTAINS
       dslm_dxyz => harmonics%dslm_dxyz
 
 !  Getting what we need from the orbital basis
-      CALL get_gto_basis_set(gto_basis_set=basis, lmax=lmax, lmin=lmin, nsgf=nsgf, &
+      CALL get_gto_basis_set(gto_basis_set=basis, lmax=lmax, lmin=lmin, &
                              maxso=maxso, npgf=npgf, nset=nset, zet=zet )
 
 
@@ -1194,9 +1198,10 @@ CONTAINS
 !  and use matrix mutliplication for the integral. We use f for x derivative ang g for y
 
    ! Separating the functions. Note that the radial part is the same for x and y derivatives
-      ALLOCATE(fa1(na,nset*maxso), fa2(na,nset*maxso))
-      ALLOCATE(ga1(na,nset*maxso), ga2(na,nset*maxso))
+      ALLOCATE(a1(na,nset*maxso,3), a2(na,nset*maxso,3))
       ALLOCATE(r1(nr,nset*maxso), r2(nr,nset*maxso))
+      a1 = 0.0_dp; a2 = 0.0_dp
+      r1 = 0.0_dp; r2 = 0.0_dp
 
       DO iset = 1,nset
          DO ipgf = 1,npgf(iset)
@@ -1214,17 +1219,13 @@ CONTAINS
                r2(1:nr,starti+iso) = -2.0_dp*zet(ipgf,iset)*grid_atom%rad(1:nr)**(l+1) &
                                       *EXP(-zet(ipgf, iset)*grid_atom%rad2(1:nr))
 
-               ! the purely angular part of d/dx(r^l Y_lm) * exp(-al*r^2)
-               fa1(1:na,starti+iso) = dslm_dxyz(1,1:na, iso)
+               DO i = 1,3
+                  ! the purely angular part of d/dx(r^l Y_lm) * exp(-al*r^2)
+                  a1(1:na,starti+iso,i) = dslm_dxyz(i,1:na, iso)
 
-               ! the purely angular part of r^l Y_lm * d/dx(exp-al*r^2)
-               fa2(1:na,starti+iso) = harmonics%a(1,1:na)*slm(1:na, iso)
-
-               ! the purely angular part of d/dy(r^l Y_lm) * exp(-al*r^2)
-               ga1(1:na,starti+iso) = dslm_dxyz(2,1:na, iso)
-
-               ! the purely angular part of r^l Y_lm * d/dy(exp-al*r^2)
-               ga2(1:na,starti+iso) = harmonics%a(2,1:na)*slm(1:na, iso)
+                  ! the purely angular part of r^l Y_lm * d/dx(exp-al*r^2)
+                  a2(1:na,starti+iso,i) = harmonics%a(i,1:na)*slm(1:na, iso)
+               END DO
 
             END DO !iso
          END DO !ipgf
@@ -1234,10 +1235,8 @@ CONTAINS
       intso = 0.0_dp
       ALLOCATE(fga(na,1))
       ALLOCATE(fgr(nr,1))
-      fga = 0.0_dp
-      fgr = 0.0_dp
       ALLOCATE(work(na,1))
-      work = 0.0_dp
+      fga = 0.0_dp; fgr = 0.0_dp; work = 0.0_dp
 
       DO iset = 1,nset
          DO jset = 1,nset
@@ -1246,52 +1245,208 @@ CONTAINS
                DO jpgf = 1,npgf(jset)
                   startj = (jset-1)*maxso + (jpgf-1)*nsoset(lmax(jset))
 
-                  DO iso = nsoset(lmin(iset)-1)+1,nsoset(lmax(iset))
-                     DO jso = nsoset(lmin(jset)-1)+1,nsoset(lmax(jset))
+                  DO i = 1,3
+                     j = MOD(i,3)+1
+                     k = MOD(i+1,3)+1
 
-                        !Two component per function => 4 terms in total
+                     DO iso = nsoset(lmin(iset)-1)+1,nsoset(lmax(iset))
+                        DO jso = nsoset(lmin(jset)-1)+1,nsoset(lmax(jset))
 
-                        ! take r1*fa1 * V * r1*ga1
-                        fgr(1:nr,1) = r1(1:nr,starti+iso)*r1(1:nr,startj+jso)
-                        fga(1:na,1) = fa1(1:na,starti+iso)*ga1(1:na,startj+jso)
+                           !Two component per function => 4 terms in total
 
-                        CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V, na, fgr, nr, 0.0_dp, work, na)
-                        CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, fga, na, 0.0_dp, &
-                                   intso(starti+iso, startj+jso), 1)
+                           ! take r1*a1(j) * V * r1*a1(k)
+                           fgr(1:nr,1) = r1(1:nr,starti+iso)*r1(1:nr,startj+jso)
+                           fga(1:na,1) = a1(1:na,starti+iso,j)*a1(1:na,startj+jso,k)
 
-                        ! add r1*fa1 * V * r2*ga2
-                        fgr(1:nr,1) = r1(1:nr,starti+iso)*r2(1:nr,startj+jso)
-                        fga(1:na,1) = fa1(1:na,starti+iso)*ga2(1:na,startj+jso)
+                           CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V, na, fgr, nr, 0.0_dp, work, na)
+                           CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, fga, na, 0.0_dp, &
+                                      intso(starti+iso, startj+jso, i), 1)
 
-                        CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V, na, fgr, nr, 0.0_dp, work, na)
-                        CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, fga, na, 1.0_dp, &
-                                   intso(starti+iso, startj+jso), 1)
+                           ! add r1*a1(j) * V * r2*a2(k)
+                           fgr(1:nr,1) = r1(1:nr,starti+iso)*r2(1:nr,startj+jso)
+                           fga(1:na,1) = a1(1:na,starti+iso,j)*a2(1:na,startj+jso,k)
 
-                        ! add r2*fa2 * V * r1*ga1
-                        fgr(1:nr,1) = r2(1:nr,starti+iso)*r1(1:nr,startj+jso) 
-                        fga(1:na,1) = fa2(1:na,starti+iso)*ga1(1:na,startj+jso)
+                           CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V, na, fgr, nr, 0.0_dp, work, na)
+                           CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, fga, na, 1.0_dp, &
+                                      intso(starti+iso, startj+jso, i), 1)
 
-                        CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V, na, fgr, nr, 0.0_dp, work, na)
-                        CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, fga, na, 1.0_dp, &
-                                   intso(starti+iso, startj+jso), 1)
+                           ! add r2*a2(j) * V * r1*a1(k)
+                           fgr(1:nr,1) = r2(1:nr,starti+iso)*r1(1:nr,startj+jso) 
+                           fga(1:na,1) = a2(1:na,starti+iso,j)*a1(1:na,startj+jso,k)
 
-                        ! add the last term: r2*fa2 * V * r2*ga2
-                        fgr(1:nr,1) = r2(1:nr,starti+iso)*r2(1:nr,startj+jso)
-                        fga(1:na,1) = fa2(1:na,starti+iso)*ga2(1:na,startj+jso)
+                           CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V, na, fgr, nr, 0.0_dp, work, na)
+                           CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, fga, na, 1.0_dp, &
+                                     intso(starti+iso, startj+jso, i), 1)
 
-                        CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V, na, fgr, nr, 0.0_dp, work, na)
-                        CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, fga, na, 1.0_dp, &
-                                   intso(starti+iso, startj+jso), 1)
+                           ! add the last term: r2*a2(j) * V * r2*a2(k)
+                           fgr(1:nr,1) = r2(1:nr,starti+iso)*r2(1:nr,startj+jso)
+                           fga(1:na,1) = a2(1:na,starti+iso,j)*a2(1:na,startj+jso,k)
 
-                     END DO !jso
-                  END DO !iso
+                           CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V, na, fgr, nr, 0.0_dp, work, na)
+                           CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, fga, na, 1.0_dp, &
+                                      intso(starti+iso, startj+jso, i), 1)
 
+                        END DO !jso
+                     END DO !iso
+
+                  END DO !i
                END DO !jpgf
             END DO !ipgf
          END DO !jset
       END DO !iset
 
+      DO i = 1,3
+         intso(:,:,i) = intso(:,:,i) - TRANSPOSE(intso(:,:,i))
+      END DO
+
    END SUBROUTINE integrate_so_dxdy_prod
+
+! **************************************************************************************************
+!> \note We integrate <phi_p|l|phi_q> for l = r^p, in the three cartesian coordinates
+! **************************************************************************************************
+   SUBROUTINE integrate_soc_mf_ao(intso, ikind, xas_atom_env, qs_env)
+
+      REAL(dp), DIMENSION(:,:,:), INTENT(INOUT)       :: intso
+      INTEGER, INTENT(IN)                             :: ikind
+      TYPE(xas_atom_env_type), POINTER                :: xas_atom_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+      !***!
+      INTEGER                                         :: na, nr, maxso, nset, iset, ipgf, starti, &
+                                                         iso, l, jset, jpgf, startj, jso, ir, i, j,k
+      REAL(dp), DIMENSION(:, :), POINTER              :: slm
+      REAL(dp), DIMENSION(:,:,:), POINTER             :: dslm_dxyz
+      TYPE(grid_atom_type), POINTER                   :: grid_atom
+      TYPE(harmonics_atom_type), POINTER              :: harmonics
+      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
+      TYPE(gto_basis_set_type), POINTER               :: basis
+      INTEGER, DIMENSION(:), POINTER                  :: lmax, lmin, npgf
+      REAL(dp), DIMENSION(:, :), POINTER              :: zet
+      REAL(dp), ALLOCATABLE, DIMENSION(:,:)           :: fr1, fr2, gr, ga, gfa, gfr, work
+      REAL(dp), DIMENSION(:,:,:), ALLOCATABLE         :: V, fa1, fa2
+      
+      NULLIFY(slm, dslm_dxyz, grid_atom, harmonics, basis, qs_kind_set, lmin, lmax, npgf, zet)
+
+!  Getting what we need from the atom_env
+      harmonics => xas_atom_env%harmonics_atom_set(ikind)%harmonics_atom
+      grid_atom => xas_atom_env%grid_atom_set(ikind)%grid_atom
+
+      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set)
+      CALL get_qs_kind(qs_kind_set(ikind), basis_set=basis, basis_type="ORB")
+
+      na = grid_atom%ng_sphere
+      nr = grid_atom%nr
+
+      slm => harmonics%slm
+      dslm_dxyz => harmonics%dslm_dxyz
+
+!  Getting what we need from the orbital basis
+      CALL get_gto_basis_set(gto_basis_set=basis, lmax=lmax, lmin=lmin, &
+                             maxso=maxso, npgf=npgf, nset=nset, zet=zet )
+
+!  Preparing the potentials
+      ALLOCATE(V(na,nr,3))
+
+      DO i = 1,3
+         DO ir = 1,nr
+            V(1:na,ir,i) = 16.0_dp*a_fine**2*harmonics%a(i,1:na)/grid_atom%rad2(ir)*grid_atom%weight(1:na,ir)
+         END DO
+      END DO
+
+   ! Separating the basis function into purely readial and purely angular parts
+      ALLOCATE(gr(nr,nset*maxso), fr1(nr,nset*maxso), fr2(nr,nset*maxso))
+      ALLOCATE(ga(na,nset*maxso), fa1(na,nset*maxso,3), fa2(na,nset*maxso,3))
+      gr = 0.0_dp; fr1 = 0.0_dp; fr2 = 0.0_dp
+      ga = 0.0_dp; fa1 = 0.0_dp; fa2 = 0.0_dp
+
+      DO iset = 1,nset
+         DO ipgf = 1,npgf(iset)
+            starti = (iset-1)*maxso + (ipgf-1)*nsoset(lmax(iset))
+            DO iso = nsoset(lmin(iset)-1)+1,nsoset(lmax(iset))
+               l = indso(1,iso)
+
+            ! Building the LHS so: r^l*Y_lm*epx(-al*r^2)
+               gr(1:nr,starti+iso) = grid_atom%rad(1:nr)**l*EXP(-zet(ipgf,iset)*grid_atom%rad2(1:nr))
+               ga(1:na,starti+iso) = slm(1:na, iso)
+
+            ! Building the RHS so: d/dx(r^l*Y_lm*epx(-al*r^2))
+               ! radial part of d/dx(r^l Y_lm) * exp(-al*r^2)  (same for d/dy)
+               fr1(1:nr,starti+iso) = gr(1:nr,starti+iso)/grid_atom%rad(1:nr)
+               ! radial part of r^l Y_lm * d/dx(exp-al*r^2) (same for d/dy)
+               fr2(1:nr,starti+iso) = -2.0_dp*zet(ipgf,iset)*grid_atom%rad(1:nr)*gr(1:nr,starti+iso)
+
+               DO i = 1,3
+                  ! angular part of d/dx(r^l Y_lm) * exp(-al*r^2)
+                  fa1(1:na,starti+iso,i) = dslm_dxyz(i,1:na, iso)
+                  ! angular part of r^l Y_lm * d/dx(exp-al*r^2)
+                  fa2(1:na,starti+iso,i) = harmonics%a(i,1:na)*slm(1:na, iso)
+
+               END DO
+
+            END DO !iso
+         END DO !ipgf
+      END DO !iset
+
+   ! Do the integration in terms of so using matrix products
+      intso = 0.0_dp
+      ALLOCATE(gfa(na,1))
+      ALLOCATE(gfr(nr,1))
+      ALLOCATE(work(na,1))
+      gfa = 0.0_dp; gfr = 0.0_dp; work = 0.0_dp
+
+      DO iset = 1,nset
+         DO jset = 1,nset
+            DO ipgf = 1,npgf(iset)
+               starti = (iset-1)*maxso + (ipgf-1)*nsoset(lmax(iset))
+               DO jpgf = 1,npgf(jset)
+                  startj = (jset-1)*maxso + (jpgf-1)*nsoset(lmax(jset))
+
+                  DO i = 1,3
+                     j = MOD(i,3)+1
+                     k = MOD(i+1,3)+1
+
+                     DO iso = nsoset(lmin(iset)-1)+1,nsoset(lmax(iset))
+                        DO jso = nsoset(lmin(jset)-1)+1,nsoset(lmax(jset))
+
+                           ! integrate ga*gr *V(j)* fr1*fa1(k)
+                           gfr(1:nr,1) = gr(1:nr,starti+iso)*fr1(1:nr,startj+jso)
+                           gfa(1:na,1) = ga(1:na,starti+iso)*fa1(1:na,startj+jso,k)
+
+                           CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V(:,:,j), na, gfr, nr, 0.0_dp, work, na)
+                           CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, gfa, na, 0.0_dp, &
+                                      intso(starti+iso, startj+jso,i), 1)
+
+                           ! integrate  -ga*gr * V(k) * fr1*fa1(j) (radial part is the same as above)
+                           gfa(1:na,1) = ga(1:na,starti+iso)*fa1(1:na,startj+jso,j)
+
+                           CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V(:,:,k), na, gfr, nr, 0.0_dp, work, na)
+                           CALL dgemm('T', 'N', 1, 1, na, -1.0_dp, work, na, gfa, na, 1.0_dp, &
+                                     intso(starti+iso, startj+jso,i), 1)
+
+                           ! integrate ga*gr *V(j)* fr2*fa2(k)
+                           gfr(1:nr,1) = gr(1:nr,starti+iso)*fr2(1:nr,startj+jso)
+                           gfa(1:na,1) = ga(1:na,starti+iso)*fa2(1:na,startj+jso,k)
+
+                           CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V(:,:,j), na, gfr, nr, 0.0_dp, work, na)
+                           CALL dgemm('T', 'N', 1, 1, na, 1.0_dp, work, na, gfa, na, 1.0_dp, &
+                                       intso(starti+iso, startj+jso,i), 1)
+
+                           ! integrate -ga*gr * V(k) *fr2*fa2(j) (smae radial part as above)
+                           gfa(1:na,1) = ga(1:na,starti+iso)*fa2(1:na,startj+jso,j)
+
+                           CALL dgemm('N', 'N', na, 1, nr, 1.0_dp, V(:,:,k), na, gfr, nr, 0.0_dp, work, na)
+                           CALL dgemm('T', 'N', 1, 1, na, -1.0_dp, work, na, gfa, na, 1.0_dp, &
+                                      intso(starti+iso, startj+jso,i), 1)
+
+                        END DO !jso
+                     END DO !iso
+                  END DO !i
+
+               END DO! jpgf
+            END DO !ipgf
+         END DO !jset
+      END DO !iset
+   
+   END SUBROUTINE integrate_soc_mf_ao
 
 ! **************************************************************************************************
 !> \brief Computes the SOC matrix elements with respect to the ORB basis set for each atomic kind 
@@ -1304,32 +1459,33 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE integrate_soc_atoms(matrix_soc, xas_atom_env, qs_env)
 
-      TYPE(dbcsr_p_type)                              :: matrix_soc
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_soc
       TYPE(xas_atom_env_type), POINTER                :: xas_atom_env
       TYPE(qs_environment_type), POINTER              :: qs_env
       
       CHARACTER(len=*), PARAMETER :: routineN = "integrate_soc_atoms", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: ikind, nkind, nset, maxso, na, nr, ir, &
+      INTEGER                                         :: ikind, nkind, nset, maxso, na, nr, ir,&
                                                          iset, jset, nsoi, nsoj, sgfi, sgfj, nsgf, &
-                                                         starti, startj, iat, jat, blk
-      TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: int_soc
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: intso
+                                                         starti, startj, iat, jat, blk, i
+      TYPE(cp_3d_r_p_type), DIMENSION(:), POINTER     :: int_soc
+      REAL(dp), DIMENSION(:,:,:), ALLOCATABLE         :: intso
       TYPE(gto_basis_set_type), POINTER               :: basis
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
-      REAL(dp), DIMENSION(:), ALLOCATABLE             :: Vr
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: V
-      TYPE(grid_atom_type), POINTER                   :: grid
-      REAL(dp)                                        :: zeff, cspeed
       INTEGER, DIMENSION(:), POINTER                  :: npgf, lmax, nsgf_set
       INTEGER, DIMENSION(:,:), POINTER                :: first_sgf
-      REAL(dp), DIMENSION(:,:), POINTER               :: sphi_so, intsgf
+      REAL(dp), DIMENSION(:,:), POINTER               :: sphi_so
+      REAL(dp), DIMENSION(:,:,:), POINTER             :: intsgf
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
       TYPE(dbcsr_iterator_type)                       :: iter
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
+      REAL(dp)                                        :: cspeed, zeff
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: V
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: Vr
+      TYPE(grid_atom_type), POINTER                   :: grid
    
-      NULLIFY(int_soc, basis, qs_kind_set, grid, npgf, lmax, nsgf_set, first_sgf, sphi_so, matrix_s)
+      NULLIFY(int_soc, basis, qs_kind_set, npgf, lmax, nsgf_set, first_sgf, sphi_so, matrix_s)
       NULLIFY(particle_set)
 
 !  Initialization
@@ -1343,11 +1499,11 @@ CONTAINS
          
          CALL get_qs_kind(qs_kind_set(ikind), basis_set=basis, basis_type="ORB", zeff=zeff)
          CALL get_gto_basis_set(basis, nset=nset, maxso=maxso)
-         ALLOCATE(intso(nset*maxso, nset*maxso))
+         ALLOCATE(intso(nset*maxso, nset*maxso, 3))
 
          ! compute the model potential on the grid
          grid => xas_atom_env%grid_atom_set(ikind)%grid_atom
-         nr = grid%nr
+         nr = grid%nr 
          na = grid%ng_sphere
          ALLOCATE(Vr(nr))
          CALL calculate_model_potential(Vr, grid, zeff)
@@ -1363,13 +1519,10 @@ CONTAINS
          CALL integrate_so_dxdy_prod(intso, V, ikind, xas_atom_env, qs_env)
          DEALLOCATE(V)
 
-         ! get <da_dx|...|db_dy> - <da_dy|...|db_dx>  => anti-symmetric
-         intso(:,:) = intso(:,:) - TRANSPOSE(intso(:,:)) 
-
          ! contract in terms of sgf
          CALL get_gto_basis_set(basis, nsgf=nsgf, nsgf_set=nsgf_set, first_sgf=first_sgf, npgf=npgf, &
                             lmax=lmax)
-         ALLOCATE(int_soc(ikind)%array(nsgf,nsgf)) 
+         ALLOCATE(int_soc(ikind)%array(nsgf,nsgf,3)) 
          intsgf => int_soc(ikind)%array
          sphi_so => xas_atom_env%orb_sphi_so(ikind)%array
          intsgf = 0.0_dp
@@ -1384,10 +1537,12 @@ CONTAINS
                nsoj = npgf(jset)*nsoset(lmax(jset))
                sgfj = first_sgf(1, jset)
 
-               CALL ab_contract(intsgf(sgfi:sgfi+nsgf_set(iset)-1, sgfj:sgfj+nsgf_set(jset)-1), &
-                                intso(starti:starti+nsoi-1, startj:startj+nsoj-1), &
-                                sphi_so(:,sgfi:), sphi_so(:,sgfj:), nsoi, nsoj, &
-                                nsgf_set(iset), nsgf_set(jset))
+               DO i = 1,3
+                  CALL ab_contract(intsgf(sgfi:sgfi+nsgf_set(iset)-1, sgfj:sgfj+nsgf_set(jset)-1,i), &
+                                   intso(starti:starti+nsoi-1, startj:startj+nsoj-1,i), &
+                                   sphi_so(:,sgfi:), sphi_so(:,sgfj:), nsoi, nsoj, &
+                                   nsgf_set(iset), nsgf_set(jset))
+               END DO
             END DO !jset
          END DO !iset
 
@@ -1395,8 +1550,10 @@ CONTAINS
       END DO !ikind
 
 !  Build the matrix_soc based on the matrix_s (but anti-symmetric)
-      CALL dbcsr_create(matrix_soc%matrix, name="SOC MATRIX", template=matrix_s(1)%matrix, &
-                        matrix_type="A")
+      DO i = 1,3
+         CALL dbcsr_create(matrix_soc(i)%matrix, name="SOC MATRIX", template=matrix_s(1)%matrix, &
+                           matrix_type="A")
+      END DO
 
 !  Iterate over its diagonal blocks and fill=it
       CALL dbcsr_iterator_start(iter, matrix_s(1)%matrix)
@@ -1406,11 +1563,15 @@ CONTAINS
          IF (.NOT. iat == jat) CYCLE
          ikind = particle_set(iat)%atomic_kind%kind_number
 
-         CALL dbcsr_put_block(matrix_soc%matrix, iat, iat, int_soc(ikind)%array)
+         DO i = 1,3
+            CALL dbcsr_put_block(matrix_soc(i)%matrix, iat, iat, int_soc(ikind)%array(:,:,i))
+         END DO
       
       END DO !iat
       CALL dbcsr_iterator_stop(iter)
-      CALL dbcsr_finalize(matrix_soc%matrix)
+      DO i = 1,3
+         CALL dbcsr_finalize(matrix_soc(i)%matrix)
+      END DO
 
 ! Clean-up
       DO ikind = 1,nkind

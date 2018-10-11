@@ -119,7 +119,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'xas_tdp', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, ikind, iat, istate, tmp_index,&
-                                                            current_state_index, output_unit, iatom
+                                                            current_state_index, output_unit, &
+                                                            iatom, i
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -134,6 +135,7 @@ CONTAINS
       TYPE(cell_type), POINTER                           :: cell
       TYPE(xas_atom_env_type), POINTER                   :: xas_atom_env
       TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_soc
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state, para_env)
       NULLIFY(particle_set, cell, xas_atom_env, dft_control)
@@ -224,8 +226,12 @@ CONTAINS
          END IF
 
          IF (xas_tdp_control%do_soc) THEN
-            ALLOCATE(xas_tdp_env%orb_soc%matrix)
-            CALL integrate_soc_atoms(xas_tdp_env%orb_soc, xas_atom_env, qs_env)
+            NULLIFY(matrix_soc)
+            ALLOCATE(matrix_soc(3))
+            DO i = 1,3
+               ALLOCATE(matrix_soc(i)%matrix)
+            END DO
+            CALL integrate_soc_atoms(matrix_soc, xas_atom_env, qs_env)
          END IF
 
          CALL xas_atom_env_release(xas_atom_env)
@@ -313,8 +319,13 @@ CONTAINS
 
 !              Include the SOC if required
                IF (xas_tdp_control%do_soc) THEN
-                  CALL include_soc(current_state, xas_tdp_env, xas_tdp_control, qs_env)
+                  CALL include_soc(current_state, xas_tdp_env, xas_tdp_control, qs_env, matrix_soc)
                END IF
+               DO i = 1,3
+                  CALL dbcsr_release(matrix_soc(i)%matrix)
+                  DEALLOCATE(matrix_soc(i)%matrix)
+               END DO
+               DEALLOCATE(matrix_soc)
 
                CALL print_xas_tdp_to_file(current_state, xas_tdp_env, xas_tdp_control, xas_tdp_section)
 
