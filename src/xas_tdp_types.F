@@ -49,6 +49,7 @@ MODULE xas_tdp_types
 !> \param do_singlet whether singlet excitations should be computed
 !> \param do_triplet whether triplet excitations should be computed
 !> \param do_soc whether spin-orbit coupling should be included
+!> \param n_soc the number of excited states to include in SOC for each multiplicity
 !> \param state_types columns correspond to the states to excite for each atom kind/index
 !>                    the number of rows is the number of times the keyword is repeated
 !> \param grid_info the information about the atomic grids used for the xc kernel integrals
@@ -58,6 +59,7 @@ MODULE xas_tdp_types
       INTEGER                                 :: dipole_form
       INTEGER                                 :: n_search
       INTEGER                                 :: fxc_func
+      INTEGER                                 :: n_soc
       LOGICAL                                 :: check_donor_states
       LOGICAL                                 :: tamm_dancoff
       LOGICAL                                 :: full_diag
@@ -98,7 +100,7 @@ MODULE xas_tdp_types
 !>        integrals (ab|P) with the RI basis centered on P. Updated for each new excited atom
 !> \param ri_fxc_sg the matrix in which the singlet kernel RI integrals on the atomic grid are stored
 !> \param ri_fxc_tp the matrix in which the triplet kernel RI integrals on the atomic grid are stored
-!> \param orb_soc the matrix where the SOC is evaluated wrt the orbital basis set
+!> \param orb_soc the matrix where the SOC is evaluated wrt the orbital basis set, for x,y,z
 !> *************************************************************************************************
    TYPE xas_tdp_env_type
       CHARACTER(len=2), DIMENSION(3)          :: state_type_char
@@ -119,7 +121,8 @@ MODULE xas_tdp_types
                                     POINTER   :: dipmat
       TYPE(dbcsr_p_type)                      :: ri_fxc_sg
       TYPE(dbcsr_p_type)                      :: ri_fxc_tp
-      TYPE(dbcsr_p_type)                      :: orb_soc
+      TYPE(dbcsr_p_type), DIMENSION(:), &
+                                    POINTER   :: orb_soc
    END TYPE xas_tdp_env_type
 
 !> *************************************************************************************************
@@ -145,7 +148,7 @@ MODULE xas_tdp_types
 !> \param metric the metric of the linear response problem M*c = omega*S*c and its inverse
 !> \param matrix_aux the auxiliary matrix (A-D+E)^1/2 used to make the problem Hermitian
 !> *************************************************************************************************
-TYPE donor_state_type
+   TYPE donor_state_type
       INTEGER                                 :: at_index
       INTEGER                                 :: kind_index
       CHARACTER(len=2)                        :: at_symbol
@@ -238,6 +241,7 @@ CONTAINS
       xas_tdp_control%do_soc = .FALSE.
       xas_tdp_control%do_singlet = .TRUE.
       xas_tdp_control%do_triplet = .FALSE.
+      xas_tdp_control%n_soc = 0
       NULLIFY (xas_tdp_control%state_types)
       NULLIFY (xas_tdp_control%list_ex_atoms)
       NULLIFY (xas_tdp_control%list_ex_kinds)
@@ -321,7 +325,8 @@ CONTAINS
          xas_tdp_control%do_triplet = .TRUE.
       END IF
 
-      CALL section_vals_val_get(xas_tdp_section, "SPIN_ORBIT_COUPLING", l_val=xas_tdp_control%do_soc)
+      CALL section_vals_val_get(xas_tdp_section, "SPIN_ORBIT_COUPLING", i_val=xas_tdp_control%n_soc)
+      IF (xas_tdp_control%n_soc .NE. 0) xas_tdp_control%do_soc = .TRUE.
 
       IF (.NOT. ASSOCIATED(xas_tdp_control%list_ex_kinds)) THEN
          IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_index) THEN
@@ -420,7 +425,7 @@ CONTAINS
       NULLIFY (xas_tdp_env%ri_coul3)
       NULLIFY (xas_tdp_env%ri_fxc_sg%matrix)
       NULLIFY (xas_tdp_env%ri_fxc_tp%matrix)
-      NULLIFY (xas_tdp_env%orb_soc%matrix)
+      NULLIFY (xas_tdp_env%orb_soc)
 
 !     Putting the state types as char manually
       xas_tdp_env%state_type_char(1) = "1s"
@@ -489,9 +494,12 @@ CONTAINS
             CALL dbcsr_release(xas_tdp_env%ri_fxc_tp%matrix)
             DEALLOCATE(xas_tdp_env%ri_fxc_tp%matrix)
          END IF
-         IF (ASSOCIATED(xas_tdp_env%orb_soc%matrix)) THEN
-            CALL dbcsr_release(xas_tdp_env%orb_soc%matrix)
-            DEALLOCATE(xas_tdp_env%orb_soc%matrix)
+         IF (ASSOCIATED(xas_tdp_env%orb_soc)) THEN
+            DO i = 1,SIZE(xas_tdp_env%orb_soc)
+               CALL dbcsr_release(xas_tdp_env%orb_soc(i)%matrix)
+               DEALLOCATE(xas_tdp_env%orb_soc(i)%matrix)
+            END DO
+            DEALLOCATE(xas_tdp_env%orb_soc)
          END IF
          DEALLOCATE (xas_tdp_env)
       END IF

@@ -7992,9 +7992,13 @@ CONTAINS
 
       CALL keyword_create(keyword, name="SPIN_ORBIT_COUPLING", &
                           variants=(/"SOC"/), &
-                          description="Whether spin-orbit coupling should included.", &
-                          usage="SOC {logical}", &
-                          default_l_val=.FALSE.)
+                          description="The number of excited states to include in spin-orbit "// &
+                                      "coupling calculations. The N lowest energy excited states, "// &
+                                       "regardless of their spin multiplicity, are taken. "// &
+                                       "If zero, SOC is not treated. If -1, all available  "// &
+                                       "excited states are taken.", &
+                          usage="SOC {integer}", &
+                          default_i_val=0)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
