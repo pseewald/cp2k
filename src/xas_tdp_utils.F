@@ -907,7 +907,7 @@ CONTAINS
          found_block = .FALSE.
          CALL dbcsr_get_block_p(sps, iblk, jblk, work_block, found_block)
 
-         IF (found_block) THEN
+         IF (found_block .AND. jblk>=iblk) THEN
             
             DO i = 1,ndo_mo
                CALL dbcsr_put_block(filter, (i-1)*nblk_row+iblk, (i-1)*nblk_row+jblk, work_block)
@@ -969,7 +969,7 @@ CONTAINS
          found_block = .FALSE.
          CALL dbcsr_get_block_p(one_sp, iblk, jblk, work_block, found_block)
 
-         IF (found_block) THEN
+         IF (found_block .AND. jblk>=iblk) THEN
 
             DO i = 1,ndo_mo
                CALL dbcsr_put_block(proj_Q, (i-1)*nblk_row+iblk, (i-1)*nblk_row+jblk, work_block)
@@ -1186,7 +1186,7 @@ CONTAINS
          found_block = .FALSE.
          CALL dbcsr_get_block_p(matrix_s(1)%matrix, iblk, jblk, work_block, found_block)
 
-         IF (found_block) THEN
+         IF (found_block .AND. jblk>=iblk) THEN
 
 !           Go over the diagonal of G => donor MOs ii
             DO i = 1,ndo_mo
