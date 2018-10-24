@@ -994,6 +994,7 @@ CONTAINS
 !> \param blk_size_a the row/col block sizes of matrix A
 !> \param donor_state ...
 !> \param qs_env ...
+!> \note Even localized non-canonical MOs are diagonalized in their subsapce => eps_ij = eps_ii*delta_ij
 ! **************************************************************************************************
    SUBROUTINE build_gs_contribution(matrix_a, dist_a, blk_size_a, donor_state, qs_env)
 
@@ -1006,15 +1007,14 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'build_gs_contribution', &
                                      routineP = moduleN//":"//routineN
       
-      INTEGER                                         :: ndo_mo, i, nblk_row, j, iblk, jblk, blk
+      INTEGER                                         :: ndo_mo, i, nblk_row, iblk, jblk, blk
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_ks, matrix_s
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
       INTEGER, DIMENSION(:), POINTER                  :: row_blk_size 
-      REAL(dp), DIMENSION(:,:), POINTER               :: energy_evals     
+      REAL(dp), DIMENSION(:), POINTER                 :: energy_evals     
       REAL(dp), DIMENSION(:), POINTER                 :: work_block
       LOGICAL                                         :: found_block
-      TYPE(dbcsr_type)                                :: desym_matrix_s, desym_matrix_ks, &
-                                                         work_matrix, tmp_matrix
+      TYPE(dbcsr_type)                                :: work_matrix
       TYPE(dbcsr_iterator_type)                       :: iter
 
       NULLIFY(matrix_ks, dbcsr_dist, row_blk_size, work_block, energy_evals, matrix_s)
@@ -1030,104 +1030,68 @@ CONTAINS
       nblk_row = SIZE(row_blk_size)
       energy_evals => donor_state%energy_evals
 
-!  Creating the work matrix, which is not symmetric (as a type)
-      CALL dbcsr_create(matrix=work_matrix, name="WORK MAT", matrix_type="N", dist=dist_a, &
+!  Creating the symmetric matrix A (and work)
+      CALL dbcsr_create(matrix=matrix_a, name="MATRIX A", matrix_type="S", dist=dist_a, &
+                        row_blk_size=blk_size_a, col_blk_size=blk_size_a)
+      CALL dbcsr_create(matrix=work_matrix, name="WORK MAT", matrix_type="S", dist=dist_a, &
                         row_blk_size=blk_size_a, col_blk_size=blk_size_a)
 
-!  Desymmetrize matrices S and KS
-      CALL dbcsr_create(matrix=desym_matrix_s, name="DESYM MATRIX S", matrix_type="N", &
-                        dist=dbcsr_dist, row_blk_size=row_blk_size, col_blk_size=row_blk_size)
-      CALL dbcsr_desymmetrize(matrix_s(1)%matrix, desym_matrix_s)
-   
-      CALL dbcsr_create(matrix=desym_matrix_ks, name="DESYM MATRIX KS", matrix_type="N", &
-                        dist=dbcsr_dist, row_blk_size=row_blk_size, col_blk_size=row_blk_size)
-      CALL dbcsr_desymmetrize(matrix_ks(1)%matrix, desym_matrix_ks)
+!  Loop over the blocks of KS and put them on the block diagonal of matrix A
+      CALL dbcsr_iterator_start(iter, matrix_ks(1)%matrix)
+      DO WHILE (dbcsr_iterator_blocks_left(iter))
 
-!  Loop over the blocks of desymmetrized matrix KS and put them in the work matrix
-      CALL dbcsr_iterator_start(iter, desym_matrix_ks)
+         CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
+
+!        Get the block 
+         found_block = .FALSE.
+         CALL dbcsr_get_block_p(matrix_ks(1)%matrix, iblk, jblk, work_block, found_block)
+
+         IF (found_block .AND. jblk >= iblk) THEN
+
+!           The KS matrix only appears on diagonal of matrix A => loop over II donor MOs
+            DO i = 1,ndo_mo
+
+!              Put the block as it is
+               CALL dbcsr_put_block(matrix_a,(i-1)*nblk_row+iblk, (i-1)*nblk_row+jblk, work_block)
+
+            END DO !i
+         END IF !found_block
+         NULLIFY(work_block)
+      END DO ! iteration on KS blocks
+      CALL dbcsr_iterator_stop(iter)
+      CALL dbcsr_finalize(matrix_a)
+
+!  Loop over the blocks of S and put them on the block diagonal of work
+      CALL dbcsr_iterator_start(iter, matrix_s(1)%matrix)
       DO WHILE (dbcsr_iterator_blocks_left(iter))
 
          CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
 
 !        Get the block
          found_block = .FALSE.
-         CALL dbcsr_get_block_p(desym_matrix_ks, iblk, jblk, work_block, found_block)
+         CALL dbcsr_get_block_p(matrix_s(1)%matrix, iblk, jblk, work_block, found_block)
 
-         IF (found_block) THEN
-   
-!           The KS matrix only appears on diagonal of matrix A => loop over II donor MOs
+         IF (found_block .AND. jblk >= iblk) THEN
+
+!           Add S matrix on block diagonal as epsilon_ii*S_pq
             DO i = 1,ndo_mo
 
-!              Put the block as it is
-               CALL dbcsr_put_block(work_matrix,(i-1)*nblk_row+iblk, (i-1)*nblk_row+jblk, work_block)
-
-            END DO ! i
-
-         END IF ! found_block
+               CALL dbcsr_put_block(work_matrix,(i-1)*nblk_row+iblk, (i-1)*nblk_row+jblk, &
+                                    energy_evals(i)*work_block)
+            END DO !i
+         END IF !found block
          NULLIFY(work_block)
-
-      END DO ! iteration on KS blocks
+      END DO ! iteration on S blocks
       CALL dbcsr_iterator_stop(iter)
       CALL dbcsr_finalize(work_matrix)
 
-!  Put the current work matrix into a temporary storage matrix
-      CALL dbcsr_copy(tmp_matrix, work_matrix, name="TMP MATRIX")
+!  Take matrix_a = matrix_a - work
+      CALL dbcsr_add(matrix_a, work_matrix, 1.0_dp, -1.0_dp)
+      CALL dbcsr_finalize(matrix_a)
 
-!  Reinitialize the work matrix
-      CALL dbcsr_release(work_matrix)
-      CALL dbcsr_create(matrix=work_matrix, name="WORK MAT", matrix_type="N", dist=dist_a, & 
-                        row_blk_size=blk_size_a, col_blk_size=blk_size_a)      
-
-!  Iterate over the desymmetrized matrix S
-      CALL dbcsr_iterator_start(iter, desym_matrix_s)
-      DO WHILE (dbcsr_iterator_blocks_left(iter))
-
-         CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)                                    
-
-!        Get the block
-         found_block = .FALSE.
-         CALL dbcsr_get_block_p(desym_matrix_s, iblk, jblk, work_block, found_block) 
-
-         IF (found_block) THEN
-
-!           The S matrix appears everywhere, need to loop over all donor MOs
-!           Since the end matrix is symmetric, keep to upper triangle
-            DO i = 1,ndo_mo
-               DO j = i,ndo_mo
-
-!                 Put epsilon_ij*S_pq (if non-zero eval)
-                  IF (energy_evals(i,j) .NE. 0.0_dp) THEN
-                     CALL dbcsr_put_block(work_matrix,(i-1)*nblk_row+iblk, (j-1)*nblk_row+jblk, & 
-                                          energy_evals(i,j)*work_block)   
-                  END IF
-
-               END DO ! j
-            END DO ! i
-
-         END IF ! found_block
-         NULLIFY(work_block)
-
-      END DO ! iteration over S
-      CALL dbcsr_iterator_stop(iter)
-      CALL dbcsr_finalize(work_matrix)
-      CALL dbcsr_release(desym_matrix_s)
-      CALL dbcsr_release(desym_matrix_ks) 
-
-!  Substract the current work matrix to the tmp matrix to get the full F_pq*delta_ij - epsilon_ij*S_pq
-      CALL dbcsr_add(tmp_matrix, work_matrix, 1.0_dp, -1.0_dp)
-      CALL dbcsr_finalize(tmp_matrix)
+!  Clean-up
       CALL dbcsr_release(work_matrix)
 
-!  At this point the content of tmp_matrix is that of matrix_a, but its type is normal. Create a
-!  symmetric matrix A and redistribute the tmp matrix in there
-      CALL dbcsr_create(matrix=matrix_a, name="MATRIX A", matrix_type="S", dist=dist_a, &         
-                        row_blk_size=blk_size_a, col_blk_size=blk_size_a)
-      CALL dbcsr_complete_redistribute(tmp_matrix, matrix_a)
-      CALL dbcsr_release(tmp_matrix)
-      
-!  Finalize
-      CALL dbcsr_finalize(matrix_a)   
-   
    END SUBROUTINE build_gs_contribution
 
 ! **************************************************************************************************
