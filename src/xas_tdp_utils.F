@@ -956,7 +956,8 @@ CONTAINS
       CALL dbcsr_get_info(one_sp, row_blk_size=row_blk_size)
       nblk_row = SIZE(row_blk_size)
 
-      CALL dbcsr_create(matrix=proj_Q, name="PROJ Q", matrix_type="S", dist=dist_q, &
+      ! the projector is not symmetric
+      CALL dbcsr_create(matrix=proj_Q, name="PROJ Q", matrix_type="N", dist=dist_q, &
                         row_blk_size=blk_size_q, col_blk_size=blk_size_q)
 
 !  Fill the filter by looping over 1-SP and duplicating blocks. (all on the block diagonal)
@@ -969,7 +970,7 @@ CONTAINS
          found_block = .FALSE.
          CALL dbcsr_get_block_p(one_sp, iblk, jblk, work_block, found_block)
 
-         IF (found_block .AND. jblk>=iblk) THEN
+         IF (found_block) THEN
 
             DO i = 1,ndo_mo
                CALL dbcsr_put_block(proj_Q, (i-1)*nblk_row+iblk, (i-1)*nblk_row+jblk, work_block)
