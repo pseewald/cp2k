@@ -25,7 +25,8 @@ MODULE xas_tdp_utils
    USE cp_cfm_types,                    ONLY: cp_fm_to_cfm, cp_cfm_to_fm, cp_cfm_type, &
                                               cp_cfm_create, cp_cfm_release, cp_cfm_get_submatrix
    USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale, cp_fm_trace, &
-                                              cp_fm_triangular_invert, cp_fm_triangular_multiply
+                                              cp_fm_triangular_invert, cp_fm_triangular_multiply, &
+                                              cp_fm_upper_to_full
    USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
    USE cp_fm_diag,                      ONLY: cp_fm_power, cp_fm_syevx
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create, cp_fm_struct_release, &     
@@ -1957,29 +1958,31 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "include_full_soc", routineP = moduleN//":"//routineN
 
       INTEGER                                         :: itp, ntp, isg, nsg, ntot, ndo_mo, nao, &
-                                                         jtp, nmo
+                                                         jtp, homo, i
       REAL(dp), DIMENSION(:), POINTER                 :: sg_evals, tp_evals
-      TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: sg_coeffs, tp_coeffs
-      TYPE(cp_fm_type), POINTER                       :: real_fm, img_fm, gs_coeffs, vec_fm, &
+      TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: sg_coeffs, tp_coeffs, amew_dip
+      TYPE(cp_fm_type), POINTER                       :: real_fm, img_fm, gs_coeffs, vec_s, &
                                                          prod_fm, mo_coeff, gs_fm, work_fm, &
                                                          s_st, s_tt, domo_soc_x, domo_soc_y, &
-                                                         domo_soc_z
+                                                         domo_soc_z, vec_soc_x, vec_soc_y, vec_soc_z
       TYPE(cp_fm_struct_type), POINTER                :: full_struct, prod_struct, vec_struct, &
-                                                         std_struct, gsgs_struct
+                                                         std_struct, gsgs_struct, dip_struct
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
       TYPE(dbcsr_type), POINTER                       :: orb_soc_x, orb_soc_y, orb_soc_z
-      REAL(dp), DIMENSION(:), ALLOCATABLE             :: diag, gs_diag
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: diag, gs_diag, tmp_evals
       REAL(dp)                                        :: soc_st, soc_tt, gs_sum_x, s_tt_sumdiag, &
                                                          gs_sum_y, gs_sum_z, sqrt2, trace, soc_gst
-      TYPE(cp_cfm_type), POINTER                      :: hami_cfm, evecs_cfm
+      TYPE(cp_cfm_type), POINTER                      :: hami_cfm, evecs_cfm, dip_cfm, work_cfm
       TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
+      COMPLEX(dp), DIMENSION(:,:), ALLOCATABLE        :: transdip
 
       NULLIFY(sg_coeffs, tp_coeffs, gs_coeffs, sg_evals, tp_evals, real_fm, img_fm, full_struct)
-      NULLIFY(para_env, blacs_env, vec_fm, prod_fm, prod_struct, vec_struct, domo_soc_z)
+      NULLIFY(para_env, blacs_env, vec_s, prod_fm, prod_struct, vec_struct, domo_soc_z, work_cfm)
       NULLIFY(matrix_s, orb_soc_x, hami_cfm, evecs_cfm, s_st, s_tt, domo_soc_x, domo_soc_y)
-      NULLIFY(orb_soc_y, orb_soc_z, mo_coeff, mos, std_struct, work_fm, gsgs_struct)
+      NULLIFY(orb_soc_y, orb_soc_z, mo_coeff, mos, std_struct, work_fm, gsgs_struct, amew_dip)
+      NULLIFY(vec_soc_x, vec_soc_y, vec_soc_z)
 
 !  Initialization
       CPASSERT(ASSOCIATED(xas_tdp_control))
@@ -2003,7 +2006,7 @@ CONTAINS
                                nrow_global=ntot, ncol_global=ntot)
       CALL cp_fm_create(real_fm, full_struct)
       CALL cp_fm_create(img_fm, full_struct)
-      CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao, nmo=nmo)
+      CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao, homo=homo)
 
 !  Put the excitation energies on the diagonal of the real matrix
       DO isg = 1,nsg
@@ -2023,7 +2026,10 @@ CONTAINS
       CALL cp_fm_create(prod_fm, prod_struct)
       CALL cp_fm_create(s_tt, prod_struct)
       CALL cp_fm_create(s_st, prod_struct)
-      CALL cp_fm_create(vec_fm, vec_struct)
+      CALL cp_fm_create(vec_s, vec_struct)
+      CALL cp_fm_create(vec_soc_x, vec_struct)
+      CALL cp_fm_create(vec_soc_y, vec_struct)
+      CALL cp_fm_create(vec_soc_z, vec_struct)
 
 !  Some other helper arrays
       ALLOCATE(diag(ndo_mo))
@@ -2032,25 +2038,25 @@ CONTAINS
       sqrt2 = SQRT(2.0_dp)   
 
    ! The sum of the ground state KS orbital contributions: sum_i <phi_i^0|Hsoc|phi_i^0>
-      ALLOCATE(gs_diag(nmo))
+      ALLOCATE(gs_diag(homo))
       CALL cp_fm_struct_create(gsgs_struct, context=blacs_env, para_env=para_env, &
-                               nrow_global=nmo, ncol_global=nmo)
+                               nrow_global=homo, ncol_global=homo)
       CALL cp_fm_get_info(mo_coeff, matrix_struct=std_struct)
       CALL cp_fm_create(gs_fm, gsgs_struct)
       CALL cp_fm_create(work_fm, std_struct)
 
-      CALL cp_dbcsr_sm_fm_multiply(orb_soc_x, mo_coeff, work_fm, ncol=nmo)
-      CALL cp_gemm('T', 'N', nmo, nmo, nao, 1.0_dp, mo_coeff, work_fm, 0.0_dp, gs_fm)
+      CALL cp_dbcsr_sm_fm_multiply(orb_soc_x, mo_coeff, work_fm, ncol=homo)
+      CALL cp_gemm('T', 'N', homo, homo, nao, 1.0_dp, mo_coeff, work_fm, 0.0_dp, gs_fm)
       CALL cp_fm_get_diag(gs_fm, gs_diag)
       gs_sum_x = SUM(gs_diag)
 
-      CALL cp_dbcsr_sm_fm_multiply(orb_soc_y, mo_coeff, work_fm, ncol=nmo)
-      CALL cp_gemm('T', 'N', nmo, nmo, nao, 1.0_dp, mo_coeff, work_fm, 0.0_dp, gs_fm)
+      CALL cp_dbcsr_sm_fm_multiply(orb_soc_y, mo_coeff, work_fm, ncol=homo)
+      CALL cp_gemm('T', 'N', homo, homo, nao, 1.0_dp, mo_coeff, work_fm, 0.0_dp, gs_fm)
       CALL cp_fm_get_diag(gs_fm, gs_diag)
       gs_sum_y = SUM(gs_diag)
 
-      CALL cp_dbcsr_sm_fm_multiply(orb_soc_z, mo_coeff, work_fm, ncol=nmo)
-      CALL cp_gemm('T', 'N', nmo, nmo, nao, 1.0_dp, mo_coeff, work_fm, 0.0_dp, gs_fm)
+      CALL cp_dbcsr_sm_fm_multiply(orb_soc_z, mo_coeff, work_fm, ncol=homo)
+      CALL cp_gemm('T', 'N', homo, homo, nao, 1.0_dp, mo_coeff, work_fm, 0.0_dp, gs_fm)
       CALL cp_fm_get_diag(gs_fm, gs_diag)
       gs_sum_z = SUM(gs_diag)
 
@@ -2064,57 +2070,62 @@ CONTAINS
       CALL cp_fm_create(domo_soc_y, prod_struct)
       CALL cp_fm_create(domo_soc_z, prod_struct)
 
-      CALL cp_dbcsr_sm_fm_multiply(orb_soc_x, gs_coeffs, vec_fm, ncol=ndo_mo)
-      CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_fm, 0.0_dp, domo_soc_x)
+      CALL cp_dbcsr_sm_fm_multiply(orb_soc_x, gs_coeffs, vec_soc_x, ncol=ndo_mo)
+      CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_soc_x, 0.0_dp, domo_soc_x)
 
-      CALL cp_dbcsr_sm_fm_multiply(orb_soc_y, gs_coeffs, vec_fm, ncol=ndo_mo)
-      CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_fm, 0.0_dp, domo_soc_y)
+      CALL cp_dbcsr_sm_fm_multiply(orb_soc_y, gs_coeffs, vec_soc_y, ncol=ndo_mo)
+      CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_soc_y, 0.0_dp, domo_soc_y)
 
-      CALL cp_dbcsr_sm_fm_multiply(orb_soc_z, gs_coeffs, vec_fm, ncol=ndo_mo)
-      CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_fm, 0.0_dp, domo_soc_z)
+      CALL cp_dbcsr_sm_fm_multiply(orb_soc_z, gs_coeffs, vec_soc_z, ncol=ndo_mo)
+      CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_soc_z, 0.0_dp, domo_soc_z)
       
-!  Only have SOC between singlet-triplet and ground_state-triplet, the resulting matrix is Hermitian
-!  i.e. the real part is symmetric and the imaginary part is anti-symmetric. Can only fill upper half
+!  Only have SOC between singlet-triplet triplet-tripelt and ground_state-triplet, the resulting 
+!  matrix is Hermitian i.e. the real part is symmetric and the imaginary part is anti-symmetric. 
+!  Can only fill upper half
+
+! TODO: can probably compute orb_soc_xyz * tp_coeffs(j)%matrix only once for each jtp and store
 
 !  Loop over triplet states
       DO jtp = 1,ntp
       ! Compute ground-state-triplet Ms=+-1 SOC
          ! imaginary part
-         CALL cp_dbcsr_sm_fm_multiply(orb_soc_x, tp_coeffs(jtp)%matrix, vec_fm, ncol=ndo_mo)
-         CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_fm, 0.0_dp, prod_fm)
+         CALL cp_dbcsr_sm_fm_multiply(orb_soc_x, tp_coeffs(jtp)%matrix, vec_soc_x, ncol=ndo_mo)
+         CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_soc_x, 0.0_dp, prod_fm)
          CALL cp_fm_get_diag(prod_fm, diag)
          soc_gst = SUM(diag)
          CALL cp_fm_set_element(img_fm, 1, 1+nsg+jtp, soc_gst) ! <0|H_x|T^-1>
          CALL cp_fm_set_element(img_fm, 1, 1+nsg+2*ntp+jtp, -1.0_dp*soc_gst) ! <0|H_x|T^+1>
          
          ! real part
-         CALL cp_dbcsr_sm_fm_multiply(orb_soc_y, tp_coeffs(jtp)%matrix, vec_fm, ncol=ndo_mo)
-         CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_fm, 0.0_dp, prod_fm)
+         CALL cp_dbcsr_sm_fm_multiply(orb_soc_y, tp_coeffs(jtp)%matrix, vec_soc_y, ncol=ndo_mo)
+         CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_soc_y, 0.0_dp, prod_fm)
          CALL cp_fm_get_diag(prod_fm, diag)
          soc_gst = SUM(diag)
          CALL cp_fm_set_element(real_fm, 1, 1+nsg+jtp, soc_gst) ! <0|H_y|T^-1>
          CALL cp_fm_set_element(real_fm, 1, 1+nsg+2*ntp+jtp, soc_gst) ! <0|H_y|T^+1>
 
       ! Compute the groud_state-triplet SOC: 2* sum_I c^0_I * orb_soc_z * c^T_I
-         CALL cp_dbcsr_sm_fm_multiply(orb_soc_z, tp_coeffs(jtp)%matrix, vec_fm, ncol=ndo_mo)
-         CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_fm, 0.0_dp, prod_fm)
+         CALL cp_dbcsr_sm_fm_multiply(orb_soc_z, tp_coeffs(jtp)%matrix, vec_soc_z, ncol=ndo_mo)
+         CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_soc_z, 0.0_dp, prod_fm)
          CALL cp_fm_get_diag(prod_fm, diag)
          soc_gst = sqrt2*SUM(diag)
          CALL cp_fm_set_element(img_fm, 1, 1+nsg+ntp+jtp, soc_gst)
+
+      ! Note that the products orb_soc_i*tp_coeffs(jtp) are stored in the vec_soc_i matrices
+      ! Also store the matrix_s*tp_coeffs(jtp) in vec_s
+         CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, tp_coeffs(jtp)%matrix, vec_s, ncol=ndo_mo)
 
       ! Loop over the singlets for singlet-triplet SOC
          DO isg = 1,nsg
 
          ! compute the singlet-triplet overlap
-            CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, tp_coeffs(jtp)%matrix, vec_fm, ncol=ndo_mo)
-            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, sg_coeffs(isg)%matrix, vec_fm, &
-                             0.0_dp, s_st)
+            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, sg_coeffs(isg)%matrix, vec_s, &
+                         0.0_dp, s_st)
 
          ! compute the singlet-triplet (Ms=+-1) SOC
             ! imaginary part
-            CALL cp_dbcsr_sm_fm_multiply(orb_soc_x, tp_coeffs(jtp)%matrix, vec_fm, ncol=ndo_mo)
-            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, sg_coeffs(isg)%matrix, vec_fm, &
-                            0.0_dp, prod_fm)
+            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, sg_coeffs(isg)%matrix, vec_soc_x, &
+                         0.0_dp, prod_fm)
             CALL cp_fm_get_diag(prod_fm, diag)
             CALL cp_fm_trace(domo_soc_x, s_st, trace)
 
@@ -2124,8 +2135,7 @@ CONTAINS
             CALL cp_fm_set_element(img_fm, 1+isg, 1+nsg+2*ntp+jtp, -1.0_dp*soc_st) !<S|H_x|T^+1> 
 
             ! real part
-            CALL cp_dbcsr_sm_fm_multiply(orb_soc_y, tp_coeffs(jtp)%matrix, vec_fm, ncol=ndo_mo)
-            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, sg_coeffs(isg)%matrix, vec_fm, &
+            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, sg_coeffs(isg)%matrix, vec_soc_y, &
                             0.0_dp, prod_fm)
             CALL cp_fm_get_diag(prod_fm, diag)
             CALL cp_fm_trace(domo_soc_y, s_st, trace)
@@ -2136,9 +2146,8 @@ CONTAINS
             CALL cp_fm_set_element(real_fm, 1+isg, 1+nsg+2*ntp+jtp, soc_st) ! <S|H_x|T^+1> 
 
          ! compute the singlet-triplet (Ms=0) SOC (purely imaginary)
-            CALL cp_dbcsr_sm_fm_multiply(orb_soc_z, tp_coeffs(jtp)%matrix, vec_fm, ncol=ndo_mo)
-            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, sg_coeffs(isg)%matrix, vec_fm, &
-                            0.0_dp, prod_fm)
+            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, sg_coeffs(isg)%matrix, vec_soc_z, &
+                         0.0_dp, prod_fm)
             CALL cp_fm_get_diag(prod_fm, diag)
             CALL cp_fm_trace(domo_soc_z, s_st, trace)
 
@@ -2152,17 +2161,15 @@ CONTAINS
          DO itp = 1,ntp
 
             ! compute the triplet-triplet overlap
-            CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, tp_coeffs(jtp)%matrix, vec_fm, ncol=ndo_mo)
-            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, tp_coeffs(itp)%matrix, vec_fm,&
-                               0.0_dp, s_tt)
+            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, tp_coeffs(itp)%matrix, vec_s, &
+                         0.0_dp, s_tt)
             CALL cp_fm_get_diag(s_tt, diag)
             s_tt_sumdiag = SUM(diag)
 
          ! The Ms=0 to Ms=+-1 triplet-triplet SOC
             ! imaginary part
-            CALL cp_dbcsr_sm_fm_multiply(orb_soc_x, tp_coeffs(jtp)%matrix, vec_fm, ncol=ndo_mo)
-            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, tp_coeffs(itp)%matrix, vec_fm,& 
-                            0.0_dp, prod_fm)
+            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, tp_coeffs(itp)%matrix, vec_soc_x,& 
+                         0.0_dp, prod_fm)
             CALL cp_fm_get_diag(prod_fm, diag)
             CALL cp_fm_trace(domo_soc_x, s_tt, trace)
 
@@ -2172,9 +2179,8 @@ CONTAINS
             CALL cp_fm_set_element(img_fm, 1+nsg+ntp+itp, 1+nsg+2*ntp+jtp, soc_tt) ! <T^0|H_x|T^+1> 
 
             ! real part
-            CALL cp_dbcsr_sm_fm_multiply(orb_soc_y, tp_coeffs(jtp)%matrix, vec_fm, ncol=ndo_mo)
-            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, tp_coeffs(itp)%matrix, vec_fm,&
-                            0.0_dp, prod_fm)
+            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, tp_coeffs(itp)%matrix, vec_soc_y,&
+                         0.0_dp, prod_fm)
             CALL cp_fm_get_diag(prod_fm, diag)
             CALL cp_fm_trace(domo_soc_y, s_tt, trace)
 
@@ -2186,9 +2192,8 @@ CONTAINS
             ! Do the Ms=+1-Ms=+1 and Ms=-1-Ms=-1 coupling
             IF (itp >= jtp) CYCLE ! SOC purely imaginary, must be zero on the diagonal
 
-            CALL cp_dbcsr_sm_fm_multiply(orb_soc_z, tp_coeffs(jtp)%matrix, vec_fm, ncol=ndo_mo)
-            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, tp_coeffs(itp)%matrix, vec_fm,&
-                            0.0_dp, prod_fm)
+            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, tp_coeffs(itp)%matrix, vec_soc_z,&
+                         0.0_dp, prod_fm)
             CALL cp_fm_get_diag(prod_fm, diag)
             CALL cp_fm_trace(domo_soc_z, s_tt, trace)
 
@@ -2208,7 +2213,10 @@ CONTAINS
       CALL cp_fm_release(domo_soc_x)
       CALL cp_fm_release(domo_soc_y)
       CALL cp_fm_release(domo_soc_z)
-      CALL cp_fm_release(vec_fm)
+      CALL cp_fm_release(vec_s)
+      CALL cp_fm_release(vec_soc_x)
+      CALL cp_fm_release(vec_soc_y)
+      CALL cp_fm_release(vec_soc_z)
       DEALLOCATE(diag)
 
 !  Set-up the complex hermitian matrix
@@ -2216,25 +2224,254 @@ CONTAINS
       CALL cp_fm_to_cfm(real_fm, img_fm, hami_cfm)
 
 !  Diagonalize the Hamiltonian
-      ALLOCATE(donor_state%soc_evals(ntot))
+      ALLOCATE(tmp_evals(ntot))
       CALL cp_cfm_create(evecs_cfm, full_struct)
-      CALL cp_cfm_heevd(hami_cfm, evecs_cfm, donor_state%soc_evals)
+      CALL cp_cfm_heevd(hami_cfm, evecs_cfm, tmp_evals)
 
-!  Adjust the energies so the GS has zero
-      donor_state%soc_evals(:) = donor_state%soc_evals(:) - donor_state%soc_evals(1)
+      !  Adjust the energies so the GS has zero, and store in the donor_state (without the GS)
+      ALLOCATE(donor_state%soc_evals(ntot-1))
+      donor_state%soc_evals(:) = tmp_evals(2:ntot) - tmp_evals(1)
 
-!  Oscilaltor strengths are not computed
-      ALLOCATE(donor_state%soc_osc_str(ntot))
-      donor_state%soc_osc_str = -1000.0_dp
+!  Compute the dipole oscillator strengths
+      ALLOCATE(donor_state%soc_osc_str(ntot-1))
+      donor_state%soc_osc_str = 0.0_dp
+
+   ! Get some work array/matrices
+      CALL cp_fm_struct_create(dip_struct, context=blacs_env, para_env=para_env, &                  
+                               nrow_global=ntot, ncol_global=1)
+      CALL cp_cfm_create(dip_cfm, dip_struct)
+      CALL cp_cfm_create(work_cfm, full_struct)
+      ALLOCATE(transdip(ntot,1))
+
+   ! Get the dipole in the basis of the AMEWs
+      CALL get_amew_op(amew_dip, xas_tdp_env%dipmat, donor_state, qs_env)
+
+      DO i = 1, SIZE(amew_dip)
+
+         ! the dipoles are real, but need a cfm for calculations
+         CALL cp_fm_to_cfm(msourcer=amew_dip(i)%matrix, mtarget=work_cfm)
+
+         ! store amew_coeffs^c*amew_dip in the hami_cfm
+         CALL cp_cfm_gemm('C', 'N', ntot, ntot, ntot, (1.0_dp, 0.0_dp), evecs_cfm, work_cfm, &
+                          (0.0_dp, 0.0_dp), hami_cfm)
+
+         ! only interested in transition from the ground-state => take first column of amew_coeffs
+         CALL cp_cfm_gemm('N', 'N', ntot, 1, ntot, (1.0_dp, 0.0_dp), hami_cfm, evecs_cfm, &
+                          (0.0_dp, 0.0_dp), dip_cfm)
+                        
+         CALL cp_cfm_get_submatrix(dip_cfm, transdip)
+
+         ! transition dipoles are real numbers
+         donor_state%soc_osc_str(:) = donor_state%soc_osc_str(:) + REAL(transdip(2:ntot,1))**2 &
+                                      + AIMAG(transdip(2:ntot,1))**2
+
+      END DO
+
+      IF (xas_tdp_control%dipole_form == xas_dip_len) THEN 
+         donor_state%soc_osc_str(:) = 2.0_dp/3.0_dp*donor_state%soc_evals(:)*donor_state%soc_osc_str(:)
+      ELSE
+         donor_state%soc_osc_str(:) = 2.0_dp/3.0_dp/donor_state%soc_evals(:)*donor_state%soc_osc_str(:)
+      END IF
 
 !  Clean-up
+      DO i = 1,SIZE(amew_dip)
+         CALL cp_fm_release(amew_dip(i)%matrix)
+      END DO
+      DEALLOCATE(amew_dip)
       CALL cp_fm_struct_release(full_struct)
+      CALL cp_fm_struct_release(dip_struct)
       CALL cp_fm_release(real_fm)
       CALL cp_fm_release(img_fm)
       CALL cp_cfm_release(hami_cfm)
       CALL cp_cfm_release(evecs_cfm)
+      CALL cp_cfm_release(work_cfm)
+      CALL cp_cfm_release(dip_cfm)
       
    END SUBROUTINE include_full_soc
+
+! **************************************************************************************************
+!> \brief Computes the matrix elements of a one-body operator (given wrt AOs) in the basis of the
+!>        excited state AMEWs with ground state, singlet and triplet with Ms = -1,0,+1
+!> \param amew_op the operator in the basis of the AMEWs (array because could have x,y,z components)
+!> \param ao_op the operator in the basis of the atomic orbitals
+!> \donor_state ...
+!> \qs_env ...
+!> \note The ordering of the AMEWs is consistent with SOC and is gs, sg, tp(-1), tp(0). tp(+1)
+!>       We assume that the operator is spin-independent => only <0|0>, <0|S>, <S|S> and <T|T>
+!>       yield non-zero matrix elements
+! **************************************************************************************************
+   SUBROUTINE get_amew_op(amew_op, ao_op, donor_state, qs_env)
+
+      TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: amew_op
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: ao_op
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN ="get_amew_op", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: i, nsg, ntp, ntot, ndo_mo, nao, homo, isg,&
+                                                         jsg, itp, jtp
+      REAL(dp)                                        :: sqrt2, gsgs_op, op, trace
+      TYPE(cp_fm_type), POINTER                       :: gs_coeffs, prod_fm, amew_op_i, work_fm, &
+                                                         vec_op, mo_coeff, domo_op, vec_s, gs_fm, &
+                                                         work
+      TYPE(cp_fm_struct_type), POINTER                :: full_struct, prod_struct, vec_struct, &
+                                                         std_struct, gsgs_struct
+      TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: sg_coeffs, tp_coeffs
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: diag, gs_diag
+      TYPE(dbcsr_type), POINTER                       :: ao_op_i
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
+
+      NULLIFY(gs_coeffs, sg_coeffs, tp_coeffs, matrix_s, full_struct, prod_fm, prod_struct, work_fm)
+      NULLIFY(vec_struct, blacs_env, para_env, mo_coeff, mos, gsgs_struct, std_struct, domo_op)
+      NULLIFY(vec_op, vec_s, gs_fm)
+
+!  Initialization
+      gs_coeffs => donor_state%gs_coeffs
+      sg_coeffs => donor_state%sg_coeffs
+      tp_coeffs => donor_state%tp_coeffs
+      nsg = SIZE(sg_coeffs)
+      ntp = SIZE(tp_coeffs)
+      ntot = 1 + nsg + 3*ntp
+      ndo_mo = SIZE(donor_state%mo_indices)
+      CALL get_qs_env(qs_env, matrix_s=matrix_s, para_env=para_env, blacs_env=blacs_env, mos=mos)
+      sqrt2 = SQRT(2.0_dp)
+
+!  Create the amew_op matrix
+      CALL cp_fm_struct_create(full_struct, context=blacs_env, para_env=para_env, &
+                               nrow_global=ntot, ncol_global=ntot)
+      ALLOCATE(amew_op(SIZE(ao_op)))
+      DO i = 1,SIZE(ao_op)
+         CALL cp_fm_create(amew_op(i)%matrix, full_struct) 
+      END DO !i
+
+!  Create the work and helper fms
+      CALL cp_fm_get_info(gs_coeffs, matrix_struct=vec_struct)
+      CALL cp_fm_struct_create(prod_struct, context=blacs_env, para_env=para_env, &
+                               nrow_global=ndo_mo, ncol_global=ndo_mo)
+      CALL cp_fm_create(prod_fm, prod_struct)
+      CALL cp_fm_create(domo_op, prod_struct)
+      CALL cp_fm_create(vec_op, vec_struct)
+      CALL cp_fm_create(vec_s, vec_struct)
+      CALL cp_fm_create(work, full_struct)
+      ALLOCATE(diag(ndo_mo))
+      CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao, homo=homo)
+
+! Iterate over the dimensions of the operator
+      DO i = 1,SIZE(ao_op)
+
+         ao_op_i => ao_op(i)%matrix
+         amew_op_i => amew_op(i)%matrix
+         
+      ! compute the ground-state/ground-state matrix element <0|0> = 2*sum_j <phi_j|op|phi_j>
+         ALLOCATE(gs_diag(homo))
+         CALL cp_fm_struct_create(gsgs_struct, context=blacs_env, para_env=para_env, &
+                                  nrow_global=homo, ncol_global=homo)
+         CALL cp_fm_get_info(mo_coeff, matrix_struct=std_struct)
+         CALL cp_fm_create(gs_fm, gsgs_struct)
+         CALL cp_fm_create(work_fm, std_struct)
+
+         CALL cp_dbcsr_sm_fm_multiply(ao_op_i, mo_coeff, work_fm, ncol=homo)
+         CALL cp_gemm('T', 'N', homo, homo, nao, 1.0_dp, mo_coeff, work_fm, 0.0_dp, gs_fm)
+         CALL cp_fm_get_diag(gs_fm, gs_diag)
+         gsgs_op = 2.0_dp*SUM(gs_diag)
+         CALL cp_fm_set_element(amew_op_i, 1, 1, gsgs_op)
+
+         CALL cp_fm_release(gs_fm)
+         CALL cp_fm_release(work_fm)
+         CALL cp_fm_struct_release(gsgs_struct)
+         DEALLOCATE(gs_diag)
+
+      ! Compute the operator for the donor MOs 
+         CALL cp_dbcsr_sm_fm_multiply(ao_op_i, gs_coeffs, vec_op, ncol=ndo_mo)    
+         CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_op, 0.0_dp, domo_op)
+
+      ! Loop over singlet states
+         DO jsg = 1,nsg
+
+         ! compute the ground-state/singlet components. ao_op*sg_coeff(jsg) stored in vec_op
+            CALL cp_dbcsr_sm_fm_multiply(ao_op_i, sg_coeffs(jsg)%matrix, vec_op, ncol=ndo_mo)
+            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_op, 0.0_dp, prod_fm)
+            CALL cp_fm_get_diag(prod_fm, diag)
+            op = sqrt2*SUM(diag)
+            CALL cp_fm_set_element(amew_op_i, 1, 1+jsg, op)
+
+            ! also store matrix_s*sg_coeff(jsg) in vec_s
+            CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, sg_coeffs(jsg)%matrix, vec_s, ncol=ndo_mo)
+
+         ! compute the singlet-singlet components
+            DO isg = 1, jsg
+
+               ! isg*ao_op*jsg
+               CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, sg_coeffs(isg)%matrix, vec_op, &
+                         0.0_dp, prod_fm)
+               CALL cp_fm_get_diag(prod_fm, diag)
+               op = SUM(diag)
+
+               ! the singlet-singlet overlap
+               CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, sg_coeffs(isg)%matrix, vec_s, &
+                            0.0_dp, prod_fm)
+               CALL cp_fm_get_diag(prod_fm, diag)
+               op = op + SUM(diag)*gsgs_op
+
+               CALL cp_fm_trace(prod_fm, domo_op, trace)
+               op =op - trace
+
+               CALL cp_fm_set_element(amew_op_i, 1+isg, 1+jsg, op)
+
+            END DO !isg
+         END DO !jsg
+
+      ! compute the triplet-triplet components
+         DO jtp = 1, ntp
+            
+            ! precompute matrix_s*jtp and ao_op*jtp
+            CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, tp_coeffs(jtp)%matrix, vec_s, ncol=ndo_mo)
+            CALL cp_dbcsr_sm_fm_multiply(ao_op_i, tp_coeffs(jtp)%matrix, vec_op, ncol=ndo_mo)
+
+            DO itp = 1,jtp
+
+               ! itp*ao_op*jtp
+               CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, tp_coeffs(itp)%matrix, vec_op, &
+                            0.0_dp, prod_fm)
+               CALL cp_fm_get_diag(prod_fm, diag)
+               op = SUM(diag)
+
+               ! triplet-triplet overlap
+               CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, tp_coeffs(itp)%matrix, vec_s, &
+                            0.0_dp, prod_fm)
+               CALL cp_fm_get_diag(prod_fm, diag)
+               op = op + SUM(diag)*gsgs_op
+
+               CALL cp_fm_trace(prod_fm, domo_op, trace)
+               op =op - trace
+
+               ! Same value for the three triplet pairs
+               CALL cp_fm_set_element(amew_op_i, 1+nsg+itp, 1+nsg+jtp, op)
+               CALL cp_fm_set_element(amew_op_i, 1+nsg+ntp+itp, 1+nsg+ntp+jtp, op)
+               CALL cp_fm_set_element(amew_op_i, 1+nsg+2*ntp+itp, 1+nsg+2*ntp+jtp, op)
+
+            END DO !itp
+         END DO !jtp
+
+      ! Symmetrize the matrix (only upper triangle built)
+         CALL cp_fm_upper_to_full(amew_op_i, work)
+
+      END DO !i
+
+!  Clean-up
+      CALL cp_fm_release(prod_fm)
+      CALL cp_fm_release(work)
+      CALL cp_fm_release(vec_s)
+      CALL cp_fm_release(vec_op)
+      CALL cp_fm_release(domo_op)
+      CALL cp_fm_struct_release(prod_struct)
+      CALL cp_fm_struct_release(full_struct)
+
+   END SUBROUTINE get_amew_op
 
 END MODULE xas_tdp_utils
 
