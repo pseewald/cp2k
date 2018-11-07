@@ -1148,8 +1148,8 @@ CONTAINS
       CALL dbcsr_t_distribution_destroy(dist_B)
       CALL dbcsr_t_distribution_destroy(dist_L)
 
-      CALL dbcsr_t_nd_mp_free(mp_comm_B)
-      CALL dbcsr_t_nd_mp_free(mp_comm_L)
+      CALL mp_comm_free(mp_comm_B)
+      CALL mp_comm_free(mp_comm_L)
 
    END SUBROUTINE
 
