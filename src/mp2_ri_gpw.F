@@ -319,7 +319,7 @@ CONTAINS
 
       INTEGER :: color_sub_3c, cut_memory, cut_RI, eri_method, gw_corr_lev_total, handle, handle2, &
          handle3, i, i_counter, itmp(2), LLL, max_row_col_local, max_row_col_local_beta, &
-         max_row_col_local_gw, max_row_col_local_occ_bse, max_row_col_local_virt_bse, mp_comm_2d, &
+         max_row_col_local_gw, max_row_col_local_occ_bse, max_row_col_local_virt_bse, &
          my_B_all_end, my_B_all_size, my_B_all_start, my_B_occ_bse_end, my_B_occ_bse_size, &
          my_B_occ_bse_start, my_B_size, my_B_size_beta, my_B_virt_bse_end, my_B_virt_bse_size, &
          my_B_virt_bse_start, my_B_virtual_end, my_B_virtual_end_beta, my_B_virtual_start, &
@@ -329,7 +329,6 @@ CONTAINS
          my_group_L_sizes_im_time, my_group_L_starts_im_time, sub_proc_map
       INTEGER, ALLOCATABLE, DIMENSION(:, :) :: local_col_row_info, local_col_row_info_beta, &
          local_col_row_info_gw, local_col_row_info_occ_bse, local_col_row_info_virt_bse
-      INTEGER, DIMENSION(2)                              :: myploc, pdims
       INTEGER, DIMENSION(3)                              :: periodic
       LOGICAL                                            :: do_alpha_beta, do_mult_2c, memory_info
       REAL(KIND=dp)                                      :: cond_num, mem_for_iaK, pair_energy, &
@@ -647,10 +646,6 @@ CONTAINS
                                       basis_type_c="RI_AUX", &
                                       sab_nl=sab_orb_sub, eri_method=eri_method)
 
-            ! create a NG x Nw process grid for contraction
-            pdims = [ngroup, para_env_sub%num_pe]
-            CALL mp_cart_create(para_env%group, 2, pdims, myploc, mp_comm_2d)
-
             DO LLL = 1, my_group_L_size
                CALL ao_to_mo_and_store_B(para_env_sub, mat_munu_local_L(LLL), matrix_ia_jnu, matrix_ia_jb, &
                                          fm_BIb_jb, BIb_C(LLL, 1:my_B_size, 1:homo), &
@@ -658,7 +653,7 @@ CONTAINS
                                          local_col_row_info, my_B_virtual_end, my_B_virtual_start, "alpha")
             ENDDO
             CALL contract_B_L(BIb_C, my_Lrows, sizes_B_virtual, sizes_array, qs_env%mp2_env%eri_blksize, &
-                              ngroup, color_sub, mp_comm_2d, para_env_sub)
+                              ngroup, color_sub, para_env%group, para_env_sub)
 
             IF (do_alpha_beta) THEN
 
@@ -669,7 +664,7 @@ CONTAINS
                                             local_col_row_info_beta, my_B_virtual_end_beta, my_B_virtual_start_beta, "beta")
                ENDDO
                CALL contract_B_L(BIb_C_beta, my_Lrows, sizes_B_virtual_beta, sizes_array, qs_env%mp2_env%eri_blksize, &
-                                 ngroup, color_sub, mp_comm_2d, para_env_sub)
+                                 ngroup, color_sub, para_env%group, para_env_sub)
 
             ENDIF
 
@@ -682,7 +677,7 @@ CONTAINS
                                             local_col_row_info_gw, my_B_all_end, my_B_all_start, "gw_alpha")
                ENDDO
                CALL contract_B_L(BIb_C_gw, my_Lrows, sizes_B_all, sizes_array, qs_env%mp2_env%eri_blksize, &
-                                 ngroup, color_sub, mp_comm_2d, para_env_sub)
+                                 ngroup, color_sub, para_env%group, para_env_sub)
 
                IF (do_alpha_beta) THEN
 
@@ -693,7 +688,7 @@ CONTAINS
                                                sub_proc_map, local_col_row_info_gw, my_B_all_end, my_B_all_start, "gw_beta")
                   ENDDO
                   CALL contract_B_L(BIb_C_gw_beta, my_Lrows, sizes_B_all, sizes_array, qs_env%mp2_env%eri_blksize, &
-                                    ngroup, color_sub, mp_comm_2d, para_env_sub)
+                                    ngroup, color_sub, para_env%group, para_env_sub)
 
                ENDIF
             ENDIF
@@ -708,7 +703,7 @@ CONTAINS
                                             sub_proc_map, local_col_row_info_virt_bse, my_B_all_end, my_B_all_start, "bse_ab")
                ENDDO
                CALL contract_B_L(BIb_C_bse_ab, my_Lrows, sizes_B_virt_bse, sizes_array, qs_env%mp2_env%eri_blksize, &
-                                 ngroup, color_sub, mp_comm_2d, para_env_sub)
+                                 ngroup, color_sub, para_env%group, para_env_sub)
 
                ! B^ij_P matrix elements for BSE
                DO LLL = 1, my_group_L_size
@@ -719,14 +714,13 @@ CONTAINS
                                             my_B_occ_bse_end, my_B_occ_bse_start, "bse_ij")
                ENDDO
                CALL contract_B_L(BIb_C_bse_ij, my_Lrows, sizes_B_occ_bse, sizes_array, qs_env%mp2_env%eri_blksize, &
-                                 ngroup, color_sub, mp_comm_2d, para_env_sub)
+                                 ngroup, color_sub, para_env%group, para_env_sub)
 
             END IF
 
             DO LLL = 1, my_group_L_size
                CALL dbcsr_release_p(mat_munu_local_L(LLL)%matrix)
             ENDDO
-            CALL mp_comm_free(mp_comm_2d)
             DEALLOCATE (mat_munu_local_L)
 
          ELSE IF (eri_method == do_eri_gpw) THEN
@@ -987,15 +981,15 @@ CONTAINS
 !> \param blk_size ...
 !> \param ngroup how many subgroups (NG)
 !> \param igroup subgroup color
-!> \param mp_comm_2d communicator with 2d Cartesian grid with dimensions (NG x Nw)
+!> \param mp_comm communicator
 !> \param para_env_sub ...
 ! **************************************************************************************************
-   SUBROUTINE contract_B_L(BIb_C, my_Lrows, sizes_B, sizes_L, blk_size, ngroup, igroup, mp_comm_2d, para_env_sub)
+   SUBROUTINE contract_B_L(BIb_C, my_Lrows, sizes_B, sizes_L, blk_size, ngroup, igroup, mp_comm, para_env_sub)
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: BIb_C
       REAL(KIND=dp), DIMENSION(:, :), INTENT(IN)         :: my_Lrows
       INTEGER, DIMENSION(:), INTENT(IN)                  :: sizes_B, sizes_L
       INTEGER, DIMENSION(2), INTENT(IN)                  :: blk_size
-      INTEGER, INTENT(IN)                                :: ngroup, igroup, mp_comm_2d
+      INTEGER, INTENT(IN)                                :: ngroup, igroup, mp_comm
       TYPE(cp_para_env_type), POINTER                    :: para_env_sub
 
       LOGICAL, PARAMETER                                 :: debug = .FALSE.
@@ -1007,9 +1001,9 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: block_ind_L_P, block_ind_L_R
       INTEGER, DIMENSION(1)                              :: dist_B_i, map_B_1, map_L_1, map_L_2, &
                                                             sizes_i
-      INTEGER, DIMENSION(2)                              :: map_B_2
+      INTEGER, DIMENSION(2)                              :: map_B_2, pdims_L, ploc_L
       INTEGER, DIMENSION(3)                              :: blk_ind, blk_offset, blk_offset_first, &
-                                                            blk_sizes, offset_B
+                                                            blk_sizes, offset_B, pdims_B, ploc_B
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: blk_data
       LOGICAL                                            :: first_block
       INTEGER, DIMENSION(ngroup)                         :: dist_L_P, dist_L_R
@@ -1025,7 +1019,7 @@ CONTAINS
       iproc = para_env_sub%mepos ! subgroup-local process ID
 
       ! Total number of processes and global process ID
-      CALL mp_environ(nproc_glob, iproc_glob, mp_comm_2d)
+      CALL mp_environ(nproc_glob, iproc_glob, mp_comm)
 
       ! local block index for R/P and a
       loc_P = igroup+1; loc_a = iproc+1
@@ -1054,8 +1048,10 @@ CONTAINS
       ! derive nd process grid that is compatible with distributions and 2d process grid
       ! (R|ai) / (P|ai) on process grid NG x Nw x 1
       ! (R|P) on process grid NG x Nw
-      mp_comm_B = dbcsr_t_nd_mp_comm(mp_comm_2d, map_B_1, map_B_2, dims_nd=[ngroup, nproc, 1])
-      mp_comm_L = dbcsr_t_nd_mp_comm(mp_comm_2d, map_L_1, map_L_2, dims_nd=[nproc, ngroup])
+      pdims_B = [ngroup, nproc, 1]
+      pdims_L = [nproc, ngroup]
+      CALL mp_cart_create(mp_comm, 3, pdims_B, ploc_B, mp_comm_B)
+      CALL mp_cart_create(mp_comm, 2, pdims_L, ploc_L, mp_comm_L)
 
       ! setup distribution vectors such that distribution matches parallel data layout of BIb_C and my_Lrows
       dist_B_i = [0]
@@ -1064,8 +1060,8 @@ CONTAINS
       dist_L_P = (/(i, i=0, ngroup-1)/)
 
       ! create distributions and tensors
-      CALL dbcsr_t_distribution_new(dist_B, mp_comm_B, mp_comm_2d, map_B_1, map_B_2, dist_L_P, dist_B_a, dist_B_i)
-      CALL dbcsr_t_distribution_new(dist_L, mp_comm_L, mp_comm_2d, map_L_1, map_L_2, dist_L_R, dist_L_P)
+      CALL dbcsr_t_distribution_new(dist_B, mp_comm_B, map_B_1, map_B_2, dist_L_P, dist_B_a, dist_B_i)
+      CALL dbcsr_t_distribution_new(dist_L, mp_comm_L, map_L_1, map_L_2, dist_L_R, dist_L_P)
 
       CALL dbcsr_t_create(tB_in, "(R|ai)", dist_B, map_B_1, map_B_2, dbcsr_type_real_8, sizes_L, sizes_B, sizes_i)
       CALL dbcsr_t_create(tB_out, "(P|ai)", dist_B, map_B_1, map_B_2, dbcsr_type_real_8, sizes_L, sizes_B, sizes_i)
