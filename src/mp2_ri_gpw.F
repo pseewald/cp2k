@@ -1010,9 +1010,8 @@ CONTAINS
       INTEGER, DIMENSION(para_env_sub%num_pe)            :: dist_B_a
       TYPE(dbcsr_t_distribution_type)                    :: dist_B, dist_L
       TYPE(dbcsr_t_iterator_type)                        :: iter
-      TYPE(dbcsr_t_type)                                 :: tB_in, tB_out, &
-                                                            tL
-      MARK_USED(blk_size)
+      TYPE(dbcsr_t_type)                                 :: tB_in, tB_in_split, tB_out, &
+                                                            tB_out_split, tL, tL_split
 
       sizes_i(1) = SIZE(BIb_C, 3)
 
@@ -1109,18 +1108,18 @@ CONTAINS
          ENDIF
       ENDDO
 
-      !CALL dbcsr_t_split_blocks(tB_in, tB_in_split, [blk_size(2), blk_size(1), blk_size(1)])
-      !CALL dbcsr_t_split_blocks(tL, tL_split, [blk_size(2), blk_size(2)])
-      !CALL dbcsr_t_split_blocks(tB_out, tB_out_split, [blk_size(2), blk_size(1), blk_size(1)])
+      CALL dbcsr_t_split_blocks(tB_in, tB_in_split, [blk_size(2), blk_size(1), blk_size(1)])
+      CALL dbcsr_t_split_blocks(tL, tL_split, [blk_size(2), blk_size(2)])
+      CALL dbcsr_t_split_blocks(tB_out, tB_out_split, [blk_size(2), blk_size(1), blk_size(1)])
 
       ! contract
-      CALL dbcsr_t_contract(tensor_1=tB_in, tensor_2=tL, tensor_3=tB_out, &
+      CALL dbcsr_t_contract(tensor_1=tB_in_split, tensor_2=tL_split, tensor_3=tB_out_split, &
                             contract_1=[1], notcontract_1=[2, 3], &
                             contract_2=[1], notcontract_2=[2], &
                             map_1=[2, 3], map_2=[1])
 
       ! retrieve local block of contraction result (P|ai)
-      CALL dbcsr_t_iterator_start(iter, tB_out)
+      CALL dbcsr_t_iterator_start(iter, tB_out_split)
       first_block = .TRUE.
       DO WHILE (dbcsr_t_iterator_blocks_left(iter))
          CALL dbcsr_t_iterator_next_block(iter, blk_ind, blk, blk_size=blk_sizes, blk_offset=blk_offset)
@@ -1129,7 +1128,7 @@ CONTAINS
             first_block = .FALSE.
          ENDIF
          offset_B(:) = blk_offset(:)-blk_offset_first(:)
-         CALL dbcsr_t_get_block(tB_out, blk_ind, blk_data)
+         CALL dbcsr_t_get_block(tB_out_split, blk_ind, blk_data)
          BIb_C(offset_B(1)+1:offset_B(1)+blk_sizes(1), &
                offset_B(2)+1:offset_B(2)+blk_sizes(2), &
                offset_B(3)+1:offset_B(3)+blk_sizes(3)) = &
@@ -1140,11 +1139,11 @@ CONTAINS
 
       ! cleanup
       CALL dbcsr_t_destroy(tB_in)
-      !CALL dbcsr_t_destroy(tB_in_split)
+      CALL dbcsr_t_destroy(tB_in_split)
       CALL dbcsr_t_destroy(tB_out)
-      !CALL dbcsr_t_destroy(tB_out_split)
+      CALL dbcsr_t_destroy(tB_out_split)
       CALL dbcsr_t_destroy(tL)
-      !CALL dbcsr_t_destroy(tL_split)
+      CALL dbcsr_t_destroy(tL_split)
 
       CALL dbcsr_t_distribution_destroy(dist_B)
       CALL dbcsr_t_distribution_destroy(dist_L)
