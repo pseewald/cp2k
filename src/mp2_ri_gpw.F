@@ -71,6 +71,7 @@ MODULE mp2_ri_gpw
         dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_iterator_type, dbcsr_t_nd_mp_comm, &
         dbcsr_t_nd_mp_free, dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_split_blocks, &
         dbcsr_t_type
+   USE dbcsr_tensor_test,               ONLY: dbcsr_t_contract_test
    USE gaussian_gridlevels,             ONLY: gaussian_gridlevel
    USE input_constants,                 ONLY: do_eri_gpw,&
                                               do_eri_mme,&
@@ -1113,10 +1114,10 @@ CONTAINS
       CALL dbcsr_t_split_blocks(tB_out, tB_out_split, [blk_size(2), blk_size(1), blk_size(1)])
 
       ! contract
-      CALL dbcsr_t_contract(tensor_1=tB_in_split, tensor_2=tL_split, tensor_3=tB_out_split, &
-                            contract_1=[1], notcontract_1=[2, 3], &
-                            contract_2=[1], notcontract_2=[2], &
-                            map_1=[2, 3], map_2=[1])
+      CALL dbcsr_t_contract_test(tensor_1=tB_in_split, tensor_2=tL_split, tensor_3=tB_out_split, &
+                                 contract_1=[1], notcontract_1=[2, 3], &
+                                 contract_2=[1], notcontract_2=[2], &
+                                 map_1=[2, 3], map_2=[1], unit_nr=6)
 
       ! retrieve local block of contraction result (P|ai)
       CALL dbcsr_t_iterator_start(iter, tB_out_split)
