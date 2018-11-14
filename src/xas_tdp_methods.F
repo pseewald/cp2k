@@ -92,10 +92,10 @@ MODULE xas_tdp_methods
                                               xas_atom_env_release
    USE xas_tdp_utils,                   ONLY: setup_xas_tdp_full_prob, &
                                               solve_xas_tdp_full_prob, &
-                                              compute_dipole_fosc, &
-                                              compute_ri_coulomb3_int, &
                                               compute_ri_coulomb2_int, &
-                                              include_full_soc
+                                              include_full_soc, &
+                                              compute_ri_o3c_coulomb, &
+                                              compute_ri_o3c_exchange
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -221,12 +221,9 @@ CONTAINS
       IF (xas_tdp_control%do_xc .OR. xas_tdp_control%do_soc) THEN
 
          CALL xas_atom_env_create(xas_atom_env)
-         CALL init_xas_atom_env(xas_atom_env, xas_tdp_env%ex_atom_indices, &
-                               xas_tdp_env%ex_kind_indices, xas_tdp_control%grid_info, qs_env, &
-                               do_xc=xas_tdp_control%do_xc) 
+         CALL init_xas_atom_env(xas_atom_env, xas_tdp_env, xas_tdp_control, qs_env) 
 
          IF (xas_tdp_control%do_xc) THEN
-            ALLOCATE(xas_tdp_env%ri_fxc_sg, xas_tdp_env%ri_fxc_tp)
             CALL integrate_fxc_atoms(xas_tdp_env%ri_fxc_sg, xas_tdp_env%ri_fxc_tp, xas_atom_env, &
                                      qs_env, xas_tdp_control%do_singlet, xas_tdp_control%do_triplet)
          END IF
@@ -270,7 +267,12 @@ CONTAINS
             END IF
 
 !           For this excited atom, also compute the RI coulomb integrals
-            CALL compute_ri_coulomb3_int(iatom, ikind, xas_tdp_env, qs_env)
+            CALL compute_ri_o3c_coulomb(iatom, ikind, xas_tdp_env, qs_env)
+
+!           If exact exchange is riquired, compute the 3-center integrals for this atom
+            IF (xas_tdp_control%do_hfx) THEN
+               CALL compute_ri_o3c_exchange(iatom, ikind, xas_tdp_env, qs_env)
+            END IF
 
 !           Loop over states of excited atom of kind
             DO istate = 1,SIZE(xas_tdp_env%state_types,1)
@@ -542,7 +544,6 @@ CONTAINS
       CALL dbcsr_finalize(xas_tdp_env%q_projector)
 
       
-
 !  Create the structure for the dipole in the AO basis 
       ALLOCATE(xas_tdp_env%dipmat(3))
       DO i =1,3
@@ -1157,6 +1158,97 @@ CONTAINS
       qs_loc_env%do_localize = my_do_loc
 
    END SUBROUTINE find_mo_centers
+   
+! **************************************************************************************************
+!> \brief Computes the oscillator strength based on the dipole moment (velocity or length rep) for
+!>        all available excitation energies and store the results in the donor_state. There is no
+!>        triplet dipole in the spin-restricted ground state
+!> \param donor_state the donor state which is excited
+!> \param xas_tdp_control ...
+!> \param xas_tdp_env ... 
+!> \note The oscillator strength is a scalar: osc_str = 2/3*omega*(dipole_r)^2 = 2/(3*omega)*(dipole_v)^2
+!>       The formulae for the dipoles come from the trace of the dipole operator with the transition
+!>       densities, i.e. what we get from solving the xas_tdp problem. Same procedure with or wo TDA
+! **************************************************************************************************
+   SUBROUTINE compute_dipole_fosc(donor_state, xas_tdp_control, xas_tdp_env)
+
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "compute_dipole_fosc", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: nosc, iosc, ndo_mo, j, nao
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: dipmat
+      TYPE(cp_fm_type), POINTER                       :: col_work, mat_work, lr_coeffs
+      TYPE(cp_fm_struct_type), POINTER                :: col_struct, mat_struct
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: diag
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      REAL(dp)                                        :: dip_mom
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: osc_str
+
+      NULLIFY(dipmat, col_work, mat_work, col_struct, mat_struct, para_env, blacs_env, lr_coeffs)
+
+!  Initialization
+      ndo_mo = SIZE(donor_state%mo_indices)
+      nosc = SIZE(donor_state%sg_evals)
+      ALLOCATE(osc_str(nosc))
+      osc_str = 0.0_dp
+
+      dipmat => xas_tdp_env%dipmat
+      !compute the prefactor
+      IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
+         osc_str(:) = 2.0_dp/3.0_dp*donor_state%sg_evals(:)
+      ELSE
+         osc_str(:) = 2.0_dp/3.0_dp/donor_state%sg_evals(:)
+      END IF
+
+      ! do some work matrix initialization
+      CALL cp_fm_get_info(donor_state%gs_coeffs, matrix_struct=col_struct, para_env=para_env, &
+                          context=blacs_env, nrow_global=nao)
+      CALL cp_fm_struct_create(mat_struct, para_env=para_env, context=blacs_env, &
+                               nrow_global=ndo_mo, ncol_global=ndo_mo)
+      CALL cp_fm_create(col_work, col_struct)
+      CALL cp_fm_create(mat_work, mat_struct)
+      ALLOCATE(diag(ndo_mo))
+    
+!  Looping over the excited singlets
+      DO iosc = 1,nosc
+            
+         dip_mom = 0.0_dp
+         lr_coeffs => donor_state%sg_coeffs(iosc)%matrix
+
+         !looping over the cartesian coordinates
+         DO j = 1,3
+
+            !computing c^0 * dipmat(j) * c^i
+            CALL cp_dbcsr_sm_fm_multiply(dipmat(j)%matrix, lr_coeffs, col_work, ncol=ndo_mo)
+            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, donor_state%gs_coeffs, &
+                            col_work, 0.0_dp, mat_work)
+
+            !get the sum of the dipole moments. Factor 2 because of definition of singlet
+            CALL cp_fm_get_diag(mat_work, diag)
+            dip_mom = dip_mom + 2.0_dp*SUM(diag)**2
+
+         END DO !j
+            
+         !Taking the excitation energy into account
+         osc_str(iosc) = osc_str(iosc)*dip_mom
+
+      END DO !iosc
+
+!  Saving the results in the donor state
+      donor_state%sg_osc_str(:) = osc_str 
+
+      !clean-up
+      CALL cp_fm_release(mat_work)
+      CALL cp_fm_release(col_work)
+      CALL cp_fm_struct_release(mat_struct)
+      DEALLOCATE(diag)
+
+   END SUBROUTINE compute_dipole_fosc
 
 !> *************************************************************************************************
 !> \brief Writes the core MOs to excited atoms associations in the main output file
@@ -1238,6 +1330,8 @@ CONTAINS
       cell%perd = perd_init
 
    END SUBROUTINE write_mos_to_ex_atoms_association
+
+
 
 !> *************************************************************************************************
 !> \brief Performs Mulliken population analysis for the MO(s) of a donor_state_type so that user

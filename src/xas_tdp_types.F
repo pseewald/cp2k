@@ -27,6 +27,7 @@ MODULE xas_tdp_types
    USE qs_harmonics_atom,               ONLY: harmonics_atom_type, deallocate_harmonics_atom
    USE qs_loc_types,                    ONLY: qs_loc_env_new_type,&
                                               qs_loc_env_release
+   USE qs_o3c_types,                    ONLY: o3c_container_type, release_o3c_container
                                      
 #include "./base/base_uses.f90"
 
@@ -98,10 +99,10 @@ MODULE xas_tdp_types
 !>        contracted spherical gaussians. It can either be in the length or the velocity 
 !>        representation. For length representation, it has to be computed once with the origin on 
 !>        each excited atom
-!> \param ri_coul3 the 3D array (TODO: dbcsr tensor in the future) containing the 3-center coulomb
-!>        integrals (ab|P) with the RI basis centered on P. Updated for each new excited atom
-!> \param ri_fxc_sg the matrix in which the singlet kernel RI integrals on the atomic grid are stored
-!> \param ri_fxc_tp the matrix in which the triplet kernel RI integrals on the atomic grid are stored
+!> \param ri_o3c_coul the container for the RI 3-center Coulomb integrals
+!> \param ri_o3c_ex the container for the RI 3-center exchange integrals
+!> \param ri_fxc_sg the array of xc integrals of type (P|fxc|Q) for singlets
+!> \param ri_fxc_tp the array of xc integrals of type (P|fxc|Q) for triplets
 !> \param orb_soc the matrix where the SOC is evaluated wrt the orbital basis set, for x,y,z
 !> *************************************************************************************************
    TYPE xas_tdp_env_type
@@ -109,9 +110,10 @@ MODULE xas_tdp_types
       INTEGER                                 :: nex_atoms
       INTEGER                                 :: nex_kinds
       INTEGER, DIMENSION(:), POINTER          :: ex_atom_indices
-      INTEGER, DIMENSION(:), POINTEr          :: ex_kind_indices
+      INTEGER, DIMENSION(:), POINTER          :: ex_kind_indices
       INTEGER, DIMENSION(:,:), POINTER        :: state_types
-      REAL(dp), DIMENSION(:,:,:), POINTER     :: ri_coul3
+      TYPE(o3c_container_type), POINTER       :: ri_o3c_coul
+      TYPE(o3c_container_type), POINTER       :: ri_o3c_ex
       TYPE(donor_state_type), DIMENSION(:),&
                         POINTER               :: donor_states
       INTEGER, DIMENSION(:,:), POINTER        :: mos_of_ex_atoms
@@ -122,8 +124,10 @@ MODULE xas_tdp_types
       TYPE(dbcsr_type), POINTER               :: p_projector
       TYPE(dbcsr_p_type), DIMENSION(:), &
                                     POINTER   :: dipmat
-      TYPE(dbcsr_type), POINTER               :: ri_fxc_sg
-      TYPE(dbcsr_type), POINTER               :: ri_fxc_tp
+      TYPE(cp_2d_r_p_type), DIMENSION(:), &
+                                    POINTER   :: ri_fxc_sg
+      TYPE(cp_2d_r_p_type), DIMENSION(:), &
+                                    POINTER   :: ri_fxc_tp
       TYPE(dbcsr_p_type), DIMENSION(:), &
                                     POINTER   :: orb_soc
    END TYPE xas_tdp_env_type
@@ -188,7 +192,7 @@ MODULE xas_tdp_types
 
 ! **************************************************************************************************
 !> \brief a environment type that contains all the info needed for XAS_TDP atomic grid calculations
-!> \param excited_atoms the atoms for which RI xc-kernel calculations must be done
+!> \param excited_atoms the atoms for which RI xc-kernel calculations must be done 
 !> \param excited_kinds the kinds for which RI xc-kernel calculations must be done 
 !> \param grid_atom_set the set of atomic grid for each kind
 !> \param ri_blk_size the block sizes of the dbcsr_matrix that will hold the RI integrals 
@@ -441,7 +445,8 @@ CONTAINS
       NULLIFY (xas_tdp_env%q_projector)
       NULLIFY (xas_tdp_env%p_projector)
       NULLIFY (xas_tdp_env%dipmat)
-      NULLIFY (xas_tdp_env%ri_coul3)
+      NULLIFY (xas_tdp_env%ri_o3c_coul)
+      NULLIFY (xas_tdp_env%ri_o3c_ex)
       NULLIFY (xas_tdp_env%ri_fxc_sg)
       NULLIFY (xas_tdp_env%ri_fxc_tp)
       NULLIFY (xas_tdp_env%orb_soc)
@@ -488,7 +493,9 @@ CONTAINS
          END IF
          IF (ASSOCIATED(xas_tdp_env%ri_inv_mats)) THEN
             DO i =1,SIZE(xas_tdp_env%ri_inv_mats)
-               DEALLOCATE(xas_tdp_env%ri_inv_mats(i)%array)
+               IF (ASSOCIATED(xas_tdp_env%ri_inv_mats(i)%array)) THEN
+                  DEALLOCATE(xas_tdp_env%ri_inv_mats(i)%array)
+               END IF
             END DO
             DEALLOCATE(xas_tdp_env%ri_inv_mats)
          END IF
@@ -506,15 +513,28 @@ CONTAINS
             END DO
             DEALLOCATE(xas_tdp_env%dipmat)
          END IF
-         IF (ASSOCIATED(xas_tdp_env%ri_coul3)) THEN
-            DEALLOCATE(xas_tdp_env%ri_coul3)
+         IF (ASSOCIATED(xas_tdp_env%ri_o3c_coul)) THEN
+            CALL release_o3c_container(xas_tdp_env%ri_o3c_coul)
+            DEALLOCATE(xas_tdp_env%ri_o3c_coul)
+         END IF
+         IF (ASSOCIATED(xas_tdp_env%ri_o3c_ex)) THEN
+            CALL release_o3c_container(xas_tdp_env%ri_o3c_ex)
+            DEALLOCATE(xas_tdp_env%ri_o3c_ex)
          END IF
          IF (ASSOCIATED(xas_tdp_env%ri_fxc_sg)) THEN
-            CALL dbcsr_release(xas_tdp_env%ri_fxc_sg)
+            DO i =1,SIZE(xas_tdp_env%ri_fxc_sg)
+               IF (ASSOCIATED(xas_tdp_env%ri_fxc_sg(i)%array)) THEN
+                  DEALLOCATE(xas_tdp_env%ri_fxc_sg(i)%array)
+               END IF
+            END DO
             DEALLOCATE(xas_tdp_env%ri_fxc_sg)
          END IF
          IF (ASSOCIATED(xas_tdp_env%ri_fxc_tp)) THEN
-            CALL dbcsr_release(xas_tdp_env%ri_fxc_tp)
+            DO i =1,SIZE(xas_tdp_env%ri_fxc_tp)
+               IF (ASSOCIATED(xas_tdp_env%ri_fxc_tp(i)%array)) THEN
+                  DEALLOCATE(xas_tdp_env%ri_fxc_tp(i)%array)
+               END IF
+            END DO
             DEALLOCATE(xas_tdp_env%ri_fxc_tp)
          END IF
          IF (ASSOCIATED(xas_tdp_env%orb_soc)) THEN
@@ -800,13 +820,8 @@ CONTAINS
          DEALLOCATE(xas_atom_env%harmonics_atom_set)
       END IF
 
-      IF (ASSOCIATED(xas_atom_env%excited_kinds)) THEN
-         DEALLOCATE(xas_atom_env%excited_kinds)
-      END IF
-
-      IF (ASSOCIATED(xas_atom_env%excited_atoms)) THEN
-         DEALLOCATE(xas_atom_env%excited_atoms)
-      END IF
+      ! Note that excited_atoms and excited_kinds are not deallocated because they point to other 
+      ! ressources, namely xas_tdp_env
 
       IF (ASSOCIATED(xas_atom_env%ri_blk_size)) THEN
          DEALLOCATE(xas_atom_env%ri_blk_size)
