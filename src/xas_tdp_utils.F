@@ -14,6 +14,7 @@ MODULE xas_tdp_utils
    USE arnoldi_api,                     ONLY: arnoldi_data_type, arnoldi_ev, &
                                               deallocate_arnoldi_data, get_selected_ritz_val, &
                                               setup_arnoldi_data
+   USE atomic_kind_types,               ONLY: atomic_kind_type
    USE basis_set_types,                 ONLY: gto_basis_set_type, get_gto_basis_set, &
                                               gto_basis_set_p_type
    USE cell_types,                      ONLY: cell_type, pbc
@@ -49,12 +50,17 @@ MODULE xas_tdp_utils
                                               dbcsr_complete_redistribute, dbcsr_iterator_type, &
                                               dbcsr_iterator_blocks_left, dbcsr_iterator_start, &
                                               dbcsr_iterator_stop, dbcsr_iterator_next_block, &
-                                              dbcsr_add, dbcsr_add_on_diag
+                                              dbcsr_add, dbcsr_add_on_diag, dbcsr_reserve_blocks, &
+                                              dbcsr_transposed
+   USE distribution_1d_types,           ONLY: distribution_1d_type
+   USE distribution_2d_types,           ONLY: distribution_2d_type
    USE generic_os_integrals,            ONLY: int_operators_r12_ab_os
    USE input_constants,                 ONLY: xas_dip_len, xas_dip_vel
+   USE input_section_types,             ONLY: section_vals_val_get
    USE iterate_matrix,                  ONLY: invert_Hotelling, matrix_sqrt_Newton_Schulz
    USE kinds,                           ONLY: dp
    USE mathlib,                         ONLY: invmat_symm
+   USE molecule_types,                  ONLY: molecule_type
    USE orbital_pointers,                ONLY: ncoset
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
@@ -66,7 +72,15 @@ MODULE xas_tdp_utils
                                               neighbor_list_iterator_create, &
                                               neighbor_list_iterator_p_type, &
                                               neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
+                                              neighbor_list_set_p_type, &
+                                              deallocate_neighbor_list_set
+   USE qs_neighbor_lists,               ONLY: build_neighbor_lists, local_atoms_type, &
+                                              pair_radius_setup, atom2d_cleanup, atom2d_build
+   USE qs_o3c_methods,                  ONLY: calculate_o3c_coulomb_integrals, &
+                                              contract2_o3c, contract3_o3c
+   USE qs_o3c_types,                    ONLY: init_o3c_container, get_o3c_container, o3c_vec_type, &
+                                              o3c_vec_release, o3c_container_type, get_o3c_vec, &
+                                              o3c_vec_create, release_o3c_container
    USE util,                            ONLY: locate
    USE xas_tdp_types,                   ONLY: donor_state_type, xas_tdp_env_type, &
                                               xas_tdp_control_type
@@ -78,21 +92,23 @@ MODULE xas_tdp_utils
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = "xas_tdp_utils"
 
-   PUBLIC :: setup_xas_tdp_full_prob, solve_xas_tdp_full_prob, compute_dipole_fosc, &
-             compute_ri_coulomb3_int, compute_ri_coulomb2_int, include_full_soc
+   PUBLIC :: setup_xas_tdp_full_prob, solve_xas_tdp_full_prob, &
+             compute_ri_coulomb2_int, include_full_soc, build_xas_tdp_3c_nl, &
+             compute_ri_o3c_coulomb, compute_ri_o3c_exchange
 
 CONTAINS
 
 ! **************************************************************************************************
 !> \brief Builds the matrix that defines the XAS TDDFPT generalized eigenvalue problem to be solved
-!>        for excitation energies omega. The problem has the form omega*C = M*C, where C contains
-!>        the reponse orbitals coefficients. The matrix is stored in the given donor_state 
+!>        for excitation energies omega. The problem has the form omega*G*C = M*C, where C contains
+!>        the reponse orbitals coefficients. The matrix M and the metric G are stored in the given 
+!>        donor_state .
 !> \param donor_state the donor_state for which the problem is restricted
 !> \param qs_env ...
 !> \param xas_tdp_env ...
 !> \param xas_tdp_control ...
-!> \note the matrix M has the form | -G^-1*M_d   -G^-1*M_o | 
-!>                                 |  G^-1*M_o    G^-1*M_d |,                                        
+!> \note the matrix M is symmetric and has the form | M_d   M_o | 
+!>                                                  | M_o   M_d |,                                        
 !>       depending on whther we consider singlet or triplet excitation, the diagonal (M_d) and 
 !>       off-diagonal (M_o) parts of M differ:
 !>       - For singlet: M_d = A + 2B + C_aa + C_ab - D
@@ -100,7 +116,7 @@ CONTAINS
 !>       - For triplet: M_d = A + C_aa - C_ab - D
 !>                      M_o = C_aa - C_ab - E
 !>       where other subroutines computes the matrices A, B, E, D and G, which are:
-!>       - A: the ground-state contribution F_ab*delta_IJ - epsilon_IJ*S_ab
+!>       - A: the ground-state contribution: F_ab*delta_IJ - epsilon_IJ*S_ab
 !>       - B: the Coulob kernel ~(aI|Jb)
 !>       - C: the xc kernel c_aa (double derivatibe wrt to n_alpha) and C_ab (wrt n_alpha and n_beta)
 !>       - D: the on-digonal exact exchange kernel ~(ab|IJ)
@@ -108,7 +124,12 @@ CONTAINS
 !>       - G: the metric  S_ab*delta_IJ
 !>       For the xc functionals, C_aa + C_ab or C_aa - C_ab are stored in the same matrix
 !>       In the above definitions, I,J label the donnor MOs and a,b the sgfs of the basis
+!>       Under TDA, only the on-diagonal elements of M are computed
 !>       In the case of non-TDA, one turns the problem Hermitian 
+!>       The matrix M is always  projected onto the unperturbed unoccupied  ground state:
+!>       M <= Q * M * Q^T = (1 - SP) * M * (1 - PS)
+!>       All possibilities: TDA or full-TDDFT, singlet or triplet, xc or hybrid, etc are treated
+!>       in the same routine to avoid recomputing stuff
 ! **************************************************************************************************
    SUBROUTINE setup_xas_tdp_full_prob(donor_state, qs_env, xas_tdp_env, xas_tdp_control)
 
@@ -116,246 +137,171 @@ CONTAINS
       TYPE(qs_environment_type), POINTER              :: qs_env
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
-      
+
       CHARACTER(len=*), PARAMETER :: routineN = 'setup_xas_tdp_full_prob', &
                                      routineP = moduleN//":"//routineN
-      
-      INTEGER                                         :: handle, nblk_sub
-      TYPE(dbcsr_type), POINTER                       :: sg_matrix_tdp, tp_matrix_tdp
-      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_b, matrix_d, matrix_e, &
-                                                         tmp_mat, matrix_c, proj_Q, work
+
+      INTEGER                                         :: handle
+      REAL(dp)                                        :: sx
+      LOGICAL                                         :: do_xc, do_hfx, do_sg, do_tp, do_tda
+      TYPE(dbcsr_type), POINTER                       :: sg_matrix_tdp, tp_matrix_tdp, matrix_a, &
+                                                         matrix_b, matrix_d, matrix_e, proj_Q, &
+                                                         work, matrix_c_sg, matrix_c_tp
       TYPE(dbcsr_distribution_type), POINTER          :: submat_dist
-      INTEGER, DIMENSION(:), POINTER                  :: submat_blk_size, col_dist_sub, &
-                                                         row_dist_sub
-      INTEGER, DIMENSION(:,:), POINTER                :: pgrid
-      REAL(dp)                                        :: min_ev, threshold, sx
-      TYPE(arnoldi_data_type)                         :: my_arnoldi
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrices
-      LOGICAL                                         :: conv, do_xc, do_hfx
+      INTEGER, DIMENSION(:), POINTER                  :: submat_blk_size
+
+      NULLIFY(sg_matrix_tdp, tp_matrix_tdp, submat_dist, submat_blk_size, matrix_a, matrix_b )
+      NULLIFY(matrix_c_sg, matrix_c_tp, matrix_d, matrix_e, proj_Q, work)
 
       CALL timeset(routineN, handle)
 
-      NULLIFY(matrix_a, submat_dist, submat_blk_size, col_dist_sub, row_dist_sub, matrices)
-      NULLIFY(pgrid, sg_matrix_tdp, tp_matrix_tdp, matrix_b, matrix_d, matrix_e, tmp_mat, matrix_c) 
-
-      CPASSERT(ASSOCIATED(donor_state))
-      CPASSERT(ASSOCIATED(qs_env))
-      CPASSERT(ASSOCIATED(xas_tdp_env))
-      CPASSERT(ASSOCIATED(xas_tdp_control))
-      IF (xas_tdp_control%do_singlet) THEN
+!  Initialization
+      do_sg = xas_tdp_control%do_singlet
+      do_tp = xas_tdp_control%do_triplet
+      do_xc = xas_tdp_control%do_xc
+      do_hfx = xas_tdp_control%do_hfx
+      do_tda = xas_tdp_control%tamm_dancoff
+      sx = xas_tdp_control%sx
+      IF (do_sg) THEN
          ALLOCATE(donor_state%sg_matrix_tdp)
          sg_matrix_tdp => donor_state%sg_matrix_tdp
       END IF
-      IF (xas_tdp_control%do_triplet) THEN
-         ALLOCATE(donor_state%tp_matrix_tdp) 
+      IF (do_tp) THEN
+         ALLOCATE(donor_state%tp_matrix_tdp)
          tp_matrix_tdp => donor_state%tp_matrix_tdp
       END IF
 
-      do_xc = xas_tdp_control%do_xc
-      do_hfx = xas_tdp_control%do_hfx
-      sx = xas_tdp_control%sx
+!  Get the dist and block size of all matrices A, B, C, etc
+      CALL compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_state, qs_env)
 
-!  Get the submatrices distribution and block sizes
-      CALL compute_submat_dist_and_blk_size(submat_dist, submat_blk_size, donor_state, qs_env) 
-      nblk_sub = SIZE(submat_blk_size)
+!  Allocate and compute all the matrices A, B, C, etc we will need
+      ALLOCATE(matrix_a, matrix_b, matrix_c_sg, matrix_c_tp, matrix_d, matrix_e, proj_Q, work)
 
-!  Get the projector on the unperturbed unoccupied GS in the correct format
-      ALLOCATE(proj_Q, work)
+      ! The projector on the unoccupied unperturbed ground state 1-SP and associated work matrix
       CALL get_q_projector(proj_Q, submat_dist, submat_blk_size, donor_state, xas_tdp_env)
       CALL dbcsr_create(matrix=work, matrix_type="N", dist=submat_dist, name="WORK", &
                         row_blk_size=submat_blk_size, col_blk_size=submat_blk_size)
 
-!  IF TDA, simplified problem:
-      IF (xas_tdp_control%tamm_dancoff) THEN
+      ! The ground state contribution
+      CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, qs_env)
 
-!     Compute the submatrices, store the metric and ignore the offdiag exchange kernel
-!     Only compute needed forms of the kernel according to the functional
-         ALLOCATE(matrix_a)
-         ALLOCATE(matrix_b)
-         ALLOCATE(matrix_c)
-         ALLOCATE(matrix_d)
+      ! The Coulomb and XC kernels (note: in the rare case of CIS triplets, none is needed)
+      IF (do_xc .OR. do_sg) THEN
+         CALL kernel_coulomb_xc(matrix_b, matrix_c_sg, matrix_c_tp, do_sg, (do_sg .AND. do_xc), &
+                                (do_tp .AND. do_xc), submat_dist, submat_blk_size, donor_state, &
+                                xas_tdp_env, qs_env)
+      END IF
+
+      ! The exact exchange. Off-diagonal kernel only needed in full-TDDFT
+      IF (do_hfx) THEN
+         CALL kernel_exchange(matrix_d, matrix_e, (.NOT. do_tda), submat_dist, submat_blk_size, &
+                              donor_state, xas_tdp_env, qs_env)
+      END IF
+
+      ! Build the metric G, also need its inverse in case of full-TDDFT
+      IF (do_tda) THEN
          ALLOCATE(donor_state%metric(1))
-
-         CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, qs_env)
-         IF (do_hfx) THEN
-            CALL build_kernel_exchange(ex_ker_diag=matrix_d, dist=submat_dist, blk_size=submat_blk_size, &
-                                       donor_state=donor_state, xas_tdp_env=xas_tdp_env, qs_env=qs_env)     
-         END IF
          CALL build_metric(donor_state%metric, submat_dist, submat_blk_size, donor_state, qs_env)
+      ELSE
+         ALLOCATE(donor_state%metric(2))
+         CALL build_metric(donor_state%metric, submat_dist, submat_blk_size, donor_state, qs_env, &
+                           do_inv=.TRUE.)
+      END IF
 
-!     Create the simplfied TDA matrix_tdp. The xc kernel changes with the excited state multiplicity
-         IF (xas_tdp_control%do_singlet) THEN
+!  Build the eigenvalue problem, denpending on the case (TDA, singlet, triplet, hfx, etc ...)
+      IF (do_tda) THEN
+         
+         IF (do_sg) THEN ! singlets under TDA
+
+            ! The final matrix is M = A + 2B + (C_aa + C_ab) - D
             CALL dbcsr_copy(sg_matrix_tdp, matrix_a, name="SINGLET MATRIX TDP")
+            CALL dbcsr_add(sg_matrix_tdp, matrix_b, 1.0_dp, 2.0_dp)
 
-            ! Coulomb kernel only needed for singlets
-            CALL build_kernel_coulomb(matrix_b, submat_dist, submat_blk_size, donor_state, xas_tdp_env, qs_env)
+            IF (do_xc) CALL dbcsr_add(sg_matrix_tdp, matrix_c_sg, 1.0_dp, 1.0_dp)   ! xc kernel
+            IF (do_hfx) CALL dbcsr_add(sg_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx) ! scaled hfx 
 
-            CALL dbcsr_add(sg_matrix_tdp, matrix_b, 1.0_dp, 2.0_dp) 
-            IF (do_hfx) CALL dbcsr_add(sg_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx) !scaled hfx
-            IF (do_xc) THEN
-               CALL build_kernel_xc(matrix_c, submat_dist, submat_blk_size, donor_state, &
-                                    xas_tdp_env, qs_env, singlet=.TRUE.)
-               CALL dbcsr_add(sg_matrix_tdp, matrix_c, 1.0_dp, 1.0_dp) ! xc kernel
-            END IF ! do_xc
-
-            ! Take the product with the Q projector: 
+            ! Take the product with the Q projector:
             CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q, sg_matrix_tdp, 0.0_dp, work)
             CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q, 0.0_dp, sg_matrix_tdp)
 
-         END IF
+         END IF !do_sg (TDA)
 
-         IF (xas_tdp_control%do_triplet) THEN
+         IF (do_tp) THEN ! triplets under TDA
 
+            ! The final matrix is M =  A + (C_aa - C_ab) - D
             CALL dbcsr_copy(tp_matrix_tdp, matrix_a, name="TRIPLET MATRIX TDP")
-            IF (do_hfx) CALL dbcsr_add(tp_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx) !scaled hfx
-            IF (do_xc) THEN
-               CALL build_kernel_xc(matrix_c, submat_dist, submat_blk_size, donor_state, &
-                                    xas_tdp_env, qs_env, singlet=.FALSE.)
-               CALL dbcsr_add(tp_matrix_tdp, matrix_c, 1.0_dp, 1.0_dp) ! xc_kernel
-            END IF ! do_xc
+
+            IF (do_xc) CALL dbcsr_add(tp_matrix_tdp, matrix_c_tp, 1.0_dp, 1.0_dp)   ! xc_kernel
+            IF (do_hfx) CALL dbcsr_add(tp_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx) ! scaled hfx
 
             ! Take the product with the Q projector:
             CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q, tp_matrix_tdp, 0.0_dp, work)
             CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q, 0.0_dp, tp_matrix_tdp)
 
-         END IF
+         END IF !do_tp (TDA)
 
-!     Some clean-up
-         CALL dbcsr_release(matrix_a)   
-         CALL dbcsr_release(matrix_b) 
-         CALL dbcsr_release(matrix_c)
-         CALL dbcsr_release(matrix_d)
-         DEALLOCATE(matrix_a, matrix_b, matrix_c, matrix_d)
+      ELSE ! not TDA
 
-      ELSE IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
+      ! In the case of full-TDDFT, the problem is turned Hermitian with the help of auxiliary
+      ! matrices AUX = (A-D+E)^(+-0.5) that are stored in donor_state
+         CALL build_aux_matrices(1.0E-8_dp, sx, matrix_a, matrix_d, matrix_e, do_hfx, proj_Q, &
+                                 work, donor_state)   
 
-!     Compute the submatrices A, G and the different kernels (B, C, D and E)
-         ALLOCATE(tmp_mat)
-         ALLOCATE(matrix_a)
-         ALLOCATE(matrix_b)
-         ALLOCATE(matrix_c)
-         ALLOCATE(matrix_d)
-         ALLOCATE(matrix_e)
-         ALLOCATE(donor_state%metric(2))
-         CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, qs_env)
-         IF (do_hfx) THEN
-            CALL build_kernel_exchange(matrix_d, matrix_e, submat_dist, submat_blk_size, &
-                                       donor_state, xas_tdp_env, qs_env)
-         END IF
-         CALL build_metric(donor_state%metric, submat_dist, submat_blk_size, donor_state, qs_env, do_inv=.TRUE.)       
+         IF (do_sg) THEN ! full-TDDFT singlets
 
-!     Build the auxiliary matrix (A-D+E)^0.5
-         CALL dbcsr_copy(tmp_mat, matrix_a)
-         IF (do_hfx) THEN
-            CALL dbcsr_add(tmp_mat, matrix_d, 1.0_dp, -1.0_dp*sx) !scaled hfx
-            CALL dbcsr_add(tmp_mat, matrix_e, 1.0_dp, 1.0_dp*sx)
-         END IF
-
-!     Take the product with the Q projector
-         CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q, tmp_mat, 0.0_dp, work)
-         CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q, 0.0_dp, tmp_mat)
-         
-!     Warn the user if the matrix is not positive semi-definite and the procedure not sound
-         threshold = 1.0E-8_dp ! kind of arbitrary TODO: should we ask the user for that ?
-         ALLOCATE (matrices(1))
-         matrices(1)%matrix => tmp_mat
-         CALL setup_arnoldi_data(my_arnoldi, matrices, max_iter=200, threshold=threshold, selection_crit=3, &
-                                 nval_request=1, nrestarts=30, generalized_ev=.FALSE., iram=.FALSE.)
-         CALL arnoldi_ev(matrices, my_arnoldi)
-         min_ev = REAL(get_selected_ritz_val(my_arnoldi, 1), dp)
-         IF (min_ev < 0.0_dp .AND. ABS(min_ev) > threshold) THEN
-            CPWARN("The full TDDFT problem might not have been soundly turned Hermitian. Try TDA.")
-         END IF
-
-         ALLOCATE(donor_state%matrix_aux(2))
-         ALLOCATE(donor_state%matrix_aux(1)%matrix, donor_state%matrix_aux(2)%matrix)
-         CALL dbcsr_create(matrix=donor_state%matrix_aux(1)%matrix, matrix_type="S", dist=submat_dist, &
-                           row_blk_size=submat_blk_size, col_blk_size=submat_blk_size, name="MAT_AUX 1")
-         CALL dbcsr_create(matrix=donor_state%matrix_aux(2)%matrix, matrix_type="S", dist=submat_dist, &
-                           row_blk_size=submat_blk_size, col_blk_size=submat_blk_size, name="MAT_AUX 2")
-                        
-         ! at this point, might have tiny negative eigenvalues < threshold. To make sure it works,
-         ! add threshold on the diag so that no more negative eV
-         CALL dbcsr_add_on_diag(tmp_mat, threshold)
-
-         CALL matrix_sqrt_Newton_Schulz(donor_state%matrix_aux(1)%matrix, donor_state%matrix_aux(2)%matrix,&
-                                        tmp_mat, threshold=1.0E-10_dp, order=3, eps_lanczos=1.0E-8_dp, &
-                                        max_iter_lanczos=500, converged=conv)
-         CPASSERT(conv)
-         CALL deallocate_arnoldi_data(my_arnoldi)
-         DEALLOCATE (matrices)
-
-!     Create the main matrix_tdp as:
-!     M = (A-D+E)^0.5 * G^-1 * (A+4B+2C-E-D) * G^-1 * (A-D+E)^0.5
-!     Only pass the middle sum as matrix_tdp, the product is done in the solve routine
-
-         IF (xas_tdp_control%do_singlet) THEN
-            CALL dbcsr_create(matrix=sg_matrix_tdp, name="SINGLET XAS TDP MATRIX",matrix_type="S", &
-                              dist=submat_dist, row_blk_size=submat_blk_size, &
-                              col_blk_size=submat_blk_size) 
-            CALL build_kernel_coulomb(matrix_b, submat_dist, submat_blk_size, donor_state, &
-                                      xas_tdp_env, qs_env)
-
-            CALL dbcsr_copy(sg_matrix_tdp, matrix_a)
+            ! The final matrix is the sum of the on- and off-diagonal elements as in the description
+            ! M = A + 4B + 2(C_aa + C_ab) - D - E 
+            CALL dbcsr_copy(sg_matrix_tdp, matrix_a, name="SINGLET MATRIX TDP")
             CALL dbcsr_add(sg_matrix_tdp, matrix_b, 1.0_dp, 4.0_dp)
-            IF (do_hfx) THEN
-               CALL dbcsr_add(sg_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx) !scaled hfx
+
+            IF (do_hfx) THEN !scaled hfx
+               CALL dbcsr_add(sg_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx)
                CALL dbcsr_add(sg_matrix_tdp, matrix_e, 1.0_dp, -1.0_dp*sx)
-            END IF !HFX
-            IF (do_xc) THEN
-               CALL build_kernel_xc(matrix_c, submat_dist, submat_blk_size, &
-                                    donor_state, xas_tdp_env, qs_env, singlet=.TRUE.)
-               CALL dbcsr_add(sg_matrix_tdp, matrix_c, 1.0_dp, 2.0_dp)
+            END IF
+            IF (do_xc) THEN !xc kernel
+               CALL dbcsr_add(sg_matrix_tdp, matrix_c_sg, 1.0_dp, 2.0_dp)
             END IF
 
             ! Take the product with the Q projector
             CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q, sg_matrix_tdp, 0.0_dp, work)
             CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q, 0.0_dp, sg_matrix_tdp)
 
-         END IF ! singlet
+         END IF ! singlets
+         
+         IF (do_tp) THEN ! full-TDDFT triplets
 
-         IF (xas_tdp_control%do_triplet) THEN
-            CALL dbcsr_create(matrix=tp_matrix_tdp, name="TRIPLET XAS TDP MATRIX",matrix_type="S", & 
-                              dist=submat_dist, row_blk_size=submat_blk_size, &
-                              col_blk_size=submat_blk_size) 
+            ! The final matrix is the sum of the on- and off-diagonal elements as in the description
+            ! M = A + 2(C_aa - C_ab) - D - E
+            CALL dbcsr_copy(tp_matrix_tdp, matrix_a, name="TRIPLET MATRIX TDP")
 
-            CALL dbcsr_copy(tp_matrix_tdp, matrix_a)
-            IF (do_hfx) THEN
-               CALL dbcsr_add(tp_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx) !scaled hfx
+            IF (do_hfx) THEN !scaled hfx
+               CALL dbcsr_add(tp_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx)
                CALL dbcsr_add(tp_matrix_tdp, matrix_e, 1.0_dp, -1.0_dp*sx)
-            END IF !HFX
-            IF (do_xc) THEN
-               CALL build_kernel_xc(matrix_c, submat_dist, submat_blk_size, &
-                               donor_state, xas_tdp_env, qs_env, singlet=.FALSE.)
-               CALL dbcsr_add(tp_matrix_tdp, matrix_c, 1.0_dp, 2.0_dp)
             END IF
-            
+            IF (do_xc) THEN
+               CALL dbcsr_add(tp_matrix_tdp, matrix_c_tp, 1.0_dp, 2.0_dp)
+            END IF
+
             ! Take the product with the Q projector
             CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q, tp_matrix_tdp, 0.0_dp, work)
             CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q, 0.0_dp, tp_matrix_tdp)
 
-         END IF !triplet
+         END IF ! triplets
 
-!     Some clean-up
-         CALL dbcsr_release(matrix_a)
-         CALL dbcsr_release(matrix_b)
-         CALL dbcsr_release(matrix_c)
-         CALL dbcsr_release(matrix_d)
-         CALL dbcsr_release(matrix_e)
-         CALL dbcsr_release(tmp_mat)
-         DEALLOCATE(matrix_a, matrix_b, matrix_c, matrix_d, matrix_e, tmp_mat)
+      END IF ! test on TDA
 
-      END IF ! Tamm_Dancoff
-
-!  Finalize
-      IF (xas_tdp_control%do_singlet) CALL dbcsr_finalize(sg_matrix_tdp)
-      IF (xas_tdp_control%do_triplet) CALL dbcsr_finalize(tp_matrix_tdp)
-
-!  General Clean-up
+!  Clean-up
+      CALL dbcsr_release(matrix_a)
+      CALL dbcsr_release(matrix_b)
+      CALL dbcsr_release(matrix_c_sg)
+      CALL dbcsr_release(matrix_c_tp)
+      CALL dbcsr_release(matrix_d)
+      CALL dbcsr_release(matrix_e)
       CALL dbcsr_release(proj_Q)
       CALL dbcsr_release(work)
       CALL dbcsr_distribution_release(submat_dist)
-      DEALLOCATE(submat_dist, submat_blk_size, proj_Q, work)
+      DEALLOCATE(matrix_a, matrix_b, matrix_c_sg, matrix_c_tp, matrix_d, matrix_e, proj_Q, work)
+      DEALLOCATE(submat_dist, submat_blk_size)
 
       CALL timestop(handle)
 
@@ -702,98 +648,6 @@ CONTAINS
       CALL cp_fm_struct_release(norm_struct)
 
    END SUBROUTINE get_normal_scaling
-
-
-! **************************************************************************************************
-!> \brief Computes the oscillator strength based on the dipole moment (velocity or length rep) for
-!>        all available excitation energies and store the results in the donor_state. There is no
-!>        triplet dipole in the spin-restricted ground state
-!> \param donor_state the donor state which is excited
-!> \param xas_tdp_control ...
-!> \param xas_tdp_env ... 
-!> \note The oscillator strength is a scalar: osc_str = 2/3*omega*(dipole_r)^2 = 2/(3*omega)*(dipole_v)^2
-!>       The formulae for the dipoles come from the trace of the dipole operator with the transition
-!>       densities, i.e. what we get from solving the xas_tdp problem. Same procedure with or wo TDA
-! **************************************************************************************************
-   SUBROUTINE compute_dipole_fosc(donor_state, xas_tdp_control, xas_tdp_env)
-
-      TYPE(donor_state_type), POINTER                 :: donor_state
-      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
-      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
-
-      CHARACTER(len=*), PARAMETER :: routineN = "compute_dipole_fosc", &
-                                     routineP = moduleN//":"//routineN
-
-      INTEGER                                         :: nosc, iosc, ndo_mo, j, nao
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: dipmat
-      TYPE(cp_fm_type), POINTER                       :: col_work, mat_work, lr_coeffs
-      TYPE(cp_fm_struct_type), POINTER                :: col_struct, mat_struct
-      REAL(dp), DIMENSION(:), ALLOCATABLE             :: diag
-      TYPE(cp_para_env_type), POINTER                 :: para_env
-      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
-      REAL(dp)                                        :: dip_mom
-      REAL(dp), DIMENSION(:), ALLOCATABLE             :: osc_str
-
-      NULLIFY(dipmat, col_work, mat_work, col_struct, mat_struct, para_env, blacs_env, lr_coeffs)
-
-!  Initialization
-      ndo_mo = SIZE(donor_state%mo_indices)
-      nosc = SIZE(donor_state%sg_evals)
-      ALLOCATE(osc_str(nosc))
-      osc_str = 0.0_dp
-
-      dipmat => xas_tdp_env%dipmat
-      !compute the prefactor
-      IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
-         osc_str(:) = 2.0_dp/3.0_dp*donor_state%sg_evals(:)
-      ELSE
-         osc_str(:) = 2.0_dp/3.0_dp/donor_state%sg_evals(:)
-      END IF
-
-      ! do some work matrix initialization
-      CALL cp_fm_get_info(donor_state%gs_coeffs, matrix_struct=col_struct, para_env=para_env, &
-                          context=blacs_env, nrow_global=nao)
-      CALL cp_fm_struct_create(mat_struct, para_env=para_env, context=blacs_env, &
-                               nrow_global=ndo_mo, ncol_global=ndo_mo)
-      CALL cp_fm_create(col_work, col_struct)
-      CALL cp_fm_create(mat_work, mat_struct)
-      ALLOCATE(diag(ndo_mo))
-    
-!  Looping over the excited singlets
-      DO iosc = 1,nosc
-            
-         dip_mom = 0.0_dp
-         lr_coeffs => donor_state%sg_coeffs(iosc)%matrix
-
-         !looping over the cartesian coordinates
-         DO j = 1,3
-
-            !computing c^0 * dipmat(j) * c^i
-            CALL cp_dbcsr_sm_fm_multiply(dipmat(j)%matrix, lr_coeffs, col_work, ncol=ndo_mo)
-            CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, donor_state%gs_coeffs, &
-                            col_work, 0.0_dp, mat_work)
-
-            !get the sum of the dipole moments. Factor 2 because of definition of singlet
-            CALL cp_fm_get_diag(mat_work, diag)
-            dip_mom = dip_mom + 2.0_dp*SUM(diag)**2
-
-         END DO !j
-            
-         !Taking the excitation energy into account
-         osc_str(iosc) = osc_str(iosc)*dip_mom
-
-      END DO !iosc
-
-!  Saving the results in the donor state
-      donor_state%sg_osc_str(:) = osc_str 
-
-      !clean-up
-      CALL cp_fm_release(mat_work)
-      CALL cp_fm_release(col_work)
-      CALL cp_fm_struct_release(mat_struct)
-      DEALLOCATE(diag)
-
-   END SUBROUTINE compute_dipole_fosc
 
 ! **************************************************************************************************
 !> \breif This subroutine computes the row/column block structure as well as the dbcsr ditrinution
@@ -1219,14 +1073,91 @@ CONTAINS
       
    END SUBROUTINE build_metric
 
-! **************************************************************************************************!
-!> \brief Computes the two-center Coulomb integral needed for the RI in kernel calculation. Given
-!>        the excited kind indices, returns the (for now) cp_fm (P|Q)^-1 for the RI basis P,Q
-!> \param ex_kinds the indices of the excited kinds
-!> \param nao the number of AOs
+! **************************************************************************************************
+! \brief Builds the auxiliary matricies (A-D+E)^(+-0.5) needed for the transofrmation of the
+!>       full-TDDFT problem into an Hermitian one
+!> \param threshold a threshold for allowed negative eigenvalues
+!> \param sx the amount of exact exchange
+!> \param matrix_a the ground state contribution matrix A
+!> \param matrix_d the on-diagonal exchange kernel matrix (ab|IJ)
+!> \param matrix_e the off-diagonal exchange kernel matrix (aJ|Ib)
+!> \param do_hfx if exact exchange is included
+!> \param proj_Q ...
+!> \param work ...
+!> \param donor_state ...
+! **************************************************************************************************
+   SUBROUTINE build_aux_matrices(threshold, sx, matrix_a, matrix_d, matrix_e, do_hfx, proj_Q, &
+                                  work, donor_state)
+
+      REAL(dp), INTENT(IN)                            :: threshold, sx
+      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_d, matrix_e, proj_Q, work
+      LOGICAL, INTENT(IN)                             :: do_hfx
+      TYPE(donor_state_type), POINTER                 :: donor_state
+
+      CHARACTER(len=*), PARAMETER :: routineN = "build_aux_matrices", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: handle
+      REAL(dp)                                        :: min_ev
+      LOGICAL                                         :: conv
+      TYPE(dbcsr_type), POINTER                       :: tmp_mat
+      TYPE(arnoldi_data_type)                         :: my_arnoldi
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrices
+
+      NULLIFY(tmp_mat, matrices)
+
+      CALL timeset(routineN, handle)
+
+      ALLOCATE(tmp_mat)
+      CALL dbcsr_copy(tmp_mat, matrix_a)
+      IF (do_hfx) THEN
+         CALL dbcsr_add(tmp_mat, matrix_d, 1.0_dp, -1.0_dp*sx) !scaled hfx
+         CALL dbcsr_add(tmp_mat, matrix_e, 1.0_dp, 1.0_dp*sx)
+      END IF
+
+      ! Take the product with the Q projector:
+      CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q, tmp_mat, 0.0_dp, work)
+      CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q, 0.0_dp, tmp_mat)
+
+      ! Test that the matrix (A-D+E) is positive semi-definite => warn user if not
+      ALLOCATE (matrices(1))
+      matrices(1)%matrix => tmp_mat
+      CALL setup_arnoldi_data(my_arnoldi, matrices, max_iter=200, threshold=threshold, selection_crit=3, &
+                              nval_request=1, nrestarts=30, generalized_ev=.FALSE., iram=.FALSE.)
+      CALL arnoldi_ev(matrices, my_arnoldi)
+      min_ev = REAL(get_selected_ritz_val(my_arnoldi, 1), dp)
+      IF (min_ev < 0.0_dp .AND. ABS(min_ev) > threshold) THEN
+         CPWARN("The full TDDFT problem might not have been soundly turned Hermitian. Try TDA.")
+      END IF
+
+      ! Actually computing and storing the auxiliary matrices
+      ALLOCATE(donor_state%matrix_aux(2))
+      ALLOCATE(donor_state%matrix_aux(1)%matrix, donor_state%matrix_aux(2)%matrix)
+      CALL dbcsr_create(matrix=donor_state%matrix_aux(1)%matrix, template=matrix_a, name="MAT AUX 1")
+      CALL dbcsr_create(matrix=donor_state%matrix_aux(2)%matrix, template=matrix_a, name="MAT AUX 2")
+
+      ! Could be tiny negative ev < threshold => shift spectrum by threshold to make sure it works
+      CALL dbcsr_add_on_diag(tmp_mat, threshold)
+
+      CALL matrix_sqrt_Newton_Schulz(donor_state%matrix_aux(1)%matrix, donor_state%matrix_aux(2)%matrix,&
+                                     tmp_mat, threshold=1.0E-10_dp, order=3, eps_lanczos=1.0E-8_dp, &
+                                     max_iter_lanczos=500, converged=conv)
+      CPASSERT(conv)
+
+      ! clean-up
+      CALL deallocate_arnoldi_data(my_arnoldi)
+      CALL dbcsr_release(tmp_mat)
+      DEALLOCATE (matrices, tmp_mat)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE build_aux_matrices
+
+! **************************************************************************************************
+!> \brief Computes the two-center Coulomb integral needed for the RI in kernel calculation. Stores
+!>        the integrals (P|Q)^-1 in the xas_tdp_env as global (small) arrays
 !> \param xas_tdp_env ...
 !> \param qs_env ...
-!> \note Stores  (P|Q)^-1 in the xas_tdp_env, use the OS scheme
 ! **************************************************************************************************
    SUBROUTINE compute_ri_coulomb2_int(xas_tdp_env, qs_env)
 
@@ -1236,23 +1167,23 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "compute_ri_coulomb2_int", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: ikind, i, nsgf
+      INTEGER                                         :: ikind, nsgf, nkind
       TYPE(gto_basis_set_type), POINTER               :: ri_basis
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set        
       INTEGER, DIMENSION(:), POINTER                  :: ex_kinds
       REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: tmp_int
 
       NULLIFY(ri_basis, qs_kind_set)
-      CPASSERT(ASSOCIATED(xas_tdp_env))
 
 !  Initialization
-      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set)
+      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, nkind=nkind)
       ex_kinds => xas_tdp_env%ex_kind_indices
-      ALLOCATE(xas_tdp_env%ri_inv_mats(SIZE(ex_kinds)))
+      ALLOCATE(xas_tdp_env%ri_inv_mats(nkind))
 
 !  Loop over the excited kinds
-      DO i = 1,SIZE(ex_kinds)
-         ikind = ex_kinds(i) 
+      DO ikind = 1,nkind
+         
+         IF (.NOT. ANY(ex_kinds == ikind)) CYCLE
 
 !        Get the RI basis of interest and its quantum numbers
          CALL get_qs_kind(qs_kind_set(ikind), basis_set=ri_basis, basis_type="RI_XAS")
@@ -1269,8 +1200,8 @@ CONTAINS
 !        Inverting and storing in the xas_tdp_env
          CALL invmat_symm(tmp_int)  
 
-         ALLOCATE(xas_tdp_env%ri_inv_mats(i)%array(nsgf,nsgf))
-         xas_tdp_env%ri_inv_mats(i)%array(:,:) = tmp_int(:,:)
+         ALLOCATE(xas_tdp_env%ri_inv_mats(ikind)%array(nsgf,nsgf))
+         xas_tdp_env%ri_inv_mats(ikind)%array(:,:) = tmp_int(:,:)
 
 !        clean-up before next kind
          DEALLOCATE(tmp_int)
@@ -1280,663 +1211,831 @@ CONTAINS
    END SUBROUTINE compute_ri_coulomb2_int
 
 ! **************************************************************************************************
-!> \brief Computes the three-centers Coulomb integrals needed for RI in kernel calculations and 
-!>        stores it as 3D arrays. Computes the integrals (ab|P), where a,b are overlaping atomic
-!>        basis set and P is the RI basis centered on the given excited atom. The first dimension
-!>        of the returned array corresponds to sgf a, the second to sgf b and the third to sgf P.
-!>        Keep the result in xas_tdp_env as the integrals for the current excited atom
-!> \param exat_index the index of the excited atom, on which the RI basis P is centered
-!> \para, exat_kind the kind of the excited atom, to get the RI basis
-!> \param xas_tdp_env the xas_tdp_Env to update with the 3-center Coulomb integrals
-!> \param qs_env ...
-!> \note Currently creates a 3D array, will later switch to DBCSR tensors (TODO). Will be used for 
-!>       the Coulomb kernel after contraction (aI|P) = sum_b C_b (ab|P) and possibly for the exchange
-!>       part too (if non-PBCs and coulomb operator requested). TODO: if exchange operator is not
-!>       coulomb, screen the integrals to only compute (ab|P) where C_b is non-zero
-! **************************************************************************************************
-   SUBROUTINE compute_ri_coulomb3_int(exat_index, exat_kind, xas_tdp_env, qs_env)
-
-      INTEGER, INTENT(IN)                             :: exat_index, exat_kind
-      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
-      TYPE(qs_environment_type), POINTER              :: qs_env
-
-      CHARACTER(len=*), PARAMETER :: routineN = 'compute_ri_coulomb3_int', &
-                                     routineP = moduleN//':'//routineN
-
-      INTEGER                                         :: nsetp, nsetb, natom, &
-                                                         nao, nseta, bat, aset, bset, pset, &
-                                                         sgfa, sgfp, sgfb, aat, akind, bkind, & 
-                                                         nkind, igp, i, ncoa, ncob, ncop, ipgf, &
-                                                         startp, endp
-      REAL(dp)                                        :: rab2, rap2, rbp2, rpgfp
-      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
-      TYPE(gto_basis_set_p_type), DIMENSION(:), &
-                                             POINTER  :: basis_set_list
-      TYPE(gto_basis_set_type), POINTER               :: p_basis, b_basis, a_basis
-      INTEGER, DIMENSION(:), POINTER                  :: lp_max, lp_min, npgfp, lb_max,lb_min,&
-                                                         npgfb, la_max, la_min, npgfa, nsgfa, &
-                                                         nsgfb, nsgfp
-      INTEGER, DIMENSION(:,:), POINTER                :: first_sgfa, first_sgfb, first_sgfp
-      REAL(dp), DIMENSION(:,:), POINTER               :: zetp, zetb, zeta, &
-                                                         sphi_p, sphi_a, sphi_b
-      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
-      TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos 
-      REAL(dp), DIMENSION(:,:,:), ALLOCATABLE         :: int_abp_set, int_array, int_abp
-      REAL(dp), DIMENSION(3)                          :: ra, rb, rp, rab
-      INTEGER, DIMENSION(:), ALLOCATABLE              :: first_sgf_set
-      TYPE(neighbor_list_set_p_type), DIMENSION(:), & 
-                                          POINTER     :: sab_orb
-      TYPE(neighbor_list_iterator_p_type), &                                                         
-                            DIMENSION(:), POINTER     :: nl_iterator   
-      TYPE(cell_type), POINTER                        :: cell
-      TYPE(cp_para_env_type), POINTER                 :: para_env
-      REAL(dp), DIMENSION(:), ALLOCATABLE             :: gccc, f, rpgfa, rpgfb
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: vabc
-      REAL(dp), DIMENSION(:,:,:,:), ALLOCATABLE       :: v
-
-      NULLIFY(qs_kind_set, p_basis, b_basis, a_basis, particle_set, mos)
-      NULLIFY(lp_max, lp_min, npgfp, zetp, sphi_p, first_sgfp)
-      NULLIFY(lb_max, lb_min, npgfb, zetb, sphi_b, first_sgfb)
-      NULLIFY(la_max, la_min, npgfa, zeta, sphi_a, first_sgfa)
-      NULLIFY(sab_orb, nl_iterator, cell, basis_set_list, para_env)
-
-!  Get all we need from the qs_env
-      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, particle_set=particle_set, mos=mos, &
-                      sab_orb=sab_orb, cell=cell, natom=natom, para_env=para_env)
-      CALL get_mo_set(mos(1)%mo_set, nao=nao)
-      ALLOCATE(first_sgf_set(natom))
-      CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf_set)
-
-!  Retrieve the basis set P centered on the excited atom
-      CALL get_qs_kind(qs_kind_set(exat_kind), basis_set=p_basis, basis_type="RI_XAS")
-
-      CALL get_gto_basis_set(p_basis, lmax=lp_max, npgf=npgfp, zet=zetp, lmin=lp_min, nset=nsetp, &
-                             nsgf_set=nsgfp, sphi=sphi_p, first_sgf=first_sgfp) 
-
-!  Allocate the 3D array where results will be stored
-      ALLOCATE(int_array(nao, nao, SUM(nsgfp)))
-      int_array = 0.0_dp
-
-!  Create lists of basis for atoms a and b
-      nkind = SIZE(qs_kind_set)
-      ALLOCATE(basis_set_list(nkind))
-      CALL basis_set_list_setup(basis_set_list, "ORB", qs_kind_set)
-
-      !        TODO: do that with arnoldi geeig !!!
-!  TODO: be very carfeul when enabeling PBCs
-!  Loop over all neighbouring atoms a,b and compute (ab|P)
-      CALL neighbor_list_iterator_create(nl_iterator, sab_orb)
-      DO WHILE (neighbor_list_iterate(nl_iterator) == 0)
-         CALL get_iterator_info(nl_iterator, ikind=akind, jkind=bkind, iatom=aat, jatom=bat, r=rab)
-
-!        Retrieve the basis sets for a and b
-         a_basis => basis_set_list(akind)%gto_basis_set
-         b_basis => basis_set_list(bkind)%gto_basis_set
-         
-!        Retrieve the quantum numbers for both basis sets
-         CALL get_gto_basis_set(a_basis, lmax=la_max, npgf=npgfa, zet=zeta, lmin=la_min, &
-                                nset=nseta, nsgf_set=nsgfa, sphi=sphi_a, first_sgf=first_sgfa)   
-         CALL get_gto_basis_set(b_basis, lmax=lb_max, npgf=npgfb, zet=zetb, lmin=lb_min, &
-                                nset=nsetb, nsgf_set=nsgfb, sphi=sphi_b, first_sgf=first_sgfb)         
-
-!        Get the different positions/distances
-         ra = pbc(particle_set(aat)%r, cell) 
-         rb = pbc(particle_set(bat)%r, cell)         
-         rp = pbc(particle_set(exat_index)%r, cell)
-         rab2 = DOT_PRODUCT(rb-ra,rb-ra)
-         rap2 = DOT_PRODUCT(rp-ra,rp-ra)
-         rbp2 = DOT_PRODUCT(rp-rb,rp-rb) 
-
-!        Loop over sets of the 3 basis
-         DO aset = 1,nseta
-            DO bset = 1,nsetb
-               DO pset = 1,nsetp
-
-!                 Some initialization
-                  sgfa = first_sgfa(1, aset) 
-                  sgfb = first_sgfb(1, bset)
-                  sgfp = first_sgfp(1, pset)   
-                  ncoa = npgfa(aset)*ncoset(la_max(aset))
-                  ncob = npgfb(bset)*ncoset(lb_max(bset))
-                  ncop = npgfp(pset)*ncoset(lp_max(pset))
-
-!                 Allocate array for the current comnbination of sets
-                  ALLOCATE(int_abp_set(nsgfa(aset), nsgfb(bset), nsgfp(pset)))
-                  int_abp_set = 0.0_dp
-
-!                 Allocate some work arrays
-                  ALLOCATE(f(0:la_max(aset)+lb_max(bset)+lp_max(pset)+2))
-                  ALLOCATE(v(ncoa, ncob, ncop, la_max(aset)+lb_max(bset)+lp_max(pset)+1))
-                  ALLOCATE(gccc(ncop))
-                  ALLOCATE(vabc(ncoa, ncob))
-                  ALLOCATE(int_abp(ncoa, ncob, ncop))
-                  f = 0.0_dp
-                  v = 0.0_dp
-                  gccc = 0.0_dp
-                  vabc = 0.0_dp
-                  int_abp = 0.0_dp
-
-!                 hack: set the rpgf to avoid screening out
-                  ALLOCATE(rpgfa(npgfa(aset)))
-                  ALLOCATE(rpgfb(npgfb(bset)))
-                  rpgfa = 1.0E10_dp
-                  rpgfb = 1.0E10_dp
-                  rpgfp = 1.0E10_dp
-
-!                 Go one pgf at a time because of how coulomb3 is designed
-                  endp = 0
-                  DO ipgf = 1, npgfp(pset)
-                     startp = endp + ncoset(lp_min(pset)-1) + 1
-                     endp = endp + ncoset(lp_max(pset))
-                     CALL coulomb3(la_max(aset), npgfa(aset), zeta(:,aset), rpgfa(:), la_min(aset), &
-                                   lb_max(bset), npgfb(bset), zetb(:,bset), rpgfb(:), lb_min(bset), &
-                                   lp_max(pset), zetp(ipgf,pset), rpgfp, lp_min(pset), gccc, &
-                                   rb-ra, rab2, rp-ra, rap2, rbp2, vabc, &
-                                   int_abp(:,:,startp:endp), v, f)
-                  END DO !ipgf
-
-!                 Contract into sgf
-                  CALL abc_contract(int_abp_set, int_abp, sphi_a(:,sgfa:), sphi_b(:,sgfb:), &
-                                    sphi_p(:,sgfp:), ncoa, ncob, ncop, nsgfa(aset), nsgfb(bset), &
-                                    nsgfp(pset)) 
-
-!                 Put it at the right place in the final array
-                  int_array(first_sgf_set(aat)+sgfa-1:first_sgf_set(aat)+sgfa+nsgfa(aset)-2, &
-                            first_sgf_set(bat)+sgfb-1:first_sgf_set(bat)+sgfb+nsgfb(bset)-2, &
-                            sgfp:sgfp+nsgfp(pset)-1) = int_abp_set
-
-!                 In the neighbor list iterator, only get a,b pair once. But (ab|P) = (ba|P) 
-                  DO i = 1,nsgfp(pset)
-                     igp = sgfp -1 +i
-                     int_array(first_sgf_set(bat)+sgfb-1:first_sgf_set(bat)+sgfb+nsgfb(bset)-2, &
-                               first_sgf_set(aat)+sgfa-1:first_sgf_set(aat)+sgfa+nsgfa(aset)-2, &       
-                               igp) = TRANSPOSE(int_abp_set(:,:,i))
-                  END DO
-
-!                 Deallocate before next loop
-                  DEALLOCATE(int_abp_set, int_abp, f, v, gccc, vabc, rpgfa, rpgfb)
-
-               END DO ! pset
-            END DO ! bset
-         END DO !aset
-
-      END DO !neighbor iteration on a,b
-      CALL neighbor_list_iterator_release(nl_iterator)
-
-!  Updating the xas_tdp_env with the new integrals
-      IF (ASSOCIATED(xas_tdp_env%ri_coul3)) DEALLOCATE(xas_tdp_env%ri_coul3)
-      ALLOCATE(xas_tdp_env%ri_coul3(nao, nao, SUM(nsgfp)))
-      xas_tdp_env%ri_coul3 = int_array
-
-!  Clean-up
-      DEALLOCATE(basis_set_list)
-
-   END SUBROUTINE compute_ri_coulomb3_int
-
-! **************************************************************************************************
-!> \brief Contracts the RI coulomb 3 integrals with the groud state coefficients to get (aI|P) for 
-!>        coulomb kernel or (IJ|P) for the exchange. For now, returns an array. TODO: switch to
-!>        dbcsr tensors
-!> \param contr_int the array containing the contracted integrals 
-!> \param domo_index the indices of the donor MOs for which we contract
+!> \brief Computes the RI Coulomb 3-center integrals (ab|c), where c is from the RI_XAS basis and
+!>        centered on the given excited atom
+!> \param ex_atom the excited atom on which the third center is
+!> \param ex_kind the kind of the excited atom
 !> \param xas_tdp_env ...
 !> \param qs_env ...
-!> \note Currently working with array in a serial manner. Will be improved with the switch to tensors
-!>       Will also change: call to the gs_coeffs
+!> \note  The ri_o3c_coul member of xas_tdp_env is defined and allocated here
 ! **************************************************************************************************
-   SUBROUTINE contract_int_kernel(contr_int, domo_index, xas_tdp_env, qs_env)
-      
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: contr_int
-      INTEGER, DIMENSION(:)                           :: domo_index
+   SUBROUTINE compute_ri_o3c_coulomb(ex_atom, ex_kind, xas_tdp_env, qs_env)
+
+      INTEGER, INTENT(IN)                             :: ex_atom
+      INTEGER, INTENT(IN)                             :: ex_kind
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(qs_environment_type), POINTER              :: qs_env
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'contract_int_kernel', &
+      CHARACTER(len=*), PARAMETER :: routineN = "compute_ri_o3c_coulomb", &
                                      routineP = moduleN//":"//routineN
 
-      LOGICAL                                         :: contract_two
-      INTEGER                                         :: nao, nsgfp, i
-      TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
-      TYPE(cp_fm_type), POINTER                       :: mo_coeff 
-      REAL(dp), DIMENSION(:,:,:), POINTER             :: integrals
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: contr_once, contr_twice, coeffs
+      INTEGER                                         :: handle, nkind, ilist
+      TYPE(gto_basis_set_p_type), DIMENSION(:), &
+                                             POINTER  :: basis_set_ri, basis_set_orb
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), &
+                                             POINTER  :: ac_list, sab_orb
+      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: exat, exki
 
-      NULLIFY(mos, mo_coeff, integrals)
+      NULLIFY(basis_set_ri, basis_set_orb, ac_list, sab_orb, qs_kind_set)
 
-!  Check whther to contract on 1 or 2 donor MOs
-      IF (SIZE(domo_index) == 1) THEN
-         contract_two = .FALSE.
-      ELSE IF (SIZE(domo_index) == 2) THEN
-         contract_two = .TRUE.
-      ELSE
-         CPABORT("Cannot contract integrals for more than two donor MOs")
+      CALL timeset(routineN, handle)
+
+!  Release the previous o3c centered on another atom
+      IF (ASSOCIATED(xas_tdp_env%ri_o3c_coul)) THEN
+         CALL release_o3c_container(xas_tdp_env%ri_o3c_coul) 
+         DEALLOCATE(xas_tdp_env%ri_o3c_coul)
       END IF
 
+!  Take what we need from the qs_env
+      CALL get_qs_env(qs_env, nkind=nkind, sab_orb=sab_orb, qs_kind_set=qs_kind_set)
+
+!  Build the basis set lists
+      ALLOCATE(basis_set_ri(nkind))
+      ALLOCATE(basis_set_orb(nkind))
+      CALL basis_set_list_setup(basis_set_ri, "RI_XAS", qs_kind_set)
+      CALL basis_set_list_setup(basis_set_orb, "ORB", qs_kind_set)
+
+!  Build a neighbor list for the ac centers. Since we later contract as (aI|c) and we assume I is 
+!  very localized on the same atom as c, we take a,c as neighbors if they overlap => the effective
+!  range is then second nearest neightbors (relatively weak assumption)
+      ALLOCATE(exat(1), exki(1))
+      exat(1) = ex_atom; exki(1) = ex_kind;
+      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "OVERLAP", &
+                               exat, exki, qs_env)
+
+!  Allocate, init and compute the integrals
+      ALLOCATE(xas_tdp_env%ri_o3c_coul)
+      CALL init_o3c_container(xas_tdp_env%ri_o3c_coul, 1, basis_set_orb, basis_set_orb, &
+                              basis_set_ri, sab_orb, ac_list)
+      CALL calculate_o3c_coulomb_integrals(xas_tdp_env%ri_o3c_coul)
+
+! Clean-up
+      DO ilist = 1,SIZE(ac_list)
+         CALL deallocate_neighbor_list_set(ac_list(ilist)%neighbor_list_set)
+      END DO
+      DEALLOCATE(basis_set_ri, basis_set_orb, ac_list)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE compute_ri_o3c_coulomb
+
+! **************************************************************************************************
+!> \brief Computes the RI exchange 3-center integrals (ab|c), where c is from the RI_XAS basis and
+!>        centered on the given excited atom and kind
+!> \param ex_atom the excited atom on which the third center is
+!> \param ex_kind the kind of the excited atom
+!> \param xas_tdp_env ...
+!> \param qs_env ...
+!> \note  The ri_o3c_ex member of xas_tdp_env is defined and allocated here
+! **************************************************************************************************
+   SUBROUTINE compute_ri_o3c_exchange(ex_atom, ex_kind, xas_tdp_env, qs_env)
+
+      INTEGER, INTENT(IN)                             :: ex_atom
+      INTEGER, INTENT(IN)                             :: ex_kind
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "compute_ri_o3c_exchange", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: handle, nkind, ilist
+      TYPE(gto_basis_set_p_type), DIMENSION(:), &
+                                             POINTER  :: basis_set_ri, basis_set_orb
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), &
+                                             POINTER  :: ac_list, sab_orb
+      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: exat, exki
+
+      NULLIFY(basis_set_ri, basis_set_orb, ac_list, sab_orb, qs_kind_set)
+
+      CALL timeset(routineN, handle)
+
+!  Release the previous o3c centered on another atom
+      IF (ASSOCIATED(xas_tdp_env%ri_o3c_ex)) THEN
+         CALL release_o3c_container(xas_tdp_env%ri_o3c_ex)
+         DEALLOCATE(xas_tdp_env%ri_o3c_ex)
+      END IF
+
+!  Take what we need from the qs_env
+      CALL get_qs_env(qs_env, nkind=nkind, sab_orb=sab_orb, qs_kind_set=qs_kind_set)
+
+!  Build the basis set lists
+      ALLOCATE(basis_set_ri(nkind))
+      ALLOCATE(basis_set_orb(nkind))
+      CALL basis_set_list_setup(basis_set_ri, "RI_XAS", qs_kind_set)
+      CALL basis_set_list_setup(basis_set_orb, "ORB", qs_kind_set)
+
+!  Build a neighbor list for the ac centers. Currently only coulomb operator (with "inifinte" range)
+      ALLOCATE(exat(1), exki(1))
+      exat(1) = ex_atom; exki(1) = ex_kind;
+      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "COULOMB", &
+                               exat, exki, qs_env)
+
+!  Allocate, init and compute the integrals
+      ALLOCATE(xas_tdp_env%ri_o3c_ex)
+      CALL init_o3c_container(xas_tdp_env%ri_o3c_ex, 1, basis_set_orb, basis_set_orb, &
+                              basis_set_ri, sab_orb, ac_list)
+      CALL calculate_o3c_coulomb_integrals(xas_tdp_env%ri_o3c_ex)
+
+! Clean-up
+      DO ilist = 1,SIZE(ac_list)
+         CALL deallocate_neighbor_list_set(ac_list(ilist)%neighbor_list_set)
+      END DO
+      DEALLOCATE(basis_set_ri, basis_set_orb, ac_list)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE compute_ri_o3c_exchange
+
+! **************************************************************************************************
+!> \brief Contract the ri 3-center integrals contained in o3c with repect to the donor MOs coeffs, 
+!>        for a given excited atom k => (aI|k) = sum_b c_Ib (ab|k)
+!> \param contr_int the contracted integrals as array of dbcsr matrices
+!> \param op_type for which operator type we contract (COULOMB or EXCHANGE)
+!> \param donor_state ...
+!> \param qs_env ...
+! **************************************************************************************************
+   SUBROUTINE contract_o3c_int(contr_int, op_type, donor_state, xas_tdp_env, qs_env)
+
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: contr_int
+      CHARACTER(len=*), INTENT(IN)                    :: op_type
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "contract_o3c_int", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: handle, natom, ndo_mo, imo, nsgfk, kkind, &
+                                                         katom, ub, lb, sr, er, iat, i
+      INTEGER, DIMENSION(:), POINTER                  :: col_blk_size, row_blk_size
+      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
+      TYPE(gto_basis_set_type), POINTER               :: ri_basis
+      TYPE(o3c_vec_type), DIMENSION(:), POINTER       :: o3c_vec
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: nsgf_orb, nzbr, nzbc
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: coeffs
+      REAL(dp), DIMENSION(:), POINTER                 :: v
+      TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
+      TYPE(o3c_container_type), POINTER               :: o3c_coul, o3c_ex
+      CHARACTER                                       :: my_op
+
+      NULLIFY(col_blk_size, qs_kind_set, matrix_s, ri_basis, row_blk_size, v, dbcsr_dist)
+      NULLIFY(o3c_coul, o3c_ex)
+
+      CALL timeset(routineN, handle)
+
 !  Initialization
-      CALL get_qs_env(qs_env, mos=mos)
-      CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao)
-      integrals => xas_tdp_env%ri_coul3
-      nsgfp = SIZE(integrals,3)
-      ALLOCATE(contr_once(nao,nsgfp))
-      contr_once = 0.0_dp
-      IF (contract_two) ALLOCATE(contr_twice(1,nsgfp)) ! not efficient but not there to stay
+      CALL get_qs_env(qs_env, natom=natom, matrix_s=matrix_s, qs_kind_set=qs_kind_set, &
+                      dbcsr_dist=dbcsr_dist)
+      ndo_mo = SIZE(donor_state%mo_indices)
+      kkind = donor_state%kind_index
+      katom = donor_state%at_index
+      !by default contract for Coulomb
+      my_op = "C"
+      o3c_coul => xas_tdp_env%ri_o3c_coul
+      IF (op_type == "EXCHANGE") THEN
+         my_op = "E"
+         CPASSERT(ASSOCIATED(xas_tdp_env%ri_o3c_ex))
+         o3c_ex => xas_tdp_env%ri_o3c_ex
+      END IF
 
-!  Get the MO coeffs for the first contraction
-      ALLOCATE(coeffs(nao,1))
-      CALL cp_fm_get_submatrix(fm=mo_coeff, target_m=coeffs, start_row=1, start_col=domo_index(1), &
-                               n_rows=nao, n_cols=1, transpose=.FALSE.) 
+!  Creating the contr_int matrices
+      CALL dbcsr_get_info(matrix_s(1)%matrix, row_blk_size=row_blk_size)
+      ! getting the block dimensions for the RI basis
+      CALL get_qs_kind(qs_kind_set(kkind), basis_set=ri_basis, basis_type="RI_XAS")
+      CALL get_gto_basis_set(ri_basis, nsgf=nsgfk)
+      ALLOCATE(col_blk_size(natom))
+      col_blk_size = 1
+      col_blk_size(katom) = nsgfk
 
-      DO i = 1,nao
-         CALL daxpy(nao*nsgfp, coeffs(i,1), integrals(:,i,:), 1, contr_once(:,:), 1)
+      ALLOCATE(contr_int(ndo_mo))
+      DO imo = 1, ndo_mo
+         ALLOCATE(contr_int(imo)%matrix)
+         CALL dbcsr_create(contr_int(imo)%matrix, dist=dbcsr_dist, matrix_type="N", name="CONTR RI INT", &
+                           row_blk_size=row_blk_size, col_blk_size=col_blk_size)
       END DO
 
-!  Do the second contraction if requested
-      IF (contract_two) THEN
-         contr_twice = 0.0_dp
-         CALL cp_fm_get_submatrix(fm=mo_coeff, target_m=coeffs, start_row=1, &
-                                  start_col=domo_index(2), n_rows=nao, n_cols=1, transpose=.FALSE.)
+!  Before contraction, need to put the MO coeffs into an o3c_vec. 
+!  Whether we do Coulomb or exchange, MOs are localized as in o3c_coul
+      CALL get_o3c_container(o3c_coul, lbij=lb, ubij=ub)
+      ALLOCATE(nsgf_orb(natom), o3c_vec(natom))
+      nsgf_orb = 1
+      nsgf_orb(lb:ub) = row_blk_size(lb:ub)
+      CALL o3c_vec_create(o3c_vec, nsgf_orb)
 
-         DO i = 1,nao
-            CALL daxpy(nsgfp, coeffs(i,1), contr_once(i,:), 1, contr_twice(1,:), 1)
-         END DO
-      END IF
+   ! Only take the coeffs for atoms that are present in o3c_coul
+      sr = 1; IF (lb > 1) sr = SUM(row_blk_size(1:lb-1))+1
+      er = SUM(row_blk_size(1:ub))
 
-!  Allocate and assign the contr_int array 
-      IF (.NOT. contract_two) THEN
-         ALLOCATE(contr_int(nao,nsgfp))
-         contr_int(:,:) = contr_once(:,:)
-      ELSE
-         ALLOCATE(contr_int(1,nsgfp))
-         contr_int(:,:) = contr_twice(:,:)
-      END IF
+      ALLOCATE(coeffs(er-sr+1,ndo_mo))
+      CALL cp_fm_get_submatrix(fm=donor_state%gs_coeffs, target_m=coeffs, start_row=sr, start_col=1, &
+                               n_rows=er-sr+1, n_cols=ndo_mo)
 
-   END SUBROUTINE contract_int_kernel
-   
+   ! Creating the row/col block ararys to reserve
+      ALLOCATE(nzbr(ub-lb+1), nzbc(ub-lb+1))
+      i = 1
+      DO iat = lb,ub
+         nzbr(i) = iat
+         i = i + 1
+      END DO
+      nzbc = katom
+
+!  Loop over the donor MOs, fill the o3c_vec and contract
+      DO imo = 1, ndo_mo
+
+         DO iat = lb,ub
+            sr = 1; IF(iat > lb) sr = SUM(row_blk_size(lb:iat-1))+1
+            er = SUM(row_blk_size(lb:iat))
+            
+            CALL get_o3c_vec(o3c_vec, iat, v)
+            v(:) = coeffs(sr:er,imo)
+         END DO !iat
+
+         !need to tell dbcsr where the non-zero blocks will be before hand
+         CALL dbcsr_reserve_blocks(contr_int(imo)%matrix, nzbr, nzbc)
+
+         IF (my_op == "C") THEN
+            CALL contract2_o3c(o3c_coul, o3c_vec, contr_int(imo)%matrix)
+         ELSE
+            CALL contract2_o3c(o3c_ex, o3c_vec, contr_int(imo)%matrix)
+         END IF
+
+      END DO !imo
+
+!  Clean-up
+      CALL o3c_vec_release(o3c_vec)
+      DEALLOCATE(o3c_vec, col_blk_size)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE contract_o3c_int
+
 ! **************************************************************************************************
-!> \brief Computes the Coulomb part of the kernel using RI.
-!> \param coulomb_kernel the dbcsr_matrix where the coulomb kernel is stored
-!> \param dist the dbcsr_distribution of the matrix. Same as for matrices A,B or G
-!> \param blk_size the block sizes of the matrix
-!> \param donor_state the donor_state for which we compute the kernel
+!> \brief Computes, if asked for it, the Coulomb and XC kernel matrices, in the usuall matrix format
+!> \param coulomb_kernel pointer the the Coulomb kernel matrix (can be void pointer)
+!> \param xc_kernel_sg pointer the the XC singlet kernel matrix (can be void pointer)
+!> \param xc_kernel_tp pointer the the XC triplet kernel matrix (can be void pointer)
+!> \param do_coulomb whether the coulomb kernel should actually be computed
+!> \param do_xc_sg whether the XC kernel should be computed for singlets
+!> \param do_xc_tp whether the XC kernel should be computed for triplets
+!> \param dist the dbcsr_dist of the kernel matrices
+!> \param blk_size the block size of the kernel matrices
+!> \param donor_state ...
 !> \param xas_tdp_env ...
 !> \param qs_env ...
-!> \note currently coded with arrays and such low level types. TODO: switch to dbcsr tensors
-!>       Everythin is gonna change later on, so don't care about performance
+!> \note Coulomb and xc kernel are put together in the same routine because they use the same RI
+!>       Coulomb: (aI|Jb) = (aI|P) (P|Q)^-1 (Q|Jb)
+!>       XC : (aI|fxc|Jb) = (aI|P) (P|Q)^-1 (Q|fxc|R) (R|S)^-1 (S|Jb)
 ! **************************************************************************************************
-   SUBROUTINE build_kernel_coulomb(coulomb_kernel, dist, blk_size, donor_state, xas_tdp_env, qs_env)
+   SUBROUTINE kernel_coulomb_xc(coulomb_kernel, xc_kernel_sg, xc_kernel_tp, do_coulomb, do_xc_sg, &
+                                do_xc_tp, dist, blk_size, donor_state, xas_tdp_env, qs_env)
 
       TYPE(dbcsr_type), POINTER                       :: coulomb_kernel
-      TYPE(dbcsr_distribution_type), POINTER          :: dist 
-      INTEGER, DIMENSION(:), POINTER                  :: blk_size  
-      TYPE(donor_state_type), POINTER                 :: donor_state 
-      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
-      TYPE(qs_environment_type), POINTER              :: qs_env      
-
-      CHARACTER(len=*), PARAMETER :: routineN = "build_kernel_coulomb", &  
-                                     routineP = moduleN//":"//routineN  
-
-      INTEGER                                         :: handle, ndo_mo, i, j, nsgfp, nao, iblk, &
-                                                         jblk, nblk,  nrow_blk, ncol_blk
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: int_aI, int_bJ, work, aIJb_prod
-      REAL(dp), DIMENSION(:,:), POINTER               :: PQ
-      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set      
-      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
-      INTEGER, DIMENSION(:), ALLOCATABLE              :: first_sgf
-
-      CALL timeset(routineN, handle)
-
-      NULLIFY(PQ, qs_kind_set, particle_set)
-
-!  Initialization
-      ndo_mo = SIZE(donor_state%mo_indices,1)                       
-      CALL get_qs_env(qs_env, natom=nblk, particle_set=particle_set, qs_kind_set=qs_kind_set)
-      ALLOCATE(first_sgf(nblk))
-      CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf)
-
-!     Get the (P|Q)^-1 from the ri_inv_mats
-      i = locate(xas_tdp_env%ex_kind_indices, donor_state%kind_index)
-      PQ => xas_tdp_env%ri_inv_mats(i)%array
-      nsgfp = SIZE(PQ,1)
-      nao = SIZE(xas_tdp_env%ri_coul3, 1)
-      
-!     Build the dbcsr matrix for the kernel
-      CALL dbcsr_create(matrix=coulomb_kernel, name="COULOMB KERNEL", matrix_type='S', dist=dist, &
-                        row_blk_size=blk_size, col_blk_size=blk_size)
-
-!     Allocate the work arrays to store the intermediate matrix products
-      ALLOCATE(work(nao, nsgfp))
-      ALLOCATE(aIJb_prod(nao,nao))
-
-!  Loop over donor MOs and compute W_ab = (aI|P)* (P|Q)^-1 * (Q|Jb)
-!  Matrix is symmetric => only span the upper triangle
-      DO i = 1,ndo_mo
-         CALL contract_int_kernel(int_aI, (/donor_state%mo_indices(i)/), xas_tdp_env, qs_env)
-         DO j = i,ndo_mo
-            CALL contract_int_kernel(int_bJ, (/donor_state%mo_indices(j)/), xas_tdp_env, qs_env)
-
-            work = 0.0_dp
-            aIJb_prod  = 0.0_dp
-
-!           Do the product (aI|P)*(P|Q)^-1
-            CALL dgemm('N', 'N', nao, nsgfp, nsgfp, 1.0_dp, int_aI, nao, PQ, nsgfp, 0.0_dp, &
-                        work, nao)
-
-!           Mulitply by (Q|Jb)
-            CALL dgemm('N', 'T', nao, nao, nsgfp, 1.0_dp, work, nao, int_bJ, nao, 0.0_dp, &
-                        aIJb_prod, nao)
-
-!           Put it in the dbcsr matrix, for the right I,J and block by block
-            DO iblk = 1,nblk
-               DO jblk = 1,nblk
-
-!                 If on the block diagonal, just take jblk >= iblk
-                  IF (jblk < iblk .AND. i==j) CYCLE
-
-!                 Size of the current block
-                  nrow_blk = blk_size(iblk)
-                  ncol_blk = blk_size(jblk)
-
-                  CALL dbcsr_put_block(coulomb_kernel, (i-1)*nblk+iblk, (j-1)*nblk+jblk, &
-                                       aIJb_prod(first_sgf(iblk):first_sgf(iblk)+nrow_blk-1, &
-                                                  first_sgf(jblk):first_sgf(jblk)+ncol_blk-1))
-
-               END DO ! jblk
-            END DO ! iblk
-            
-            DEALLOCATE(int_bJ)
-         END DO ! donor MO j
-         DEALLOCATE(int_aI)
-      END DO ! donor MO i
-      
-      CALL dbcsr_finalize(coulomb_kernel)
-
-      CALL timestop(handle)
-
-   END SUBROUTINE build_kernel_coulomb
-
-! **************************************************************************************************
-!> \brief Computes the exact exchange part of the kernel using RI distinguishing between on- and 
-!>        off-diagonal blocks of matrix_tdp
-!> \param ex_ker_diag the dbcsr_matrix where the  on-diagonal exchange kernel is stored
-!> \param ex_ker_offdiag the dbcsr_matrix where the off-diagonal exchange kernel is stored
-!> \param dist the dbcsr distribution of the matrix. Same as for matrices A and G
-!> \param blk_size the block sizes of the matrix
-!> \param donor_state the donor_state for which we compute the kernel
-!> \param xas_tdp_env ...
-!> \param qs_env ...
-!> \note currently coded with arrays and such low level types. TODO: switch to dbcsr tensors
-!>       Two matrices must be computed for the exact exchange: (ab|IJ) for the digonal of matrix_tdp
-!>       and (aJ|Ib) for the off diagonal part. Note that is not the same as the Coulomb (aI|Jb)
-! **************************************************************************************************
-   SUBROUTINE build_kernel_exchange(ex_ker_diag, ex_ker_offdiag , dist, blk_size, donor_state, &
-                                    xas_tdp_env, qs_env)
-
-      TYPE(dbcsr_type), POINTER                       :: ex_ker_diag
-      TYPE(dbcsr_type), POINTER, OPTIONAL             :: ex_ker_offdiag  
-      TYPE(dbcsr_distribution_type), POINTER          :: dist     
-      INTEGER, DIMENSION(:), POINTER                  :: blk_size                
-      TYPE(donor_state_type), POINTER                 :: donor_state       
-      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
-      TYPE(qs_environment_type), POINTER              :: qs_env    
-
-      CHARACTER(len=*), PARAMETER :: routineN = "build_kernel_exchange", &
-                                     routineP = moduleN//":"//routineN
-
-      INTEGER                                         :: handle, ndo_mo, i, j, nao, nsgfp, nblk, k,&
-                                                         iblk, jblk, nrow_blk, ncol_blk
-      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set     
-      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
-      INTEGER, DIMENSION(:), ALLOCATABLE              :: first_sgf          
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: int_aJ, int_bI, int_IJ, work1, work3, &
-                                                         abIJ_prod, aJIb_prod
-      REAL(dp), DIMENSION(:,:), POINTER               :: PQ
-      LOGICAL                                         :: do_offdiag
-
-      CALL timeset(routineN, handle)
-
-      NULLIFY(particle_set, qs_kind_set, PQ)
-
-!  Initialization
-      do_offdiag = .FALSE.
-      IF (PRESENT(ex_ker_offdiag)) do_offdiag = .TRUE.
-      ndo_mo = SIZE(donor_state%mo_indices,1)
-      CALL get_qs_env(qs_env, natom=nblk, particle_set=particle_set, qs_kind_set=qs_kind_set)       
-      ALLOCATE(first_sgf(nblk))        
-      CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf)
-
-!     Get the (P|Q)^-1 from the xas_tdp_env 
-      i = locate(xas_tdp_env%ex_kind_indices, donor_state%kind_index)
-      PQ => xas_tdp_env%ri_inv_mats(i)%array
-      nsgfp = SIZE(PQ,1)
-      nao = SIZE(xas_tdp_env%ri_coul3, 1)
-
-!     Build the dbcsr matrix for the kernels
-      CALL dbcsr_create(matrix=ex_ker_diag, name="EX KER DIAG", matrix_type='S', dist=dist, &
-                        row_blk_size=blk_size, col_blk_size=blk_size) 
-      IF (do_offdiag) THEN
-         CALL dbcsr_create(matrix=ex_ker_offdiag, name="EX KER OFFDIAG", matrix_type='S',&  
-                           dist=dist, row_blk_size=blk_size, col_blk_size=blk_size)
-      END IF
-
-!     Allocate the many work arrays
-      IF (do_offdiag) THEN
-         ALLOCATE(aJIb_prod(nao,nao))
-         ALLOCATE(work1(nao, nsgfp))  
-      END IF
-      ALLOCATE(work3(nsgfp,1))
-      ALLOCATE(abIJ_prod(nao,nao))
-
-!  Loop over the donor MOs and compute both the digonal and off-digonal parts, that is:
-!     -Diag_ab = (ab|P)* (P|Q)^-1 *(Q|IJ)
-!     -Off_ab = (aJ|P)* (P|Q)^-1 *(Q|Ib)
-!  The matrices are symmetric => only loop on upper triangular part
-      DO i = 1,ndo_mo
-         IF (do_offdiag) CALL contract_int_kernel(int_bI, (/donor_state%mo_indices(i)/), & 
-                                                  xas_tdp_env, qs_env)
-         DO j = i,ndo_mo
-            IF (do_offdiag) CALL contract_int_kernel(int_aJ, (/donor_state%mo_indices(j)/), &
-                                                     xas_tdp_env, qs_env)
-            CALL contract_int_kernel(int_IJ, (/donor_state%mo_indices(i), donor_state%mo_indices(j)/), &
-                                     xas_tdp_env, qs_env)
-
-            IF (do_offdiag) THEN
-               work1 = 0.0_dp
-               aJIb_prod = 0.0_dp
-            END IF
-            work3 = 0.0_dp
-            abIJ_prod = 0.0_dp
-
-!           Start with off-diag product (aJ|P)* (P|Q)^-1 *(Q|Ib)
-            IF (do_offdiag) THEN
-
-!              (aJ|P)* (P|Q)^-1
-               CALL dgemm('N', 'N', nao, nsgfp, nsgfp, 1.0_dp, int_aJ, nao, PQ, nsgfp, 0.0_dp, &
-                           work1, nao)
-!              Muliply by (Q|Ib)  
-               CALL dgemm('N', 'T', nao, nao, nsgfp, 1.0_dp, work1, nao, int_bI, nao, 0.0_dp, &
-                          aJIb_prod, nao)
-            END IF
-
-!           Then the on-digonal product (ab|P)* (P|Q)^-1 *(Q|IJ) 
-
-!           (P|Q)^-1 *(Q|IJ)
-            CALL dgemm('N', 'T', nsgfp, 1, nsgfp, 1.0_dp, PQ, nsgfp, int_IJ, 1, 0.0_dp, &
-                       work3, nsgfp)
-
-!           Multiply by (ab|P) from the left 
-            DO k = 1,nsgfp
-               CALL daxpy(nao*nao, work3(k,1), xas_tdp_env%ri_coul3(:,:,k), 1, abIJ_prod(:,:), 1)
-            END DO !k
-
-!           Put it all in the dbcsr matrices, at the right I,J and block by block
-            DO iblk = 1,nblk
-               DO jblk = 1,nblk
-
-!                 If on the block digonal, only take jblk >= iblk
-                  IF (jblk < iblk .AND. i==j) CYCLE
-
-!                 Size of the current block
-                  nrow_blk = blk_size(iblk)
-                  ncol_blk = blk_size(jblk)
-
-!                 Put (ab|IJ) on the digonal exchange kernel block, at position I,J
-                  CALL dbcsr_put_block(ex_ker_diag, (i-1)*nblk+iblk, (j-1)*nblk+jblk, & 
-                                       abIJ_prod(first_sgf(iblk):first_sgf(iblk)+nrow_blk-1, &
-                                       first_sgf(jblk):first_sgf(jblk)+ncol_blk-1))
-
-                  IF (do_offdiag) THEN
-!                    Put (aJ|Ib) on the off digonal exchange kernel block, at position I,J
-                     CALL dbcsr_put_block(ex_ker_offdiag, (i-1)*nblk+iblk, (j-1)*nblk+jblk, &
-                                          aJIb_prod(first_sgf(iblk):first_sgf(iblk)+nrow_blk-1, &
-                                          first_sgf(jblk):first_sgf(jblk)+ncol_blk-1))     
-                  END IF
-                  
-               END DO !jblk
-            END DO !iblk
-            IF (do_offdiag) DEALLOCATE(int_aJ)
-            DEALLOCATE(int_IJ) 
-         END DO !j
-         IF (do_offdiag) DEALLOCATE(int_bI)
-      END DO !i
-
-      CALL dbcsr_finalize(ex_ker_diag)
-      IF (do_offdiag) CALL dbcsr_finalize(ex_ker_offdiag)
-
-      CALL timestop(handle)
-
-   END SUBROUTINE build_kernel_exchange
-
-! **************************************************************************************************
-!> \brief Computes the XC part of the kernel base on atomic grid integrals
-!> \param xc_kernel the dbcsr_matrix where the xc kernel is stored
-!> \param dist the dbcsr_distribution of the matrix. Same as for matrices A,B or G
-!> \param blk_size the block sizes of the matrix 
-!> \param donor_state the donor_state for which we compute the kernel 
-!> \param xas_tdp_env ...
-!> \param qs_env ...
-!> \param singlet whether the kernel is built for singlet excitations (vs triplet)
-!> \note currently coded with arrays and such low level types. TODO: switch to dbcsr tensors         
-!>       Everythin is gonna change later on, so don't care about performance
-! **************************************************************************************************
-   SUBROUTINE build_kernel_xc(xc_kernel, dist, blk_size, donor_state, xas_tdp_env, qs_env, singlet)
-
-      TYPE(dbcsr_type), POINTER                       :: xc_kernel
+      TYPE(dbcsr_type), POINTER                       :: xc_kernel_sg
+      TYPE(dbcsr_type), POINTER                       :: xc_kernel_tp
+      LOGICAL, INTENT(IN)                             :: do_coulomb
+      LOGICAL, INTENT(IN)                             :: do_xc_sg
+      LOGICAL, INTENT(IN)                             :: do_xc_tp
       TYPE(dbcsr_distribution_type), POINTER          :: dist
       INTEGER, DIMENSION(:), POINTER                  :: blk_size
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(qs_environment_type), POINTER              :: qs_env
-      LOGICAL, INTENT(IN)                             :: singlet
 
-      CHARACTER(len=*), PARAMETER :: routineN = "build_kernel_xc", &                            
-                                     routineP = moduleN//":"//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = "kernel_coulomb_xc", routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: handle, ndo_mo, nblk, i, nsgfp, nao, j, &
-                                                         iblk, jblk, nrow_blk, ncol_blk
-      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
-      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set 
-      INTEGER, DIMENSION(:), ALLOCATABLE              :: first_sgf
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: int_aI, int_bJ, work1, work2, aIJb_prod
-      REAL(dp), DIMENSION(:,:), POINTER               :: PQ
-      REAL(dp), DIMENSION(:,:), POINTER               :: fxc
-      LOGICAL                                         :: found_block
+      INTEGER                                         :: handle, ndo_mo, ri_atom, ri_kind, imo
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_int, rhs_int
+      REAL(dp), DIMENSION(:,:), POINTER               :: PQ, fxc
+      TYPE(dbcsr_type)                                :: work_mat
+
+      NULLIFY(lhs_int, rhs_int, PQ, fxc)
 
       CALL timeset(routineN, handle)
 
-      NULLIFY(particle_set, qs_kind_set, PQ)
-
 !  Initialization
-      ndo_mo = SIZE(donor_state%mo_indices,1) 
-      CALL get_qs_env(qs_env, natom=nblk, particle_set=particle_set, qs_kind_set=qs_kind_set)
-      ALLOCATE(first_sgf(nblk))
-      CALL get_particle_set(particle_set, qs_kind_set, first_sgf=first_sgf)
+      ndo_mo = SIZE(donor_state%mo_indices)
+      ri_atom = donor_state%at_index
+      ri_kind = donor_State%kind_index
 
-!     Get the (P|Q)^-1 as an array
-      i = locate(xas_tdp_env%ex_kind_indices, donor_state%kind_index)
-      PQ => xas_tdp_env%ri_inv_mats(i)%array
-      nsgfp = SIZE(PQ, 1)
-      nao = SIZE(xas_tdp_env%ri_coul3, 1)
+!  Get the RI inverse coulomb for the excited kind (P|Q)^-1
+      PQ => xas_tdp_env%ri_inv_mats(ri_kind)%array
 
-!     Get the 2-center integral (Q|fxc|R) as an array (a block from a dbcsr matrix)
-!     For now assume serial => don't check for which proc the block is on
-!     TODO: maybe that storing the atom integrals in a dbcsr matrix is not the best
-      found_block = .FALSE.
-      IF (singlet) THEN
-         CALL dbcsr_get_block_p(xas_tdp_env%ri_fxc_sg, donor_state%at_index, &
-                                donor_state%at_index, fxc, found_block)
-      ELSE
-         CALL dbcsr_get_block_p(xas_tdp_env%ri_fxc_tp, donor_state%at_index, &
-                                donor_state%at_index, fxc, found_block)
+!  Get the contracted 3-center integrals in lhs_int and copy them into rhs_int
+      CALL contract_o3c_int(lhs_int, "COULOMB", donor_state, xas_tdp_env, qs_env)
+      ALLOCATE(rhs_int(ndo_mo))
+      DO imo = 1, ndo_mo
+         ALLOCATE(rhs_int(imo)%matrix)
+         CALL dbcsr_copy(rhs_int(imo)%matrix, lhs_int(imo)%matrix)
+      END DO
+
+!  In both Coulomb and XC need to multiply lhs_int by (P|Q)^-1
+      CALL ri_all_blocks_mm(lhs_int, PQ)
+
+!  Deal with the Coulomb case  
+      IF (do_coulomb) THEN
+
+         ! Create a normal type work matrix
+         CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
+                           row_blk_size=blk_size, col_blk_size=blk_size)
+
+         !Compute the product
+         CALL ri_int_product(work_mat, lhs_int, rhs_int, qs_env)
+
+         !Create the symmetric kernel matrix and redistribute work_mat into it
+         CALL dbcsr_create(coulomb_kernel, name="COULOMB KERNEL", matrix_type="S", dist=dist, &
+                           row_blk_size=blk_size, col_blk_size=blk_size)
+         CALL dbcsr_complete_redistribute(work_mat, coulomb_kernel)
+         CALL dbcsr_finalize(coulomb_kernel)
+
+         CALL dbcsr_release(work_mat)
+
+      END IF !do_coulomb
+
+!  Deal with the XC case
+      IF (do_xc_sg .OR. do_xc_tp) THEN
+
+      ! Need to multiply RHS by (R|S)^-1 too => copy lhs into rhs again
+         DO imo = 1, ndo_mo
+            CALL dbcsr_copy(rhs_int(imo)%matrix, lhs_int(imo)%matrix)
+         END DO
+
+      ! Case study on excited state multiplicity
+         IF (do_xc_sg) THEN
+
+            fxc => xas_tdp_env%ri_fxc_sg(ri_atom)%array
+
+            ! Need to further multiply LHS by (Q|fxc|R)
+            CALL ri_all_blocks_mm(lhs_int, fxc)
+            
+            ! Create a normal type work matrix
+            CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
+                              row_blk_size=blk_size, col_blk_size=blk_size)
+
+            ! Compute the product
+            CALL ri_int_product(work_mat, lhs_int, rhs_int, qs_env)
+
+            !Create the symmetric kernel matrix and redistribute work_mat into it
+            CALL dbcsr_create(xc_kernel_sg, name="XC SINGLET KERNEL", matrix_type="S", dist=dist, &
+                              row_blk_size=blk_size, col_blk_size=blk_size)
+            CALL dbcsr_complete_redistribute(work_mat, xc_kernel_sg)
+            CALL dbcsr_finalize(xc_kernel_sg)
+
+            CALL dbcsr_release(work_mat)
+
+         END IF ! singlet
+
+         IF (do_xc_tp) THEN
+
+            ! Need a fresh set of LHS integrals. If no previous singlet, the current ones are fine
+            IF (do_xc_sg) THEN
+               DO imo = 1, ndo_mo
+                  CALL dbcsr_copy(lhs_int(imo)%matrix, rhs_int(imo)%matrix)
+               END DO
+            END IF
+
+            fxc => xas_tdp_env%ri_fxc_tp(ri_atom)%array
+
+            ! Need to further multiply LHS by (Q|fxc|R)
+            CALL ri_all_blocks_mm(lhs_int, fxc)
+            
+            ! Create a normal type work matrix
+            CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
+                              row_blk_size=blk_size, col_blk_size=blk_size)
+
+            ! Compute the product
+            CALL ri_int_product(work_mat, lhs_int, rhs_int, qs_env)
+
+            !Create the symmetric kernel matrix and redistribute work_mat into it
+            CALL dbcsr_create(xc_kernel_tp, name="XC TRIPLET KERNEL", matrix_type="S", dist=dist, &
+                              row_blk_size=blk_size, col_blk_size=blk_size)
+            CALL dbcsr_complete_redistribute(work_mat, xc_kernel_tp)
+            CALL dbcsr_finalize(xc_kernel_tp)
+
+            CALL dbcsr_release(work_mat)
+
+         END IF ! triplet
+      END IF ! do_xc
+
+!  Clean-up
+      DO imo = 1,ndo_mo
+         CALL dbcsr_release(lhs_int(imo)%matrix)
+         CALL dbcsr_release(rhs_int(imo)%matrix)
+         DEALLOCATE(lhs_int(imo)%matrix, rhs_int(imo)%matrix)
+      END DO
+      DEALLOCATE(lhs_int, rhs_int)
+
+      CALL timestop(handle)
+   
+   END SUBROUTINE kernel_coulomb_xc
+
+! **************************************************************************************************
+!> \brief Computes the exact exchange kernel matrix using RI. Computes the off-diagonal exchange
+!>        only is asked for it (for full tddft)
+!> \param ex_ker_ondiag the diagonal part of the kernel => (ab|IJ)
+!> \param ex_ker_offdiag the off-diagonal part of the kernel => (aJ|Ib)
+!> \param do_offdiag whether the offdiag part should be computed
+!> \param dist the usuall dbcsr distribution
+!> \param blk_size the block size
+!> \param donor_state ...
+!> \param xas_tdp_env ...
+!> \param qs_env ...
+!> \note The RI for the diagonal and off-diagonal exchange kernels are respectively
+!>       (ab|IJ) = (ab|P) (P|Q)^-1 (Q|IJ)
+!>       (aJ|Ib) = (aJ|P) (P|Q)^-1 (Q|Ib)
+! **************************************************************************************************
+   SUBROUTINE kernel_exchange(ex_ker_ondiag, ex_ker_offdiag, do_offdiag, dist, blk_size, &
+                              donor_state, xas_tdp_env, qs_env)
+
+      TYPE(dbcsr_type), POINTER                       :: ex_ker_ondiag
+      TYPE(dbcsr_type), POINTER                       :: ex_ker_offdiag
+      LOGICAL, INTENT(IN)                             :: do_offdiag
+      TYPE(dbcsr_distribution_type), POINTER          :: dist
+      INTEGER, DIMENSION(:), POINTER                  :: blk_size
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+      
+      CHARACTER(len=*), PARAMETER :: routineN = "kernel_exchange", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: handle, ndo_mo, ri_atom, ri_kind, imo, &
+                                                         iblk, jblk, blk, s2, sr, er, jmo, nblk
+      INTEGER, DIMENSION(:), POINTER                  :: col_blk_size
+      REAL(dp), DIMENSION(:), POINTER                 :: v
+      REAL(dp), DIMENSION(:,:), POINTER               :: PQ, pblock
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: coeffs
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_int, rhs_int, matrix_s
+      TYPE(dbcsr_iterator_type)                       :: iter
+      LOGICAL                                         :: found
+      TYPE(dbcsr_type)                                :: work_mat, lhs_tp
+      TYPE(dbcsr_type), POINTER                       :: abIJ, abIJ_desymm
+      TYPE(cp_fm_struct_type), POINTER                :: fm_struct
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      TYPE(cp_fm_type), POINTER                       :: contr2_int
+      TYPE(o3c_vec_type), DIMENSION(:), POINTER       :: o3c_vec
+
+      NULLIFY(PQ, lhs_int, rhs_int, pblock, fm_struct, contr2_int, para_env, blacs_env, col_blk_size)
+      NULLIFY(o3c_vec, v, matrix_s, abIJ, abIJ_desymm)
+
+      CALL timeset(routineN, handle)
+      
+!  Initialization
+      ndo_mo = SIZE(donor_state%mo_indices)
+      ri_atom = donor_state%at_index
+      ri_kind = donor_state%kind_index
+
+!  Get the RI inverse coulomb for the excited kind (P|Q)^-1
+      PQ => xas_tdp_env%ri_inv_mats(ri_kind)%array
+
+!  Need the once contracted integrals (aI|P) in any case 
+      CALL contract_o3c_int(lhs_int, "EXCHANGE", donor_state, xas_tdp_env, qs_env)
+
+   ! Also need a copy if off-diag
+      IF (do_offdiag) THEN
+         ALLOCATE(rhs_int(ndo_mo))
+         DO imo = 1, ndo_mo
+            ALLOCATE(rhs_int(imo)%matrix)
+            CALL dbcsr_copy(rhs_int(imo)%matrix, lhs_int(imo)%matrix)
+         END DO
       END IF
-      CPASSERT(found_block)
-      CPASSERT(ALL(SHAPE(fxc)==nsgfp))
 
-!     Build the dbcsr matrix for the kernel
-      CALL dbcsr_create(matrix=xc_kernel, name="XC KERNEL", matrix_type='S', dist=dist, &
+!  Multiply lhs by (P|Q)^-1
+      CALL ri_all_blocks_mm(lhs_int, PQ)
+
+!  Deal with the off-diagonal case fisrt
+      IF (do_offdiag) THEN
+         
+         ! Create a normal type work matrix
+         CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, & 
+                           row_blk_size=blk_size, col_blk_size=blk_size)
+
+         ! Compute the product with transposed MO blocks
+         CALL ri_int_product(work_mat, lhs_int, rhs_int, qs_env, mo_transpose=.TRUE.)
+
+         !Create the symmetric kernel matrix and redistribute work_mat into it
+         CALL dbcsr_create(ex_ker_offdiag, name="OFFDIAG EX KERNEL", matrix_type="S", dist=dist, &
+                           row_blk_size=blk_size, col_blk_size=blk_size)
+         CALL dbcsr_complete_redistribute(work_mat, ex_ker_offdiag)
+
+         ! some clean-up
+         CALL dbcsr_release(work_mat)
+         DO imo = 1,ndo_mo
+            CALL dbcsr_release(rhs_int(imo)%matrix)
+            DEALLOCATE(rhs_int(imo)%matrix)
+         END DO
+         DEALLOCATE(rhs_int)
+
+      END IF ! do_offdiag
+
+!  The on-diagonal exchange : (IJ|ab) = (IJ|P) (P|Q)^-1 (Q|ab)
+!  Already have (aJ|P) (P|Q)^-1 stored in lhs_int, need to further contract
+!  Contract by sm_fm multiplication, need to transpose (aJ|Q) first
+      CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env, matrix_s=matrix_s)
+      CALL dbcsr_get_info(lhs_int(1)%matrix, nfullcols_total=s2, col_blk_size=col_blk_size)
+      CALL cp_fm_struct_create(fm_struct, context=blacs_env, para_env=para_env, &
+                               nrow_global=s2, ncol_global=ndo_mo)
+      CALL cp_fm_create(contr2_int, fm_struct)
+
+      ALLOCATE(coeffs(col_blk_size(ri_atom),ndo_mo))
+
+      nblk = SIZE(col_blk_size)
+      ALLOCATE(o3c_vec(nblk))
+      CALL o3c_vec_create(o3c_vec, col_blk_size)
+
+   ! a and b need to overlap for non-zero integral => same block structure as S
+      ALLOCATE(abIJ, abIJ_desymm)
+      CALL dbcsr_copy(abIJ, matrix_s(1)%matrix, name="(ab|IJ)")
+
+      CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
                         row_blk_size=blk_size, col_blk_size=blk_size)
 
-!     Allocating work arrays to store the intemediate products
-      ALLOCATE(work1(nao, nsgfp))
-      ALLOCATE(work2(nao, nsgfp))
-      ALLOCATE(aIJb_prod(nao, nao))
+   ! Loop over MOs. End matrix is symmetric => span upper half
+      DO imo = 1, ndo_mo
 
-!  Loop over the donor MOs and compute the matrix product:
-!  W_ab = (aI|P) * (P|Q)^-1 * (Q|fxc|R) * (R|S)^-1 * (S|Jb) ~= (aI|fxc|Jb)
-!  Symmetric matrix => only span upper triangle
-      DO i = 1,ndo_mo
-         CALL contract_int_kernel(int_aI, (/donor_state%mo_indices(i)/), xas_tdp_env, qs_env)
-         DO j = i,ndo_mo
-            CALL contract_int_kernel(int_bJ, (/donor_state%mo_indices(j)/), xas_tdp_env, qs_env)
+         ! contract the second time
+         CALL dbcsr_transposed(lhs_tp, lhs_int(imo)%matrix)
+         CALL cp_dbcsr_sm_fm_multiply(lhs_tp, donor_state%gs_coeffs, contr2_int, ncol=ndo_mo)
+         sr = 1
+         IF (ri_atom > 1) sr = SUM(col_blk_size(1:ri_atom-1))+1
+         er = SUM(col_blk_size(1:ri_atom))
 
-            work1 = 0.0_dp
-            work2 = 0.0_dp
-            aIJb_prod = 0.0_dp
+         CALL cp_fm_get_submatrix(contr2_int, coeffs, start_row=sr, start_col=1, n_rows=er-sr+1, &
+                                  n_cols=ndo_mo)
 
-!           Do the product (aI|P)*(P|Q)^-1 and stroe in work1
-            CALL dgemm('N', 'N', nao, nsgfp, nsgfp, 1.0_dp, int_aI, nao, PQ, nsgfp, 0.0_dp, & 
-                        work1, nao)
+         DO jmo = imo, ndo_mo
 
-!           Muliply the above by (Q|fxc|R) and store in work2
-            CALL dgemm('N', 'N', nao, nsgfp, nsgfp, 1.0_dp, work1, nao, fxc, nsgfp, 0.0_dp, &
-                       work2, nao)
-            work1 = 0.0_dp
+            ! compute (ab|IJ) = sum (ab|P) * (P|Q)^-1 * (Q|IJ)
+            CALL get_o3c_vec(o3c_vec, ri_atom, v)
+            v(:) = coeffs(:,jmo)
+            CALL dbcsr_set(abIJ, 0.0_dp)
 
-!           Multiply the above by (R|S)^-1 => (aI|P)*(P|Q)^-1 *(Q|fxc|R)*(R|S)^-1 = work1
-            CALL dgemm('N', 'N', nao, nsgfp, nsgfp, 1.0_dp, work2, nao, PQ, nsgfp, 0.0_dp, &
-                       work1, nao)
+            CALL contract3_o3c(xas_tdp_env%ri_o3c_ex, o3c_vec, abIJ)
 
-!           Multiply the above by (S|Jb) = (Jb|S)^T and temporarly store in aIJb_prod
-            CALL dgemm('N', 'T', nao, nao, nsgfp, 1.0_dp, work1, nao, int_bJ, nao, 0.0_dp, &
-                       aIJb_prod, nao)
+            ! (ab|IJ) is symmetric, but need it as normal for distributions to match
+            CALL dbcsr_desymmetrize(abIJ, abIJ_desymm)
 
-!           Put the product in the dbcsr_matrix, for the right I,J block
-            DO iblk = 1,nblk
-               DO jblk = 1,nblk
+            CALL dbcsr_iterator_start(iter, abIJ_desymm)
+            DO WHILE (dbcsr_iterator_blocks_left(iter))
 
-!                 If on the block diagonal, just take jblk >= iblk
-                  IF (jblk < iblk .AND. i==j) CYCLE
+               CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
+               IF (imo == jmo .AND. jblk<iblk) CYCLE
 
-!                 Size of the current block
-                  nrow_blk = blk_size(iblk)
-                  ncol_blk = blk_size(jblk)
+               found = .FALSE.
+               CALL dbcsr_get_block_p(abIJ_desymm, iblk, jblk, pblock, found)
 
-                  CALL dbcsr_put_block(xc_kernel, (i-1)*nblk+iblk, (j-1)*nblk+jblk, & 
-                                       aIJb_prod(first_sgf(iblk):first_sgf(iblk)+nrow_blk-1, &
-                                                 first_sgf(jblk):first_sgf(jblk)+ncol_blk-1))
+               IF (found) THEN
+                  CALL dbcsr_put_block(work_mat, (imo-1)*nblk+iblk, (jmo-1)*nblk+jblk, pblock)
+               END IF
+ 
+            END DO ! dbcsr iterator
+            CALL dbcsr_iterator_stop(iter)
+            CALL dbcsr_release(abIJ_desymm)
 
-               END DO ! jblk
-            END DO ! iblk
+         END DO !jmo
+         CALL dbcsr_release(lhs_tp)
+      END DO !imo
 
-            DEALLOCATE(int_bJ)
-         END DO ! donor MO j
-         DEALLOCATE(int_aI)
-      END DO ! donor MO i
+      CALL dbcsr_finalize(work_mat)
+      CALL dbcsr_create(ex_ker_ondiag, name="ONDIAG EX KERNEL", matrix_type="S", dist=dist, &
+                        row_blk_size=blk_size, col_blk_size=blk_size)
+      CALL dbcsr_complete_redistribute(work_mat, ex_ker_ondiag)
 
-      CALL dbcsr_finalize(xc_kernel)
+!  Clean-up
+      CALL cp_fm_release(contr2_int)
+      CALL cp_fm_struct_release(fm_struct)
+      CALL dbcsr_release(abIJ)
+      CALL dbcsr_release(work_mat)
+      CALL o3c_vec_release(o3c_vec)
+      DO imo = 1,ndo_mo
+         CALL dbcsr_release(lhs_int(imo)%matrix)
+         DEALLOCATE(lhs_int(imo)%matrix)
+      END DO 
+      DEALLOCATE(lhs_int, o3c_vec, abIJ, abIJ_desymm)
 
       CALL timestop(handle)
 
-   END SUBROUTINE build_kernel_xc
+   END SUBROUTINE kernel_exchange
+
+! **************************************************************************************************
+!> \brief Multiply all the blocks of a contracted RI integral (aI|P) by a matrix of type (P|...|Q)
+!> \param contr_int the integral array
+!> \param PQ the smaller matrix to multiply all blocks
+!> \note  It is assumed that all non-zero blocks have the same number of columns
+! **************************************************************************************************
+   SUBROUTINE ri_all_blocks_mm(contr_int, PQ)
+      
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: contr_int
+      REAL(dp), DIMENSION(:,:), INTENT(IN)            :: PQ
+
+      CHARACTER(len=*), PARAMETER :: routineN = "ri_all_blocks_mm", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: imo, ndo_mo, iblk, jblk, blk, s1, s2
+      LOGICAL                                         :: found
+      REAL(dp), DIMENSION(:,:), POINTER               :: pblock
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: work
+      TYPE(dbcsr_iterator_type)                       :: iter
+
+      NULLIFY(pblock)
+
+      ndo_mo = SIZE(contr_int)
+
+      DO imo = 1, ndo_mo
+         CALL dbcsr_iterator_start(iter, contr_int(imo)%matrix)
+         DO WHILE (dbcsr_iterator_blocks_left(iter))
+
+            CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
+            found = .FALSE.
+            CALL dbcsr_get_block_p(contr_int(imo)%matrix, iblk, jblk, pblock, found)
+
+            IF (found) THEN
+               s1 = SIZE(pblock,1)
+               s2 = SIZE(pblock,2)
+               ALLOCATE(work(s1, s2))
+               CALL dgemm('N', 'N', s1, s2, s2, 1.0_dp, pblock, s1, PQ, s2, 0.0_dp, work, s1)
+               CALL dcopy(s1*s2, work, 1, pblock, 1)
+               DEALLOCATE(work)
+            END IF
+
+         END DO ! dbcsr iterator
+         CALL dbcsr_iterator_stop(iter)
+      END DO !imo
+
+   END SUBROUTINE ri_all_blocks_mm
+
+! **************************************************************************************************
+!> \brief Takes the product of contracted integrals and put them in a kernel matrix
+!> \param kernel the matrix where the products are stored
+!> \param lhs_int the left-hand side contracted integrals
+!> \param rhs_int the right-hand side contracted integrals
+!> \param qs_env ...
+!> \param mo_transpose whether the MO blocks should be transpose, i.e. (aI|Jb) => (aJ|Ib)
+!> \Note It is assumed that the kerenl matrix is not symmetric 
+! **************************************************************************************************
+   SUBROUTINE ri_int_product(kernel, lhs_int, rhs_int, qs_env, mo_transpose)
+
+      TYPE(dbcsr_type), INTENT(INOUT)                 :: kernel
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_int
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: rhs_int
+      TYPE(qs_environment_type), POINTER              :: qs_env
+      LOGICAL, INTENT(IN), OPTIONAL                   :: mo_transpose
+
+      CHARACTER(len=*), PARAMETER :: routineN ="ri_int_product", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: ndo_mo, imo, jmo, iblk, jblk, blk, nblk,i,j
+      TYPE(dbcsr_type)                                :: prod
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
+      TYPE(dbcsr_iterator_type)                       :: iter
+      LOGICAL                                         :: found, my_mt
+      REAL(dp), DIMENSION(:,:), POINTER               :: pblock
+
+      NULLIFY(matrix_s, pblock)
+
+!  Initialization
+      ndo_mo = SIZE(lhs_int)
+      CALL get_qs_env(qs_env, matrix_s=matrix_s, natom=nblk)
+      CALL dbcsr_create(prod, template=matrix_s(1)%matrix, matrix_type="N") 
+      my_mt = .FALSE.
+      IF (PRESENT(mo_transpose)) my_mt = mo_transpose
+
+      ! The kernel matrix is symmetric (even if normal type) => only fill upper half
+      DO imo = 1, ndo_mo
+         DO jmo = imo, ndo_mo
+
+            i = imo; j = jmo;
+            IF (my_mt) THEN
+               i = jmo; j = imo;
+            END IF
+
+            ! Take the product lhs*rhs^T
+            CALL dbcsr_multiply('N', 'T', 1.0_dp, lhs_int(i)%matrix, rhs_int(j)%matrix, &
+                                0.0_dp, prod)
+
+            ! Loop over blocks of prod and fill kernel matrix => ok cuz same (but replicated) dist
+            CALL dbcsr_iterator_start(iter, prod)
+            DO WHILE (dbcsr_iterator_blocks_left(iter))
+
+               CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
+               IF (imo == jmo .AND. jblk<iblk) CYCLE
+
+               found = .FALSE.
+               CALL dbcsr_get_block_p(prod, iblk, jblk, pblock, found)
+
+               IF (found) THEN
+                  CALL dbcsr_put_block(kernel, (imo-1)*nblk+iblk, (jmo-1)*nblk+jblk, pblock) 
+               END IF
+
+            END DO ! dbcsr iterator
+            CALL dbcsr_iterator_stop(iter)
+
+         END DO !jmo
+      END DO !imo
+      CALL dbcsr_finalize(kernel)
+
+!  Clean-up
+      CALL dbcsr_release(prod)
+
+   END SUBROUTINE ri_int_product
+
+! **************************************************************************************************
+!> \brief Builds a neighbor lists set taylored for 3-center integral within XAS TDP, such that only
+!>        excited atoms are taken into account for the list_c
+!> \param ac_list the neighbor list ready for 3-center integrals
+!> \param basis_a basis set list for atom a
+!> \param basis_c basis set list for atom c
+!> \param op_type to indicate whther the list should be built with overlap or Coulomb in mind
+!> \param excited_atoms the indices of the excited atoms to consider
+!> \param excited_kinds the indices of the excited kinds to consider
+!> \param qs_env ...
+!> \note Based on setup_neighbor_list with added features
+! **************************************************************************************************
+   SUBROUTINE build_xas_tdp_3c_nl(ac_list, basis_a, basis_c, op_type, excited_atoms, &
+                                  excited_kinds, qs_env)
+
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), &                                                
+                                             POINTER  :: ac_list
+      TYPE(gto_basis_set_p_type), DIMENSION(:), &
+                                             POINTER  :: basis_a, basis_c
+      CHARACTER(len=*), INTENT(IN)                    :: op_type
+      INTEGER, DIMENSION(:), INTENT(IN)               :: excited_atoms, excited_kinds
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN =  "build_xas_tdp_3c_nl", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: nkind, ikind
+      REAL(dp)                                        :: subcells
+      LOGICAL, DIMENSION(:), ALLOCATABLE              :: a_present, c_present
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: a_radius, c_radius
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: pair_radius
+      TYPE(atomic_kind_type), DIMENSION(:), POINTER   :: atomic_kind_set
+      TYPE(cell_type), POINTER                        :: cell
+      TYPE(distribution_1d_type), POINTER             :: distribution_1d
+      TYPE(distribution_2d_type), POINTER             :: distribution_2d
+      TYPE(local_atoms_type), DIMENSION(:), &
+                                          ALLOCATABLE :: atom2d
+      TYPE(molecule_type), DIMENSION(:), POINTER      :: molecule_set
+      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
+      CHARACTER                                       :: my_op
+
+      NULLIFY(atomic_kind_set, distribution_1d, distribution_2d, molecule_set, particle_set, cell)
+      
+!  By default, take overlap operator
+      my_op = "O"
+      IF (op_type == "COULOMB ") my_op = "C"
+
+!  Initialization
+      CALL get_qs_env(qs_env, nkind=nkind)
+      CALL section_vals_val_get(qs_env%input, "DFT%SUBCELLS", r_val=subcells)
+
+      ALLOCATE(a_present(nkind), c_present(nkind))
+      a_present = .FALSE.
+      c_present = .FALSE.
+      ALLOCATE(a_radius(nkind), c_radius(nkind))
+      a_radius = 0.0_dp
+      c_radius = 0.0_dp
+
+!  Set up the radii
+      DO ikind = 1,nkind
+         !orbital basis set
+         IF (ASSOCIATED(basis_a(ikind)%gto_basis_set)) THEN
+            a_present(ikind) = .TRUE.
+            CALL get_gto_basis_set(basis_a(ikind)%gto_basis_set, kind_radius=a_radius(ikind))
+         END IF
+         !RI_XAS basis set, take only excited kinds
+         IF (ASSOCIATED(basis_c(ikind)%gto_basis_set) .AND. ANY(excited_kinds == ikind)) THEN
+            c_present(ikind) = .TRUE.
+            ! If operator is coulomb, then center c interacts with everything
+            IF (my_op == "O") THEN
+               CALL get_gto_basis_set(basis_c(ikind)%gto_basis_set, kind_radius=c_radius(ikind))
+            ELSE
+               c_radius(ikind) = 1000000.0_dp
+            END IF
+         END IF
+      END DO !ikind
+
+      ALLOCATE(pair_radius(nkind, nkind))
+      pair_radius = 0.0_dp
+      CALL pair_radius_setup(a_present, c_present, a_radius, c_radius, pair_radius)
+
+!  Actually setup the list
+      CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, cell=cell, &
+                      distribution_2d=distribution_2d, local_particles=distribution_1d, &
+                      particle_set=particle_set, molecule_set=molecule_set)
+
+      ALLOCATE(atom2d(nkind))
+      CALL atom2d_build(atom2d, distribution_1d, distribution_2d, atomic_kind_set, &
+                        molecule_set, .FALSE., particle_set)
+
+      CALL build_neighbor_lists(ac_list, particle_set, atom2d, cell, pair_radius, subcells, &
+                                operator_type = "ABC", atomb_to_keep=excited_atoms, &
+                                nlname="XAS_TDP_3c_nl")
+
+!  Clean-up
+      CALL atom2d_cleanup(atom2d) 
+
+   END SUBROUTINE build_xas_tdp_3c_nl
 
 ! **************************************************************************************************
 !> \brief Includes the SOC effects on the precomputed singlet and triplet excitations
@@ -2083,8 +2182,6 @@ CONTAINS
 !  Only have SOC between singlet-triplet triplet-tripelt and ground_state-triplet, the resulting 
 !  matrix is Hermitian i.e. the real part is symmetric and the imaginary part is anti-symmetric. 
 !  Can only fill upper half
-
-! TODO: can probably compute orb_soc_xyz * tp_coeffs(j)%matrix only once for each jtp and store
 
 !  Loop over triplet states
       DO jtp = 1,ntp
