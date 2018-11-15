@@ -38,20 +38,31 @@ MODULE eri_mme_types
    PUBLIC :: eri_mme_param, &
              eri_mme_init, &
              eri_mme_release, &
-             eri_mme_set_params
+             eri_mme_set_params,&
+             eri_mme_print_grid_info, &
+             get_minimax_from_cutoff
 
-   TYPE eri_mme_param
+   TYPE minimax_grid
+      REAL(KIND=dp) :: cutoff
       INTEGER                          :: n_minimax
       REAL(KIND=dp), POINTER, &
          DIMENSION(:)                  :: minimax_aw => NULL()
+      REAL(KIND=dp)                    :: error
+   END TYPE
+
+
+   TYPE eri_mme_param
+      INTEGER                          :: n_minimax
       REAL(KIND=dp), DIMENSION(3, 3)   :: hmat, h_inv
       REAL(KIND=dp)                    :: vol
       LOGICAL                          :: is_ortho
       REAL(KIND=dp)                    :: cutoff
       LOGICAL                          :: do_calib_cutoff
+      LOGICAL                          :: do_error_est
       LOGICAL                          :: print_calib
       REAL(KIND=dp)                    :: cutoff_min, cutoff_max, cutoff_delta, &
-                                          cutoff_eps, err_mm, err_c
+                                          cutoff_eps
+      REAL(KIND=dp)                    :: err_mm, err_c
       REAL(KIND=dp)                    :: G_min, R_min
       LOGICAL                          :: is_valid
       LOGICAL                          :: debug
@@ -60,7 +71,11 @@ MODULE eri_mme_types
       REAL(KIND=dp)                    :: C_mm
       INTEGER                          :: unit_nr
       REAL(KIND=dp)                    :: sum_precision
+      INTEGER                          :: n_grids
+      TYPE(minimax_grid), DIMENSION(:), &
+         ALLOCATABLE                   :: minimax_grid
    END TYPE eri_mme_param
+
 
 CONTAINS
 
@@ -81,13 +96,14 @@ CONTAINS
 !> \param unit_nr ...
 !> \param print_calib ...
 ! **************************************************************************************************
-   SUBROUTINE eri_mme_init(param, n_minimax, cutoff, do_calib_cutoff, &
+   SUBROUTINE eri_mme_init(param, n_minimax, n_grids, cutoff, do_calib_cutoff, do_error_est, &
                            cutoff_min, cutoff_max, cutoff_eps, cutoff_delta, sum_precision, &
                            debug, debug_delta, debug_nsum, unit_nr, print_calib)
       TYPE(eri_mme_param), INTENT(OUT)                   :: param
       INTEGER, INTENT(IN)                                :: n_minimax
+      INTEGER, INTENT(IN)                                :: n_grids
       REAL(KIND=dp), INTENT(IN)                          :: cutoff
-      LOGICAL, INTENT(IN)                                :: do_calib_cutoff
+      LOGICAL, INTENT(IN)                                :: do_calib_cutoff, do_error_est
       REAL(KIND=dp), INTENT(IN)                          :: cutoff_min, cutoff_max, cutoff_eps, &
                                                             cutoff_delta, sum_precision
       LOGICAL, INTENT(IN)                                :: debug
@@ -102,8 +118,10 @@ CONTAINS
          CPABORT("The maximum allowed number of minimax points N_MINIMAX is "//TRIM(string))
 
       param%n_minimax = n_minimax
+      param%n_grids = n_grids
       param%cutoff = cutoff
       param%do_calib_cutoff = do_calib_cutoff
+      param%do_error_est = do_error_est
       param%cutoff_min = cutoff_min
       param%cutoff_max = cutoff_max
       param%cutoff_eps = cutoff_eps
@@ -116,7 +134,10 @@ CONTAINS
       param%unit_nr = unit_nr
 
       param%is_valid = .FALSE.
-      ALLOCATE (param%minimax_aw(2*param%n_minimax))
+      !ALLOCATE (param%minimax_aw(2*param%n_minimax))
+
+      !param%n_grids = 20 ! todo: make input
+      ALLOCATE(param%minimax_grid(param%n_grids))
    END SUBROUTINE eri_mme_init
 
 ! **************************************************************************************************
@@ -137,8 +158,8 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(3, 3), INTENT(IN)         :: hmat
       LOGICAL, INTENT(IN)                                :: is_ortho
       REAL(KIND=dp), INTENT(IN)                          :: zet_err_minimax
-      REAL(KIND=dp), DIMENSION(:), INTENT(IN)            :: zet_err_cutoff
-      INTEGER, DIMENSION(:), INTENT(IN)                  :: l_err_cutoff
+      REAL(KIND=dp), INTENT(IN)            :: zet_err_cutoff
+      INTEGER, INTENT(IN)                  :: l_err_cutoff
       INTEGER, INTENT(IN)                                :: l_max
       TYPE(cp_para_env_type), INTENT(IN), POINTER        :: para_env
 
@@ -146,24 +167,33 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, l_mm
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: l_c
+      INTEGER                 :: l_c
       LOGICAL                                            :: s_only
       REAL(KIND=dp)                                      :: cutoff, E_mm
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: zet_c
+      REAL(KIND=dp) :: cutoff_max, cutoff_min, cutoff_delta
+      REAL(KIND=dp) :: exp_max, exp_min
+
+      REAL(KIND=dp) :: cutoff_rel, err_target
+      REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: minimax_aw
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:) :: minimax_aw_prev
+      INTEGER :: n_minimax, n_mm
+      INTEGER :: n_grids, i_grid
+      REAL(KIND=dp) :: err_mm, err_c, err_mm_prev, err_c_prev
+      !REAL(KIND=dp)           :: zet_c
 
       CALL timeset(routineN, handle)
 
       ! Note: in MP2 default logger hacked and does not use global default print level
       s_only = l_max .EQ. 0
 
-      CPASSERT(SIZE(zet_err_cutoff) .EQ. SIZE(l_err_cutoff))
+      !CPASSERT(SIZE(zet_err_cutoff) .EQ. SIZE(l_err_cutoff))
 
       CALL init_orbital_pointers(3*l_max) ! allow for orbital pointers of combined index
 
       ! l values for minimax error estimate (l_mm) and for cutoff error estimate (l_c)
       l_mm = MERGE(0, 1, s_only)
-      ALLOCATE (l_c(SIZE(zet_err_cutoff)), zet_c(SIZE(zet_err_cutoff)))
-      l_c(:) = l_err_cutoff(:)
+      !ALLOCATE (l_c(SIZE(zet_err_cutoff)), zet_c(SIZE(zet_err_cutoff)))
+      l_c = l_err_cutoff
 
       ! cell info
       ! Note: we recompute basic quantities from hmat to avoid dependency on cp2k cell type
@@ -179,33 +209,139 @@ CONTAINS
       ! cutoff calibration not yet implemented for general cell
       IF (.NOT. param%is_ortho) THEN
          param%do_calib_cutoff = .FALSE.
+         param%do_error_est = .FALSE.
       ENDIF
+
+      n_grids = param%n_grids
 
       ! Cutoff calibration and error estimate for orthorhombic cell
       IF (param%do_calib_cutoff) THEN
+         ! todo: don't need to take smallest exponent but smallest exponent for grid
          CALL calibrate_cutoff(param%hmat, param%h_inv, param%G_min, param%vol, &
                                zet_err_minimax, l_mm, zet_err_cutoff, l_c, param%n_minimax, &
                                param%cutoff_min, param%cutoff_max, param%cutoff_eps, &
                                param%cutoff_delta, cutoff, param%err_mm, param%err_c, &
                                param%C_mm, para_env, param%print_calib, param%unit_nr)
 
+         ! todo: c_mm really needed?
          param%cutoff = cutoff
-      ELSE IF (param%is_ortho) THEN
+      ELSE IF (param%do_error_est) THEN
+         ALLOCATE(minimax_aw(2*param%n_minimax))
          CALL cutoff_minimax_error(param%cutoff, param%hmat, param%h_inv, param%vol, param%G_min, &
                                    zet_err_minimax, l_mm, zet_err_cutoff, l_c, param%n_minimax, &
-                                   param%minimax_aw, param%err_mm, param%err_c, param%C_mm, para_env)
+                                   minimax_aw, param%err_mm, param%err_c, param%C_mm, para_env)
+         DEALLOCATE(minimax_aw)
       ELSE
          param%err_mm = -1.0_dp
          param%err_c = -1.0_dp
       ENDIF
 
-      CALL get_minimax_coeff_v_gspace(param%n_minimax, param%cutoff, param%G_min, param%minimax_aw, &
-                                      E_mm)
+      ALLOCATE(minimax_aw(2*param%n_minimax))
+      CALL get_minimax_coeff_v_gspace(param%n_minimax, param%cutoff, param%G_min, minimax_aw, E_mm)
+
+      DEALLOCATE(minimax_aw)
+
+      err_target = E_mm
+
+      ! todo: rename arguments
+      exp_max = zet_err_cutoff
+      exp_min = zet_err_minimax
+
+      CPASSERT(exp_max .GT. exp_min)
+      CPASSERT(n_grids .GE. 1)
+
+      cutoff_max = param%cutoff
+      cutoff_rel = param%cutoff/exp_max
+      cutoff_min = exp_min*cutoff_rel
+      cutoff_delta = (cutoff_max/cutoff_min)**(1.0_dp/(n_grids))
+
+      n_minimax = param%n_minimax
+      cutoff = cutoff_max
+      DO i_grid = n_grids, 1, -1
+         DO n_mm = n_minimax, 1, -1 ! todo: can skip some iterations
+            ALLOCATE(minimax_aw(2*n_mm))
+            CALL get_minimax_coeff_v_gspace(n_mm, cutoff, param%G_min, minimax_aw, err_mm)
+            IF (err_mm .GT. 1.1_dp*err_target) THEN
+               CPASSERT(n_mm .NE. n_minimax)
+               CALL create_minimax_grid(param%minimax_grid(i_grid), cutoff, n_mm+1, minimax_aw_prev, err_mm_prev)
+               DEALLOCATE(minimax_aw)
+               EXIT
+            ENDIF
+            IF(ALLOCATED(minimax_aw_prev)) DEALLOCATE(minimax_aw_prev)
+            ALLOCATE(minimax_aw_prev(2*n_mm))
+            minimax_aw_prev(:) = minimax_aw(:)
+            DEALLOCATE(minimax_aw)
+            err_mm_prev = err_mm
+            err_c_prev = err_c
+         ENDDO
+         cutoff = cutoff/cutoff_delta
+      ENDDO
 
       param%is_valid = .TRUE.
 
       CALL timestop(handle)
    END SUBROUTINE eri_mme_set_params
+
+   SUBROUTINE create_minimax_grid(grid, cutoff, n_minimax, minimax_aw, error)
+      TYPE(minimax_grid), INTENT(OUT) :: grid
+      REAL(KIND=dp), INTENT(IN) :: cutoff
+      INTEGER, INTENT(IN) :: n_minimax
+      REAL(KIND=dp), DIMENSION(2*n_minimax), INTENT(IN) :: minimax_aw
+      REAL(KIND=dp), INTENT(IN) :: error
+
+      grid%cutoff = cutoff
+      grid%n_minimax = n_minimax
+      ALLOCATE(grid%minimax_aw(2*n_minimax))
+      grid%minimax_aw(:) = minimax_aw(:)
+      grid%error=error
+
+   END SUBROUTINE
+
+   SUBROUTINE get_minimax_from_cutoff(grids, cutoff, n_minimax, minimax_aw, grid_no)
+      TYPE(minimax_grid), DIMENSION(:), INTENT(IN) :: grids
+      REAL(KIND=dp), INTENT(IN) :: cutoff
+      INTEGER, INTENT(OUT) :: n_minimax
+      REAL(KIND=dp), POINTER, DIMENSION(:), INTENT(OUT) :: minimax_aw
+      INTEGER, INTENT(OUT) :: grid_no
+      INTEGER :: igrid
+
+      grid_no = 0
+      DO igrid = 1, SIZE(grids)
+         IF(grids(igrid)%cutoff .GE. cutoff/2) THEN
+            n_minimax = grids(igrid)%n_minimax
+            minimax_aw => grids(igrid)%minimax_aw
+            grid_no = igrid
+            EXIT
+         ENDIF
+      ENDDO
+      IF (grid_no == 0) THEN
+         igrid = SIZE(grids)
+         n_minimax = grids(igrid)%n_minimax
+         minimax_aw => grids(igrid)%minimax_aw
+         grid_no = igrid
+      ENDIF
+   END SUBROUTINE
+
+   SUBROUTINE destroy_minimax_grid(grid)
+      TYPE(minimax_grid), INTENT(INOUT) :: grid
+      DEALLOCATE(grid%minimax_aw)
+   END SUBROUTINE
+
+   SUBROUTINE eri_mme_print_grid_info(grid, grid_no, unit_nr)
+      TYPE(minimax_grid), INTENT(IN) :: grid
+      INTEGER, INTENT(IN)            :: grid_no
+      INTEGER, INTENT(IN)            :: unit_nr
+
+      ! TODO: minimax error should be part of this type
+      IF(unit_nr > 0) THEN
+         WRITE(unit_nr, '(T2, A, 1X, I2)') "ERI_MME | Info for grid no.", grid_no
+         WRITE(unit_nr, '(T2, A, 1X, ES9.2)') "ERI_MME | Cutoff", grid%cutoff
+         WRITE(unit_nr, '(T2, A, 1X, I2)') "ERI_MME | Number of minimax points", grid%n_minimax
+         WRITE(unit_nr, '(T2, A, 1X, 2ES9.2)') "ERI_MME | minimax error", grid%error
+         WRITE(unit_nr, *)
+      ENDIF
+
+   END SUBROUTINE
 
 ! **************************************************************************************************
 !> \brief ...
@@ -213,8 +349,14 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE eri_mme_release(param)
       TYPE(eri_mme_param), INTENT(INOUT)                 :: param
+      INTEGER :: igrid
 
-      IF (ASSOCIATED(param%minimax_aw)) DEALLOCATE (param%minimax_aw)
+      IF(ALLOCATED(param%minimax_grid)) THEN
+         DO igrid = 1, param%n_grids
+            CALL destroy_minimax_grid(param%minimax_grid(igrid))
+         ENDDO
+         DEALLOCATE(param%minimax_grid)
+      ENDIF
    END SUBROUTINE eri_mme_release
 
 END MODULE eri_mme_types

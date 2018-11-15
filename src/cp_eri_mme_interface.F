@@ -26,7 +26,8 @@ MODULE cp_eri_mme_interface
    USE eri_mme_types,                   ONLY: eri_mme_init,&
                                               eri_mme_param,&
                                               eri_mme_release,&
-                                              eri_mme_set_params
+                                              eri_mme_set_params,&
+                                              eri_mme_print_grid_info
    USE input_keyword_types,             ONLY: keyword_create,&
                                               keyword_release,&
                                               keyword_type
@@ -77,10 +78,11 @@ MODULE cp_eri_mme_interface
          POINTER                                         :: mme_section => NULL()
       INTEGER                                            :: G_count_2c, R_count_2c
       INTEGER                                            :: GG_count_3c, GR_count_3c, RR_count_3c
+      INTEGER, DIMENSION(:), ALLOCATABLE                 :: grid_count
       REAL(KIND=dp), DIMENSION(3, 3)                     :: hmat
       REAL(KIND=dp)                                      :: zet_err_minimax
-      REAL(KIND=dp), DIMENSION(:), ALLOCATABLE           :: zet_err_cutoff
-      INTEGER, DIMENSION(:), ALLOCATABLE                 :: l_err_cutoff
+      REAL(KIND=dp)           :: zet_err_cutoff
+      INTEGER                 :: l_err_cutoff
       INTEGER                                            :: l_max
       LOGICAL                                            :: do_calib
    END TYPE cp_eri_mme_param
@@ -128,6 +130,13 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, &
+                          name="N_GRIDS", &
+                          description="Number of minimax grids used for different exponents. ",&
+                          default_i_val=1)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, &
                           name="CUTOFF", &
                           description="User-defined energy cutoff to be used only if "// &
                           "DO_CALIBRATE_CUTOFF is set to .FALSE. ", &
@@ -150,6 +159,15 @@ CONTAINS
                           lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, &
+                          name = "DO_ERROR_ESTIMATE", &
+                          description="Whether the error due to minimax approx. and cutoff shall be estimated",&
+                          default_l_val=.TRUE., &
+                          lone_keyword_l_val = .TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
 
       CALL cp_print_key_section_create(print_key, "ERI_MME_INFO", &
                                        description="Controls the printing info.", &
@@ -241,8 +259,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'cp_eri_mme_init_read_input', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: debug_nsum, n_minimax, unit_nr
-      LOGICAL                                            :: debug, do_calib_cutoff, print_calib
+      INTEGER                                            :: debug_nsum, n_minimax, unit_nr, n_grids
+      LOGICAL                                            :: debug, do_calib_cutoff, print_calib, do_error_est
       REAL(KIND=dp)                                      :: cutoff, cutoff_delta, cutoff_eps, &
                                                             cutoff_max, cutoff_min, debug_delta, &
                                                             sum_precision
@@ -255,10 +273,12 @@ CONTAINS
 
       NULLIFY (subsection)
       CALL section_vals_val_get(mme_section, "N_MINIMAX", i_val=n_minimax)
+      CALL section_vals_val_get(mme_section, "N_GRIDS", i_val=n_grids)
 
       CALL section_vals_val_get(mme_section, "CUTOFF", r_val=cutoff)
       CALL section_vals_val_get(mme_section, "SUM_PRECISION", r_val=sum_precision)
       CALL section_vals_val_get(mme_section, "DO_CALIBRATE_CUTOFF", l_val=do_calib_cutoff)
+      CALL section_vals_val_get(mme_section, "DO_ERROR_ESTIMATE", l_val=do_error_est)
       CALL section_vals_val_get(mme_section, "PRINT_CALIB", l_val=print_calib)
       subsection => section_vals_get_subs_vals(mme_section, "CUTOFF_CALIB")
       CALL section_vals_val_get(subsection, "MIN", r_val=cutoff_min)
@@ -271,8 +291,8 @@ CONTAINS
 
       param%mme_section => mme_section
 
-      CALL eri_mme_init(param%par, n_minimax, &
-                        cutoff, do_calib_cutoff, cutoff_min, cutoff_max, cutoff_eps, cutoff_delta, &
+      CALL eri_mme_init(param%par, n_minimax, n_grids, &
+                        cutoff, do_calib_cutoff, do_error_est, cutoff_min, cutoff_max, cutoff_eps, cutoff_delta, &
                         sum_precision, debug, debug_delta, debug_nsum, unit_nr, print_calib)
 
       param%do_calib = do_calib_cutoff
@@ -282,6 +302,9 @@ CONTAINS
       param%GG_count_3c = 0
       param%GR_count_3c = 0
       param%RR_count_3c = 0
+
+      ALLOCATE(param%grid_count(n_grids))
+      param%grid_count(:) = 0
 
       param%logger => logger
    END SUBROUTINE cp_eri_mme_init_read_input
@@ -297,9 +320,22 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: count_2c, count_3c, unit_nr
+      INTEGER :: grid_count_sum
+      REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: grid_count_perc
 
       count_2c = param%G_count_2c+param%R_count_2c
       count_3c = param%GG_count_3c+param%GR_count_3c+param%RR_count_3c
+
+
+      !PRINT *, param%grid_count
+
+      grid_count_sum = 0
+      ALLOCATE(grid_count_perc(SIZE(param%grid_count)))
+
+      IF(ANY(param%grid_count > 0)) THEN
+         grid_count_sum = SUM(param%grid_count)
+         grid_count_perc(:) = REAL(param%grid_count,KIND=dp)/grid_count_sum*100
+      ENDIF
 
       unit_nr = param%par%unit_nr
 
@@ -322,9 +358,16 @@ CONTAINS
          ENDIF
       ENDIF
 
+      IF(unit_nr > 0) THEN
+         IF(grid_count_sum .GT. 0) THEN
+            WRITE(unit_nr, '(/T2, A)') "ERI_MME| Percentage of integrals evaluated on each minimax grid"
+            WRITE(unit_nr, *) grid_count_perc
+         ENDIF
+      ENDIF
+
       CALL eri_mme_release(param%par)
-      IF (ALLOCATED(param%zet_err_cutoff)) DEALLOCATE (param%zet_err_cutoff)
-      IF (ALLOCATED(param%l_err_cutoff)) DEALLOCATE (param%l_err_cutoff)
+      !IF (ALLOCATED(param%zet_err_cutoff)) DEALLOCATE (param%zet_err_cutoff)
+      !IF (ALLOCATED(param%l_err_cutoff)) DEALLOCATE (param%l_err_cutoff)
       CALL cp_print_key_finished_output(unit_nr, param%logger, param%mme_section, "ERI_MME_INFO")
    END SUBROUTINE cp_eri_mme_finalize
 
@@ -351,16 +394,17 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, l_max
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: l_err_cutoff
+      INTEGER                :: l_err_cutoff
       REAL(KIND=dp)                                      :: zet_err_minimax
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: zet_err_cutoff
+      REAL(KIND=dp)           :: zet_err_cutoff
 
       CALL timeset(routineN, handle)
 
       CALL error_est_pgf_params_from_basis(qs_kind_set, basis_type_1, basis_type_2, &
-                                           zet_err_minimax, zet_err_cutoff, l_err_cutoff)
+                                           zet_err_minimax, zet_err_cutoff, l_err_cutoff, l_max)
 
-      l_max = MAXVAL(l_err_cutoff)
+      !l_max = MAXVAL(l_err_cutoff)
+      !l_max = l_err_cutoff
       CALL eri_mme_set_params_custom(param, cell%hmat, cell%orthorhombic, &
                                      zet_err_minimax, zet_err_cutoff, l_err_cutoff, &
                                      l_max, para_env)
@@ -384,8 +428,8 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(3, 3), INTENT(IN)         :: hmat
       LOGICAL, INTENT(IN)                                :: is_ortho
       REAL(KIND=dp), INTENT(IN)                          :: zet_err_minimax
-      REAL(KIND=dp), DIMENSION(:), INTENT(IN)            :: zet_err_cutoff
-      INTEGER, DIMENSION(:), INTENT(IN)                  :: l_err_cutoff
+      REAL(KIND=dp), INTENT(IN)            :: zet_err_cutoff
+      INTEGER, INTENT(IN)                  :: l_err_cutoff
       INTEGER, INTENT(IN)                                :: l_max
       TYPE(cp_para_env_type), INTENT(IN), POINTER        :: para_env
 
@@ -398,8 +442,8 @@ CONTAINS
             ! only calibrate cutoff if parameters (cell, basis coefficients) have changed
             IF (ALL(ABS(param%hmat-hmat) < eps_changed) .AND. &
                 ABS(param%zet_err_minimax-zet_err_minimax) < eps_changed .AND. &
-                ALL(ABS(param%zet_err_cutoff-zet_err_cutoff) < eps_changed) .AND. &
-                ALL(param%l_err_cutoff == l_err_cutoff) .AND. &
+                ABS(param%zet_err_cutoff-zet_err_cutoff) < eps_changed .AND. &
+                param%l_err_cutoff == l_err_cutoff .AND. &
                 param%l_max == l_max) THEN
                param%par%do_calib_cutoff = .FALSE.
             ELSE
@@ -414,12 +458,12 @@ CONTAINS
 
       param%hmat(:, :) = hmat(:, :)
       param%zet_err_minimax = zet_err_minimax
-      IF (ALLOCATED(param%zet_err_cutoff)) DEALLOCATE (param%zet_err_cutoff)
-      IF (ALLOCATED(param%l_err_cutoff)) DEALLOCATE (param%l_err_cutoff)
-      ALLOCATE (param%zet_err_cutoff(SIZE(zet_err_cutoff)))
-      param%zet_err_cutoff(:) = zet_err_cutoff(:)
-      ALLOCATE (param%l_err_cutoff(SIZE(l_err_cutoff)))
-      param%l_err_cutoff(:) = l_err_cutoff(:)
+      !IF (ALLOCATED(param%zet_err_cutoff)) DEALLOCATE (param%zet_err_cutoff)
+      !IF (ALLOCATED(param%l_err_cutoff)) DEALLOCATE (param%l_err_cutoff)
+      !ALLOCATE (param%zet_err_cutoff(SIZE(zet_err_cutoff)))
+      param%zet_err_cutoff = zet_err_cutoff
+      !ALLOCATE (param%l_err_cutoff(SIZE(l_err_cutoff)))
+      param%l_err_cutoff = l_err_cutoff
 
       param%l_max = l_max
 
@@ -437,15 +481,15 @@ CONTAINS
 !> \param l_c    contains the largest l for max. exponent and max. l,
 !>               used to estimate cutoff error
 ! **************************************************************************************************
-   SUBROUTINE error_est_pgf_params_from_basis(qs_kind_set, basis_type_1, basis_type_2, zet_mm, zet_c, l_c)
+   SUBROUTINE error_est_pgf_params_from_basis(qs_kind_set, basis_type_1, basis_type_2, zet_mm, zet_c, l_c, l_max)
       TYPE(qs_kind_type), DIMENSION(:), INTENT(IN), &
          POINTER                                         :: qs_kind_set
       CHARACTER(len=*), INTENT(IN)                       :: basis_type_1
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: basis_type_2
       REAL(KIND=dp), INTENT(OUT)                         :: zet_mm
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:), &
+      REAL(KIND=dp), &
          INTENT(OUT)                                     :: zet_c
-      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT)    :: l_c
+      INTEGER, INTENT(OUT) :: l_c, l_max
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'error_est_pgf_params_from_basis', &
          routineP = moduleN//':'//routineN
@@ -517,16 +561,17 @@ CONTAINS
          ENDDO
       ENDDO
 
-      ALLOCATE (l_c(2))
-      ALLOCATE (zet_c(2))
+      !ALLOCATE (l_c(2))
+      !ALLOCATE (zet_c(2))
 
       CPASSERT(zet_l .GT. 0.0_dp .AND. l_zet .GE. 0)
 
-      zet_c(:) = [zet_m, zet_l]
+      zet_c = zet_m
 
       ! l + 1 because we may calculate forces
       ! this is probably a safe choice also for the case that forces are not needed
-      l_c(:) = [l_zet+1, l_m+1]
+      l_c = l_zet+1
+      l_max = l_m+1
 
       CALL timestop(handle)
    END SUBROUTINE error_est_pgf_params_from_basis
@@ -540,6 +585,7 @@ CONTAINS
 
       INTEGER                                            :: unit_nr
       TYPE(cp_logger_type), POINTER                      :: logger
+      INTEGER :: igrid
 
       logger => param%logger
 
@@ -550,14 +596,21 @@ CONTAINS
       ENDIF
       IF (param%par%is_ortho) THEN
          IF (unit_nr > 0) THEN
-            WRITE (unit_nr, '(T2, A)') "ERI_MME| Estimated absolute error for normalized Hermite-Gaussian basis"
-            WRITE (unit_nr, '(T2, A, T72, ES9.2)') "ERI_MME|   Minimax error:", param%par%err_mm
-            WRITE (unit_nr, '(T2, A, T72, ES9.2)') "ERI_MME|   Cutoff error:", param%par%err_c
-            WRITE (unit_nr, '(T2, A, T72, ES9.2)') "ERI_MME|   Total error (minimax + cutoff):", param%par%err_mm+param%par%err_c
+            IF(param%par%do_error_est) THEN
+               WRITE (unit_nr, '(T2, A)') "ERI_MME| Estimated absolute error for normalized Hermite-Gaussian basis"
+               WRITE (unit_nr, '(T2, A, T72, ES9.2)') "ERI_MME|   Minimax error:", param%par%err_mm
+               WRITE (unit_nr, '(T2, A, T72, ES9.2)') "ERI_MME|   Cutoff error:", param%par%err_c
+               WRITE (unit_nr, '(T2, A, T72, ES9.2)') "ERI_MME|   Total error (minimax + cutoff):", param%par%err_mm+param%par%err_c
+            ENDIF
             IF (param%par%print_calib) &
                WRITE (unit_nr, '(T2, A, T68, F13.10)') "ERI_MME|   Minimax scaling constant in AM-GM estimate:", param%par%C_mm
          ENDIF
       ENDIF
+
+      DO igrid = 1, param%par%n_grids
+         CALL eri_mme_print_grid_info(param%par%minimax_grid(igrid), igrid, unit_nr)
+      ENDDO
+
       IF (unit_nr > 0) WRITE (unit_nr, *)
 
    END SUBROUTINE eri_mme_print_info
@@ -681,11 +734,13 @@ CONTAINS
 !> \param GR_count_3c ...
 !> \param RR_count_3c ...
 ! **************************************************************************************************
-   SUBROUTINE cp_eri_mme_update_local_counts(param, para_env, G_count_2c, R_count_2c, GG_count_3c, GR_count_3c, RR_count_3c)
+   SUBROUTINE cp_eri_mme_update_local_counts(param, para_env, G_count_2c, R_count_2c, GG_count_3c, GR_count_3c, RR_count_3c, &
+         grid_count)
       TYPE(cp_eri_mme_param), INTENT(INOUT)              :: param
       TYPE(cp_para_env_type), INTENT(IN), POINTER        :: para_env
       INTEGER, INTENT(INOUT), OPTIONAL                   :: G_count_2c, R_count_2c, GG_count_3c, &
                                                             GR_count_3c, RR_count_3c
+      INTEGER, DIMENSION(:), OPTIONAL                    :: grid_count
 
       IF (PRESENT(G_count_2c)) THEN
          CALL mp_sum(G_count_2c, para_env%group)
@@ -710,6 +765,11 @@ CONTAINS
       IF (PRESENT(RR_count_3c)) THEN
          CALL mp_sum(RR_count_3c, para_env%group)
          param%RR_count_3c = param%RR_count_3c+RR_count_3c
+      ENDIF
+
+      IF(PRESENT(grid_count)) THEN
+         CALL mp_sum(grid_count, para_env%group)
+         param%grid_count(:) = param%grid_count(:) + grid_count(:)
       ENDIF
 
    END SUBROUTINE cp_eri_mme_update_local_counts
@@ -801,7 +861,7 @@ CONTAINS
       ENDDO
 
       ! initialize MME method
-      CALL cp_eri_mme_set_params(param, box%hmat, box%orthorhombic, MINVAL(zet), [MAXVAL(zet)], [l_max], l_max, para_env)
+      CALL cp_eri_mme_set_params(param, box%hmat, box%orthorhombic, MINVAL(zet), MAXVAL(zet), l_max, l_max, para_env)
 
       IF (iw > 0) WRITE (iw, '(T2, A, T61, I20)') "ERI_MME| Number of atomic distances:", nR
 
