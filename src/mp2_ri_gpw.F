@@ -1116,7 +1116,7 @@ CONTAINS
       CALL dbcsr_t_contract(tensor_1=tB_in_split, tensor_2=tL_split, tensor_3=tB_out_split, &
                             contract_1=[1], notcontract_1=[2, 3], &
                             contract_2=[1], notcontract_2=[2], &
-                            map_1=[2, 3], map_2=[1])
+                            map_1=[2, 3], map_2=[1], optimize_dist=.TRUE.)
 
       ! retrieve local block of contraction result (P|ai)
       CALL dbcsr_t_iterator_start(iter, tB_out_split)
