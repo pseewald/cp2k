@@ -1012,6 +1012,11 @@ CONTAINS
       TYPE(dbcsr_t_iterator_type)                        :: iter
       TYPE(dbcsr_t_type)                                 :: tB_in, tB_in_split, tB_out, &
                                                             tB_out_split, tL, tL_split
+      INTEGER                                            :: handle
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'contract_B_L', &
+         routineP = moduleN//':'//routineN
+
+      CALL timeset(routineN, handle)
 
       sizes_i(1) = SIZE(BIb_C, 3)
 
@@ -1150,6 +1155,8 @@ CONTAINS
 
       CALL mp_comm_free(mp_comm_B)
       CALL mp_comm_free(mp_comm_L)
+
+      CALL timestop(handle)
 
    END SUBROUTINE
 
