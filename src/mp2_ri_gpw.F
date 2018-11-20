@@ -1002,7 +1002,7 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: block_ind_L_P, block_ind_L_R
       INTEGER, DIMENSION(1)                              :: dist_B_i, map_B_1, map_L_1, map_L_2, &
                                                             sizes_i
-      INTEGER, DIMENSION(2)                              :: map_B_2, pdims_L, ploc_L
+      INTEGER, DIMENSION(2)                              :: map_B_2, pdims_L
       INTEGER, DIMENSION(3)                              :: blk_ind, blk_offset, blk_offset_first, &
                                                             blk_sizes, offset_B, pdims_B
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: blk_data
@@ -1013,11 +1013,11 @@ CONTAINS
       TYPE(dbcsr_t_iterator_type)                        :: iter
       TYPE(dbcsr_t_type)                                 :: tB_in, tB_in_split, tB_out, &
                                                             tB_out_split, tL, tL_split
-      INTEGER                                            :: handle, handle2, ierr
+      INTEGER                                            :: handle, handle2, handle3, ierr
       CHARACTER(LEN=*), PARAMETER :: routineN = 'contract_B_L', &
          routineP = moduleN//':'//routineN
 
-      LOGICAL, DIMENSION(3)              :: period
+      LOGICAL, DIMENSION(3)              :: period_3d, period_2d
       LOGICAL                                  :: reorder
 
 
@@ -1062,14 +1062,18 @@ CONTAINS
       pdims_L = [nproc, ngroup]
 
       reorder = .FALSE.
-      period = .FALSE.
+      period_3d = .FALSE.
+      period_2d = .FALSE.
       ierr = 0
 
       CALL timeset("mpi_cart_create_3d", handle2)
-      CALL mpi_cart_create(mp_comm, 3, pdims_B, period, reorder, mp_comm_B, ierr)
+      CALL mpi_cart_create(mp_comm, 3, pdims_B, period_3d, reorder, mp_comm_B, ierr)
       CALL timestop(handle2)
       !CALL mp_cart_create(mp_comm, 3, pdims_B, ploc_B, mp_comm_B)
-      CALL mp_cart_create(mp_comm, 2, pdims_L, ploc_L, mp_comm_L)
+      CALL timeset("mpi_cart_create_2d", handle3)
+      CALL mpi_cart_create(mp_comm, 2, pdims_L, period_2d, reorder, mp_comm_L, ierr)
+      CALL timestop(handle3)
+      !CALL mp_cart_create(mp_comm, 2, pdims_L, ploc_L, mp_comm_L)
 
       ! setup distribution vectors such that distribution matches parallel data layout of BIb_C and my_Lrows
       dist_B_i = [0]
@@ -1166,8 +1170,8 @@ CONTAINS
       CALL dbcsr_t_distribution_destroy(dist_B)
       CALL dbcsr_t_distribution_destroy(dist_L)
 
-      CALL mp_comm_free(mp_comm_B)
-      CALL mp_comm_free(mp_comm_L)
+      CALL mpi_comm_free(mp_comm_B, ierr)
+      CALL mpi_comm_free(mp_comm_L, ierr)
 
       CALL timestop(handle)
 
