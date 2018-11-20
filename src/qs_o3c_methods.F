@@ -6,7 +6,7 @@
 !> \brief Methods used with 3-center overlap type integrals containers
 !> \par History
 !>      - none
-!>      - 11.2018 Added contract2_o3c and calculate_o3c_coulomb_integrals for XAS_TDP [A.Bussy]
+!>      - 11.2018 Added calculate_o3c_coulomb_integrals for XAS_TDP [A.Bussy]
 ! **************************************************************************************************
 MODULE qs_o3c_methods
    USE ai_contraction_sphi,             ONLY: abc_contract
@@ -34,7 +34,7 @@ MODULE qs_o3c_methods
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_o3c_methods'
 
    PUBLIC :: calculate_o3c_integrals, contract12_o3c, contract3_o3c, &
-             calculate_o3c_coulomb_integrals, contract2_o3c
+             calculate_o3c_coulomb_integrals
 
 CONTAINS
 
@@ -364,7 +364,7 @@ CONTAINS
 !$OMP          first_sgfb,lb_max,lb_min,npgfb,nsetb,nsgfb,rpgfb,set_radius_b,sphi_b,zetb,&
 !$OMP          first_sgfc,lc_max,lc_min,npgfc,nsetc,nsgfc,rpgfc,set_radius_c,sphi_c,zetc,&
 !$OMP          iset,jset,kset,dij2,dik2,djk2,ni,nj,nk,iabc,tvec,ncoa,ipgfc,startc,endc,&
-!$OMP          ncob,ncoc,sabc,sabc_cont,sgfa,sgfb,sgfc,egfa,egfb,egfc,f,gccc,vabc,v)
+!$OMP          ncob,ncoc,sabc,sabc_contr,sgfa,sgfb,sgfc,egfa,egfb,egfc,f,gccc,vabc,v)
 
       mepos = 0
 !$    mepos = omp_get_thread_num()
@@ -615,7 +615,7 @@ CONTAINS
       CALL o3c_iterator_create(o3c, o3c_iterator, nthread=nthread)
 
 !$OMP PARALLEL DEFAULT(NONE) &
-!$OMP SHARED (nthread,o3c_iterator,vec,matrix,normal_mat)&
+!$OMP SHARED (nthread,o3c_iterator,vec,matrix)&
 !$OMP PRIVATE (mepos,iabc,iatom,jatom,katom,irow,icol,trans,pblock,v,found,ik,nk)
 
       mepos = 0
@@ -659,87 +659,5 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE contract3_o3c
-
-! **************************************************************************************************
-!> \brief Contraction of 3-tensor over index 2, for a given atom 
-!>        h(ik) = h(ik) + sum_j (ijk)*v(j)
-!> \param o3c ...
-!> \param vec ...
-!> \param matrix ...
-! **************************************************************************************************
-   SUBROUTINE contract2_o3c(o3c, vec, matrix)
-      TYPE(o3c_container_type), POINTER                  :: o3c
-      TYPE(o3c_vec_type), DIMENSION(:), POINTER          :: vec
-      TYPE(dbcsr_type), POINTER                          :: matrix
-
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'contract2_o3c', routineP = moduleN//':'//routineN
-
-      INTEGER                                            :: handle, iatom, ij, jatom, nelem, ii, &
-                                                            katom, mepos, nj, nthread, ni
-      LOGICAL                                            :: found, ijsymmetric
-      REAL(KIND=dp), DIMENSION(:), POINTER               :: v
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pblock
-      REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: iabc
-      TYPE(o3c_iterator_type)                            :: o3c_iterator
-
-      CALL timeset(routineN, handle)
-
-      CALL get_o3c_container(o3c, ijsymmetric=ijsymmetric)
-      CPASSERT(ijsymmetric)
-
-! TODO: can there be race conditions when taking blocks of the matrix ?!?
-
-      nthread = 1
-!$    nthread = omp_get_max_threads()
-      CALL o3c_iterator_create(o3c, o3c_iterator, nthread=nthread)
-
-!$OMP PARALLEL DEFAULT(NONE) &
-!$OMP SHARED (nthread,o3c_iterator,vec,matrix)&
-!$OMP PRIVATE (mepos,iabc,iatom,jatom,katom,pblock,v,found,ij,nj,nelem,ii,ni)
-
-      mepos = 0
-!$    mepos = omp_get_thread_num()
-
-      DO WHILE (o3c_iterate(o3c_iterator, mepos=mepos) == 0)
-         CALL get_o3c_iterator_info(o3c_iterator, mepos=mepos, iatom=iatom, jatom=jatom, katom=katom, &
-                                    integral=iabc)
-
-         CALL get_o3c_vec(vec, jatom, v)
-         nj = SIZE(v)
-
-         CALL dbcsr_get_block_p(matrix=matrix, row=iatom, col=katom, BLOCK=pblock, found=found)
-         
-         IF (found) THEN
-            nelem = SIZE(pblock,1)*SIZE(pblock,2)
-            DO ij = 1, nj
-               CALL daxpy(nelem, v(ij), iabc(:,ij,:), 1, pblock, 1)
-            END DO
-         END IF
-
-         ! assume i,j symmetric => if i /= j, need to explicitely consider the j,i combination
-         IF (iatom .NE. jatom) THEN
-
-            CALL get_o3c_vec(vec, iatom, v)
-            ni = SIZE(v)
-            CALL dbcsr_get_block_p(matrix=matrix, row=jatom, col=katom, BLOCK=pblock, found=found)
-
-            IF (found) THEN
-               nelem = SIZE(pblock,1)*SIZE(pblock,2)
-               DO ii = 1,ni
-                  CALL daxpy(nelem, v(ii), iabc(ii,:,:), 1, pblock, 1)
-               END DO
-            END IF
-
-         END IF ! iatom /= jatom
-            
-      END DO
-!$OMP END PARALLEL
-      CALL o3c_iterator_release(o3c_iterator)
-
-      CALL timestop(handle)
-
-   END SUBROUTINE contract2_o3c
-
-! **************************************************************************************************
 
 END MODULE qs_o3c_methods

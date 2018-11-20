@@ -89,7 +89,8 @@ MODULE xas_tdp_methods
                                               free_ds_memory, &
                                               xas_atom_env_type, &
                                               xas_atom_env_create, &
-                                              xas_atom_env_release
+                                              xas_atom_env_release, &
+                                              donor_state_create
    USE xas_tdp_utils,                   ONLY: setup_xas_tdp_full_prob, &
                                               solve_xas_tdp_full_prob, &
                                               compute_ri_coulomb2_int, &
@@ -236,10 +237,6 @@ CONTAINS
       END IF
 
 !  Loop over donor states for calculation
-!  TODO: I suspect that for parallel run with mpirun, all the processors do not go at the same speed
-!        causing some pointer to be dealloacted before they are called by the other processors
-!        Get bad pointer memory leak
-
       CALL get_qs_env(qs_env=qs_env, atomic_kind_set=atomic_kind_set, para_env=para_env)      
       current_state_index = 1
 
@@ -486,6 +483,9 @@ CONTAINS
 !  Allocating memory for the array of donor states
       n_donor_states = COUNT(xas_tdp_env%state_types /= xas_not_excited)     
       ALLOCATE(xas_tdp_env%donor_states(n_donor_states))
+      DO i = 1,n_donor_states
+         CALL donor_state_create(xas_tdp_env%donor_states(i))
+      END DO
 
 !  Initializing the qs_loc_env from the LOCALIZE subsection of XAS_TDP (largely inpired by MI's XAS)
 !  Closed shell ground state calculation is assumed (spin-unpolarized)
