@@ -70,7 +70,7 @@ MODULE mp2_ri_gpw
         dbcsr_t_get_stored_coordinates, dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_next_block, &
         dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_iterator_type, dbcsr_t_nd_mp_comm, &
         dbcsr_t_nd_mp_free, dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_split_blocks, &
-        dbcsr_t_type
+        dbcsr_t_type, dbcsr_t_pgrid_type, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy
    USE gaussian_gridlevels,             ONLY: gaussian_gridlevel
    USE input_constants,                 ONLY: do_eri_gpw,&
                                               do_eri_mme,&
@@ -997,8 +997,9 @@ CONTAINS
 
       INTEGER                                            :: blk, check_proc, i, iend, ii, ioff, &
                                                             iproc, iproc_glob, istart, loc_a, &
-                                                            loc_P, mp_comm_B, mp_comm_L, nproc, &
+                                                            loc_P, nproc, &
                                                             nproc_glob
+      TYPE(dbcsr_t_pgrid_type)                           :: mp_comm_L, mp_comm_B
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: block_ind_L_P, block_ind_L_R
       INTEGER, DIMENSION(1)                              :: dist_B_i, map_B_1, map_L_1, map_L_2, &
                                                             sizes_i
@@ -1013,7 +1014,7 @@ CONTAINS
       TYPE(dbcsr_t_iterator_type)                        :: iter
       TYPE(dbcsr_t_type)                                 :: tB_in, tB_in_split, tB_out, &
                                                             tB_out_split, tL, tL_split
-      INTEGER                                            :: handle, handle2, handle3, ierr
+      INTEGER                                            :: handle, ierr
       CHARACTER(LEN=*), PARAMETER :: routineN = 'contract_B_L', &
          routineP = moduleN//':'//routineN
 
@@ -1066,13 +1067,15 @@ CONTAINS
       period_2d = .FALSE.
       ierr = 0
 
-      CALL timeset("mpi_cart_create_3d", handle2)
-      CALL mpi_cart_create(mp_comm, 3, pdims_B, period_3d, reorder, mp_comm_B, ierr)
-      CALL timestop(handle2)
+      !CALL timeset("mpi_cart_create_3d", handle2)
+      !CALL mpi_cart_create(mp_comm, 3, pdims_B, period_3d, reorder, mp_comm_B, ierr)
+      CALL dbcsr_t_pgrid_create(mp_comm, pdims_B, mp_comm_B)
+      !CALL timestop(handle2)
       !CALL mp_cart_create(mp_comm, 3, pdims_B, ploc_B, mp_comm_B)
-      CALL timeset("mpi_cart_create_2d", handle3)
-      CALL mpi_cart_create(mp_comm, 2, pdims_L, period_2d, reorder, mp_comm_L, ierr)
-      CALL timestop(handle3)
+      !CALL timeset("mpi_cart_create_2d", handle3)
+      !CALL mpi_cart_create(mp_comm, 2, pdims_L, period_2d, reorder, mp_comm_L, ierr)
+      CALL dbcsr_t_pgrid_create(mp_comm, pdims_L, mp_comm_L)
+      !CALL timestop(handle3)
       !CALL mp_cart_create(mp_comm, 2, pdims_L, ploc_L, mp_comm_L)
 
       ! setup distribution vectors such that distribution matches parallel data layout of BIb_C and my_Lrows
@@ -1170,8 +1173,10 @@ CONTAINS
       CALL dbcsr_t_distribution_destroy(dist_B)
       CALL dbcsr_t_distribution_destroy(dist_L)
 
-      CALL mpi_comm_free(mp_comm_B, ierr)
-      CALL mpi_comm_free(mp_comm_L, ierr)
+      CALL dbcsr_t_pgrid_destroy(mp_comm_B)
+      CALL dbcsr_t_pgrid_destroy(mp_comm_L)
+      !CALL mpi_comm_free(mp_comm_B, ierr)
+      !CALL mpi_comm_free(mp_comm_L, ierr)
 
       CALL timestop(handle)
 
