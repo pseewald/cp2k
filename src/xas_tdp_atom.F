@@ -18,13 +18,14 @@ MODULE xas_tdp_atom
    USE cell_types,                      ONLY: cell_type
    USE cp_array_utils,                  ONLY: cp_2d_r_p_type, cp_3d_r_p_type
    USE cp_control_types,                ONLY: qs_control_type, dft_control_type
+   USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: dbcsr_p_type, dbcsr_distribution_type,&
                                               dbcsr_create, dbcsr_print, dbcsr_put_block, &
                                               dbcsr_finalize, dbcsr_release, dbcsr_get_block_p, &
                                               dbcsr_release_p, dbcsr_iterator_type, &  
                                               dbcsr_iterator_blocks_left, dbcsr_iterator_start, &
                                               dbcsr_iterator_stop, dbcsr_iterator_next_block, &
-                                              dbcsr_type
+                                              dbcsr_type, dbcsr_distribution_get
    USE generic_os_integrals,            ONLY: int_overlap_ab_os
    USE input_section_types,             ONLY: section_vals_type, &
                                               section_vals_get_subs_vals
@@ -34,6 +35,7 @@ MODULE xas_tdp_atom
    USE mathconstants,                   ONLY: dfac, pi, gamma1
    USE mathlib,                         ONLY: invmat_symm
    USE memory_utilities,                ONLY: reallocate
+   USE message_passing,                 ONLY: mp_sum
    USE orbital_pointers,                ONLY: nsoset, indso, ncoset, nco, nso, indco
    USE orbital_transformation_matrices, ONLY: orbtramat
    USE particle_methods,                ONLY: get_particle_set
@@ -70,6 +72,7 @@ MODULE xas_tdp_atom
    USE xc_rho_set_types,                ONLY: xc_rho_set_create, xc_rho_set_release, &
                                               xc_rho_set_type
 
+!$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -133,6 +136,7 @@ CONTAINS
       CALL init_xas_atom_grid_harmo(xas_atom_env, xas_tdp_control%grid_info, do_xc, qs_env)
 
 !  Create the block size for the integral matrix based on the size of the RI_XAS basis.
+!  TODO: this is not needed anymore...
       ALLOCATE(basis_set_ri(nkind))
       CALL basis_set_list_setup(basis_set_ri, "RI_XAS", qs_kind_set)
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=xas_atom_env%ri_blk_size, basis=basis_set_ri)
@@ -140,6 +144,7 @@ CONTAINS
 
 !  Compute the contraction coefficients for spherical orbitals
       DO ikind = 1,nkind 
+         NULLIFY(xas_atom_env%orb_sphi_so(ikind)%array, xas_atom_env%ri_sphi_so(ikind)%array)
          IF (do_soc) THEN
             CALL compute_sphi_so(ikind, "ORB", xas_atom_env%orb_sphi_so(ikind)%array, qs_env)
          END IF
@@ -267,6 +272,8 @@ CONTAINS
       DO ikind = 1,SIZE(xas_atom_env%grid_atom_set)
 
 !        Allocate the grid and the harmonics for this kind
+         NULLIFY(xas_atom_env%grid_atom_set(ikind)%grid_atom)
+         NULLIFY(xas_atom_env%harmonics_atom_set(ikind)%harmonics_atom)
          CALL allocate_grid_atom(xas_atom_env%grid_atom_set(ikind)%grid_atom)
          CALL allocate_harmonics_atom(xas_atom_env%harmonics_atom_set(ikind)%harmonics_atom)
 
@@ -410,7 +417,7 @@ CONTAINS
                                      routineP = moduleN//":"//routineN
 
       INTEGER                                         :: nkind, ilist, katom, kkind, ikind, natom, &
-                                                         iat, nsgf_kind
+                                                         iat, nsgf_kind, mepos, nthread
       REAL(dp)                                        :: dmax
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(gto_basis_set_p_type), DIMENSION(:), &
@@ -427,9 +434,10 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set 
       INTEGER, DIMENSION(:), POINTER                  :: nsgf
       REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: work
+      TYPE(cp_para_env_type), POINTER                 :: para_env
 
       NULLIFY(qs_kind_set, basis_set_ri, basis_set_orb, ac_list, rho, rho_ao, sinv, ri_basis)
-      NULLIFY(o3c, tvec, particle_set, nsgf)
+      NULLIFY(o3c, tvec, particle_set, nsgf, para_env)
       CPASSERT(ASSOCIATED(xas_atom_env))
 
       CALL get_qs_env(qs_env, nkind=nkind, sab_orb=sab_orb, qs_kind_set=qs_kind_set, rho=rho, &
@@ -472,6 +480,7 @@ CONTAINS
 !  Allocate space for the projected density coefficients. 
       nsgf => xas_atom_env%ri_blk_size
       DO iat = 1,natom
+         NULLIFY(xas_atom_env%ri_dcoeff(iat)%array)
          IF (.NOT. ANY(xas_atom_env%excited_atoms == iat)) CYCLE
          ikind = particle_set(iat)%atomic_kind%kind_number
          ALLOCATE(xas_atom_env%ri_dcoeff(iat)%array(nsgf(iat)))
@@ -479,21 +488,39 @@ CONTAINS
       END DO
 
 !  Iterate over the o3c to access the contracted tvec = sum_ab P_ab*(abc). 
-!  TODO: careful when parallelizing
-      CALL o3c_iterator_create(o3c, o3c_iterator) 
-      DO WHILE (o3c_iterate(o3c_iterator) == 0)
-         CALL get_o3c_iterator_info(o3c_iterator, katom=katom, kkind=kkind, tvec=tvec)
+      nthread = 1
+!$    nthread = omp_get_max_threads() 
+      CALL o3c_iterator_create(o3c, o3c_iterator, nthread=nthread) 
+
+!$OMP PARALLEL DEFAULT(NONE)&
+!$OMP SHARED (o3c_iterator,xas_atom_env,nsgf,sinv)&
+!$OMP PRIVATE (mepos,katom,kkind,tvec,work)
+
+      mepos = 0
+!$    mepos = omp_get_thread_num()
+
+      DO WHILE (o3c_iterate(o3c_iterator, mepos=mepos) == 0)
+         CALL get_o3c_iterator_info(o3c_iterator, mepos=mepos, katom=katom, kkind=kkind, tvec=tvec)
          IF (.NOT. ANY(xas_atom_env%excited_atoms == katom)) CYCLE
 
 !        The coefficient for atom katom of kkind are tvec*S^-1
          ALLOCATE(work(nsgf(katom),1))
          CALL dgemm('N', 'N', nsgf(katom), 1, nsgf(katom), 1.0_dp, sinv(kkind)%array, nsgf(katom), &
                     tvec, nsgf(katom), 0.0_dp, work, nsgf(katom))
+!$OMP CRITICAL
          CALL daxpy(nsgf(katom), 1.0_dp, work(:,1), 1, xas_atom_env%ri_dcoeff(katom)%array(:), 1)
-         DEALLOCATE(work)
+!$OMP END CRITICAL
 
+         DEALLOCATE(work)
       END DO
+!$OMP END PARALLEL
       CALL o3c_iterator_release(o3c_iterator)
+
+      CALL get_qs_env(qs_env, para_env=para_env)
+      DO iat = 1,natom
+         IF (.NOT. ANY(xas_atom_env%excited_atoms == iat)) CYCLE
+         CALL mp_sum(xas_atom_env%ri_dcoeff(iat)%array, para_env%group)
+      END DO !iat
 
 !  some clean-up
       DO ilist = 1,SIZE(ac_list)
@@ -591,6 +618,7 @@ CONTAINS
          END DO !ipgf
 
          !contract the so to get the sgf
+         !TODO: maybe change ordering of indices so that one strarts iterating on last one
          ALLOCATE(sgf(nsgf_set(iset),na,nr))
          sgf = 0.0_dp
          sgfi = first_sgf(1,iset) - 1
@@ -670,11 +698,15 @@ CONTAINS
 !  Initialize
       CALL get_qs_env(qs_env, particle_set=particle_set, qs_kind_set=qs_kind_set, natom=natom, &
                       dft_control=dft_control, input=input)
+      NULLIFY (int_fxc_sg, int_fxc_tp)
       IF (do_singlet) ALLOCATE(int_fxc_sg(natom))
       IF (do_triplet) ALLOCATE(int_fxc_tp(natom))
 
 !  Looping over the excited atoms
       DO iatom = 1, natom
+
+         IF (do_singlet) NULLIFY(int_fxc_sg(iatom)%array)
+         IF (do_triplet) NULLIFY(int_fxc_tp(iatom)%array)
 
          IF (.NOT. ANY(xas_atom_env%excited_atoms == iatom)) CYCLE
          ikind = particle_set(iatom)%atomic_kind%kind_number

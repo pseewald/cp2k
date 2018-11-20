@@ -101,6 +101,8 @@ MODULE xas_tdp_types
 !>        each excited atom
 !> \param ri_o3c_coul the container for the RI 3-center Coulomb integrals
 !> \param ri_o3c_ex the container for the RI 3-center exchange integrals
+!> \param lb_o3c_coul the lower bond of a,b present in the 3-center RI Coulomb integrals (ab|P)
+!> \param ub_o3c_coul the upper bond of a,b present in the 3-center RI Coulomb integrals (ab|P)
 !> \param ri_fxc_sg the array of xc integrals of type (P|fxc|Q) for singlets
 !> \param ri_fxc_tp the array of xc integrals of type (P|fxc|Q) for triplets
 !> \param orb_soc the matrix where the SOC is evaluated wrt the orbital basis set, for x,y,z
@@ -114,6 +116,8 @@ MODULE xas_tdp_types
       INTEGER, DIMENSION(:,:), POINTER        :: state_types
       TYPE(o3c_container_type), POINTER       :: ri_o3c_coul
       TYPE(o3c_container_type), POINTER       :: ri_o3c_ex
+      INTEGER                                 :: lb_o3c_coul
+      INTEGER                                 :: ub_o3c_coul
       TYPE(donor_state_type), DIMENSION(:),&
                         POINTER               :: donor_states
       INTEGER, DIMENSION(:,:), POINTER        :: mos_of_ex_atoms
@@ -221,7 +225,7 @@ MODULE xas_tdp_types
    PUBLIC :: set_donor_state, free_ds_memory, &
              xas_tdp_env_create, xas_tdp_env_release, set_xas_tdp_env, &
              xas_tdp_control_create, xas_tdp_control_release, read_xas_tdp_control, &
-             xas_atom_env_create, xas_atom_env_release
+             xas_atom_env_create, xas_atom_env_release, donor_state_create
 
 CONTAINS
 
@@ -256,6 +260,7 @@ CONTAINS
       NULLIFY (xas_tdp_control%list_ex_kinds)
       NULLIFY (xas_tdp_control%loc_subsection)
       NULLIFY (xas_tdp_control%print_loc_subsection)
+      NULLIFY (xas_tdp_control%grid_info)
 
    END SUBROUTINE xas_tdp_control_create
 
@@ -567,6 +572,35 @@ CONTAINS
       IF (PRESENT(nex_kinds)) xas_tdp_env%nex_kinds = nex_kinds
       
    END SUBROUTINE set_xas_tdp_env
+
+!> *************************************************************************************************
+!> \brief Creates a donor_state
+!> \param donor_state ...
+!> *************************************************************************************************
+   SUBROUTINE donor_state_create(donor_state)
+
+      TYPE(donor_state_type), INTENT(INOUT)              :: donor_state
+
+      CHARACTER(len=*), PARAMETER                        :: routineN = 'donor_state_create',&
+                                                            routineP = moduleN//':'//routineN
+
+      NULLIFY (donor_state%energy_evals)
+      NULLIFY (donor_state%mo_indices)
+      NULLIFY (donor_state%sg_coeffs)
+      NULLIFY (donor_state%tp_coeffs)
+      NULLIFY (donor_state%gs_coeffs)
+      NULLIFY (donor_state%sg_evals)
+      NULLIFY (donor_state%tp_evals)
+      NULLIFY (donor_state%soc_evals)
+      NULLIFY (donor_state%soc_osc_str)
+      NULLIFY (donor_state%sg_osc_str)
+      NULLIFY (donor_state%tp_osc_str)
+      NULLIFY (donor_state%sg_matrix_tdp)
+      NULLIFY (donor_state%tp_matrix_tdp)
+      NULLIFY (donor_state%metric)
+      NULLIFY (donor_state%matrix_aux)
+
+   END SUBROUTINE donor_state_create
 
 !> *************************************************************************************************
 !> \brief sets specified values of the donor state type
