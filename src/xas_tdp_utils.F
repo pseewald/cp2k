@@ -61,7 +61,7 @@ MODULE xas_tdp_utils
    USE iterate_matrix,                  ONLY: invert_Hotelling, matrix_sqrt_Newton_Schulz
    USE kinds,                           ONLY: dp
    USE mathlib,                         ONLY: invmat_symm
-   USE message_passing,                 ONLY: mp_min, mp_max
+   USE message_passing,                 ONLY: mp_min, mp_max, mp_bcast
    USE molecule_types,                  ONLY: molecule_type
    USE orbital_pointers,                ONLY: ncoset
    USE particle_methods,                ONLY: get_particle_set
@@ -84,7 +84,7 @@ MODULE xas_tdp_utils
                                               o3c_vec_create, release_o3c_container, o3c_iterate, &
                                               o3c_iterator_create, o3c_iterator_release, &
                                               o3c_iterator_type, get_o3c_iterator_info
-   USE util,                            ONLY: locate
+   USE util,                            ONLY: locate, get_limit
    USE xas_tdp_types,                   ONLY: donor_state_type, xas_tdp_env_type, &
                                               xas_tdp_control_type
 
@@ -1095,7 +1095,6 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "build_aux_matrices", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: handle
       REAL(dp)                                        :: min_ev
       LOGICAL                                         :: conv
       TYPE(dbcsr_type), POINTER                       :: tmp_mat
@@ -1103,8 +1102,6 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrices
 
       NULLIFY(tmp_mat, matrices)
-
-      CALL timeset(routineN, handle)
 
       ALLOCATE(tmp_mat)
       CALL dbcsr_copy(tmp_mat, matrix_a)
@@ -1148,66 +1145,48 @@ CONTAINS
       CALL dbcsr_release(tmp_mat)
       DEALLOCATE (matrices, tmp_mat)
 
-      CALL timestop(handle)
-
    END SUBROUTINE build_aux_matrices
 
 ! **************************************************************************************************
 !> \brief Computes the two-center Coulomb integral needed for the RI in kernel calculation. Stores
-!>        the integrals (P|Q)^-1 in the xas_tdp_env as global (small) arrays
+!>        the integrals (P|Q)^-1 in the xas_tdp_env as global (small) arrays. Does that for a given
+!>        excited kind
+!> \param ex_kind ...
 !> \param xas_tdp_env ...
 !> \param qs_env ...
 ! **************************************************************************************************
-   SUBROUTINE compute_ri_coulomb2_int(xas_tdp_env, qs_env)
+   SUBROUTINE compute_ri_coulomb2_int(ex_kind, xas_tdp_env, qs_env)
 
+      INTEGER, INTENT(IN)                             :: ex_kind
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(qs_environment_type), POINTER              :: qs_env 
 
       CHARACTER(len=*), PARAMETER :: routineN = "compute_ri_coulomb2_int", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: ikind, nsgf, nkind
+      INTEGER                                         :: nsgf
       TYPE(gto_basis_set_type), POINTER               :: ri_basis
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set        
-      INTEGER, DIMENSION(:), POINTER                  :: ex_kinds
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: tmp_int
 
       NULLIFY(ri_basis, qs_kind_set)
 
 !  Initialization
-      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, nkind=nkind)
-      ex_kinds => xas_tdp_env%ex_kind_indices
-      NULLIFY(xas_tdp_env%ri_inv_mats)
-      ALLOCATE(xas_tdp_env%ri_inv_mats(nkind))
+      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set)
+      IF (ASSOCIATED(xas_tdp_env%ri_inv_coul)) THEN
+         DEALLOCATE(xas_tdp_env%ri_inv_coul)
+      END IF
 
-!  Loop over the excited kinds
-      DO ikind = 1,nkind
-         
-         NULLIFY(xas_tdp_env%ri_inv_mats(ikind)%array)
-         IF (.NOT. ANY(ex_kinds == ikind)) CYCLE
+!  Get the RI basis of interest and its quantum numbers
+      CALL get_qs_kind(qs_kind_set(ex_kind), basis_set=ri_basis, basis_type="RI_XAS")
+      CALL get_gto_basis_set(ri_basis, nsgf=nsgf) 
+      ALLOCATE(xas_tdp_env%ri_inv_coul(nsgf, nsgf))
 
-!        Get the RI basis of interest and its quantum numbers
-         CALL get_qs_kind(qs_kind_set(ikind), basis_set=ri_basis, basis_type="RI_XAS")
-         CALL get_gto_basis_set(ri_basis, nsgf=nsgf) 
+      CALL int_operators_r12_ab_os(r12_operator=operator_coulomb, vab=xas_tdp_env%ri_inv_coul, &
+                                   rab=(/0.0_dp,0.0_dp,0.0_dp/), fba=ri_basis, fbb=ri_basis, &
+                                   calculate_forces=.FALSE.)
 
-!        The 2D array with the integrals for this kind
-         ALLOCATE(tmp_int(nsgf, nsgf))
-         tmp_int = 0.0_dp
-
-         CALL int_operators_r12_ab_os(r12_operator=operator_coulomb, vab=tmp_int, &
-                                      rab=(/0.0_dp,0.0_dp,0.0_dp/), fba=ri_basis, fbb=ri_basis, &
-                                      calculate_forces=.FALSE.)
-
-!        Inverting and storing in the xas_tdp_env
-         CALL invmat_symm(tmp_int)  
-
-         ALLOCATE(xas_tdp_env%ri_inv_mats(ikind)%array(nsgf,nsgf))
-         xas_tdp_env%ri_inv_mats(ikind)%array(:,:) = tmp_int(:,:)
-
-!        clean-up before next kind
-         DEALLOCATE(tmp_int)
-
-      END DO ! loop on kinds
+!  Inverting 
+      CALL invmat_symm(xas_tdp_env%ri_inv_coul)  
 
    END SUBROUTINE compute_ri_coulomb2_int
 
@@ -1734,27 +1713,28 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = "kernel_coulomb_xc", routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: handle, ndo_mo, ri_atom, ri_kind, imo, &
-                                                         natom, nsgfp
+      INTEGER                                         :: handle, ndo_mo, ri_atom, imo, iex, &
+                                                         natom, nsgfp, source, ip, nex_atom, bo(2)
       INTEGER, DIMENSION(:), POINTER                  :: ri_blk_size
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_int, rhs_int, lhs_tp, matrices
       REAL(dp), DIMENSION(:,:), POINTER               :: PQ, fxc
       REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: fxc_rs
       TYPE(dbcsr_type), POINTER                       :: work_mat
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      LOGICAL                                         :: found
 
-      NULLIFY(lhs_int, rhs_int, PQ, fxc, ri_blk_size, dbcsr_dist, lhs_tp, matrices, work_mat)
+      NULLIFY(lhs_int, rhs_int, PQ, ri_blk_size, dbcsr_dist, lhs_tp, matrices, work_mat, para_env, fxc)
 
       CALL timeset(routineN, handle)
 
 !  Initialization
       ndo_mo = SIZE(donor_state%mo_indices)
       ri_atom = donor_state%at_index
-      ri_kind = donor_State%kind_index
       CALL get_qs_env(qs_env, natom=natom, dbcsr_dist=dbcsr_dist)
 
 !  Get the RI inverse coulomb for the excited kind (P|Q)^-1
-      PQ => xas_tdp_env%ri_inv_mats(ri_kind)%array
+      PQ => xas_tdp_env%ri_inv_coul
       nsgfp = SIZE(PQ, 1)
 
 !  Get the contracted 3-center integrals in lhs_int and copy them into rhs_int
@@ -1810,6 +1790,8 @@ CONTAINS
 
          ! some work array
          ALLOCATE(fxc_rs(nsgfp,nsgfp))
+
+         CALL get_qs_env(qs_env, para_env=para_env)
          
          !If both singlet AND triplet, need to save LHS before (Q|fxc|R) multiplication
          IF (do_xc_sg .AND. do_xc_tp) THEN
@@ -1820,9 +1802,31 @@ CONTAINS
             END DO
          END IF
 
+         ! Find on which processor the integral (Q|fxc|R) is stored
+         found = .FALSE.
+         nex_atom = SIZE(xas_tdp_env%ex_atom_indices)
+         DO ip = 0, para_env%num_pe-1
+
+            bo = get_limit(nex_atom, para_env%num_pe, ip)
+            DO iex = bo(1), bo(2)
+
+               IF (xas_tdp_env%ex_atom_indices(iex) == ri_atom) THEN
+                  source = ip
+                  found = .TRUE.
+                  EXIT
+               END IF
+            END DO !iex
+            IF (found) EXIT
+         END DO !ip
+
       ! Case study on excited state multiplicity
          IF (do_xc_sg) THEN
 
+            ! Fetch (Q|fxc|R) and broadcast it to all processors
+            IF (.NOT. ASSOCIATED(xas_tdp_env%ri_fxc_sg(ri_atom)%array)) THEN
+               ALLOCATE(xas_tdp_env%ri_fxc_sg(ri_atom)%array(nsgfp, nsgfp))
+            END IF
+            CALL mp_bcast(xas_tdp_env%ri_fxc_sg(ri_atom)%array, source, para_env%group)
             fxc => xas_tdp_env%ri_fxc_sg(ri_atom)%array
 
             ! Need to further multiply LHS by (Q|fxc|R)*(R|S)^-1
@@ -1852,6 +1856,11 @@ CONTAINS
                lhs_tp => lhs_int 
             END IF
 
+            ! Fetch (Q|fxc|R) and broadcast it to all processors
+            IF (.NOT. ASSOCIATED(xas_tdp_env%ri_fxc_tp(ri_atom)%array)) THEN
+               ALLOCATE(xas_tdp_env%ri_fxc_tp(ri_atom)%array(nsgfp, nsgfp))
+            END IF
+            CALL mp_bcast(xas_tdp_env%ri_fxc_tp(ri_atom)%array, source, para_env%group) 
             fxc => xas_tdp_env%ri_fxc_tp(ri_atom)%array
 
             ! Need to further multiply LHS by (Q|fxc|R)*(R|S)^-1
@@ -1887,6 +1896,9 @@ CONTAINS
       END DO
       DEALLOCATE(lhs_int, rhs_int, work_mat)
       IF (do_xc_sg .AND. do_xc_tp) DEALLOCATE(lhs_tp)
+   ! also clean up the fxc integral, not needed anymore
+      IF (do_xc_sg) DEALLOCATE(xas_tdp_env%ri_fxc_sg(ri_atom)%array)
+      IF (do_xc_tp) DEALLOCATE(xas_tdp_env%ri_fxc_tp(ri_atom)%array)
 
       CALL timestop(handle)
    
@@ -1921,7 +1933,7 @@ CONTAINS
       
       CHARACTER(len=*), PARAMETER :: routineN = "kernel_exchange", routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: handle, ndo_mo, ri_atom, ri_kind, imo, &
+      INTEGER                                         :: handle, ndo_mo, ri_atom, imo, &
                                                          iblk, jblk, blk, s2, sr, er, jmo, nblk, &
                                                          nsgfp, natom
       INTEGER, DIMENSION(:), POINTER                  :: col_blk_size, ri_blk_size, vec_blk_size
@@ -1948,11 +1960,10 @@ CONTAINS
 !  Initialization
       ndo_mo = SIZE(donor_state%mo_indices)
       ri_atom = donor_state%at_index
-      ri_kind = donor_state%kind_index
       CALL get_qs_env(qs_env, natom=natom, dbcsr_dist=dbcsr_dist)
 
 !  Get the RI inverse coulomb for the excited kind (P|Q)^-1
-      PQ => xas_tdp_env%ri_inv_mats(ri_kind)%array
+      PQ => xas_tdp_env%ri_inv_coul
       nsgfp = SIZE(PQ, 1)
 
 !  Need the once contracted integrals (aI_b|P) in any case 
@@ -2337,7 +2348,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "include_full_soc", routineP = moduleN//":"//routineN
 
       INTEGER                                         :: itp, ntp, isg, nsg, ntot, ndo_mo, nao, &
-                                                         jtp, homo, i
+                                                         jtp, homo, i, handle
       REAL(dp), DIMENSION(:), POINTER                 :: sg_evals, tp_evals
       TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: sg_coeffs, tp_coeffs, amew_dip
       TYPE(cp_fm_type), POINTER                       :: real_fm, img_fm, gs_coeffs, vec_s, &
@@ -2362,6 +2373,8 @@ CONTAINS
       NULLIFY(matrix_s, orb_soc_x, hami_cfm, evecs_cfm, s_st, s_tt, domo_soc_x, domo_soc_y)
       NULLIFY(orb_soc_y, orb_soc_z, mo_coeff, mos, std_struct, work_fm, gsgs_struct, amew_dip)
       NULLIFY(vec_soc_x, vec_soc_y, vec_soc_z)
+
+      CALL timeset(routineN, handle)
 
 !  Initialization
       CPASSERT(ASSOCIATED(xas_tdp_control))
@@ -2663,6 +2676,8 @@ CONTAINS
       CALL cp_cfm_release(evecs_cfm)
       CALL cp_cfm_release(work_cfm)
       CALL cp_cfm_release(dip_cfm)
+
+      CALL timestop(handle)
       
    END SUBROUTINE include_full_soc
 

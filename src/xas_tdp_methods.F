@@ -246,6 +246,10 @@ CONTAINS
          CALL get_atomic_kind(atomic_kind=atomic_kind_set(ikind), element_symbol=symbol_of_kind,&
                               atom_list=atoms_of_kind)
 
+         IF (.NOT. ANY(xas_tdp_env%ex_kind_indices == ikind)) CYCLE
+         ! compute the RI coulomb2 inverse for this kind
+         CALL compute_ri_coulomb2_int(ikind, xas_tdp_env, qs_env)
+
 !        Loop over atoms of kind
          DO iat = 1,SIZE(atoms_of_kind)
             iatom = atoms_of_kind(iat)
@@ -517,11 +521,6 @@ CONTAINS
 !  Allocating memory for the array of excited atoms MOs. Worst case senario, all searched MOs are
 !  associated to the same atom
       ALLOCATE(xas_tdp_env%mos_of_ex_atoms(xas_tdp_control%n_search, nex_atoms))
-
-!  Precomputing for RI => compute and invert the two-center two-electron repulsion matrix for the RI
-!  aux basis, for each excited kind
-
-      CALL compute_ri_coulomb2_int(xas_tdp_env, qs_env)
 
 !  Compute the projector on the unoccupied, unperturbed ground state: Q = 1 - SP
 !  and the projector on the occupied unperturbed ground state SPS
