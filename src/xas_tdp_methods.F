@@ -174,7 +174,7 @@ CONTAINS
 !     Check on periodicity: only deal with non-periodic systems for now
       CALL get_qs_env(qs_env, cell=cell)
       IF (.NOT. ALL(cell%perd .EQ. 0)) THEN
-         CPABORT("XAS TDP calculation only supports non-periodic BCs (for now)")
+         !CPABORT("XAS TDP calculation only supports non-periodic BCs (for now)")
       END IF
       IF (xas_tdp_env%qs_loc_env%do_localize .AND. &
           xas_tdp_env%qs_loc_env%localized_wfn_control%operator_type /= op_loc_berry) THEN

@@ -7,6 +7,7 @@
 !> \par History
 !>      - none
 !>      - 11.2018 Added calculate_o3c_coulomb_integrals for XAS_TDP [A.Bussy]
+!>                + fixed OMP race condition in contract3_o3c routine
 ! **************************************************************************************************
 MODULE qs_o3c_methods
    USE ai_contraction_sphi,             ONLY: abc_contract
@@ -598,10 +599,11 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'contract3_o3c', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, iatom, icol, ik, irow, jatom, &
-                                                            katom, mepos, nk, nthread
+                                                            katom, mepos, nk, nthread, s1, s2
       LOGICAL                                            :: found, ijsymmetric, trans
       REAL(KIND=dp), DIMENSION(:), POINTER               :: v
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pblock
+      REAL(KIND=dp), DIMENSION(:, :), ALLOCATABLE        :: work
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: iabc
       TYPE(o3c_iterator_type)                            :: o3c_iterator
 
@@ -616,7 +618,7 @@ CONTAINS
 
 !$OMP PARALLEL DEFAULT(NONE) &
 !$OMP SHARED (nthread,o3c_iterator,vec,matrix)&
-!$OMP PRIVATE (mepos,iabc,iatom,jatom,katom,irow,icol,trans,pblock,v,found,ik,nk)
+!$OMP PRIVATE (mepos,iabc,iatom,jatom,katom,irow,icol,trans,pblock,v,found,ik,nk,work,s1,s2)
 
       mepos = 0
 !$    mepos = omp_get_thread_num()
@@ -638,18 +640,33 @@ CONTAINS
             trans = .TRUE.
          END IF
 
-         CALL dbcsr_get_block_p(matrix=matrix, &
-                                row=irow, col=icol, BLOCK=pblock, found=found)
+         CALL dbcsr_get_block_p(matrix=matrix, row=irow, col=icol, BLOCK=pblock, found=found)
+
          IF (found) THEN
+            s1 = SIZE(pblock, 1); s2 = SIZE(pblock, 2)
+            ALLOCATE(work(s1,s2))
+            work(:,:) = 0.0_dp
+
             IF (trans) THEN
                DO ik = 1, nk
-                  pblock(:, :) = pblock(:, :)+v(ik)*TRANSPOSE(iabc(:, :, ik))
+                  CALL daxpy(s1*s2, v(ik), TRANSPOSE(iabc(:, :, ik)), 1, work(:,:), 1)
                END DO
             ELSE
                DO ik = 1, nk
-                  pblock(:, :) = pblock(:, :)+v(ik)*iabc(:, :, ik)
+                  CALL daxpy(s1*s2, v(ik), iabc(:, :, ik), 1, work(:,:), 1)
                END DO
             END IF
+
+            ! Mulitple threads with same irow, icol but different katom (same even in PBCs) can try
+            ! to access the dbcsr block at the same time. Prevent that by CRITICAL section but keep 
+            ! computations before hand in order to retain speed
+
+!$OMP CRITICAL
+            CALL dbcsr_get_block_p(matrix=matrix, row=irow, col=icol, BLOCK=pblock, found=found)
+            CALL daxpy(s1*s2, 1.0_dp, work(:,:), 1, pblock(:,:), 1)
+!$OMP END CRITICAL
+
+            DEALLOCATE(work)
          END IF
 
       END DO
