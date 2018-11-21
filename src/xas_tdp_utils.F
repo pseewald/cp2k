@@ -78,7 +78,8 @@ MODULE xas_tdp_utils
                                               deallocate_neighbor_list_set
    USE qs_neighbor_lists,               ONLY: build_neighbor_lists, local_atoms_type, &
                                               pair_radius_setup, atom2d_cleanup, atom2d_build
-   USE qs_o3c_methods,                  ONLY: calculate_o3c_coulomb_integrals, contract3_o3c
+   USE qs_o3c_methods,                  ONLY: calculate_o3c_coulomb_integrals, contract3_o3c, &
+                                              contract3_o3c
    USE qs_o3c_types,                    ONLY: init_o3c_container, get_o3c_container, o3c_vec_type, &
                                               o3c_vec_release, o3c_container_type, get_o3c_vec, &
                                               o3c_vec_create, release_o3c_container, o3c_iterate, &
@@ -1471,7 +1472,7 @@ CONTAINS
          CALL dbcsr_transposed(contr_int(imo)%matrix, work2)
          CALL dbcsr_copy_into_existing(work1, aI_bP)
          CALL dbcsr_add(contr_int(imo)%matrix, work1, 1.0_dp, 1.0_dp)
-         
+
       END DO !imo
       
 !  Clean-up
@@ -1597,23 +1598,27 @@ CONTAINS
       INTEGER                                            :: handle, iatom, icol, i, irow, jatom, &
                                                             katom, mepos, n, nthread, s1, s2
       LOGICAL                                            :: found, ijsymmetric, trans
-      REAL(KIND=dp), DIMENSION(:), POINTER               :: v
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: pblock
-      REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: iabc
+      REAL(dp), DIMENSION(:), POINTER                    :: v
+      REAL(dp), DIMENSION(:, :), POINTER                 :: pblock
+      REAL(dp), DIMENSION(:, :), ALLOCATABLE             :: work
+      REAL(dp), DIMENSION(:, :, :), POINTER              :: iabc
       TYPE(o3c_iterator_type)                            :: o3c_iterator
+      INTEGER, DIMENSION(:), POINTER                     :: atom_blk_size
 
       CALL timeset(routineN, handle)
 
       CALL get_o3c_container(o3c, ijsymmetric=ijsymmetric)
       CPASSERT(ijsymmetric)
 
+      CALL dbcsr_get_info(mat_aIb, row_blk_size=atom_blk_size)
+
       nthread = 1
 !$    nthread = omp_get_max_threads()
       CALL o3c_iterator_create(o3c, o3c_iterator, nthread=nthread)
 
 !$OMP PARALLEL DEFAULT(NONE) &
-!$OMP SHARED (nthread,o3c_iterator,vec,mat_aIb,mat_bIa,atom_k)&
-!$OMP PRIVATE (mepos,iabc,iatom,jatom,katom,irow,icol,trans,pblock,v,found,i,n,s1,s2)
+!$OMP SHARED (nthread,o3c_iterator,vec,mat_aIb,mat_bIa,atom_k,atom_blk_size)&
+!$OMP PRIVATE (mepos,iabc,iatom,jatom,katom,irow,icol,trans,pblock,v,found,i,n,s1,s2,work)
 
       mepos = 0
 !$    mepos = omp_get_thread_num()
@@ -1634,44 +1639,61 @@ CONTAINS
             trans = .TRUE.
          END IF
 
-
       ! Deal with mat_aIb
          CALL get_o3c_vec(vec, icol, v)
          n = SIZE(v)
+         s1 = atom_blk_size(irow)
+         s2 = SIZE(iabc,3)
+         ALLOCATE(work(s1,s2))
+         work = 0.0_dp
 
+         IF (trans) THEN
+            DO i = 1, n
+               CALL daxpy(s1*s2, v(i), iabc(i, :, :), 1, work(:, :), 1)
+            END DO
+         ELSE
+            DO i = 1, n
+               CALL daxpy(s1*s2, v(i), iabc(:, i, :), 1, work(:, :), 1)
+            END DO
+         END IF
+
+!$OMP CRITICAL(mat_aIb)
          CALL dbcsr_get_block_p(matrix=mat_aIb, row=irow, col=icol, BLOCK=pblock, found=found)
          IF (found) THEN
-            s1 = SIZE(pblock,1); s2 = SIZE(pblock,2)
-            IF (trans) THEN
-               DO i = 1, n
-                  CALL daxpy(s1*s2, v(i), iabc(i, :, :), 1, pblock(:, :), 1)
-               END DO
-            ELSE
-               DO i = 1, n
-                  CALL daxpy(s1*s2, v(i), iabc(:, i, :), 1, pblock(:, :), 1)
-               END DO
-            END IF
+            CALL daxpy(s1*s2, 1.0_dp, work(:,:), 1, pblock(:, :), 1)
          END IF
+!$OMP END CRITICAL(mat_aIb) 
+         DEALLOCATE(work)
 
-      ! Deal with mat_bIa
+         ! Deal with mat_bIa, keep block diagonal empty
+         IF (irow == icol) CYCLE
+
          CALL get_o3c_vec(vec, irow, v)
          n = SIZE(v)
+         s1 = SIZE(iabc,3)
+         s2 = atom_blk_size(icol)
+         ALLOCATE(work(s1,s2))
+         work = 0.0_dp
 
-         CALL dbcsr_get_block_p(matrix=mat_bIa, row=irow, col=icol, BLOCK=pblock, found=found)
-         IF (found .AND. icol .NE. irow) THEN
-            s1 = SIZE(pblock,1); s2 = SIZE(pblock,2)
-            IF (trans) THEN
-               DO i = 1, n
-                  CALL daxpy(s1*s2, v(i), TRANSPOSE(iabc(:, i, :)), 1, pblock(:, :), 1)
-               END DO
-            ELSE
-               DO i = 1, n
-                  CALL daxpy(s1*s2, v(i), TRANSPOSE(iabc(i, :, :)), 1, pblock(:, :), 1)
-               END DO
-            END IF
+         IF (trans) THEN
+            DO i = 1, n
+               CALL daxpy(s1*s2, v(i), TRANSPOSE(iabc(:, i, :)), 1, work(:, :), 1)
+            END DO
+         ELSE 
+            DO i = 1, n
+               CALL daxpy(s1*s2, v(i), TRANSPOSE(iabc(i, :, :)), 1, work(:, :), 1)
+            END DO
          END IF
 
-      END DO
+!$OMP CRITICAL(mat_bIa)
+         CALL dbcsr_get_block_p(matrix=mat_bIa, row=irow, col=icol, BLOCK=pblock, found=found)
+         IF (found) THEN
+            CALL daxpy(s1*s2, 1.0_dp, work(:,:), 1, pblock(:, :), 1)
+         END IF
+!$OMP END CRITICAL(mat_bIa)
+         DEALLOCATE(work)
+
+      END DO !o3c iterator
 !$OMP END PARALLEL
       CALL o3c_iterator_release(o3c_iterator)
 
