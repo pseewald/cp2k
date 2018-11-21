@@ -60,6 +60,7 @@ MODULE xas_tdp_atom
    USE qs_rho_types,                    ONLY: qs_rho_type, qs_rho_get
    USE spherical_harmonics,             ONLY: clebsch_gordon, clebsch_gordon_deallocate, &
                                               clebsch_gordon_init
+   USE util,                            ONLY: get_limit
    USE xas_tdp_types,                   ONLY: xas_atom_env_type, xas_tdp_env_type, &
                                               xas_tdp_control_type
    USE xas_tdp_utils,                   ONLY: build_xas_tdp_3c_nl
@@ -417,7 +418,7 @@ CONTAINS
                                      routineP = moduleN//":"//routineN
 
       INTEGER                                         :: nkind, ilist, katom, kkind, ikind, natom, &
-                                                         iat, nsgf_kind, mepos, nthread
+                                                         iat, nsgf_kind, mepos, nthread, handle
       REAL(dp)                                        :: dmax
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(gto_basis_set_p_type), DIMENSION(:), &
@@ -438,12 +439,12 @@ CONTAINS
 
       NULLIFY(qs_kind_set, basis_set_ri, basis_set_orb, ac_list, rho, rho_ao, sinv, ri_basis)
       NULLIFY(o3c, tvec, particle_set, nsgf, para_env)
-      CPASSERT(ASSOCIATED(xas_atom_env))
+
+      CALL timeset(routineN, handle)
 
       CALL get_qs_env(qs_env, nkind=nkind, sab_orb=sab_orb, qs_kind_set=qs_kind_set, rho=rho, &
                       natom=natom, particle_set=particle_set)
 
-!  TODO: make sure that incomplete RI basis are delt with correctly
 !  Create the needed neighbor list and basis set lists.
       ALLOCATE(basis_set_ri(nkind))
       ALLOCATE(basis_set_orb(nkind))
@@ -459,13 +460,10 @@ CONTAINS
          IF (.NOT. ANY(xas_atom_env%excited_kinds == ikind)) CYCLE
          CALL get_qs_kind(qs_kind_set(ikind), basis_set=ri_basis, basis_type="RI_XAS",nsgf=nsgf_kind)
          ALLOCATE(sinv(ikind)%array(nsgf_kind,nsgf_kind))
-         ALLOCATE(work(nsgf_kind, nsgf_kind))
 
-         CALL int_overlap_ab_os(sab=work, rab=(/0.0_dp,0.0_dp,0.0_dp/), fba=ri_basis, &
+         CALL int_overlap_ab_os(sab=sinv(ikind)%array, rab=(/0.0_dp,0.0_dp,0.0_dp/), fba=ri_basis, &
                                 fbb=ri_basis, calculate_forces=.FALSE., debug=.FALSE.,  dmax=dmax)
-         CALL invmat_symm(work)
-         sinv(ikind)%array(:,:) = work(:,:)
-         DEALLOCATE(work)
+         CALL invmat_symm(sinv(ikind)%array)
       END DO
 
 !  Create the 3-center overlap integrals for the RI basis
@@ -533,6 +531,8 @@ CONTAINS
       CALL release_o3c_container(o3c)
       DEALLOCATE(basis_set_ri, basis_set_orb, o3c, ac_list)
 
+      CALL timestop(handle)
+
    END SUBROUTINE calculate_density_coeffs
 
 ! **************************************************************************************************
@@ -599,7 +599,7 @@ CONTAINS
       DO iset = 1,nset
 
          !allocate space to store the spherical orbitals on the grid
-         ALLOCATE(so(npgf(iset)*nsoset(lmax(iset)),na,nr))
+         ALLOCATE(so(na,nr,npgf(iset)*nsoset(lmax(iset))))
          so = 0.0_dp
 
          DO ipgf = 1,npgf(iset)
@@ -611,7 +611,7 @@ CONTAINS
                DO ir = 1,nr
                   !compute: g = r**l * Y_lm * exp(-zet* r**2)
                   CALL daxpy(na, EXP(-zet(ipgf, iset)*grid_atom%rad2(ir))*grid_atom%rad(ir)**l,&
-                             harmonics%slm(1:na,iso), 1, so(start+iso,1:na,ir), 1)
+                             harmonics%slm(1:na,iso), 1, so(1:na,ir,start+iso), 1)
                END DO
             END DO !iso
 
@@ -619,7 +619,7 @@ CONTAINS
 
          !contract the so to get the sgf
          !TODO: maybe change ordering of indices so that one strarts iterating on last one
-         ALLOCATE(sgf(nsgf_set(iset),na,nr))
+         ALLOCATE(sgf(na,nr,nsgf_set(iset)))
          sgf = 0.0_dp
          sgfi = first_sgf(1,iset) - 1
 
@@ -629,12 +629,12 @@ CONTAINS
             DO ipgf = 1,npgf(iset)
                start = (ipgf-1)*nsoset(lmax(iset))
                DO iso = nsoset(lmin(iset)-1)+1, nsoset(lmax(iset))
-                  CALL daxpy(n, ri_sphi_so(start+iso,sgfi+isgf), so(start+iso,:,:), 1, sgf(isgf,:,:), 1)
+                  CALL daxpy(n, ri_sphi_so(start+iso,sgfi+isgf), so(:,:,start+iso), 1, sgf(:,:,isgf), 1)
                END DO !iso
             END DO !ipgf
 
             !put the sgf on the grid with the approriate coefficients and sum
-            CALL daxpy(n, xas_atom_env%ri_dcoeff(atom_index)%array(sgfi+isgf), sgf(isgf,:,:), &
+            CALL daxpy(n, xas_atom_env%ri_dcoeff(atom_index)%array(sgfi+isgf), sgf(:,:,isgf), &
                        1, rhoa(:,:,1), 1)
 
          END DO !isgf
@@ -659,6 +659,7 @@ CONTAINS
 !> \param do_triplet if the integration for the triplet kernel should be done
 !> \note Allowing for both singlet and triplet excitation at the same times allows savings on the
 !>       common stuff such as putting the density on the grid
+!>       Store the (P|fxc|Q) integrals on the processor they were computed on
 ! **************************************************************************************************
    SUBROUTINE integrate_fxc_atoms(int_fxc_sg, int_fxc_tp, xas_atom_env, qs_env, do_singlet, do_triplet)
 
@@ -674,7 +675,8 @@ CONTAINS
 
       REAL(dp), DIMENSION(:, :), ALLOCATABLE          :: fxc, int_so
       INTEGER                                         :: natom, iatom, ikind, na, nr, nsotot, nset, &
-                                                         maxso, nsgf, n, handle
+                                                         maxso, nsgf, n, handle, num_pe, mepos, &
+                                                         bo(2), nex_atom, iex
       INTEGER, DIMENSION(2,3)                         :: bounds
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set 
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
@@ -689,26 +691,34 @@ CONTAINS
       TYPE(section_vals_type), POINTER                :: input, xc_functionals
       TYPE(xc_derivative_type), POINTER               :: deriv
       REAL(dp), DIMENSION(:,:,:), POINTER             :: d2e_dada, d2e_dadb
+      TYPE(cp_para_env_type), POINTER                 :: para_env
 
-      NULLIFY(particle_set, qs_kind_set, grid_atom, harmonics, dft_control, deriv_set)
+      NULLIFY(particle_set, qs_kind_set, grid_atom, harmonics, dft_control, deriv_set, para_env)
       NULLIFY(ri_basis, ri_sphi_so, rho_set, input, xc_functionals, deriv, d2e_dada, d2e_dadb)
 
       CALL timeset(routineN, handle)
 
 !  Initialize
       CALL get_qs_env(qs_env, particle_set=particle_set, qs_kind_set=qs_kind_set, natom=natom, &
-                      dft_control=dft_control, input=input)
+                      dft_control=dft_control, input=input, para_env=para_env)
       NULLIFY (int_fxc_sg, int_fxc_tp)
       IF (do_singlet) ALLOCATE(int_fxc_sg(natom))
       IF (do_triplet) ALLOCATE(int_fxc_tp(natom))
-
-!  Looping over the excited atoms
       DO iatom = 1, natom
-
          IF (do_singlet) NULLIFY(int_fxc_sg(iatom)%array)
          IF (do_triplet) NULLIFY(int_fxc_tp(iatom)%array)
+      END DO
+      nex_atom = SIZE(xas_atom_env%excited_atoms)
 
-         IF (.NOT. ANY(xas_atom_env%excited_atoms == iatom)) CYCLE
+!  Distribute the excited atoms over the processors
+      num_pe = para_env%num_pe
+      mepos = para_env%mepos
+      bo = get_limit(nex_atom, num_pe, mepos)
+
+!  Looping over the excited atoms
+      DO iex = bo(1), bo(2)
+
+         iatom = xas_atom_env%excited_atoms(iex)
          ikind = particle_set(iatom)%atomic_kind%kind_number
 
          grid_atom => xas_atom_env%grid_atom_set(ikind)%grid_atom
@@ -726,7 +736,6 @@ CONTAINS
          xc_functionals => section_vals_get_subs_vals(input, "DFT%XAS_TDP%KERNEL%XC_FUNCTIONAL")
 
 !     Creating a xc_rho_set to store the density and dset for the kernel
-! TODO: since few atoms but big girds, might want to distribute the latter
          bounds(1:2,1:3) = 1
          bounds(2,1) = na
          bounds(2,2) = nr
@@ -798,7 +807,7 @@ CONTAINS
          CALL xc_dset_release(deriv_set)
          CALL xc_rho_set_release(rho_set)
 
-      END DO !iatom
+      END DO !iex
 
       CALL timestop(handle)
       
@@ -1175,7 +1184,7 @@ CONTAINS
                                      routineP = moduleN//":"//routineN
 
       INTEGER                                         :: ikind, nkind, nset, maxso, na, nr, ir,&
-                                                         nsgf, iat, jat, blk, i
+                                                         nsgf, iat, jat, blk, i, handle
       TYPE(cp_3d_r_p_type), DIMENSION(:), POINTER     :: int_soc
       REAL(dp), DIMENSION(:,:,:), ALLOCATABLE         :: intso
       TYPE(gto_basis_set_type), POINTER               :: basis
@@ -1192,6 +1201,8 @@ CONTAINS
    
       NULLIFY(int_soc, basis, qs_kind_set, sphi_so, matrix_s)
       NULLIFY(particle_set)
+
+      CALL timeset(routineN, handle)
 
 !  Initialization
       CALL get_qs_env(qs_env, nkind=nkind, qs_kind_set=qs_kind_set, matrix_s=matrix_s, &
@@ -1269,6 +1280,8 @@ CONTAINS
          DEALLOCATE(int_soc(ikind)%array)
       END DO
       DEALLOCATE(int_soc)
+
+      CALL timestop(handle)
 
    END SUBROUTINE integrate_soc_atoms
 

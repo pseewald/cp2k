@@ -90,7 +90,7 @@ MODULE xas_tdp_types
 !> \param qs_loc_env the environemnt type dealing with the possible localization of donor orbitals
 !> \param mos_of_ex_atoms links lowest energy MOs to excited atoms. Elements of value 1 mark the
 !>        association between the MO irow and the excited atom icolumn
-!> \param ri_inv_mats collection of kind specific electron repulsion inverse matrices for each
+!> \param ri_inv_coul the inverse coulomb RI integral (P|Q)^-1, updated for each excited kind
 !>        excited kinds, based on basis functions of the RI auxiliary basis used for Coulomb and
 !>        exchange kernels. 
 !> \param q_projector the projector on the unperturbed, unoccupied ground state as a dbcsr matrix
@@ -99,8 +99,8 @@ MODULE xas_tdp_types
 !>        contracted spherical gaussians. It can either be in the length or the velocity 
 !>        representation. For length representation, it has to be computed once with the origin on 
 !>        each excited atom
-!> \param ri_o3c_coul the container for the RI 3-center Coulomb integrals
-!> \param ri_o3c_ex the container for the RI 3-center exchange integrals
+!> \param ri_o3c_coul the container for the RI 3-center Coulomb integrals (updated for each ex atom)
+!> \param ri_o3c_ex the container for the RI 3-center exchange integrals (updated for each ex atom)
 !> \param lb_o3c_coul the lower bond of a,b present in the 3-center RI Coulomb integrals (ab|P)
 !> \param ub_o3c_coul the upper bond of a,b present in the 3-center RI Coulomb integrals (ab|P)
 !> \param ri_fxc_sg the array of xc integrals of type (P|fxc|Q) for singlets
@@ -122,8 +122,7 @@ MODULE xas_tdp_types
                         POINTER               :: donor_states
       INTEGER, DIMENSION(:,:), POINTER        :: mos_of_ex_atoms
       TYPE(qs_loc_env_new_type), POINTER      :: qs_loc_env
-      TYPE(cp_2d_r_p_type), DIMENSION(:), &
-                                    POINTER   :: ri_inv_mats
+      REAL(dp), DIMENSION(:,:), POINTER       :: ri_inv_coul
       TYPE(dbcsr_type), POINTER               :: q_projector
       TYPE(dbcsr_type), POINTER               :: p_projector
       TYPE(dbcsr_p_type), DIMENSION(:), &
@@ -446,7 +445,7 @@ CONTAINS
       NULLIFY (xas_tdp_env%donor_states)
       NULLIFY (xas_tdp_env%qs_loc_env)
       NULLIFY (xas_tdp_env%mos_of_ex_atoms)
-      NULLIFY (xas_tdp_env%ri_inv_mats)
+      NULLIFY (xas_tdp_env%ri_inv_coul)
       NULLIFY (xas_tdp_env%q_projector)
       NULLIFY (xas_tdp_env%p_projector)
       NULLIFY (xas_tdp_env%dipmat)
@@ -496,13 +495,8 @@ CONTAINS
          IF (ASSOCIATED(xas_tdp_env%mos_of_ex_atoms)) THEN
             DEALLOCATE(xas_tdp_env%mos_of_ex_atoms)
          END IF
-         IF (ASSOCIATED(xas_tdp_env%ri_inv_mats)) THEN
-            DO i =1,SIZE(xas_tdp_env%ri_inv_mats)
-               IF (ASSOCIATED(xas_tdp_env%ri_inv_mats(i)%array)) THEN
-                  DEALLOCATE(xas_tdp_env%ri_inv_mats(i)%array)
-               END IF
-            END DO
-            DEALLOCATE(xas_tdp_env%ri_inv_mats)
+         IF (ASSOCIATED(xas_tdp_env%ri_inv_coul)) THEN
+            DEALLOCATE(xas_tdp_env%ri_inv_coul)
          END IF
          IF (ASSOCIATED(xas_tdp_env%q_projector)) THEN
             CALL dbcsr_release(xas_tdp_env%q_projector)
