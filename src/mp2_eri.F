@@ -30,7 +30,8 @@ MODULE mp2_eri
                                               cp_eri_mme_set_params
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_p_type
+                                              dbcsr_p_type,&
+                                              dbcsr_set
    USE eri_mme_integrate,               ONLY: eri_mme_2c_integrate,&
                                               eri_mme_3c_integrate
    USE eri_mme_test,                    ONLY: eri_mme_2c_perf_acc_test,&
@@ -716,6 +717,10 @@ $:                         'force_b=force_b(jkind)%forces(:, atom_b), &'*doforce
 
       nc = last_c-first_c+1
 
+      DO ic = 1, nc
+         CALL dbcsr_set(mat_ab(ic)%matrix, 0.0_dp)
+      ENDDO
+
       ! check for symmetry
       CPASSERT(SIZE(sab_nl) > 0)
       CALL get_neighbor_list_set_p(neighbor_list_sets=sab_nl, symmetric=do_symmetric)
@@ -937,15 +942,15 @@ $:                         'habdc=habdc, &'*abdc
             CALL dbcsr_get_block_p(matrix=mat_ab(ic)%matrix, &
                                    row=irow, col=icol, block=munu_block, found=found)
             CPASSERT(found)
-            munu_block(:, :) = 0.0_dp
+            !munu_block(:, :) = 0.0_dp
             IF (irow .EQ. iatom) THEN
                to_be_asserted = SIZE(munu_block, 1) .EQ. SIZE(habc, 1) .AND. SIZE(munu_block, 2) .EQ. SIZE(habc, 2)
                CPASSERT(to_be_asserted)
-               munu_block(:, :) = habc(:, :, ic)
+               munu_block(:, :) = munu_block(:, :) + habc(:, :, ic)
             ELSE
                to_be_asserted = SIZE(munu_block, 2) .EQ. SIZE(habc, 1) .AND. SIZE(munu_block, 1) .EQ. SIZE(habc, 2)
                CPASSERT(to_be_asserted)
-               munu_block(:, :) = TRANSPOSE(habc(:, :, ic))
+               munu_block(:, :) = munu_block(:, :) + TRANSPOSE(habc(:, :, ic))
             ENDIF
          ENDDO
          DEALLOCATE (habc)
