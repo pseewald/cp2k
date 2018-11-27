@@ -1207,7 +1207,8 @@ $:                         'habdc=habdc, &'*abdc
             na = (ipgf-1)*ncoset(la_max)
             DO jpgf = 1, npgfb
                nb = (jpgf-1)*ncoset(lb_max)
-               DO kpgf = 1, npgfc
+               ! todo need screening!
+               DO kpgf = 1, npgfc ! todo debug: assert npgfgc==1
                   nc = (kpgf-1)*ncoset(lc_max)
                   habc_uncontr_d(:, :, :) = 0.0_dp
                   CALL eri_mme_3c_integrate(param, &
