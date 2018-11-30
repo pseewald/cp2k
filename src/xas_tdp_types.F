@@ -155,7 +155,7 @@ MODULE xas_tdp_types
 !> \param sg_matrix_tdp the dbcsr matrix to be diagonalized to solve the problem for singlets
 !> \param tp_matrix_tdp the dbcsr matrix to be diagonalized to solve the problem for triplets
 !> \param metric the metric of the linear response problem M*c = omega*S*c and its inverse
-!> \param matrix_aux the auxiliary matrix (A-D+E)^+-1/2 used to make the problem Hermitian
+!> \param matrix_aux the auxiliary matrix (A-D+E)^1/2 used to make the problem Hermitian
 !> *************************************************************************************************
    TYPE donor_state_type
       INTEGER                                 :: at_index
@@ -179,8 +179,7 @@ MODULE xas_tdp_types
       TYPE(dbcsr_type), POINTER               :: tp_matrix_tdp
       TYPE(dbcsr_p_type), DIMENSION(:), &
                                     POINTER   :: metric
-      TYPE(dbcsr_p_type), DIMENSION(:), &
-                                    POINTER   :: matrix_aux
+      TYPE(dbcsr_type), POINTER               :: matrix_aux
 
    END TYPE donor_state_type
 
@@ -711,12 +710,7 @@ CONTAINS
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%matrix_aux)) THEN
-               DO j = 1,SIZE(donor_state_set(i)%matrix_aux)
-                  IF (ASSOCIATED(donor_state_set(i)%matrix_aux(j)%matrix)) THEN  
-                     CALL dbcsr_release(donor_state_set(i)%matrix_aux(j)%matrix)      
-                     DEALLOCATE(donor_state_set(i)%matrix_aux(j)%matrix)           
-                  END IF
-               END DO
+               CALL dbcsr_release(donor_state_set(i)%matrix_aux)      
                DEALLOCATE(donor_state_set(i)%matrix_aux)
             END IF
 
@@ -781,12 +775,7 @@ CONTAINS
       END IF
 
       IF (ASSOCIATED(donor_state%matrix_aux)) THEN
-         DO i = 1,SIZE(donor_state%matrix_aux)
-            IF (ASSOCIATED(donor_state%matrix_aux(i)%matrix)) THEN   
-               CALL dbcsr_release(donor_state%matrix_aux(i)%matrix) 
-               DEALLOCATE(donor_state%matrix_aux(i)%matrix)  
-            END IF
-         END DO
+         CALL dbcsr_release(donor_state%matrix_aux) 
          DEALLOCATE(donor_state%matrix_aux)
       END IF
 

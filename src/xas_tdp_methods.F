@@ -91,8 +91,8 @@ MODULE xas_tdp_methods
                                               xas_atom_env_create, &
                                               xas_atom_env_release, &
                                               donor_state_create
-   USE xas_tdp_utils,                   ONLY: setup_xas_tdp_full_prob, &
-                                              solve_xas_tdp_full_prob, &
+   USE xas_tdp_utils,                   ONLY: setup_xas_tdp_prob, &
+                                              solve_xas_tdp_prob, &
                                               compute_ri_coulomb2_int, &
                                               include_full_soc, &
                                               compute_ri_o3c_coulomb, &
@@ -304,15 +304,15 @@ CONTAINS
                IF (xas_tdp_control%check_donor_states) CYCLE
 
 !              Do main calculations here
-               CALL setup_xas_tdp_full_prob(current_state, qs_env, xas_tdp_env, xas_tdp_control)
+               CALL setup_xas_tdp_prob(current_state, qs_env, xas_tdp_env, xas_tdp_control)
 
                IF (xas_tdp_control%do_singlet) THEN
-                  CALL solve_xas_tdp_full_prob(current_state, xas_tdp_control, xas_tdp_env, qs_env, &
+                  CALL solve_xas_tdp_prob(current_state, xas_tdp_control, xas_tdp_env, qs_env, &
                                                singlet=.TRUE.)
                   CALL compute_dipole_fosc(current_state, xas_tdp_control, xas_tdp_env)
                END IF
                IF (xas_tdp_control%do_triplet) THEN
-                  CALL solve_xas_tdp_full_prob(current_state, xas_tdp_control, xas_tdp_env, qs_env, &
+                  CALL solve_xas_tdp_prob(current_state, xas_tdp_control, xas_tdp_env, qs_env, &
                                                singlet=.FALSE.)
                END IF
 
@@ -684,7 +684,7 @@ CONTAINS
       loc_wfn_control%lu_bound_states(1,:) = 1
       loc_wfn_control%lu_bound_states(2,:) = n_loc_states
       loc_wfn_control%set_of_states = 2 !state_loc_list
-      loc_wfn_control%do_homo = .FALSE.
+      loc_wfn_control%do_homo = .TRUE.
       ALLOCATE(loc_wfn_control%loc_states(n_loc_states,2))
       DO i = 1,n_loc_states
          loc_wfn_control%loc_states(i,:) = i

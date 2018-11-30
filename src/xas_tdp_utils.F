@@ -19,17 +19,19 @@ MODULE xas_tdp_utils
                                               gto_basis_set_p_type
    USE cell_types,                      ONLY: cell_type, pbc
    USE constants_operator,              ONLY: operator_coulomb
+   USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose, cp_dbcsr_cholesky_invert
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm, cp_dbcsr_sm_fm_multiply, &
                                               copy_fm_to_dbcsr
    USE cp_cfm_basic_linalg,             ONLY: cp_cfm_gemm
    USE cp_cfm_diag,                     ONLY: cp_cfm_heevd
    USE cp_cfm_types,                    ONLY: cp_fm_to_cfm, cp_cfm_to_fm, cp_cfm_type, &
                                               cp_cfm_create, cp_cfm_release, cp_cfm_get_submatrix
+   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose, cp_fm_cholesky_invert
    USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale, cp_fm_trace, &
                                               cp_fm_triangular_invert, cp_fm_triangular_multiply, &
                                               cp_fm_upper_to_full
    USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
-   USE cp_fm_diag,                      ONLY: cp_fm_power, cp_fm_syevx
+   USE cp_fm_diag,                      ONLY: choose_eigv_solver, cp_fm_geeig, cp_fm_power
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create, cp_fm_struct_release, &     
                                               cp_fm_struct_type
    USE cp_fm_types,                     ONLY: cp_fm_create, cp_fm_release, cp_fm_type, &
@@ -58,7 +60,6 @@ MODULE xas_tdp_utils
    USE generic_os_integrals,            ONLY: int_operators_r12_ab_os
    USE input_constants,                 ONLY: xas_dip_len, xas_dip_vel
    USE input_section_types,             ONLY: section_vals_val_get
-   USE iterate_matrix,                  ONLY: invert_Hotelling, matrix_sqrt_Newton_Schulz
    USE kinds,                           ONLY: dp
    USE mathlib,                         ONLY: invmat_symm
    USE message_passing,                 ONLY: mp_min, mp_max, mp_bcast
@@ -97,7 +98,7 @@ MODULE xas_tdp_utils
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = "xas_tdp_utils"
 
-   PUBLIC :: setup_xas_tdp_full_prob, solve_xas_tdp_full_prob, &
+   PUBLIC :: setup_xas_tdp_prob, solve_xas_tdp_prob, &
              compute_ri_coulomb2_int, include_full_soc, build_xas_tdp_3c_nl, &
              compute_ri_o3c_coulomb, compute_ri_o3c_exchange
 
@@ -136,14 +137,14 @@ CONTAINS
 !>       All possibilities: TDA or full-TDDFT, singlet or triplet, xc or hybrid, etc are treated
 !>       in the same routine to avoid recomputing stuff
 ! **************************************************************************************************
-   SUBROUTINE setup_xas_tdp_full_prob(donor_state, qs_env, xas_tdp_env, xas_tdp_control)
+   SUBROUTINE setup_xas_tdp_prob(donor_state, qs_env, xas_tdp_env, xas_tdp_control)
 
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(qs_environment_type), POINTER              :: qs_env
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'setup_xas_tdp_full_prob', &
+      CHARACTER(len=*), PARAMETER :: routineN = 'setup_xas_tdp_prob', &
                                      routineP = moduleN//":"//routineN
 
       INTEGER                                         :: handle
@@ -249,8 +250,8 @@ CONTAINS
 
       ! In the case of full-TDDFT, the problem is turned Hermitian with the help of auxiliary
       ! matrices AUX = (A-D+E)^(+-0.5) that are stored in donor_state
-         CALL build_aux_matrices(1.0E-8_dp, sx, matrix_a, matrix_d, matrix_e, do_hfx, proj_Q, &
-                                 work, donor_state)   
+         CALL build_aux_matrix(1.0E-8_dp, sx, matrix_a, matrix_d, matrix_e, do_hfx, proj_Q, &
+                               work, donor_state, qs_env)   
 
          IF (do_sg) THEN ! full-TDDFT singlets
 
@@ -270,6 +271,11 @@ CONTAINS
             ! Take the product with the Q projector
             CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q, sg_matrix_tdp, 0.0_dp, work)
             CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q, 0.0_dp, sg_matrix_tdp)
+
+            ! Take the product with the inverse metric
+            ! M <= G^-1 * M * G^-1 
+            CALL dbcsr_multiply('N', 'N', 1.0_dp, donor_state%metric(2)%matrix, sg_matrix_tdp, 0.0_dp, work)
+            CALL dbcsr_multiply('N', 'N', 1.0_dp, work, donor_state%metric(2)%matrix, 0.0_dp, sg_matrix_tdp)
 
          END IF ! singlets
          
@@ -291,6 +297,11 @@ CONTAINS
             CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q, tp_matrix_tdp, 0.0_dp, work)
             CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q, 0.0_dp, tp_matrix_tdp)
 
+            ! Take the product with the inverse metric
+            ! M <= G^-1 * M * G^-1
+            CALL dbcsr_multiply('N', 'N', 1.0_dp, donor_state%metric(2)%matrix, tp_matrix_tdp, 0.0_dp, work)
+            CALL dbcsr_multiply('N', 'N', 1.0_dp, work, donor_state%metric(2)%matrix, 0.0_dp, tp_matrix_tdp)
+
          END IF ! triplets
 
       END IF ! test on TDA
@@ -310,7 +321,7 @@ CONTAINS
 
       CALL timestop(handle)
 
-   END SUBROUTINE setup_xas_tdp_full_prob
+   END SUBROUTINE setup_xas_tdp_prob
 
 ! **************************************************************************************************
 !> \brief Solves the XAS TDP generalized eigenvalue problem omega*C = matrix_tdp*C using standard
@@ -330,7 +341,7 @@ CONTAINS
 !>       Additional speed-up is reached by projecting out the ground state
 !>       eigenvectors (with degenerate 0 eigenvalue). 
 ! **************************************************************************************************
-   SUBROUTINE solve_xas_tdp_full_prob(donor_state, xas_tdp_control, xas_tdp_env, qs_env, singlet)  
+   SUBROUTINE solve_xas_tdp_prob(donor_state, xas_tdp_control, xas_tdp_env, qs_env, singlet)  
 
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
@@ -338,30 +349,26 @@ CONTAINS
       TYPE(qs_environment_type), POINTER              :: qs_env
       LOGICAL, INTENT(IN)                             :: singlet
 
-      CHARACTER(len=*), PARAMETER :: routineN = "solve_xas_tdp_full_prob", &
+      CHARACTER(len=*), PARAMETER :: routineN = "solve_xas_tdp_prob", &
                                      routineP = moduleN//":"//routineN
 
       INTEGER                                         :: nrow, i, nao, imo, &
                                                          ndo_mo, nelectron, &
-                                                         nevals
+                                                         nevals, nocc, handle
       TYPE(cp_para_env_type), POINTER                 :: para_env
-      TYPE(dbcsr_type), POINTER                       :: matrix_tdp, tmp_mat, filter, paux, maux
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrices
-      TYPE(arnoldi_data_type)                         :: my_arnoldi
+      TYPE(dbcsr_type), POINTER                       :: matrix_tdp, tmp_mat
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
-      INTEGER                                         :: handle
       TYPE(cp_fm_struct_type), POINTER                :: fm_struct, gs_struct
-      TYPE(cp_fm_type), POINTER                       :: rhs_matrix, lhs_matrix, work, c_diff, &
-                                                         c_sum
+      TYPE(cp_fm_type), POINTER                       :: rhs_matrix, lhs_matrix, work, c_diff, c_sum
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: scaling, tmp_evals
       REAL(dp), DIMENSION(:), POINTER                 :: lr_evals
       TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: lr_coeffs
-      REAL(dp)                                        :: max_ev
 
       CALL timeset(routineN, handle)
 
       NULLIFY(para_env, blacs_env, fm_struct, rhs_matrix, matrix_tdp, lhs_matrix, work, tmp_mat)
-      NULLIFY(c_diff, c_sum, gs_struct, lr_evals, lr_coeffs, filter, paux, maux)
+      NULLIFY(c_diff, c_sum, gs_struct, lr_evals, lr_coeffs)
+      CPASSERT(ASSOCIATED(xas_tdp_env))
 
       IF (singlet) THEN
          matrix_tdp => donor_state%sg_matrix_tdp
@@ -373,231 +380,149 @@ CONTAINS
 !     Initialization
       CALL dbcsr_get_info(matrix_tdp, nfullrows_total=nrow)
       ndo_mo = SIZE(donor_state%mo_indices)
-      nevals = nrow - ndo_mo*nelectron/2
+      nocc = ndo_mo*nelectron/2
+      nevals = nrow - nocc
       IF (xas_tdp_control%n_excited > 0 .AND. xas_tdp_control%n_excited < nevals) THEN
          nevals = xas_tdp_control%n_excited
       END IF
       CALL cp_fm_struct_create(fm_struct, context=blacs_env, nrow_global=nrow, para_env=para_env,&
                                ncol_global=nrow)
-      CPASSERT(ASSOCIATED(xas_tdp_env))
 
 !     Need to go to full matrices to diagonalize
       CALL cp_fm_create(rhs_matrix, fm_struct)
          
-!     Allocating space for solutions
+!     Allocating space for solutions and oscilaltor strengths
       ALLOCATE(tmp_evals(nrow))
       IF (singlet) THEN
          ALLOCATE(donor_state%sg_evals(nevals))
          lr_evals => donor_state%sg_evals
+         ALLOCATE(donor_state%sg_coeffs(nevals))
+         lr_coeffs => donor_state%sg_coeffs
+         ALLOCATE(donor_state%sg_osc_str(nevals))
+         donor_state%sg_osc_str = 0.0_dp
       ELSE 
          ALLOCATE(donor_state%tp_evals(nevals))
          lr_evals => donor_state%tp_evals
+         ALLOCATE(donor_state%tp_coeffs(nevals))
+         lr_coeffs => donor_state%tp_coeffs
+         ALLOCATE(donor_state%tp_osc_str(nevals))
+         donor_state%tp_osc_str = 0.0_dp
       END IF
       CALL cp_fm_create(c_sum, fm_struct)
       CALL cp_fm_create(work, fm_struct)
 
-!     Allocate the scaling vector used for normalization
-      ALLOCATE(scaling(nevals))
-
-!     The filter to get projected to zero eigenvalues out of the way
-      ALLOCATE(filter)
-
 !     Test on TDA
       IF (xas_tdp_control%tamm_dancoff) THEN
 
-!        Get an idea of how much we must shift the gs eigenvalues to have them out of the way
-         ALLOCATE(matrices(2))
-         matrices(1)%matrix => matrix_tdp
-         matrices(2)%matrix => donor_state%metric(1)%matrix
-         CALL setup_arnoldi_data(my_arnoldi, matrices, max_iter=50, threshold=1.0E-3_dp, selection_crit=2, &
-                                 nval_request=1, nrestarts=30, generalized_ev=.TRUE., iram=.FALSE.)
-         CALL arnoldi_ev(matrices, my_arnoldi)
-         max_ev = REAL(get_selected_ritz_val(my_arnoldi, 1), dp)
-         CALL deallocate_arnoldi_data(my_arnoldi)
-         DEALLOCATE (matrices)
-
 !        Shift away zero eigenvalues
-         CALL get_gs_filter(filter, matrix_tdp, donor_state, xas_tdp_env)
-         CALL dbcsr_add(matrix_tdp, filter, 1.0_dp, max_ev+10.0_dp)
+!   TODO: since we have the LUMOS as guess, we also have guess energies and one could shift
+!         the spectrum by that amount (a bit more actually) => more gentle approach
+!         Maybe it is also possible that this is not needed at all since the preconditioner
+!         uses Q and Q^T, so the occupied MOs are out of the way (but maybe not)
+!         Finally, even if it is not strictly needed, might be usefull to have the same treatment
+!         of the result, whatever the choice of solver is. Also it might make the matrix dioganlly
+!         dominant, which would explain why the preconditioner works well
+         !CALL get_gs_filter(filter, matrix_tdp, donor_state, xas_tdp_env)
+         !CALL dbcsr_add(matrix_tdp, filter, 1.0_dp, max_ev+10.0_dp)
 
-!        Get the main matrix as fm
+!        Get the main matrix_tdp as an fm
          CALL copy_dbcsr_to_fm(matrix_tdp, rhs_matrix)
-         
+
 !        Get the metric as a fm
          CALL cp_fm_create(lhs_matrix, fm_struct)
          CALL copy_dbcsr_to_fm(donor_state%metric(1)%matrix, lhs_matrix)
 
-!        Diagonalisation (Cholesky decomposition)
-         CALL cp_fm_geeig_syevx(rhs_matrix, lhs_matrix, c_sum, tmp_evals, nevals, work)
+!        Diagonalisation (Cholesky decomposition). In TDA, c_sum = c^-
+         CALL cp_fm_geeig(rhs_matrix, lhs_matrix, c_sum, tmp_evals, work)
 
-!        Take the first nevals eigenvalues and eigenvectors
-         lr_evals(:) = tmp_evals(1:nevals)
+!        Take the first nevals eigenvalues that are not projected to zero
+         lr_evals(:) = tmp_evals(nocc+1:nocc+nevals)
 
 !        TDA specific clean-up
          CALL cp_fm_release(lhs_matrix)
 
-!        Normalize. c_sum is just c^- for TDA
-         scaling = 0.0_dp
-         CALL get_normal_scaling(scaling, c_sum, donor_state)
-         CALL cp_fm_column_scale(c_sum, scaling)
-
       ELSE ! not TDA
 
-!        Get the auxiliary matrices (A-D+E)^+-0.5
-         paux => donor_state%matrix_aux(1)%matrix
-         maux => donor_state%matrix_aux(2)%matrix
-
-!        Make the problem Hermitian by solving M*z = omega^2*z with 
-!        M = (A-D+E)^0.5 * G^-1 * (A+4B+2C-E-D) * G^-1 * (A-D+E)^0.5
+!        Need to multiply the current matrix_tdp with the auxiliary matrix
+!        tmp_mat =  (A-D+E)^0.5 * M * (A-D+E)^0.5
          ALLOCATE(tmp_mat)
-         CALL dbcsr_create(matrix=tmp_mat, template=paux, matrix_type="N")
+         CALL dbcsr_create(matrix=tmp_mat, template=matrix_tdp, matrix_type="N")
+         CALL dbcsr_multiply('N', 'N', 1.0_dp, donor_state%matrix_aux, matrix_tdp, 0.0_dp, tmp_mat)
+         CALL dbcsr_multiply('N', 'N', 1.0_dp, tmp_mat, donor_state%matrix_aux, 0.0_dp, tmp_mat)
 
-!        First compute G^-1 * (A+4B+2C-E-D) * G^-1 and store it in matrix_tdp
-         CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_tdp, donor_state%metric(2)%matrix, 0.0_dp, tmp_mat)
-         CALL dbcsr_multiply('N', 'N', 1.0_dp, donor_state%metric(2)%matrix, tmp_mat, 0.0_dp, matrix_tdp)
+!        Get the matrix as a fm
+         CALL copy_dbcsr_to_fm(tmp_mat, rhs_matrix)
 
-!        Compute the full matrix M and store it in matrix_tdp
-         CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_tdp, paux, 0.0_dp, tmp_mat)
-         CALL dbcsr_multiply('N', 'N', 1.0_dp, paux, tmp_mat, 0.0_dp, matrix_tdp)
+!        Solve the "turned-Hermitian" eigenvalue problem
+         CALL choose_eigv_solver(rhs_matrix, work, tmp_evals)
 
-!        Shift the eigenvalues due to the unperturbed orbitals away.
-         ALLOCATE(matrices(1))
-         matrices(1)%matrix => matrix_tdp
-         CALL setup_arnoldi_data(my_arnoldi, matrices, max_iter=50, threshold=1.0E-3_dp, selection_crit=2, &
-                                 nval_request=1, nrestarts=30, generalized_ev=.FALSE., iram=.FALSE.)
-         CALL arnoldi_ev(matrices, my_arnoldi)
-         max_ev = REAL(get_selected_ritz_val(my_arnoldi, 1), dp)
-         CALL deallocate_arnoldi_data(my_arnoldi)
-         DEALLOCATE (matrices)
+!        Currently, work = (A-D+E)^0.5 (c^+ - c^-) and tmp_evals = omega^2
+!        Put tiny almost zero eigenvalues to zero (corresponding to occupied MOs)
+         WHERE (tmp_evals < 1.0E-4_dp) tmp_evals = 0.0_dp
 
-         
-!        The filter is: (A-D+E)^-0.5 * SPS * (A-D+E)^-0.5
-         CALL get_gs_filter(filter, matrix_tdp, donor_state, xas_tdp_env)
-         CALL dbcsr_multiply('N', 'N', 1.0_dp, filter, maux, 0.0_dp, tmp_mat)
-         CALL dbcsr_multiply('N', 'N', 1.0_dp, maux, tmp_mat, 0.0_dp, filter)
-         CALL dbcsr_add(matrix_tdp, filter, 1.0_dp, max_ev+10.0_dp)
-
-!        Get the matrix M as fm
-         CALL copy_dbcsr_to_fm(matrix_tdp, rhs_matrix)
-
-!        The problemed has been turned Hermitian. Call stendard routine
-         CALL cp_fm_syevx(rhs_matrix, work, tmp_evals, nevals, work_syevx=1.0_dp)
-         lr_evals(:) = tmp_evals(1:nevals)
-
-!        Take the square root since we computed omega^2
-         lr_evals = SQRT(lr_evals)
-
-!        Need to normalize the eigenvectors. Need to retrieve the difference of the LR coeffs:
-!        (c^+ - c^-) = (A-D+E)^-0.5 * z
+!        Retrive c_diff = (c^+ - c^-) for normalization
+!        (c^+ - c^-) = 1/omega^2 * M * (A-D+E)^0.5 * work
          CALL cp_fm_create(c_diff, fm_struct)
-         CALL cp_dbcsr_sm_fm_multiply(maux, work, c_diff, ncol=nevals)
+         CALL dbcsr_multiply('N', 'N', 1.0_dp, matrix_tdp, donor_state%matrix_aux, 0.0_dp, tmp_mat)
+         CALL cp_dbcsr_sm_fm_multiply(tmp_mat, work, c_diff, ncol=nrow)
 
-!        The normalization is c_diff * G * c_diff = +- 1
+         ALLOCATE(scaling(nrow))
+         WHERE (tmp_evals .NE. 0.0_dp) scaling = 1.0_dp/tmp_evals
+         CALL cp_fm_column_scale(c_diff, scaling)
+
+!        Normalize with the metric: c_diff * G * c_diff = +- 1
          scaling = 0.0_dp
          CALL get_normal_scaling(scaling, c_diff, donor_state)
          CALL cp_fm_column_scale(c_diff, scaling)
 
-!        Get the sum c^+ + c^- = -1/omega G^-1 * (A-D+E)*(c^+ - c^-)
-         CALL dbcsr_multiply('N', 'N', 1.0_dp, paux, paux, 0.0_dp, tmp_mat)
+!        Get the actual eigenvalues
+         tmp_evals = SQRT(tmp_evals)
+         lr_evals(:) = tmp_evals(nocc+1:nocc+nevals)
+
+!        Get c_sum = (c^+ + c^-), which appears in all transition density related expressions
+!        c_sum = -1/omega G^-1 * (A-D+E) * (c^+ - c^-)
+         CALL dbcsr_multiply('N', 'N', 1.0_dp, donor_state%matrix_aux, donor_state%matrix_aux, 0.0_dp, tmp_mat)
          CALL dbcsr_multiply('N', 'N', 1.0_dp, donor_state%metric(2)%matrix, tmp_mat, 0.0_dp, tmp_mat)
-         CALL cp_dbcsr_sm_fm_multiply(tmp_mat, c_diff, c_sum, ncol=nevals)
-         scaling = 0.0_dp
-         WHERE (lr_evals > 0.0_dp) scaling = -1.0_dp/lr_evals
+         CALL cp_dbcsr_sm_fm_multiply(tmp_mat, c_diff, c_sum, ncol=nrow)
+         WHERE (tmp_evals .NE. 0) scaling = -1.0_dp/tmp_evals
          CALL cp_fm_column_scale(c_sum, scaling)
 
-!        Some clean-up
-         CALL dbcsr_release(tmp_mat)
+!        Full TDDFT specific clean-up
          CALL cp_fm_release(c_diff)
-         DEALLOCATE(tmp_mat)
+         CALL dbcsr_release(tmp_mat)
+         DEALLOCATE(tmp_mat, scaling)
 
       END IF ! TDA
 
 !  Reorganize the eigenvectors in array of cp_fm_p_types so that each element corresponds to an 
 !  excited state. Makes later calls to those easier and more efficient
       CALL cp_fm_get_info(donor_state%gs_coeffs, matrix_struct=gs_struct, nrow_global=nao)      
-      IF (singlet) THEN
-         ALLOCATE(donor_state%sg_coeffs(nevals))
-         lr_coeffs => donor_state%sg_coeffs
-      ELSE
-         ALLOCATE(donor_state%tp_coeffs(nevals)) 
-         lr_coeffs => donor_state%tp_coeffs
-      END IF
 
-      DO i = 1,nevals
+      DO i = 1, nevals
 
          CALL cp_fm_create(lr_coeffs(i)%matrix, gs_struct)
 
          DO imo = 1, ndo_mo
             
             CALL cp_fm_to_fm_submat(msource=c_sum, mtarget=lr_coeffs(i)%matrix, &
-                                    nrow=nao, ncol=1, s_firstrow=(imo-1)*nao+1, s_firstcol=i, &
+                                    nrow=nao, ncol=1, s_firstrow=(imo-1)*nao+1, s_firstcol=nocc+i, &
                                     t_firstrow=1, t_firstcol=imo)
 
          END DO !imo
       END DO !istate
 
-!  Allocate the oscilaltor strength vectors
-      IF (singlet) THEN
-         ALLOCATE(donor_state%sg_osc_str(nevals))
-         donor_state%sg_osc_str = 0.0_dp
-      ELSE
-         ALLOCATE(donor_state%tp_osc_str(nevals))
-         donor_state%tp_osc_str = 0.0_dp
-      END IF
-         
 !  Clean-up
       CALL cp_fm_release(rhs_matrix)
       CALL cp_fm_release(work)
       CALL cp_fm_release(c_sum)
       CALL cp_fm_struct_release(fm_struct)
-      CALL dbcsr_release(filter)
-      DEALLOCATE(scaling, filter)
 
 !  Perform a partial clean-up of the donor_state
       CALL dbcsr_release(matrix_tdp)
 
       CALL timestop(handle)
 
-   END SUBROUTINE solve_xas_tdp_full_prob
-
-! **************************************************************************************************
-!> \brief A geeig solver using Cholesky decomposition and syevx so that only a couple of eigenvalues
-!>        can be computed. 
-!> amatrix ...
-!> \param bmatrix ...
-!> \param eigenvectors ... 
-!> \param eigenvalues ...
-!> \param neig the number of eigenvalues to compute
-!> \param work ... 
-!> \note Blatantly copied from cp_fm_geeig
-! **************************************************************************************************
-   SUBROUTINE cp_fm_geeig_syevx(amatrix, bmatrix, eigenvectors, eigenvalues, neig, work)
-
-      TYPE(cp_fm_type), POINTER                       :: amatrix, bmatrix, eigenvectors
-      REAL(dp), DIMENSION(:)                          :: eigenvalues
-      TYPE(cp_fm_type), POINTER                       :: work
-      INTEGER, INTENT(IN)                             :: neig
-
-      CHARACTER(len=*), PARAMETER :: routineN = 'cp_fm_geeig_syevx', routineP = moduleN//':'//routineN
-
-      INTEGER                                         :: nao, nmo
-
-      CALL cp_fm_get_info(amatrix, nrow_global=nao)
-      nmo = SIZE(eigenvalues)
-      ! Cholesky decompose S=U(T)U
-      CALL cp_fm_cholesky_decompose(bmatrix)
-      ! Invert to get U^(-1)
-      CALL cp_fm_triangular_invert(bmatrix)
-      ! Reduce to get U^(-T) * H * U^(-1)
-      CALL cp_fm_triangular_multiply(bmatrix, amatrix, side="R")
-      CALL cp_fm_triangular_multiply(bmatrix, amatrix, transpose_tr=.TRUE.)
-      ! Diagonalize
-      CALL cp_fm_syevx(amatrix, work, eigenvalues, neig, work_syevx=1.0_dp)
-      ! Restore vectors C = U^(-1) * C*
-      CALL cp_fm_triangular_multiply(bmatrix, work)
-      CALL cp_fm_to_fm(work, eigenvectors, nmo)
-
-   END SUBROUTINE cp_fm_geeig_syevx
+   END SUBROUTINE solve_xas_tdp_prob
 
 ! **************************************************************************************************
 !> \brief Returns the scaling to apply to normalize the LR eigenvectors. 
@@ -961,7 +886,6 @@ CONTAINS
 !> \param donor_state ...
 !> \param qs_env ...
 !> \param do_inv if the inverse of G should be computed
-!> \note Compute the inverse only if the dimension of the incoming array is 1
 ! **************************************************************************************************
    SUBROUTINE build_metric(matrix_g, dist_g, blk_size_g, donor_state, qs_env, do_inv)
 
@@ -974,7 +898,7 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'build_metric', routineP = moduleN//":"//routineN
       
-      INTEGER                                         :: i, iblk, jblk, ndo_mo, nblk_row, blk
+      INTEGER                                         :: i, iblk, jblk, ndo_mo, nblk_row, blk, nao
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
       INTEGER, DIMENSION(:), POINTER                  :: row_blk_size
       REAL(dp), DIMENSION(:), POINTER                 :: work_block
@@ -982,13 +906,15 @@ CONTAINS
       TYPE(dbcsr_iterator_type)                       :: iter     
       TYPE(dbcsr_type), POINTER                       :: matrix_sinv
       LOGICAL                                         :: my_do_inv
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
 
-      NULLIFY(matrix_s, row_blk_size, work_block)
+      NULLIFY(matrix_s, row_blk_size, work_block, para_env, blacs_env)
 
 !  Initilization
       ndo_mo = SIZE(donor_state%mo_indices,1)
       CALL get_qs_env(qs_env=qs_env, matrix_s=matrix_s)
-      CALL dbcsr_get_info(matrix_s(1)%matrix, row_blk_size=row_blk_size)
+      CALL dbcsr_get_info(matrix_s(1)%matrix, row_blk_size=row_blk_size, nfullrows_total=nao)
       nblk_row = SIZE(row_blk_size)
       my_do_inv = .FALSE.
       IF (PRESENT(do_inv)) my_do_inv = do_inv
@@ -1035,10 +961,10 @@ CONTAINS
 
          ! Invert the overlap matrix
          ALLOCATE(matrix_sinv)
-         CALL dbcsr_create(matrix=matrix_sinv, template=matrix_s(1)%matrix)
-         CALL invert_Hotelling(matrix_sinv, matrix_s(1)%matrix, threshold=1.0E-10_dp, use_inv_as_guess=.FALSE., &
-                               norm_convergence=1.0E-10_dp, filter_eps=1.0E-12_dp, silent=.TRUE.)
-         CALL dbcsr_finalize(matrix_sinv)
+         CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env)
+         CALL dbcsr_copy(matrix_sinv, matrix_s(1)%matrix)
+         CALL cp_dbcsr_cholesky_decompose(matrix_sinv, para_env=para_env, blacs_env=blacs_env)
+         CALL cp_dbcsr_cholesky_invert(matrix_sinv, para_env=para_env, blacs_env=blacs_env, upper_to_full=.TRUE.)
 
 !     Fill the matrices G^-1 by looping over the block of S^-1 and putting them on the diagonal
          CALL dbcsr_iterator_start(iter, matrix_sinv)
@@ -1073,7 +999,7 @@ CONTAINS
    END SUBROUTINE build_metric
 
 ! **************************************************************************************************
-! \brief Builds the auxiliary matricies (A-D+E)^(+-0.5) needed for the transofrmation of the
+! \brief Builds the auxiliary matrix (A-D+E)^+0.5 needed for the transofrmation of the
 !>       full-TDDFT problem into an Hermitian one
 !> \param threshold a threshold for allowed negative eigenvalues
 !> \param sx the amount of exact exchange
@@ -1084,25 +1010,29 @@ CONTAINS
 !> \param proj_Q ...
 !> \param work ...
 !> \param donor_state ...
+!> \param qs_env ...
 ! **************************************************************************************************
-   SUBROUTINE build_aux_matrices(threshold, sx, matrix_a, matrix_d, matrix_e, do_hfx, proj_Q, &
-                                  work, donor_state)
+   SUBROUTINE build_aux_matrix(threshold, sx, matrix_a, matrix_d, matrix_e, do_hfx, proj_Q, &
+                                  work, donor_state, qs_env)
 
       REAL(dp), INTENT(IN)                            :: threshold, sx
       TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_d, matrix_e, proj_Q, work
       LOGICAL, INTENT(IN)                             :: do_hfx
       TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(qs_environment_type), POINTER              :: qs_env
 
-      CHARACTER(len=*), PARAMETER :: routineN = "build_aux_matrices", &
+      CHARACTER(len=*), PARAMETER :: routineN = "build_aux_matrix", &
                                      routineP = moduleN//":"//routineN
 
-      REAL(dp)                                        :: min_ev
-      LOGICAL                                         :: conv
+      INTEGER                                         :: nrow, ndep
+      REAL(dp)                                        :: evals(2)
       TYPE(dbcsr_type), POINTER                       :: tmp_mat
-      TYPE(arnoldi_data_type)                         :: my_arnoldi
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrices
+      TYPE(cp_fm_type), POINTER                       :: aux_fm, work_fm
+      TYPE(cp_fm_struct_type), POINTER                :: struct
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      TYPE(cp_para_env_type), POINTER                 :: para_env
 
-      NULLIFY(tmp_mat, matrices)
+      NULLIFY(tmp_mat, aux_fm, work_fm, struct, blacs_env, para_env)
 
       ALLOCATE(tmp_mat)
       CALL dbcsr_copy(tmp_mat, matrix_a)
@@ -1115,38 +1045,36 @@ CONTAINS
       CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q, tmp_mat, 0.0_dp, work)
       CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q, 0.0_dp, tmp_mat)
 
-      ! Test that the matrix (A-D+E) is positive semi-definite => warn user if not
-      ALLOCATE (matrices(1))
-      matrices(1)%matrix => tmp_mat
-      CALL setup_arnoldi_data(my_arnoldi, matrices, max_iter=200, threshold=threshold, selection_crit=3, &
-                              nval_request=1, nrestarts=30, generalized_ev=.FALSE., iram=.FALSE.)
-      CALL arnoldi_ev(matrices, my_arnoldi)
-      min_ev = REAL(get_selected_ritz_val(my_arnoldi, 1), dp)
-      IF (min_ev < 0.0_dp .AND. ABS(min_ev) > threshold) THEN
+      ! Actually computing and storing the auxiliary matrix
+      ALLOCATE(donor_state%matrix_aux)
+      CALL dbcsr_create(matrix=donor_state%matrix_aux, template=matrix_a, name="MAT AUX")
+
+      ! Go through fm and cp_fm_power for good quality sqrt
+      CALL dbcsr_get_info(matrix_a, nfullrows_total=nrow)
+      CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env)
+      CALL cp_fm_struct_create(struct, context=blacs_env, para_env=para_env, &
+                               ncol_global=nrow, nrow_global=nrow)
+      CALL cp_fm_create(aux_fm, struct)
+      CALL cp_fm_create(work_fm, struct)
+
+      CALL copy_dbcsr_to_fm(tmp_mat, aux_fm)
+      CALL cp_fm_power(aux_fm, work_fm, 0.5_dp, threshold, ndep, eigvals=evals)
+
+      CALL copy_fm_to_dbcsr(aux_fm, donor_state%matrix_aux)
+
+      ! Warn the user if matrix not positive semi-definite
+      IF (evals(1) < 0.0_dp .AND. ABS(evals(1)) > threshold) THEN
          CPWARN("The full TDDFT problem might not have been soundly turned Hermitian. Try TDA.")
       END IF
 
-      ! Actually computing and storing the auxiliary matrices
-      ALLOCATE(donor_state%matrix_aux(2))
-      ALLOCATE(donor_state%matrix_aux(1)%matrix, donor_state%matrix_aux(2)%matrix)
-      CALL dbcsr_create(matrix=donor_state%matrix_aux(1)%matrix, template=matrix_a, name="MAT AUX 1")
-      CALL dbcsr_create(matrix=donor_state%matrix_aux(2)%matrix, template=matrix_a, name="MAT AUX 2")
-
-      ! Could be tiny negative ev < threshold => shift spectrum by threshold to make sure it works
-      CALL dbcsr_add_on_diag(tmp_mat, threshold)
-
-      ! use order = 0, tests have shown that sometimes, the convergence range is ill estimated otherwise
-      CALL matrix_sqrt_Newton_Schulz(donor_state%matrix_aux(1)%matrix, donor_state%matrix_aux(2)%matrix,&
-                                     tmp_mat, threshold=1.0E-10_dp, order=0, eps_lanczos=1.0E-8_dp, &
-                                     max_iter_lanczos=500, converged=conv)
-      CPASSERT(conv)
-
       ! clean-up
-      CALL deallocate_arnoldi_data(my_arnoldi)
+      CALL cp_fm_struct_release(struct)
+      CALL cp_fm_release(aux_fm)
+      CALL cp_fm_release(work_fm)
       CALL dbcsr_release(tmp_mat)
-      DEALLOCATE (matrices, tmp_mat)
+      DEALLOCATE (tmp_mat)
 
-   END SUBROUTINE build_aux_matrices
+   END SUBROUTINE build_aux_matrix
 
 ! **************************************************************************************************
 !> \brief Computes the two-center Coulomb integral needed for the RI in kernel calculation. Stores
