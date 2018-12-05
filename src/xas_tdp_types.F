@@ -17,7 +17,9 @@ MODULE xas_tdp_types
                                               xas_tdp_by_index,&
                                               xas_tdp_by_kind, &
                                               tddfpt_singlet, &
-                                              tddfpt_triplet
+                                              tddfpt_triplet, &
+                                              ot_mini_cg, &
+                                              ot_mini_diis
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_val_get,&
                                               section_vals_get_subs_vals
@@ -28,6 +30,7 @@ MODULE xas_tdp_types
    USE qs_loc_types,                    ONLY: qs_loc_env_new_type,&
                                               qs_loc_env_release
    USE qs_o3c_types,                    ONLY: o3c_container_type, release_o3c_container
+   USE qs_ot_types,                     ONLY: qs_ot_settings_type, qs_ot_settings_init
                                      
 #include "./base/base_uses.f90"
 
@@ -40,7 +43,7 @@ MODULE xas_tdp_types
 !> \param define_excited whether excited atoms are chosen by kind or index
 !> \param dipole_form whether the dipole moment is computed in the length or velocity representation
 !> \param n_search # of lowest energy MOs to search for donor orbitals
-!> \param check_donor_states whether one only checks MO to donor state assignment
+!> \param check_only whether a check run for donor MOs and LUMOs guesses is conducted
 !> \param do_hfx whether exact exchange is included
 !> \param do_xc wheter xc functional(s) is(are) included
 !> \param sx the scaling applied to exact exchange
@@ -54,20 +57,27 @@ MODULE xas_tdp_types
 !> \param state_types columns correspond to the states to excite for each atom kind/index
 !>                    the number of rows is the number of times the keyword is repeated
 !> \param grid_info the information about the atomic grids used for the xc kernel integrals
+!> \param full_diag whether the full direct diagonalization of the problem should take place
+!> \param ot_settings the settings for the OT diagonalization if so required
+!> \param max_iter the maximum allowed number of iteration for OT diagonalization
+!> \param eps_iter the required axxuracy for OT diagonalization
 ! **************************************************************************************************
    TYPE xas_tdp_control_type
       INTEGER                                 :: define_excited   
       INTEGER                                 :: dipole_form
       INTEGER                                 :: n_search
       INTEGER                                 :: n_excited
+      INTEGER                                 :: max_iter
       REAL(dp)                                :: sx
+      REAL(dp)                                :: eps_iter
       LOGICAL                                 :: do_hfx
       LOGICAL                                 :: do_xc
-      LOGICAL                                 :: check_donor_states
+      LOGICAL                                 :: check_only
       LOGICAL                                 :: tamm_dancoff
       LOGICAL                                 :: do_soc
       LOGICAL                                 :: do_singlet
       LOGICAL                                 :: do_triplet
+      LOGICAL                                 :: full_diag
       INTEGER, DIMENSION(:), POINTER          :: list_ex_atoms
       CHARACTER(len=default_string_length),&
                      DIMENSION(:), POINTER    :: list_ex_kinds
@@ -76,6 +86,7 @@ MODULE xas_tdp_types
       TYPE(section_vals_type), POINTER        :: print_loc_subsection
       CHARACTER(len=default_string_length),&
                      DIMENSION(:,:), POINTER  :: grid_info
+      TYPE(qs_ot_settings_type), POINTER      :: ot_settings
 
    END TYPE xas_tdp_control_type
    
@@ -94,7 +105,6 @@ MODULE xas_tdp_types
 !>        excited kinds, based on basis functions of the RI auxiliary basis used for Coulomb and
 !>        exchange kernels. 
 !> \param q_projector the projector on the unperturbed, unoccupied ground state as a dbcsr matrix
-!> \param p_projector the projector on the unperturbed, occupied ground state 
 !> \param dipmat the dbcsr matrices containing the dipole in x,y,z directions evaluated on the 
 !>        contracted spherical gaussians. It can either be in the length or the velocity 
 !>        representation. For length representation, it has to be computed once with the origin on 
@@ -124,7 +134,6 @@ MODULE xas_tdp_types
       TYPE(qs_loc_env_new_type), POINTER      :: qs_loc_env
       REAL(dp), DIMENSION(:,:), POINTER       :: ri_inv_coul
       TYPE(dbcsr_type), POINTER               :: q_projector
-      TYPE(dbcsr_type), POINTER               :: p_projector
       TYPE(dbcsr_p_type), DIMENSION(:), &
                                     POINTER   :: dipmat
       TYPE(cp_2d_r_p_type), DIMENSION(:), &
@@ -247,18 +256,22 @@ CONTAINS
       xas_tdp_control%do_hfx = .TRUE.
       xas_tdp_control%do_xc = .FALSE.
       xas_tdp_control%sx = 1.0_dp
-      xas_tdp_control%check_donor_states = .FALSE.
+      xas_tdp_control%check_only = .FALSE.
       xas_tdp_control%tamm_dancoff = .FALSE.
       xas_tdp_control%do_soc = .FALSE.
       xas_tdp_control%do_singlet = .TRUE.
       xas_tdp_control%do_triplet = .FALSE.
+      xas_tdp_control%full_diag = .TRUE.
       xas_tdp_control%n_excited = -1
+      xas_tdp_control%eps_iter = 1.0E-6_dp
+      xas_tdp_control%max_iter = 1000
       NULLIFY (xas_tdp_control%state_types)
       NULLIFY (xas_tdp_control%list_ex_atoms)
       NULLIFY (xas_tdp_control%list_ex_kinds)
       NULLIFY (xas_tdp_control%loc_subsection)
       NULLIFY (xas_tdp_control%print_loc_subsection)
       NULLIFY (xas_tdp_control%grid_info)
+      NULLIFY (xas_tdp_control%ot_settings)
 
    END SUBROUTINE xas_tdp_control_create
 
@@ -286,6 +299,9 @@ CONTAINS
          IF (ASSOCIATED(xas_tdp_control%grid_info)) THEN
             DEALLOCATE(xas_tdp_control%grid_info)
          END IF
+         IF (ASSOCIATED(xas_tdp_control%ot_settings)) THEN
+            DEALLOCATE(xas_tdp_control%ot_settings)
+         END IF
          DEALLOCATE (xas_tdp_control)
       END IF
 
@@ -304,7 +320,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'read_xas_tdp_control', &
                                                             routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: irep, nrep, nexc, excitation 
+      INTEGER                                            :: irep, nrep, nexc, excitation, ot_method
       CHARACTER(len=default_string_length),&
                      DIMENSION(:), POINTER               :: k_list
       INTEGER, DIMENSION(:), POINTER                     :: a_list, t_list
@@ -316,8 +332,8 @@ CONTAINS
 
       CALL section_vals_val_get(xas_tdp_section, "DIPOLE_FORM", i_val=xas_tdp_control%dipole_form)
 
-      CALL section_vals_val_get(xas_tdp_section, "ONLY_CHECK_DONOR_STATES", &
-                                l_val=xas_tdp_control%check_donor_states)
+      CALL section_vals_val_get(xas_tdp_section, "CHECK_ONLY", &
+                                l_val=xas_tdp_control%check_only)
 
       CALL section_vals_val_get(xas_tdp_section, "TAMM_DANCOFF", &
                                 l_val=xas_tdp_control%tamm_dancoff)
@@ -336,8 +352,6 @@ CONTAINS
          xas_tdp_control%do_singlet = .TRUE.
          xas_tdp_control%do_triplet = .TRUE.
       END IF
-
-      CALL section_vals_val_get(xas_tdp_section, "N_EXCITED", i_val=xas_tdp_control%n_excited)
 
       IF (.NOT. ASSOCIATED(xas_tdp_control%list_ex_kinds)) THEN
          IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_index) THEN
@@ -388,7 +402,7 @@ CONTAINS
          END DO
       END IF
       
-      CALL section_vals_val_get(xas_tdp_section, "STATE_SEARCH", i_val=xas_tdp_control%n_search)
+      CALL section_vals_val_get(xas_tdp_section, "N_SEARCH", i_val=xas_tdp_control%n_search)
 
       CALL section_vals_val_get(xas_tdp_section, "GRID", n_rep_val=nrep)
 
@@ -419,6 +433,27 @@ CONTAINS
       IF ((.NOT. xas_tdp_control%do_xc) .AND. (.NOT. xas_tdp_control%do_hfx)) THEN
          CPABORT("You must at least define a XC functional OR exact exchange.")
       END IF
+
+      !Diagonalization analysis
+      CALL section_vals_val_get(xas_tdp_section, "DIAGONALIZATION%N_EXCITED", &
+                                i_val=xas_tdp_control%n_excited)
+      CALL section_vals_val_get(xas_tdp_section, "DIAGONALIZATION%FULL_DIAG", &
+                                l_val=xas_tdp_control%full_diag)
+
+      ALLOCATE(xas_tdp_control%ot_settings)
+      CALL qs_ot_settings_init(xas_tdp_control%ot_settings)
+      CALL section_vals_val_get(xas_tdp_section, "DIAGONALIZATION%OT_DIAG%MINIMIZER", i_val=ot_method)
+      SELECT CASE (ot_method)
+      CASE (ot_mini_cg)
+         xas_tdp_control%ot_settings%ot_method = "CG"
+      CASE (ot_mini_diis)
+         xas_tdp_control%ot_settings%ot_method = "DIIS"
+      END SELECT
+
+      CALL section_vals_val_get(xas_tdp_section, "DIAGONALIZATION%OT_DIAG%MAX_ITER", &
+                                i_val=xas_tdp_control%max_iter)
+      CALL section_vals_val_get(xas_tdp_section, "DIAGONALIZATION%OT_DIAG%EPS_ITER", &
+                                r_val=xas_tdp_control%eps_iter)
       
    END SUBROUTINE read_xas_tdp_control
 
@@ -446,7 +481,6 @@ CONTAINS
       NULLIFY (xas_tdp_env%mos_of_ex_atoms)
       NULLIFY (xas_tdp_env%ri_inv_coul)
       NULLIFY (xas_tdp_env%q_projector)
-      NULLIFY (xas_tdp_env%p_projector)
       NULLIFY (xas_tdp_env%dipmat)
       NULLIFY (xas_tdp_env%ri_o3c_coul)
       NULLIFY (xas_tdp_env%ri_o3c_ex)
@@ -500,10 +534,6 @@ CONTAINS
          IF (ASSOCIATED(xas_tdp_env%q_projector)) THEN
             CALL dbcsr_release(xas_tdp_env%q_projector)
             DEALLOCATE(xas_tdp_env%q_projector)
-         END IF
-         IF (ASSOCIATED(xas_tdp_env%p_projector)) THEN
-            CALL dbcsr_release(xas_tdp_env%p_projector)
-            DEALLOCATE(xas_tdp_env%p_projector)
          END IF
          IF (ASSOCIATED(xas_tdp_env%dipmat)) THEN
             DO i = 1,SIZE(xas_tdp_env%dipmat)

@@ -30,8 +30,8 @@ MODULE xas_tdp_methods
                                               cp_fm_get_info, cp_fm_to_fm_submat, & 
                                               cp_fm_set_submatrix, cp_fm_get_diag
    USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
+   USE cp_log_handling,                 ONLY: cp_get_default_logger, cp_logger_type, &
+                                              cp_logger_get_default_io_unit
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_output_handling,              ONLY: cp_print_key_unit_nr, debug_print_level, &
                                               cp_print_key_finished_output
@@ -132,13 +132,12 @@ CONTAINS
       TYPE(donor_state_type), POINTER                    :: current_state
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
-      TYPE(cp_para_env_type), POINTER                    :: para_env
       REAL(dp), DIMENSION(3)                             :: rc
       TYPE(cell_type), POINTER                           :: cell
       TYPE(xas_atom_env_type), POINTER                   :: xas_atom_env
       TYPE(dft_control_type), POINTER                    :: dft_control
 
-      NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state, para_env)
+      NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state)
       NULLIFY(particle_set, cell, xas_atom_env, dft_control)
 
       CALL timeset(routineN, handle)
@@ -167,20 +166,26 @@ CONTAINS
       CALL get_qs_env(qs_env, dft_control=dft_control)
       CALL xas_tdp_init(xas_tdp_env, xas_tdp_control, qs_env)
 
+      IF (output_unit > 0) THEN 
+         IF (xas_tdp_control%check_only) THEN
+            WRITE(UNIT=output_unit, FMT="(/,T3,A)") &
+               "! This is a CHECK_ONLY run for donor MOs (and possibly guess LUMOs) verification !"
+         END IF
+      END IF
+
 !  Safety checks
       IF (dft_control%lsd) THEN
          CPABORT("XAS TDP only implemented for closed shell ground state calculations")
       END IF
-!     Check on periodicity: only deal with non-periodic systems for now
+!     Check on periodicity: PBCs only available without exact exchange
       CALL get_qs_env(qs_env, cell=cell)
-      IF (.NOT. ALL(cell%perd .EQ. 0)) THEN
-         !CPABORT("XAS TDP calculation only supports non-periodic BCs (for now)")
+      IF ((.NOT. ALL(cell%perd .EQ. 0)) .AND. xas_tdp_control%do_hfx) THEN
+         CPABORT("XAS TDP calculations with exact exchange only support non-periodic BCs")
       END IF
       IF (xas_tdp_env%qs_loc_env%do_localize .AND. &
           xas_tdp_env%qs_loc_env%localized_wfn_control%operator_type /= op_loc_berry) THEN
          CPABORT("Please use the Berry phase operator for MO localization.")
       END IF
-
       
 !  Localization of the core orbitals if requested (used for better identification of donor states)
       IF (xas_tdp_env%qs_loc_env%do_localize) THEN
@@ -215,11 +220,14 @@ CONTAINS
             "# Assign the relevant subset of the ", xas_tdp_control%n_search, &
             "  lowest energy MOs to excited atoms"
       END IF
-      CALL write_mos_to_ex_atoms_association(xas_tdp_env, qs_env, output_unit)     
+      CALL write_mos_to_ex_atoms_association(xas_tdp_env, qs_env)     
+
+!  If CHECK_ONLY run, check the donor MOs and the guess LUMOs
+      IF (xas_tdp_control%check_only) CALL print_checks(xas_tdp_env, xas_tdp_control, qs_env)
 
 !  If not simply exact exchange, setup a xas_atom_env and compute the xc integrals on the atomic grids
 !  Also needed if SOC is included. Done before looping on atoms as it's all done at once
-      IF (xas_tdp_control%do_xc .OR. xas_tdp_control%do_soc) THEN
+      IF ((xas_tdp_control%do_xc .OR. xas_tdp_control%do_soc) .AND. .NOT. xas_tdp_control%check_only) THEN
 
          CALL xas_atom_env_create(xas_atom_env)
          CALL init_xas_atom_env(xas_atom_env, xas_tdp_env, xas_tdp_control, qs_env) 
@@ -237,11 +245,13 @@ CONTAINS
       END IF
 
 !  Loop over donor states for calculation
-      CALL get_qs_env(qs_env=qs_env, atomic_kind_set=atomic_kind_set, para_env=para_env)      
+      CALL get_qs_env(qs_env=qs_env, atomic_kind_set=atomic_kind_set)      
       current_state_index = 1
 
 !     Loop over atomic kinds
       DO ikind = 1,SIZE(atomic_kind_set)
+
+         IF (xas_tdp_control%check_only) EXIT
          
          CALL get_atomic_kind(atomic_kind=atomic_kind_set(ikind), element_symbol=symbol_of_kind,&
                               atom_list=atoms_of_kind)
@@ -288,20 +298,17 @@ CONTAINS
 !              Initial write for the donor state of interest
                IF (output_unit > 0) THEN
                   WRITE(UNIT=output_unit, FMT="(/,T3,A,A2,A,I4,A,A2,/)") &
-                     "# Start of calculations for donor state(s) of type ", &
+                     "# Start of calculations for donor state of type ", &
                      xas_tdp_env%state_type_char(current_state%state_type), " for atom",&
                      current_state%at_index, " of kind ", current_state%at_symbol
                            
                END IF
 
 !              Assign best fitting MO(s) to current core donnor state
-               CALL assign_mos_to_donor_state(current_state, xas_tdp_env, xas_tdp_control,&
-                                             qs_env, output_unit)
+               CALL assign_mos_to_donor_state(current_state, xas_tdp_env, xas_tdp_control, qs_env)
 
 !              Perform MO restricted Mulliken pop analysis for verification
-               CALL perform_mulliken_on_donor_state(current_state,qs_env,output_unit)
-
-               IF (xas_tdp_control%check_donor_states) CYCLE
+               CALL perform_mulliken_on_donor_state(current_state,qs_env)
 
 !              Do main calculations here
                CALL setup_xas_tdp_prob(current_state, qs_env, xas_tdp_env, xas_tdp_control)
@@ -328,7 +335,6 @@ CONTAINS
 
                current_state_index = current_state_index + 1
                NULLIFY(current_state)
-
                   
             END DO ! state type
          END DO ! atom of kind 
@@ -530,18 +536,13 @@ CONTAINS
       ALLOCATE(xas_tdp_env%q_projector)
       CALL dbcsr_create(xas_tdp_env%q_projector, name="Q PROJECTOR", template=matrix_s(1)%matrix, &
                         matrix_type="N") 
-      ALLOCATE(xas_tdp_env%p_projector)
-      CALL dbcsr_create(xas_tdp_env%p_projector, name="P PROJECTOR", template=matrix_s(1)%matrix)
 
 !     TODO: Add a filter_eps in the multiplication ? Cuz many almost zero blocks
 !     Spin-restricted ground state: occupation number 2 included in density matrix => hence factor 0.5
       CALL dbcsr_multiply('N', 'N', -0.5_dp, matrix_s(1)%matrix, rho_ao(1)%matrix, 0.0_dp, &
                           xas_tdp_env%q_projector)
-      CALL dbcsr_multiply('N', 'N', -1.0_dp, xas_tdp_env%q_projector, matrix_s(1)%matrix, 0.0_dp, &
-                          xas_tdp_env%p_projector)
       CALL dbcsr_add_on_diag(xas_tdp_env%q_projector, 1.0_dp)
       CALL dbcsr_finalize(xas_tdp_env%q_projector)
-
       
 !  Create the structure for the dipole in the AO basis 
       ALLOCATE(xas_tdp_env%dipmat(3))
@@ -798,28 +799,26 @@ CONTAINS
 !> \param xas_tdp_env ...
 !> \param xas_tdp_control ...
 !> \param qs_env ...
-!> \param output_unit ...
 !> *************************************************************************************************
-   SUBROUTINE assign_mos_to_donor_state(donor_state, xas_tdp_env, xas_tdp_control, qs_env, &
-                                       output_unit)
+   SUBROUTINE assign_mos_to_donor_state(donor_state, xas_tdp_env, xas_tdp_control, qs_env)
 
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env        
       TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
       TYPE(qs_environment_type), POINTER              :: qs_env
-      INTEGER, INTENT(IN)                             :: output_unit
 
       CHARACTER(len=*), PARAMETER :: routineN ='assign_mos_to_donor_state', &
                                                       routineP = moduleN//':'//routineN
 
+      INTEGER                                         :: zval, i, l, nj, nsgf_sto, nsgf_kind, j,&
+                                                         n_search, imo, iat, nao, at_index, my_mo,&
+                                                         n_states, next_best_overlap_ind, &
+                                                         output_unit
       REAL(dp), DIMENSION(:), POINTER                 :: zeta
       INTEGER, DIMENSION(:), POINTER                  :: lq, nq, first_sgf
       TYPE(sto_basis_set_type), POINTER               :: sto_basis_set
       TYPE(gto_basis_set_type), POINTER               :: sto_to_gto_basis_set, kind_basis_set
       INTEGER, DIMENSION(4,7)                         :: ne
-      INTEGER                                         :: zval, i, l, nj, nsgf_sto, nsgf_kind, j,&
-                                                         n_search, imo, iat, nao, at_index, my_mo,&
-                                                         n_states, next_best_overlap_ind
       INTEGER, DIMENSION(:), ALLOCATABLE              :: my_mos
       REAL(dp)                                        :: zeff, next_best_overlap
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
@@ -840,6 +839,8 @@ CONTAINS
       NULLIFY(mo_evals, matrix_ks, para_env, blacs_env, work_mat)
       NULLIFY(eval_mat_struct, eval_mat, gs_struct, gs_coeffs)
       
+      output_unit = cp_logger_get_default_io_unit()
+
       CALL get_qs_env(qs_env=qs_env, qs_kind_set=qs_kind_set, mos=mos, particle_set=particle_set,&
                       matrix_ks=matrix_ks, para_env=para_env, blacs_env=blacs_env)
 
@@ -1157,7 +1158,163 @@ CONTAINS
       qs_loc_env%do_localize = my_do_loc
 
    END SUBROUTINE find_mo_centers
-   
+
+! **************************************************************************************************
+!> \brief Prints the MO to donor_state assocaition with overlap and Mulliken population analysis, 
+!>        as well as the gaps in the LUMO eigenvalues in cas of OT solver. 
+!> \param xas_tdp_env ...
+!> \param xas_tdp_control ...
+!> \param qs_env ...
+!> \note  Called only in case of CHECK_ONLY run
+! **************************************************************************************************
+   SUBROUTINE print_checks(xas_tdp_env, xas_tdp_control, qs_env)   
+
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(xas_tdp_control_type), POINTER             :: xaS_tdp_control
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "print_checks", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: current_state_index, ikind, iat, iatom, &
+                                                         tmp_index, istate, output_unit
+      TYPE(atomic_kind_type), DIMENSION(:), POINTER   :: atomic_kind_set
+      INTEGER, DIMENSION(:), POINTER                  :: atoms_of_kind
+      CHARACTER(len=2)                                :: symbol_of_kind
+      TYPE(donor_state_type), POINTER                 :: current_state
+
+      NULLIFY(atomic_kind_set, atoms_of_kind, current_state)
+
+      output_unit = cp_logger_get_default_io_unit()
+
+      IF (output_unit > 0) THEN
+         WRITE(output_unit, "(/,T3,A,/,T3,A,/,T3,A)") &
+            "# Check the donor states for their quality. They need to have a well defined type ", &
+            "  (1s, 2s, etc) which is indicated by the overlap. They also need to be localized, ", &
+            "  for which the Mulliken population analysis is an indicator (must be close to 2.0)"
+      END IF
+
+!  Loop over the donor states (as in the main xas_tdp loop)
+      CALL get_qs_env(qs_env=qs_env, atomic_kind_set=atomic_kind_set)
+      current_state_index = 1
+
+      !loop over atomic kinds
+      DO ikind = 1,SIZE(atomic_kind_set)
+
+         CALL get_atomic_kind(atomic_kind=atomic_kind_set(ikind), element_symbol=symbol_of_kind,&
+                              atom_list=atoms_of_kind)
+
+         IF (.NOT. ANY(xas_tdp_env%ex_kind_indices == ikind)) CYCLE
+
+         !loop over atoms of kind
+         DO iat = 1,SIZE(atoms_of_kind)
+            iatom = atoms_of_kind(iat)
+
+            IF (.NOT. ANY(xas_tdp_env%ex_atom_indices == iatom)) CYCLE
+            tmp_index = locate(xas_tdp_env%ex_atom_indices, iatom)
+
+            !loop over states of excited atom
+            DO istate = 1,SIZE(xas_tdp_env%state_types,1)
+
+               IF (xas_tdp_env%state_types(istate, tmp_index) == xas_not_excited) CYCLE
+
+               current_state => xas_tdp_env%donor_states(current_state_index)
+               CALL set_donor_state(current_state, at_index=iatom,&
+                                    at_symbol=symbol_of_kind, kind_index=ikind,&
+                                    state_type=xas_tdp_env%state_types(istate,tmp_index))
+
+               IF (output_unit > 0) THEN
+                  WRITE(output_unit, "(/,T5,A,A2,A,I4,A,A2,A)") &
+                     "Donor state of type ", xas_tdp_env%state_type_char(current_state%state_type),&
+                     " for atom", current_state%at_index, " of kind ", current_state%at_symbol, ":"
+               END IF
+
+               !Assign the MOs and perform Mulliken
+               CALL assign_mos_to_donor_state(current_state, xas_tdp_env, xas_tdp_control, qs_env)
+               CALL perform_mulliken_on_donor_state(current_state,qs_env)
+
+               current_state_index = current_state_index + 1
+               NULLIFY(current_state)
+
+            END DO !istate
+         END DO !iat
+      END DO !ikind
+
+      IF (output_unit > 0) THEN
+         WRITE(output_unit, "(/,T5,A)") &
+            "Use LOCALIZE and/or increase N_SEARCH for better results, if so required."
+      END IF
+
+!  If OT eigensolver, then also analyse the LUMOs
+      IF (.NOT. xas_tdp_control%full_diag) CALL check_lumo_guess(xas_tdp_control, qs_env)
+
+   END SUBROUTINE print_checks
+
+! **************************************************************************************************
+!> \brief Analyze the LUMOs from the ground state calculations to be used as guess for the LR
+!>        orbitals. Mainly look for gaps in the spctrum such that OT converges optimally
+!> \param xas_tdp_control ...
+!> \param qs_env ...
+! **************************************************************************************************
+   SUBROUTINE check_lumo_guess(xas_tdp_control, qs_env)
+
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
+      TYPE(qs_environment_type), POINTER              :: qs_env
+      
+      CHARACTER(len=*), PARAMETER :: routineN = "check_lumo_guess", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: homo, nmo, imo, output_unit, ilumo
+      REAL(dp)                                        :: min_gap
+      TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
+      REAL(dp), DIMENSION(:), POINTER                 :: evals
+
+      CPASSERT(ASSOCIATED(xas_tdp_control))
+      NULLIFY(mos, evals)
+
+      output_unit = cp_logger_get_default_io_unit()
+
+!  Get the LUMOs and their energies
+      CALL get_qs_env(qs_env, mos=mos)
+      CALL get_mo_set(mos(1)%mo_set, homo=homo, nmo=nmo, eigenvalues=evals)
+
+      IF (nmo <= homo) THEN
+         CPABORT("The OT eigensolver requires LUMOs for guesses. Use ADDED_MOS.")
+      END IF
+ 
+      IF (output_unit > 0) THEN
+         WRITE(output_unit, "(/,T3,A,/,T3,A)") &
+            "# Check the LUMOs eigenvalues for gaps, as the OT iterative eigensolver", &
+            "  takes LUMOs as guesses and converges well only in presence of a gap." 
+      END IF
+
+!  Set the minimal gap to an arbitrary 5.0 eV = 0.18 Ha
+      min_gap = 5.0_dp/evolt
+
+!  Loop over the LUMOs energies and find gaps
+      DO imo = homo+1, nmo-1
+
+         IF (min_gap <= evals(imo+1)-evals(imo)) THEN
+            IF (output_unit > 0) THEN
+               WRITE(output_unit, "(/,T5,A22,I8,/,T8,A)") &
+                  "Found gap after LUMO # ", imo-homo, &
+                  "LUMO index         LUMO eigenvalue (eV)"
+            END IF
+            DO ilumo = MAX(imo-2, homo), MIN(imo+2,nmo)
+               IF (output_unit > 0) THEN
+                  WRITE(output_unit, "(T8,I10,F29.3)") &
+                     ilumo-homo, evals(ilumo)*evolt
+               END IF
+            END DO
+         END IF
+      END DO ! imo
+
+      IF (output_unit > 0) THEN
+         WRITE(output_unit, "(/,T5,A,/,T5,A)") &
+            "Use one of the above value as N_EXCITED for optimal OT convergence.", &
+            "Increase ADDED_MOS for more options."
+      END IF
+
+   END SUBROUTINE check_lumo_guess
+
 ! **************************************************************************************************
 !> \brief Computes the oscillator strength based on the dipole moment (velocity or length rep) for
 !>        all available excitation energies and store the results in the donor_state. There is no
@@ -1252,17 +1409,18 @@ CONTAINS
 !> *************************************************************************************************
 !> \brief Writes the core MOs to excited atoms associations in the main output file
 !> \param xas_tdp_env ...
-!> \param output_unit ...
+!> \param qs_env ...
 !> *************************************************************************************************
-   SUBROUTINE write_mos_to_ex_atoms_association(xas_tdp_env, qs_env, output_unit) 
+   SUBROUTINE write_mos_to_ex_atoms_association(xas_tdp_env, qs_env) 
 
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env 
       TYPE(qs_environment_type), POINTER              :: qs_env
-      INTEGER, INTENT(IN)                             :: output_unit
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'write_mos_to_ex_atoms_association', &
                                           routineP = moduleN//':'//routineN
 
+      INTEGER                                         :: imo, nmo, at_index, tmp_index, &
+                                                         output_unit
       REAL(dp), DIMENSION(3)                          :: wfn_center, at_pos, r_ac
       INTEGER, DIMENSION(3)                           :: perd_init
       TYPE(cell_type), POINTER                        :: cell
@@ -1270,10 +1428,11 @@ CONTAINS
       INTEGER, DIMENSION(:,:), POINTER                :: mos_of_ex_atoms
       INTEGER, DIMENSION(:), POINTER                  :: ex_atom_indices
       REAL(dp)                                        :: dist, mo_spread
-      INTEGER                                         :: imo, nmo, at_index, tmp_index
       CHARACTER(LEN=2)                                :: at_symbol
 
       NULLIFY(cell, particle_set, mos_of_ex_atoms, ex_atom_indices)
+
+      output_unit = cp_logger_get_default_io_unit()
 
       IF (output_unit > 0) THEN
          WRITE(UNIT=output_unit, FMT="(/,T3,A,/,T3,A,/,T3,A)") &
@@ -1337,20 +1496,19 @@ CONTAINS
 !>        can verify it is indeed a core state
 !> \param donor_state ...
 !> \param qs_env ...
-!> \param output_unit ...
 !> \note This is a specific case of Mulliken analysis. In general one computes sum_i (SP)_ii, where
 !>       i labels the basis function centered on the atom of interest. For a specific MO with index
 !>       j, one need to compute sum_{ik} c_{ij} S_{ik} c_{kj}, k = 1,nao
 !> *************************************************************************************************
-   SUBROUTINE perform_mulliken_on_donor_state(donor_state, qs_env, output_unit)
+   SUBROUTINE perform_mulliken_on_donor_state(donor_state, qs_env)
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(qs_environment_type), POINTER              :: qs_env
-      INTEGER, INTENT(IN)                             :: output_unit
       
       CHARACTER(len=*), PARAMETER :: routineN = "perfomr_mulliken_on_donor_state", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: at_index, i, nao, natom, ndo_mo, nsgf
+      INTEGER                                         :: at_index, i, nao, natom, ndo_mo, nsgf, &
+                                                         output_unit
       INTEGER, DIMENSION(:), POINTER                  :: mo_indices, first_sgf, last_sgf
       TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
@@ -1374,6 +1532,7 @@ CONTAINS
       ALLOCATE(mul_pop(ndo_mo))
       mul_pop = 0.0_dp
       gs_coeffs => donor_state%gs_coeffs
+      output_unit = cp_logger_get_default_io_unit()
 
       CALL get_qs_env(qs_env=qs_env, mos=mos, particle_set=particle_set, qs_kind_set=qs_kind_set, &
                       para_env=para_env, blacs_env=blacs_env, matrix_s=matrix_s)
@@ -1466,11 +1625,11 @@ CONTAINS
 
 !           Simply dump the excitation energies/ oscillator strength as they come
             WRITE(xas_tdp_unit, FMT="(T3,A)") &
-               "Excitation energy (eV)            Oscillator strength (a.u.)"
+               " Index            Excitation energy (eV)            Oscillator strength (a.u.)"
 
             DO i =1,SIZE(donor_state%sg_evals)
-               WRITE(xas_tdp_unit, FMT="(T3,F22.6,F38.6)") &
-                  donor_state%sg_evals(i)*evolt, donor_state%sg_osc_str(i)
+               WRITE(xas_tdp_unit, FMT="(T3,I6,F34.6,F38.6)") &
+                  i, donor_state%sg_evals(i)*evolt, donor_state%sg_osc_str(i)
             END DO
 
             WRITE(xas_tdp_unit, FMT="(A,/)") " "
@@ -1489,11 +1648,11 @@ CONTAINS
 
 !           Simply dump the excitation energies/ oscillator strength as they come
             WRITE(xas_tdp_unit, FMT="(T3,A)") &
-               "Excitation energy (eV)            Oscillator strength (a.u.)"
+               " Index            Excitation energy (eV)            Oscillator strength (a.u.)"
 
             DO i =1,SIZE(donor_state%tp_evals)
-               WRITE(xas_tdp_unit, FMT="(T3,F22.6,F38.6)") &
-                  donor_state%tp_evals(i)*evolt, donor_state%tp_osc_str(i)
+               WRITE(xas_tdp_unit, FMT="(T3,I6,F34.6,F38.6)") &
+                  i, donor_state%tp_evals(i)*evolt, donor_state%tp_osc_str(i)
             END DO
 
             WRITE(xas_tdp_unit, FMT="(A,/)") " "
@@ -1512,11 +1671,11 @@ CONTAINS
 
 !           Simply dump the excitation energies/ oscillator strength as they come
             WRITE(xas_tdp_unit, FMT="(T3,A)") &
-               "Excitation energy (eV)            Oscillator strength (a.u.)"
+               " Index            Excitation energy (eV)            Oscillator strength (a.u.)"
 
             DO i =1,SIZE(donor_state%soc_evals)
-               WRITE(xas_tdp_unit, FMT="(T3,F22.6,F38.6)") &
-                  donor_state%soc_evals(i)*evolt, donor_state%soc_osc_str(i)
+               WRITE(xas_tdp_unit, FMT="(T3,I6,F34.6,F38.6)") &
+                  i, donor_state%soc_evals(i)*evolt, donor_state%soc_osc_str(i)
             END DO
 
             WRITE(xas_tdp_unit, FMT="(A,/)") " "
