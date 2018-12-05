@@ -1418,6 +1418,7 @@ $:                         'habdc=habdc, &'*abdc
 !> \param eri_offsets (:,1) atom numbers
 !>                    (:,2) set numbers
 !>                    (:,3) set offsets
+!>                    (:,4) atom offsets
 ! **************************************************************************************************
    SUBROUTINE get_eri_offsets(qs_env, basis_type, eri_offsets)
       TYPE(qs_environment_type), INTENT(IN), POINTER     :: qs_env
@@ -1426,7 +1427,7 @@ $:                         'habdc=habdc, &'*abdc
 
       INTEGER                                            :: dimen_basis, iatom, ikind, iset, isgf, &
                                                             natom, nkind, nset, nsgf, offset, &
-                                                            set_offset
+                                                            set_offset, atom_offset
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of
       INTEGER, DIMENSION(:), POINTER                     :: nsgf_set
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -1448,7 +1449,7 @@ $:                         'habdc=habdc, &'*abdc
          dimen_basis = dimen_basis+nsgf
       END DO
 
-      ALLOCATE (eri_offsets(dimen_basis, 3))
+      ALLOCATE (eri_offsets(dimen_basis, 4))
 
       offset = 0
       DO iatom = 1, natom
@@ -1456,11 +1457,13 @@ $:                         'habdc=habdc, &'*abdc
          CALL get_qs_kind(qs_kind=qs_kind_set(ikind), basis_set=basis_set, basis_type=basis_type)
          nset = basis_set%nset
          nsgf_set => basis_set%nsgf_set
+         atom_offset = 0
          DO iset = 1, nset
             set_offset = 0
             DO isgf = 1, nsgf_set(iset)
                set_offset = set_offset+1
-               eri_offsets(offset+set_offset, :) = [iatom, iset, set_offset]
+               atom_offset = atom_offset+1
+               eri_offsets(offset+set_offset, :) = [iatom, iset, set_offset, atom_offset]
             ENDDO
             offset = offset+nsgf_set(iset)
          ENDDO
