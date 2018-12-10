@@ -53,12 +53,16 @@ def check_warnings(fn):
         if(line[0]=="/" and line[-1]==":"):
             loc = line.rsplit(":")[0].strip()
             loc_short = path.basename(loc)
+            if not path.exists(loc):
+                return # source file gone - skipping
             continue
 
         # fypp line directives that leaked through as part of warning messages
         if(line.startswith(' # 1 "')):
-            loc = line[6:-1]
+            loc = line.split()[2].strip('"')
             loc_short = path.basename(loc)
+            if not path.exists(loc):
+                return # source file gone - skipping
             continue
 
         if(loc.endswith("include/fftw3.f")): continue # an external file

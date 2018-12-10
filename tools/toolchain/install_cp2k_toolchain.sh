@@ -211,17 +211,17 @@ The --with-PKG options follow the rules:
                           Default = no
   --with-sirius           Enable interface to the plane wave SIRIUS library.
                           This package requires: gsl, libspg, elpa, scalapack, json-fortran, hdf5 and libxc.
-                          Default = no
+                          Default = install
   --with-gsl              Enable the gnu scientific library library
-                          Default = no
+                          Default = install
   --with-spglib           Enable the spg library (search of symmetry groups)
                           This package depends on cmake.
-                          Default = no
+                          Default = install
   --with-hdf5             Enable the hdf5 library (use by sirius library)
-                          Default = no
+                          Default = install
   --with-json-fortran     Enable the json fortran library (used by cp2k when sirius is activated)
                           This package depends on cmake.
-                          Default = no
+                          Default = install
 
 
 FURTHER INSTRUCTIONS
@@ -1031,12 +1031,12 @@ LDFLAGS="\$(FCFLAGS) ${CP_LDFLAGS}"
 LIBS="${CP_LIBS} -lstdc++"
 
 # CUDA stuff
-CUDA_LIBS="-lcudart -lcufft -lcublas -lrt IF_DEBUG(-lnvToolsExt|)"
+CUDA_LIBS="-lcudart -lnvrtc -lcuda -lcufft -lcublas -lrt IF_DEBUG(-lnvToolsExt|)"
 CUDA_DFLAGS="-D__ACC -D__DBCSR_ACC -D__PW_CUDA IF_DEBUG(-D__CUDA_PROFILING|)"
 if [ "$ENABLE_CUDA" = __TRUE__ ] ; then
     LIBS="${LIBS} IF_CUDA(${CUDA_LIBS}|)"
     DFLAGS="IF_CUDA(${CUDA_DFLAGS}|) ${DFLAGS}"
-    NVFLAGS="-arch sm_35 \$(DFLAGS)"
+    NVFLAGS="-arch sm_35 -Xcompiler='-fopenmp' --std=c++11 \$(DFLAGS)"
 fi
 
 # -------------------------
@@ -1067,6 +1067,9 @@ gen_arch_file() {
     if [ "$__CUDA" = "on" ] ; then
       cat <<EOF >> $__filename
 #
+CXX         = CC
+CXXFLAGS    = \${CXXFLAGS} -I\\\${CUDA_PATH}/include -std=c++11
+GPUVER      = K20X
 NVCC        = \${NVCC} -D__GNUC__=4 -D__GNUC_MINOR__=9 -Xcompiler=--std=gnu++98
 NVFLAGS     = \${NVFLAGS}
 EOF

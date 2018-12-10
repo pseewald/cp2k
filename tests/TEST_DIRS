@@ -5,7 +5,7 @@
 # the order will be regularly checked and modified...
 QS/regtest-cdft-hirshfeld-2                                 parallel mpiranks>1
 QS/regtest-cdft-hirshfeld
-sirius/regtest-1                                            libxc sirius elpa scalapack mpiranks=4
+SIRIUS/regtest-1                                            libxc sirius elpa scalapack mpiranks=4
 QS/regtest-almo-strong
 QS/regtest-elpa-2                                           elpa
 QS/regtest-cdft-5
@@ -235,3 +235,4 @@ Fist/regtest-quip                                           quip
 ATOM/regtest-libxc                                          libxc
 Fist/regtest-plumed2                                        plumed2
 QS/regtest-sto
+QS/regtest-ri-laplace-mp2-cubic                             libint mpiranks==2||mpiranks==4||mpiranks==6||mpiranks==16||mpiranks==24
