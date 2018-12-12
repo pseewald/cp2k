@@ -327,7 +327,7 @@ CONTAINS
          my_B_virtual_start_beta, my_group_L_end, my_group_L_size, my_group_L_start, natom
       INTEGER :: ngroup, ngroup_im_time, num_diff_blk, num_small_eigen, virtual, virtual_beta
       INTEGER, ALLOCATABLE, DIMENSION(:) :: local_atoms_for_mao_basis, my_group_L_ends_im_time, &
-         my_group_L_sizes_im_time, my_group_L_starts_im_time, sub_proc_map
+         my_group_L_sizes_im_time, my_group_L_starts_im_time, sub_proc_map, local_atom_RI
       INTEGER, ALLOCATABLE, DIMENSION(:, :) :: local_col_row_info, local_col_row_info_beta, &
          local_col_row_info_gw, local_col_row_info_occ_bse, local_col_row_info_virt_bse
       INTEGER, DIMENSION(3)                              :: periodic
@@ -875,7 +875,8 @@ CONTAINS
          color_sub_3c = para_env%mepos/qs_env%mp2_env%ri_rpa_im_time%group_size_3c
 
          CALL setup_group_L_im_time(my_group_L_starts_im_time, my_group_L_ends_im_time, my_group_L_sizes_im_time, &
-                                    eri_offsets, nblk_RI_offset, row_blk_sizes_RI_t, row_dist_RI_t, dimen_RI, ngroup_im_time, cut_memory, cut_RI, color_sub_3c, qs_env)
+                                    local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, dimen_RI, ngroup_im_time, cut_memory, cut_RI, &
+                                    color_sub_3c, qs_env)
 
          qs_env%mp2_env%ri_rpa_im_time_util(1)%n_group_RI_orig = ngroup
 
@@ -900,7 +901,8 @@ CONTAINS
 
          CALL reserve_blocks_3c(mat_3c_overl_int, mat_munu, qs_env, dimen_RI, cut_RI, unit_nr, &
                                 my_group_L_starts_im_time, my_group_L_ends_im_time, &
-                                my_group_L_sizes_im_time, eri_offsets, nblk_RI_offset(color_sub_3c), row_blk_sizes_RI_t, row_dist_RI_t, &
+                                my_group_L_sizes_im_time, eri_offsets, nblk_RI_offset(color_sub_3c), &
+                                local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, &
                                 sab_orb_sub, sab_orb_all, para_env, num_diff_blk)
 
          ! if we do modified atomic orbitals for the primary basis (one MAO basis for D^occ one for D^virt, then
@@ -914,14 +916,16 @@ CONTAINS
             CALL reserve_blocks_3c(mat_3c_overl_int_mao_for_occ, mat_munu_mao_occ_virt, qs_env, &
                                    dimen_RI, cut_RI, unit_nr, &
                                    my_group_L_starts_im_time, my_group_L_ends_im_time, &
-                                   my_group_L_sizes_im_time, eri_offsets, nblk_RI_offset(color_sub_3c), row_blk_sizes_RI_t, row_dist_RI_t, &
+                                   my_group_L_sizes_im_time, eri_offsets, nblk_RI_offset(color_sub_3c), &
+                                   local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, &
                                    sab_orb_sub, sab_orb_all, para_env, num_diff_blk, &
                                    local_atoms_for_mao_basis=local_atoms_for_mao_basis)
 
             CALL reserve_blocks_3c(mat_3c_overl_int_mao_for_virt, mat_munu_mao_virt_occ, qs_env, &
                                    dimen_RI, cut_RI, unit_nr, &
                                    my_group_L_starts_im_time, my_group_L_ends_im_time, &
-                                   my_group_L_sizes_im_time, eri_offsets, nblk_RI_offset(color_sub_3c), row_blk_sizes_RI_t, row_dist_RI_t, &
+                                   my_group_L_sizes_im_time, eri_offsets, nblk_RI_offset(color_sub_3c), &
+                                   local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, &
                                    sab_orb_sub, sab_orb_all, para_env, num_diff_blk, &
                                    local_atoms_for_mao_basis=local_atoms_for_mao_basis)
 
@@ -7358,7 +7362,7 @@ CONTAINS
                                      mat_3c_overl_int_mao_for_virt, mat_munu, mat_munu_mao_occ_virt, &
                                      qs_env, my_group_L_starts_im_time, &
                                      my_group_L_ends_im_time, my_group_L_sizes_im_time, &
-                                     eri_offsets, RI_blk_offset, &
+                                     eri_offsets, local_atoms_RI, RI_blk_offset, &
                                      dimen_RI, &
                                      cut_RI, sab_orb_sub, sab_orb_all, do_mao, mao_coeff_repl_occ, &
                                      mao_coeff_repl_virt, num_diff_blk)
@@ -7367,6 +7371,7 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int, &
                                                             mat_3c_overl_int_mao_for_occ, &
                                                             mat_3c_overl_int_mao_for_virt
+      INTEGER, DIMENSION(:), INTENT(IN)                  :: local_atoms_RI
       TYPE(dbcsr_p_type)                                 :: mat_munu, mat_munu_mao_occ_virt
       TYPE(qs_environment_type), POINTER                 :: qs_env
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: my_group_L_starts_im_time, &
@@ -7397,7 +7402,7 @@ CONTAINS
          nkind, nset_RI, nseta, nsetb, nthread, offset_col_from_LLL, offset_row_from_LLL, row, &
          row_basis_size_mao_occ, row_basis_size_mao_virt, set_RI, sgf_RI, sgfa, sgfb, &
          start_col_from_LLL_mao_occ, start_col_from_LLL_mao_virt, start_row_from_LLL_mao_occ, &
-         start_row_from_LLL_mao_virt
+         start_row_from_LLL_mao_virt, iatom_RI
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_from_RI_index, kind_of
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: indices_for_uncommon_blocks
       INTEGER, DIMENSION(3)                              :: bcellvec, cell_vec, outer_cell_vec, &
@@ -7419,6 +7424,7 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: dummy_block, rpgf_RI, rpgfa, rpgfb, &
                                                             sphi_a, sphi_b, sphi_RI, zet_RI, zeta, &
                                                             zetb
+      REAL(KIND=dp), DIMENSION(:, :, :), ALLOCATABLE     :: dummy_block_t
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cell_type), POINTER                           :: cell
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int_tmp
@@ -7515,26 +7521,27 @@ CONTAINS
       IF (do_dbcsr_t) THEN
          !DO i_cut_RI = 1, cut_RI
 
+            !my_group_L_start = my_group_L_starts_im_time(1)
+            !my_group_L_end = my_group_L_ends_im_time(cut_RI)
+            !atom_RI_start = eri_offsets(my_group_L_start, 1)
+            !atom_RI_end = eri_offsets(my_group_L_end, 1)
+            !set_RI_start = eri_offsets(my_group_L_start, 2)
+            !set_RI_end = eri_offsets(my_group_L_end, 2)
+            !set_RI_offset_start = eri_offsets(my_group_L_start, 3)
+            !set_RI_offset_end = eri_offsets(my_group_L_end, 3)
+            !atom_RI_offset_start = eri_offsets(my_group_L_start, 4)
+            !atom_RI_offset_end = eri_offsets(my_group_L_end, 4)
 
-            my_group_L_start = my_group_L_starts_im_time(1)
-            my_group_L_end = my_group_L_ends_im_time(cut_RI)
-            atom_RI_start = eri_offsets(my_group_L_start, 1)
-            atom_RI_end = eri_offsets(my_group_L_end, 1)
-            set_RI_start = eri_offsets(my_group_L_start, 2)
-            set_RI_end = eri_offsets(my_group_L_end, 2)
-            set_RI_offset_start = eri_offsets(my_group_L_start, 3)
-            set_RI_offset_end = eri_offsets(my_group_L_end, 3)
-            atom_RI_offset_start = eri_offsets(my_group_L_start, 4)
-            atom_RI_offset_end = eri_offsets(my_group_L_end, 4)
+            !my_group_L_size = my_group_L_sizes_im_time(i_cut_RI)
 
-            my_group_L_size = my_group_L_sizes_im_time(i_cut_RI)
+            !atom_RI_start = atom_from_RI_index(my_group_L_start)
+            !atom_RI_end = atom_from_RI_index(my_group_L_end)
 
-            atom_RI_start = atom_from_RI_index(my_group_L_start)
-            atom_RI_end = atom_from_RI_index(my_group_L_end)
+            !DO atom_RI = atom_RI_start, atom_RI_end
+            DO iatom_RI = 1, SIZE(local_atoms_RI)
+               atom_RI = local_atoms_RI(iatom_RI)
 
-            DO atom_RI = atom_RI_start, atom_RI_end
-
-               atom_RI_index = atom_RI + (RI_blk_offset + 1 - atom_RI_start)
+               !atom_RI_index = atom_RI + (RI_blk_offset + 1 - atom_RI_start)
 
                kind_RI = kind_of(atom_RI)
                CALL get_qs_kind(qs_kind=qs_kind_set(kind_RI), basis_set=basis_set_RI, basis_type="RI_AUX")
@@ -7552,19 +7559,19 @@ CONTAINS
 
                CALL neighbor_list_iterator_create(nl_iterator_outer, sab_orb_all)
 
-               set_RI_first=1
-               set_RI_last=nset_RI
-               atom_RI_first = 1
-               atom_RI_last = SUM(nsgf_RI)
+               !set_RI_first=1
+               !set_RI_last=nset_RI
+               !atom_RI_first = 1
+               !atom_RI_last = SUM(nsgf_RI)
 
-               IF (atom_RI == atom_RI_start) THEN
-                  set_RI_first = set_RI_start
-                  atom_RI_first = atom_RI_offset_start
-               ENDIF
-               IF (atom_RI == atom_RI_end) THEN
-                  set_RI_last = set_RI_end
-                  atom_RI_last = atom_RI_offset_end
-               ENDIF
+               !IF (atom_RI == atom_RI_start) THEN
+               !   set_RI_first = set_RI_start
+               !   atom_RI_first = atom_RI_offset_start
+               !ENDIF
+               !IF (atom_RI == atom_RI_end) THEN
+               !   set_RI_last = set_RI_end
+               !   atom_RI_last = atom_RI_offset_end
+               !ENDIF
 
                DO WHILE (neighbor_list_iterate(nl_iterator_outer) == 0)
 
@@ -7693,17 +7700,17 @@ CONTAINS
 
                            END IF
 
-                           DO set_RI = set_RI_first, set_RI_last
-                              set_RI_offset_first = 1
-                              set_RI_offset_last = nset_RI(set_RI)
+                           DO set_RI = 1, nset_RI !set_RI_first, set_RI_last
+                              !set_RI_offset_first = 1
+                              !set_RI_offset_last = nset_RI(set_RI)
 
-                              IF(atom_RI == atom_RI_first .AND. set_RI == set_RI_first) THEN
-                                 set_RI_offset_first = set_RI_offset_start
-                              ENDIF
+                              !IF(atom_RI == atom_RI_first .AND. set_RI == set_RI_first) THEN
+                              !   set_RI_offset_first = set_RI_offset_start
+                              !ENDIF
 
-                              IF(atom_RI == atom_RI_last .AND. set_RI == set_RI_last) THEN
-                                 set_RI_offset_last = set_RI_offset_end
-                              ENDIF
+                              !IF(atom_RI == atom_RI_last .AND. set_RI == set_RI_last) THEN
+                              !   set_RI_offset_last = set_RI_offset_end
+                              !ENDIF
 
                               dab = SQRT(SUM(rab**2))
                               daRI = SQRT(SUM(raRI**2))
@@ -7752,12 +7759,12 @@ CONTAINS
                                     sgfa = first_sgfa(1, iset)
                                     sgfb = first_sgfb(1, jset)
 
-                                    block_start_RI = sgf_RI - atom_RI_first + 1
-                                    IF (set_RI < set_RI_last) THEN
-                                       block_end_RI = sgf_RI - atom_RI_first + nsgf_RI(set_RI)
-                                    ELSE
-                                       block_end_RI = block_start_RI + atom_RI_last - atom_RI_first
-                                    ENDIF
+                                    !block_start_RI = sgf_RI - atom_RI_first + 1
+                                    !IF (set_RI < set_RI_last) THEN
+                                    !   block_end_RI = sgf_RI - atom_RI_first + nsgf_RI(set_RI)
+                                    !ELSE
+                                    !   block_end_RI = block_start_RI + atom_RI_last - atom_RI_first
+                                    !ENDIF
 
                                     IF (ncoa*ncob*nco_RI > 0) THEN
 
@@ -7811,7 +7818,7 @@ CONTAINS
 
                                           END IF
 
-                                          CALL dbcsr_t_blk_sizes(t_3c_overl_int, [atom_RI_index, row, col], blk_size)
+                                          CALL dbcsr_t_blk_sizes(t_3c_overl_int(img_row, img_col), [atom_RI, row, col], blk_size)
                                           ALLOCATE(block_t(blk_size(1), blk_size(2), blk_size(3)))
 
                                           !ALLOCATE (block(row_blk_sizes(row), col_blk_sizes(col)*my_group_L_size))
@@ -7830,17 +7837,20 @@ CONTAINS
                                              block_end_row = sgfa + nsgfa(iset) - 1
                                              block_start_col = sgfb
                                              block_end_col = sgfb + nsgfb(jset) - 1
+                                             block_start_RI = sgf_RI
+                                             block_end_RI = sgf_RI + nsgf_RI(set_RI)
 
                                              ! factor 0.5 is necessary due to double filling due to double iterate loop
                                              block_t(block_start_RI:block_end_RI, &
                                                      block_start_row:block_end_row, &
                                                      block_start_col:block_end_col) = &
-                                                0.5_dp*s_abRI_contr(:, :, set_RI_offset_first:set_RI_offset_last)
+                                                !0.5_dp*s_abRI_contr(:, :, set_RI_offset_first:set_RI_offset_last)
+                                                0.5_dp*s_abRI_contr(:, :, :)
 
                                              block_t_transposed(block_start_RI:block_end_RI, &
                                                                 block_start_col:block_end_col, &
                                                                 block_start_row:block_end_row) = &
-                                                0.5_dp*s_abRI_contr_transposed(:, :, set_RI_offset_first:set_RI_offset_last)
+                                                0.5_dp*s_abRI_contr_transposed(:, :, :)
 
                                           ELSE IF (iatom > jatom) THEN
 
@@ -7848,17 +7858,19 @@ CONTAINS
                                              block_end_row = sgfb + nsgfb(jset) - 1
                                              block_start_col = sgfa
                                              block_end_col = sgfa + nsgfa(iset) - 1
+                                             block_start_RI = sgf_RI
+                                             block_end_RI = sgf_RI + nsgf_RI(set_RI)
 
                                              ! factor 0.5 is necessary due to double filling due to double iterate loop
                                              block_t(block_start_RI:block_end_RI, &
                                                      block_start_row:block_end_row, &
                                                      block_start_col:block_end_col) = &
-                                                0.5_dp*s_abRI_contr(:, :, set_RI_offset_first:set_RI_offset_last)
+                                                0.5_dp*s_abRI_contr(:, :, :)
 
                                              block_t_transposed(block_start_RI:block_end_RI, &
                                                                 block_start_col:block_end_col, &
                                                                 block_start_row:block_end_row) = &
-                                                0.5_dp*s_abRI_contr_transposed(:, :, set_RI_offset_first:set_RI_offset_last)
+                                                0.5_dp*s_abRI_contr_transposed(:, :, :)
                                           ELSE IF (iatom .EQ. jatom) THEN
 
                                              block_start_row = sgfa
@@ -7869,166 +7881,31 @@ CONTAINS
                                              block_t(block_start_RI:block_end_RI, &
                                                      block_start_row:block_end_row, &
                                                      block_start_col:block_end_col) = &
-                                                0.5_dp*s_abRI_contr(:, :, set_RI_offset_first:set_RI_offset_last)
+                                                0.5_dp*s_abRI_contr(:, :, :)
 
                                           END IF
 
                                           CALL timeset(routineN//"_put_dbcsr", handle2)
 
-                                          ! todo: continue here with put blocks
-
-!$OMP CRITICAL(putblock)
-                                          NULLIFY (dummy_block)
-                                          CALL dbcsr_get_block_p(matrix=mat_3c_overl_int(i_cut_RI, img_row, img_col)%matrix, &
-                                                                 row=row, col=col, block=dummy_block, found=found)
-                                          IF (found) THEN
-                                             CALL dbcsr_put_block(mat_3c_overl_int(i_cut_RI, img_row, img_col)%matrix, &
-                                                                  row=row, col=col, block=block, summation=.TRUE.)
-                                          END IF
-!$OMP END CRITICAL(putblock)
+                                          CALL dbcsr_t_get_block(t_3c_overl_int(img_row, img_col), &
+                                                                 [atom_RI, row, col], dummy_block_t, found=found) ! todo: implement
+                                          IF(found) THEN
+                                             CALL dbcsr_t_put_block(t_3c_overl_int(img_row, img_col), &
+                                                                    [atom_RI, row, col], block_t, summation=.TRUE.) ! todo:implement
+                                          ENDDO
 
                                           IF (row .NE. col) THEN
-!$OMP CRITICAL(putblock)
-                                             NULLIFY (dummy_block)
-                                             CALL dbcsr_get_block_p(matrix=mat_3c_overl_int(i_cut_RI, img_col, img_row)%matrix, &
-                                                                    row=col, col=row, block=dummy_block, found=found)
-                                             IF (found) THEN
-                                                CALL dbcsr_put_block(mat_3c_overl_int(i_cut_RI, img_col, img_row)%matrix, &
-                                                                     row=col, col=row, block=block_transposed, summation=.TRUE.)
-                                             END IF
-!$OMP END CRITICAL(putblock)
-                                          END IF
+                                          CALL dbcsr_t_get_block(t_3c_overl_int(img_col, img_row), &
+                                                                 [atom_RI, col, row], dummy_block_t, found=found) ! todo: implement
+                                          IF (found) THEN
+                                             CALL dbcsr_t_put_block(t_3c_overl_int(img_col, img_row), &
+                                                                    [atom_RI, col, row], block_t_transposed, summation=.TRUE.) ! todo:implement
+                                          ENDIF
+
+                                          !mao not supported with dbcsr_t
+
 
                                           DEALLOCATE (block_t, block_t_transposed)
-
-                                          IF (do_mao) THEN
-
-                                             iatom_basis_size_mao_occ = blk_sizes_mao_occ(iatom)
-                                             jatom_basis_size_mao_occ = blk_sizes_mao_occ(jatom)
-                                             iatom_basis_size_mao_virt = blk_sizes_mao_virt(iatom)
-                                             jatom_basis_size_mao_virt = blk_sizes_mao_virt(jatom)
-
-                                             row_basis_size_mao_occ = blk_sizes_mao_occ(row)
-                                             col_basis_size_mao_occ = blk_sizes_mao_occ(col)
-                                             row_basis_size_mao_virt = blk_sizes_mao_virt(row)
-                                             col_basis_size_mao_virt = blk_sizes_mao_virt(col)
-
-                                             ALLOCATE (temp_mat_mao_occ_virt(iatom_basis_size_mao_occ, jatom_basis_size_mao_virt))
-                                             ALLOCATE (temp_mat_mao_virt_occ(iatom_basis_size_mao_virt, jatom_basis_size_mao_occ))
-
-                                             ! transform from the primary Gaussian basis into the MAO basis
-                                             CALL ab_contract(temp_mat_mao_occ_virt(:, :), s_abRI_contr(:, :, isgf_RI), &
-                                                              mao_coeff_repl_occ(iatom)%array(sgfa:sgfa + nsgfa(iset) - 1, :), &
-                                                              mao_coeff_repl_virt(jatom)%array(sgfb:sgfb + nsgfb(jset) - 1, :), &
-                                                              nsgfa(iset), nsgfb(jset), &
-                                                              iatom_basis_size_mao_occ, jatom_basis_size_mao_virt)
-
-                                             CALL ab_contract(temp_mat_mao_virt_occ(:, :), s_abRI_contr(:, :, isgf_RI), &
-                                                              mao_coeff_repl_virt(iatom)%array(sgfa:sgfa + nsgfa(iset) - 1, :), &
-                                                              mao_coeff_repl_occ(jatom)%array(sgfb:sgfb + nsgfb(jset) - 1, :), &
-                                                              nsgfa(iset), nsgfb(jset), &
-                                                              iatom_basis_size_mao_virt, jatom_basis_size_mao_occ)
-
-                                             start_row_from_LLL_mao_occ = (LLL - 1)*row_basis_size_mao_occ + 1
-                                             start_col_from_LLL_mao_occ = (LLL - 1)*col_basis_size_mao_occ + 1
-
-                                             start_row_from_LLL_mao_virt = (LLL - 1)*row_basis_size_mao_virt + 1
-                                             start_col_from_LLL_mao_virt = (LLL - 1)*col_basis_size_mao_virt + 1
-
-                                             end_row_from_LLL_mao_occ = LLL*row_basis_size_mao_occ
-                                             end_col_from_LLL_mao_occ = LLL*col_basis_size_mao_occ
-
-                                             end_row_from_LLL_mao_virt = LLL*row_basis_size_mao_virt
-                                             end_col_from_LLL_mao_virt = LLL*col_basis_size_mao_virt
-
-                                             ALLOCATE (block_mao_for_occ(row_basis_size_mao_occ, &
-                                                                         col_basis_size_mao_virt*my_group_L_size))
-                                             block_mao_for_occ = 0.0_dp
-
-                                             ALLOCATE (block_mao_for_occ_transposed(col_basis_size_mao_occ, &
-                                                                                    row_basis_size_mao_virt*my_group_L_size))
-                                             block_mao_for_occ_transposed = 0.0_dp
-
-                                             ALLOCATE (block_mao_for_virt(row_basis_size_mao_virt, &
-                                                                          col_basis_size_mao_occ*my_group_L_size))
-                                             block_mao_for_virt = 0.0_dp
-
-                                             ALLOCATE (block_mao_for_virt_transposed(col_basis_size_mao_virt, &
-                                                                                     row_basis_size_mao_occ*my_group_L_size))
-                                             block_mao_for_virt_transposed = 0.0_dp
-
-                                             IF (iatom < jatom) THEN
-
-                                                block_mao_for_occ(:, start_col_from_LLL_mao_virt:end_col_from_LLL_mao_virt) = &
-                                                   0.5_dp*temp_mat_mao_occ_virt(:, :)
-
-                                                block_mao_for_occ_transposed(:, start_row_from_LLL_mao_virt: &
-                                                                             end_row_from_LLL_mao_virt) = &
-                                                   0.5_dp*TRANSPOSE(temp_mat_mao_virt_occ(:, :))
-
-                                                block_mao_for_virt(:, start_col_from_LLL_mao_occ:end_col_from_LLL_mao_occ) = &
-                                                   0.5_dp*temp_mat_mao_virt_occ(:, :)
-
-                                                block_mao_for_virt_transposed(:, start_row_from_LLL_mao_occ: &
-                                                                              end_row_from_LLL_mao_occ) = &
-                                                   0.5_dp*TRANSPOSE(temp_mat_mao_occ_virt(:, :))
-
-                                             ELSE IF (iatom > jatom) THEN
-
-                                                block_mao_for_occ(:, start_col_from_LLL_mao_virt:end_col_from_LLL_mao_virt) = &
-                                                   0.5_dp*TRANSPOSE(temp_mat_mao_virt_occ(:, :))
-
-                                                block_mao_for_occ_transposed(:, start_row_from_LLL_mao_virt: &
-                                                                             end_row_from_LLL_mao_virt) = &
-                                                   0.5_dp*temp_mat_mao_occ_virt(:, :)
-
-                                                block_mao_for_virt(:, start_col_from_LLL_mao_occ:end_col_from_LLL_mao_occ) = &
-                                                   0.5_dp*TRANSPOSE(temp_mat_mao_occ_virt(:, :))
-
-                                                block_mao_for_virt_transposed(:, start_row_from_LLL_mao_occ: &
-                                                                              end_row_from_LLL_mao_occ) = &
-                                                   0.5_dp*temp_mat_mao_virt_occ(:, :)
-
-                                             ELSE IF (iatom .EQ. jatom) THEN
-
-                                                block_mao_for_occ(:, start_col_from_LLL_mao_virt:end_col_from_LLL_mao_virt) = &
-                                                   temp_mat_mao_occ_virt(:, :)
-
-                                                block_mao_for_virt(:, start_col_from_LLL_mao_occ:end_col_from_LLL_mao_occ) = &
-                                                   temp_mat_mao_virt_occ(:, :)
-
-                                             END IF
-
-!$OMP CRITICAL(putblock)
-                                             CALL dbcsr_put_block(mat_3c_overl_int_mao_for_occ(i_cut_RI, i_img, j_img)%matrix, &
-                                                                  row=row, col=col, block=block_mao_for_occ, summation=.TRUE.)
-!$OMP END CRITICAL(putblock)
-
-!$OMP CRITICAL(putblock)
-                                             CALL dbcsr_put_block(mat_3c_overl_int_mao_for_virt(i_cut_RI, i_img, j_img)%matrix, &
-                                                                  row=row, col=col, block=block_mao_for_virt, summation=.TRUE.)
-!$OMP END CRITICAL(putblock)
-
-                                             IF (row .NE. col) THEN
-!$OMP CRITICAL(putblock)
-                                                CALL dbcsr_put_block(mat_3c_overl_int_mao_for_occ(i_cut_RI, j_img, i_img)%matrix, &
-                                                                     row=col, col=row, block=block_mao_for_occ_transposed, &
-                                                                     summation=.TRUE.)
-!$OMP END CRITICAL(putblock)
-
-!$OMP CRITICAL(putblock)
-                                                CALL dbcsr_put_block(mat_3c_overl_int_mao_for_virt(i_cut_RI, j_img, i_img)%matrix, &
-                                                                     row=col, col=row, block=block_mao_for_virt_transposed, &
-                                                                     summation=.TRUE.)
-!$OMP END CRITICAL(putblock)
-
-                                             END IF
-
-                                             DEALLOCATE (temp_mat_mao_occ_virt, temp_mat_mao_virt_occ, block_mao_for_occ, &
-                                                         block_mao_for_occ_transposed, block_mao_for_virt, &
-                                                         block_mao_for_virt_transposed)
-
-                                          END IF
 
                                           CALL timestop(handle2)
 
@@ -8625,13 +8502,14 @@ CONTAINS
 !> \param local_atoms_for_mao_basis ...
 ! **************************************************************************************************
    SUBROUTINE reserve_blocks_3c(mat_3c_overl_int, t_3c_overl_int, mp_comm_t3c, mat_munu, qs_env, dimen_RI, &
-                                cut_RI, unit_nr, my_group_L_starts_im_time, my_group_L_ends_im_time, &
+                                cut_RI, local_atoms_RI, unit_nr, my_group_L_starts_im_time, my_group_L_ends_im_time, &
                                 my_group_L_sizes_im_time, eri_offsets, RI_blk_offset, &
-                                row_blk_sizes_RI_t, row_dist_RI_t, sab_orb_sub, sab_orb_all, para_env, &
+                                local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, sab_orb_sub, sab_orb_all, para_env, &
                                 num_diff_blk, local_atoms_for_mao_basis)
 
       TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE   :: t_3c_overl_int
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int
+      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(IN)     :: local_atom_RI
       TYPE(dbcsr_t_pgrid_type), INTENT(IN)               :: mp_comm_t3c
       TYPE(dbcsr_p_type)                                 :: mat_munu
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -8655,7 +8533,7 @@ CONTAINS
          LLL_set_start, maxval_1, maxval_2, maxval_3, minval_1, minval_2, minval_3, &
          my_group_L_end, my_group_L_size, my_group_L_start, natom, nblkrows_total, nco_RI, ncoa, &
          ncob, nimg, nkind, nset_RI, nseta, nsetb, num_loops, row, set_RI, sgf_RI, sgfa, sgfb, &
-         mp_comm_sub_2d, numnodes, atom_RI_index
+         mp_comm_sub_2d, numnodes !atom_RI_index
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_from_RI_index, kind_of, tmp
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: old_ao1, old_ao2, old_ri
       INTEGER, DIMENSION(3)                              :: cell_vec, outer_cell_vec
@@ -8804,17 +8682,19 @@ CONTAINS
       CALL get_atomic_kind_set(atomic_kind_set, kind_of=kind_of)
 
       IF (do_dbcsr_t) THEN
-         my_group_L_start = my_group_L_starts_im_time(1)
-         my_group_L_end = my_group_L_end_im_time(cut_RI)
-         atom_RI_start = eri_offsets(my_group_L_start, 1)
-         atom_RI_end = eri_offsets(my_group_L_end, 1)
+         !my_group_L_start = my_group_L_starts_im_time(1)
+         !my_group_L_end = my_group_L_end_im_time(cut_RI)
+         !atom_RI_start = eri_offsets(my_group_L_start, 1)
+         !atom_RI_end = eri_offsets(my_group_L_end, 1)
          !set_RI_start = eri_offsets(my_group_L_start, 2)
          !set_RI_end = eri_offsets(my_group_L_end, 2)
          !set_RI_offset_start = eri_offsets(my_group_L_start, 3)
          !set_RI_offset_end = eri_offsets(my_group_L_end, 3)
 
-         DO atom_RI = atom_RI_start, atom_RI_end
-            atom_RI_index = atom_RI + (RI_blk_offset + 1 - atom_RI_start)
+         !DO atom_RI = atom_RI_start, atom_RI_end
+         DO iatom_RI = 1, SIZE(local_atom_RI)
+            atom_RI = local_atom_RI(iatom_RI)
+            !atom_RI_index = atom_RI + (RI_blk_offset + 1 - atom_RI_start)
             kind_RI = kind_of(atom_RI)
             CALL get_qs_kind(qs_kind=qs_kind_set(kind_RI), basis_set=basis_set_RI, basis_type="RI_AUX")
 
@@ -9001,19 +8881,19 @@ CONTAINS
                                        IF (row == col) THEN
                                           ALLOCATE (aRI(blk_count + 1))
                                           aRI(1:blk_cnt) = tmp(:)
-                                          aRI(blk_cnt + 1) = atom_RI_index
+                                          aRI(blk_cnt + 1) = atom_RI
                                        ELSE
                                           ALLOCATE (aRI(blk_count + 2))
                                           aRI(1:blk_cnt) = tmp(:)
-                                          aRI(blk_cnt + 1:) = atom_RI_index
+                                          aRI(blk_cnt + 1:) = atom_RI
                                        ENDIF
                                     ELSE
                                        IF (row == col) THEN
                                           ALLOCATE (aRI(1))
-                                          aRI(1) = atom_RI_index
+                                          aRI(1) = atom_RI
                                        ELSE
                                           ALLOCATE (aRI(2))
-                                          aRI(1:) = atom_RI_index
+                                          aRI(1:) = atom_RI
                                        ENDIF
                                     ENDIF
 
@@ -9787,12 +9667,13 @@ CONTAINS
 !> \param qs_env ...
 ! **************************************************************************************************
    SUBROUTINE setup_group_L_im_time(my_group_L_starts_im_time, my_group_L_ends_im_time, my_group_L_sizes_im_time, &
-                                    eri_offsets, nblk_RI_offset, row_blk_sizes_RI_t, row_dist_RI_t, dimen_RI, ngroup, cut_memory, &
-                                    cut_RI, color_sub, qs_env)
+                                    local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, &
+                                    dimen_RI, ngroup, cut_memory, cut_RI, color_sub, qs_env)
 
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: my_group_L_starts_im_time, &
                                                             my_group_L_ends_im_time, &
-                                                            my_group_L_sizes_im_time
+                                                            my_group_L_sizes_im_time,&
+                                                            local_atom_RI
       INTEGER                                            :: dimen_RI, ngroup, cut_memory, cut_RI, &
                                                             color_sub
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -9802,21 +9683,23 @@ CONTAINS
 
       INTEGER                                            :: cut_RI_old, handle, iblk_RI, icut, &
                                                             itmp(2), natom, nblks_RI, nkind, &
-                                                            size_RI, start_RI, bcount, fa, la, &
-                                                            fa_offset, la_offset, a
+                                                            size_RI, start_RI
+
+                                                         !bcount, fa, la, &
+                                                         !   fa_offset, la_offset, a
       INTEGER, ALLOCATABLE, DIMENSION(:) :: ends_array_mem_cut, my_group_L_ends_im_time_tmp, &
          my_group_L_starts_im_time_tmp, row_blk_end_RI, row_blk_offset_RI, sizes_array_mem_cut, &
-         starts_array_mem_cut
+         starts_array_mem_cut, local_atom_RI_tmp
       INTEGER, DIMENSION(:), POINTER                     :: row_blk_sizes_RI
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_ri_aux
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
-      INTEGER, DIMENSION(2)                              :: group_limits
-      INTEGER, DIMENSION(0:ngroup - 1)            :: first_atom, last_atom, nblk_RI
-      INTEGER, DIMENSION(:), ALLOCATABLE          :: nblk_RI_offset
+      !INTEGER, DIMENSION(2)                              :: group_limits
+      !INTEGER, DIMENSION(0:ngroup - 1)            :: first_atom, last_atom, nblk_RI
+      !INTEGER, DIMENSION(:), ALLOCATABLE          :: nblk_RI_offset
       INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT)    :: row_blk_sizes_RI_t, row_dist_RI_t
-      INTEGER, ALLOCATABLE, DIMENSION(:,:), INTENT(OUT)  :: eri_offsets
+      !INTEGER, ALLOCATABLE, DIMENSION(:,:), INTENT(OUT)  :: eri_offsets
 
       CALL timeset(routineN, handle)
 
@@ -9868,38 +9751,54 @@ CONTAINS
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=row_blk_sizes_RI, basis=basis_set_ri_aux)
       DEALLOCATE (basis_set_ri_aux)
 
-      CALL get_eri_offsets(qs_env, "RI_AUX", eri_offsets)
-
-      ALLOCATE(nblk_RI_offset(0:ngroup-1))
-      DO igroup = 0, ngroup - 1
-         group_limits = get_limit(dimen_RI, ngroup, igroup)
-         first_atom(igroup) = eri_offsets(group_limits(1), 1)
-         last_atom(igroup) = eri_offsets(group_limits(2), 1)
-         nblk_RI(igroup) = last_atom(igroup) - first_atom(igroup) + 1
-         IF (igroup == 0) THEN
-            nblk_RI_offset(igroup) = 0
-         ELSE
-            nblk_RI_offset(igroup) = nblk_RI_offset(igroup - 1) + nblk_RI(igroup - 1)
+      ALLOCATE(row_dist_RI_t(natom))
+      ALLOCATE(local_atom_RI_tmp(natom))
+      icount = 0
+      DO iatom=1,natom
+         row_dist_RI_t(iatom) = MOD(natom, ngroup)
+         if(row_dist_RI_t(iatom) == color_sub) THEN
+            icount = icount+1
+            local_atom_RI_tmp(icount) = iatom
          ENDIF
       ENDDO
+      ALLOCATE(local_atom_RI(icount))
+      local_atom_RI(:) = local_atom_RI_tmp(1:icount)
 
-      ALLOCATE(row_blk_sizes_RI_t(SUM(nblk_RI))
-      ALLOCATE(row_dist_RI_t(SUM(nblk_RI)))
+      ALLOCATE(row_blk_sizes_RI_t(natom))
+      row_blk_sizes_RI_t(:) = row_blk_sizes_RI(:)
 
-      bcount = 0
-      DO igroup = 0, ngroup = 1
-         group_limits = get_limit(dimen_RI, ngroup, igroup)
-         fa = first_atom(igroup); la = last_atom(igroup)
-         fa_offset = eri_offsets(group_limits(1), 4)
-         la_offset = eri_offsets(group_limits(2), 4)
-         row_blk_sizes_RI_t(bcount + 1) = row_blk_sizes_RI(bcount + 1) - fa_offset + 1
-         DO a = fa + 1, la - 1
-            row_blk_sizes_RI_t(bcount + 1 + a - fa) = row_blk_sizes_RI(a)
-         ENDDO
-         row_blk_sizes_RI_t(bcount + 1 + la - fa) = la_offset
-         row_dist_RI_t(bcount + 1:bcount + 1 + la - fa) = igroup
-         bcount = bcount + 1 + la - fa
-      ENDDO
+      !CALL get_eri_offsets(qs_env, "RI_AUX", eri_offsets)
+
+      !ALLOCATE(nblk_RI_offset(0:ngroup-1))
+      !DO igroup = 0, ngroup - 1
+      !   group_limits = get_limit(dimen_RI, ngroup, igroup)
+      !   first_atom(igroup) = eri_offsets(group_limits(1), 1)
+      !   last_atom(igroup) = eri_offsets(group_limits(2), 1)
+      !   nblk_RI(igroup) = last_atom(igroup) - first_atom(igroup) + 1
+      !   IF (igroup == 0) THEN
+      !      nblk_RI_offset(igroup) = 0
+      !   ELSE
+      !      nblk_RI_offset(igroup) = nblk_RI_offset(igroup - 1) + nblk_RI(igroup - 1)
+      !   ENDIF
+      !ENDDO
+
+      !ALLOCATE(row_blk_sizes_RI_t(SUM(nblk_RI))
+      !ALLOCATE(row_dist_RI_t(SUM(nblk_RI)))
+
+      !bcount = 0
+      !DO igroup = 0, ngroup = 1
+      !   group_limits = get_limit(dimen_RI, ngroup, igroup)
+      !   fa = first_atom(igroup); la = last_atom(igroup)
+      !   fa_offset = eri_offsets(group_limits(1), 4)
+      !   la_offset = eri_offsets(group_limits(2), 4)
+      !   row_blk_sizes_RI_t(bcount + 1) = row_blk_sizes_RI(bcount + 1) - fa_offset + 1
+      !   DO a = fa + 1, la - 1
+      !      row_blk_sizes_RI_t(bcount + 1 + a - fa) = row_blk_sizes_RI(a)
+      !   ENDDO
+      !   row_blk_sizes_RI_t(bcount + 1 + la - fa) = la_offset
+      !   row_dist_RI_t(bcount + 1:bcount + 1 + la - fa) = igroup
+      !   bcount = bcount + 1 + la - fa
+      !ENDDO
 
       ! check whether my_group_L_im_time covers different atoms. In this case, cut my_group_L_im_time
       ! especially improves memory a bit
