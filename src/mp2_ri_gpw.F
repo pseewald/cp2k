@@ -349,7 +349,7 @@ CONTAINS
       TYPE(two_dim_real_array), ALLOCATABLE, &
          DIMENSION(:)                                    :: mao_coeff_repl_occ, mao_coeff_repl_virt
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: row_blk_sizes_RI_t, row_dist_RI_t
-      TYPE(dbcsr_t_pgrid_type)                           :: mp_comm_t3c
+      TYPE(dbcsr_t_pgrid_type)                           :: mp_comm_t3c_overl
       INTEGER, ALLOCATABLE, DIMENSION(:,:)               :: eri_offsets
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: nblk_RI_offset
 
@@ -871,6 +871,7 @@ CONTAINS
          cut_memory = qs_env%mp2_env%ri_rpa_im_time%cut_memory
 
          ngroup_im_time = para_env%num_pe/qs_env%mp2_env%ri_rpa_im_time%group_size_3c
+         ngroup_im_time_P = para_env%num_pe/qs_env%mp2_env%ri_rpa_im_time%group_size_p
 
          color_sub_3c = para_env%mepos/qs_env%mp2_env%ri_rpa_im_time%group_size_3c
 
@@ -895,15 +896,24 @@ CONTAINS
 
             pdims_t3c = [ngroup_im_time, pdims_sub_2d(1), pdims_sub_2d(2)]
 
-            CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, mp_comm_t3c)
+            CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, mp_comm_t3c_overl)
+
+            CALL mp_dims_create(para_env%num_pe/ngroup_im_time_P, pdims_sub_2d)
+            pdims_t3c = [ngroup_im_time_P, pdims_sub_2d(1), pdims_sub_2d(2)]
+            CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, mp_comm_t3c_m)
 
          ENDIF
 
-         CALL reserve_blocks_3c(mat_3c_overl_int, mat_munu, qs_env, dimen_RI, cut_RI, unit_nr, &
+         CALL reserve_blocks_3c(mat_3c_overl_int, t_3c_overl_int, mat_munu, mp_comm_t3c_overl, qs_env, dimen_RI, cut_RI, unit_nr, &
                                 my_group_L_starts_im_time, my_group_L_ends_im_time, &
                                 my_group_L_sizes_im_time, eri_offsets, nblk_RI_offset(color_sub_3c), &
                                 local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, &
                                 sab_orb_sub, sab_orb_all, para_env, num_diff_blk)
+
+         IF (do_dbcsr_t) THEN
+            CALL dbcsr_get_info(mat_munu%matrix, row_blk_size=ao_blk_sizes)
+            CALL create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, ao_blk_sizes, row_blk_sizes_RI_t)
+         ENDIF
 
          ! if we do modified atomic orbitals for the primary basis (one MAO basis for D^occ one for D^virt, then
          ! we also need different 3-center overlap matrix elements!
@@ -913,7 +923,7 @@ CONTAINS
             ALLOCATE (local_atoms_for_mao_basis(natom))
             local_atoms_for_mao_basis = 0
 
-            CALL reserve_blocks_3c(mat_3c_overl_int_mao_for_occ, mat_munu_mao_occ_virt, qs_env, &
+            CALL reserve_blocks_3c(mat_3c_overl_int_mao_for_occ, mat_munu_mao_occ_virt, mp_comm_t3c_overl, qs_env, &
                                    dimen_RI, cut_RI, unit_nr, &
                                    my_group_L_starts_im_time, my_group_L_ends_im_time, &
                                    my_group_L_sizes_im_time, eri_offsets, nblk_RI_offset(color_sub_3c), &
@@ -921,7 +931,7 @@ CONTAINS
                                    sab_orb_sub, sab_orb_all, para_env, num_diff_blk, &
                                    local_atoms_for_mao_basis=local_atoms_for_mao_basis)
 
-            CALL reserve_blocks_3c(mat_3c_overl_int_mao_for_virt, mat_munu_mao_virt_occ, qs_env, &
+            CALL reserve_blocks_3c(mat_3c_overl_int_mao_for_virt, mat_munu_mao_virt_occ, mp_comm_t3c_overl, qs_env, &
                                    dimen_RI, cut_RI, unit_nr, &
                                    my_group_L_starts_im_time, my_group_L_ends_im_time, &
                                    my_group_L_sizes_im_time, eri_offsets, nblk_RI_offset(color_sub_3c), &
@@ -1000,6 +1010,58 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE mp2_ri_gpw_compute_in
+
+   SUBROUTINE create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, ao_blk_sizes, row_blk_sizes_RI_t)
+      TYPE(dbcsr_t_type), INTENT(OUT) :: t_3c_M
+      TYPE(dbcsr_t_pgrid_type), INTENT(IN) :: mp_comm_t3c_m
+      INTEGER, DIMENSION(:), INTENT(IN) :: ao_blk_sizes, row_blk_sizes_RI_t
+      INTEGER, DIMENSION(3)             :: pdims, pcoord
+      INTEGER, DIMENSION(:), ALLOCATABLE :: dist_RI
+      INTEGER :: natoms, na_div, na_rem
+      TYPE(dbcsr_t_distribution_type) :: dist
+
+      CALL mp_environ_pgrid(mp_comm_t3c_m, pdims, pcoord)
+
+      natoms = SIZE(ao_blk_sizes)
+
+      ALLOCATE(dist_RI(natoms))
+      DO iatom = 1, natoms
+         dist_RI(iatom) = MOD(natoms, pdims(1))
+      ENDDO
+
+      na_div = natoms/pdims(2)
+      na_rem = MOD(natoms, pdims(2))
+      ALLOCATE(dist_ao_1(natoms))
+      dist_end = 0
+      DO idim=1,pdims(2)
+         na_split = na_div
+         IF(idim <= na_rem) THEN
+            na_split = na_split+1
+         ENDIF
+         dist_start = dist_end + 1
+         dist_end = dist_start + na_split
+         dist_ao_1(dist_start:dist_end) = idim
+      ENDDO
+
+      na_div = natoms/pdims(3)
+      na_rem = MOD(natoms, pdims(3))
+      ALLOCATE(dist_ao_2(natoms))
+      dist_end = 0
+      DO idim=1,pdims(3)
+         na_split = na_div
+         IF(idim <= na_rem) THEN
+            na_split = na_split+1
+         ENDIF
+         dist_start = dist_end + 1
+         dist_end = dist_start + na_split
+         dist_ao_2(dist_start:dist_end) = idim
+      ENDDO
+
+      CALL dbcsr_t_distribution_new(dist, mp_comm_t3c_m, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2)
+      CALL dbcsr_t_create(t_3c_M, "M", dist, [1], [2, 3], dbcsr_type_real_8, row_blk_sizes_RI_t, &
+                          ao_blk_sizes, ao_blk_sizes)
+
+   END SUBROUTINE
 
 ! **************************************************************************************************
 !> \brief Contract (P|ai) = (R|P) x (R|ai)
@@ -8501,7 +8563,7 @@ CONTAINS
 !> \param num_diff_blk ...
 !> \param local_atoms_for_mao_basis ...
 ! **************************************************************************************************
-   SUBROUTINE reserve_blocks_3c(mat_3c_overl_int, t_3c_overl_int, mp_comm_t3c, mat_munu, qs_env, dimen_RI, &
+   SUBROUTINE reserve_blocks_3c(mat_3c_overl_int, t_3c_overl_int, mp_comm_t3c_overl, mat_munu, qs_env, dimen_RI, &
                                 cut_RI, local_atoms_RI, unit_nr, my_group_L_starts_im_time, my_group_L_ends_im_time, &
                                 my_group_L_sizes_im_time, eri_offsets, RI_blk_offset, &
                                 local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, sab_orb_sub, sab_orb_all, para_env, &
@@ -8510,7 +8572,7 @@ CONTAINS
       TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE   :: t_3c_overl_int
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int
       INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(IN)     :: local_atom_RI
-      TYPE(dbcsr_t_pgrid_type), INTENT(IN)               :: mp_comm_t3c
+      TYPE(dbcsr_t_pgrid_type), INTENT(IN)               :: mp_comm_t3c_overl
       TYPE(dbcsr_p_type)                                 :: mat_munu
       TYPE(qs_environment_type), POINTER                 :: qs_env
       INTEGER                                            :: dimen_RI, cut_RI, unit_nr, RI_blk_offset
@@ -8605,7 +8667,7 @@ CONTAINS
 
          CALL dbcsr_distribution_get(dist_sub, row_dist=dist_ao1, col_dist=dist_ao2)
 
-         CALL dbcsr_t_distribution_new(dist_o3c, mp_comm_t3c, [1, 2], [3], row_dist_RI_t, dist_ao1, dist_ao2)
+         CALL dbcsr_t_distribution_new(dist_o3c, mp_comm_t3c_overl, [1, 2], [3], row_dist_RI_t, dist_ao1, dist_ao2)
 
          DO i_img = 1, nimg
             DO j_img = 1, nimg
