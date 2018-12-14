@@ -7429,7 +7429,7 @@ CONTAINS
                                      cut_RI, sab_orb_sub, sab_orb_all, do_mao, mao_coeff_repl_occ, &
                                      mao_coeff_repl_virt, num_diff_blk)
 
-      TYPE(dbcsr_t_type), DIMENSION(:, :),               :: t_3c_overl_int
+      TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t_3c_overl_int
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int, &
                                                             mat_3c_overl_int_mao_for_occ, &
                                                             mat_3c_overl_int_mao_for_virt
