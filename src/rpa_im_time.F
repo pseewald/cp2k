@@ -33,7 +33,7 @@ MODULE rpa_im_time
         dbcsr_init_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
         dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, dbcsr_p_type, dbcsr_release_p, &
         dbcsr_reserve_all_blocks, dbcsr_reserve_blocks, dbcsr_scale, dbcsr_set, dbcsr_transposed, &
-        dbcsr_type, dbcsr_type_no_symmetry
+        dbcsr_type, dbcsr_type_no_symmetry, dbcsr_scalar
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE kpoint_types,                    ONLY: get_kpoint_info,&
@@ -283,9 +283,9 @@ CONTAINS
             CALL dbcsr_t_create(mat_P_global%matrix, t_P)
             DO i_cell = 1, num_cells_dm
                CALL dbcsr_t_create(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell))
-               CALL dbcsr_t_copy_matrix(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell))
+               CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell))
                CALL dbcsr_t_create(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
-               CALL dbcsr_t_copy_matrix(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
+               CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
                CALL dbcsr_t_create(t_3c_overl_int, t_3c_M_tmp)
             ENDDO
          ENDIF
@@ -310,13 +310,17 @@ CONTAINS
 
                         IF (R_1_minus_S_needed) THEN
 
-                           ! todo: implement add and scale
-                           CALL dbcsr_t_contract(tensor_1=t_3c_overl_int(i_cell_R_1_minus_S, i_cell_R_2), &
+                           CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), &
+                                                 tensor_1=t_3c_overl_int(i_cell_R_1_minus_S, i_cell_R_2), &
                                                  tensor_2=t_dm_occ(i_cell_S), &
+                                                 beta=dbcsr_scalar(1.0_dp), &
                                                  tensor_3=t_3c_M_tmp, &
                                                  contract_1=[3], notcontract_1=[1, 2], &
                                                  contract_2=[1], notcontract_2=[2], &
-                                                 map_1=[1, 2], map_2=[3])
+                                                 map_1=[1, 2], map_2=[3],&
+                                                 filter_eps=eps_filter*SQRT(para_env%num_pe), &
+                                                 flop=flop_occ)
+                                                 ! see Jan's code for convention of eps_filter
 
                            CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_occ)
                         ENDIF
@@ -328,27 +332,32 @@ CONTAINS
                                                     R_2_minus_S_minus_T_needed, do_kpoints_cubic_RPA)
 
                         IF (R_1_minus_T_needed .AND. R_2_minus_S_minus_T_needed) THEN
-                           ! todo: implement add and scale and filter
-                           CALL dbcsr_t_contract(tensor_1=t_3c_overl_int(i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
-                                                 tensor_2=t_dm_occ(i_cell_S), &
+                           CALL dbcsr_t_contract(alpha=dbcsr_scalar(alpha/2.0_dp), &
+                                                 tensor_1=t_3c_overl_int(i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
+                                                 tensor_2=t_dm_virt(i_cell_S), &
+                                                 beta=dbcsr_scalar(1.0_dp), &
                                                  tensor_3=t_3c_M_tmp, &
                                                  contract_1=[3], notcontract_1=[1, 2], &
                                                  contract_2=[1], notcontract_2=[2], &
-                                                 map_1=[1, 2], map_2=[3])
+                                                 map_1=[1, 2], map_2=[3],&
+                                                 filter_eps=eps_filter*SQRT(para_env%num_pe), &
+                                                 flop=flop_virt)
 
                            CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_virt)
                         ENDIF
 
                      ENDDO
 
-                     ! todo: implement numflops
-                     CALL dbcsr_t_contract(tensor_1=t_3c_M_occ, &
+                     CALL dbcsr_t_contract(alpha=1.0_dp, tensor_1=t_3c_M_occ, &
                                            tensor_2=t_3c_M_virt, &
-                                           tensor_3=t_P,&
+                                           beta=0.0_dp, &
+                                           tensor_3=t_P, &
                                            contract_1=[2,3], notcontract_1[1],&
                                            contract_2=[2,3], notcontract_1[1],&
-                                           map_1=[1], map_2=[2])
-                     CALL dbcsr_t_copy_matrix(t_P, mat_P_global%matrix) ! todo: implement
+                                           map_1=[1], map_2=[2],&
+                                           filter_eps=eps_filter_im_time, &
+                                           flop=num_flops_mat_P)
+                     CALL dbcsr_t_copy_tensor_to_matrix(t_P, mat_P_global%matrix) ! todo: implement
 
                      ! todo: release memory of t_3c_M_*
 
