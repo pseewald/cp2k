@@ -904,7 +904,9 @@ CONTAINS
 
          ENDIF
 
-         CALL reserve_blocks_3c(mat_3c_overl_int, t_3c_overl_int, mat_munu, mp_comm_t3c_overl, qs_env, dimen_RI, cut_RI, unit_nr, &
+         CALL reserve_blocks_3c(mat_3c_overl_int, t_3c_overl_int, mat_munu, mp_comm_t3c_overl, &
+                                qs_env%mp2_env%ri_rpa_im_time%group_size_3c, qs_env, &
+                                dimen_RI, cut_RI, unit_nr, &
                                 my_group_L_starts_im_time, my_group_L_ends_im_time, &
                                 my_group_L_sizes_im_time, eri_offsets, nblk_RI_offset(color_sub_3c), &
                                 local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, &
@@ -912,7 +914,9 @@ CONTAINS
 
          IF (do_dbcsr_t) THEN
             CALL dbcsr_get_info(mat_munu%matrix, row_blk_size=ao_blk_sizes)
-            CALL create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, ao_blk_sizes, row_blk_sizes_RI_t)
+            CALL create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, &
+                                    qs_env%mp2_env%ri_rpa_im_time%group_size_p, &
+                                    ao_blk_sizes, row_blk_sizes_RI_t)
          ENDIF
 
          ! if we do modified atomic orbitals for the primary basis (one MAO basis for D^occ one for D^virt, then
@@ -1011,9 +1015,10 @@ CONTAINS
 
    END SUBROUTINE mp2_ri_gpw_compute_in
 
-   SUBROUTINE create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, ao_blk_sizes, row_blk_sizes_RI_t)
+   SUBROUTINE create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, groupsize, ao_blk_sizes, row_blk_sizes_RI_t)
       TYPE(dbcsr_t_type), INTENT(OUT) :: t_3c_M
       TYPE(dbcsr_t_pgrid_type), INTENT(IN) :: mp_comm_t3c_m
+      INTEGER, INTENT(IN) :: groupsize
       INTEGER, DIMENSION(:), INTENT(IN) :: ao_blk_sizes, row_blk_sizes_RI_t
       INTEGER, DIMENSION(3)             :: pdims, pcoord
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_RI
@@ -1057,7 +1062,7 @@ CONTAINS
          dist_ao_2(dist_start:dist_end) = idim
       ENDDO
 
-      CALL dbcsr_t_distribution_new(dist, mp_comm_t3c_m, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2)
+      CALL dbcsr_t_distribution_new(dist, mp_comm_t3c_m, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2, groupsize=groupsize)
       CALL dbcsr_t_create(t_3c_M, "M", dist, [1], [2, 3], dbcsr_type_real_8, row_blk_sizes_RI_t, &
                           ao_blk_sizes, ao_blk_sizes)
 
@@ -8563,7 +8568,7 @@ CONTAINS
 !> \param num_diff_blk ...
 !> \param local_atoms_for_mao_basis ...
 ! **************************************************************************************************
-   SUBROUTINE reserve_blocks_3c(mat_3c_overl_int, t_3c_overl_int, mp_comm_t3c_overl, mat_munu, qs_env, dimen_RI, &
+   SUBROUTINE reserve_blocks_3c(mat_3c_overl_int, t_3c_overl_int, mp_comm_t3c_overl, groupsize, mat_munu, qs_env, dimen_RI, &
                                 cut_RI, local_atoms_RI, unit_nr, my_group_L_starts_im_time, my_group_L_ends_im_time, &
                                 my_group_L_sizes_im_time, eri_offsets, RI_blk_offset, &
                                 local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, sab_orb_sub, sab_orb_all, para_env, &
@@ -8573,6 +8578,7 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int
       INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(IN)     :: local_atom_RI
       TYPE(dbcsr_t_pgrid_type), INTENT(IN)               :: mp_comm_t3c_overl
+      INTEGER, INTENT(IN)                                :: groupsize
       TYPE(dbcsr_p_type)                                 :: mat_munu
       TYPE(qs_environment_type), POINTER                 :: qs_env
       INTEGER                                            :: dimen_RI, cut_RI, unit_nr, RI_blk_offset
@@ -8667,7 +8673,8 @@ CONTAINS
 
          CALL dbcsr_distribution_get(dist_sub, row_dist=dist_ao1, col_dist=dist_ao2)
 
-         CALL dbcsr_t_distribution_new(dist_o3c, mp_comm_t3c_overl, [1, 2], [3], row_dist_RI_t, dist_ao1, dist_ao2)
+         CALL dbcsr_t_distribution_new(dist_o3c, mp_comm_t3c_overl, [1, 2], [3], &
+                                       row_dist_RI_t, dist_ao1, dist_ao2, groupsize=groupsize)
 
          DO i_img = 1, nimg
             DO j_img = 1, nimg
