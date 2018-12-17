@@ -135,6 +135,7 @@ MODULE rpa_ri_gpw
                                               setup_mat_for_mem_cut_3c,&
                                               zero_mat_P_omega
    USE util,                            ONLY: get_limit
+   USE dbcsr_tensor_api,                ONLY: dbcsr_t_type, dbcsr_t_destroy
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -225,7 +226,7 @@ CONTAINS
                                 mao_coeff_occ, mao_coeff_virt, mao_coeff_occ_A, mao_coeff_virt_A, &
                                 mat_munu, mat_dm_occ_local, mat_dm_virt_local, &
                                 mat_P_local, mat_P_global, &
-                                mat_M, mat_3c_overl_int, t_3c_overl_int, t_3c_M, &
+                                mat_M, mat_3c_overl_int, do_dbcsr_t, t_3c_overl_int, t_3c_M, &
                                 mat_3c_overl_int_mao_for_occ, &
                                 mat_3c_overl_int_mao_for_virt, &
                                 eps_filter, BIb_C_beta, homo_beta, Eigenval_beta, &
@@ -258,7 +259,8 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int, &
                                                             mat_3c_overl_int_mao_for_occ, &
                                                             mat_3c_overl_int_mao_for_virt
-      TYPE(dbcsr_t_type), DIMENSION(:,:)                 :: t_3c_overl_int
+      LOGICAL, INTENT(IN)                                :: do_dbcsr_t
+      TYPE(dbcsr_t_type), DIMENSION(:,:), ALLOCATABLE                 :: t_3c_overl_int
       TYPE(dbcsr_t_type)                                 :: t_3c_M
       REAL(KIND=dp)                                      :: eps_filter
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :), &
@@ -813,7 +815,7 @@ CONTAINS
                              fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, &
                              mat_munu, mat_dm_occ_local, mat_dm_virt_local, mat_P_local, mat_P_global, mat_M, &
                              mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
-                             t_3c_overl_int, t_3c_M_occ, t_3c_M_virt, &
+                             do_dbcsr_t, t_3c_overl_int, t_3c_M, &
                              matrix_s, &
                              mao_coeff_occ, mao_coeff_virt, eps_filter, &
                              starts_array, ends_array, sizes_array, color_sub, &
@@ -846,7 +848,7 @@ CONTAINS
                              fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, &
                              mat_munu, mat_dm_occ_local, mat_dm_virt_local, mat_P_local, mat_P_global, mat_M, &
                              mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
-                             t_3c_overl_int, t_3c_M_occ, t_3c_M_virt, &
+                             do_dbcsr_t, t_3c_overl_int, t_3c_M, &
                              matrix_s, &
                              mao_coeff_occ, mao_coeff_virt, &
                              eps_filter, starts_array, ends_array, sizes_array, color_sub, &
@@ -2055,7 +2057,7 @@ CONTAINS
                           mat_dm_virt_local, mat_P_local, &
                           mat_P_global, mat_M, mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, &
                           mat_3c_overl_int_mao_for_virt, &
-                          t_3c_overl_int, t_3c_M_occ, t_3c_M_virt, &
+                          do_dbcsr_t, t_3c_overl_int, t_3c_M, &
                           matrix_s, mao_coeff_occ, mao_coeff_virt, &
                           eps_filter, starts_array, ends_array, sizes_array, color_sub, &
                           fm_mo_coeff_occ_beta, fm_mo_coeff_virt_beta, &
@@ -2094,8 +2096,9 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int, &
                                                             mat_3c_overl_int_mao_for_occ, &
                                                             mat_3c_overl_int_mao_for_virt
-      TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(IN)    :: t_3c_overl_int
-      TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M_virt, t_3c_M_occ
+      LOGICAL, INTENT(IN)                                :: do_dbcsr_t
+      TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE, INTENT(INOUT)    :: t_3c_overl_int
+      TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s, mao_coeff_occ, mao_coeff_virt
       REAL(KIND=dp)                                      :: eps_filter
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: starts_array, ends_array, sizes_array
@@ -2127,7 +2130,7 @@ CONTAINS
          nrow_local, num_3c_repl, num_cells_dm, num_fit_points, num_points_corr, &
          num_points_per_magnitude, num_real_freq_cont_def, num_residues, num_var, num_Z_vectors, &
          number_of_rec, number_of_rec_axk, number_of_rec_beta, number_of_send, number_of_send_axk, &
-         number_of_send_beta, row, row_start_local, size_P
+         number_of_send_beta, row, row_start_local, size_P, isize, jsize
       INTEGER, ALLOCATABLE, DIMENSION(:) :: alpha_beta_from_jquad, map_rec_size, map_rec_size_axk, &
          map_rec_size_beta, map_send_size, map_send_size_axk, map_send_size_beta, &
          mepos_P_from_RI_row, mo_from_jquad, my_group_L_sizes_im_time, my_group_L_starts_im_time, &
@@ -3573,7 +3576,7 @@ CONTAINS
                                      mao_coeff_occ, mao_coeff_virt, 1, &
                                      mat_M_P_munu_occ, mat_M_P_munu_virt, mat_3c_overl_int_cut, &
                                      mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut, &
-                                     t_3c_overl_int, t_3c_M, &
+                                     do_dbcsr_t, t_3c_overl_int, t_3c_M, &
                                      mat_dm_loc_occ_cut, mat_dm_loc_virt_cut, &
                                      weights_cos_tf_t_to_w, tj, tau_tj, e_fermi, eps_filter, alpha, &
                                      eps_filter_im_time, Eigenval, nmo, n_group_col, &
@@ -3607,7 +3610,7 @@ CONTAINS
                                            mao_coeff_occ, mao_coeff_virt, 2, &
                                            mat_M_P_munu_occ, mat_M_P_munu_virt, mat_3c_overl_int_cut, &
                                            mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut, &
-                                           t_3c_overl_int, t_3c_M, &
+                                           do_dbcsr_t, t_3c_overl_int, t_3c_M, &
                                            mat_dm_loc_occ_cut, mat_dm_loc_virt_cut, &
                                            weights_cos_tf_t_to_w, tj, tau_tj, e_fermi_beta, eps_filter, alpha, &
                                            eps_filter_im_time, Eigenval_beta, nmo, n_group_col, &
@@ -3635,7 +3638,7 @@ CONTAINS
                                            mao_coeff_occ, mao_coeff_virt, 2, &
                                            mat_M_P_munu_occ, mat_M_P_munu_virt, mat_3c_overl_int_cut, &
                                            mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut, &
-                                           t_3c_overl_int, t_3c_M, &
+                                           do_dbcsr_t, t_3c_overl_int, t_3c_M, &
                                            mat_dm_loc_occ_cut, mat_dm_loc_virt_cut, &
                                            weights_cos_tf_t_to_w, tj, tau_tj, e_fermi_beta, eps_filter, alpha, &
                                            eps_filter_im_time, Eigenval_beta, nmo, n_group_col, &
@@ -4990,10 +4993,24 @@ CONTAINS
          IF (my_open_shell .AND. do_im_time .AND. do_ri_sos_laplace_mp2) CALL dbcsr_deallocate_matrix_set(mat_P_omega_beta)
 
          CALL dbcsr_deallocate_matrix_set(mat_3c_overl_int_cut)
+
+
          IF (do_mao) THEN
             CALL dbcsr_deallocate_matrix_set(mat_3c_overl_int_mao_for_occ_cut)
             CALL dbcsr_deallocate_matrix_set(mat_3c_overl_int_mao_for_virt_cut)
          END IF
+
+         IF (do_dbcsr_t) THEN
+            DO isize = 1, SIZE(t_3c_overl_int, 1)
+               DO jsize = 1, SIZE(t_3c_overl_int, 2)
+                  CALL dbcsr_t_destroy(t_3c_overl_int(isize, jsize))
+               ENDDO
+            ENDDO
+
+            DEALLOCATE (t_3c_overl_int)
+
+            CALL dbcsr_t_destroy(t_3c_M)
+         ENDIF
 
          DEALLOCATE (buffer_mat_M)
          DEALLOCATE (non_zero_blocks_3c)

@@ -56,6 +56,9 @@ MODULE rpa_im_time
                                               mo_set_p_type,&
                                               mo_set_type
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
+   USE dbcsr_tensor_api,                ONLY: dbcsr_t_type, dbcsr_t_contract, dbcsr_t_create, &
+                                              dbcsr_t_copy_matrix_to_tensor, dbcsr_t_copy, dbcsr_t_set, &
+                                              dbcsr_t_filter, dbcsr_t_destroy, dbcsr_t_copy_tensor_to_matrix
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -159,7 +162,7 @@ CONTAINS
                                   mat_M_mu_Pnu_virt, matrix_s, mao_coeff_occ, &
                                   mao_coeff_virt, ispin, mat_M_P_munu_occ, &
                                   mat_M_P_munu_virt, mat_3c_overl_int_cut, mat_3c_overl_int_mao_for_occ_cut, &
-                                  mat_3c_overl_int_mao_for_virt_cut, t_3c_overl_int, t_3c_M, &
+                                  mat_3c_overl_int_mao_for_virt_cut, do_dbcsr_t, t_3c_overl_int, t_3c_M, &
                                   mat_dm_loc_occ_cut, mat_dm_loc_virt_cut, weights_cos_tf_t_to_w, &
                                   tj, tau_tj, e_fermi, eps_filter, &
                                   alpha, eps_filter_im_time, Eigenval, nmo, n_group_col, &
@@ -190,7 +193,8 @@ CONTAINS
       TYPE(dbcsr_p_type)                                 :: mat_M_P_munu_occ, mat_M_P_munu_virt
       TYPE(dbcsr_p_type), DIMENSION(:, :, :, :), POINTER :: mat_3c_overl_int_cut, &
          mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut
-      TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(IN)    :: t_3c_overl_int
+      LOGICAL, INTENT(IN)                                :: do_dbcsr_t
+      TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT)    :: t_3c_overl_int
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_dm_loc_occ_cut, mat_dm_loc_virt_cut
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: weights_cos_tf_t_to_w
@@ -243,9 +247,9 @@ CONTAINS
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: does_mat_P_T_tau_have_blocks
       REAL(KIND=dp)                                      :: omega, omega_old, tau, weight, weight_old
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: mat_dm_occ_global, mat_dm_virt_global
-      TYPE(dbcsr_t_type), DIMENSION(:)                   :: t_dm_virt, t_dm_occ
+      TYPE(dbcsr_t_type), DIMENSION(:), ALLOCATABLE                   :: t_dm_virt, t_dm_occ
       TYPE(dbcsr_t_type)                                 :: t_3c_M_tmp
-      TYPE(dbcsr_t_type)                                 :: t_3c_M_virt, t_3c_M_occ
+      TYPE(dbcsr_t_type)                                 :: t_3c_M_virt, t_3c_M_occ, t_P
 
 
       memory_info = mp2_env%ri_rpa_im_time%memory_info
@@ -287,7 +291,7 @@ CONTAINS
                CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell))
                CALL dbcsr_t_create(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
                CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
-               CALL dbcsr_t_create(t_3c_overl_int, t_3c_M_tmp)
+               CALL dbcsr_t_create(t_3c_overl_int(1,1), t_3c_M_tmp)
             ENDDO
             CALL dbcsr_t_create(t_3c_M, t_3c_M_occ)
             CALL dbcsr_t_create(t_3c_M, t_3c_M_virt)
@@ -366,12 +370,12 @@ CONTAINS
 
                      CALL timeset(routineN//"_calc_P_t", handle5)
 
-                     CALL dbcsr_t_contract(alpha=1.0_dp, tensor_1=t_3c_M_occ, &
+                     CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), tensor_1=t_3c_M_occ, &
                                            tensor_2=t_3c_M_virt, &
-                                           beta=0.0_dp, &
+                                           beta=dbcsr_scalar(0.0_dp), &
                                            tensor_3=t_P, &
-                                           contract_1=[2,3], notcontract_1[1],&
-                                           contract_2=[2,3], notcontract_1[1],&
+                                           contract_1=[2,3], notcontract_1=[1],&
+                                           contract_2=[2,3], notcontract_2=[1],&
                                            map_1=[1], map_2=[2],&
                                            filter_eps=eps_filter_im_time, &
                                            flop=num_flops_mat_P)

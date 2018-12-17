@@ -250,6 +250,7 @@ MODULE mp2_types
       LOGICAL  :: p_screen
       LOGICAL  :: not_last_hfx
       LOGICAL  :: do_im_time
+      LOGICAL  :: do_dbcsr_t
       INTEGER  :: eri_method
       TYPE(cp_eri_mme_param), POINTER  :: eri_mme_param
       INTEGER, DIMENSION(:), POINTER  :: eri_blksize => NULL()

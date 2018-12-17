@@ -133,6 +133,7 @@ MODULE mp2_gpw
                                               deallocate_task_list,&
                                               task_list_type
    USE util,                            ONLY: get_limit
+   USE dbcsr_tensor_api,                ONLY: dbcsr_t_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -190,7 +191,7 @@ CONTAINS
          sizes_B_occ_bse, sizes_B_virt_bse, sizes_B_virtual, sizes_B_virtual_beta, starts_array, &
          starts_B_all, starts_B_occ_bse, starts_B_virt_bse, starts_B_virtual, starts_B_virtual_beta
       LOGICAL :: blacs_repeatable, do_bse, do_im_time, do_kpoints_cubic_RPA, do_mao, my_do_gw, &
-         my_do_ri_mp2, my_do_ri_rpa, my_do_ri_sos_laplace_mp2, skip_load_balance_distributed
+         my_do_ri_mp2, my_do_ri_rpa, my_do_ri_sos_laplace_mp2, skip_load_balance_distributed, do_dbcsr_t
       REAL(KIND=dp) :: cutoff_old, Emp2_AB, Emp2_BB, Emp2_Cou_BB, Emp2_d2_AB, Emp2_d_AB, &
          Emp2_EX_BB, eps_gvg_rspace_old, eps_pgf_orb_old, eps_rho_rspace_old, progression_factor, &
          relative_cutoff_old
@@ -256,6 +257,7 @@ CONTAINS
 
       ! check if we want to do imaginary time
       do_im_time = mp2_env%do_im_time
+      do_dbcsr_t = mp2_env%do_dbcsr_t
       do_mao = mp2_env%ri_rpa_im_time%do_mao
       do_bse = qs_env%mp2_env%ri_g0w0%do_bse
       do_kpoints_cubic_RPA = qs_env%mp2_env%ri_rpa_im_time%do_im_time_kpoints
@@ -516,7 +518,7 @@ CONTAINS
                mp2_env%mp2_memory, mp2_env%calc_PQ_cond_num, calc_forces, blacs_env_sub, my_do_gw, &
                do_bse, starts_B_all, sizes_B_all, ends_B_all, gw_corr_lev_occ, gw_corr_lev_virt, &
                do_im_time, do_mao, do_kpoints_cubic_RPA, &
-               mat_3c_overl_int, t_3c_overl_int, t_3c_M, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
+               mat_3c_overl_int, t_3c_overl_int, do_dbcsr_t, t_3c_M, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
                mao_coeff_occ, mao_coeff_virt, ri_metric, ri_metric_gw, &
                starts_B_occ_bse, sizes_B_occ_bse, ends_B_occ_bse, &
                starts_B_virt_bse, sizes_B_virt_bse, ends_B_virt_bse, &
@@ -538,7 +540,7 @@ CONTAINS
                                        blacs_env_sub, my_do_gw, do_bse, starts_B_all, sizes_B_all, &
                                        ends_B_all, gw_corr_lev_occ, gw_corr_lev_virt, &
                                        do_im_time, do_mao, do_kpoints_cubic_RPA, &
-                                       mat_3c_overl_int, t_3c_overl_int, t_3c_M, mat_3c_overl_int_mao_for_occ, &
+                                       mat_3c_overl_int, t_3c_overl_int, do_dbcsr_t, t_3c_M, mat_3c_overl_int_mao_for_occ, &
                                        mat_3c_overl_int_mao_for_virt, mao_coeff_occ, mao_coeff_virt, &
                                        ri_metric, ri_metric_gw, &
                                        starts_B_occ_bse, sizes_B_occ_bse, ends_B_occ_bse, &
@@ -713,7 +715,7 @@ CONTAINS
                                    mao_coeff_occ, mao_coeff_virt, mao_coeff_occ_A, mao_coeff_virt_A, &
                                    mat_munu, mat_dm_occ_local, mat_dm_virt_local, &
                                    mat_P_local, mat_P_global, mat_M, &
-                                   mat_3c_overl_int, t_3c_overl_int, t_3c_M, &
+                                   mat_3c_overl_int, do_dbcsr_t, t_3c_overl_int, t_3c_M, &
                                    mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
                                    mp2_env%mp2_gpw%eps_filter, BIb_C_beta, homo_beta, Eigenval_beta, &
                                    ends_B_virtual_beta, sizes_B_virtual_beta, starts_B_virtual_beta, &
@@ -730,7 +732,7 @@ CONTAINS
                                    mao_coeff_occ, mao_coeff_virt, mao_coeff_occ_A, mao_coeff_virt_A, &
                                    mat_munu, mat_dm_occ_local, mat_dm_virt_local, &
                                    mat_P_local, mat_P_global, mat_M, &
-                                   mat_3c_overl_int, t_3c_overl_int, t_3c_M, &
+                                   mat_3c_overl_int, do_dbcsr_t, t_3c_overl_int, t_3c_M, &
                                    mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
                                    mp2_env%mp2_gpw%eps_filter)
          END IF
