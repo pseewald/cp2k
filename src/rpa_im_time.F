@@ -159,7 +159,7 @@ CONTAINS
                                   mat_M_mu_Pnu_virt, matrix_s, mao_coeff_occ, &
                                   mao_coeff_virt, ispin, mat_M_P_munu_occ, &
                                   mat_M_P_munu_virt, mat_3c_overl_int_cut, mat_3c_overl_int_mao_for_occ_cut, &
-                                  mat_3c_overl_int_mao_for_virt_cut, t_3c_overl_int, t_3c_M_occ, t_3c_M_virt, &
+                                  mat_3c_overl_int_mao_for_virt_cut, t_3c_overl_int, t_3c_M, &
                                   mat_dm_loc_occ_cut, mat_dm_loc_virt_cut, weights_cos_tf_t_to_w, &
                                   tj, tau_tj, e_fermi, eps_filter, &
                                   alpha, eps_filter_im_time, Eigenval, nmo, n_group_col, &
@@ -191,7 +191,7 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :, :, :), POINTER :: mat_3c_overl_int_cut, &
          mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(IN)    :: t_3c_overl_int
-      TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M_virt, t_3c_M_occ
+      TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_dm_loc_occ_cut, mat_dm_loc_virt_cut
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: weights_cos_tf_t_to_w
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: tj, tau_tj
@@ -245,6 +245,7 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: mat_dm_occ_global, mat_dm_virt_global
       TYPE(dbcsr_t_type), DIMENSION(:)                   :: t_dm_virt, t_dm_occ
       TYPE(dbcsr_t_type)                                 :: t_3c_M_tmp
+      TYPE(dbcsr_t_type)                                 :: t_3c_M_virt, t_3c_M_occ
 
 
       memory_info = mp2_env%ri_rpa_im_time%memory_info
@@ -288,6 +289,8 @@ CONTAINS
                CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
                CALL dbcsr_t_create(t_3c_overl_int, t_3c_M_tmp)
             ENDDO
+            CALL dbcsr_t_create(t_3c_M, t_3c_M_occ)
+            CALL dbcsr_t_create(t_3c_M, t_3c_M_virt)
          ENDIF
 
          IF (do_dbcsr_t) THEN
@@ -439,9 +442,11 @@ CONTAINS
                CALL dbcsr_t_destroy(t_dm_occ(i_cell))
                CALL dbcsr_t_destroy(t_3c_M_tmp)
             ENDDO
+
+            CALL dbcsr_t_destroy(t_3c_M_occ)
+            CALL dbcsr_t_destroy(t_3c_M_virt)
             DEALLOCATE(t_dm_virt)
             DEALLOCATE(t_dm_occ)
-
          ENDIF
 
          DO i_cell_T = 1, num_cells_dm/2+1

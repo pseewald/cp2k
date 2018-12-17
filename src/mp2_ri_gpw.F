@@ -252,7 +252,7 @@ CONTAINS
                                     mp2_memory, calc_PQ_cond_num, calc_forces, blacs_env_sub, my_do_gw, do_bse, &
                                     starts_B_all, sizes_B_all, ends_B_all, gw_corr_lev_occ, gw_corr_lev_virt, &
                                     do_im_time, do_mao, do_kpoints_cubic_RPA, &
-                                    mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, &
+                                    mat_3c_overl_int, t_3c_overl_int, t_3c_M, mat_3c_overl_int_mao_for_occ, &
                                     mat_3c_overl_int_mao_for_virt, mao_coeff_occ, mao_coeff_virt, &
                                     ri_metric, ri_metric_gw, ends_B_occ_bse, sizes_B_occ_bse, &
                                     starts_B_occ_bse, ends_B_virt_bse, sizes_B_virt_bse, &
@@ -301,6 +301,8 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int, &
                                                             mat_3c_overl_int_mao_for_occ, &
                                                             mat_3c_overl_int_mao_for_virt
+      TYPE(dbcsr_t_type), DIMENSION(:,:), ALLOCATABLE    :: t_3c_overl_int
+      TYPE(dbcsr_t_type)                                 :: t_3c_M
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: mao_coeff_occ, mao_coeff_virt
       INTEGER                                            :: ri_metric, ri_metric_gw
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ends_B_occ_bse, sizes_B_occ_bse, &
@@ -327,7 +329,7 @@ CONTAINS
          my_B_virtual_start_beta, my_group_L_end, my_group_L_size, my_group_L_start, natom
       INTEGER :: ngroup, ngroup_im_time, num_diff_blk, num_small_eigen, virtual, virtual_beta
       INTEGER, ALLOCATABLE, DIMENSION(:) :: local_atoms_for_mao_basis, my_group_L_ends_im_time, &
-         my_group_L_sizes_im_time, my_group_L_starts_im_time, sub_proc_map, local_atom_RI
+         my_group_L_sizes_im_time, my_group_L_starts_im_time, sub_proc_map, local_atoms_RI
       INTEGER, ALLOCATABLE, DIMENSION(:, :) :: local_col_row_info, local_col_row_info_beta, &
          local_col_row_info_gw, local_col_row_info_occ_bse, local_col_row_info_virt_bse
       INTEGER, DIMENSION(3)                              :: periodic
@@ -349,9 +351,9 @@ CONTAINS
       TYPE(two_dim_real_array), ALLOCATABLE, &
          DIMENSION(:)                                    :: mao_coeff_repl_occ, mao_coeff_repl_virt
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: row_blk_sizes_RI_t, row_dist_RI_t
-      TYPE(dbcsr_t_pgrid_type)                           :: mp_comm_t3c_overl
+      TYPE(dbcsr_t_pgrid_type)                           :: mp_comm_t3c_overl, mp_comm_t3c_m
       INTEGER, ALLOCATABLE, DIMENSION(:,:)               :: eri_offsets
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: nblk_RI_offset
+      !INTEGER, ALLOCATABLE, DIMENSION(:)                 :: nblk_RI_offset
 
       CALL timeset(routineN, handle)
 
@@ -876,7 +878,8 @@ CONTAINS
          color_sub_3c = para_env%mepos/qs_env%mp2_env%ri_rpa_im_time%group_size_3c
 
          CALL setup_group_L_im_time(my_group_L_starts_im_time, my_group_L_ends_im_time, my_group_L_sizes_im_time, &
-                                    local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, dimen_RI, ngroup_im_time, cut_memory, cut_RI, &
+                                    local_atoms_RI, row_blk_sizes_RI_t, row_dist_RI_t, dimen_RI, ngroup_im_time, cut_memory, &
+                                    cut_RI, &
                                     color_sub_3c, qs_env)
 
          qs_env%mp2_env%ri_rpa_im_time_util(1)%n_group_RI_orig = ngroup
@@ -904,18 +907,18 @@ CONTAINS
 
          ENDIF
 
-         CALL reserve_blocks_3c(mat_3c_overl_int, t_3c_overl_int, mat_munu, mp_comm_t3c_overl, &
-                                qs_env%mp2_env%ri_rpa_im_time%group_size_3c, qs_env, &
+         CALL reserve_blocks_3c(mat_3c_overl_int, t_3c_overl_int, mp_comm_t3c_overl, &
+                                ngroup_im_time, mat_munu, qs_env, &
                                 dimen_RI, cut_RI, unit_nr, &
                                 my_group_L_starts_im_time, my_group_L_ends_im_time, &
-                                my_group_L_sizes_im_time, eri_offsets, nblk_RI_offset(color_sub_3c), &
-                                local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, &
+                                my_group_L_sizes_im_time, & !nblk_RI_offset(color_sub_3c), &
+                                local_atoms_RI, row_blk_sizes_RI_t, row_dist_RI_t, &
                                 sab_orb_sub, sab_orb_all, para_env, num_diff_blk)
 
          IF (do_dbcsr_t) THEN
             CALL dbcsr_get_info(mat_munu%matrix, row_blk_size=ao_blk_sizes)
             CALL create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, &
-                                    qs_env%mp2_env%ri_rpa_im_time%group_size_p, &
+                                    ngroup_im_time_P, &
                                     ao_blk_sizes, row_blk_sizes_RI_t)
          ENDIF
 
@@ -927,21 +930,17 @@ CONTAINS
             ALLOCATE (local_atoms_for_mao_basis(natom))
             local_atoms_for_mao_basis = 0
 
-            CALL reserve_blocks_3c(mat_3c_overl_int_mao_for_occ, mat_munu_mao_occ_virt, mp_comm_t3c_overl, qs_env, &
-                                   dimen_RI, cut_RI, unit_nr, &
-                                   my_group_L_starts_im_time, my_group_L_ends_im_time, &
-                                   my_group_L_sizes_im_time, eri_offsets, nblk_RI_offset(color_sub_3c), &
-                                   local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, &
-                                   sab_orb_sub, sab_orb_all, para_env, num_diff_blk, &
-                                   local_atoms_for_mao_basis=local_atoms_for_mao_basis)
+            !CALL reserve_blocks_3c(mat_3c_overl_int_mao_for_occ, mat_munu_mao_occ_virt, qs_env, &
+            !                       dimen_RI, cut_RI, unit_nr, &
+            !                       my_group_L_starts_im_time, my_group_L_ends_im_time, &
+            !                       my_group_L_sizes_im_time, sab_orb_sub, sab_orb_all, para_env, num_diff_blk, &
+            !                       local_atoms_for_mao_basis=local_atoms_for_mao_basis)
 
-            CALL reserve_blocks_3c(mat_3c_overl_int_mao_for_virt, mat_munu_mao_virt_occ, mp_comm_t3c_overl, qs_env, &
-                                   dimen_RI, cut_RI, unit_nr, &
-                                   my_group_L_starts_im_time, my_group_L_ends_im_time, &
-                                   my_group_L_sizes_im_time, eri_offsets, nblk_RI_offset(color_sub_3c), &
-                                   local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, &
-                                   sab_orb_sub, sab_orb_all, para_env, num_diff_blk, &
-                                   local_atoms_for_mao_basis=local_atoms_for_mao_basis)
+            !CALL reserve_blocks_3c(mat_3c_overl_int_mao_for_virt, mat_munu_mao_virt_occ, qs_env, &
+            !                       dimen_RI, cut_RI, unit_nr, &
+            !                       my_group_L_starts_im_time, my_group_L_ends_im_time, &
+            !                       my_group_L_sizes_im_time, sab_orb_sub, sab_orb_all, para_env, num_diff_blk, &
+            !                       local_atoms_for_mao_basis=local_atoms_for_mao_basis)
 
             CALL replicate_mao_coeff(mao_coeff_repl_occ, mao_coeff_occ, local_atoms_for_mao_basis, natom, para_env)
 
@@ -949,11 +948,12 @@ CONTAINS
 
          END IF
 
-         CALL compute_3c_overlap_int(mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, &
+         CALL compute_3c_overlap_int(mat_3c_overl_int, t_3c_overl_int, mat_3c_overl_int_mao_for_occ, &
                                      mat_3c_overl_int_mao_for_virt, &
                                      mat_munu, mat_munu_mao_occ_virt, &
                                      qs_env, my_group_L_starts_im_time, &
                                      my_group_L_ends_im_time, my_group_L_sizes_im_time, &
+                                     local_atoms_RI, &
                                      dimen_RI, cut_RI, sab_orb_sub, sab_orb_all, do_mao, &
                                      mao_coeff_repl_occ, mao_coeff_repl_virt, &
                                      num_diff_blk)
@@ -1015,10 +1015,10 @@ CONTAINS
 
    END SUBROUTINE mp2_ri_gpw_compute_in
 
-   SUBROUTINE create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, groupsize, ao_blk_sizes, row_blk_sizes_RI_t)
+   SUBROUTINE create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, ngroup, ao_blk_sizes, row_blk_sizes_RI_t)
       TYPE(dbcsr_t_type), INTENT(OUT) :: t_3c_M
       TYPE(dbcsr_t_pgrid_type), INTENT(IN) :: mp_comm_t3c_m
-      INTEGER, INTENT(IN) :: groupsize
+      INTEGER, INTENT(IN) :: ngroup
       INTEGER, DIMENSION(:), INTENT(IN) :: ao_blk_sizes, row_blk_sizes_RI_t
       INTEGER, DIMENSION(3)             :: pdims, pcoord
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_RI
@@ -1062,7 +1062,7 @@ CONTAINS
          dist_ao_2(dist_start:dist_end) = idim
       ENDDO
 
-      CALL dbcsr_t_distribution_new(dist, mp_comm_t3c_m, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2, groupsize=groupsize)
+      CALL dbcsr_t_distribution_new(dist, mp_comm_t3c_m, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2, ngroup=ngroup)
       CALL dbcsr_t_create(t_3c_M, "M", dist, [1], [2, 3], dbcsr_type_real_8, row_blk_sizes_RI_t, &
                           ao_blk_sizes, ao_blk_sizes)
 
@@ -7429,7 +7429,7 @@ CONTAINS
                                      mat_3c_overl_int_mao_for_virt, mat_munu, mat_munu_mao_occ_virt, &
                                      qs_env, my_group_L_starts_im_time, &
                                      my_group_L_ends_im_time, my_group_L_sizes_im_time, &
-                                     eri_offsets, local_atoms_RI, RI_blk_offset, &
+                                     local_atoms_RI, &
                                      dimen_RI, &
                                      cut_RI, sab_orb_sub, sab_orb_all, do_mao, mao_coeff_repl_occ, &
                                      mao_coeff_repl_virt, num_diff_blk)
@@ -7444,8 +7444,8 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: my_group_L_starts_im_time, &
                                                             my_group_L_ends_im_time, &
                                                             my_group_L_sizes_im_time
-      INTEGER, DIMENSION(:,:), INTENT(IN)                :: eri_offsets
-      INTEGER                                            :: RI_blk_offset
+      !INTEGER, DIMENSION(:,:), INTENT(IN)                :: eri_offsets
+      !INTEGER                                            :: RI_blk_offset
       INTEGER                                            :: dimen_RI, cut_RI
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: sab_orb_sub, sab_orb_all
@@ -7506,7 +7506,7 @@ CONTAINS
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(two_dim_real_array), ALLOCATABLE, &
          DIMENSION(:)                                    :: blocks_to_send_around
-      INTEGER, ALLOCATABLE, DIMENSION(:,:)               :: eri_offsets
+      !INTEGER, ALLOCATABLE, DIMENSION(:,:)               :: eri_offsets
 
       CALL timeset(routineN, handle)
 
@@ -8568,20 +8568,20 @@ CONTAINS
 !> \param num_diff_blk ...
 !> \param local_atoms_for_mao_basis ...
 ! **************************************************************************************************
-   SUBROUTINE reserve_blocks_3c(mat_3c_overl_int, t_3c_overl_int, mp_comm_t3c_overl, groupsize, mat_munu, qs_env, dimen_RI, &
-                                cut_RI, local_atoms_RI, unit_nr, my_group_L_starts_im_time, my_group_L_ends_im_time, &
-                                my_group_L_sizes_im_time, eri_offsets, RI_blk_offset, &
-                                local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, sab_orb_sub, sab_orb_all, para_env, &
+   SUBROUTINE reserve_blocks_3c(mat_3c_overl_int, t_3c_overl_int, mp_comm_t3c_overl, ngroup, mat_munu, qs_env, dimen_RI, &
+                                cut_RI, unit_nr, my_group_L_starts_im_time, my_group_L_ends_im_time, &
+                                my_group_L_sizes_im_time, &
+                                local_atoms_RI, row_blk_sizes_RI_t, row_dist_RI_t, sab_orb_sub, sab_orb_all, para_env, &
                                 num_diff_blk, local_atoms_for_mao_basis)
 
-      TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE   :: t_3c_overl_int
+      TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE, INTENT(OUT)   :: t_3c_overl_int
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int
-      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(IN)     :: local_atom_RI
+      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(IN)     :: local_atoms_RI
       TYPE(dbcsr_t_pgrid_type), INTENT(IN)               :: mp_comm_t3c_overl
-      INTEGER, INTENT(IN)                                :: groupsize
+      INTEGER, INTENT(IN)                                :: ngroup
       TYPE(dbcsr_p_type)                                 :: mat_munu
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      INTEGER                                            :: dimen_RI, cut_RI, unit_nr, RI_blk_offset
+      INTEGER                                            :: dimen_RI, cut_RI, unit_nr
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: my_group_L_starts_im_time, &
                                                             my_group_L_ends_im_time, &
                                                             my_group_L_sizes_im_time
@@ -8674,7 +8674,7 @@ CONTAINS
          CALL dbcsr_distribution_get(dist_sub, row_dist=dist_ao1, col_dist=dist_ao2)
 
          CALL dbcsr_t_distribution_new(dist_o3c, mp_comm_t3c_overl, [1, 2], [3], &
-                                       row_dist_RI_t, dist_ao1, dist_ao2, groupsize=groupsize)
+                                       row_dist_RI_t, dist_ao1, dist_ao2, ngroup=ngroup)
 
          DO i_img = 1, nimg
             DO j_img = 1, nimg
@@ -8761,8 +8761,8 @@ CONTAINS
          !set_RI_offset_end = eri_offsets(my_group_L_end, 3)
 
          !DO atom_RI = atom_RI_start, atom_RI_end
-         DO iatom_RI = 1, SIZE(local_atom_RI)
-            atom_RI = local_atom_RI(iatom_RI)
+         DO iatom_RI = 1, SIZE(local_atoms_RI)
+            atom_RI = local_atoms_RI(iatom_RI)
             !atom_RI_index = atom_RI + (RI_blk_offset + 1 - atom_RI_start)
             kind_RI = kind_of(atom_RI)
             CALL get_qs_kind(qs_kind=qs_kind_set(kind_RI), basis_set=basis_set_RI, basis_type="RI_AUX")
@@ -9736,13 +9736,13 @@ CONTAINS
 !> \param qs_env ...
 ! **************************************************************************************************
    SUBROUTINE setup_group_L_im_time(my_group_L_starts_im_time, my_group_L_ends_im_time, my_group_L_sizes_im_time, &
-                                    local_atom_RI, row_blk_sizes_RI_t, row_dist_RI_t, &
+                                    local_atoms_RI, row_blk_sizes_RI_t, row_dist_RI_t, &
                                     dimen_RI, ngroup, cut_memory, cut_RI, color_sub, qs_env)
 
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: my_group_L_starts_im_time, &
                                                             my_group_L_ends_im_time, &
                                                             my_group_L_sizes_im_time,&
-                                                            local_atom_RI
+                                                            local_atoms_RI
       INTEGER                                            :: dimen_RI, ngroup, cut_memory, cut_RI, &
                                                             color_sub
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -9830,8 +9830,8 @@ CONTAINS
             local_atom_RI_tmp(icount) = iatom
          ENDIF
       ENDDO
-      ALLOCATE(local_atom_RI(icount))
-      local_atom_RI(:) = local_atom_RI_tmp(1:icount)
+      ALLOCATE(local_atoms_RI(icount))
+      local_atoms_RI(:) = local_atom_RI_tmp(1:icount)
 
       ALLOCATE(row_blk_sizes_RI_t(natom))
       row_blk_sizes_RI_t(:) = row_blk_sizes_RI(:)

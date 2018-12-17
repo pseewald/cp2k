@@ -237,6 +237,8 @@ CONTAINS
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(qs_ks_env_type), POINTER                      :: ks_env
       TYPE(task_list_type), POINTER                      :: task_list_sub
+      TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE   :: t_3c_overl_int
+      TYPE(dbcsr_t_type)                                 :: t_3c_M
 
       CALL timeset(routineN, handle)
 
@@ -514,7 +516,7 @@ CONTAINS
                mp2_env%mp2_memory, mp2_env%calc_PQ_cond_num, calc_forces, blacs_env_sub, my_do_gw, &
                do_bse, starts_B_all, sizes_B_all, ends_B_all, gw_corr_lev_occ, gw_corr_lev_virt, &
                do_im_time, do_mao, do_kpoints_cubic_RPA, &
-               mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
+               mat_3c_overl_int, t_3c_overl_int, t_3c_M, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
                mao_coeff_occ, mao_coeff_virt, ri_metric, ri_metric_gw, &
                starts_B_occ_bse, sizes_B_occ_bse, ends_B_occ_bse, &
                starts_B_virt_bse, sizes_B_virt_bse, ends_B_virt_bse, &
@@ -536,7 +538,7 @@ CONTAINS
                                        blacs_env_sub, my_do_gw, do_bse, starts_B_all, sizes_B_all, &
                                        ends_B_all, gw_corr_lev_occ, gw_corr_lev_virt, &
                                        do_im_time, do_mao, do_kpoints_cubic_RPA, &
-                                       mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, &
+                                       mat_3c_overl_int, t_3c_overl_int, t_3c_M, mat_3c_overl_int_mao_for_occ, &
                                        mat_3c_overl_int_mao_for_virt, mao_coeff_occ, mao_coeff_virt, &
                                        ri_metric, ri_metric_gw, &
                                        starts_B_occ_bse, sizes_B_occ_bse, ends_B_occ_bse, &
@@ -711,7 +713,8 @@ CONTAINS
                                    mao_coeff_occ, mao_coeff_virt, mao_coeff_occ_A, mao_coeff_virt_A, &
                                    mat_munu, mat_dm_occ_local, mat_dm_virt_local, &
                                    mat_P_local, mat_P_global, mat_M, &
-                                   mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
+                                   mat_3c_overl_int, t_3c_overl_int, t_3c_M, &
+                                   mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
                                    mp2_env%mp2_gpw%eps_filter, BIb_C_beta, homo_beta, Eigenval_beta, &
                                    ends_B_virtual_beta, sizes_B_virtual_beta, starts_B_virtual_beta, &
                                    mo_coeff_beta, BIb_C_gw_beta, gw_corr_lev_occ_beta, gw_corr_lev_virt_beta)
@@ -727,7 +730,8 @@ CONTAINS
                                    mao_coeff_occ, mao_coeff_virt, mao_coeff_occ_A, mao_coeff_virt_A, &
                                    mat_munu, mat_dm_occ_local, mat_dm_virt_local, &
                                    mat_P_local, mat_P_global, mat_M, &
-                                   mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
+                                   mat_3c_overl_int, t_3c_overl_int, t_3c_M, &
+                                   mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
                                    mp2_env%mp2_gpw%eps_filter)
          END IF
 

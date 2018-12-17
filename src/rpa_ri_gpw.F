@@ -225,7 +225,8 @@ CONTAINS
                                 mao_coeff_occ, mao_coeff_virt, mao_coeff_occ_A, mao_coeff_virt_A, &
                                 mat_munu, mat_dm_occ_local, mat_dm_virt_local, &
                                 mat_P_local, mat_P_global, &
-                                mat_M, mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, &
+                                mat_M, mat_3c_overl_int, t_3c_overl_int, t_3c_M, &
+                                mat_3c_overl_int_mao_for_occ, &
                                 mat_3c_overl_int_mao_for_virt, &
                                 eps_filter, BIb_C_beta, homo_beta, Eigenval_beta, &
                                 ends_B_virtual_beta, sizes_B_virtual_beta, starts_B_virtual_beta, &
@@ -257,6 +258,8 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int, &
                                                             mat_3c_overl_int_mao_for_occ, &
                                                             mat_3c_overl_int_mao_for_virt
+      TYPE(dbcsr_t_type), DIMENSION(:,:)                 :: t_3c_overl_int
+      TYPE(dbcsr_t_type)                                 :: t_3c_M
       REAL(KIND=dp)                                      :: eps_filter
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :), &
          OPTIONAL                                        :: BIb_C_beta
@@ -809,7 +812,9 @@ CONTAINS
                              do_im_time, do_mao, fm_mo_coeff_occ, fm_mo_coeff_virt, mo_coeff, fm_matrix_L_RI_metric, &
                              fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, &
                              mat_munu, mat_dm_occ_local, mat_dm_virt_local, mat_P_local, mat_P_global, mat_M, &
-                             mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, matrix_s, &
+                             mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
+                             t_3c_overl_int, t_3c_M_occ, t_3c_M_virt, &
+                             matrix_s, &
                              mao_coeff_occ, mao_coeff_virt, eps_filter, &
                              starts_array, ends_array, sizes_array, color_sub, &
                              fm_mo_coeff_occ_beta=fm_mo_coeff_occ_beta, fm_mo_coeff_virt_beta=fm_mo_coeff_virt_beta, &
@@ -840,7 +845,9 @@ CONTAINS
                              do_im_time, do_mao, fm_mo_coeff_occ, fm_mo_coeff_virt, mo_coeff, fm_matrix_L_RI_metric, &
                              fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, &
                              mat_munu, mat_dm_occ_local, mat_dm_virt_local, mat_P_local, mat_P_global, mat_M, &
-                             mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, matrix_s, &
+                             mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
+                             t_3c_overl_int, t_3c_M_occ, t_3c_M_virt, &
+                             matrix_s, &
                              mao_coeff_occ, mao_coeff_virt, &
                              eps_filter, starts_array, ends_array, sizes_array, color_sub, &
                              do_ri_sos_laplace_mp2=do_ri_sos_laplace_mp2)
@@ -2047,7 +2054,9 @@ CONTAINS
                           fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, mat_munu, mat_dm_occ_local, &
                           mat_dm_virt_local, mat_P_local, &
                           mat_P_global, mat_M, mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, &
-                          mat_3c_overl_int_mao_for_virt, matrix_s, mao_coeff_occ, mao_coeff_virt, &
+                          mat_3c_overl_int_mao_for_virt, &
+                          t_3c_overl_int, t_3c_M_occ, t_3c_M_virt, &
+                          matrix_s, mao_coeff_occ, mao_coeff_virt, &
                           eps_filter, starts_array, ends_array, sizes_array, color_sub, &
                           fm_mo_coeff_occ_beta, fm_mo_coeff_virt_beta, &
                           homo_beta, virtual_beta, dimen_ia_beta, Eigenval_beta, fm_mat_S_beta, &
@@ -2085,6 +2094,8 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int, &
                                                             mat_3c_overl_int_mao_for_occ, &
                                                             mat_3c_overl_int_mao_for_virt
+      TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(IN)    :: t_3c_overl_int
+      TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M_virt, t_3c_M_occ
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s, mao_coeff_occ, mao_coeff_virt
       REAL(KIND=dp)                                      :: eps_filter
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: starts_array, ends_array, sizes_array
@@ -3562,6 +3573,7 @@ CONTAINS
                                      mao_coeff_occ, mao_coeff_virt, 1, &
                                      mat_M_P_munu_occ, mat_M_P_munu_virt, mat_3c_overl_int_cut, &
                                      mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut, &
+                                     t_3c_overl_int, t_3c_M, &
                                      mat_dm_loc_occ_cut, mat_dm_loc_virt_cut, &
                                      weights_cos_tf_t_to_w, tj, tau_tj, e_fermi, eps_filter, alpha, &
                                      eps_filter_im_time, Eigenval, nmo, n_group_col, &
@@ -3595,6 +3607,7 @@ CONTAINS
                                            mao_coeff_occ, mao_coeff_virt, 2, &
                                            mat_M_P_munu_occ, mat_M_P_munu_virt, mat_3c_overl_int_cut, &
                                            mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut, &
+                                           t_3c_overl_int, t_3c_M, &
                                            mat_dm_loc_occ_cut, mat_dm_loc_virt_cut, &
                                            weights_cos_tf_t_to_w, tj, tau_tj, e_fermi_beta, eps_filter, alpha, &
                                            eps_filter_im_time, Eigenval_beta, nmo, n_group_col, &
@@ -3622,6 +3635,7 @@ CONTAINS
                                            mao_coeff_occ, mao_coeff_virt, 2, &
                                            mat_M_P_munu_occ, mat_M_P_munu_virt, mat_3c_overl_int_cut, &
                                            mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut, &
+                                           t_3c_overl_int, t_3c_M, &
                                            mat_dm_loc_occ_cut, mat_dm_loc_virt_cut, &
                                            weights_cos_tf_t_to_w, tj, tau_tj, e_fermi_beta, eps_filter, alpha, &
                                            eps_filter_im_time, Eigenval_beta, nmo, n_group_col, &
