@@ -1049,7 +1049,7 @@ CONTAINS
          ENDIF
          dist_start = dist_end + 1
          dist_end = dist_start + na_split - 1
-         dist_ao_1(dist_start:dist_end) = idim
+         dist_ao_1(dist_start:dist_end) = idim - 1
       ENDDO
 
       na_div = natoms/pdims(3)
@@ -1063,7 +1063,7 @@ CONTAINS
          ENDIF
          dist_start = dist_end + 1
          dist_end = dist_start + na_split - 1
-         dist_ao_2(dist_start:dist_end) = idim
+         dist_ao_2(dist_start:dist_end) = idim - 1
       ENDDO
 
       CALL dbcsr_t_distribution_new(dist, mp_comm_t3c_m, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2, ngroup=ngroup)
@@ -7843,37 +7843,33 @@ CONTAINS
 
                                  IF (ncoa*ncob*nco_RI > 0) THEN
 
-                                    ALLOCATE (s_abRI(ncoa, ncob, nco_RI))
+                                    ALLOCATE (s_abRI(nco_RI, ncoa, ncob))
                                     s_abRI(:, :, :) = 0.0_dp
 
-                                    CALL overlap3(la_max(iset), npgfa(iset), zeta(:, iset), rpgfa(:, iset), la_min(iset), &
+                                    CALL overlap3(l_max_RI(set_RI), npgf_RI(set_RI), zet_RI(:, set_RI), rpgf_RI(:, set_RI), &
+                                                  l_min_RI(set_RI), &
+                                                  la_max(iset), npgfa(iset), zeta(:, iset), rpgfa(:, iset), la_min(iset), &
                                                   lb_max(jset), npgfb(jset), zetb(:, jset), rpgfb(:, jset), lb_min(jset), &
-                                                  l_max_RI(set_RI), npgf_RI(set_RI), zet_RI(:, set_RI), rpgf_RI(:, set_RI), &
-                                                  l_min_RI(set_RI), rab, dab, raRI, daRI, rbRI, dbRI, s_abRI)
+                                                  raRI, daRI, rbRI, dbRI, rab, dab, s_abRI)
 
-                                    ALLOCATE (s_abRI_contr(nsgfa(iset), nsgfb(jset), nsgf_RI(set_RI)))
+
+                                    ALLOCATE (s_abRI_contr(nsgf_RI(set_RI), nsgfa(iset), nsgfb(jset)))
 
                                     CALL abc_contract(s_abRI_contr, s_abRI, &
-                                                      sphi_a(:, sgfa:), sphi_b(:, sgfb:), sphi_RI(:, sgf_RI:), &
-                                                      ncoa, ncob, nco_RI, nsgfa(iset), nsgfb(jset), nsgf_RI(set_RI))
+                                                      sphi_RI(:, sgf_RI:), sphi_a(:, sgfa:), sphi_b(:, sgfb:), &
+                                                      nco_RI, ncoa, ncob, nsgf_RI(set_RI), nsgfa(iset), nsgfb(jset))
 
-                                    ALLOCATE (s_abRI_contr_transposed(nsgfb(jset), nsgfa(iset), nsgf_RI(set_RI)))
+                                    ALLOCATE (s_abRI_contr_transposed(nsgf_RI(set_RI), nsgfb(jset), nsgfa(iset)))
 
                                     DO isgf_RI = 1, nsgf_RI(set_RI)
                                        DO isgfa = 1, nsgfa(iset)
                                           DO jsgfb = 1, nsgfb(jset)
-                                             s_abRI_contr_transposed(jsgfb, isgfa, isgf_RI) = &
-                                                s_abRI_contr(isgfa, jsgfb, isgf_RI)
+                                             s_abRI_contr_transposed(isgf_RI, jsgfb, isgfa) = &
+                                                s_abRI_contr(isgf_RI, isgfa, jsgfb)
                                           END DO
                                        END DO
                                     END DO
 
-                                    !DO isgf_RI = 1, nsgf_RI(set_RI)
-
-                                    !LLL = isgf_RI + sgf_RI - 1 - my_group_L_start + 1 + row_blk_start(atom_RI) - 1
-
-                                    IF (LLL < 1) CYCLE
-                                    IF (LLL > my_group_L_size) CYCLE
 
                                     IF (iatom < jatom) THEN
 
@@ -7911,7 +7907,7 @@ CONTAINS
                                        block_start_col = sgfb
                                        block_end_col = sgfb + nsgfb(jset) - 1
                                        block_start_RI = sgf_RI
-                                       block_end_RI = sgf_RI + nsgf_RI(set_RI)
+                                       block_end_RI = sgf_RI + nsgf_RI(set_RI) - 1
 
                                        ! factor 0.5 is necessary due to double filling due to double iterate loop
                                        block_t(block_start_RI:block_end_RI, &
@@ -7932,24 +7928,26 @@ CONTAINS
                                        block_start_col = sgfa
                                        block_end_col = sgfa + nsgfa(iset) - 1
                                        block_start_RI = sgf_RI
-                                       block_end_RI = sgf_RI + nsgf_RI(set_RI)
+                                       block_end_RI = sgf_RI + nsgf_RI(set_RI) - 1
 
                                        ! factor 0.5 is necessary due to double filling due to double iterate loop
                                        block_t(block_start_RI:block_end_RI, &
                                                block_start_row:block_end_row, &
                                                block_start_col:block_end_col) = &
-                                          0.5_dp*s_abRI_contr(:, :, :)
+                                          0.5_dp*s_abRI_contr_transposed(:, :, :)
 
                                        block_t_transposed(block_start_RI:block_end_RI, &
                                                           block_start_col:block_end_col, &
                                                           block_start_row:block_end_row) = &
-                                          0.5_dp*s_abRI_contr_transposed(:, :, :)
+                                          0.5_dp*s_abRI_contr(:, :, :)
                                     ELSE IF (iatom .EQ. jatom) THEN
 
                                        block_start_row = sgfa
                                        block_end_row = sgfa + nsgfa(iset) - 1
                                        block_start_col = sgfb
                                        block_end_col = sgfb + nsgfb(jset) - 1
+                                       block_start_RI = sgf_RI
+                                       block_end_RI = sgf_RI + nsgf_RI(set_RI) - 1
 
                                        block_t(block_start_RI:block_end_RI, &
                                                block_start_row:block_end_row, &
@@ -8746,10 +8744,6 @@ CONTAINS
       ALLOCATE (alloc_RI(nimg, nimg))
       ALLOCATE (alloc_ao1(nimg, nimg))
       ALLOCATE (alloc_ao2(nimg, nimg))
-      !ALLOCATE (old_ao1(nimg, nimg))
-      !old_ao1 = -1
-      !ALLOCATE (old_ao2(nimg, nimg))
-      !old_ao2 = -1
       !ALLOCATE (old_ri(nimg, nimg))
       !old_ri = -1
       ALLOCATE (old_row(nimg, nimg))
@@ -8948,6 +8942,9 @@ CONTAINS
                               col = iatom
                            END IF
 
+                           IF(old_row(i_img_outer, j_img_outer) == row .AND. &
+                              old_col(i_img_outer, j_img_outer) == col) CYCLE
+
                            ASSOCIATE (aRI=>alloc_RI(i_img_outer, j_img_outer))
                               ASSOCIATE (a_ao1=>alloc_ao1(i_img_outer, j_img_outer))
                                  ASSOCIATE (a_ao2=>alloc_ao2(i_img_outer, j_img_outer))
@@ -8975,6 +8972,7 @@ CONTAINS
                                        ENDIF
                                     ENDIF
 
+
                                     IF (allocated(a_ao1%array)) THEN
                                        tmp(:) = a_ao1%array(:)
                                        DEALLOCATE (a_ao1%array)
@@ -8999,6 +8997,7 @@ CONTAINS
                                        ENDIF
                                     ENDIF
 
+
                                     IF (allocated(a_ao2%array)) THEN
                                        tmp(:) = a_ao2%array(:)
                                        DEALLOCATE (a_ao2%array)
@@ -9022,6 +9021,9 @@ CONTAINS
                                           a_ao2%array(2) = row
                                        ENDIF
                                     ENDIF
+
+                                    old_row(i_img_outer, j_img_outer) = row
+                                    old_col(i_img_outer, j_img_outer) = col
 
                                     IF (ALLOCATED(tmp)) DEALLOCATE (tmp)
                                  END ASSOCIATE

@@ -348,6 +348,7 @@ CONTAINS
                         IF (R_1_minus_T_needed .AND. R_2_minus_S_minus_T_needed) THEN
 
                            CALL timeset(routineN//"_calc_M_t", handle5)
+
                            CALL dbcsr_t_contract(alpha=dbcsr_scalar(alpha/2.0_dp), &
                                                  tensor_1=t_3c_overl_int(i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
                                                  tensor_2=t_dm_virt(i_cell_S), &
