@@ -327,10 +327,8 @@ CONTAINS
          my_B_all_end, my_B_all_size, my_B_all_start, my_B_occ_bse_end, my_B_occ_bse_size, &
          my_B_occ_bse_start, my_B_size, my_B_size_beta, my_B_virt_bse_end, my_B_virt_bse_size, &
          my_B_virt_bse_start, my_B_virtual_end, my_B_virtual_end_beta, my_B_virtual_start, &
-         my_B_virtual_start_beta, my_group_L_end, my_group_L_size, my_group_L_start, natom,&
-         mp_comm_sub_2d, numnodes
-      INTEGER :: ngroup, ngroup_im_time, ngroup_im_time_P, num_diff_blk, num_small_eigen, virtual, virtual_beta,&
-         nblkrows_total
+         my_B_virtual_start_beta, my_group_L_end, my_group_L_size, my_group_L_start, natom
+      INTEGER :: ngroup, ngroup_im_time, ngroup_im_time_P, num_diff_blk, num_small_eigen, virtual, virtual_beta
       INTEGER, ALLOCATABLE, DIMENSION(:) :: local_atoms_for_mao_basis, my_group_L_ends_im_time, &
          my_group_L_sizes_im_time, my_group_L_starts_im_time, sub_proc_map, local_atoms_RI
       INTEGER, ALLOCATABLE, DIMENSION(:, :) :: local_col_row_info, local_col_row_info_beta, &
@@ -355,9 +353,10 @@ CONTAINS
          DIMENSION(:)                                    :: mao_coeff_repl_occ, mao_coeff_repl_virt
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: row_blk_sizes_RI_t, row_dist_RI_t
       TYPE(dbcsr_t_pgrid_type)                           :: mp_comm_t3c_overl, mp_comm_t3c_m
+      TYPE(dbcsr_distribution_type)                      :: dist_sub
       !INTEGER, ALLOCATABLE, DIMENSION(:,:)               :: eri_offsets
-      INTEGER, DIMENSION(:), POINTER                     :: ao_blk_sizes, col_blk_sizes, row_blk_offset, row_blk_sizes
-      INTEGER, DIMENSION(2)                              :: task_coor, pdims_sub_2d
+      INTEGER, DIMENSION(:), POINTER                     :: ao_blk_sizes
+      INTEGER, DIMENSION(2)                              :: pdims_sub_2d
       !INTEGER, ALLOCATABLE, DIMENSION(:)                 :: nblk_RI_offset
 
       CALL timeset(routineN, handle)
@@ -894,13 +893,8 @@ CONTAINS
          IF (do_dbcsr_t) THEN
 
             CALL dbcsr_get_info(mat_munu%matrix, &
-                                row_blk_offset=row_blk_offset, &
-                                row_blk_size=row_blk_sizes, &
-                                col_blk_size=col_blk_sizes, &
-                                nblkrows_total=nblkrows_total, &
-                                group=mp_comm_sub_2d)
-
-            CALL mp_environ(numnodes, pdims_sub_2d, task_coor, mp_comm_sub_2d)
+                                distribution=dist_sub)
+            CALL dbcsr_distribution_get(dist_sub, nprows = pdims_sub_2d(1), npcols = pdims_sub_2d(2))
 
             pdims_t3c = [ngroup_im_time, pdims_sub_2d(1), pdims_sub_2d(2)]
 
@@ -1045,6 +1039,7 @@ CONTAINS
 
       na_div = natoms/pdims(2)
       na_rem = MOD(natoms, pdims(2))
+
       ALLOCATE(dist_ao_1(natoms))
       dist_end = 0
       DO idim=1,pdims(2)
@@ -1053,7 +1048,7 @@ CONTAINS
             na_split = na_split+1
          ENDIF
          dist_start = dist_end + 1
-         dist_end = dist_start + na_split
+         dist_end = dist_start + na_split - 1
          dist_ao_1(dist_start:dist_end) = idim
       ENDDO
 
@@ -1067,7 +1062,7 @@ CONTAINS
             na_split = na_split+1
          ENDIF
          dist_start = dist_end + 1
-         dist_end = dist_start + na_split
+         dist_end = dist_start + na_split - 1
          dist_ao_2(dist_start:dist_end) = idim
       ENDDO
 
@@ -8616,7 +8611,7 @@ CONTAINS
          LLL_set_start, maxval_1, maxval_2, maxval_3, minval_1, minval_2, minval_3, &
          my_group_L_end, my_group_L_size, my_group_L_start, natom, nblkrows_total, nco_RI, ncoa, &
          ncob, nimg, nkind, nset_RI, nseta, nsetb, num_loops, row, set_RI, sgf_RI, sgfa, sgfb, &
-         iatom_RI, blk_count !atom_RI_index
+         iatom_RI !atom_RI_index
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_from_RI_index, kind_of, tmp
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: old_col, old_row !, old_ao1, old_ao2, old_ri
       INTEGER, DIMENSION(3)                              :: cell_vec, outer_cell_vec
@@ -8957,16 +8952,16 @@ CONTAINS
                               ASSOCIATE (a_ao1=>alloc_ao1(i_img_outer, j_img_outer))
                                  ASSOCIATE (a_ao2=>alloc_ao2(i_img_outer, j_img_outer))
                                     IF (ALLOCATED(aRI%array)) THEN
-                                       blk_count = SIZE(aRI%array)
-                                       ALLOCATE (tmp(blk_count))
+                                       blk_cnt = SIZE(aRI%array)
+                                       ALLOCATE (tmp(blk_cnt))
                                        tmp(:) = aRI%array(:)
                                        DEALLOCATE (aRI%array)
                                        IF (row == col) THEN
-                                          ALLOCATE (aRI%array(blk_count + 1))
+                                          ALLOCATE (aRI%array(blk_cnt + 1))
                                           aRI%array(1:blk_cnt) = tmp(:)
                                           aRI%array(blk_cnt + 1) = atom_RI
                                        ELSE
-                                          ALLOCATE (aRI%array(blk_count + 2))
+                                          ALLOCATE (aRI%array(blk_cnt + 2))
                                           aRI%array(1:blk_cnt) = tmp(:)
                                           aRI%array(blk_cnt + 1:) = atom_RI
                                        ENDIF
@@ -8984,11 +8979,11 @@ CONTAINS
                                        tmp(:) = a_ao1%array(:)
                                        DEALLOCATE (a_ao1%array)
                                        IF (row == col) THEN
-                                          ALLOCATE (a_ao1%array(blk_count + 1))
+                                          ALLOCATE (a_ao1%array(blk_cnt + 1))
                                           a_ao1%array(1:blk_cnt) = tmp(:)
                                           a_ao1%array(blk_cnt + 1) = row
                                        ELSE
-                                          ALLOCATE (a_ao1%array(blk_count + 2))
+                                          ALLOCATE (a_ao1%array(blk_cnt + 2))
                                           a_ao1%array(1:blk_cnt) = tmp(:)
                                           a_ao1%array(blk_cnt + 1) = row
                                           a_ao1%array(blk_cnt + 2) = col
@@ -9008,11 +9003,11 @@ CONTAINS
                                        tmp(:) = a_ao2%array(:)
                                        DEALLOCATE (a_ao2%array)
                                        IF (row == col) THEN
-                                          ALLOCATE (a_ao2%array(blk_count + 1))
+                                          ALLOCATE (a_ao2%array(blk_cnt + 1))
                                           a_ao2%array(1:blk_cnt) = tmp(:)
                                           a_ao2%array(blk_cnt + 1) = row
                                        ELSE
-                                          ALLOCATE (a_ao2%array(blk_count + 2))
+                                          ALLOCATE (a_ao2%array(blk_cnt + 2))
                                           a_ao2%array(1:blk_cnt) = tmp(:)
                                           a_ao2%array(blk_cnt + 1) = col
                                           a_ao2%array(blk_cnt + 2) = row
@@ -9044,16 +9039,15 @@ CONTAINS
          DO i_img = 1, nimg
             DO j_img = 1, nimg
                IF (i_img > j_img) CYCLE
-               IF (rows_to_alloc(i_img, j_img)%array(1) .NE. 0) THEN
+               IF (ALLOCATED(alloc_RI(i_img, j_img)%array)) THEN
                   CALL dbcsr_t_reserve_blocks(t_3c_overl_int(i_img, j_img), &
-                                              alloc_RI(i_img_outer, j_img_outer)%array, &
-                                              alloc_ao1(i_img_outer, j_img_outer)%array, &
-                                              alloc_ao2(i_img_outer, j_img_outer)%array)
-
+                                              alloc_RI(i_img, j_img)%array, &
+                                              alloc_ao1(i_img, j_img)%array, &
+                                              alloc_ao2(i_img, j_img)%array)
                ENDIF
             ENDDO
          ENDDO
-      ENDIF
+      ENDIF ! do_dbcsr_t
 
       DO i_cut_RI = 1, cut_RI
 
