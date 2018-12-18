@@ -120,7 +120,7 @@ CONTAINS
       CALL section_vals_val_get(mp2_section, "IM_TIME", &
                                 l_val=mp2_env%do_im_time)
       CALL section_vals_val_get(mp2_section, "DO_DBCSR_T", &
-                                l_val=mp2_env%do_im_time)
+                                l_val=mp2_env%do_dbcsr_t)
 
       CALL section_vals_val_get(mp2_section, "RI_RPA%AXK", &
                                 l_val=mp2_env%ri_rpa%do_ri_axk)
