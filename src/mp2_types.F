@@ -146,6 +146,7 @@ MODULE mp2_types
       INTEGER, DIMENSION(:), POINTER     :: nmao_occ, nmao_virt
       LOGICAL                  :: do_gw_im_time, do_im_time_kpoints
       REAL(KIND=dp)            :: stabilize_exp
+      LOGICAL  :: do_dbcsr_t
    END TYPE
 
    TYPE ri_g0w0_type
@@ -250,7 +251,6 @@ MODULE mp2_types
       LOGICAL  :: p_screen
       LOGICAL  :: not_last_hfx
       LOGICAL  :: do_im_time
-      LOGICAL  :: do_dbcsr_t
       INTEGER  :: eri_method
       TYPE(cp_eri_mme_param), POINTER  :: eri_mme_param
       INTEGER, DIMENSION(:), POINTER  :: eri_blksize => NULL()

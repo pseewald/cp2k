@@ -257,7 +257,7 @@ CONTAINS
 
       ! check if we want to do imaginary time
       do_im_time = mp2_env%do_im_time
-      do_dbcsr_t = mp2_env%do_dbcsr_t
+      do_dbcsr_t = mp2_env%ri_rpa_im_time%do_dbcsr_t
       do_mao = mp2_env%ri_rpa_im_time%do_mao
       do_bse = qs_env%mp2_env%ri_g0w0%do_bse
       do_kpoints_cubic_RPA = qs_env%mp2_env%ri_rpa_im_time%do_im_time_kpoints

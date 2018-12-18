@@ -119,8 +119,7 @@ CONTAINS
                                 l_val=mp2_env%ri_rpa%do_ri_g0w0)
       CALL section_vals_val_get(mp2_section, "IM_TIME", &
                                 l_val=mp2_env%do_im_time)
-      CALL section_vals_val_get(mp2_section, "DO_DBCSR_T", &
-                                l_val=mp2_env%do_dbcsr_t)
+
 
       CALL section_vals_val_get(mp2_section, "RI_RPA%AXK", &
                                 l_val=mp2_env%ri_rpa%do_ri_axk)
@@ -267,6 +266,8 @@ CONTAINS
                                 r_val=mp2_env%ri_rpa_im_time%stabilize_exp)
       CALL section_vals_val_get(mp2_section, "IM_TIME%DO_KPOINTS", &
                                 l_val=mp2_env%ri_rpa_im_time%do_im_time_kpoints)
+      CALL section_vals_val_get(mp2_section, "IM_TIME%DO_DBCSR_T", &
+                                l_val=mp2_env%ri_rpa_im_time%do_dbcsr_t)
 
       CALL section_vals_val_get(mp2_section, "IM_TIME%RI_G0W0", &
                                 l_val=mp2_env%ri_rpa_im_time%do_gw_im_time)
