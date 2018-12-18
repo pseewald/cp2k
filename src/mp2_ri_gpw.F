@@ -367,6 +367,8 @@ CONTAINS
       CALL get_qs_env(qs_env=qs_env, &
                       kpoints=kpoints)
 
+      PRINT *, "do im time", do_im_time
+
       do_alpha_beta = .FALSE.
       IF (PRESENT(BIb_C_beta) .AND. &
           PRESENT(ends_B_virtual_beta) .AND. &
@@ -807,6 +809,7 @@ CONTAINS
 
          DEALLOCATE (my_Lrows, sizes_array, starts_array, ends_array)
 
+         PRINT *, "somehow ended up in gw code" ! is not printed
          ! difference to call of calculate_Lmin1 above: other RI metric for GW
          CALL calculate_Lmin1(qs_env, eri_method, eri_param, para_env, para_env_sub, para_env_L, mp2_memory, &
                               fm_matrix_L, ngroup, color_sub, dimen_RI, &
@@ -1621,6 +1624,8 @@ CONTAINS
             DEALLOCATE (sizes_array, starts_array, ends_array)
 
             ALLOCATE (fm_matrix_L_RI_metric(1, 1))
+
+            PRINT *, "i am here, how did i get there?"
 
             ! Calculate matrix of RI operator (for overlap metric: S), store it in fm_matrix_L_RI_metric
             CALL compute_2c_integrals(qs_env, eri_method, eri_param, para_env, para_env_sub, para_env_L, mp2_memory, &
@@ -2866,6 +2871,7 @@ CONTAINS
 
          CALL timestop(handle3)
 
+         PRINT*,"calculating mme integrals", eri_method, my_ri_metric
          IF ((eri_method .EQ. do_eri_mme .OR. eri_method .EQ. do_eri_os) &
              .AND. my_ri_metric .EQ. ri_coulomb) THEN
 

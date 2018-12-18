@@ -19,7 +19,7 @@ MODULE mp2_types
                                               hfx_type,&
                                               pair_list_element_type
    USE input_constants,                 ONLY: &
-        do_eri_mme, mp2_method_direct, mp2_method_gpw, mp2_method_laplace, mp2_method_none, &
+        do_eri_mme, do_eri_os, mp2_method_direct, mp2_method_gpw, mp2_method_laplace, mp2_method_none, &
         mp2_ri_optimize_basis, ri_mp2_laplace, ri_mp2_method_gpw, ri_rpa_method_gpw
    USE kinds,                           ONLY: default_path_length,&
                                               dp
@@ -322,7 +322,7 @@ CONTAINS
          CALL hfx_release(mp2_env%ri_rpa%x_data)
       END IF
 
-      IF (mp2_env%eri_method .EQ. do_eri_mme) CALL cp_eri_mme_finalize(mp2_env%eri_mme_param)
+      IF (mp2_env%eri_method .EQ. do_eri_mme .OR. mp2_env%eri_method .EQ. do_eri_os) CALL cp_eri_mme_finalize(mp2_env%eri_mme_param)
       IF (ASSOCIATED(mp2_env%eri_mme_param)) DEALLOCATE (mp2_env%eri_mme_param)
 
       DEALLOCATE (mp2_env)

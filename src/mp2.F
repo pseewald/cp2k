@@ -193,6 +193,7 @@ CONTAINS
       CALL cite_reference(DelBen2012)
 
       do_kpoints_cubic_RPA = qs_env%mp2_env%ri_rpa_im_time%do_im_time_kpoints
+      PRINT *, "do im time 4", qs_env%mp2_env%do_im_time
 
       ! for cubic RPA and GW, we have kpoints and therefore, we get other matrices later
       IF (do_kpoints_cubic_RPA) THEN

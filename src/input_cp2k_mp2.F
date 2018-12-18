@@ -238,6 +238,16 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(&
+         keyword=keyword, &
+         name="DO_DBCSR_T", &
+         description="Uses DBCSR tensors for cubic scaling RPA/L-SOS-MP2 instead of manually coded tensor contractions", &
+         usage="DO_DBCSR_T", &
+         default_l_val=.FALSE., &
+         lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL create_mp2_direct(subsection)
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)

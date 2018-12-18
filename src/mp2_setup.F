@@ -13,9 +13,9 @@ MODULE mp2_setup
    USE cp_eri_mme_interface,            ONLY: cp_eri_mme_init_read_input
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
                                               cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE input_constants,                 ONLY: do_eri_mme
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+      cp_print_key_unit_nr
+   USE input_constants, ONLY: do_eri_mme, do_eri_os
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type,&
                                               section_vals_val_get
@@ -119,6 +119,7 @@ CONTAINS
                                 l_val=mp2_env%ri_rpa%do_ri_g0w0)
       CALL section_vals_val_get(mp2_section, "IM_TIME", &
                                 l_val=mp2_env%do_im_time)
+      PRINT *, "do im time 3", mp2_env%do_im_time
       CALL section_vals_val_get(mp2_section, "DO_DBCSR_T", &
                                 l_val=mp2_env%do_im_time)
 
@@ -312,7 +313,8 @@ CONTAINS
       NULLIFY (mp2_env%eri_mme_param)
       ALLOCATE (mp2_env%eri_mme_param)
 
-      IF (mp2_env%eri_method .EQ. do_eri_mme) THEN
+      IF (mp2_env%eri_method .EQ. do_eri_mme .OR. mp2_env%eri_method .EQ. do_eri_os) THEN
+         ! todo: separate flags for 2 and 3 center integrals
          eri_mme_section => section_vals_get_subs_vals(mp2_section, "ERI_MME")
          CALL cp_eri_mme_init_read_input(eri_mme_section, mp2_env%eri_mme_param)
       ENDIF
