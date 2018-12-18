@@ -62,7 +62,7 @@ OPTIONS:
                           from wget or ones saying that "common name doesn't
                           match requested host name" while at tarball downloading
                           stage, then the recommended solution is to install
-                          the newest wget release.  Alternatively, you can use
+                          the newest wget release. Alternatively, you can use
                           this option to bypass the verification and proceed with
                           the download. Security wise this should still be okay
                           as the installation script will check file checksums
@@ -74,10 +74,10 @@ OPTIONS:
                           --with-PKG option placed AFTER this option on the
                           command line.
 --mpi-mode                Selects which MPI flavour to use. Available options
-                          are: mpich, openmpi and no.  By selecting no, you will
-                          be disabling MPI support.  By default the script
+                          are: mpich, openmpi and no. By selecting no, you will
+                          be disabling MPI support. By default the script
                           will try to determine the flavour based on the MPI library
-                          currently avaliable in your system path. For CRAY (CLE)
+                          currently available in your system path. For CRAY (CLE)
                           systems, the default flavour is mpich. Note that explicitly
                           setting --with-mpich or --with-openmpi options to values
                           other than no will also switch --mpi-mode to the respective
@@ -93,6 +93,10 @@ OPTIONS:
                           --with-acml, --with-mkl or --with-openblas options will
                           switch --math-mode to the respective modes, BUT
                           --with-reflapack option do not have this effect.
+--gpu-ver                 Selects the GPU architecture for which to compile. Available
+                          options are: K20X, K40, K80, P100, no. Default: no.
+                          The script will determine the correct corresponding value for
+                          nvcc's '-arch' flag.
 
 The --enable-FEATURE options follow the rules:
   --enable-FEATURE=yes    Enable this particular feature
@@ -174,7 +178,7 @@ The --with-PKG options follow the rules:
                           the one specified by --with-scalapack option.
                           Default = system
   --with-openblas         OpenBLAS is a free high performance LAPACK and BLAS library,
-                          the sucessor to GotoBLAS.
+                          the successor to GotoBLAS.
                           Default = install
   --with-scalapack        Parallel linear algebra library, needed for parallel
                           calculations.
@@ -184,7 +188,7 @@ The --with-PKG options follow the rules:
                           --with-libsmm=install, then instead of actually compiling
                           the library (which may take a long time), the script will
                           try to download a preexisting version from the CP2K website
-                          that is compatable with your system.
+                          that is compatible with your system.
                           Default = no
   --with-libxsmm          Small matrix multiplication library for x86_64 systems. If
                           your system arch is x86_64, then you can use libxsmm
@@ -198,7 +202,7 @@ The --with-PKG options follow the rules:
   --with-parmetis         ParMETIS, and if --with-parmetis=install will also install
                           METIS, only used if PEXSI is used
                           Default = no
-  --with-metis            METIS, --with-metis=install actuall does nothing, because
+  --with-metis            METIS, --with-metis=install actually does nothing, because
                           METIS is installed together with ParMETIS.  This option
                           is used to specify the METIS library if it is pre-installed
                           else-where. Only used if PEXSI is used
@@ -212,12 +216,12 @@ The --with-PKG options follow the rules:
   --with-sirius           Enable interface to the plane wave SIRIUS library.
                           This package requires: gsl, libspg, elpa, scalapack, json-fortran, hdf5 and libxc.
                           Default = install
-  --with-gsl              Enable the gnu scientific library library
+  --with-gsl              Enable the gnu scientific library
                           Default = install
   --with-spglib           Enable the spg library (search of symmetry groups)
                           This package depends on cmake.
                           Default = install
-  --with-hdf5             Enable the hdf5 library (use by sirius library)
+  --with-hdf5             Enable the hdf5 library (used by the sirius library)
                           Default = install
   --with-json-fortran     Enable the json fortran library (used by cp2k when sirius is activated)
                           This package depends on cmake.
@@ -226,7 +230,7 @@ The --with-PKG options follow the rules:
 
 FURTHER INSTRUCTIONS
 
-All packages to be installed locally will be downloaded and build inside
+All packages to be installed locally will be downloaded and built inside
 ./build, and then installed into package specific directories inside
 ./install.
 
@@ -238,7 +242,7 @@ the same location as it was first created, as it contains tools and libraries
 your version of CP2K binary will depend on.
 
 It should be safe to terminate running of this script in the middle of a
-build process.  The script will know if a package has been successfully
+build process. The script will know if a package has been successfully
 installed, and will just carry on and recompile and install the last
 package it is working on. This is true even if you lose the content of
 the entire ./build directory.
@@ -336,9 +340,11 @@ enable_omp=__TRUE__
 if (command -v nvcc >&- 2>&-) ; then
    echo "nvcc found, enabling CUDA by default"
    enable_cuda=__TRUE__
+   export GPUVER=no
 else
    echo "nvcc not found, disabling CUDA by default"
    enable_cuda=__FALSE__
+   export GPUVER=no
 fi
 
 # defaults for CRAY Linux Environment
@@ -419,6 +425,31 @@ while [ $# -ge 1 ] ; do
                 *)
                     report_error ${LINENO} \
                     "--math-mode currently only supports mkl, acml, openblas and reflapack as options"
+            esac
+            ;;
+        --gpu-ver=*)
+            user_input="${1#*=}"
+            case "$user_input" in
+                K20X)
+                    export GPUVER=K20X
+                    ;;
+                K40)
+                    export GPUVER=K40
+                    ;;
+                K80)
+                    export GPUVER=K80
+                    ;;
+                P100)
+                    export GPUVER=P100
+                    ;;
+                no)
+                    export GPUVER=no
+                    ;;
+                *)
+                    export GPUVER=no
+                    report_error ${LINENO} \
+                    "--gpu-ver currently only supports K20X, K40, K80, P100 and no as options"
+		    exit 1
             esac
             ;;
         --enable-tsan*)
@@ -601,7 +632,7 @@ export ENABLE_CRAY=$enable_cray
 # GCC thread sanitizer conflicts
 if [ $ENABLE_TSAN = "__TRUE__" ] ; then
     if [ "$with_openblas" != "__DONTUSE__" ] ; then
-        echo "TSAN is enabled, canoot use openblas, we will use reflapack instead"
+        echo "TSAN is enabled, cannot use openblas, we will use reflapack instead"
         [ "$with_reflapack" = "__DONTUSE__" ] && with_reflapack="__INSTALL__"
         export FAST_MATH_MODE=reflapack
     fi
@@ -641,6 +672,14 @@ else
         echo "You have chosen to install GCC, therefore MPI libraries will have to be installed too"
         with_openmpi="__INSTALL__"
         with_mpich="__INSTALL__"
+    fi
+fi
+
+# If CUDA is enabled, make sure the GPU version has been defined
+if [ $ENABLE_CUDA = __TRUE__ ] ; then
+    if [ "$GPUVER" = no ] ; then
+        report_error "CUDA enabled, please choose GPU architecture to compile for with --gpu-ver"
+        exit 1
     fi
 fi
 
@@ -829,6 +868,25 @@ export FCLAGS=${FCLAGS:-"-O2 -g -Wno-error"}
 export F90FLAGS=${F90FLAGS:-"-O2 -g -Wno-error"}
 export F77FLAGS=${F77FLAGS:-"-O2 -g -Wno-error"}
 export CXXFLAGS=${CXXFLAGS:-"-O2 -g -Wno-error"}
+
+# Select the correct compute number based on the GPU architecture
+case $GPUVER in
+    K20X)
+        export ARCH_NUM=35
+        ;;
+    K40)
+        export ARCH_NUM=35
+        ;;
+    K80)
+        export ARCH_NUM=37
+        ;;
+    P100)
+        export ARCH_NUM=60
+        ;;
+    *)
+        report_error ${LINENO} \
+        "--gpu-ver currently only supports K20X, K40, K80, P100 as options"
+esac
 
 # need to setup tools after all of the tools are built. We should use
 # consistent pairs of gcc and binutils etc for make. So we use system
@@ -1030,13 +1088,35 @@ LDFLAGS="\$(FCFLAGS) ${CP_LDFLAGS}"
 # add standard libs
 LIBS="${CP_LIBS} -lstdc++"
 
-# CUDA stuff
+# CUDA handling
 CUDA_LIBS="-lcudart -lnvrtc -lcuda -lcufft -lcublas -lrt IF_DEBUG(-lnvToolsExt|)"
 CUDA_DFLAGS="-D__ACC -D__DBCSR_ACC -D__PW_CUDA IF_DEBUG(-D__CUDA_PROFILING|)"
 if [ "$ENABLE_CUDA" = __TRUE__ ] ; then
     LIBS="${LIBS} IF_CUDA(${CUDA_LIBS}|)"
     DFLAGS="IF_CUDA(${CUDA_DFLAGS}|) ${DFLAGS}"
-    NVFLAGS="-arch sm_35 -Xcompiler='-fopenmp' --std=c++11 \$(DFLAGS)"
+    NVFLAGS="-arch sm_${ARCH_NUM} -Xcompiler='-fopenmp' --std=c++11 \$(DFLAGS)"
+    check_command nvcc "cuda"
+    check_lib -lcudart "cuda"
+    check_lib -lnvrtc "cuda"
+    check_lib -lcuda "cuda"
+    check_lib -lcufft "cuda"
+    check_lib -lcublas "cuda"
+    
+    # Set include flags 
+    CUDA_CFLAGS=''
+    add_include_from_paths CUDA_CFLAGS "cuda.h" $INCLUDE_PATHS
+    export CUDA_CFLAGS="${CUDA_CFLAGS}"
+    CFLAGS+=" ${CUDA_CFLAGS}"
+
+    # Set LD-flags
+    CUDA_LDFLAGS=''
+    add_lib_from_paths CUDA_LDFLAGS "libcudart.*" $LIB_PATHS
+    add_lib_from_paths CUDA_LDFLAGS "libnvrtc.*" $LIB_PATHS
+    add_lib_from_paths CUDA_LDFLAGS "libcuda.*" $LIB_PATHS
+    add_lib_from_paths CUDA_LDFLAGS "libcufft.*" $LIB_PATHS
+    add_lib_from_paths CUDA_LDFLAGS "libcublas.*" $LIB_PATHS
+    export CUDA_LDFLAGS="${CUDA_LDFLAGS}"
+    LDFLAGS+=" ${CUDA_LDFLAGS}"
 fi
 
 # -------------------------
@@ -1067,10 +1147,10 @@ gen_arch_file() {
     if [ "$__CUDA" = "on" ] ; then
       cat <<EOF >> $__filename
 #
-CXX         = CC
+CXX         = \${CC}
 CXXFLAGS    = \${CXXFLAGS} -I\\\${CUDA_PATH}/include -std=c++11
-GPUVER      = K20X
-NVCC        = \${NVCC} -D__GNUC__=4 -D__GNUC_MINOR__=9 -Xcompiler=--std=gnu++98
+GPUVER      = \${GPUVER}
+NVCC        = \${NVCC} -D__GNUC__=4 -D__GNUC_MINOR__=9
 NVFLAGS     = \${NVFLAGS}
 EOF
     fi
