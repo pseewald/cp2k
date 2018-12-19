@@ -8639,6 +8639,7 @@ CONTAINS
          DIMENSION(:, :)                                 :: cols_to_alloc, rows_to_alloc, alloc_ao1, alloc_ao2, alloc_RI
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
+      INTEGER :: iblk
       TYPE(dbcsr_t_distribution_type)                    :: dist_o3c
 
       CALL timeset(routineN, handle)
@@ -8796,6 +8797,7 @@ CONTAINS
 
                   CALL get_iterator_info(nl_iterator, &
                                          iatom=iatom, jatom=jatom, r=rab, cell=cell_vec)
+                  !PRINT *, "nl", atom_RI, iatom, jatom
 
                   DO i_img_outer = 1, nimg
                      DO j_img_outer = 1, nimg
@@ -8948,6 +8950,20 @@ CONTAINS
                            ASSOCIATE (aRI=>alloc_RI(i_img_outer, j_img_outer))
                               ASSOCIATE (a_ao1=>alloc_ao1(i_img_outer, j_img_outer))
                                  ASSOCIATE (a_ao2=>alloc_ao2(i_img_outer, j_img_outer))
+
+                                    new_block = .TRUE.
+                                    IF (ALLOCATED(a_ao1%array)) THEN
+                                       DO iblk = 1, SIZE(a_ao1%array)
+                                          IF (aRI%array(iblk) == atom_RI .AND. &
+                                              a_ao1%array(iblk) == row .AND. &
+                                              a_ao2%array(iblk) == col) THEN
+                                             new_block = .FALSE.
+                                             EXIT
+                                          ENDIF
+                                       ENDDO
+                                    ENDIF
+                                    IF(.NOT. new_block) CYCLE
+
                                     IF (ALLOCATED(aRI%array)) THEN
                                        blk_cnt = SIZE(aRI%array)
                                        ALLOCATE (tmp(blk_cnt))
@@ -9042,6 +9058,11 @@ CONTAINS
             DO j_img = 1, nimg
                IF (i_img > j_img) CYCLE
                IF (ALLOCATED(alloc_RI(i_img, j_img)%array)) THEN
+                  !DO iblk=1,SIZE(alloc_RI(i_img, j_img)%array)
+                  !   PRINT *, "blocks to allocate", alloc_RI(i_img, j_img)%array(iblk), &
+                  !      alloc_ao1(i_img, j_img)%array(iblk),&
+                  !      alloc_ao2(i_img, j_img)%array(iblk)
+                  !ENDDO
                   CALL dbcsr_t_reserve_blocks(t_3c_overl_int(i_img, j_img), &
                                               alloc_RI(i_img, j_img)%array, &
                                               alloc_ao1(i_img, j_img)%array, &
