@@ -327,7 +327,7 @@ CONTAINS
                                                  contract_1=[3], notcontract_1=[1, 2], &
                                                  contract_2=[1], notcontract_2=[2], &
                                                  map_1=[1, 2], map_2=[3],&
-                                                 filter_eps=eps_filter, &
+                                                 !filter_eps=eps_filter, &
                                                  flop=flop_occ)
                            CALL timestop(handle5)
 
@@ -335,7 +335,7 @@ CONTAINS
                      ENDDO
 
                      CALL timeset(routineN//"_copy_M_t", handle5)
-                     CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_occ)
+                     CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_occ, order=[1,3,2])
                      CALL dbcsr_t_set(t_3c_M_tmp, 0.0_dp)
                      CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
                      CALL timestop(handle5)
@@ -357,14 +357,14 @@ CONTAINS
                                                  contract_1=[3], notcontract_1=[1, 2], &
                                                  contract_2=[1], notcontract_2=[2], &
                                                  map_1=[1, 2], map_2=[3],&
-                                                 filter_eps=eps_filter, &
+                                                 !filter_eps=eps_filter, &
                                                  flop=flop_virt)
                            CALL timestop(handle5)
                         ENDIF
                      ENDDO
 
                      CALL timeset(routineN//"_copy_M_t", handle5)
-                     CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_virt)
+                     CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_virt, order=[1,2,3])
                      CALL dbcsr_t_set(t_3c_M_tmp, 0.0_dp)
                      CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
                      CALL timestop(handle5)
@@ -378,8 +378,10 @@ CONTAINS
                                            contract_1=[2,3], notcontract_1=[1],&
                                            contract_2=[2,3], notcontract_2=[1],&
                                            map_1=[1], map_2=[2],&
-                                           filter_eps=eps_filter_im_time, &
+                                           !filter_eps=eps_filter_im_time, &
                                            flop=num_flops_mat_P)
+
+                     !PRINT *, "num flops P", num_flops_mat_P
 
                      CALL dbcsr_t_copy_tensor_to_matrix(t_P, mat_P_global%matrix)
 
