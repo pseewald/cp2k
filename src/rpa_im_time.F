@@ -58,7 +58,8 @@ MODULE rpa_im_time
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
    USE dbcsr_tensor_api,                ONLY: dbcsr_t_type, dbcsr_t_contract, dbcsr_t_create, &
                                               dbcsr_t_copy_matrix_to_tensor, dbcsr_t_copy, dbcsr_t_set, &
-                                              dbcsr_t_filter, dbcsr_t_destroy, dbcsr_t_copy_tensor_to_matrix
+                                              dbcsr_t_filter, dbcsr_t_destroy, dbcsr_t_copy_tensor_to_matrix, &
+                                              dbcsr_t_contract_test, dbcsr_t_get_info
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -250,6 +251,8 @@ CONTAINS
       TYPE(dbcsr_t_type), DIMENSION(:), ALLOCATABLE                   :: t_dm_virt, t_dm_occ
       TYPE(dbcsr_t_type)                                 :: t_3c_M_tmp
       TYPE(dbcsr_t_type)                                 :: t_3c_M_virt, t_3c_M_occ, t_P
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsize_P_1, bsize_P_2, bsize_t_1, bsize_t_2, bsize_t_3, &
+                                                            boff_P_1, boff_P_2, boff_t_1, boff_t_2, boff_t_3
 
 
       memory_info = mp2_env%ri_rpa_im_time%memory_info
@@ -285,16 +288,16 @@ CONTAINS
          IF(do_dbcsr_t) THEN
             ALLOCATE(t_dm_virt(num_cells_dm))
             ALLOCATE(t_dm_occ(num_cells_dm))
-            CALL dbcsr_t_create(mat_P_global%matrix, t_P)
+            CALL dbcsr_t_create(mat_P_global%matrix, t_P, name="P matrix")
             DO i_cell = 1, num_cells_dm
-               CALL dbcsr_t_create(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell))
+               CALL dbcsr_t_create(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell), name="D virt")
                CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell))
-               CALL dbcsr_t_create(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
+               CALL dbcsr_t_create(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell), name="D occ")
                CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
-               CALL dbcsr_t_create(t_3c_overl_int(1,1), t_3c_M_tmp)
+               CALL dbcsr_t_create(t_3c_overl_int(1,1), t_3c_M_tmp, name="M temporary")
             ENDDO
-            CALL dbcsr_t_create(t_3c_M, t_3c_M_occ)
-            CALL dbcsr_t_create(t_3c_M, t_3c_M_virt)
+            CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ")
+            CALL dbcsr_t_create(t_3c_M, t_3c_M_virt, name="M virt")
          ENDIF
 
          IF (do_dbcsr_t) THEN
@@ -319,7 +322,7 @@ CONTAINS
                         IF (R_1_minus_S_needed) THEN
 
                            CALL timeset(routineN//"_calc_M_t", handle5)
-                           CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), &
+                           CALL dbcsr_t_contract_test(alpha=dbcsr_scalar(1.0_dp), &
                                                  tensor_1=t_3c_overl_int(i_cell_R_1_minus_S, i_cell_R_2), &
                                                  tensor_2=t_dm_occ(i_cell_S), &
                                                  beta=dbcsr_scalar(1.0_dp), &
@@ -328,7 +331,8 @@ CONTAINS
                                                  contract_2=[1], notcontract_2=[2], &
                                                  map_1=[1, 2], map_2=[3],&
                                                  !filter_eps=eps_filter, &
-                                                 flop=flop_occ)
+                                                 unit_nr=6)
+                                                 !flop=flop_occ)
                            CALL timestop(handle5)
 
                         ENDIF
@@ -349,7 +353,7 @@ CONTAINS
 
                            CALL timeset(routineN//"_calc_M_t", handle5)
 
-                           CALL dbcsr_t_contract(alpha=dbcsr_scalar(alpha/2.0_dp), &
+                           CALL dbcsr_t_contract_test(alpha=dbcsr_scalar(alpha/2.0_dp), &
                                                  tensor_1=t_3c_overl_int(i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
                                                  tensor_2=t_dm_virt(i_cell_S), &
                                                  beta=dbcsr_scalar(1.0_dp), &
@@ -358,7 +362,8 @@ CONTAINS
                                                  contract_2=[1], notcontract_2=[2], &
                                                  map_1=[1, 2], map_2=[3],&
                                                  !filter_eps=eps_filter, &
-                                                 flop=flop_virt)
+                                                 unit_nr=6)
+                                                 !flop=flop_virt)
                            CALL timestop(handle5)
                         ENDIF
                      ENDDO
@@ -371,7 +376,23 @@ CONTAINS
 
                      CALL timeset(routineN//"_calc_P_t", handle5)
 
-                     CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), tensor_1=t_3c_M_occ, &
+                     CALL dbcsr_t_get_info(t_3c_M_virt, blk_size_1=bsize_t_1, blk_size_2=bsize_t_2, blk_size_3=bsize_t_3)
+                     CALL dbcsr_t_get_info(t_P, blk_size_1=bsize_P_1, blk_size_2=bsize_P_2)
+                     CALL dbcsr_t_get_info(t_3c_M_virt, blk_offset_1=boff_t_1, blk_offset_2=boff_t_2, blk_offset_3=boff_t_3)
+                     CALL dbcsr_t_get_info(t_P, blk_offset_1=boff_P_1, blk_offset_2=boff_P_2)
+                     PRINT *, "dbg: bsizes t 1", bsize_t_1
+                     PRINT *, "dbg: bsizes t 2", bsize_t_2
+                     PRINT *, "dbg: bsizes t 3", bsize_t_3
+                     PRINT *, "dbg: bsizes P 1", bsize_P_1
+                     PRINT *, "dbg: bsizes P 2", bsize_P_2
+
+                     PRINT *, "dbg: boff t 1", boff_t_1
+                     PRINT *, "dbg: boff t 2", boff_t_2
+                     PRINT *, "dbg: boff t 3", boff_t_3
+                     PRINT *, "dbg: boff P 1", boff_P_1
+                     PRINT *, "dbg: boff P 2", boff_P_2
+
+                     CALL dbcsr_t_contract_test(alpha=dbcsr_scalar(1.0_dp), tensor_1=t_3c_M_occ, &
                                            tensor_2=t_3c_M_virt, &
                                            beta=dbcsr_scalar(0.0_dp), &
                                            tensor_3=t_P, &
@@ -379,7 +400,11 @@ CONTAINS
                                            contract_2=[2,3], notcontract_2=[1],&
                                            map_1=[1], map_2=[2],&
                                            !filter_eps=eps_filter_im_time, &
-                                           flop=num_flops_mat_P)
+                                           unit_nr=6)
+                                           !flop=num_flops_mat_P)
+                     num_flops_mat_P = 100000
+
+
 
                      !PRINT *, "num flops P", num_flops_mat_P
 

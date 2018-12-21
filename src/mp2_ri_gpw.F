@@ -1034,7 +1034,7 @@ CONTAINS
 
       ALLOCATE(dist_RI(natoms))
       DO iatom = 1, natoms
-         dist_RI(iatom) = MOD(natoms, pdims(1))
+         dist_RI(iatom) = MOD(iatom-1, pdims(1))
       ENDDO
 
       na_div = natoms/pdims(2)
@@ -1065,6 +1065,13 @@ CONTAINS
          dist_end = dist_start + na_split - 1
          dist_ao_2(dist_start:dist_end) = idim - 1
       ENDDO
+
+      PRINT *, "dbg: dist_RI", dist_RI
+      PRINT *, "dbg: dist ao 1", dist_ao_1
+      PRINT *, "dbg: dist ao 2", dist_ao_2
+
+      PRINT *, "dbg: row_blk_sizes_RI_t", row_blk_sizes_RI_t
+      PRINT *, "dbg: ao_blk_sizes", ao_blk_sizes
 
       CALL dbcsr_t_distribution_new(dist, mp_comm_t3c_m, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2, ngroup=ngroup)
       CALL dbcsr_t_create(t_3c_M, "M", dist, [1], [2, 3], dbcsr_type_real_8, row_blk_sizes_RI_t, &
