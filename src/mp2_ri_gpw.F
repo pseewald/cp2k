@@ -7852,7 +7852,7 @@ CONTAINS
                                                   l_min_RI(set_RI), &
                                                   la_max(iset), npgfa(iset), zeta(:, iset), rpgfa(:, iset), la_min(iset), &
                                                   lb_max(jset), npgfb(jset), zetb(:, jset), rpgfb(:, jset), lb_min(jset), &
-                                                  raRI, daRI, rbRI, dbRI, rab, dab, s_abRI)
+                                                  -raRI, daRI, -rbRI, dbRI, rab, dab, s_abRI)
 
 
                                     ALLOCATE (s_abRI_contr(nsgf_RI(set_RI), nsgfa(iset), nsgfb(jset)))
@@ -9857,7 +9857,7 @@ CONTAINS
       ALLOCATE(local_atom_RI_tmp(natom))
       icount = 0
       DO iatom=1,natom
-         row_dist_RI_t(iatom) = MOD(natom, ngroup)
+         row_dist_RI_t(iatom) = MOD(iatom-1, ngroup)
          if(row_dist_RI_t(iatom) == color_sub) THEN
             icount = icount+1
             local_atom_RI_tmp(icount) = iatom

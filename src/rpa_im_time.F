@@ -33,7 +33,7 @@ MODULE rpa_im_time
         dbcsr_init_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
         dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, dbcsr_p_type, dbcsr_release_p, &
         dbcsr_reserve_all_blocks, dbcsr_reserve_blocks, dbcsr_scale, dbcsr_set, dbcsr_transposed, &
-        dbcsr_type, dbcsr_type_no_symmetry, dbcsr_scalar
+        dbcsr_type, dbcsr_type_no_symmetry, dbcsr_scalar, dbcsr_checksum
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE kpoint_types,                    ONLY: get_kpoint_info,&
@@ -59,7 +59,7 @@ MODULE rpa_im_time
    USE dbcsr_tensor_api,                ONLY: dbcsr_t_type, dbcsr_t_contract, dbcsr_t_create, &
                                               dbcsr_t_copy_matrix_to_tensor, dbcsr_t_copy, dbcsr_t_set, &
                                               dbcsr_t_filter, dbcsr_t_destroy, dbcsr_t_copy_tensor_to_matrix, &
-                                              dbcsr_t_contract_test, dbcsr_t_get_info
+                                              dbcsr_t_contract_test, dbcsr_t_get_info, dbcsr_t_checksum
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -285,16 +285,16 @@ CONTAINS
          CALL timestop(handle4)
 
          ! loop over T for chi^T(it)
-         IF(do_dbcsr_t) THEN
-            ALLOCATE(t_dm_virt(num_cells_dm))
-            ALLOCATE(t_dm_occ(num_cells_dm))
+         IF (do_dbcsr_t) THEN
+            ALLOCATE (t_dm_virt(num_cells_dm))
+            ALLOCATE (t_dm_occ(num_cells_dm))
             CALL dbcsr_t_create(mat_P_global%matrix, t_P, name="P matrix")
             DO i_cell = 1, num_cells_dm
                CALL dbcsr_t_create(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell), name="D virt")
                CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell))
                CALL dbcsr_t_create(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell), name="D occ")
                CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
-               CALL dbcsr_t_create(t_3c_overl_int(1,1), t_3c_M_tmp, name="M temporary")
+               CALL dbcsr_t_create(t_3c_overl_int(1, 1), t_3c_M_tmp, name="M temporary")
             ENDDO
             CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ")
             CALL dbcsr_t_create(t_3c_M, t_3c_M_virt, name="M virt")
@@ -309,7 +309,6 @@ CONTAINS
 
                      IF (has_mat_P_blocks(i_cell_T, 1, 1, i_cell_R_1, i_cell_R_2) .EQV. .FALSE.) CYCLE
 
-
                      CALL get_diff_index_3c(i_cell_R_1, i_cell_T, i_cell_R_1_minus_T, &
                                             index_to_cell_3c, cell_to_index_3c, index_to_cell_dm, &
                                             R_1_minus_T_needed, do_kpoints_cubic_RPA)
@@ -323,23 +322,23 @@ CONTAINS
 
                            CALL timeset(routineN//"_calc_M_t", handle5)
                            CALL dbcsr_t_contract_test(alpha=dbcsr_scalar(1.0_dp), &
-                                                 tensor_1=t_3c_overl_int(i_cell_R_1_minus_S, i_cell_R_2), &
-                                                 tensor_2=t_dm_occ(i_cell_S), &
-                                                 beta=dbcsr_scalar(1.0_dp), &
-                                                 tensor_3=t_3c_M_tmp, &
-                                                 contract_1=[3], notcontract_1=[1, 2], &
-                                                 contract_2=[1], notcontract_2=[2], &
-                                                 map_1=[1, 2], map_2=[3],&
-                                                 !filter_eps=eps_filter, &
-                                                 unit_nr=6)
-                                                 !flop=flop_occ)
+                                                      tensor_1=t_3c_overl_int(i_cell_R_1_minus_S, i_cell_R_2), &
+                                                      tensor_2=t_dm_occ(i_cell_S), &
+                                                      beta=dbcsr_scalar(1.0_dp), &
+                                                      tensor_3=t_3c_M_tmp, &
+                                                      contract_1=[3], notcontract_1=[1, 2], &
+                                                      contract_2=[1], notcontract_2=[2], &
+                                                      map_1=[1, 2], map_2=[3], &
+                                                      !filter_eps=eps_filter, &
+                                                      unit_nr=6)
+                           !flop=flop_occ)
                            CALL timestop(handle5)
 
                         ENDIF
                      ENDDO
 
                      CALL timeset(routineN//"_copy_M_t", handle5)
-                     CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_occ, order=[1,3,2])
+                     CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_occ, order=[1, 3, 2])
                      CALL dbcsr_t_set(t_3c_M_tmp, 0.0_dp)
                      CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
                      CALL timestop(handle5)
@@ -354,22 +353,22 @@ CONTAINS
                            CALL timeset(routineN//"_calc_M_t", handle5)
 
                            CALL dbcsr_t_contract_test(alpha=dbcsr_scalar(alpha/2.0_dp), &
-                                                 tensor_1=t_3c_overl_int(i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
-                                                 tensor_2=t_dm_virt(i_cell_S), &
-                                                 beta=dbcsr_scalar(1.0_dp), &
-                                                 tensor_3=t_3c_M_tmp, &
-                                                 contract_1=[3], notcontract_1=[1, 2], &
-                                                 contract_2=[1], notcontract_2=[2], &
-                                                 map_1=[1, 2], map_2=[3],&
-                                                 !filter_eps=eps_filter, &
-                                                 unit_nr=6)
-                                                 !flop=flop_virt)
+                                                      tensor_1=t_3c_overl_int(i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
+                                                      tensor_2=t_dm_virt(i_cell_S), &
+                                                      beta=dbcsr_scalar(1.0_dp), &
+                                                      tensor_3=t_3c_M_tmp, &
+                                                      contract_1=[3], notcontract_1=[1, 2], &
+                                                      contract_2=[1], notcontract_2=[2], &
+                                                      map_1=[1, 2], map_2=[3], &
+                                                      !filter_eps=eps_filter, &
+                                                      unit_nr=6)
+                           !flop=flop_virt)
                            CALL timestop(handle5)
                         ENDIF
                      ENDDO
 
                      CALL timeset(routineN//"_copy_M_t", handle5)
-                     CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_virt, order=[1,2,3])
+                     CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_virt, order=[1, 2, 3])
                      CALL dbcsr_t_set(t_3c_M_tmp, 0.0_dp)
                      CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
                      CALL timestop(handle5)
@@ -393,18 +392,16 @@ CONTAINS
                      PRINT *, "dbg: boff P 2", boff_P_2
 
                      CALL dbcsr_t_contract_test(alpha=dbcsr_scalar(1.0_dp), tensor_1=t_3c_M_occ, &
-                                           tensor_2=t_3c_M_virt, &
-                                           beta=dbcsr_scalar(0.0_dp), &
-                                           tensor_3=t_P, &
-                                           contract_1=[2,3], notcontract_1=[1],&
-                                           contract_2=[2,3], notcontract_2=[1],&
-                                           map_1=[1], map_2=[2],&
-                                           !filter_eps=eps_filter_im_time, &
-                                           unit_nr=6)
-                                           !flop=num_flops_mat_P)
+                                                tensor_2=t_3c_M_virt, &
+                                                beta=dbcsr_scalar(0.0_dp), &
+                                                tensor_3=t_P, &
+                                                contract_1=[2, 3], notcontract_1=[1], &
+                                                contract_2=[2, 3], notcontract_2=[1], &
+                                                map_1=[1], map_2=[2], &
+                                                !filter_eps=eps_filter_im_time, &
+                                                unit_nr=6)
+                     !flop=num_flops_mat_P)
                      num_flops_mat_P = 100000
-
-
 
                      !PRINT *, "num flops P", num_flops_mat_P
 
@@ -477,260 +474,271 @@ CONTAINS
 
             CALL dbcsr_t_destroy(t_3c_M_occ)
             CALL dbcsr_t_destroy(t_3c_M_virt)
-            DEALLOCATE(t_dm_virt)
-            DEALLOCATE(t_dm_occ)
-         ENDIF
+            DEALLOCATE (t_dm_virt)
+            DEALLOCATE (t_dm_occ)
+         ELSE
 
-         DO i_cell_T = 1, num_cells_dm/2+1
+            DO i_cell_T = 1, num_cells_dm/2 + 1
 
-            IF (does_mat_P_T_tau_have_blocks(i_cell_T) .EQV. .FALSE.) CYCLE
+               IF (does_mat_P_T_tau_have_blocks(i_cell_T) .EQV. .FALSE.) CYCLE
 
-            DO j_mem = 1, cut_memory
+               DO j_mem = 1, cut_memory
 
-               CALL replicate_dm_to_subgroup(para_env, para_env_sub, mat_dm_virt_global, nmo, jquad, &
-                                             mat_dm_loc_virt_cut, starts_array_cm_mao_virt, ends_array_cm_mao_virt, &
-                                             j_mem, cut_memory, cut_RI, non_zero_blocks_3c, &
-                                             non_zero_blocks_3c_cut_col, multiply_needed_virt, do_kpoints_cubic_RPA, &
-                                             cell_to_index_3c, index_to_cell_dm)
-
-               DO i_mem = 1, cut_memory
-
-                  IF (cycle_due_to_sparse_dm(i_mem, j_mem, jquad) .AND. do_Gamma_RPA) CYCLE
-
-                  CALL replicate_dm_to_subgroup(para_env, para_env_sub, mat_dm_occ_global, nmo, jquad, &
-                                                mat_dm_loc_occ_cut, starts_array_cm_mao_occ, ends_array_cm_mao_occ, &
-                                                i_mem, cut_memory, cut_RI, non_zero_blocks_3c, &
-                                                non_zero_blocks_3c_cut_col, multiply_needed_occ, do_kpoints_cubic_RPA, &
+                  CALL replicate_dm_to_subgroup(para_env, para_env_sub, mat_dm_virt_global, nmo, jquad, &
+                                                mat_dm_loc_virt_cut, starts_array_cm_mao_virt, ends_array_cm_mao_virt, &
+                                                j_mem, cut_memory, cut_RI, non_zero_blocks_3c, &
+                                                non_zero_blocks_3c_cut_col, multiply_needed_virt, do_kpoints_cubic_RPA, &
                                                 cell_to_index_3c, index_to_cell_dm)
 
-                  DO i_cell_R_1 = 1, num_3c_repl
+                  DO i_mem = 1, cut_memory
 
-                     DO i_cell_R_2 = 1, num_3c_repl
+                     IF (cycle_due_to_sparse_dm(i_mem, j_mem, jquad) .AND. do_Gamma_RPA) CYCLE
 
-                        IF (has_mat_P_blocks(i_cell_T, i_mem, j_mem, i_cell_R_1, i_cell_R_2) .EQV. .FALSE.) CYCLE
+                     CALL replicate_dm_to_subgroup(para_env, para_env_sub, mat_dm_occ_global, nmo, jquad, &
+                                                   mat_dm_loc_occ_cut, starts_array_cm_mao_occ, ends_array_cm_mao_occ, &
+                                                   i_mem, cut_memory, cut_RI, non_zero_blocks_3c, &
+                                                   non_zero_blocks_3c_cut_col, multiply_needed_occ, do_kpoints_cubic_RPA, &
+                                                   cell_to_index_3c, index_to_cell_dm)
 
-                        CALL timeset(routineN//"_calc_M", handle5)
+                     DO i_cell_R_1 = 1, num_3c_repl
 
-                        DO i_cut_RI = 1, cut_RI
+                        DO i_cell_R_2 = 1, num_3c_repl
 
-                           my_group_L_size = my_group_L_sizes_im_time(i_cut_RI)
+                           IF (has_mat_P_blocks(i_cell_T, i_mem, j_mem, i_cell_R_1, i_cell_R_2) .EQV. .FALSE.) CYCLE
 
-                           CALL get_diff_index_3c(i_cell_R_1, i_cell_T, i_cell_R_1_minus_T, &
-                                                  index_to_cell_3c, cell_to_index_3c, index_to_cell_dm, &
-                                                  R_1_minus_T_needed, do_kpoints_cubic_RPA)
+                           CALL timeset(routineN//"_calc_M", handle5)
 
-                           DO i_cell_S = 1, num_cells_dm
-
-                              CALL get_diff_index_3c(i_cell_R_1, i_cell_S, i_cell_R_1_minus_S, index_to_cell_3c, &
-                                                     cell_to_index_3c, index_to_cell_dm, R_1_minus_S_needed, &
-                                                     do_kpoints_cubic_RPA)
-
-                              ! check whether there are common mat_dm_loc_occ_cut rows and mat_3c_overl_int_cut cols
-                              IF (multiply_needed_occ(j_mem, i_cut_RI, i_cell_S) .AND. R_1_minus_S_needed .AND. &
-                                  needed_cutRI_mem_R1vec_R2vec_for_kp(i_cut_RI, j_mem, i_cell_R_1_minus_S, &
-                                                                      i_cell_R_2)) THEN
-
-                                 ! D^occ*(munuP)
-                                 CALL dbcsr_multiply("N", "N", 1.0_dp, &
-                                                     mat_dm_loc_occ_cut(i_cut_RI, i_mem, i_cell_S)%matrix, &
-                                                     mat_3c_overl_int_mao_for_occ_cut(i_cut_RI, j_mem, i_cell_R_1_minus_S, &
-                                                                                      i_cell_R_2)%matrix, &
-                                                     1.0_dp, mat_M_mu_Pnu_occ(i_cut_RI)%matrix, &
-                                                     ! first_row=starts_array_cm(i_mem), &
-                                                     ! last_row=ends_array_cm(i_mem), &
-                                                     ! first_column=(starts_array_cm(j_mem)-1)*my_group_L_size+1, &
-                                                     ! last_column=ends_array_cm(j_mem)*my_group_L_size, &
-                                                     filter_eps=eps_filter*SQRT(REAL(my_group_L_size, KIND=dp)), &
-                                                     flop=flop_occ)
-
-                              END IF
-
-                           END DO ! i_cell_S
-
-                           DO i_cell_S = 1, num_cells_dm
-
-                              CALL get_diff_diff_index_3c(i_cell_R_2, i_cell_S, i_cell_T, i_cell_R_2_minus_S_minus_T, &
-                                                          index_to_cell_3c, cell_to_index_3c, index_to_cell_dm, &
-                                                          R_2_minus_S_minus_T_needed, do_kpoints_cubic_RPA)
-
-                              ! check whether there are common mat_dm_loc_virt_cut rows and mat_3c_overl_int_cut cols
-                              IF (multiply_needed_virt(i_mem, i_cut_RI, i_cell_S) .AND. &
-                                  R_1_minus_T_needed .AND. R_2_minus_S_minus_T_needed .AND. &
-                                  needed_cutRI_mem_R1vec_R2vec_for_kp(i_cut_RI, i_mem, i_cell_R_2_minus_S_minus_T, &
-                                                                      i_cell_R_1_minus_T)) THEN
-
-                                 ! D^virt*(munuP)
-                                 CALL dbcsr_multiply("N", "N", alpha/2.0_dp, &
-                                                     mat_dm_loc_virt_cut(i_cut_RI, j_mem, i_cell_S)%matrix, &
-                                                     mat_3c_overl_int_mao_for_virt_cut(i_cut_RI, i_mem, &
-                                                                                       i_cell_R_2_minus_S_minus_T, &
-                                                                                       i_cell_R_1_minus_T)%matrix, &
-                                                     1.0_dp, mat_M_mu_Pnu_virt(i_cut_RI)%matrix, &
-                                                     ! first_row=starts_array_cm(j_mem), &
-                                                     ! last_row=ends_array_cm(j_mem), &
-                                                     ! first_column=(starts_array_cm(i_mem)-1)*my_group_L_size+1, &
-                                                     ! last_column=ends_array_cm(i_mem)*my_group_L_size, &
-                                                     filter_eps=eps_filter*SQRT(REAL(my_group_L_size, KIND=dp)), &
-                                                     flop=flop_virt)
-
-                              END IF
-
-                           END DO ! i_cell_S
-
-                        END DO ! i_cut_RI
-
-                        ! free the occupied density matrix
-                        ! that if is needed since we need the density matrices until the whole loops of R1 and R2
-                        ! are done for kpoints
-                        IF (i_cell_R_1 == num_3c_repl .AND. i_cell_R_2 == num_3c_repl) THEN
                            DO i_cut_RI = 1, cut_RI
+
+                              my_group_L_size = my_group_L_sizes_im_time(i_cut_RI)
+
+                              CALL get_diff_index_3c(i_cell_R_1, i_cell_T, i_cell_R_1_minus_T, &
+                                                     index_to_cell_3c, cell_to_index_3c, index_to_cell_dm, &
+                                                     R_1_minus_T_needed, do_kpoints_cubic_RPA)
+
                               DO i_cell_S = 1, num_cells_dm
-                                 CALL dbcsr_set(mat_dm_loc_occ_cut(i_cut_RI, i_mem, i_cell_S)%matrix, 0.0_dp)
-                                 CALL dbcsr_filter(mat_dm_loc_occ_cut(i_cut_RI, i_mem, i_cell_S)%matrix, 1.0_dp)
+
+                                 CALL get_diff_index_3c(i_cell_R_1, i_cell_S, i_cell_R_1_minus_S, index_to_cell_3c, &
+                                                        cell_to_index_3c, index_to_cell_dm, R_1_minus_S_needed, &
+                                                        do_kpoints_cubic_RPA)
+
+                                 ! check whether there are common mat_dm_loc_occ_cut rows and mat_3c_overl_int_cut cols
+                                 IF (multiply_needed_occ(j_mem, i_cut_RI, i_cell_S) .AND. R_1_minus_S_needed .AND. &
+                                     needed_cutRI_mem_R1vec_R2vec_for_kp(i_cut_RI, j_mem, i_cell_R_1_minus_S, &
+                                                                         i_cell_R_2)) THEN
+
+                                    ! D^occ*(munuP)
+
+                                    PRINT *, "checksum overl matrix occ", &
+                                       dbcsr_checksum(mat_3c_overl_int_mao_for_occ_cut( &
+                                                      i_cut_RI, j_mem, i_cell_R_1_minus_S, i_cell_R_2)%matrix)
+
+                                    PRINT *, "iteration info m", i_cell_T, i_cell_R_1, i_cell_R_2, i_cell_S, i_cut_RI, j_mem, i_mem
+                                    CALL dbcsr_multiply("N", "N", 1.0_dp, &
+                                                        mat_dm_loc_occ_cut(i_cut_RI, i_mem, i_cell_S)%matrix, &
+                                                        mat_3c_overl_int_mao_for_occ_cut(i_cut_RI, j_mem, i_cell_R_1_minus_S, &
+                                                                                         i_cell_R_2)%matrix, &
+                                                        1.0_dp, mat_M_mu_Pnu_occ(i_cut_RI)%matrix, &
+                                                        ! first_row=starts_array_cm(i_mem), &
+                                                        ! last_row=ends_array_cm(i_mem), &
+                                                        ! first_column=(starts_array_cm(j_mem)-1)*my_group_L_size+1, &
+                                                        ! last_column=ends_array_cm(j_mem)*my_group_L_size, &
+                                                        filter_eps=eps_filter*SQRT(REAL(my_group_L_size, KIND=dp)), &
+                                                        flop=flop_occ)
+
+                                 END IF
+
+                              END DO ! i_cell_S
+
+                              DO i_cell_S = 1, num_cells_dm
+
+                                 CALL get_diff_diff_index_3c(i_cell_R_2, i_cell_S, i_cell_T, i_cell_R_2_minus_S_minus_T, &
+                                                             index_to_cell_3c, cell_to_index_3c, index_to_cell_dm, &
+                                                             R_2_minus_S_minus_T_needed, do_kpoints_cubic_RPA)
+
+                                 ! check whether there are common mat_dm_loc_virt_cut rows and mat_3c_overl_int_cut cols
+                                 IF (multiply_needed_virt(i_mem, i_cut_RI, i_cell_S) .AND. &
+                                     R_1_minus_T_needed .AND. R_2_minus_S_minus_T_needed .AND. &
+                                     needed_cutRI_mem_R1vec_R2vec_for_kp(i_cut_RI, i_mem, i_cell_R_2_minus_S_minus_T, &
+                                                                         i_cell_R_1_minus_T)) THEN
+
+                                    ! D^virt*(munuP)
+                                    PRINT *, "checksum overl matrix virt", &
+                                       dbcsr_checksum(mat_3c_overl_int_mao_for_virt_cut(i_cut_RI, i_mem, &
+                                                                                        i_cell_R_2_minus_S_minus_T, &
+                                                                                        i_cell_R_1_minus_T)%matrix)
+                                    CALL dbcsr_multiply("N", "N", alpha/2.0_dp, &
+                                                        mat_dm_loc_virt_cut(i_cut_RI, j_mem, i_cell_S)%matrix, &
+                                                        mat_3c_overl_int_mao_for_virt_cut(i_cut_RI, i_mem, &
+                                                                                          i_cell_R_2_minus_S_minus_T, &
+                                                                                          i_cell_R_1_minus_T)%matrix, &
+                                                        1.0_dp, mat_M_mu_Pnu_virt(i_cut_RI)%matrix, &
+                                                        ! first_row=starts_array_cm(j_mem), &
+                                                        ! last_row=ends_array_cm(j_mem), &
+                                                        ! first_column=(starts_array_cm(i_mem)-1)*my_group_L_size+1, &
+                                                        ! last_column=ends_array_cm(i_mem)*my_group_L_size, &
+                                                        filter_eps=eps_filter*SQRT(REAL(my_group_L_size, KIND=dp)), &
+                                                        flop=flop_virt)
+
+                                 END IF
+
+                              END DO ! i_cell_S
+
+                           END DO ! i_cut_RI
+
+                           ! free the occupied density matrix
+                           ! that if is needed since we need the density matrices until the whole loops of R1 and R2
+                           ! are done for kpoints
+                           IF (i_cell_R_1 == num_3c_repl .AND. i_cell_R_2 == num_3c_repl) THEN
+                              DO i_cut_RI = 1, cut_RI
+                                 DO i_cell_S = 1, num_cells_dm
+                                    CALL dbcsr_set(mat_dm_loc_occ_cut(i_cut_RI, i_mem, i_cell_S)%matrix, 0.0_dp)
+                                    CALL dbcsr_filter(mat_dm_loc_occ_cut(i_cut_RI, i_mem, i_cell_S)%matrix, 1.0_dp)
+                                 END DO
                               END DO
-                           END DO
-                        END IF
+                           END IF
 
-                        IF (first_cycle_im_time .AND. memory_info) THEN
-                           CALL print_occupation_3c(mat_M_mu_Pnu_occ, unit_nr, "M occ before comm", para_env, cut_RI)
-                           CALL print_occupation_3c(mat_M_mu_Pnu_virt, unit_nr, "M virt before comm", para_env, cut_RI)
-                        END IF
+                           IF (first_cycle_im_time .AND. memory_info) THEN
+                              CALL print_occupation_3c(mat_M_mu_Pnu_occ, unit_nr, "M occ before comm", para_env, cut_RI)
+                              CALL print_occupation_3c(mat_M_mu_Pnu_virt, unit_nr, "M virt before comm", para_env, cut_RI)
+                           END IF
 
-                        CALL mp_sync(para_env%group)
-
-                        CALL timestop(handle5)
-
-                        CALL timeset(routineN//"_fill_M_tot", handle5)
-
-                        CALL fill_mat_M_P_munu_from_M_mu_Pnu(mat_M_P_munu_occ, mat_M_mu_Pnu_occ, para_env, &
-                                                             my_group_L_starts_im_time, &
-                                                             my_group_L_sizes_im_time, mepos_P_from_RI_row, &
-                                                             n_group_col, cut_RI, row_from_LLL, &
-                                                             starts_array_prim_row, ends_array_prim_row, &
-                                                             starts_array_prim_col, ends_array_prim_col, &
-                                                             offset_combi_block(i_mem, j_mem)%array, &
-                                                             starts_array_prim_fullcol, &
-                                                             ends_array_prim_fullcol, starts_array_prim_fullrow, &
-                                                             ends_array_prim_fullrow, group_size_P, &
-                                                             i_mem, j_mem, buffer_mat_M, eps_filter_im_time, &
-                                                             do_occ=.TRUE., do_virt=.FALSE.)
-
-                        CALL fill_mat_M_P_munu_from_M_mu_Pnu(mat_M_P_munu_virt, mat_M_mu_Pnu_virt, para_env, &
-                                                             my_group_L_starts_im_time, &
-                                                             my_group_L_sizes_im_time, mepos_P_from_RI_row, &
-                                                             n_group_col, cut_RI, row_from_LLL, &
-                                                             starts_array_prim_row, ends_array_prim_row, &
-                                                             starts_array_prim_col, ends_array_prim_col, &
-                                                             offset_combi_block(i_mem, j_mem)%array, &
-                                                             starts_array_prim_fullcol, &
-                                                             ends_array_prim_fullcol, starts_array_prim_fullrow, &
-                                                             ends_array_prim_fullrow, group_size_P, &
-                                                             i_mem, j_mem, buffer_mat_M, eps_filter_im_time, &
-                                                             do_occ=.FALSE., do_virt=.TRUE.)
-
-                        IF (first_cycle_im_time .AND. memory_info) THEN
-                           CALL print_occupation_2c(mat_M_P_munu_occ%matrix, unit_nr, "M occ after comm", para_env)
-                           CALL print_occupation_2c(mat_M_P_munu_virt%matrix, unit_nr, "M virt after comm", para_env)
-                        END IF
-
-                        CALL mp_sync(para_env%group)
-
-                        CALL timestop(handle5)
-
-                        CALL timeset(routineN//"_calc_P", handle5)
-
-                        ! P_RT = sum_mu sigma M^occ_P_mu_sigma M^virt_R_mu_sigma
-                        CALL dbcsr_multiply("N", "T", 1.0_dp, mat_M_P_munu_occ%matrix, mat_M_P_munu_virt%matrix, &
-                                            0.0_dp, mat_P_local%matrix, &
-                                            filter_eps=eps_filter_im_time/REAL(cut_memory, KIND=dp), &
-                                            flop=num_flops_mat_P)
-
-                        IF (first_cycle_im_time .AND. memory_info) THEN
-                           CALL print_occupation_2c(mat_P_local%matrix, unit_nr, "local P matrix", para_env)
-                        END IF
-
-                        ! release memory
-                        CALL dbcsr_set(mat_M_P_munu_occ%matrix, 0.0_dp)
-                        CALL dbcsr_filter(mat_M_P_munu_occ%matrix, 1.0_dp)
-
-                        CALL dbcsr_set(mat_M_P_munu_virt%matrix, 0.0_dp)
-                        CALL dbcsr_filter(mat_M_P_munu_virt%matrix, 1.0_dp)
-
-                        IF (first_cycle_im_time .AND. memory_info) THEN
-                           CALL print_occupation_2c(mat_P_global%matrix, unit_nr, "global P matrix", para_env)
-                        END IF
-
-                        CALL mp_sync(para_env%group)
-
-                        CALL timestop(handle5)
-
-                        CALL fill_mat_P_global_from_mat_P_local(mat_P_global, mat_P_global_copy, mat_P_local, para_env, &
-                                                                eps_filter_im_time)
-
-                        IF (do_ri_sos_laplace_mp2) THEN
-                           ! For RI-SOS-Laplace-MP2 we do not perform a cosine transform,
-                           ! but we have to copy P_local to the output matrix
-
-                           CALL dbcsr_add(mat_P_omega(jquad, i_cell_T)%matrix, mat_P_global%matrix, 1.0_dp, 1.0_dp)
-                        ELSE
-                           CALL timeset(routineN//"_Fourier_transform", handle5)
-
-                           ! Fourier transform of P(it) to P(iw)
-                           first_cycle_omega_loop = .TRUE.
-
-                           tau = tau_tj(jquad)
-
-                           DO iquad = 1, num_integ_points
-
-                              omega = tj(iquad)
-                              weight = weights_cos_tf_t_to_w(iquad, jquad)
-
-                              IF (first_cycle_omega_loop) THEN
-                                 ! no multiplication with 2.0 as in Kresses paper (Kaltak, JCTC 10, 2498 (2014), Eq. 12)
-                                 ! because this factor is already absorbed in the weight w_j
-                                 CALL dbcsr_scale(mat_P_global%matrix, COS(omega*tau)*weight)
-                              ELSE
-                                 CALL dbcsr_scale(mat_P_global%matrix, COS(omega*tau)/COS(omega_old*tau)*weight/weight_old)
-                              END IF
-
-                              CALL dbcsr_add(mat_P_omega(iquad, i_cell_T)%matrix, mat_P_global%matrix, 1.0_dp, 1.0_dp)
-
-                              first_cycle_omega_loop = .FALSE.
-
-                              omega_old = omega
-                              weight_old = weight
-
-                           END DO
+                           CALL mp_sync(para_env%group)
 
                            CALL timestop(handle5)
 
-                           first_cycle_im_time = .FALSE.
+                           CALL timeset(routineN//"_fill_M_tot", handle5)
 
-                           CALL check_if_mat_P_T_tau_has_blocks(does_mat_P_T_tau_have_blocks, mat_P_global, i_cell_T, &
-                                                                jquad, i_mem, j_mem, i_cell_R_1, i_cell_R_2, &
-                                                                para_env, has_mat_P_blocks, num_flops_mat_P)
-                        END IF ! do_ri_sos_laplace_mp2
+                           CALL fill_mat_M_P_munu_from_M_mu_Pnu(mat_M_P_munu_occ, mat_M_mu_Pnu_occ, para_env, &
+                                                                my_group_L_starts_im_time, &
+                                                                my_group_L_sizes_im_time, mepos_P_from_RI_row, &
+                                                                n_group_col, cut_RI, row_from_LLL, &
+                                                                starts_array_prim_row, ends_array_prim_row, &
+                                                                starts_array_prim_col, ends_array_prim_col, &
+                                                                offset_combi_block(i_mem, j_mem)%array, &
+                                                                starts_array_prim_fullcol, &
+                                                                ends_array_prim_fullcol, starts_array_prim_fullrow, &
+                                                                ends_array_prim_fullrow, group_size_P, &
+                                                                i_mem, j_mem, buffer_mat_M, eps_filter_im_time, &
+                                                                do_occ=.TRUE., do_virt=.FALSE.)
 
-                     END DO ! i_cell_R2
+                           CALL fill_mat_M_P_munu_from_M_mu_Pnu(mat_M_P_munu_virt, mat_M_mu_Pnu_virt, para_env, &
+                                                                my_group_L_starts_im_time, &
+                                                                my_group_L_sizes_im_time, mepos_P_from_RI_row, &
+                                                                n_group_col, cut_RI, row_from_LLL, &
+                                                                starts_array_prim_row, ends_array_prim_row, &
+                                                                starts_array_prim_col, ends_array_prim_col, &
+                                                                offset_combi_block(i_mem, j_mem)%array, &
+                                                                starts_array_prim_fullcol, &
+                                                                ends_array_prim_fullcol, starts_array_prim_fullrow, &
+                                                                ends_array_prim_fullrow, group_size_P, &
+                                                                i_mem, j_mem, buffer_mat_M, eps_filter_im_time, &
+                                                                do_occ=.FALSE., do_virt=.TRUE.)
 
-                  END DO ! i_cell_R1
+                           IF (first_cycle_im_time .AND. memory_info) THEN
+                              CALL print_occupation_2c(mat_M_P_munu_occ%matrix, unit_nr, "M occ after comm", para_env)
+                              CALL print_occupation_2c(mat_M_P_munu_virt%matrix, unit_nr, "M virt after comm", para_env)
+                           END IF
 
-               END DO ! cut memory i
+                           CALL mp_sync(para_env%group)
 
-               ! free the virtual density matrix
-               DO i_cut_RI = 1, cut_RI
-                  DO i_cell = 1, num_cells_dm
-                     CALL dbcsr_set(mat_dm_loc_virt_cut(i_cut_RI, j_mem, i_cell)%matrix, 0.0_dp)
-                     CALL dbcsr_filter(mat_dm_loc_virt_cut(i_cut_RI, j_mem, i_cell)%matrix, 1.0_dp)
+                           CALL timestop(handle5)
+
+                           CALL timeset(routineN//"_calc_P", handle5)
+
+                           ! P_RT = sum_mu sigma M^occ_P_mu_sigma M^virt_R_mu_sigma
+                           CALL dbcsr_multiply("N", "T", 1.0_dp, mat_M_P_munu_occ%matrix, mat_M_P_munu_virt%matrix, &
+                                               0.0_dp, mat_P_local%matrix, &
+                                               filter_eps=eps_filter_im_time/REAL(cut_memory, KIND=dp), &
+                                               flop=num_flops_mat_P)
+
+                           IF (first_cycle_im_time .AND. memory_info) THEN
+                              CALL print_occupation_2c(mat_P_local%matrix, unit_nr, "local P matrix", para_env)
+                           END IF
+
+                           ! release memory
+                           CALL dbcsr_set(mat_M_P_munu_occ%matrix, 0.0_dp)
+                           CALL dbcsr_filter(mat_M_P_munu_occ%matrix, 1.0_dp)
+
+                           CALL dbcsr_set(mat_M_P_munu_virt%matrix, 0.0_dp)
+                           CALL dbcsr_filter(mat_M_P_munu_virt%matrix, 1.0_dp)
+
+                           IF (first_cycle_im_time .AND. memory_info) THEN
+                              CALL print_occupation_2c(mat_P_global%matrix, unit_nr, "global P matrix", para_env)
+                           END IF
+
+                           CALL mp_sync(para_env%group)
+
+                           CALL timestop(handle5)
+
+                           CALL fill_mat_P_global_from_mat_P_local(mat_P_global, mat_P_global_copy, mat_P_local, para_env, &
+                                                                   eps_filter_im_time)
+
+                           IF (do_ri_sos_laplace_mp2) THEN
+                              ! For RI-SOS-Laplace-MP2 we do not perform a cosine transform,
+                              ! but we have to copy P_local to the output matrix
+
+                              CALL dbcsr_add(mat_P_omega(jquad, i_cell_T)%matrix, mat_P_global%matrix, 1.0_dp, 1.0_dp)
+                           ELSE
+                              CALL timeset(routineN//"_Fourier_transform", handle5)
+
+                              ! Fourier transform of P(it) to P(iw)
+                              first_cycle_omega_loop = .TRUE.
+
+                              tau = tau_tj(jquad)
+
+                              DO iquad = 1, num_integ_points
+
+                                 omega = tj(iquad)
+                                 weight = weights_cos_tf_t_to_w(iquad, jquad)
+
+                                 IF (first_cycle_omega_loop) THEN
+                                    ! no multiplication with 2.0 as in Kresses paper (Kaltak, JCTC 10, 2498 (2014), Eq. 12)
+                                    ! because this factor is already absorbed in the weight w_j
+                                    CALL dbcsr_scale(mat_P_global%matrix, COS(omega*tau)*weight)
+                                 ELSE
+                                    CALL dbcsr_scale(mat_P_global%matrix, COS(omega*tau)/COS(omega_old*tau)*weight/weight_old)
+                                 END IF
+
+                                 CALL dbcsr_add(mat_P_omega(iquad, i_cell_T)%matrix, mat_P_global%matrix, 1.0_dp, 1.0_dp)
+
+                                 first_cycle_omega_loop = .FALSE.
+
+                                 omega_old = omega
+                                 weight_old = weight
+
+                              END DO
+
+                              CALL timestop(handle5)
+
+                              first_cycle_im_time = .FALSE.
+
+                              CALL check_if_mat_P_T_tau_has_blocks(does_mat_P_T_tau_have_blocks, mat_P_global, i_cell_T, &
+                                                                   jquad, i_mem, j_mem, i_cell_R_1, i_cell_R_2, &
+                                                                   para_env, has_mat_P_blocks, num_flops_mat_P)
+                           END IF ! do_ri_sos_laplace_mp2
+
+                        END DO ! i_cell_R2
+
+                     END DO ! i_cell_R1
+
+                  END DO ! cut memory i
+
+                  ! free the virtual density matrix
+                  DO i_cut_RI = 1, cut_RI
+                     DO i_cell = 1, num_cells_dm
+                        CALL dbcsr_set(mat_dm_loc_virt_cut(i_cut_RI, j_mem, i_cell)%matrix, 0.0_dp)
+                        CALL dbcsr_filter(mat_dm_loc_virt_cut(i_cut_RI, j_mem, i_cell)%matrix, 1.0_dp)
+                     END DO
                   END DO
-               END DO
 
-            END DO ! cut memory j
+               END DO ! cut memory j
 
-            CALL sync_does_mat_P_T_tau_have_blocks(does_mat_P_T_tau_have_blocks, para_env, unit_nr, &
-                                                   i_cell_T, jquad, index_to_cell_dm)
+               CALL sync_does_mat_P_T_tau_have_blocks(does_mat_P_T_tau_have_blocks, para_env, unit_nr, &
+                                                      i_cell_T, jquad, index_to_cell_dm)
 
-         END DO ! neighbor cell T
+            END DO ! neighbor cell T
+         ENDIF
 
       END DO ! time points
 
