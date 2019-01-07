@@ -7954,7 +7954,7 @@ CONTAINS
                                        block_t(block_start_RI:block_end_RI, &
                                                block_start_row:block_end_row, &
                                                block_start_col:block_end_col) = &
-                                          0.5_dp*s_abRI_contr(:, :, :)
+                                          s_abRI_contr(:, :, :)
 
                                     END IF
 
