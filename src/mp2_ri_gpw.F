@@ -900,8 +900,9 @@ CONTAINS
 
             CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, mp_comm_t3c_overl)
 
-            CALL mp_dims_create(para_env%num_pe/ngroup_im_time_P, pdims_sub_2d)
-            pdims_t3c = [ngroup_im_time_P, pdims_sub_2d(1), pdims_sub_2d(2)]
+            pdims_sub_2d = 0
+            CALL mp_dims_create(ngroup_im_time_P, pdims_sub_2d)
+            pdims_t3c = [para_env%num_pe/ngroup_im_time_P, pdims_sub_2d(1), pdims_sub_2d(2)]
             CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, mp_comm_t3c_m)
 
          ENDIF
@@ -1066,14 +1067,8 @@ CONTAINS
          dist_ao_2(dist_start:dist_end) = idim - 1
       ENDDO
 
-      PRINT *, "dbg: dist_RI", dist_RI
-      PRINT *, "dbg: dist ao 1", dist_ao_1
-      PRINT *, "dbg: dist ao 2", dist_ao_2
 
-      PRINT *, "dbg: row_blk_sizes_RI_t", row_blk_sizes_RI_t
-      PRINT *, "dbg: ao_blk_sizes", ao_blk_sizes
-
-      CALL dbcsr_t_distribution_new(dist, mp_comm_t3c_m, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2, ngroup=ngroup)
+      CALL dbcsr_t_distribution_new(dist, mp_comm_t3c_m, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2, ngroup=ngroup, dimsplit=2)
       CALL dbcsr_t_create(t_3c_M, "M", dist, [1], [2, 3], dbcsr_type_real_8, row_blk_sizes_RI_t, &
                           ao_blk_sizes, ao_blk_sizes)
 
@@ -8689,7 +8684,7 @@ CONTAINS
          CALL dbcsr_distribution_get(dist_sub, row_dist=dist_ao1, col_dist=dist_ao2)
 
          CALL dbcsr_t_distribution_new(dist_o3c, mp_comm_t3c_overl, [1, 2], [3], &
-                                       row_dist_RI_t, dist_ao1, dist_ao2, ngroup=ngroup)
+                                       row_dist_RI_t, dist_ao1, dist_ao2, ngroup=ngroup, dimsplit=1)
 
          DO i_img = 1, nimg
             DO j_img = 1, nimg
