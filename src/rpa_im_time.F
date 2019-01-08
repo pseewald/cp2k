@@ -321,16 +321,16 @@ CONTAINS
                         IF (R_1_minus_S_needed) THEN
 
                            CALL timeset(routineN//"_calc_M_t", handle5)
-                           CALL dbcsr_t_contract_test(alpha=dbcsr_scalar(1.0_dp), &
-                                                      tensor_1=t_3c_overl_int(i_cell_R_1_minus_S, i_cell_R_2), &
-                                                      tensor_2=t_dm_occ(i_cell_S), &
-                                                      beta=dbcsr_scalar(1.0_dp), &
-                                                      tensor_3=t_3c_M_tmp, &
-                                                      contract_1=[3], notcontract_1=[1, 2], &
-                                                      contract_2=[1], notcontract_2=[2], &
-                                                      map_1=[1, 2], map_2=[3], &
-                                                      !filter_eps=eps_filter, &
-                                                      unit_nr=6)
+                           CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), &
+                                                 tensor_1=t_3c_overl_int(i_cell_R_1_minus_S, i_cell_R_2), &
+                                                 tensor_2=t_dm_occ(i_cell_S), &
+                                                 beta=dbcsr_scalar(1.0_dp), &
+                                                 tensor_3=t_3c_M_tmp, &
+                                                 contract_1=[3], notcontract_1=[1, 2], &
+                                                 contract_2=[1], notcontract_2=[2], &
+                                                 map_1=[1, 2], map_2=[3])
+                                                 !filter_eps=eps_filter, &
+                                                 !unit_nr=6)
                            !flop=flop_occ)
                            CALL timestop(handle5)
 
@@ -352,16 +352,15 @@ CONTAINS
 
                            CALL timeset(routineN//"_calc_M_t", handle5)
 
-                           CALL dbcsr_t_contract_test(alpha=dbcsr_scalar(alpha/2.0_dp), &
-                                                      tensor_1=t_3c_overl_int(i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
-                                                      tensor_2=t_dm_virt(i_cell_S), &
-                                                      beta=dbcsr_scalar(1.0_dp), &
-                                                      tensor_3=t_3c_M_tmp, &
-                                                      contract_1=[3], notcontract_1=[1, 2], &
-                                                      contract_2=[1], notcontract_2=[2], &
-                                                      map_1=[1, 2], map_2=[3], &
+                           CALL dbcsr_t_contract(alpha=dbcsr_scalar(alpha/2.0_dp), &
+                                                 tensor_1=t_3c_overl_int(i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
+                                                 tensor_2=t_dm_virt(i_cell_S), &
+                                                 beta=dbcsr_scalar(1.0_dp), &
+                                                 tensor_3=t_3c_M_tmp, &
+                                                 contract_1=[3], notcontract_1=[1, 2], &
+                                                 contract_2=[1], notcontract_2=[2], &
+                                                 map_1=[1, 2], map_2=[3])
                                                       !filter_eps=eps_filter, &
-                                                      unit_nr=6)
                            !flop=flop_virt)
                            CALL timestop(handle5)
                         ENDIF
@@ -391,15 +390,15 @@ CONTAINS
                      PRINT *, "dbg: boff P 1", boff_P_1
                      PRINT *, "dbg: boff P 2", boff_P_2
 
-                     CALL dbcsr_t_contract_test(alpha=dbcsr_scalar(1.0_dp), tensor_1=t_3c_M_occ, &
-                                                tensor_2=t_3c_M_virt, &
-                                                beta=dbcsr_scalar(0.0_dp), &
-                                                tensor_3=t_P, &
-                                                contract_1=[2, 3], notcontract_1=[1], &
-                                                contract_2=[2, 3], notcontract_2=[1], &
-                                                map_1=[1], map_2=[2], &
+                     CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), tensor_1=t_3c_M_occ, &
+                                           tensor_2=t_3c_M_virt, &
+                                           beta=dbcsr_scalar(0.0_dp), &
+                                           tensor_3=t_P, &
+                                           contract_1=[2, 3], notcontract_1=[1], &
+                                           contract_2=[2, 3], notcontract_2=[1], &
+                                           map_1=[1], map_2=[2])
                                                 !filter_eps=eps_filter_im_time, &
-                                                unit_nr=6)
+                                                !unit_nr=6)
                      !flop=num_flops_mat_P)
                      num_flops_mat_P = 100000
 
