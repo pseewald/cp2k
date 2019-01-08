@@ -328,10 +328,9 @@ CONTAINS
                                                  tensor_3=t_3c_M_tmp, &
                                                  contract_1=[3], notcontract_1=[1, 2], &
                                                  contract_2=[1], notcontract_2=[2], &
-                                                 map_1=[1, 2], map_2=[3])
+                                                 map_1=[1, 2], map_2=[3], flop=flop_occ)
                                                  !filter_eps=eps_filter, &
                                                  !unit_nr=6)
-                           !flop=flop_occ)
                            CALL timestop(handle5)
 
                         ENDIF
@@ -359,9 +358,8 @@ CONTAINS
                                                  tensor_3=t_3c_M_tmp, &
                                                  contract_1=[3], notcontract_1=[1, 2], &
                                                  contract_2=[1], notcontract_2=[2], &
-                                                 map_1=[1, 2], map_2=[3])
+                                                 map_1=[1, 2], map_2=[3], flop=flop_virt)
                                                       !filter_eps=eps_filter, &
-                           !flop=flop_virt)
                            CALL timestop(handle5)
                         ENDIF
                      ENDDO
@@ -396,13 +394,9 @@ CONTAINS
                                            tensor_3=t_P, &
                                            contract_1=[2, 3], notcontract_1=[1], &
                                            contract_2=[2, 3], notcontract_2=[1], &
-                                           map_1=[1], map_2=[2])
+                                           map_1=[1], map_2=[2], flop=num_flops_mat_P)
                                                 !filter_eps=eps_filter_im_time, &
                                                 !unit_nr=6)
-                     !flop=num_flops_mat_P)
-                     num_flops_mat_P = 100000
-
-                     !PRINT *, "num flops P", num_flops_mat_P
 
                      CALL dbcsr_t_copy_tensor_to_matrix(t_P, mat_P_global%matrix)
 
