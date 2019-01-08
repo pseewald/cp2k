@@ -294,8 +294,8 @@ CONTAINS
                CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell))
                CALL dbcsr_t_create(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell), name="D occ")
                CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
-               CALL dbcsr_t_create(t_3c_overl_int(1, 1), t_3c_M_tmp, name="M temporary")
             ENDDO
+            CALL dbcsr_t_create(t_3c_overl_int(1, 1), t_3c_M_tmp, name="M temporary")
             CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ")
             CALL dbcsr_t_create(t_3c_M, t_3c_M_virt, name="M virt")
          ENDIF
@@ -469,9 +469,8 @@ CONTAINS
             DO i_cell = 1, num_cells_dm
                CALL dbcsr_t_destroy(t_dm_virt(i_cell))
                CALL dbcsr_t_destroy(t_dm_occ(i_cell))
-               CALL dbcsr_t_destroy(t_3c_M_tmp)
             ENDDO
-
+            CALL dbcsr_t_destroy(t_3c_M_tmp)
             CALL dbcsr_t_destroy(t_3c_M_occ)
             CALL dbcsr_t_destroy(t_3c_M_virt)
             DEALLOCATE (t_dm_virt)
