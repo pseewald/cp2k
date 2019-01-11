@@ -1076,6 +1076,8 @@ CONTAINS
       INTEGER :: dist_end, dist_start
       INTEGER :: ibin, nel_split
 
+      CPASSERT(nel >= nbin)
+
       nel_div = nel/nbin
       nel_rem = MOD(nel, nbin)
       dist_end = 0

@@ -315,10 +315,13 @@ CONTAINS
          IF (do_dbcsr_t) THEN
             DO i_cell_T = 1, num_cells_dm/2 + 1
 
+               IF (does_mat_P_T_tau_have_blocks(i_cell_T) .EQV. .FALSE.) CYCLE
                DO j_mem = 1, cut_memory
                   DO i_mem = 1, cut_memory
 
-                     IF (does_mat_P_T_tau_have_blocks(i_cell_T) .EQV. .FALSE.) CYCLE
+                     ! not implemented:
+                     !IF (cycle_due_to_sparse_dm(i_mem, j_mem, jquad) .AND. do_Gamma_RPA) CYCLE
+
                      DO i_cell_R_1 = 1, num_3c_repl
 
                         DO i_cell_R_2 = 1, num_3c_repl
@@ -334,7 +337,8 @@ CONTAINS
                               CALL get_diff_index_3c(i_cell_R_1, i_cell_S, i_cell_R_1_minus_S, index_to_cell_3c, &
                                                      cell_to_index_3c, index_to_cell_dm, R_1_minus_S_needed, &
                                                      do_kpoints_cubic_RPA)
-
+                              ! not implemented:
+                              ! IF (multiply_needed_occ(j_mem, i_cut_RI, i_cell_S) .AND. R_1_minus_S_needed .AND. &
                               IF (R_1_minus_S_needed) THEN
 
                                  CALL timeset(routineN//"_calc_M_t", handle5)
@@ -455,7 +459,7 @@ CONTAINS
                               first_cycle_im_time = .FALSE.
 
                               CALL check_if_mat_P_T_tau_has_blocks(does_mat_P_T_tau_have_blocks, mat_P_global, i_cell_T, &
-                                                                   jquad, 1, 1, i_cell_R_1, i_cell_R_2, &
+                                                                   jquad, i_mem, j_mem, i_cell_R_1, i_cell_R_2, &
                                                                    para_env, has_mat_P_blocks, num_flops_mat_P)
                            END IF ! do_ri_sos_laplace_mp2
                         ENDDO
@@ -531,11 +535,11 @@ CONTAINS
 
                                     ! D^occ*(munuP)
 
-                                    PRINT *, "checksum overl matrix occ", &
-                                       dbcsr_checksum(mat_3c_overl_int_mao_for_occ_cut( &
-                                                      i_cut_RI, j_mem, i_cell_R_1_minus_S, i_cell_R_2)%matrix)
+                                    !PRINT *, "checksum overl matrix occ", &
+                                    !   dbcsr_checksum(mat_3c_overl_int_mao_for_occ_cut( &
+                                    !                  i_cut_RI, j_mem, i_cell_R_1_minus_S, i_cell_R_2)%matrix)
 
-                                    PRINT *, "iteration info m", i_cell_T, i_cell_R_1, i_cell_R_2, i_cell_S, i_cut_RI, j_mem, i_mem
+                                    !PRINT *, "iteration info m", i_cell_T, i_cell_R_1, i_cell_R_2, i_cell_S, i_cut_RI, j_mem, i_mem
                                     CALL dbcsr_multiply("N", "N", 1.0_dp, &
                                                         mat_dm_loc_occ_cut(i_cut_RI, i_mem, i_cell_S)%matrix, &
                                                         mat_3c_overl_int_mao_for_occ_cut(i_cut_RI, j_mem, i_cell_R_1_minus_S, &
@@ -565,10 +569,10 @@ CONTAINS
                                                                          i_cell_R_1_minus_T)) THEN
 
                                     ! D^virt*(munuP)
-                                    PRINT *, "checksum overl matrix virt", &
-                                       dbcsr_checksum(mat_3c_overl_int_mao_for_virt_cut(i_cut_RI, i_mem, &
-                                                                                        i_cell_R_2_minus_S_minus_T, &
-                                                                                        i_cell_R_1_minus_T)%matrix)
+                                    !PRINT *, "checksum overl matrix virt", &
+                                    !   dbcsr_checksum(mat_3c_overl_int_mao_for_virt_cut(i_cut_RI, i_mem, &
+                                    !                                                    i_cell_R_2_minus_S_minus_T, &
+                                    !                                                    i_cell_R_1_minus_T)%matrix)
                                     CALL dbcsr_multiply("N", "N", alpha/2.0_dp, &
                                                         mat_dm_loc_virt_cut(i_cut_RI, j_mem, i_cell_S)%matrix, &
                                                         mat_3c_overl_int_mao_for_virt_cut(i_cut_RI, i_mem, &
