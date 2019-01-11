@@ -163,8 +163,10 @@ CONTAINS
       IF (PRESENT(do_reflection_b) .AND. PRESENT(reflection_z_b)) my_do_reflection_b = do_reflection_b
 
       G_count = 0; R_count = 0;
-      ALLOCATE(grid_count(param%par%n_grids))
-      grid_count(:) = 0
+      IF (my_eri_method == do_eri_mme) THEN
+         ALLOCATE (grid_count(param%par%n_grids))
+         grid_count(:) = 0
+      ENDIF
 
       ! get mapping between ERIs and atoms, sets, set offsets
       CALL get_eri_offsets(qs_env, basis_type_b, eri_offsets)
@@ -384,7 +386,7 @@ $:                         'force_b=force_b(jkind)%forces(:, atom_b), &'*doforce
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(OUT), &
          OPTIONAL                                        :: hdab, hadb
       INTEGER, INTENT(INOUT), OPTIONAL                   :: G_count, R_count
-      INTEGER, DIMENSION(:), INTENT(INOUT), OPTIONAL     :: grid_count
+      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(INOUT), OPTIONAL     :: grid_count
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_reflection_a, do_reflection_b
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'integrate_set_2c', &

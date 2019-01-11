@@ -250,7 +250,8 @@ CONTAINS
                                     poisson_env, auxbas_pw_pool, task_list_sub, mo_coeff_o, mo_coeff_v, mo_coeff_all, &
                                     mo_coeff_gw, eps_filter, unit_nr, &
                                     mp2_memory, calc_PQ_cond_num, calc_forces, blacs_env_sub, my_do_gw, do_bse, &
-                                    starts_B_all, sizes_B_all, ends_B_all, gw_corr_lev_occ, gw_corr_lev_virt, &
+                                    starts_B_all, sizes_B_all, ends_B_all, starts_array_mc_t, ends_array_mc_t, &
+                                    gw_corr_lev_occ, gw_corr_lev_virt, &
                                     do_im_time, do_mao, do_kpoints_cubic_RPA, &
                                     mat_3c_overl_int, t_3c_overl_int, do_dbcsr_t, t_3c_M, mat_3c_overl_int_mao_for_occ, &
                                     mat_3c_overl_int_mao_for_virt, mao_coeff_occ, mao_coeff_virt, &
@@ -295,7 +296,8 @@ CONTAINS
       LOGICAL                                            :: calc_PQ_cond_num, calc_forces
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env_sub
       LOGICAL                                            :: my_do_gw, do_bse
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: starts_B_all, sizes_B_all, ends_B_all
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: starts_B_all, sizes_B_all, ends_B_all, &
+                                                            starts_array_mc_t, ends_array_mc_t
       INTEGER                                            :: gw_corr_lev_occ, gw_corr_lev_virt
       LOGICAL                                            :: do_im_time, do_mao, do_kpoints_cubic_RPA
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int, &
@@ -917,9 +919,10 @@ CONTAINS
 
          IF (do_dbcsr_t) THEN
             CALL dbcsr_get_info(mat_munu%matrix, row_blk_size=ao_blk_sizes)
+
             CALL create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, &
-                                    ngroup_im_time_P, &
-                                    ao_blk_sizes, row_blk_sizes_RI_t)
+                                    cut_memory, ngroup_im_time_P, &
+                                    ao_blk_sizes, row_blk_sizes_RI_t, starts_array_mc_t, ends_array_mc_t)
          ENDIF
 
          ! if we do modified atomic orbitals for the primary basis (one MAO basis for D^occ one for D^virt, then
@@ -1018,16 +1021,19 @@ CONTAINS
 
    END SUBROUTINE mp2_ri_gpw_compute_in
 
-   SUBROUTINE create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, ngroup, ao_blk_sizes, row_blk_sizes_RI_t)
+   SUBROUTINE create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, mem_cut, ngroup, ao_blk_sizes, row_blk_sizes_RI_t, &
+                                 starts_array_mc, ends_array_mc)
       TYPE(dbcsr_t_type), INTENT(OUT) :: t_3c_M
       TYPE(dbcsr_t_pgrid_type), INTENT(IN) :: mp_comm_t3c_m
-      INTEGER, INTENT(IN) :: ngroup
+      INTEGER, INTENT(IN) :: ngroup, mem_cut
       INTEGER, DIMENSION(:), INTENT(IN) :: ao_blk_sizes, row_blk_sizes_RI_t
+      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT) :: starts_array_mc, ends_array_mc
       INTEGER, DIMENSION(3)             :: pdims, pcoord
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_RI
-      INTEGER :: natoms, na_div, na_rem, dist_end, dist_start, iatom, idim, na_split
+      INTEGER :: natoms, iatom
       TYPE(dbcsr_t_distribution_type) :: dist
       INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_ao_1, dist_ao_2
+      INTEGER :: imem, na_cut
 
       CALL mp_environ_pgrid(mp_comm_t3c_m, pdims, pcoord)
 
@@ -1038,35 +1044,19 @@ CONTAINS
          dist_RI(iatom) = MOD(iatom-1, pdims(1))
       ENDDO
 
-      na_div = natoms/pdims(2)
-      na_rem = MOD(natoms, pdims(2))
+
+      ALLOCATE(starts_array_mc(mem_cut))
+      ALLOCATE(ends_array_mc(mem_cut))
+
+      CALL contiguous_dist(natoms, mem_cut, limits_start=starts_array_mc, limits_end=ends_array_mc)
 
       ALLOCATE(dist_ao_1(natoms))
-      dist_end = 0
-      DO idim=1,pdims(2)
-         na_split = na_div
-         IF(idim <= na_rem) THEN
-            na_split = na_split+1
-         ENDIF
-         dist_start = dist_end + 1
-         dist_end = dist_start + na_split - 1
-         dist_ao_1(dist_start:dist_end) = idim - 1
-      ENDDO
-
-      na_div = natoms/pdims(3)
-      na_rem = MOD(natoms, pdims(3))
       ALLOCATE(dist_ao_2(natoms))
-      dist_end = 0
-      DO idim=1,pdims(3)
-         na_split = na_div
-         IF(idim <= na_rem) THEN
-            na_split = na_split+1
-         ENDIF
-         dist_start = dist_end + 1
-         dist_end = dist_start + na_split - 1
-         dist_ao_2(dist_start:dist_end) = idim - 1
+      DO imem = 1, mem_cut
+         na_cut = ends_array_mc(imem) - starts_array_mc(imem) + 1
+         CALL contiguous_dist(na_cut, pdims(2), dist=dist_ao_1(starts_array_mc(imem):ends_array_mc(imem)))
+         CALL contiguous_dist(na_cut, pdims(3), dist=dist_ao_2(starts_array_mc(imem):ends_array_mc(imem)))
       ENDDO
-
 
       CALL dbcsr_t_distribution_new(dist, mp_comm_t3c_m, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2, &
          ngroup=ngroup, dimsplit=2, own_comm=.TRUE.)
@@ -1074,6 +1064,32 @@ CONTAINS
                           ao_blk_sizes, ao_blk_sizes)
       CALL dbcsr_t_distribution_destroy(dist)
 
+   END SUBROUTINE
+
+   SUBROUTINE contiguous_dist(nel, nbin, limits_start, limits_end, dist)
+      INTEGER, INTENT(IN) :: nel
+      INTEGER, INTENT(IN) :: nbin
+      INTEGER, DIMENSION(nbin), OPTIONAL, INTENT(OUT) :: limits_start
+      INTEGER, DIMENSION(nbin), OPTIONAL, INTENT(OUT) :: limits_end
+      INTEGER, DIMENSION(nel), OPTIONAL, INTENT(OUT) :: dist
+      INTEGER :: nel_div, nel_rem
+      INTEGER :: dist_end, dist_start
+      INTEGER :: ibin, nel_split
+
+      nel_div = nel/nbin
+      nel_rem = MOD(nel, nbin)
+      dist_end = 0
+      DO ibin=1,nbin
+         nel_split = nel_div
+         IF(ibin <= nel_rem) THEN
+            nel_split = nel_split+1
+         ENDIF
+         dist_start = dist_end + 1
+         dist_end = dist_start + nel_split - 1
+         IF (PRESENT(dist)) dist(dist_start:dist_end) = ibin - 1
+         IF (PRESENT(limits_start)) limits_start(ibin) = dist_start
+         IF (PRESENT(limits_end)) limits_end(ibin) = dist_end
+      ENDDO
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -7444,7 +7460,7 @@ CONTAINS
                                      cut_RI, sab_orb_sub, sab_orb_all, do_mao, mao_coeff_repl_occ, &
                                      mao_coeff_repl_virt, num_diff_blk)
 
-      TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t_3c_overl_int
+      TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE, INTENT(INOUT) :: t_3c_overl_int
       LOGICAL, INTENT(IN)                                :: do_dbcsr_t
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int, &
                                                             mat_3c_overl_int_mao_for_occ, &
@@ -8803,6 +8819,8 @@ CONTAINS
 
                   CALL get_iterator_info(nl_iterator, &
                                          iatom=iatom, jatom=jatom, r=rab, cell=cell_vec)
+
+
                   !PRINT *, "nl", atom_RI, iatom, jatom
 
                   DO i_img_outer = 1, nimg
