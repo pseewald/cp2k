@@ -116,6 +116,7 @@ MODULE xas_tdp_types
 !> \param ri_fxc_sg the array of xc integrals of type (P|fxc|Q) for singlets
 !> \param ri_fxc_tp the array of xc integrals of type (P|fxc|Q) for triplets
 !> \param orb_soc the matrix where the SOC is evaluated wrt the orbital basis set, for x,y,z
+!> \param lumo_guess the coefficients for the LUMOs as guees for the OT eigensolver
 !> *************************************************************************************************
    TYPE xas_tdp_env_type
       CHARACTER(len=2), DIMENSION(3)          :: state_type_char
@@ -128,8 +129,10 @@ MODULE xas_tdp_types
       TYPE(o3c_container_type), POINTER       :: ri_o3c_ex
       INTEGER                                 :: lb_o3c_coul
       INTEGER                                 :: ub_o3c_coul
+      TYPE(cp_fm_p_type), DIMENSION(:), &
+                                    POINTER   :: lumo_guess
       TYPE(donor_state_type), DIMENSION(:),&
-                        POINTER               :: donor_states
+                                    POINTER   :: donor_states
       INTEGER, DIMENSION(:,:), POINTER        :: mos_of_ex_atoms
       TYPE(qs_loc_env_new_type), POINTER      :: qs_loc_env
       REAL(dp), DIMENSION(:,:), POINTER       :: ri_inv_coul
@@ -206,7 +209,6 @@ MODULE xas_tdp_types
 !> \param excited_atoms the atoms for which RI xc-kernel calculations must be done 
 !> \param excited_kinds the kinds for which RI xc-kernel calculations must be done 
 !> \param grid_atom_set the set of atomic grid for each kind
-!> \param ri_blk_size the block sizes of the dbcsr_matrix that will hold the RI integrals 
 !> \param ri_dcoeff the expansion coefficients to express the density in the RI basis for each atom
 !> \param ri_sphi_so contains the coefficient for direct contraction from so to sgf, for the ri basis
 !> \param orb_sphi_so contains the coefficient for direct contraction from so to sgf, for the orb basis
@@ -217,7 +219,6 @@ MODULE xas_tdp_types
       TYPE(grid_atom_p_type), DIMENSION(:), POINTER   :: grid_atom_set
       TYPE(harmonics_atom_p_type), DIMENSION(:), & 
                                              POINTER  :: harmonics_atom_set
-      INTEGER, DIMENSION(:), POINTER                  :: ri_blk_size
       TYPE(cp_1d_r_p_type), DIMENSION(:), POINTER     :: ri_dcoeff
       TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: ri_sphi_so
       TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: orb_sphi_so
@@ -480,6 +481,7 @@ CONTAINS
       NULLIFY (xas_tdp_env%qs_loc_env)
       NULLIFY (xas_tdp_env%mos_of_ex_atoms)
       NULLIFY (xas_tdp_env%ri_inv_coul)
+      NULLIFY (xas_tdp_env%lumo_guess)
       NULLIFY (xas_tdp_env%q_projector)
       NULLIFY (xas_tdp_env%dipmat)
       NULLIFY (xas_tdp_env%ri_o3c_coul)
@@ -530,6 +532,10 @@ CONTAINS
          END IF
          IF (ASSOCIATED(xas_tdp_env%ri_inv_coul)) THEN
             DEALLOCATE(xas_tdp_env%ri_inv_coul)
+         END IF
+         IF (ASSOCIATED(xas_tdp_env%lumo_guess)) THEN
+            CALL cp_fm_release(xas_tdp_env%lumo_guess(1)%matrix)
+            DEALLOCATE(xas_tdp_env%lumo_guess)
          END IF
          IF (ASSOCIATED(xas_tdp_env%q_projector)) THEN
             CALL dbcsr_release(xas_tdp_env%q_projector)
@@ -829,7 +835,6 @@ CONTAINS
       NULLIFY(xas_atom_env%excited_kinds)
       NULLIFY(xas_atom_env%grid_atom_set)
       NULLIFY(xas_atom_env%harmonics_atom_set)
-      NULLIFY(xas_atom_env%ri_blk_size)
       NULLIFY(xas_atom_env%ri_dcoeff)
       NULLIFY(xas_atom_env%ri_sphi_so)
       NULLIFY(xas_atom_env%orb_sphi_so)
@@ -869,10 +874,6 @@ CONTAINS
 
       ! Note that excited_atoms and excited_kinds are not deallocated because they point to other 
       ! ressources, namely xas_tdp_env
-
-      IF (ASSOCIATED(xas_atom_env%ri_blk_size)) THEN
-         DEALLOCATE(xas_atom_env%ri_blk_size)
-      END IF
 
       IF (ASSOCIATED(xas_atom_env%ri_dcoeff)) THEN
          DO i = 1,SIZE(xas_atom_env%ri_dcoeff)
