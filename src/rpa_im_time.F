@@ -3232,6 +3232,11 @@ CONTAINS
       INTEGER :: blk, i_mem, num_3c_repl, i_cell, j_cell
       REAL(KIND=dp), DIMENSION(:, :, :), ALLOCATABLE                 :: t_block
       LOGICAL                                                        :: found
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'setup_tensor_for_mem_cut_3c', &
+         routineP = moduleN//':'//routineN
+      INTEGER :: handle
+
+      CALL timeset(routineN, handle)
 
       num_3c_repl = SIZE(t_3c_overl_int, 2)
 
@@ -3267,6 +3272,8 @@ CONTAINS
 
       DEALLOCATE(t_3c_overl_int)
 
+      CALL timestop(handle)
+
    END SUBROUTINE
 
    SUBROUTINE setup_dm_for_mem_cut(t_dm_cut, t_dm, cut_memory, starts_array_mc_t, ends_array_mc_t, eps_filter)
@@ -3280,6 +3287,12 @@ CONTAINS
       INTEGER, DIMENSION(2)                                          :: blk_ind
       REAL(KIND=dp), DIMENSION(:, :), ALLOCATABLE :: t_block
       LOGICAL :: found
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'setup_dm_for_mem_cut', &
+         routineP = moduleN//':'//routineN
+      INTEGER :: handle
+
+      CALL timeset(routineN, handle)
 
       num_3c_repl = SIZE(t_dm, 1)
 
@@ -3309,6 +3322,8 @@ CONTAINS
       ENDDO
 
       DEALLOCATE(t_dm)
+
+      CALL timestop(handle)
    END SUBROUTINE
 
 ! **************************************************************************************************
