@@ -31,6 +31,7 @@ MODULE xas_tdp_utils
                                               cp_fm_set_element, cp_fm_p_type, cp_fm_get_diag
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_gemm_interface,               ONLY: cp_gemm
+   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_p_type, dbcsr_distribution_type, &
                                               dbcsr_get_info, dbcsr_distribution_get, &
@@ -371,11 +372,14 @@ CONTAINS
       full_diag = xas_tdp_control%full_diag
       CALL dbcsr_get_info(matrix_tdp, nfullrows_total=nrow)
       ndo_mo = SIZE(donor_state%mo_indices)
-      nocc = ndo_mo*nelectron/2
+      nocc = nelectron/2
       nevals = nrow - nocc
       IF (xas_tdp_control%n_excited > 0 .AND. xas_tdp_control%n_excited < nevals) THEN
          nevals = xas_tdp_control%n_excited
       END IF
+      nevals = ndo_mo*nevals !as in input description, multiply by # of donor MOs
+      nocc  = ndo_mo*nocc
+
       CALL cp_fm_struct_create(fm_struct, context=blacs_env, nrow_global=nrow, &
                                para_env=para_env, ncol_global=nrow)
       CALL cp_fm_create(c_sum, fm_struct)
@@ -561,11 +565,9 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = "xas_ot_solver", routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: handle, ndo_mo, homo, nmo, iex, imo, nao, &
-                                                         ido_mo, max_iter
+      INTEGER                                         :: handle, ndo_mo, iex, imo, nao, &
+                                                         ido_mo, max_iter, output_unit
       REAL(dp)                                        :: eps_iter, min_ev, shift
-      TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
-      TYPE(cp_fm_type), POINTER                       :: mo_coeff
       TYPE(preconditioner_type), POINTER              :: precond
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
@@ -574,29 +576,32 @@ CONTAINS
       TYPE(dbcsr_distribution_type), POINTER          :: dist
       INTEGER, DIMENSION(:), POINTER                  :: blk_size
 
-      NULLIFY(mos, mo_coeff, precond, para_env, blacs_env, work1, work2, vector, dist, blk_size)
+      NULLIFY(precond, para_env, blacs_env, work1, work2, vector, dist, blk_size)
 
       CALL timeset(routineN, handle)
+
+      output_unit = cp_logger_get_default_io_unit()
+      WRITE(output_unit, "(/,T5,A)") &
+         "Using OT eigensolver for diagonalization: "
       
 !  Initialization
       ndo_mo = SIZE(donor_state%mo_indices)
-      CALL get_qs_env(qs_env, mos=mos, para_env=para_env, blacs_env=blacs_env)
-      CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, nao=nao, homo=homo, nmo=nmo)
+      CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env)
+      CALL cp_fm_get_info(evecs, nrow_global=nao)
+      nao = nao/ndo_mo
       max_iter = xas_tdp_control%max_iter
       eps_iter = xas_tdp_control%eps_iter
 
-!  Build the guess for the LR orbitals by taking the corresponding LUMOs
+!  Build the guesses based on the LUMOs
       iex = 0
-      DO imo = homo+1, nmo
+      DO imo = 1, neig/ndo_mo
          DO ido_mo = 1, ndo_mo
             iex = iex + 1
-            IF (iex > neig) EXIT
-
             ! Put the given LUMO in guess, once per donor MO
-            CALL cp_fm_to_fm_submat(msource=mo_coeff, mtarget=evecs, nrow=nao, ncol=1, s_firstrow=1,&
-                                    s_firstcol=imo, t_firstrow=(ido_mo-1)*nao+1, t_firstcol=iex)
-         END DO ! ido_mo
-         IF (iex > neig) EXIT
+            CALL cp_fm_to_fm_submat(msource=xas_tdp_env%lumo_guess(1)%matrix, mtarget=evecs, &
+                                    nrow=nao, ncol=1, s_firstrow=1, s_firstcol=imo, &
+                                    t_firstrow=(ido_mo-1)*nao+1, t_firstcol=iex)
+         END DO !ido_mo
       END DO !imo
 
 !  Prepare the preconditioner. Experiments have shown that taking the diagonal of H - Svv^T H vv^T S,
@@ -652,7 +657,7 @@ CONTAINS
       CALL ot_eigensolver(matrix_h=matrix_tdp, matrix_s=metric, matrix_c_fm=evecs, &
                           preconditioner=precond, eps_gradient=eps_iter, iter_max=max_iter, &
                           silent=.FALSE., ot_settings=xas_tdp_control%ot_settings)
-      CALL calculate_subspace_eigenvalues(evecs, matrix_tdp, evals_arg=evals, do_rotation=.TRUE.)
+      CALL calculate_subspace_eigenvalues(evecs, matrix_tdp, evals_arg=evals)
 
 !  Clean-up
       CALL destroy_preconditioner(precond)

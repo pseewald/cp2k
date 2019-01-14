@@ -19,6 +19,7 @@ MODULE xas_tdp_methods
                                               init_orb_basis_set
    USE cell_types,                      ONLY: cell_type,&
                                               pbc
+   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
@@ -68,10 +69,12 @@ MODULE xas_tdp_methods
                                               qs_loc_env_init,&
                                               set_loc_centers,&
                                               set_loc_wfn_lists
+   USE qs_mo_methods,                   ONLY: calculate_subspace_eigenvalues
    USE qs_mo_types,                     ONLY: get_mo_set,&
                                               mo_set_p_type
    USE qs_operators_ao,                 ONLY: p_xyz_ao, rRc_xyz_ao       
    USE qs_rho_types,                    ONLY: qs_rho_get, qs_rho_type
+   USE qs_scf_post_gpw,                 ONLY: make_lumo
    USE util,                            ONLY: locate
    USE xas_methods,                     ONLY: calc_stogto_overlap
    USE xas_tdp_atom,                    ONLY: init_xas_atom_env, &
@@ -376,7 +379,8 @@ CONTAINS
       INTEGER                                            :: nex_atoms, n_kinds, i, nat_of_kind,&
                                                             j, nex_kinds, k, n_donor_states,&
                                                             nspins, homo, natom, nmatch, kind_ind, &
-                                                            at_ind
+                                                            at_ind, nelectron, nevals, nao, nlumos,&
+                                                            output_unit
       INTEGER, DIMENSION(2)                              :: n_mo, n_moloc
       INTEGER, DIMENSION(:), POINTER                     :: ind_of_kind
       CHARACTER(len=2)                                   :: symbol
@@ -387,9 +391,10 @@ CONTAINS
       TYPE(qs_rho_type), POINTER                         :: rho
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(cp_1d_r_p_type), DIMENSION(:), POINTER        :: lumo_evals
 
       NULLIFY(dft_section, xas_tdp_section, at_kind_set, ind_of_kind, qs_kind_set, dft_control)
-      NULLIFY(qs_loc_env, loc_section, mos, particle_set, rho, rho_ao)
+      NULLIFY(qs_loc_env, loc_section, mos, particle_set, rho, rho_ao, lumo_evals)
 
 !  XAS TDP control type initialization
       dft_section => section_vals_get_subs_vals(qs_env%input, "DFT")                     
@@ -504,7 +509,7 @@ CONTAINS
       loc_section => xas_tdp_control%loc_subsection
 !     getting the number of (doubly occupied)  MOs 
       CALL get_qs_env(qs_env, mos=mos)
-      CALL get_mo_set(mos(1)%mo_set, nmo=n_mo(1), homo=homo) 
+      CALL get_mo_set(mos(1)%mo_set, nmo=n_mo(1), homo=homo, nao=nao) 
       n_mo(2) = n_mo(1)
       nspins = 1
 !     by default, all homo are localized
@@ -561,6 +566,27 @@ CONTAINS
          DO i = 1,3
             ALLOCATE(xas_tdp_env%orb_soc(i)%matrix)
          END DO
+      END IF
+
+!  Computing the first LUMOs for guesses in case of OT eigensolver
+      IF (.NOT. xas_tdp_control%full_diag) THEN
+        output_unit = cp_logger_get_default_io_unit()
+        WRITE(output_unit, "(/,T3,A,/,T3,A)") &
+           "Compute N_EXCITED LUMOs to be used as guess for the OT recursive eigensolver: ", &
+           "Note: convergence is not necessarily needed here."
+
+        CALL get_qs_env(qs_env, nelectron_total=nelectron)
+        nevals = nao - nelectron/2
+        IF (xas_tdp_control%n_excited > 0 .AND. xas_tdp_control%n_excited < nevals) THEN
+           nevals = xas_tdp_control%n_excited
+        END IF
+
+        ALLOCATE(xas_tdp_env%lumo_guess(1)); ALLOCATE(lumo_evals(1))
+        CALL make_lumo(qs_env, qs_env%scf_env, xas_tdp_env%lumo_guess, lumo_evals, nevals, nlumos)
+        
+        DEALLOCATE(lumo_evals(1)%array)
+        DEALLOCATE(lumo_evals)
+        
       END IF
 
    END SUBROUTINE xas_tdp_init
@@ -1245,7 +1271,7 @@ CONTAINS
       END IF
 
 !  If OT eigensolver, then also analyse the LUMOs
-      IF (.NOT. xas_tdp_control%full_diag) CALL check_lumo_guess(xas_tdp_control, qs_env)
+      IF (.NOT. xas_tdp_control%full_diag) CALL check_lumo_guess(xas_tdp_control, xas_tdp_env, qs_env)
 
    END SUBROUTINE print_checks
 
@@ -1253,33 +1279,35 @@ CONTAINS
 !> \brief Analyze the LUMOs from the ground state calculations to be used as guess for the LR
 !>        orbitals. Mainly look for gaps in the spctrum such that OT converges optimally
 !> \param xas_tdp_control ...
+!> \param xas_tdp_env ...
 !> \param qs_env ...
 ! **************************************************************************************************
-   SUBROUTINE check_lumo_guess(xas_tdp_control, qs_env)
+   SUBROUTINE check_lumo_guess(xas_tdp_control, xas_tdp_env, qs_env)
 
       TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(qs_environment_type), POINTER              :: qs_env
       
       CHARACTER(len=*), PARAMETER :: routineN = "check_lumo_guess", routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: homo, nmo, imo, output_unit, ilumo
+      INTEGER                                         :: nlumo, imo, output_unit, ilumo
       REAL(dp)                                        :: min_gap
       TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
       REAL(dp), DIMENSION(:), POINTER                 :: evals
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_ks
 
       CPASSERT(ASSOCIATED(xas_tdp_control))
-      NULLIFY(mos, evals)
+      NULLIFY(mos, evals, matrix_ks)
 
       output_unit = cp_logger_get_default_io_unit()
 
 !  Get the LUMOs and their energies
-      CALL get_qs_env(qs_env, mos=mos)
-      CALL get_mo_set(mos(1)%mo_set, homo=homo, nmo=nmo, eigenvalues=evals)
+      CALL get_qs_env(qs_env, matrix_ks=matrix_ks)
+      CALL cp_fm_get_info(xas_tdp_env%lumo_guess(1)%matrix, ncol_global=nlumo)
+      ALLOCATE(evals(nlumo)) 
+      CALL calculate_subspace_eigenvalues(xas_tdp_env%lumo_guess(1)%matrix, matrix_ks(1)%matrix, &
+                                          evals_arg=evals)
 
-      IF (nmo <= homo) THEN
-         CPABORT("The OT eigensolver requires LUMOs for guesses. Use ADDED_MOS.")
-      END IF
- 
       IF (output_unit > 0) THEN
          WRITE(output_unit, "(/,T3,A,/,T3,A)") &
             "# Check the LUMOs eigenvalues for gaps, as the OT iterative eigensolver", &
@@ -1290,18 +1318,18 @@ CONTAINS
       min_gap = 5.0_dp/evolt
 
 !  Loop over the LUMOs energies and find gaps
-      DO imo = homo+1, nmo-1
+      DO imo = 1, nlumo-1
 
          IF (min_gap <= evals(imo+1)-evals(imo)) THEN
             IF (output_unit > 0) THEN
                WRITE(output_unit, "(/,T5,A22,I8,/,T8,A)") &
-                  "Found gap after LUMO # ", imo-homo, &
+                  "Found gap after LUMO # ", imo, &
                   "LUMO index         LUMO eigenvalue (eV)"
             END IF
-            DO ilumo = MAX(imo-2, homo), MIN(imo+2,nmo)
+            DO ilumo = MAX(imo-2, 1), MIN(imo+2,nlumo)
                IF (output_unit > 0) THEN
                   WRITE(output_unit, "(T8,I10,F29.3)") &
-                     ilumo-homo, evals(ilumo)*evolt
+                     ilumo, evals(ilumo)*evolt
                END IF
             END DO
          END IF
@@ -1309,9 +1337,11 @@ CONTAINS
 
       IF (output_unit > 0) THEN
          WRITE(output_unit, "(/,T5,A,/,T5,A)") &
-            "Use one of the above value as N_EXCITED for optimal OT convergence.", &
-            "Increase ADDED_MOS for more options."
+            "Use one of the above value as N_EXCITED for optimal OT convergence", &
+            "or increase current N_EXCITED for more options."
       END IF
+
+      DEALLOCATE(evals)
 
    END SUBROUTINE check_lumo_guess
 

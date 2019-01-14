@@ -127,7 +127,6 @@ CONTAINS
       ALLOCATE(xas_atom_env%harmonics_atom_set(nkind))
       ALLOCATE(xas_atom_env%ri_sphi_so(nkind))
       ALLOCATE(xas_atom_env%orb_sphi_so(nkind))
-      ALLOCATE(xas_atom_env%ri_blk_size(natom))
       ALLOCATE(xas_atom_env%ri_dcoeff(natom))
 
       xas_atom_env%excited_atoms => xas_tdp_env%ex_atom_indices
@@ -135,13 +134,6 @@ CONTAINS
 
 !  Allocate and initialize the atomic grids and harmonics
       CALL init_xas_atom_grid_harmo(xas_atom_env, xas_tdp_control%grid_info, do_xc, qs_env)
-
-!  Create the block size for the integral matrix based on the size of the RI_XAS basis.
-!  TODO: this is not needed anymore...
-      ALLOCATE(basis_set_ri(nkind))
-      CALL basis_set_list_setup(basis_set_ri, "RI_XAS", qs_kind_set)
-      CALL get_particle_set(particle_set, qs_kind_set, nsgf=xas_atom_env%ri_blk_size, basis=basis_set_ri)
-      DEALLOCATE(basis_set_ri)
 
 !  Compute the contraction coefficients for spherical orbitals
       DO ikind = 1,nkind 
@@ -370,6 +362,7 @@ CONTAINS
       ALLOCATE(sphi_so(maxso,SUM(nsgf_set)))
       sphi_so = 0.0_dp
 
+      !TODO: could OpenMP parallelize if actually costly
       DO iset = 1, nset
             sgfi = first_sgf(1, iset)
             DO ipgf = 1,npgf(iset)
@@ -433,12 +426,12 @@ CONTAINS
       REAL(dp), DIMENSION(:,:), POINTER               :: tvec
       TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: sinv
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set 
-      INTEGER, DIMENSION(:), POINTER                  :: nsgf
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: nsgf
       REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: work
       TYPE(cp_para_env_type), POINTER                 :: para_env
 
       NULLIFY(qs_kind_set, basis_set_ri, basis_set_orb, ac_list, rho, rho_ao, sinv, ri_basis)
-      NULLIFY(o3c, tvec, particle_set, nsgf, para_env)
+      NULLIFY(o3c, tvec, particle_set, para_env)
 
       CALL timeset(routineN, handle)
 
@@ -476,7 +469,8 @@ CONTAINS
       CALL contract12_o3c(o3c, rho_ao)
 
 !  Allocate space for the projected density coefficients. 
-      nsgf => xas_atom_env%ri_blk_size
+      ALLOCATE(nsgf(natom))
+      CALL get_particle_set(particle_set, qs_kind_set, nsgf=nsgf, basis=basis_set_ri)
       DO iat = 1,natom
          NULLIFY(xas_atom_env%ri_dcoeff(iat)%array)
          IF (.NOT. ANY(xas_atom_env%excited_atoms == iat)) CYCLE
