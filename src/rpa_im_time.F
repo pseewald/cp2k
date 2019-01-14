@@ -244,7 +244,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'compute_mat_P_omega', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: handle, handle4, handle5, i_cell, i_cell_R_1, i_cell_R_1_minus_S, &
+      INTEGER :: handle, handle4, handle5, handle6, i_cell, i_cell_R_1, i_cell_R_1_minus_S, &
          i_cell_R_1_minus_T, i_cell_R_2, i_cell_R_2_minus_S_minus_T, i_cell_S, i_cell_T, i_cut_RI, &
          i_mem, iquad, j_mem, my_group_L_size, num_3c_repl, num_cells_dm
       INTEGER(KIND=int_8)                                :: flop_occ, flop_virt, num_flops_mat_P
@@ -293,6 +293,8 @@ CONTAINS
 
          ! loop over T for chi^T(it)
          IF (do_dbcsr_t) THEN
+
+            CALL timeset(routineN//"_dbcsr_t", handle6)
             ALLOCATE (t_dm_virt(num_cells_dm))
             ALLOCATE (t_dm_occ(num_cells_dm))
             CALL dbcsr_t_create(mat_P_global%matrix, t_P, name="P matrix")
@@ -310,6 +312,7 @@ CONTAINS
                                       eps_filter)
             CALL setup_dm_for_mem_cut(t_dm_virt_cut, t_dm_virt, cut_memory, starts_array_mc_t, ends_array_mc_t, &
                                       eps_filter)
+
          ENDIF
 
          IF (do_dbcsr_t) THEN
@@ -482,6 +485,8 @@ CONTAINS
             CALL dbcsr_t_destroy(t_3c_M_virt)
             DEALLOCATE (t_dm_virt_cut)
             DEALLOCATE (t_dm_occ_cut)
+
+            CALL timestop(handle6)
          ELSE
 
             DO i_cell_T = 1, num_cells_dm/2 + 1
