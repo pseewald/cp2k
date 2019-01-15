@@ -352,9 +352,8 @@ CONTAINS
                                                        tensor_3=t_3c_M_tmp, &
                                                        contract_1=[3], notcontract_1=[1, 2], &
                                                        contract_2=[1], notcontract_2=[2], &
-                                                       map_1=[1, 2], map_2=[3], flop=flop_occ)
-                                 !filter_eps=eps_filter, &
-                                 !unit_nr=6)
+                                                       map_1=[1, 2], map_2=[3], flop=flop_occ,&
+                                                       filter_eps=eps_filter)
                                  CALL timestop(handle5)
 
                               ENDIF
@@ -376,14 +375,15 @@ CONTAINS
                                  CALL timeset(routineN//"_calc_M_t", handle5)
 
                                  CALL dbcsr_t_contract(alpha=dbcsr_scalar(alpha/2.0_dp), &
-                                               tensor_1=t_3c_overl_int_cut(i_mem, i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
+                                                       tensor_1=t_3c_overl_int_cut( &
+                                                       i_mem, i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
                                                        tensor_2=t_dm_virt_cut(j_mem, i_cell_S), &
                                                        beta=dbcsr_scalar(1.0_dp), &
                                                        tensor_3=t_3c_M_tmp, &
                                                        contract_1=[3], notcontract_1=[1, 2], &
                                                        contract_2=[1], notcontract_2=[2], &
-                                                       map_1=[1, 2], map_2=[3], flop=flop_virt)
-                                 !filter_eps=eps_filter, &
+                                                       map_1=[1, 2], map_2=[3], flop=flop_virt, &
+                                                       filter_eps=eps_filter)
                                  CALL timestop(handle5)
                               ENDIF
                            ENDDO
@@ -407,9 +407,8 @@ CONTAINS
                                                  tensor_3=t_P, &
                                                  contract_1=[2, 3], notcontract_1=[1], &
                                                  contract_2=[2, 3], notcontract_2=[1], &
-                                                 map_1=[1], map_2=[2], flop=num_flops_mat_P)
-                           !filter_eps=eps_filter_im_time, &
-                           !unit_nr=6)
+                                                 map_1=[1], map_2=[2], flop=num_flops_mat_P, &
+                                                 filter_eps=eps_filter_im_time/SQRT(REAL(cut_memory, KIND=dp)))
 
                            CALL dbcsr_t_copy_tensor_to_matrix(t_P, mat_P_global%matrix)
 
@@ -554,7 +553,7 @@ CONTAINS
                                                         ! last_row=ends_array_cm(i_mem), &
                                                         ! first_column=(starts_array_cm(j_mem)-1)*my_group_L_size+1, &
                                                         ! last_column=ends_array_cm(j_mem)*my_group_L_size, &
-                                                        filter_eps=eps_filter*SQRT(REAL(my_group_L_size, KIND=dp)), &
+                                                        filter_eps=eps_filter, &
                                                         flop=flop_occ)
 
                                  END IF
@@ -588,7 +587,7 @@ CONTAINS
                                                         ! last_row=ends_array_cm(j_mem), &
                                                         ! first_column=(starts_array_cm(i_mem)-1)*my_group_L_size+1, &
                                                         ! last_column=ends_array_cm(i_mem)*my_group_L_size, &
-                                                        filter_eps=eps_filter*SQRT(REAL(my_group_L_size, KIND=dp)), &
+                                                        filter_eps=eps_filter, &
                                                         flop=flop_virt)
 
                                  END IF
@@ -660,7 +659,8 @@ CONTAINS
                            ! P_RT = sum_mu sigma M^occ_P_mu_sigma M^virt_R_mu_sigma
                            CALL dbcsr_multiply("N", "T", 1.0_dp, mat_M_P_munu_occ%matrix, mat_M_P_munu_virt%matrix, &
                                                0.0_dp, mat_P_local%matrix, &
-                                               filter_eps=eps_filter_im_time/REAL(cut_memory, KIND=dp), &
+                                               filter_eps= &
+                                               eps_filter_im_time/SQRT(REAL(cut_memory*para_env%num_pe/group_size_P, KIND=dp)), &
                                                flop=num_flops_mat_P)
 
                            IF (first_cycle_im_time .AND. memory_info) THEN
