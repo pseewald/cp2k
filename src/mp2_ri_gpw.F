@@ -7686,34 +7686,10 @@ CONTAINS
                IF (iatom_outer .NE. atom_RI .AND. jatom_outer .NE. atom_RI) CYCLE
 
                nthread = 1
-!$             nthread = omp_get_max_threads()
 
                CALL neighbor_list_iterator_create(nl_iterator, sab_orb_sub, nthread=nthread)
 
-!$OMP   PARALLEL DEFAULT(NONE) &
-!$OMP   SHARED (nthread,atom_RI,first_sgf_RI,l_max_RI,l_min_RI,npgf_RI,nset_RI,nsgf_RI,rpgf_RI,set_radius_RI,sphi_RI,zet_RI,&
-!$OMP           iatom_outer,jatom_outer,rab_outer,kind_of,my_group_L_start,row_blk_start,&
-!$OMP           mat_3c_overl_int,nl_iterator,qs_kind_set,ncoset,my_group_L_size,row_blk_sizes,&
-!$OMP           col_blk_sizes, i_cut_RI, do_mao, blk_sizes_mao_occ, blk_sizes_mao_virt, outer_cell_vec, &
-!$OMP           mao_coeff_repl_occ, mao_coeff_repl_virt, do_kpoints_cubic_RPA, &
-!$OMP           mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, kpoints, cell_to_index, nimg, &
-!$OMP           minval_1, minval_2, minval_3, maxval_1, maxval_2, maxval_3) &
-!$OMP   PRIVATE (mepos,iatom,jatom,rab,set_RI,raRI,rbRI,dab,daRI,dbRI,ikind,first_sgfa,la_max,la_min,npgfa,nseta,nsgfa,rpgfa,&
-!$OMP            set_radius_a,sphi_a,zeta,jkind,first_sgfb,lb_max,lb_min,npgfb,nsetb,nsgfb,rpgfb,set_radius_b,sphi_b,zetb,&
-!$OMP            iset,jset,LLL_set_start,nco_RI,ncoa,ncob,sgf_RI,sgfa,sgfb,isgf_RI,isgfa,jsgfb,LLL,row,col,&
-!$OMP            block,block_transposed,LLL_set_end, start_row_from_LLL_mao_occ, start_col_from_LLL_mao_occ, &
-!$OMP            start_row_from_LLL_mao_virt, start_col_from_LLL_mao_virt, end_row_from_LLL_mao_occ, &
-!$OMP            end_col_from_LLL_mao_occ, end_row_from_LLL_mao_virt, end_col_from_LLL_mao_virt, &
-!$OMP            row_basis_size_mao_occ, col_basis_size_mao_occ, row_basis_size_mao_virt, col_basis_size_mao_virt, &
-!$OMP            offset_row_from_LLL,offset_col_from_LLL,block_start_row,block_end_row,block_start_col,block_end_col,&
-!$OMP            handle2,s_abRI,s_abRI_contr,s_abRI_contr_transposed,basis_set_a,basis_set_b, jatom_basis_size_mao_occ, &
-!$OMP            iatom_basis_size_mao_virt, jatom_basis_size_mao_virt, temp_mat_mao_occ_virt, block_mao_for_occ, &
-!$OMP            block_mao_for_occ_transposed, block_mao_for_virt, block_mao_for_virt_transposed, temp_mat_mao_virt_occ, &
-!$OMP            iatom_basis_size_mao_occ, found, dummy_block, cell_vec, acell, bcell, bcellvec, &
-!$OMP            img_row, img_col, i_img, j_img)
-
                mepos = 0
-!$             mepos = omp_get_thread_num()
 
                DO WHILE (neighbor_list_iterate(nl_iterator, mepos=mepos) == 0)
 
@@ -8039,8 +8015,6 @@ CONTAINS
                   END DO ! i_img
 
                END DO ! inner neighbor list
-
-!$OMP   END PARALLEL
 
                CALL neighbor_list_iterator_release(nl_iterator)
 
