@@ -221,7 +221,7 @@ CONTAINS
                                                             my_group_L_sizes_im_time
       TYPE(two_dim_int_array), ALLOCATABLE, &
          DIMENSION(:, :)                                 :: offset_combi_block
-      INTEGER, DIMENSION(:)                              :: starts_array_cm_mao_occ, &
+      INTEGER, DIMENSION(:), POINTER                     :: starts_array_cm_mao_occ, &
                                                             starts_array_cm_mao_virt, &
                                                             ends_array_cm_mao_occ, &
                                                             ends_array_cm_mao_virt

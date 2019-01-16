@@ -2546,102 +2546,102 @@ CONTAINS
             ALLOCATE (mat_P_global_copy%matrix)
             CALL dbcsr_create(mat_P_global_copy%matrix, template=mat_P_global%matrix)
             CALL dbcsr_copy(mat_P_global_copy%matrix, mat_P_global%matrix)
-         ENDIF
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_15", handle4)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_15", handle4)
 
-         n_group_row = mp2_env%ri_rpa_im_time_util(1)%n_group_row
-         ALLOCATE (sizes_array_prim_row(0:n_group_row-1, cut_memory))
-         DO i_mem = 1, cut_memory
-            sizes_array_prim_row(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(:)
-         END DO
-         ALLOCATE (starts_array_prim_row(0:n_group_row-1, cut_memory))
-         DO i_mem = 1, cut_memory
-            starts_array_prim_row(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(:)
-         END DO
-         ALLOCATE (ends_array_prim_row(0:n_group_row-1, cut_memory))
-         DO i_mem = 1, cut_memory
-            ends_array_prim_row(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row(:)
-         END DO
-
-         ALLOCATE (starts_array_prim_fullrow(0:n_group_row-1, cut_memory))
-         DO i_mem = 1, cut_memory
-            starts_array_prim_fullrow(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(:)
-         END DO
-         ALLOCATE (ends_array_prim_fullrow(0:n_group_row-1, cut_memory))
-         DO i_mem = 1, cut_memory
-            ends_array_prim_fullrow(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(:)
-         END DO
-
-         n_group_col = mp2_env%ri_rpa_im_time_util(1)%n_group_col
-         ALLOCATE (sizes_array_prim_col(0:n_group_col-1, cut_memory))
-         DO j_mem = 1, cut_memory
-            sizes_array_prim_col(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(:)
-         END DO
-         ALLOCATE (starts_array_prim_col(0:n_group_col-1, cut_memory))
-         DO j_mem = 1, cut_memory
-            starts_array_prim_col(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(:)
-         END DO
-         ALLOCATE (ends_array_prim_col(0:n_group_col-1, cut_memory))
-         DO j_mem = 1, cut_memory
-            ends_array_prim_col(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col(:)
-         END DO
-
-         ALLOCATE (starts_array_prim_fullcol(0:n_group_col-1, cut_memory))
-         DO j_mem = 1, cut_memory
-            starts_array_prim_fullcol(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(:)
-         END DO
-         ALLOCATE (ends_array_prim_fullcol(0:n_group_col-1, cut_memory))
-         DO j_mem = 1, cut_memory
-            ends_array_prim_fullcol(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(:)
-         END DO
-
-         ALLOCATE (offset_combi_block(cut_memory, cut_memory))
-
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_16", handle4)
-
-         color_sub_row = mp2_env%ri_rpa_im_time_util(1)%color_sub_row
-         color_sub_col = mp2_env%ri_rpa_im_time_util(1)%color_sub_col
-
-         DO i_mem = 1, cut_memory
-            DO j_mem = 1, cut_memory
-
-               n_local_row = sizes_array_prim_row(color_sub_row, i_mem)
-               row_start_local = starts_array_prim_row(color_sub_row, i_mem)
-
-               n_local_col = sizes_array_prim_col(color_sub_col, j_mem)
-               col_start_local = starts_array_prim_col(color_sub_col, j_mem)
-
-               ALLOCATE (offset_combi_block(i_mem, j_mem)%array(row_start_local:row_start_local+n_local_row-1, &
-                                                                col_start_local:col_start_local+n_local_col-1))
-               offset_combi_block(i_mem, j_mem)%array(:, :) = &
-                  mp2_env%ri_rpa_im_time_2d_util(i_mem, j_mem)%offset_combi_block(:, :)
-
+            n_group_row = mp2_env%ri_rpa_im_time_util(1)%n_group_row
+            ALLOCATE (sizes_array_prim_row(0:n_group_row - 1, cut_memory))
+            DO i_mem = 1, cut_memory
+               sizes_array_prim_row(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(:)
             END DO
-         END DO
+            ALLOCATE (starts_array_prim_row(0:n_group_row - 1, cut_memory))
+            DO i_mem = 1, cut_memory
+               starts_array_prim_row(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(:)
+            END DO
+            ALLOCATE (ends_array_prim_row(0:n_group_row - 1, cut_memory))
+            DO i_mem = 1, cut_memory
+               ends_array_prim_row(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row(:)
+            END DO
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_17", handle4)
+            ALLOCATE (starts_array_prim_fullrow(0:n_group_row - 1, cut_memory))
+            DO i_mem = 1, cut_memory
+               starts_array_prim_fullrow(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(:)
+            END DO
+            ALLOCATE (ends_array_prim_fullrow(0:n_group_row - 1, cut_memory))
+            DO i_mem = 1, cut_memory
+               ends_array_prim_fullrow(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(:)
+            END DO
 
-         NULLIFY (starts_array_cm, ends_array_cm)
-         starts_array_cm => mp2_env%ri_rpa_im_time%starts_array_cm
-         ends_array_cm => mp2_env%ri_rpa_im_time%ends_array_cm
+            n_group_col = mp2_env%ri_rpa_im_time_util(1)%n_group_col
+            ALLOCATE (sizes_array_prim_col(0:n_group_col - 1, cut_memory))
+            DO j_mem = 1, cut_memory
+               sizes_array_prim_col(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(:)
+            END DO
+            ALLOCATE (starts_array_prim_col(0:n_group_col - 1, cut_memory))
+            DO j_mem = 1, cut_memory
+               starts_array_prim_col(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(:)
+            END DO
+            ALLOCATE (ends_array_prim_col(0:n_group_col - 1, cut_memory))
+            DO j_mem = 1, cut_memory
+               ends_array_prim_col(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col(:)
+            END DO
 
-         NULLIFY (starts_array_cm_mao_occ, starts_array_cm_mao_virt, ends_array_cm_mao_occ, ends_array_cm_mao_virt)
-         IF (do_mao) THEN
-            starts_array_cm_mao_occ => mp2_env%ri_rpa_im_time%starts_array_cm_mao_occ
-            starts_array_cm_mao_virt => mp2_env%ri_rpa_im_time%starts_array_cm_mao_virt
-            ends_array_cm_mao_occ => mp2_env%ri_rpa_im_time%ends_array_cm_mao_occ
-            ends_array_cm_mao_virt => mp2_env%ri_rpa_im_time%ends_array_cm_mao_virt
-         ELSE
-            starts_array_cm_mao_occ => starts_array_cm
-            starts_array_cm_mao_virt => starts_array_cm
-            ends_array_cm_mao_occ => ends_array_cm
-            ends_array_cm_mao_virt => ends_array_cm
-         END IF
+            ALLOCATE (starts_array_prim_fullcol(0:n_group_col - 1, cut_memory))
+            DO j_mem = 1, cut_memory
+               starts_array_prim_fullcol(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(:)
+            END DO
+            ALLOCATE (ends_array_prim_fullcol(0:n_group_col - 1, cut_memory))
+            DO j_mem = 1, cut_memory
+               ends_array_prim_fullcol(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(:)
+            END DO
 
+            ALLOCATE (offset_combi_block(cut_memory, cut_memory))
+
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_16", handle4)
+
+            color_sub_row = mp2_env%ri_rpa_im_time_util(1)%color_sub_row
+            color_sub_col = mp2_env%ri_rpa_im_time_util(1)%color_sub_col
+
+            DO i_mem = 1, cut_memory
+               DO j_mem = 1, cut_memory
+
+                  n_local_row = sizes_array_prim_row(color_sub_row, i_mem)
+                  row_start_local = starts_array_prim_row(color_sub_row, i_mem)
+
+                  n_local_col = sizes_array_prim_col(color_sub_col, j_mem)
+                  col_start_local = starts_array_prim_col(color_sub_col, j_mem)
+
+                  ALLOCATE (offset_combi_block(i_mem, j_mem)%array(row_start_local:row_start_local + n_local_row - 1, &
+                                                                   col_start_local:col_start_local + n_local_col - 1))
+                  offset_combi_block(i_mem, j_mem)%array(:, :) = &
+                     mp2_env%ri_rpa_im_time_2d_util(i_mem, j_mem)%offset_combi_block(:, :)
+
+               END DO
+            END DO
+
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_17", handle4)
+
+            NULLIFY (starts_array_cm, ends_array_cm)
+            starts_array_cm => mp2_env%ri_rpa_im_time%starts_array_cm
+            ends_array_cm => mp2_env%ri_rpa_im_time%ends_array_cm
+
+            NULLIFY (starts_array_cm_mao_occ, starts_array_cm_mao_virt, ends_array_cm_mao_occ, ends_array_cm_mao_virt)
+            IF (do_mao) THEN
+               starts_array_cm_mao_occ => mp2_env%ri_rpa_im_time%starts_array_cm_mao_occ
+               starts_array_cm_mao_virt => mp2_env%ri_rpa_im_time%starts_array_cm_mao_virt
+               ends_array_cm_mao_occ => mp2_env%ri_rpa_im_time%ends_array_cm_mao_occ
+               ends_array_cm_mao_virt => mp2_env%ri_rpa_im_time%ends_array_cm_mao_virt
+            ELSE
+               starts_array_cm_mao_occ => starts_array_cm
+               starts_array_cm_mao_virt => starts_array_cm
+               ends_array_cm_mao_occ => ends_array_cm
+               ends_array_cm_mao_virt => ends_array_cm
+            END IF
+
+         ENDIF
          IF (.NOT. do_dbcsr_t) THEN
             ! allocatable arrays for fast filling of dbcsr matrices
             CALL dbcsr_get_info(mat_M_P_munu_occ%matrix, row_blk_size=row_blk_size, &
