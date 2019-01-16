@@ -283,7 +283,7 @@ CONTAINS
                                     starts_array_cm_mao_occ, starts_array_cm_mao_virt, ends_array_cm_mao_occ, &
                                     ends_array_cm_mao_virt, my_group_L_sizes_im_time, cut_memory, cut_RI, jquad, do_mao, &
                                     stabilize_exp, do_kpoints_cubic_RPA, qs_env, num_cells_dm, index_to_cell_dm, &
-                                    does_mat_P_T_tau_have_blocks)
+                                    does_mat_P_T_tau_have_blocks, do_dbcsr_t)
 
          CALL timeset(routineN//"_im_time_repl_subgr", handle4)
 
@@ -301,8 +301,12 @@ CONTAINS
             DO i_cell = 1, num_cells_dm
                CALL dbcsr_t_create(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell), name="D virt")
                CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell))
+               CALL dbcsr_set(mat_dm_virt_global(jquad, i_cell)%matrix, 0.0_dp)
+               CALL dbcsr_filter(mat_dm_virt_global(jquad, i_cell)%matrix, 1.0_dp)
                CALL dbcsr_t_create(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell), name="D occ")
                CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
+               CALL dbcsr_set(mat_dm_occ_global(jquad, i_cell)%matrix, 0.0_dp)
+               CALL dbcsr_filter(mat_dm_occ_global(jquad, i_cell)%matrix, 1.0_dp)
             ENDDO
             CALL dbcsr_t_create(t_3c_overl_int_cut(1, 1, 1), t_3c_M_tmp, name="M temporary")
             CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ")
@@ -474,7 +478,7 @@ CONTAINS
 
             CALL dbcsr_t_destroy(t_P)
             DO i_cell = 1, num_cells_dm
-               DO i_mem = 1, cut_memory
+               do i_mem = 1, cut_memory
                   CALL dbcsr_t_destroy(t_dm_virt_cut(i_mem, i_cell))
                   CALL dbcsr_t_destroy(t_dm_occ_cut(i_mem, i_cell))
                ENDDO
@@ -1880,7 +1884,7 @@ CONTAINS
                                     starts_array_cm_mao_occ, starts_array_cm_mao_virt, ends_array_cm_mao_occ, &
                                     ends_array_cm_mao_virt, my_group_L_sizes_im_time, cut_memory, &
                                     cut_RI, jquad, do_mao, stabilize_exp, do_kpoints_cubic_RPA, qs_env, &
-                                    num_cells_dm, index_to_cell_dm, does_mat_P_T_tau_have_blocks)
+                                    num_cells_dm, index_to_cell_dm, does_mat_P_T_tau_have_blocks, do_dbcsr_t)
 
       TYPE(cp_fm_type), POINTER                          :: fm_scaled_dm_occ_tau, &
                                                             fm_scaled_dm_virt_tau
@@ -1909,6 +1913,7 @@ CONTAINS
       INTEGER                                            :: num_cells_dm
       INTEGER, DIMENSION(:, :), POINTER                  :: index_to_cell_dm
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: does_mat_P_T_tau_have_blocks
+      LOGICAL, INTENT(IN)                                :: do_dbcsr_t
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'compute_mat_dm_global', &
          routineP = moduleN//':'//routineN
@@ -2077,11 +2082,13 @@ CONTAINS
             CALL dbcsr_filter(mat_dm_virt_global(jquad-1, 1)%matrix, 0.0_dp)
          END IF
 
-         CALL get_cycle_due_to_sparse_dm(cycle_due_to_sparse_dm, mat_dm_occ_global, mat_dm_virt_global, &
-                                         mat_3c_overl_int_cut, num_integ_points, cut_memory, cut_RI, &
-                                         starts_array_cm_mao_occ, starts_array_cm_mao_virt, &
-                                         ends_array_cm_mao_occ, ends_array_cm_mao_virt, &
-                                         my_group_L_sizes_im_time, para_env, jquad)
+         IF (.NOT. do_dbcsr_t) THEN
+            CALL get_cycle_due_to_sparse_dm(cycle_due_to_sparse_dm, mat_dm_occ_global, mat_dm_virt_global, &
+                                            mat_3c_overl_int_cut, num_integ_points, cut_memory, cut_RI, &
+                                            starts_array_cm_mao_occ, starts_array_cm_mao_virt, &
+                                            ends_array_cm_mao_occ, ends_array_cm_mao_virt, &
+                                            my_group_L_sizes_im_time, para_env, jquad)
+         ENDIF
 
          IF (memory_info) THEN
             CALL print_occupation_2c(mat_dm_occ_global(jquad, 1)%matrix, unit_nr, &

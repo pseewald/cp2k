@@ -7579,30 +7579,33 @@ CONTAINS
          nimg = 1
       END IF
 
-      ALLOCATE (row_blk_start(natom))
-      ALLOCATE (row_blk_end(natom))
+      IF (.NOT. do_dbcsr_t) THEN
 
-      ALLOCATE (basis_set_RI_tmp(nkind))
-      CALL basis_set_list_setup(basis_set_RI_tmp, "RI_AUX", qs_kind_set)
-      CALL get_particle_set(particle_set, qs_kind_set, first_sgf=row_blk_start, last_sgf=row_blk_end, &
-                            basis=basis_set_RI_tmp)
-      DEALLOCATE (basis_set_RI_tmp)
+         ALLOCATE (row_blk_start(natom))
+         ALLOCATE (row_blk_end(natom))
 
-      ALLOCATE (atom_from_RI_index(dimen_RI))
+         ALLOCATE (basis_set_RI_tmp(nkind))
+         CALL basis_set_list_setup(basis_set_RI_tmp, "RI_AUX", qs_kind_set)
+         CALL get_particle_set(particle_set, qs_kind_set, first_sgf=row_blk_start, last_sgf=row_blk_end, &
+                               basis=basis_set_RI_tmp)
+         DEALLOCATE (basis_set_RI_tmp)
 
-      DO LLL = 1, dimen_RI
+         ALLOCATE (atom_from_RI_index(dimen_RI))
 
-         DO iatom = 1, natom
+         DO LLL = 1, dimen_RI
 
-            IF (LLL >= row_blk_start(iatom) .AND. LLL <= row_blk_end(iatom)) THEN
+            DO iatom = 1, natom
 
-               atom_from_RI_index(LLL) = iatom
+               IF (LLL >= row_blk_start(iatom) .AND. LLL <= row_blk_end(iatom)) THEN
 
-            END IF
+                  atom_from_RI_index(LLL) = iatom
+
+               END IF
+
+            END DO
 
          END DO
-
-      END DO
+      ENDIF
 
       CALL dbcsr_get_info(mat_munu%matrix, &
                           row_blk_size=row_blk_sizes, &
@@ -8715,56 +8718,56 @@ CONTAINS
          CALL dbcsr_t_distribution_destroy(dist_o3c)
 
          CALL timestop(handle3)
-      ENDIF
+      ELSE
 
-      ! allocate matrix for storing 3c overlap integrals
-      NULLIFY (mat_3c_overl_int)
-      CALL dbcsr_allocate_matrix_set(mat_3c_overl_int, cut_RI, nimg, nimg)
+         ! allocate matrix for storing 3c overlap integrals
+         NULLIFY (mat_3c_overl_int)
+         CALL dbcsr_allocate_matrix_set(mat_3c_overl_int, cut_RI, nimg, nimg)
 
-      ALLOCATE (row_blk_start(natom))
-      ALLOCATE (row_blk_end(natom))
+         ALLOCATE (row_blk_start(natom))
+         ALLOCATE (row_blk_end(natom))
 
-      ALLOCATE (basis_set_RI_tmp(nkind))
-      CALL basis_set_list_setup(basis_set_RI_tmp, "RI_AUX", qs_kind_set)
-      CALL get_particle_set(particle_set, qs_kind_set, first_sgf=row_blk_start, last_sgf=row_blk_end, &
-                            basis=basis_set_RI_tmp)
-      DEALLOCATE (basis_set_RI_tmp)
+         ALLOCATE (basis_set_RI_tmp(nkind))
+         CALL basis_set_list_setup(basis_set_RI_tmp, "RI_AUX", qs_kind_set)
+         CALL get_particle_set(particle_set, qs_kind_set, first_sgf=row_blk_start, last_sgf=row_blk_end, &
+                               basis=basis_set_RI_tmp)
+         DEALLOCATE (basis_set_RI_tmp)
 
-      ALLOCATE (atom_from_RI_index(dimen_RI))
+         ALLOCATE (atom_from_RI_index(dimen_RI))
 
-      DO LLL = 1, dimen_RI
+         DO LLL = 1, dimen_RI
 
-         DO iatom = 1, natom
+            DO iatom = 1, natom
 
-            IF (LLL >= row_blk_start(iatom) .AND. LLL <= row_blk_end(iatom)) THEN
+               IF (LLL >= row_blk_start(iatom) .AND. LLL <= row_blk_end(iatom)) THEN
 
-               atom_from_RI_index(LLL) = iatom
+                  atom_from_RI_index(LLL) = iatom
 
-            END IF
+               END IF
+
+            END DO
 
          END DO
 
-      END DO
+         CALL dbcsr_get_info(mat_munu%matrix, &
+                             row_blk_offset=row_blk_offset, &
+                             row_blk_size=row_blk_sizes, &
+                             nblkrows_total=nblkrows_total)
 
-      CALL dbcsr_get_info(mat_munu%matrix, &
-                          row_blk_offset=row_blk_offset, &
-                          row_blk_size=row_blk_sizes, &
-                          nblkrows_total=nblkrows_total)
+         IF (do_kpoints_cubic_RPA) THEN
 
-      IF (do_kpoints_cubic_RPA) THEN
+            minval_1 = MINVAL(kpoints%index_to_cell(1, :))
+            maxval_1 = MAXVAL(kpoints%index_to_cell(1, :))
+            minval_2 = MINVAL(kpoints%index_to_cell(2, :))
+            maxval_2 = MAXVAL(kpoints%index_to_cell(2, :))
+            minval_3 = MINVAL(kpoints%index_to_cell(3, :))
+            maxval_3 = MAXVAL(kpoints%index_to_cell(3, :))
 
-         minval_1 = MINVAL(kpoints%index_to_cell(1, :))
-         maxval_1 = MAXVAL(kpoints%index_to_cell(1, :))
-         minval_2 = MINVAL(kpoints%index_to_cell(2, :))
-         maxval_2 = MAXVAL(kpoints%index_to_cell(2, :))
-         minval_3 = MINVAL(kpoints%index_to_cell(3, :))
-         maxval_3 = MAXVAL(kpoints%index_to_cell(3, :))
+         END IF
+         ALLOCATE (rows_to_alloc(nimg, nimg))
+         ALLOCATE (cols_to_alloc(nimg, nimg))
+      ENDIF
 
-      END IF
-
-      ALLOCATE (kind_of(natom))
-      ALLOCATE (rows_to_alloc(nimg, nimg))
-      ALLOCATE (cols_to_alloc(nimg, nimg))
       ALLOCATE (alloc_RI(nimg, nimg))
       ALLOCATE (alloc_ao1(nimg, nimg))
       ALLOCATE (alloc_ao2(nimg, nimg))
@@ -8775,6 +8778,7 @@ CONTAINS
       ALLOCATE (old_col(nimg, nimg))
       old_col = -1
 
+      ALLOCATE (kind_of(natom))
       CALL get_atomic_kind_set(atomic_kind_set, kind_of=kind_of)
 
       IF (do_dbcsr_t) THEN
@@ -8822,7 +8826,6 @@ CONTAINS
 
                   CALL get_iterator_info(nl_iterator, &
                                          iatom=iatom, jatom=jatom, r=rab, cell=cell_vec)
-
 
                   !PRINT *, "nl", atom_RI, iatom, jatom
 
@@ -8971,8 +8974,8 @@ CONTAINS
                               col = iatom
                            END IF
 
-                           IF(old_row(i_img_outer, j_img_outer) == row .AND. &
-                              old_col(i_img_outer, j_img_outer) == col) CYCLE
+                           IF (old_row(i_img_outer, j_img_outer) == row .AND. &
+                               old_col(i_img_outer, j_img_outer) == col) CYCLE
 
                            ASSOCIATE (aRI=>alloc_RI(i_img_outer, j_img_outer))
                               ASSOCIATE (a_ao1=>alloc_ao1(i_img_outer, j_img_outer))
@@ -8989,7 +8992,7 @@ CONTAINS
                                           ENDIF
                                        ENDDO
                                     ENDIF
-                                    IF(.NOT. new_block) CYCLE
+                                    IF (.NOT. new_block) CYCLE
 
                                     IF (ALLOCATED(aRI%array)) THEN
                                        blk_cnt = SIZE(aRI%array)
@@ -9015,7 +9018,6 @@ CONTAINS
                                        ENDIF
                                     ENDIF
 
-
                                     IF (allocated(a_ao1%array)) THEN
                                        tmp(:) = a_ao1%array(:)
                                        DEALLOCATE (a_ao1%array)
@@ -9039,7 +9041,6 @@ CONTAINS
                                           a_ao1%array(2) = col
                                        ENDIF
                                     ENDIF
-
 
                                     IF (allocated(a_ao2%array)) THEN
                                        tmp(:) = a_ao2%array(:)
@@ -9098,444 +9099,444 @@ CONTAINS
             ENDDO
          ENDDO
          CALL timestop(handle3)
-      ENDIF ! do_dbcsr_t
+      ELSE ! do_dbcsr_t
 
-      DO i_cut_RI = 1, cut_RI
+         DO i_cut_RI = 1, cut_RI
 
-         DO i_img = 1, nimg
-         DO j_img = 1, nimg
-            ALLOCATE (rows_to_alloc(i_img, j_img)%array(1))
-            rows_to_alloc(i_img, j_img)%array(1) = 0
-            ALLOCATE (cols_to_alloc(i_img, j_img)%array(1))
-            cols_to_alloc(i_img, j_img)%array(1) = 0
-         END DO
-         END DO
+            DO i_img = 1, nimg
+            DO j_img = 1, nimg
+               ALLOCATE (rows_to_alloc(i_img, j_img)%array(1))
+               rows_to_alloc(i_img, j_img)%array(1) = 0
+               ALLOCATE (cols_to_alloc(i_img, j_img)%array(1))
+               cols_to_alloc(i_img, j_img)%array(1) = 0
+            END DO
+            END DO
 
-         my_group_L_start = my_group_L_starts_im_time(i_cut_RI)
-         my_group_L_end = my_group_L_ends_im_time(i_cut_RI)
-         my_group_L_size = my_group_L_sizes_im_time(i_cut_RI)
+            my_group_L_start = my_group_L_starts_im_time(i_cut_RI)
+            my_group_L_end = my_group_L_ends_im_time(i_cut_RI)
+            my_group_L_size = my_group_L_sizes_im_time(i_cut_RI)
 
-         atom_RI_start = atom_from_RI_index(my_group_L_start)
-         atom_RI_end = atom_from_RI_index(my_group_L_end)
+            atom_RI_start = atom_from_RI_index(my_group_L_start)
+            atom_RI_end = atom_from_RI_index(my_group_L_end)
 
-         DO atom_RI = atom_RI_start, atom_RI_end
+            DO atom_RI = atom_RI_start, atom_RI_end
 
-            kind_RI = kind_of(atom_RI)
-            CALL get_qs_kind(qs_kind=qs_kind_set(kind_RI), basis_set=basis_set_RI, basis_type="RI_AUX")
+               kind_RI = kind_of(atom_RI)
+               CALL get_qs_kind(qs_kind=qs_kind_set(kind_RI), basis_set=basis_set_RI, basis_type="RI_AUX")
 
-            first_sgf_RI => basis_set_RI%first_sgf
+               first_sgf_RI => basis_set_RI%first_sgf
 
-            l_max_RI => basis_set_RI%lmax
-            l_min_RI => basis_set_RI%lmin
-            npgf_RI => basis_set_RI%npgf
-            nset_RI = basis_set_RI%nset
-            nsgf_RI => basis_set_RI%nsgf_set
-            rpgf_RI => basis_set_RI%pgf_radius
-            set_radius_RI => basis_set_RI%set_radius
-            sphi_RI => basis_set_RI%sphi
-            zet_RI => basis_set_RI%zet
+               l_max_RI => basis_set_RI%lmax
+               l_min_RI => basis_set_RI%lmin
+               npgf_RI => basis_set_RI%npgf
+               nset_RI = basis_set_RI%nset
+               nsgf_RI => basis_set_RI%nsgf_set
+               rpgf_RI => basis_set_RI%pgf_radius
+               set_radius_RI => basis_set_RI%set_radius
+               sphi_RI => basis_set_RI%sphi
+               zet_RI => basis_set_RI%zet
 
-            CALL neighbor_list_iterator_create(nl_iterator_outer, sab_orb_all)
-            DO WHILE (neighbor_list_iterate(nl_iterator_outer) == 0)
+               CALL neighbor_list_iterator_create(nl_iterator_outer, sab_orb_all)
+               DO WHILE (neighbor_list_iterate(nl_iterator_outer) == 0)
 
-               CALL get_iterator_info(nl_iterator_outer, &
-                                      iatom=iatom_outer, jatom=jatom_outer, r=rab_outer, cell=outer_cell_vec)
+                  CALL get_iterator_info(nl_iterator_outer, &
+                                         iatom=iatom_outer, jatom=jatom_outer, r=rab_outer, cell=outer_cell_vec)
 
-               IF (iatom_outer .NE. atom_RI .AND. jatom_outer .NE. atom_RI) CYCLE
+                  IF (iatom_outer .NE. atom_RI .AND. jatom_outer .NE. atom_RI) CYCLE
 
-               CALL neighbor_list_iterator_create(nl_iterator, sab_orb_sub)
-               DO WHILE (neighbor_list_iterate(nl_iterator) == 0)
+                  CALL neighbor_list_iterator_create(nl_iterator, sab_orb_sub)
+                  DO WHILE (neighbor_list_iterate(nl_iterator) == 0)
 
-                  CALL get_iterator_info(nl_iterator, &
-                                         iatom=iatom, jatom=jatom, r=rab, cell=cell_vec)
+                     CALL get_iterator_info(nl_iterator, &
+                                            iatom=iatom, jatom=jatom, r=rab, cell=cell_vec)
 
-                  DO i_img_outer = 1, nimg
+                     DO i_img_outer = 1, nimg
 
-                     DO j_img_outer = 1, nimg
+                        DO j_img_outer = 1, nimg
 
-                        IF (i_img_outer > j_img_outer) CYCLE
-                        IF (i_img_outer < j_img_outer) THEN
-                           num_loops = 2
-                        ELSE IF (i_img_outer == j_img_outer) THEN
-                           num_loops = 1
-                        END IF
-
-                        DO i_loop = 1, num_loops
-
-                           IF (i_loop == 1) THEN
-                              i_img = i_img_outer
-                              j_img = j_img_outer
-                           ELSE IF (i_loop == 2) THEN
-                              i_img = j_img_outer
-                              j_img = i_img_outer
+                           IF (i_img_outer > j_img_outer) CYCLE
+                           IF (i_img_outer < j_img_outer) THEN
+                              num_loops = 2
+                           ELSE IF (i_img_outer == j_img_outer) THEN
+                              num_loops = 1
                            END IF
 
-                           IF (atom_RI .EQ. iatom_outer .AND. &
-                               iatom .NE. jatom_outer .AND. &
-                               jatom .NE. jatom_outer) &
-                              CYCLE
+                           DO i_loop = 1, num_loops
 
-                           IF (atom_RI .EQ. jatom_outer .AND. &
-                               iatom .NE. iatom_outer .AND. &
-                               jatom .NE. iatom_outer) &
-                              CYCLE
-
-                           IF (iatom .EQ. iatom_outer .AND. &
-                               atom_RI .EQ. jatom_outer) THEN
-
-                              IF (do_kpoints_cubic_RPA) THEN
-
-                                 IF (outer_cell_vec(1) < minval_1) CYCLE
-                                 IF (outer_cell_vec(1) > maxval_1) CYCLE
-                                 IF (outer_cell_vec(2) < minval_2) CYCLE
-                                 IF (outer_cell_vec(2) > maxval_2) CYCLE
-                                 IF (outer_cell_vec(3) < minval_3) CYCLE
-                                 IF (outer_cell_vec(3) > maxval_3) CYCLE
-
-                                 IF (-outer_cell_vec(1)+cell_vec(1) < minval_1) CYCLE
-                                 IF (-outer_cell_vec(1)+cell_vec(1) > maxval_1) CYCLE
-                                 IF (-outer_cell_vec(2)+cell_vec(2) < minval_2) CYCLE
-                                 IF (-outer_cell_vec(2)+cell_vec(2) > maxval_2) CYCLE
-                                 IF (-outer_cell_vec(3)+cell_vec(3) < minval_3) CYCLE
-                                 IF (-outer_cell_vec(3)+cell_vec(3) > maxval_3) CYCLE
-
-                                 acell = cell_to_index(-outer_cell_vec(1), -outer_cell_vec(2), -outer_cell_vec(3))
-                                 IF (.NOT. (acell == i_img)) CYCLE
-                                 bcell = cell_to_index(-outer_cell_vec(1)+cell_vec(1), &
-                                                       -outer_cell_vec(2)+cell_vec(2), &
-                                                       -outer_cell_vec(3)+cell_vec(3))
-                                 IF (.NOT. (bcell == j_img)) CYCLE
-
+                              IF (i_loop == 1) THEN
+                                 i_img = i_img_outer
+                                 j_img = j_img_outer
+                              ELSE IF (i_loop == 2) THEN
+                                 i_img = j_img_outer
+                                 j_img = i_img_outer
                               END IF
 
-                              raRI = rab_outer
-                              rbRI = raRI-rab
-
-                           ELSE IF (atom_RI .EQ. iatom_outer .AND. &
-                                    iatom .EQ. jatom_outer) THEN
-
-                              IF (do_kpoints_cubic_RPA) THEN
-                                 ! for kpoints we have the non-symmetric neighbor list
+                              IF (atom_RI .EQ. iatom_outer .AND. &
+                                  iatom .NE. jatom_outer .AND. &
+                                  jatom .NE. jatom_outer) &
                                  CYCLE
-                              END IF
 
-                              raRI = -rab_outer
-                              rbRI = raRI-rab
-
-                           ELSE IF (jatom .EQ. iatom_outer .AND. &
-                                    atom_RI .EQ. jatom_outer) THEN
-
-                              IF (do_kpoints_cubic_RPA) THEN
-                                 ! for kpoints we have the non-symmetric neighbor list
+                              IF (atom_RI .EQ. jatom_outer .AND. &
+                                  iatom .NE. iatom_outer .AND. &
+                                  jatom .NE. iatom_outer) &
                                  CYCLE
+
+                              IF (iatom .EQ. iatom_outer .AND. &
+                                  atom_RI .EQ. jatom_outer) THEN
+
+                                 IF (do_kpoints_cubic_RPA) THEN
+
+                                    IF (outer_cell_vec(1) < minval_1) CYCLE
+                                    IF (outer_cell_vec(1) > maxval_1) CYCLE
+                                    IF (outer_cell_vec(2) < minval_2) CYCLE
+                                    IF (outer_cell_vec(2) > maxval_2) CYCLE
+                                    IF (outer_cell_vec(3) < minval_3) CYCLE
+                                    IF (outer_cell_vec(3) > maxval_3) CYCLE
+
+                                    IF (-outer_cell_vec(1) + cell_vec(1) < minval_1) CYCLE
+                                    IF (-outer_cell_vec(1) + cell_vec(1) > maxval_1) CYCLE
+                                    IF (-outer_cell_vec(2) + cell_vec(2) < minval_2) CYCLE
+                                    IF (-outer_cell_vec(2) + cell_vec(2) > maxval_2) CYCLE
+                                    IF (-outer_cell_vec(3) + cell_vec(3) < minval_3) CYCLE
+                                    IF (-outer_cell_vec(3) + cell_vec(3) > maxval_3) CYCLE
+
+                                    acell = cell_to_index(-outer_cell_vec(1), -outer_cell_vec(2), -outer_cell_vec(3))
+                                    IF (.NOT. (acell == i_img)) CYCLE
+                                    bcell = cell_to_index(-outer_cell_vec(1) + cell_vec(1), &
+                                                          -outer_cell_vec(2) + cell_vec(2), &
+                                                          -outer_cell_vec(3) + cell_vec(3))
+                                    IF (.NOT. (bcell == j_img)) CYCLE
+
+                                 END IF
+
+                                 raRI = rab_outer
+                                 rbRI = raRI - rab
+
+                              ELSE IF (atom_RI .EQ. iatom_outer .AND. &
+                                       iatom .EQ. jatom_outer) THEN
+
+                                 IF (do_kpoints_cubic_RPA) THEN
+                                    ! for kpoints we have the non-symmetric neighbor list
+                                    CYCLE
+                                 END IF
+
+                                 raRI = -rab_outer
+                                 rbRI = raRI - rab
+
+                              ELSE IF (jatom .EQ. iatom_outer .AND. &
+                                       atom_RI .EQ. jatom_outer) THEN
+
+                                 IF (do_kpoints_cubic_RPA) THEN
+                                    ! for kpoints we have the non-symmetric neighbor list
+                                    CYCLE
+                                 END IF
+
+                                 rbRI = rab_outer
+                                 raRI = rbRI + rab
+
+                              ELSE IF (atom_RI .EQ. iatom_outer .AND. &
+                                       jatom .EQ. jatom_outer) THEN
+
+                                 IF (do_kpoints_cubic_RPA) THEN
+                                    ! for kpoints we have the non-symmetric neighbor list
+                                    CYCLE
+                                 END IF
+
+                                 rbRI = -rab_outer
+                                 raRI = rbRI + rab
+
                               END IF
 
-                              rbRI = rab_outer
-                              raRI = rbRI+rab
-
-                           ELSE IF (atom_RI .EQ. iatom_outer .AND. &
-                                    jatom .EQ. jatom_outer) THEN
-
-                              IF (do_kpoints_cubic_RPA) THEN
-                                 ! for kpoints we have the non-symmetric neighbor list
-                                 CYCLE
+                              IF (PRESENT(local_atoms_for_mao_basis)) THEN
+                                 local_atoms_for_mao_basis(iatom) = iatom
+                                 local_atoms_for_mao_basis(jatom) = jatom
                               END IF
 
-                              rbRI = -rab_outer
-                              raRI = rbRI+rab
+                              dab = SQRT(SUM(rab**2))
+                              daRI = SQRT(SUM(raRI**2))
+                              dbRI = SQRT(SUM(rbRI**2))
 
-                           END IF
+                              ikind = kind_of(iatom)
+                              CALL get_qs_kind(qs_kind=qs_kind_set(ikind), basis_set=basis_set_a)
+                              first_sgfa => basis_set_a%first_sgf
+                              la_max => basis_set_a%lmax
+                              la_min => basis_set_a%lmin
+                              npgfa => basis_set_a%npgf
+                              nseta = basis_set_a%nset
+                              nsgfa => basis_set_a%nsgf_set
+                              rpgfa => basis_set_a%pgf_radius
+                              set_radius_a => basis_set_a%set_radius
+                              sphi_a => basis_set_a%sphi
+                              zeta => basis_set_a%zet
 
-                           IF (PRESENT(local_atoms_for_mao_basis)) THEN
-                              local_atoms_for_mao_basis(iatom) = iatom
-                              local_atoms_for_mao_basis(jatom) = jatom
-                           END IF
+                              jkind = kind_of(jatom)
+                              CALL get_qs_kind(qs_kind=qs_kind_set(jkind), basis_set=basis_set_b)
+                              first_sgfb => basis_set_b%first_sgf
+                              lb_max => basis_set_b%lmax
+                              lb_min => basis_set_b%lmin
+                              npgfb => basis_set_b%npgf
+                              nsetb = basis_set_b%nset
+                              nsgfb => basis_set_b%nsgf_set
+                              rpgfb => basis_set_b%pgf_radius
+                              set_radius_b => basis_set_b%set_radius
+                              sphi_b => basis_set_b%sphi
+                              zetb => basis_set_b%zet
 
-                           dab = SQRT(SUM(rab**2))
-                           daRI = SQRT(SUM(raRI**2))
-                           dbRI = SQRT(SUM(rbRI**2))
+                              DO set_RI = 1, nset_RI
 
-                           ikind = kind_of(iatom)
-                           CALL get_qs_kind(qs_kind=qs_kind_set(ikind), basis_set=basis_set_a)
-                           first_sgfa => basis_set_a%first_sgf
-                           la_max => basis_set_a%lmax
-                           la_min => basis_set_a%lmin
-                           npgfa => basis_set_a%npgf
-                           nseta = basis_set_a%nset
-                           nsgfa => basis_set_a%nsgf_set
-                           rpgfa => basis_set_a%pgf_radius
-                           set_radius_a => basis_set_a%set_radius
-                           sphi_a => basis_set_a%sphi
-                           zeta => basis_set_a%zet
+                                 DO iset = 1, nseta
 
-                           jkind = kind_of(jatom)
-                           CALL get_qs_kind(qs_kind=qs_kind_set(jkind), basis_set=basis_set_b)
-                           first_sgfb => basis_set_b%first_sgf
-                           lb_max => basis_set_b%lmax
-                           lb_min => basis_set_b%lmin
-                           npgfb => basis_set_b%npgf
-                           nsetb = basis_set_b%nset
-                           nsgfb => basis_set_b%nsgf_set
-                           rpgfb => basis_set_b%pgf_radius
-                           set_radius_b => basis_set_b%set_radius
-                           sphi_b => basis_set_b%sphi
-                           zetb => basis_set_b%zet
+                                    IF (set_radius_a(iset) + set_radius_RI(set_RI) < daRI) CYCLE
 
-                           DO set_RI = 1, nset_RI
+                                    DO jset = 1, nsetb
 
-                              DO iset = 1, nseta
+                                       IF (set_radius_a(iset) + set_radius_b(jset) < dab) CYCLE
+                                       IF (set_radius_b(jset) + set_radius_RI(set_RI) < dbRI) CYCLE
 
-                                 IF (set_radius_a(iset)+set_radius_RI(set_RI) < daRI) CYCLE
+                                       nco_RI = npgf_RI(set_RI)*ncoset(l_max_RI(set_RI))
+                                       ncoa = npgfa(iset)*ncoset(la_max(iset))
+                                       ncob = npgfb(jset)*ncoset(lb_max(jset))
 
-                                 DO jset = 1, nsetb
+                                       sgf_RI = first_sgf_RI(1, set_RI)
+                                       sgfa = first_sgfa(1, iset)
+                                       sgfb = first_sgfb(1, jset)
 
-                                    IF (set_radius_a(iset)+set_radius_b(jset) < dab) CYCLE
-                                    IF (set_radius_b(jset)+set_radius_RI(set_RI) < dbRI) CYCLE
+                                       LLL_set_start = 1 + sgf_RI - 1 - my_group_L_start + 1 + row_blk_start(atom_RI) - 1
 
-                                    nco_RI = npgf_RI(set_RI)*ncoset(l_max_RI(set_RI))
-                                    ncoa = npgfa(iset)*ncoset(la_max(iset))
-                                    ncob = npgfb(jset)*ncoset(lb_max(jset))
+                                       IF (LLL_set_start > my_group_L_size) CYCLE
 
-                                    sgf_RI = first_sgf_RI(1, set_RI)
-                                    sgfa = first_sgfa(1, iset)
-                                    sgfb = first_sgfb(1, jset)
+                                      LLL_set_end = nsgf_RI(set_RI) + sgf_RI - 1 - my_group_L_start + 1 + row_blk_start(atom_RI) - 1
 
-                                    LLL_set_start = 1+sgf_RI-1-my_group_L_start+1+row_blk_start(atom_RI)-1
+                                       IF (LLL_set_end < 1) CYCLE
 
-                                    IF (LLL_set_start > my_group_L_size) CYCLE
+                                       IF (ncoa*ncob*nco_RI > 0) THEN
 
-                                    LLL_set_end = nsgf_RI(set_RI)+sgf_RI-1-my_group_L_start+1+row_blk_start(atom_RI)-1
+                                          DO isgf_RI = 1, nsgf_RI(set_RI)
 
-                                    IF (LLL_set_end < 1) CYCLE
+                                             LLL = isgf_RI + sgf_RI - 1 - my_group_L_start + 1 + row_blk_start(atom_RI) - 1
 
-                                    IF (ncoa*ncob*nco_RI > 0) THEN
+                                             IF (LLL < 1) CYCLE
+                                             IF (LLL > my_group_L_size) CYCLE
 
-                                       DO isgf_RI = 1, nsgf_RI(set_RI)
+                                             IF (iatom < jatom) THEN
 
-                                          LLL = isgf_RI+sgf_RI-1-my_group_L_start+1+row_blk_start(atom_RI)-1
+                                                row = iatom
+                                                col = jatom
 
-                                          IF (LLL < 1) CYCLE
-                                          IF (LLL > my_group_L_size) CYCLE
+                                             ELSE IF (iatom >= jatom) THEN
 
-                                          IF (iatom < jatom) THEN
-
-                                             row = iatom
-                                             col = jatom
-
-                                          ELSE IF (iatom >= jatom) THEN
-
-                                             row = jatom
-                                             col = iatom
-
-                                          END IF
-
-                                          IF (SIZE(rows_to_alloc(i_img_outer, j_img_outer)%array) == 1 .AND. &
-                                              rows_to_alloc(i_img_outer, j_img_outer)%array(1) == 0) THEN
-
-                                             IF (row == col) THEN
-
-                                                rows_to_alloc(i_img_outer, j_img_outer)%array = row
-                                                cols_to_alloc(i_img_outer, j_img_outer)%array = col
-
-                                             ELSE
-
-                                                DEALLOCATE (rows_to_alloc(i_img_outer, j_img_outer)%array)
-                                                DEALLOCATE (cols_to_alloc(i_img_outer, j_img_outer)%array)
-
-                                                ALLOCATE (rows_to_alloc(i_img_outer, j_img_outer)%array(2))
-                                                ALLOCATE (cols_to_alloc(i_img_outer, j_img_outer)%array(2))
-
-                                                rows_to_alloc(i_img_outer, j_img_outer)%array(1) = row
-                                                rows_to_alloc(i_img_outer, j_img_outer)%array(2) = col
-
-                                                cols_to_alloc(i_img_outer, j_img_outer)%array(1) = col
-                                                cols_to_alloc(i_img_outer, j_img_outer)%array(2) = row
+                                                row = jatom
+                                                col = iatom
 
                                              END IF
 
-                                             old_row(i_img_outer, j_img_outer) = row
-                                             old_col(i_img_outer, j_img_outer) = col
+                                             IF (SIZE(rows_to_alloc(i_img_outer, j_img_outer)%array) == 1 .AND. &
+                                                 rows_to_alloc(i_img_outer, j_img_outer)%array(1) == 0) THEN
 
-                                          ELSE
+                                                IF (row == col) THEN
 
-                                             new_block = .FALSE.
+                                                   rows_to_alloc(i_img_outer, j_img_outer)%array = row
+                                                   cols_to_alloc(i_img_outer, j_img_outer)%array = col
 
-                                             IF ((old_row(i_img_outer, j_img_outer) .NE. row) .OR. &
-                                                 (old_col(i_img_outer, j_img_outer) .NE. col)) THEN
+                                                ELSE
 
-                                                blk_cnt = SIZE(rows_to_alloc(i_img_outer, j_img_outer)%array)
+                                                   DEALLOCATE (rows_to_alloc(i_img_outer, j_img_outer)%array)
+                                                   DEALLOCATE (cols_to_alloc(i_img_outer, j_img_outer)%array)
 
-                                                new_block = .TRUE.
+                                                   ALLOCATE (rows_to_alloc(i_img_outer, j_img_outer)%array(2))
+                                                   ALLOCATE (cols_to_alloc(i_img_outer, j_img_outer)%array(2))
 
-                                                DO blk = 1, blk_cnt
+                                                   rows_to_alloc(i_img_outer, j_img_outer)%array(1) = row
+                                                   rows_to_alloc(i_img_outer, j_img_outer)%array(2) = col
 
-                                                   IF (rows_to_alloc(i_img_outer, j_img_outer)%array(blk) == row .AND. &
-                                                       cols_to_alloc(i_img_outer, j_img_outer)%array(blk) == col) THEN
+                                                   cols_to_alloc(i_img_outer, j_img_outer)%array(1) = col
+                                                   cols_to_alloc(i_img_outer, j_img_outer)%array(2) = row
 
-                                                      new_block = .FALSE.
-                                                      EXIT
+                                                END IF
+
+                                                old_row(i_img_outer, j_img_outer) = row
+                                                old_col(i_img_outer, j_img_outer) = col
+
+                                             ELSE
+
+                                                new_block = .FALSE.
+
+                                                IF ((old_row(i_img_outer, j_img_outer) .NE. row) .OR. &
+                                                    (old_col(i_img_outer, j_img_outer) .NE. col)) THEN
+
+                                                   blk_cnt = SIZE(rows_to_alloc(i_img_outer, j_img_outer)%array)
+
+                                                   new_block = .TRUE.
+
+                                                   DO blk = 1, blk_cnt
+
+                                                      IF (rows_to_alloc(i_img_outer, j_img_outer)%array(blk) == row .AND. &
+                                                          cols_to_alloc(i_img_outer, j_img_outer)%array(blk) == col) THEN
+
+                                                         new_block = .FALSE.
+                                                         EXIT
+
+                                                      END IF
+
+                                                   END DO
+
+                                                   IF (new_block .AND. row == col) THEN
+
+                                                      ALLOCATE (tmp(blk_cnt))
+                                                      tmp(1:blk_cnt) = rows_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt)
+                                                      DEALLOCATE (rows_to_alloc(i_img_outer, j_img_outer)%array)
+                                                      ALLOCATE (rows_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt + 1))
+                                                      rows_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt) = tmp(1:blk_cnt)
+                                                      rows_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt + 1) = row
+                                                      tmp(1:blk_cnt) = cols_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt)
+                                                      DEALLOCATE (cols_to_alloc(i_img_outer, j_img_outer)%array)
+                                                      ALLOCATE (cols_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt + 1))
+                                                      cols_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt) = tmp(1:blk_cnt)
+                                                      cols_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt + 1) = col
+                                                      DEALLOCATE (tmp)
+
+                                                      old_row(i_img_outer, j_img_outer) = row
+                                                      old_col(i_img_outer, j_img_outer) = col
+
+                                                   ELSE IF (new_block .AND. row .NE. col) THEN
+
+                                                      ALLOCATE (tmp(blk_cnt))
+                                                      tmp(1:blk_cnt) = rows_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt)
+                                                      DEALLOCATE (rows_to_alloc(i_img_outer, j_img_outer)%array)
+                                                      ALLOCATE (rows_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt + 2))
+                                                      rows_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt) = tmp(1:blk_cnt)
+                                                      rows_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt + 1) = row
+                                                      rows_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt + 2) = col
+                                                      tmp(1:blk_cnt) = cols_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt)
+                                                      DEALLOCATE (cols_to_alloc(i_img_outer, j_img_outer)%array)
+                                                      ALLOCATE (cols_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt + 2))
+                                                      cols_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt) = tmp(1:blk_cnt)
+                                                      cols_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt + 1) = col
+                                                      cols_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt + 2) = row
+                                                      DEALLOCATE (tmp)
+
+                                                      old_row(i_img_outer, j_img_outer) = row
+                                                      old_col(i_img_outer, j_img_outer) = col
 
                                                    END IF
-
-                                                END DO
-
-                                                IF (new_block .AND. row == col) THEN
-
-                                                   ALLOCATE (tmp(blk_cnt))
-                                                   tmp(1:blk_cnt) = rows_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt)
-                                                   DEALLOCATE (rows_to_alloc(i_img_outer, j_img_outer)%array)
-                                                   ALLOCATE (rows_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt+1))
-                                                   rows_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt) = tmp(1:blk_cnt)
-                                                   rows_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt+1) = row
-                                                   tmp(1:blk_cnt) = cols_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt)
-                                                   DEALLOCATE (cols_to_alloc(i_img_outer, j_img_outer)%array)
-                                                   ALLOCATE (cols_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt+1))
-                                                   cols_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt) = tmp(1:blk_cnt)
-                                                   cols_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt+1) = col
-                                                   DEALLOCATE (tmp)
-
-                                                   old_row(i_img_outer, j_img_outer) = row
-                                                   old_col(i_img_outer, j_img_outer) = col
-
-                                                ELSE IF (new_block .AND. row .NE. col) THEN
-
-                                                   ALLOCATE (tmp(blk_cnt))
-                                                   tmp(1:blk_cnt) = rows_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt)
-                                                   DEALLOCATE (rows_to_alloc(i_img_outer, j_img_outer)%array)
-                                                   ALLOCATE (rows_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt+2))
-                                                   rows_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt) = tmp(1:blk_cnt)
-                                                   rows_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt+1) = row
-                                                   rows_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt+2) = col
-                                                   tmp(1:blk_cnt) = cols_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt)
-                                                   DEALLOCATE (cols_to_alloc(i_img_outer, j_img_outer)%array)
-                                                   ALLOCATE (cols_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt+2))
-                                                   cols_to_alloc(i_img_outer, j_img_outer)%array(1:blk_cnt) = tmp(1:blk_cnt)
-                                                   cols_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt+1) = col
-                                                   cols_to_alloc(i_img_outer, j_img_outer)%array(blk_cnt+2) = row
-                                                   DEALLOCATE (tmp)
-
-                                                   old_row(i_img_outer, j_img_outer) = row
-                                                   old_col(i_img_outer, j_img_outer) = col
 
                                                 END IF
 
                                              END IF
 
-                                          END IF
+                                          END DO ! single RI basis functions
 
-                                       END DO ! single RI basis functions
+                                       END IF ! number of triples > 0
 
-                                    END IF ! number of triples > 0
+                                    END DO ! jset
 
-                                 END DO ! jset
+                                 END DO ! iset
 
-                              END DO ! iset
+                              END DO ! i_loop for i_img and j_img for kpoints
 
-                           END DO ! i_loop for i_img and j_img for kpoints
+                           END DO ! j_img
 
-                        END DO ! j_img
+                        END DO ! i_img
 
-                     END DO ! i_img
+                     END DO ! set RI
 
-                  END DO ! set RI
+                  END DO ! inner neighbor list
 
-               END DO ! inner neighbor list
+                  CALL neighbor_list_iterator_release(nl_iterator)
 
-               CALL neighbor_list_iterator_release(nl_iterator)
+               END DO ! outer neighbor list
 
-            END DO ! outer neighbor list
+               CALL neighbor_list_iterator_release(nl_iterator_outer)
 
-            CALL neighbor_list_iterator_release(nl_iterator_outer)
+            END DO ! atom_RI
 
-         END DO ! atom_RI
+            DO i_img = 1, nimg
 
-         DO i_img = 1, nimg
+               DO j_img = 1, nimg
 
-            DO j_img = 1, nimg
+                  IF (i_img > j_img) CYCLE
 
-               IF (i_img > j_img) CYCLE
+                  CALL timeset(routineN//"_reserve_dbcsr", handle2)
 
-               CALL timeset(routineN//"_reserve_dbcsr", handle2)
+                  blk_cnt = SIZE(rows_to_alloc(i_img, j_img)%array)
 
-               blk_cnt = SIZE(rows_to_alloc(i_img, j_img)%array)
+                  CALL dbcsr_get_info(mat_munu%matrix, &
+                                      row_blk_size=row_blk_sizes, &
+                                      col_blk_size=col_blk_sizes, &
+                                      distribution=dist_sub)
 
-               CALL dbcsr_get_info(mat_munu%matrix, &
-                                   row_blk_size=row_blk_sizes, &
-                                   col_blk_size=col_blk_sizes, &
-                                   distribution=dist_sub)
+                  ALLOCATE (col_blk_sizes_scaled(SIZE(col_blk_sizes)))
+                  col_blk_sizes_scaled(:) = col_blk_sizes(:)*my_group_L_size
 
-               ALLOCATE (col_blk_sizes_scaled(SIZE(col_blk_sizes)))
-               col_blk_sizes_scaled(:) = col_blk_sizes(:)*my_group_L_size
+                  ALLOCATE (mat_3c_overl_int(i_cut_RI, i_img, j_img)%matrix)
 
-               ALLOCATE (mat_3c_overl_int(i_cut_RI, i_img, j_img)%matrix)
-
-               CALL dbcsr_create(matrix=mat_3c_overl_int(i_cut_RI, i_img, j_img)%matrix, &
-                                 name="(munuP)", &
-                                 dist=dist_sub, &
-                                 matrix_type=dbcsr_type_no_symmetry, &
-                                 row_blk_size=row_blk_sizes, &
-                                 col_blk_size=col_blk_sizes_scaled, &
-                                 nze=0)
-
-               IF (rows_to_alloc(i_img, j_img)%array(1) .NE. 0) THEN
-
-                  ! that should be okay for the kpoints sinceif block (row, col) is allocated, also (col, row)
-                  ! afterwards, the matrix will be filtered anyway
-                  CALL dbcsr_reserve_blocks(mat_3c_overl_int(i_cut_RI, i_img, j_img)%matrix, &
-                                            rows=rows_to_alloc(i_img, j_img)%array(1:blk_cnt), &
-                                            cols=cols_to_alloc(i_img, j_img)%array(1:blk_cnt))
-
-               END IF
-
-               CALL dbcsr_finalize(mat_3c_overl_int(i_cut_RI, i_img, j_img)%matrix)
-
-               IF (i_img .NE. j_img) THEN
-
-                  ALLOCATE (row_blk_sizes_scaled(SIZE(row_blk_sizes)))
-                  row_blk_sizes_scaled(:) = row_blk_sizes(:)*my_group_L_size
-
-                  ALLOCATE (mat_3c_overl_int(i_cut_RI, j_img, i_img)%matrix)
-
-                  CALL dbcsr_create(matrix=mat_3c_overl_int(i_cut_RI, j_img, i_img)%matrix, &
+                  CALL dbcsr_create(matrix=mat_3c_overl_int(i_cut_RI, i_img, j_img)%matrix, &
                                     name="(munuP)", &
                                     dist=dist_sub, &
                                     matrix_type=dbcsr_type_no_symmetry, &
-                                    row_blk_size=col_blk_sizes, &
-                                    col_blk_size=row_blk_sizes_scaled, &
+                                    row_blk_size=row_blk_sizes, &
+                                    col_blk_size=col_blk_sizes_scaled, &
                                     nze=0)
 
-                  DEALLOCATE (row_blk_sizes_scaled)
-
                   IF (rows_to_alloc(i_img, j_img)%array(1) .NE. 0) THEN
-                     CALL dbcsr_reserve_blocks(mat_3c_overl_int(i_cut_RI, j_img, i_img)%matrix, &
-                                               rows=cols_to_alloc(i_img, j_img)%array(1:blk_cnt), &
-                                               cols=rows_to_alloc(i_img, j_img)%array(1:blk_cnt))
+
+                     ! that should be okay for the kpoints sinceif block (row, col) is allocated, also (col, row)
+                     ! afterwards, the matrix will be filtered anyway
+                     CALL dbcsr_reserve_blocks(mat_3c_overl_int(i_cut_RI, i_img, j_img)%matrix, &
+                                               rows=rows_to_alloc(i_img, j_img)%array(1:blk_cnt), &
+                                               cols=cols_to_alloc(i_img, j_img)%array(1:blk_cnt))
+
                   END IF
-                  CALL dbcsr_finalize(mat_3c_overl_int(i_cut_RI, j_img, i_img)%matrix)
-               END IF
 
-               DEALLOCATE (col_blk_sizes_scaled)
+                  CALL dbcsr_finalize(mat_3c_overl_int(i_cut_RI, i_img, j_img)%matrix)
 
-               CALL timestop(handle2)
+                  IF (i_img .NE. j_img) THEN
 
-            END DO ! j_img
+                     ALLOCATE (row_blk_sizes_scaled(SIZE(row_blk_sizes)))
+                     row_blk_sizes_scaled(:) = row_blk_sizes(:)*my_group_L_size
 
-         END DO ! i_img
+                     ALLOCATE (mat_3c_overl_int(i_cut_RI, j_img, i_img)%matrix)
 
-         DO i_img = 1, nimg
-         DO j_img = 1, nimg
-            DEALLOCATE (rows_to_alloc(i_img, j_img)%array)
-            DEALLOCATE (cols_to_alloc(i_img, j_img)%array)
-         END DO
-         END DO
+                     CALL dbcsr_create(matrix=mat_3c_overl_int(i_cut_RI, j_img, i_img)%matrix, &
+                                       name="(munuP)", &
+                                       dist=dist_sub, &
+                                       matrix_type=dbcsr_type_no_symmetry, &
+                                       row_blk_size=col_blk_sizes, &
+                                       col_blk_size=row_blk_sizes_scaled, &
+                                       nze=0)
 
-      END DO ! cut_RI
+                     DEALLOCATE (row_blk_sizes_scaled)
 
-      DEALLOCATE (rows_to_alloc, cols_to_alloc)
+                     IF (rows_to_alloc(i_img, j_img)%array(1) .NE. 0) THEN
+                        CALL dbcsr_reserve_blocks(mat_3c_overl_int(i_cut_RI, j_img, i_img)%matrix, &
+                                                  rows=cols_to_alloc(i_img, j_img)%array(1:blk_cnt), &
+                                                  cols=rows_to_alloc(i_img, j_img)%array(1:blk_cnt))
+                     END IF
+                     CALL dbcsr_finalize(mat_3c_overl_int(i_cut_RI, j_img, i_img)%matrix)
+                  END IF
 
-      DEALLOCATE (atom_from_RI_index)
+                  DEALLOCATE (col_blk_sizes_scaled)
 
-      DEALLOCATE (row_blk_start, row_blk_end)
+                  CALL timestop(handle2)
+
+               END DO ! j_img
+
+            END DO ! i_img
+
+            DO i_img = 1, nimg
+            DO j_img = 1, nimg
+               DEALLOCATE (rows_to_alloc(i_img, j_img)%array)
+               DEALLOCATE (cols_to_alloc(i_img, j_img)%array)
+            END DO
+            END DO
+
+         END DO ! cut_RI
+
+         DEALLOCATE (atom_from_RI_index)
+         DEALLOCATE (rows_to_alloc, cols_to_alloc)
+         DEALLOCATE (row_blk_start, row_blk_end)
+
+      ENDIF
 
       CALL timestop(handle)
 

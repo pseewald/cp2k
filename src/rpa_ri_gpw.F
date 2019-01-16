@@ -136,7 +136,8 @@ MODULE rpa_ri_gpw
                                               setup_tensor_for_mem_cut_3c,&
                                               zero_mat_P_omega
    USE util,                            ONLY: get_limit
-   USE dbcsr_tensor_api,                ONLY: dbcsr_t_type, dbcsr_t_destroy
+   USE dbcsr_tensor_api,                ONLY: dbcsr_t_type, dbcsr_t_destroy, &
+                                              dbcsr_t_filter
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -2295,38 +2296,51 @@ CONTAINS
          ALLOCATE (my_group_L_sizes_im_time(cut_RI))
          my_group_L_sizes_im_time(:) = mp2_env%ri_rpa_im_time_util(1)%my_group_L_sizes_im_time
 
-         num_3c_repl = SIZE(mat_3c_overl_int, 3)
+         IF (.NOT. do_dbcsr_t) THEN
+            num_3c_repl = SIZE(mat_3c_overl_int, 3)
+         ELSE
+            num_3c_repl = SIZE(t_3c_overl_int, 2)
+         ENDIF
 
-         DO i_cut_RI = 1, cut_RI
-
-            my_group_L_size_im_time = my_group_L_sizes_im_time(i_cut_RI)
-
+         IF (do_dbcsr_t) THEN
             DO i_cell = 1, num_3c_repl
                DO j_cell = 1, num_3c_repl
+                  CALL dbcsr_t_filter(t_3c_overl_int(i_cell, j_cell), eps_filter)
 
-                  CALL dbcsr_filter(mat_3c_overl_int(i_cut_RI, i_cell, j_cell)%matrix, &
-                                    eps_filter*SQRT(REAL(my_group_L_size_im_time, KIND=dp)))
+               ENDDO
+            ENDDO
+         ELSE
+            DO i_cut_RI = 1, cut_RI
 
+               my_group_L_size_im_time = my_group_L_sizes_im_time(i_cut_RI)
+
+               DO i_cell = 1, num_3c_repl
+                  DO j_cell = 1, num_3c_repl
+
+                     CALL dbcsr_filter(mat_3c_overl_int(i_cut_RI, i_cell, j_cell)%matrix, &
+                                       eps_filter)
+
+                  END DO
                END DO
+
             END DO
 
-         END DO
+            CALL timestop(handle4)
 
-         CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_1", handle4)
 
-         CALL timeset(routineN//"_im_t_alloc_mat_1", handle4)
+            NULLIFY (mat_dm_loc_occ)
+            CALL dbcsr_init_p(mat_dm_loc_occ)
+            CALL dbcsr_desymmetrize(mat_dm_occ_local%matrix, mat_dm_loc_occ)
 
-         NULLIFY (mat_dm_loc_occ)
-         CALL dbcsr_init_p(mat_dm_loc_occ)
-         CALL dbcsr_desymmetrize(mat_dm_occ_local%matrix, mat_dm_loc_occ)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_2", handle4)
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_2", handle4)
+            CALL get_non_zero_blocks_3c(mat_3c_overl_int, para_env_sub, cut_RI, non_zero_blocks_3c)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_3", handle4)
+         ENDIF
 
-         CALL get_non_zero_blocks_3c(mat_3c_overl_int, para_env_sub, cut_RI, non_zero_blocks_3c)
-
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_3", handle4)
 
          IF (do_kpoints_cubic_RPA) THEN
             CALL get_qs_env(qs_env, &
@@ -2363,107 +2377,111 @@ CONTAINS
             num_cells_dm = 1
          END IF
 
-         NULLIFY (mat_dm_loc_occ_cut)
-         CALL dbcsr_allocate_matrix_set(mat_dm_loc_occ_cut, cut_RI, cut_memory, num_cells_dm)
+         IF (.NOT. do_dbcsr_t) THEN
+            NULLIFY (mat_dm_loc_occ_cut)
+            CALL dbcsr_allocate_matrix_set(mat_dm_loc_occ_cut, cut_RI, cut_memory, num_cells_dm)
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_4", handle4)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_4", handle4)
 
-         DO i_mem = 1, cut_memory
-            DO i_cut_RI = 1, cut_RI
-               DO i_cell = 1, num_cells_dm
+            DO i_mem = 1, cut_memory
+               DO i_cut_RI = 1, cut_RI
+                  DO i_cell = 1, num_cells_dm
 
-                  ALLOCATE (mat_dm_loc_occ_cut(i_cut_RI, i_mem, i_cell)%matrix)
-                  CALL dbcsr_create(matrix=mat_dm_loc_occ_cut(i_cut_RI, i_mem, i_cell)%matrix, &
-                                    template=mat_dm_loc_occ)
+                     ALLOCATE (mat_dm_loc_occ_cut(i_cut_RI, i_mem, i_cell)%matrix)
+                     CALL dbcsr_create(matrix=mat_dm_loc_occ_cut(i_cut_RI, i_mem, i_cell)%matrix, &
+                                       template=mat_dm_loc_occ)
 
+                  END DO
                END DO
             END DO
-         END DO
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_5", handle4)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_5", handle4)
 
-         NULLIFY (mat_dm_loc_virt)
-         CALL dbcsr_init_p(mat_dm_loc_virt)
-         CALL dbcsr_desymmetrize(mat_dm_virt_local%matrix, mat_dm_loc_virt)
+            NULLIFY (mat_dm_loc_virt)
+            CALL dbcsr_init_p(mat_dm_loc_virt)
+            CALL dbcsr_desymmetrize(mat_dm_virt_local%matrix, mat_dm_loc_virt)
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_6", handle4)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_6", handle4)
 
-         NULLIFY (mat_dm_loc_virt_cut)
-         CALL dbcsr_allocate_matrix_set(mat_dm_loc_virt_cut, cut_RI, cut_memory, num_cells_dm)
+            NULLIFY (mat_dm_loc_virt_cut)
+            CALL dbcsr_allocate_matrix_set(mat_dm_loc_virt_cut, cut_RI, cut_memory, num_cells_dm)
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_7", handle4)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_7", handle4)
 
-         DO i_mem = 1, cut_memory
-            DO i_cut_RI = 1, cut_RI
-               DO i_cell = 1, num_cells_dm
+            DO i_mem = 1, cut_memory
+               DO i_cut_RI = 1, cut_RI
+                  DO i_cell = 1, num_cells_dm
 
-                  ALLOCATE (mat_dm_loc_virt_cut(i_cut_RI, i_mem, i_cell)%matrix)
-                  CALL dbcsr_create(matrix=mat_dm_loc_virt_cut(i_cut_RI, i_mem, i_cell)%matrix, &
-                                    template=mat_dm_loc_virt)
+                     ALLOCATE (mat_dm_loc_virt_cut(i_cut_RI, i_mem, i_cell)%matrix)
+                     CALL dbcsr_create(matrix=mat_dm_loc_virt_cut(i_cut_RI, i_mem, i_cell)%matrix, &
+                                       template=mat_dm_loc_virt)
 
+                  END DO
                END DO
             END DO
-         END DO
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_8", handle4)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_8", handle4)
 
-         CALL dbcsr_set(mat_munu%matrix, 0.0_dp)
-         CALL dbcsr_filter(mat_munu%matrix, 1.0_dp)
+            CALL dbcsr_set(mat_munu%matrix, 0.0_dp)
+            CALL dbcsr_filter(mat_munu%matrix, 1.0_dp)
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_9", handle4)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_9", handle4)
 
-         NULLIFY (mat_M_P_munu_occ%matrix)
-         ALLOCATE (mat_M_P_munu_occ%matrix)
-         CALL dbcsr_create(mat_M_P_munu_occ%matrix, template=mat_M%matrix)
+            NULLIFY (mat_M_P_munu_occ%matrix)
+            ALLOCATE (mat_M_P_munu_occ%matrix)
+            CALL dbcsr_create(mat_M_P_munu_occ%matrix, template=mat_M%matrix)
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_10", handle4)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_10", handle4)
 
-         NULLIFY (mat_M_P_munu_virt%matrix)
-         ALLOCATE (mat_M_P_munu_virt%matrix)
-         CALL dbcsr_create(mat_M_P_munu_virt%matrix, template=mat_M%matrix)
+            NULLIFY (mat_M_P_munu_virt%matrix)
+            ALLOCATE (mat_M_P_munu_virt%matrix)
+            CALL dbcsr_create(mat_M_P_munu_virt%matrix, template=mat_M%matrix)
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_11", handle4)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_11", handle4)
 
-         IF (.NOT. do_mao) THEN
-            mat_3c_overl_int_mao_for_occ => mat_3c_overl_int
-            mat_3c_overl_int_mao_for_virt => mat_3c_overl_int
-         END IF
+            IF (.NOT. do_mao) THEN
+               mat_3c_overl_int_mao_for_occ => mat_3c_overl_int
+               mat_3c_overl_int_mao_for_virt => mat_3c_overl_int
+            END IF
 
-         NULLIFY (mat_M_mu_Pnu_occ)
-         CALL dbcsr_allocate_matrix_set(mat_M_mu_Pnu_occ, cut_RI)
-         DO i_cut_RI = 1, cut_RI
-            ALLOCATE (mat_M_mu_Pnu_occ(i_cut_RI)%matrix)
-            CALL dbcsr_create(matrix=mat_M_mu_Pnu_occ(i_cut_RI)%matrix, &
-                              template=mat_3c_overl_int_mao_for_occ(i_cut_RI, 1, 1)%matrix)
-         END DO
+            NULLIFY (mat_M_mu_Pnu_occ)
+            CALL dbcsr_allocate_matrix_set(mat_M_mu_Pnu_occ, cut_RI)
+            DO i_cut_RI = 1, cut_RI
+               ALLOCATE (mat_M_mu_Pnu_occ(i_cut_RI)%matrix)
+               CALL dbcsr_create(matrix=mat_M_mu_Pnu_occ(i_cut_RI)%matrix, &
+                                 template=mat_3c_overl_int_mao_for_occ(i_cut_RI, 1, 1)%matrix)
+            END DO
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_12", handle4)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_12", handle4)
 
-         NULLIFY (mat_M_mu_Pnu_virt)
-         CALL dbcsr_allocate_matrix_set(mat_M_mu_Pnu_virt, cut_RI)
-         DO i_cut_RI = 1, cut_RI
-            ALLOCATE (mat_M_mu_Pnu_virt(i_cut_RI)%matrix)
-            CALL dbcsr_create(matrix=mat_M_mu_Pnu_virt(i_cut_RI)%matrix, &
-                              template=mat_3c_overl_int_mao_for_virt(i_cut_RI, 1, 1)%matrix)
-         END DO
+            NULLIFY (mat_M_mu_Pnu_virt)
+            CALL dbcsr_allocate_matrix_set(mat_M_mu_Pnu_virt, cut_RI)
+            DO i_cut_RI = 1, cut_RI
+               ALLOCATE (mat_M_mu_Pnu_virt(i_cut_RI)%matrix)
+               CALL dbcsr_create(matrix=mat_M_mu_Pnu_virt(i_cut_RI)%matrix, &
+                                 template=mat_3c_overl_int_mao_for_virt(i_cut_RI, 1, 1)%matrix)
+            END DO
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_13", handle4)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_13", handle4)
+
+
+         ENDIF
 
          ! if we do kpoints, mat_P has a kpoint and mat_P_omega has the inted
          ! mat_P(tau, kpoint)
          IF (do_kpoints_cubic_RPA) THEN
             CALL get_kpoint_info(kpoints, nkp=nkp)
-            size_P = MAX(num_cells_dm/2+1, nkp)
+            size_P = MAX(num_cells_dm/2 + 1, nkp)
          ELSE
             size_P = 1
          END IF
@@ -2523,10 +2541,12 @@ CONTAINS
          CALL timestop(handle4)
          CALL timeset(routineN//"_im_t_alloc_mat_14", handle4)
 
-         NULLIFY (mat_P_global_copy%matrix)
-         ALLOCATE (mat_P_global_copy%matrix)
-         CALL dbcsr_create(mat_P_global_copy%matrix, template=mat_P_global%matrix)
-         CALL dbcsr_copy(mat_P_global_copy%matrix, mat_P_global%matrix)
+         IF (.NOT. do_dbcsr_t) THEN
+            NULLIFY (mat_P_global_copy%matrix)
+            ALLOCATE (mat_P_global_copy%matrix)
+            CALL dbcsr_create(mat_P_global_copy%matrix, template=mat_P_global%matrix)
+            CALL dbcsr_copy(mat_P_global_copy%matrix, mat_P_global%matrix)
+         ENDIF
 
          CALL timestop(handle4)
          CALL timeset(routineN//"_im_t_alloc_mat_15", handle4)
@@ -2622,19 +2642,21 @@ CONTAINS
             ends_array_cm_mao_virt => ends_array_cm
          END IF
 
-         ! allocatable arrays for fast filling of dbcsr matrices
-         CALL dbcsr_get_info(mat_M_P_munu_occ%matrix, row_blk_size=row_blk_size, &
-                             col_blk_size=col_blk_size, nblkrows_total=nblkrows_total)
-         ALLOCATE (buffer_mat_M(MAXVAL(row_blk_size), MAXVAL(col_blk_size)))
+         IF (.NOT. do_dbcsr_t) THEN
+            ! allocatable arrays for fast filling of dbcsr matrices
+            CALL dbcsr_get_info(mat_M_P_munu_occ%matrix, row_blk_size=row_blk_size, &
+                                col_blk_size=col_blk_size, nblkrows_total=nblkrows_total)
+            ALLOCATE (buffer_mat_M(MAXVAL(row_blk_size), MAXVAL(col_blk_size)))
 
-         ALLOCATE (mepos_P_from_RI_row(nblkrows_total))
-         mepos_P_from_RI_row(:) = mp2_env%ri_rpa_im_time_util(1)%mepos_P_from_RI_row(:)
+            ALLOCATE (mepos_P_from_RI_row(nblkrows_total))
+            mepos_P_from_RI_row(:) = mp2_env%ri_rpa_im_time_util(1)%mepos_P_from_RI_row(:)
 
-         ! allocatable arrays for fast filling of dbcsr matrices
-         CALL dbcsr_get_info(mat_P_global%matrix, row_blk_size=row_blk_size, col_blk_size=col_blk_size)
+            ! allocatable arrays for fast filling of dbcsr matrices
+            CALL dbcsr_get_info(mat_P_global%matrix, row_blk_size=row_blk_size, col_blk_size=col_blk_size)
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_18", handle4)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_18", handle4)
+         ENDIF
 
          NULLIFY (fm_mat_work)
          CALL cp_fm_create(fm_mat_work, fm_mat_Q%matrix_struct)
@@ -2652,24 +2674,26 @@ CONTAINS
             END DO
          END DO
 
-         ALLOCATE (row_from_LLL(dimen_RI))
-         row_from_LLL = 0
+         IF (.NOT. do_dbcsr_t) THEN
+            ALLOCATE (row_from_LLL(dimen_RI))
+            row_from_LLL = 0
 
-         CALL timestop(handle4)
-         CALL timeset(routineN//"_im_t_alloc_mat_20", handle4)
+            CALL timestop(handle4)
+            CALL timeset(routineN//"_im_t_alloc_mat_20", handle4)
 
-         CALL dbcsr_get_info(mat_M_P_munu_occ%matrix, &
-                             nblkrows_total=nblkrows_total, &
-                             row_blk_offset=row_blk_offset, &
-                             row_blk_size=row_blk_size)
+            CALL dbcsr_get_info(mat_M_P_munu_occ%matrix, &
+                                nblkrows_total=nblkrows_total, &
+                                row_blk_offset=row_blk_offset, &
+                                row_blk_size=row_blk_size)
 
-         DO LLL = 1, dimen_RI
-            DO row = 1, nblkrows_total
-               IF (row_blk_offset(row) <= LLL .AND. LLL < row_blk_offset(row)+row_blk_size(row)) THEN
-                  row_from_LLL(LLL) = row
-               END IF
+            DO LLL = 1, dimen_RI
+               DO row = 1, nblkrows_total
+                  IF (row_blk_offset(row) <= LLL .AND. LLL < row_blk_offset(row) + row_blk_size(row)) THEN
+                     row_from_LLL(LLL) = row
+                  END IF
+               END DO
             END DO
-         END DO
+         ENDIF
 
          CALL timestop(handle4)
          CALL timeset(routineN//"_im_t_alloc_mat_20", handle4)
@@ -2850,11 +2874,10 @@ CONTAINS
          IF (do_dbcsr_t) THEN
             CALL setup_tensor_for_mem_cut_3c(t_3c_overl_int_cut, t_3c_overl_int, cut_memory, &
                                              starts_array_mc_t, ends_array_mc_t, eps_filter)
+         ELSE
+            CALL setup_mat_for_mem_cut_3c(mat_3c_overl_int_cut, mat_3c_overl_int, cut_memory, cut_RI, &
+                                          starts_array_cm, ends_array_cm, my_group_L_sizes_im_time, eps_filter)
          ENDIF
-         !ELSE
-         CALL setup_mat_for_mem_cut_3c(mat_3c_overl_int_cut, mat_3c_overl_int, cut_memory, cut_RI, &
-                                       starts_array_cm, ends_array_cm, my_group_L_sizes_im_time, eps_filter)
-         !ENDIF
 
          CALL timestop(handle4)
          CALL timeset(routineN//"_im_t_alloc_mat_22", handle4)
@@ -2871,30 +2894,32 @@ CONTAINS
                                           my_group_L_sizes_im_time, eps_filter)
 
          ELSE
+            IF (.NOT. do_dbcsr_t) THEN
 
-            mat_3c_overl_int_mao_for_occ_cut => mat_3c_overl_int_cut
-            mat_3c_overl_int_mao_for_virt_cut => mat_3c_overl_int_cut
-
+               mat_3c_overl_int_mao_for_occ_cut => mat_3c_overl_int_cut
+               mat_3c_overl_int_mao_for_virt_cut => mat_3c_overl_int_cut
+            ENDIF
          END IF
 
-         CALL get_non_zero_blocks_3c_cut_col(mat_3c_overl_int_cut, para_env_sub, cut_RI, &
-                                             cut_memory, non_zero_blocks_3c_cut_col)
 
-         CALL check_sparsity_arrays_for_kp(needed_cutRI_mem_R1vec_R2vec_for_kp, &
-                                           mat_3c_overl_int_cut, cut_RI, cut_memory, para_env_sub, &
-                                           do_kpoints_cubic_RPA)
 
-         ALLOCATE (cycle_due_to_sparse_dm(cut_memory, cut_memory, num_integ_points))
-         cycle_due_to_sparse_dm = .FALSE.
+         IF (.NOT. do_dbcsr_t) THEN
+            CALL get_non_zero_blocks_3c_cut_col(mat_3c_overl_int_cut, para_env_sub, cut_RI, &
+                                                cut_memory, non_zero_blocks_3c_cut_col)
 
-         ALLOCATE (multiply_needed_occ(cut_memory, cut_RI, num_cells_dm))
-         multiply_needed_occ = .TRUE.
+            CALL check_sparsity_arrays_for_kp(needed_cutRI_mem_R1vec_R2vec_for_kp, &
+                                              mat_3c_overl_int_cut, cut_RI, cut_memory, para_env_sub, &
+                                              do_kpoints_cubic_RPA)
 
-         ALLOCATE (multiply_needed_virt(cut_memory, cut_RI, num_cells_dm))
-         multiply_needed_virt = .TRUE.
+            ALLOCATE (cycle_due_to_sparse_dm(cut_memory, cut_memory, num_integ_points))
+            cycle_due_to_sparse_dm = .FALSE.
 
-         ALLOCATE (has_mat_P_blocks(num_cells_dm/2+1, cut_memory, cut_memory, num_3c_repl, num_3c_repl))
-         has_mat_P_blocks = .TRUE.
+            ALLOCATE (multiply_needed_occ(cut_memory, cut_RI, num_cells_dm))
+            multiply_needed_occ = .TRUE.
+
+            ALLOCATE (multiply_needed_virt(cut_memory, cut_RI, num_cells_dm))
+            multiply_needed_virt = .TRUE.
+         ENDIF
 
          CALL timestop(handle4)
          CALL timeset(routineN//"_im_t_alloc_mat_23", handle4)
@@ -2956,6 +2981,9 @@ CONTAINS
 !         END IF
 
          CALL timestop(handle4)
+
+         ALLOCATE (has_mat_P_blocks(num_cells_dm/2 + 1, cut_memory, cut_memory, num_3c_repl, num_3c_repl))
+         has_mat_P_blocks = .TRUE.
 
          IF (do_ri_Sigma_x .OR. do_ic_model) THEN
 
@@ -4979,18 +5007,23 @@ CONTAINS
          DEALLOCATE (fm_mat_L)
          CALL cp_fm_release(fm_mat_work)
 
-         CALL dbcsr_release_p(mat_dm_loc_occ)
-         CALL dbcsr_release_p(mat_dm_loc_virt)
+         IF (.NOT. do_dbcsr_t) THEN
+            CALL dbcsr_release_p(mat_dm_loc_occ)
+            CALL dbcsr_release_p(mat_dm_loc_virt)
 
-         CALL dbcsr_deallocate_matrix_set(mat_dm_loc_occ_cut)
-         CALL dbcsr_deallocate_matrix_set(mat_dm_loc_virt_cut)
+            CALL dbcsr_deallocate_matrix_set(mat_dm_loc_occ_cut)
+            CALL dbcsr_deallocate_matrix_set(mat_dm_loc_virt_cut)
 
-         CALL dbcsr_release(mat_M_P_munu_occ%matrix)
-         DEALLOCATE (mat_M_P_munu_occ%matrix)
-         CALL dbcsr_release(mat_M_P_munu_virt%matrix)
-         DEALLOCATE (mat_M_P_munu_virt%matrix)
-         CALL dbcsr_release(mat_P_global_copy%matrix)
-         DEALLOCATE (mat_P_global_copy%matrix)
+            CALL dbcsr_release(mat_M_P_munu_occ%matrix)
+            DEALLOCATE (mat_M_P_munu_occ%matrix)
+
+            CALL dbcsr_release(mat_M_P_munu_virt%matrix)
+            DEALLOCATE (mat_M_P_munu_virt%matrix)
+
+            CALL dbcsr_release(mat_P_global_copy%matrix)
+            DEALLOCATE (mat_P_global_copy%matrix)
+         ENDIF
+
          CALL dbcsr_release(mat_L%matrix)
          DEALLOCATE (mat_L%matrix)
          IF (do_ri_Sigma_x .OR. do_ic_model) THEN
@@ -5004,21 +5037,22 @@ CONTAINS
 
          DEALLOCATE (index_to_cell_3c, cell_to_index_3c)
 
-         CALL dbcsr_deallocate_matrix_set(mat_M_mu_Pnu_occ)
-         CALL dbcsr_deallocate_matrix_set(mat_M_mu_Pnu_virt)
+         IF (.NOT. do_dbcsr_t) THEN
+            CALL dbcsr_deallocate_matrix_set(mat_M_mu_Pnu_occ)
+            CALL dbcsr_deallocate_matrix_set(mat_M_mu_Pnu_virt)
+         ENDIF
 
          CALL dbcsr_deallocate_matrix_set(mat_P_omega)
          IF (my_open_shell .AND. do_im_time .AND. do_ri_sos_laplace_mp2) CALL dbcsr_deallocate_matrix_set(mat_P_omega_beta)
 
-         CALL dbcsr_deallocate_matrix_set(mat_3c_overl_int_cut)
+         IF (.NOT. do_dbcsr_t) THEN
+            CALL dbcsr_deallocate_matrix_set(mat_3c_overl_int_cut)
 
-
-         IF (do_mao) THEN
-            CALL dbcsr_deallocate_matrix_set(mat_3c_overl_int_mao_for_occ_cut)
-            CALL dbcsr_deallocate_matrix_set(mat_3c_overl_int_mao_for_virt_cut)
-         END IF
-
-         IF (do_dbcsr_t) THEN
+            IF (do_mao) THEN
+               CALL dbcsr_deallocate_matrix_set(mat_3c_overl_int_mao_for_occ_cut)
+               CALL dbcsr_deallocate_matrix_set(mat_3c_overl_int_mao_for_virt_cut)
+            END IF
+         ELSE
             DO isize = 1, SIZE(t_3c_overl_int_cut, 1)
                DO jsize = 1, SIZE(t_3c_overl_int_cut, 2)
                   DO ksize = 1, SIZE(t_3c_overl_int_cut, 3)
@@ -5032,12 +5066,14 @@ CONTAINS
             CALL dbcsr_t_destroy(t_3c_M)
          ENDIF
 
-         DEALLOCATE (buffer_mat_M)
-         DEALLOCATE (non_zero_blocks_3c)
-         DEALLOCATE (non_zero_blocks_3c_cut_col)
-         DEALLOCATE (cycle_due_to_sparse_dm, multiply_needed_occ, multiply_needed_virt)
-         DEALLOCATE (row_from_LLL)
-         DEALLOCATE (needed_cutRI_mem_R1vec_R2vec_for_kp)
+         IF (.NOT. do_dbcsr_t) THEN
+            DEALLOCATE (buffer_mat_M)
+            DEALLOCATE (non_zero_blocks_3c)
+            DEALLOCATE (non_zero_blocks_3c_cut_col)
+            DEALLOCATE (cycle_due_to_sparse_dm, multiply_needed_occ, multiply_needed_virt)
+            DEALLOCATE (row_from_LLL)
+            DEALLOCATE (needed_cutRI_mem_R1vec_R2vec_for_kp)
+         ENDIF
          DEALLOCATE (has_mat_P_blocks)
 
          IF (do_gw_im_time) THEN
