@@ -329,7 +329,7 @@ CONTAINS
          my_B_all_end, my_B_all_size, my_B_all_start, my_B_occ_bse_end, my_B_occ_bse_size, &
          my_B_occ_bse_start, my_B_size, my_B_size_beta, my_B_virt_bse_end, my_B_virt_bse_size, &
          my_B_virt_bse_start, my_B_virtual_end, my_B_virtual_end_beta, my_B_virtual_start, &
-         my_B_virtual_start_beta, my_group_L_end, my_group_L_size, my_group_L_start, natom
+         my_B_virtual_start_beta, my_group_L_end, my_group_L_size, my_group_L_start, natom, nproc_sub
       INTEGER :: ngroup, ngroup_im_time, ngroup_im_time_P, num_diff_blk, num_small_eigen, virtual, virtual_beta
       INTEGER, ALLOCATABLE, DIMENSION(:) :: local_atoms_for_mao_basis, my_group_L_ends_im_time, &
          my_group_L_sizes_im_time, my_group_L_starts_im_time, sub_proc_map, local_atoms_RI
@@ -358,7 +358,7 @@ CONTAINS
       TYPE(dbcsr_distribution_type)                      :: dist_sub
       !INTEGER, ALLOCATABLE, DIMENSION(:,:)               :: eri_offsets
       INTEGER, DIMENSION(:), POINTER                     :: ao_blk_sizes
-      INTEGER, DIMENSION(2)                              :: pdims_sub_2d
+      INTEGER, DIMENSION(2)                              :: pdims_sub_2d, pdims_ao_2d
       !INTEGER, ALLOCATABLE, DIMENSION(:)                 :: nblk_RI_offset
 
       CALL timeset(routineN, handle)
@@ -904,11 +904,13 @@ CONTAINS
 
             CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, mp_comm_t3c_overl, map1_2d=[1,2], map2_2d=[3])
 
+            nproc_sub = para_env%num_pe/ngroup_im_time_P
             pdims_sub_2d = 0
-            CALL mp_dims_create(ngroup_im_time_P, pdims_sub_2d)
-            pdims_t3c = [para_env%num_pe/ngroup_im_time_P, pdims_sub_2d(1), pdims_sub_2d(2)]
+            CALL mp_dims_create(nproc_sub, pdims_sub_2d)
+            pdims_ao_2d = 0
+            CALL mp_dims_create(pdims_sub_2d(2)*ngroup_im_time_P, pdims_ao_2d)
+            pdims_t3c = [pdims_sub_2d(1), pdims_ao_2d(1), pdims_ao_2d(2)]
             CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, mp_comm_t3c_m, map1_2d=[1],map2_2d=[2,3])
-
 
          ENDIF
 
