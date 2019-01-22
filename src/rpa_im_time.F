@@ -297,20 +297,20 @@ CONTAINS
             CALL timeset(routineN//"_dbcsr_t", handle6)
             ALLOCATE (t_dm_virt(num_cells_dm))
             ALLOCATE (t_dm_occ(num_cells_dm))
-            CALL dbcsr_t_create(mat_P_global%matrix, t_P, name="P matrix")
+            CALL dbcsr_t_create(mat_P_global%matrix, t_P, name="P (RI | RI)")
             DO i_cell = 1, num_cells_dm
-               CALL dbcsr_t_create(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell), name="D virt")
+               CALL dbcsr_t_create(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell), name="D virt (AO | AO)")
                CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell))
                CALL dbcsr_set(mat_dm_virt_global(jquad, i_cell)%matrix, 0.0_dp)
                CALL dbcsr_filter(mat_dm_virt_global(jquad, i_cell)%matrix, 1.0_dp)
-               CALL dbcsr_t_create(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell), name="D occ")
+               CALL dbcsr_t_create(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell), name="D occ (AO | AO)")
                CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
                CALL dbcsr_set(mat_dm_occ_global(jquad, i_cell)%matrix, 0.0_dp)
                CALL dbcsr_filter(mat_dm_occ_global(jquad, i_cell)%matrix, 1.0_dp)
             ENDDO
-            CALL dbcsr_t_create(t_3c_overl_int_cut(1, 1, 1), t_3c_M_tmp, name="M temporary")
-            CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ")
-            CALL dbcsr_t_create(t_3c_M, t_3c_M_virt, name="M virt")
+            CALL dbcsr_t_create(t_3c_overl_int_cut(1, 1, 1), t_3c_M_tmp, name="M (RI AO | AO)")
+            CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ (RI | AO AO)")
+            CALL dbcsr_t_create(t_3c_M, t_3c_M_virt, name="M virt (RI | AO AO)")
 
             CALL setup_dm_for_mem_cut(t_dm_occ_cut, t_dm_occ, cut_memory, starts_array_mc_t, ends_array_mc_t, &
                                       eps_filter)
@@ -357,13 +357,16 @@ CONTAINS
                                                        contract_1=[3], notcontract_1=[1, 2], &
                                                        contract_2=[1], notcontract_2=[2], &
                                                        map_1=[1, 2], map_2=[3], flop=flop_occ,&
-                                                       filter_eps=eps_filter)
+                                                       filter_eps=eps_filter, unit_nr=unit_nr)
                                  CALL timestop(handle5)
 
                               ENDIF
                            ENDDO
 
                            CALL timeset(routineN//"_copy_M_t", handle5)
+                           ! copy matrix to optimal contraction layout - copy is done manually in order
+                           ! to better control memory allocations (we can release data of previous
+                           ! representation)
                            CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_occ, order=[1, 3, 2])
                            CALL dbcsr_t_set(t_3c_M_tmp, 0.0_dp)
                            CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
@@ -387,7 +390,7 @@ CONTAINS
                                                        contract_1=[3], notcontract_1=[1, 2], &
                                                        contract_2=[1], notcontract_2=[2], &
                                                        map_1=[1, 2], map_2=[3], flop=flop_virt, &
-                                                       filter_eps=eps_filter)
+                                                       filter_eps=eps_filter, unit_nr=unit_nr)
                                  CALL timestop(handle5)
                               ENDIF
                            ENDDO
@@ -412,7 +415,8 @@ CONTAINS
                                                  contract_1=[2, 3], notcontract_1=[1], &
                                                  contract_2=[2, 3], notcontract_2=[1], &
                                                  map_1=[1], map_2=[2], flop=num_flops_mat_P, &
-                                                 filter_eps=eps_filter_im_time/SQRT(REAL(cut_memory, KIND=dp)))
+                                                 filter_eps=eps_filter_im_time/SQRT(REAL(cut_memory, KIND=dp)), &
+                                                 unit_nr=unit_nr)
 
                            CALL dbcsr_t_copy_tensor_to_matrix(t_P, mat_P_global%matrix)
 

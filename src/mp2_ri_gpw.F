@@ -1066,7 +1066,7 @@ CONTAINS
 
       CALL dbcsr_t_distribution_new(dist, mp_comm_t3c_m, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2, &
          ngroup=ngroup, dimsplit=2, own_comm=.TRUE.)
-      CALL dbcsr_t_create(t_3c_M, "M", dist, [1], [2, 3], dbcsr_type_real_8, row_blk_sizes_RI_t, &
+      CALL dbcsr_t_create(t_3c_M, "M (RI | AO AO)", dist, [1], [2, 3], dbcsr_type_real_8, row_blk_sizes_RI_t, &
                           ao_blk_sizes, ao_blk_sizes)
       CALL dbcsr_t_distribution_destroy(dist)
 
@@ -8710,7 +8710,7 @@ CONTAINS
          DO i_img = 1, nimg
             DO j_img = 1, nimg
                IF (i_img > j_img) CYCLE
-               CALL dbcsr_t_create(t_3c_overl_int(i_img, j_img), "(P sigma lambda)", dist_o3c, [1, 2], [3], &
+               CALL dbcsr_t_create(t_3c_overl_int(i_img, j_img), "O (RI AO | AO)", dist_o3c, [1, 2], [3], &
                                    dbcsr_type_real_8, row_blk_sizes_RI_t, ao_blk_sizes, ao_blk_sizes)
             ENDDO
          ENDDO
