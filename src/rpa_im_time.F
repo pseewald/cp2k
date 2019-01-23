@@ -325,7 +325,8 @@ CONTAINS
                IF (does_mat_P_T_tau_have_blocks(i_cell_T) .EQV. .FALSE.) CYCLE
                DO j_mem = 1, cut_memory
                   DO i_mem = 1, cut_memory
-
+                  IF (unit_nr > 0) WRITE (UNIT=unit_nr, FMT="(T3,A,I2,1X,I2)") &
+                     "RPA_IM_TIME_INFO| Memory Cut iteration", i_mem, j_mem
                      ! not implemented:
                      !IF (cycle_due_to_sparse_dm(i_mem, j_mem, jquad) .AND. do_Gamma_RPA) CYCLE
 
@@ -415,7 +416,7 @@ CONTAINS
                                                  contract_1=[2, 3], notcontract_1=[1], &
                                                  contract_2=[2, 3], notcontract_2=[1], &
                                                  map_1=[1], map_2=[2], flop=num_flops_mat_P, &
-                                                 filter_eps=eps_filter_im_time/SQRT(REAL(cut_memory, KIND=dp)), &
+                                                 filter_eps=eps_filter_im_time/REAL(cut_memory**2, KIND=dp), &
                                                  unit_nr=unit_nr)
 
                            CALL dbcsr_t_copy_tensor_to_matrix(t_P, mat_P_global%matrix)
@@ -668,7 +669,7 @@ CONTAINS
                            CALL dbcsr_multiply("N", "T", 1.0_dp, mat_M_P_munu_occ%matrix, mat_M_P_munu_virt%matrix, &
                                                0.0_dp, mat_P_local%matrix, &
                                                filter_eps= &
-                                               eps_filter_im_time/SQRT(REAL(cut_memory*para_env%num_pe/group_size_P, KIND=dp)), &
+                                               eps_filter_im_time/REAL(cut_memory**2*(para_env%num_pe/group_size_P), KIND=dp), &
                                                flop=num_flops_mat_P)
 
                            IF (first_cycle_im_time .AND. memory_info) THEN
