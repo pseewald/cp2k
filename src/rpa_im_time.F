@@ -260,6 +260,7 @@ CONTAINS
       TYPE(dbcsr_t_type)                                 :: t_3c_M_virt, t_3c_M_occ, t_P
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsize_P_1, bsize_P_2, bsize_t_1, bsize_t_2, bsize_t_3, &
                                                             boff_P_1, boff_P_2, boff_t_1, boff_t_2, boff_t_3
+      INTEGER                                            :: unit_nr_prv
 
 
       memory_info = mp2_env%ri_rpa_im_time%memory_info
@@ -293,6 +294,12 @@ CONTAINS
 
          ! loop over T for chi^T(it)
          IF (do_dbcsr_t) THEN
+            IF(memory_info) THEN
+               unit_nr_prv = unit_nr
+            ELSE
+               unit_nr_prv = 0
+            ENDIF
+
 
             CALL timeset(routineN//"_dbcsr_t", handle6)
             ALLOCATE (t_dm_virt(num_cells_dm))
@@ -325,7 +332,7 @@ CONTAINS
                IF (does_mat_P_T_tau_have_blocks(i_cell_T) .EQV. .FALSE.) CYCLE
                DO j_mem = 1, cut_memory
                   DO i_mem = 1, cut_memory
-                  IF (unit_nr > 0) WRITE (UNIT=unit_nr, FMT="(T3,A,I2,1X,I2)") &
+                  IF (unit_nr_prv > 0) WRITE (UNIT=unit_nr_prv, FMT="(T3,A,I2,1X,I2)") &
                      "RPA_IM_TIME_INFO| Memory Cut iteration", i_mem, j_mem
                      ! not implemented:
                      !IF (cycle_due_to_sparse_dm(i_mem, j_mem, jquad) .AND. do_Gamma_RPA) CYCLE
@@ -358,7 +365,7 @@ CONTAINS
                                                        contract_1=[3], notcontract_1=[1, 2], &
                                                        contract_2=[1], notcontract_2=[2], &
                                                        map_1=[1, 2], map_2=[3], flop=flop_occ,&
-                                                       filter_eps=eps_filter, unit_nr=unit_nr)
+                                                       filter_eps=eps_filter, unit_nr=unit_nr_prv)
                                  CALL timestop(handle5)
 
                               ENDIF
@@ -391,7 +398,7 @@ CONTAINS
                                                        contract_1=[3], notcontract_1=[1, 2], &
                                                        contract_2=[1], notcontract_2=[2], &
                                                        map_1=[1, 2], map_2=[3], flop=flop_virt, &
-                                                       filter_eps=eps_filter, unit_nr=unit_nr)
+                                                       filter_eps=eps_filter, unit_nr=unit_nr_prv)
                                  CALL timestop(handle5)
                               ENDIF
                            ENDDO
@@ -417,7 +424,7 @@ CONTAINS
                                                  contract_2=[2, 3], notcontract_2=[1], &
                                                  map_1=[1], map_2=[2], flop=num_flops_mat_P, &
                                                  filter_eps=eps_filter_im_time/REAL(cut_memory**2, KIND=dp), &
-                                                 unit_nr=unit_nr)
+                                                 unit_nr=unit_nr_prv)
 
                            CALL dbcsr_t_copy_tensor_to_matrix(t_P, mat_P_global%matrix)
 
