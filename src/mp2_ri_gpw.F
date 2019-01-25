@@ -65,7 +65,7 @@ MODULE mp2_ri_gpw
         dbcsr_type, dbcsr_type_antisymmetric, dbcsr_type_no_symmetry, dbcsr_type_real_8, &
         dbcsr_type_symmetric, dbcsr_distribution_get, dbcsr_scalar
    USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_contract, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_distribution_destroy, &
+        dbcsr_t_contract, dbcsr_t_create, dbcsr_t_copy, dbcsr_t_destroy, dbcsr_t_distribution_destroy, &
         dbcsr_t_distribution_new, dbcsr_t_distribution_type, dbcsr_t_get_block, &
         dbcsr_t_get_stored_coordinates, dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_next_block, &
         dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_iterator_type, dbcsr_t_nd_mp_comm, &
@@ -142,6 +142,9 @@ MODULE mp2_ri_gpw
    USE rs_pw_interface,                 ONLY: potential_pw2rs
    USE task_list_types,                 ONLY: task_list_type
    USE util,                            ONLY: get_limit
+
+   USE dbcsr_mp_methods,                ONLY: dbcsr_mp_group
+   USE dbcsr_dist_methods,              ONLY: dbcsr_distribution_mp
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"
@@ -253,7 +256,7 @@ CONTAINS
                                     starts_B_all, sizes_B_all, ends_B_all, starts_array_mc_t, ends_array_mc_t, &
                                     gw_corr_lev_occ, gw_corr_lev_virt, &
                                     do_im_time, do_mao, do_kpoints_cubic_RPA, &
-                                    mat_3c_overl_int, t_3c_overl_int, do_dbcsr_t, t_3c_M, mat_3c_overl_int_mao_for_occ, &
+                                    mat_3c_overl_int, do_dbcsr_t, t_3c_M, t_3c_O, mat_3c_overl_int_mao_for_occ, &
                                     mat_3c_overl_int_mao_for_virt, mao_coeff_occ, mao_coeff_virt, &
                                     ri_metric, ri_metric_gw, ends_B_occ_bse, sizes_B_occ_bse, &
                                     starts_B_occ_bse, ends_B_virt_bse, sizes_B_virt_bse, &
@@ -306,6 +309,7 @@ CONTAINS
       TYPE(dbcsr_t_type), DIMENSION(:,:), ALLOCATABLE    :: t_3c_overl_int
       LOGICAL, INTENT(IN)                                :: do_dbcsr_t
       TYPE(dbcsr_t_type)                                 :: t_3c_M
+      TYPE(dbcsr_t_type), DIMENSION(:,:), ALLOCATABLE    :: t_3c_O
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: mao_coeff_occ, mao_coeff_virt
       INTEGER                                            :: ri_metric, ri_metric_gw
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ends_B_occ_bse, sizes_B_occ_bse, &
@@ -324,7 +328,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER :: color_sub_3c, cut_memory, cut_RI, eri_method, gw_corr_lev_total, handle, handle2, &
-         handle3, handle4, i, i_counter, itmp(2), LLL, max_row_col_local, max_row_col_local_beta, &
+         handle3, handle4, i, j, i_counter, itmp(2), LLL, max_row_col_local, max_row_col_local_beta, &
          max_row_col_local_gw, max_row_col_local_occ_bse, max_row_col_local_virt_bse, &
          my_B_all_end, my_B_all_size, my_B_all_start, my_B_occ_bse_end, my_B_occ_bse_size, &
          my_B_occ_bse_start, my_B_size, my_B_size_beta, my_B_virt_bse_end, my_B_virt_bse_size, &
@@ -354,11 +358,11 @@ CONTAINS
       TYPE(two_dim_real_array), ALLOCATABLE, &
          DIMENSION(:)                                    :: mao_coeff_repl_occ, mao_coeff_repl_virt
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: row_blk_sizes_RI_t, row_dist_RI_t
-      TYPE(dbcsr_t_pgrid_type)                           :: mp_comm_t3c_overl, mp_comm_t3c_m
+      TYPE(dbcsr_t_pgrid_type)                           :: mp_comm_t3c_overl, mp_comm_t3c_overl_2, mp_comm_t3c_m
       TYPE(dbcsr_distribution_type)                      :: dist_sub
       !INTEGER, ALLOCATABLE, DIMENSION(:,:)               :: eri_offsets
       INTEGER, DIMENSION(:), POINTER                     :: ao_blk_sizes
-      INTEGER, DIMENSION(2)                              :: pdims_sub_2d, pdims_ao_2d
+      INTEGER, DIMENSION(2)                              :: pdims_sub_2d, pdims_2_2d
       !INTEGER, ALLOCATABLE, DIMENSION(:)                 :: nblk_RI_offset
 
       CALL timeset(routineN, handle)
@@ -904,12 +908,20 @@ CONTAINS
 
             CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, mp_comm_t3c_overl, map1_2d=[1,2], map2_2d=[3])
 
+            nproc_sub = para_env%num_pe/ngroup_im_time
+            pdims_sub_2d = 0
+            CALL mp_dims_create(nproc_sub, pdims_sub_2d)
+            pdims_2_2d = 0
+            CALL mp_dims_create(pdims_sub_2d(2)*ngroup_im_time, pdims_2_2d)
+            pdims_t3c = [pdims_2_2d(1), pdims_2_2d(2), pdims_sub_2d(1)]
+            CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, mp_comm_t3c_overl_2, map1_2d=[1,2], map2_2d=[3])
+
             nproc_sub = para_env%num_pe/ngroup_im_time_P
             pdims_sub_2d = 0
             CALL mp_dims_create(nproc_sub, pdims_sub_2d)
-            pdims_ao_2d = 0
-            CALL mp_dims_create(pdims_sub_2d(2)*ngroup_im_time_P, pdims_ao_2d)
-            pdims_t3c = [pdims_sub_2d(1), pdims_ao_2d(1), pdims_ao_2d(2)]
+            pdims_2_2d = 0
+            CALL mp_dims_create(pdims_sub_2d(2)*ngroup_im_time_P, pdims_2_2d)
+            pdims_t3c = [pdims_sub_2d(1), pdims_2_2d(1), pdims_2_2d(2)]
             CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, mp_comm_t3c_m, map1_2d=[1],map2_2d=[2,3])
 
          ENDIF
@@ -930,6 +942,15 @@ CONTAINS
             CALL create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, &
                                     cut_memory, ngroup_im_time_P, &
                                     ao_blk_sizes, row_blk_sizes_RI_t, starts_array_mc_t, ends_array_mc_t)
+
+            ALLOCATE(t_3c_O(SIZE(t_3c_overl_int,1), SIZE(t_3c_overl_int,2)))
+            CALL create_tensor_O_3c(t_3c_O(1, 1), mp_comm_t3c_overl_2, ngroup_im_time, ao_blk_sizes, row_blk_sizes_RI_t)
+            DO i = 1, SIZE(t_3c_O, 1)
+               DO j = 1, SIZE(t_3c_O, 2)
+                  IF (i>1 .OR. j>1) CALL dbcsr_t_create(t_3c_O(1, 1), t_3c_O(i, j))
+               ENDDO
+            ENDDO
+
             CALL timestop(handle4)
          ENDIF
 
@@ -971,6 +992,15 @@ CONTAINS
                                      dimen_RI, cut_RI, sab_orb_sub, sab_orb_all, do_mao, &
                                      mao_coeff_repl_occ, mao_coeff_repl_virt, &
                                      num_diff_blk)
+
+         CPASSERT(t_3c_O(1,1)%valid)
+
+         DO i = 1, SIZE(t_3c_overl_int, 1)
+            DO j = 1, SIZE(t_3c_overl_int, 2)
+               CALL dbcsr_t_copy(t_3c_overl_int(i, j), t_3c_O(i, j))
+               CALL dbcsr_t_destroy(t_3c_overl_int(i, j))
+            ENDDO
+         ENDDO
 
          CALL cp_para_env_release(para_env_L)
 
@@ -1052,7 +1082,6 @@ CONTAINS
          dist_RI(iatom) = MOD(iatom-1, pdims(1))
       ENDDO
 
-
       ALLOCATE(starts_array_mc(mem_cut))
       ALLOCATE(ends_array_mc(mem_cut))
 
@@ -1071,6 +1100,39 @@ CONTAINS
       CALL dbcsr_t_create(t_3c_M, "M (RI | AO AO)", dist, [1], [2, 3], dbcsr_type_real_8, row_blk_sizes_RI_t, &
                           ao_blk_sizes, ao_blk_sizes)
       CALL dbcsr_t_distribution_destroy(dist)
+
+   END SUBROUTINE
+
+
+   SUBROUTINE create_tensor_O_3c(t_3c_O, mp_comm_t3c, ngroup, ao_blk_sizes, row_blk_sizes_RI_t)
+      TYPE(dbcsr_t_type), INTENT(OUT) :: t_3c_O
+      TYPE(dbcsr_t_pgrid_type), INTENT(IN) :: mp_comm_t3c
+      INTEGER, INTENT(IN) :: ngroup
+      INTEGER, DIMENSION(:), INTENT(IN) :: ao_blk_sizes, row_blk_sizes_RI_t
+      INTEGER :: natoms, iatom
+      INTEGER, DIMENSION(3)             :: pdims, pcoord
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_ao_1, dist_ao_2, dist_RI
+      TYPE(dbcsr_t_distribution_type) :: dist
+
+      CALL mp_environ_pgrid(mp_comm_t3c, pdims, pcoord)
+
+      natoms = SIZE(ao_blk_sizes)
+
+      ALLOCATE(dist_RI(natoms))
+      ALLOCATE(dist_ao_1(natoms))
+      ALLOCATE(dist_ao_2(natoms))
+      DO iatom = 1, natoms
+         dist_RI(iatom) = MOD(iatom-1, pdims(1))
+         dist_ao_1(iatom) = MOD(iatom-1, pdims(2))
+         dist_ao_2(iatom) = MOD(iatom-1, pdims(3))
+      ENDDO
+
+      CALL dbcsr_t_distribution_new(dist, mp_comm_t3c, [1, 2], [3], dist_RI, dist_ao_1, dist_ao_2, &
+                                    ngroup=ngroup, dimsplit=1, own_comm=.TRUE.)
+      CALL dbcsr_t_create(t_3c_O, "O (RI AO | AO)", dist, [1, 2], [3], dbcsr_type_real_8, row_blk_sizes_RI_t, &
+                          ao_blk_sizes, ao_blk_sizes)
+      CALL dbcsr_t_distribution_destroy(dist)
+
 
    END SUBROUTINE
 

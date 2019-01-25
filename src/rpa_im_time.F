@@ -167,7 +167,7 @@ CONTAINS
                                   mat_M_mu_Pnu_virt, matrix_s, mao_coeff_occ, &
                                   mao_coeff_virt, ispin, mat_M_P_munu_occ, &
                                   mat_M_P_munu_virt, mat_3c_overl_int_cut, mat_3c_overl_int_mao_for_occ_cut, &
-                                  mat_3c_overl_int_mao_for_virt_cut, do_dbcsr_t, t_3c_overl_int_cut, t_3c_M, &
+                                  mat_3c_overl_int_mao_for_virt_cut, do_dbcsr_t, t_3c_M, t_3c_O_cut, &
                                   starts_array_mc_t, ends_array_mc_t, &
                                   mat_dm_loc_occ_cut, mat_dm_loc_virt_cut, weights_cos_tf_t_to_w, &
                                   tj, tau_tj, e_fermi, eps_filter, &
@@ -200,7 +200,7 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :, :, :), POINTER :: mat_3c_overl_int_cut, &
          mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut
       LOGICAL, INTENT(IN)                                :: do_dbcsr_t
-      TYPE(dbcsr_t_type), DIMENSION(:, :, :), ALLOCATABLE, INTENT(INOUT)    :: t_3c_overl_int_cut
+      TYPE(dbcsr_t_type), DIMENSION(:, :, :), ALLOCATABLE, INTENT(INOUT)    :: t_3c_O_cut
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
       INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(IN)                  :: starts_array_mc_t, ends_array_mc_t
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_dm_loc_occ_cut, mat_dm_loc_virt_cut
@@ -315,7 +315,7 @@ CONTAINS
                CALL dbcsr_set(mat_dm_occ_global(jquad, i_cell)%matrix, 0.0_dp)
                CALL dbcsr_filter(mat_dm_occ_global(jquad, i_cell)%matrix, 1.0_dp)
             ENDDO
-            CALL dbcsr_t_create(t_3c_overl_int_cut(1, 1, 1), t_3c_M_tmp, name="M (RI AO | AO)")
+            CALL dbcsr_t_create(t_3c_O_cut(1, 1, 1), t_3c_M_tmp, name="M (RI AO | AO)")
             CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ (RI | AO AO)")
             CALL dbcsr_t_create(t_3c_M, t_3c_M_virt, name="M virt (RI | AO AO)")
 
@@ -358,7 +358,7 @@ CONTAINS
 
                                  CALL timeset(routineN//"_calc_M_t", handle5)
                                  CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), &
-                                                       tensor_1=t_3c_overl_int_cut(j_mem, i_cell_R_1_minus_S, i_cell_R_2), &
+                                                       tensor_1=t_3c_O_cut(j_mem, i_cell_R_1_minus_S, i_cell_R_2), &
                                                        tensor_2=t_dm_occ_cut(i_mem, i_cell_S), &
                                                        beta=dbcsr_scalar(1.0_dp), &
                                                        tensor_3=t_3c_M_tmp, &
@@ -390,7 +390,7 @@ CONTAINS
                                  CALL timeset(routineN//"_calc_M_t", handle5)
 
                                  CALL dbcsr_t_contract(alpha=dbcsr_scalar(alpha/2.0_dp), &
-                                                       tensor_1=t_3c_overl_int_cut( &
+                                                       tensor_1=t_3c_O_cut( &
                                                        i_mem, i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
                                                        tensor_2=t_dm_virt_cut(j_mem, i_cell_S), &
                                                        beta=dbcsr_scalar(1.0_dp), &
