@@ -71,7 +71,7 @@ MODULE mp2_ri_gpw
         dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_iterator_type, dbcsr_t_nd_mp_comm, &
         dbcsr_t_nd_mp_free, dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_split_blocks, &
         dbcsr_t_type, dbcsr_t_pgrid_type, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, mp_environ_pgrid, &
-        dbcsr_t_blk_sizes, dbcsr_t_create, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_filter
+        dbcsr_t_blk_sizes, dbcsr_t_create, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_filter, dbcsr_t_checksum
    USE gaussian_gridlevels,             ONLY: gaussian_gridlevel
    USE input_constants,                 ONLY: do_eri_gpw,&
                                               do_eri_mme,&
@@ -1004,6 +1004,7 @@ CONTAINS
             DO i = 1, SIZE(t_3c_overl_int, 1)
                DO j = 1, SIZE(t_3c_overl_int, 2)
                   CALL dbcsr_t_copy(t_3c_overl_int(i, j), t_3c_O(i, j))
+                  PRINT *, "COMPARING CHECKSUMS", dbcsr_t_checksum(t_3c_overl_int(i,j)), dbcsr_t_checksum(t_3c_O(i,j))
                   CALL dbcsr_t_destroy(t_3c_overl_int(i, j))
                ENDDO
             ENDDO
