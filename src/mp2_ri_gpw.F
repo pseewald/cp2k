@@ -8740,7 +8740,7 @@ CONTAINS
          DIMENSION(:, :)                                 :: cols_to_alloc, rows_to_alloc, alloc_ao1, alloc_ao2, alloc_RI
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
-      INTEGER :: iblk
+      INTEGER :: iblk, iproc, i
       TYPE(dbcsr_t_distribution_type)                    :: dist_o3c
 
       CALL timeset(routineN, handle)
@@ -9171,6 +9171,15 @@ CONTAINS
                   !      alloc_ao1(i_img, j_img)%array(iblk),&
                   !      alloc_ao2(i_img, j_img)%array(iblk)
                   !ENDDO
+                  DO i = 1, SIZE(alloc_RI(i_img, j_img)%array)
+                     CALL dbcsr_t_get_stored_coordinates(t_3c_overl_int(i_img, j_img), &
+                                     [alloc_RI(i_img, j_img)%array(i), alloc_ao1(i_img, j_img)%array(i), &
+                                     alloc_ao2(i_img, j_img)%array(i)], &
+                                                         iproc)
+                     PRINT *, "iproc - mepos", iproc, para_env%mepos
+                  ENDDO
+                  !CPASSERT(iproc .EQ. para_env%mepos)
+
                   CALL dbcsr_t_reserve_blocks(t_3c_overl_int(i_img, j_img), &
                                               alloc_RI(i_img, j_img)%array, &
                                               alloc_ao1(i_img, j_img)%array, &
