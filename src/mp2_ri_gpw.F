@@ -900,11 +900,18 @@ CONTAINS
 
             CALL timeset(routineN//"_dbcsr_t", handle4)
 
+            CALL get_qs_env(qs_env, natom=natom)
+            IF(ngroup_im_time .GT. natom) THEN
+               CPABORT("Increase GROUP_SIZE_3C for this number of MPI ranks")
+            ENDIF
+
             CALL dbcsr_get_info(mat_munu%matrix, &
                                 distribution=dist_sub)
             CALL dbcsr_distribution_get(dist_sub, nprows = pdims_sub_2d(1), npcols = pdims_sub_2d(2))
 
             pdims_t3c = [ngroup_im_time, pdims_sub_2d(1), pdims_sub_2d(2)]
+
+
 
             CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, mp_comm_t3c_overl, map1_2d=[1,2], map2_2d=[3])
 
@@ -993,14 +1000,15 @@ CONTAINS
                                      mao_coeff_repl_occ, mao_coeff_repl_virt, &
                                      num_diff_blk)
 
-         CPASSERT(t_3c_O(1,1)%valid)
-
-         DO i = 1, SIZE(t_3c_overl_int, 1)
-            DO j = 1, SIZE(t_3c_overl_int, 2)
-               CALL dbcsr_t_copy(t_3c_overl_int(i, j), t_3c_O(i, j))
-               CALL dbcsr_t_destroy(t_3c_overl_int(i, j))
+         IF (do_dbcsr_t) THEN
+            DO i = 1, SIZE(t_3c_overl_int, 1)
+               DO j = 1, SIZE(t_3c_overl_int, 2)
+                  CALL dbcsr_t_copy(t_3c_overl_int(i, j), t_3c_O(i, j))
+                  PRINT *, "COMPARING CHECKSUMS", dbcsr_t_checksum(t_3c_overl_int(i,j)), dbcsr_t_checksum(t_3c_O(i,j))
+                  CALL dbcsr_t_destroy(t_3c_overl_int(i, j))
+               ENDDO
             ENDDO
-         ENDDO
+         ENDIF
 
          CALL cp_para_env_release(para_env_L)
 
@@ -1085,12 +1093,22 @@ CONTAINS
       ALLOCATE(starts_array_mc(mem_cut))
       ALLOCATE(ends_array_mc(mem_cut))
 
+      PRINT *, "pdims P", pdims
+      IF(natoms < mem_cut) THEN
+         CPABORT("Use smaller MEMORY_CUT")
+      ENDIF
+
       CALL contiguous_dist(natoms, mem_cut, limits_start=starts_array_mc, limits_end=ends_array_mc)
 
       ALLOCATE(dist_ao_1(natoms))
       ALLOCATE(dist_ao_2(natoms))
       DO imem = 1, mem_cut
+
          na_cut = ends_array_mc(imem) - starts_array_mc(imem) + 1
+
+         IF(na_cut < MIN(pdims(2), pdims(3))) THEN
+            CPABORT("Increment GROUP_SIZE_P, use smaller MEMORY_CUT or use less MPI ranks")
+         ENDIF
          CALL contiguous_dist(na_cut, pdims(2), dist=dist_ao_1(starts_array_mc(imem):ends_array_mc(imem)))
          CALL contiguous_dist(na_cut, pdims(3), dist=dist_ao_2(starts_array_mc(imem):ends_array_mc(imem)))
       ENDDO
@@ -1145,8 +1163,6 @@ CONTAINS
       INTEGER :: nel_div, nel_rem
       INTEGER :: dist_end, dist_start
       INTEGER :: ibin, nel_split
-
-      CPASSERT(nel >= nbin)
 
       nel_div = nel/nbin
       nel_rem = MOD(nel, nbin)
