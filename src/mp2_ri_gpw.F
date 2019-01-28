@@ -1004,7 +1004,7 @@ CONTAINS
             DO i = 1, SIZE(t_3c_overl_int, 1)
                DO j = 1, SIZE(t_3c_overl_int, 2)
                   CALL dbcsr_t_copy(t_3c_overl_int(i, j), t_3c_O(i, j))
-                  PRINT *, "COMPARING CHECKSUMS", dbcsr_t_checksum(t_3c_overl_int(i,j)), dbcsr_t_checksum(t_3c_O(i,j))
+                  !PRINT *, "COMPARING CHECKSUMS", dbcsr_t_checksum(t_3c_overl_int(i,j)), dbcsr_t_checksum(t_3c_O(i,j))
                   CALL dbcsr_t_destroy(t_3c_overl_int(i, j))
                ENDDO
             ENDDO
@@ -8058,7 +8058,7 @@ CONTAINS
                                           block_t(block_start_RI:block_end_RI, &
                                                   block_start_row:block_end_row, &
                                                   block_start_col:block_end_col) + &
-                                          s_abRI_contr(:, :, :)
+                                          0.5_dp*s_abRI_contr(:, :, :)
 
                                     END IF
 
@@ -9105,7 +9105,7 @@ CONTAINS
                                        !ENDIF
                                     ELSE
                                        ALLOCATE(aRI%array(1))
-                                       aRI%array(blk_cnt+1) = atom_RI
+                                       aRI%array(1) = atom_RI
                                        !IF (row == col) THEN
                                        !   ALLOCATE (aRI%array(1))
                                        !   aRI%array(1) = atom_RI
