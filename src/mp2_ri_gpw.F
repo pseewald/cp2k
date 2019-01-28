@@ -71,7 +71,7 @@ MODULE mp2_ri_gpw
         dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_iterator_type, dbcsr_t_nd_mp_comm, &
         dbcsr_t_nd_mp_free, dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_split_blocks, &
         dbcsr_t_type, dbcsr_t_pgrid_type, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, mp_environ_pgrid, &
-        dbcsr_t_blk_sizes, dbcsr_t_create, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_filter, dbcsr_t_checksum
+        dbcsr_t_blk_sizes, dbcsr_t_create, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_set, dbcsr_t_filter
    USE gaussian_gridlevels,             ONLY: gaussian_gridlevel
    USE input_constants,                 ONLY: do_eri_gpw,&
                                               do_eri_mme,&
@@ -7622,6 +7622,7 @@ CONTAINS
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(two_dim_real_array), ALLOCATABLE, &
          DIMENSION(:)                                    :: blocks_to_send_around
+      TYPE(dbcsr_t_type)                                 :: t_3c_tmp
       !INTEGER, ALLOCATABLE, DIMENSION(:,:)               :: eri_offsets
 
       CALL timeset(routineN, handle)
@@ -7725,6 +7726,10 @@ CONTAINS
          !atom_RI_end = atom_from_RI_index(my_group_L_end)
 
          !DO atom_RI = atom_RI_start, atom_RI_end
+
+
+         CALL dbcsr_t_create(t_3c_overl_int(1, 1), t_3c_tmp)
+
          DO iatom_RI = 1, SIZE(local_atoms_RI)
             atom_RI = local_atoms_RI(iatom_RI)
 
@@ -8072,22 +8077,27 @@ CONTAINS
 
                         CALL dbcsr_t_get_block(t_3c_overl_int(img_row, img_col), &
                                                [atom_RI, row, col], dummy_block_t, found=found)
-                        IF (found) THEN
-                           CALL dbcsr_t_put_block(t_3c_overl_int(img_row, img_col), &
-                                                  [atom_RI, row, col], SHAPE(block_t), block_t, summation=.TRUE.)
-                        ENDIF
+                        CPASSERT(found)
+                        CALL dbcsr_t_put_block(t_3c_overl_int(img_row, img_col), &
+                                               [atom_RI, row, col], SHAPE(block_t), block_t, summation=.TRUE.)
 
-                        IF (row .NE. col) THEN
-                           CALL dbcsr_t_get_block(t_3c_overl_int(img_col, img_row), &
-                                                  [atom_RI, col, row], dummy_block_t, found=found)
-                           IF (found) THEN
-                              CALL dbcsr_t_put_block(t_3c_overl_int(img_col, img_row), &
-                                                     [atom_RI, col, row], SHAPE(block_t_transposed), &
-                                                     block_t_transposed, summation=.TRUE.)
-                           ENDIF
-                        ENDIF
+                        !IF (row .NE. col) THEN
+                        !   CALL dbcsr_t_get_block(t_3c_overl_int(img_col, img_row), &
+                        !                          [atom_RI, col, row], dummy_block_t, found=found)
+                        !   IF (found) THEN
+                        !      CALL dbcsr_t_put_block(t_3c_overl_int(img_col, img_row), &
+                        !                             [atom_RI, col, row], SHAPE(block_t_transposed), &
+                        !                             block_t_transposed, summation=.TRUE.)
+                        !   ENDIF
+                        !ENDIF
 
                         !mao not supported with dbcsr_t
+
+                        ! add transposed of overlap integrals:
+                        CALL dbcsr_t_copy(t_3c_overl_int(img_row, img_col), t_3c_tmp)
+                        CALL dbcsr_t_copy(t_3c_tmp, t_3c_overl_int(img_row, img_col), order=[1,3,2], summation=.TRUE.)
+                        CALL dbcsr_t_set(t_3c_tmp, 0.0_dp)
+                        CALL dbcsr_t_filter(t_3c_tmp, 1.0_dp)
 
                         CALL timestop(handle2)
 
@@ -8106,6 +8116,8 @@ CONTAINS
             CALL neighbor_list_iterator_release(nl_iterator_outer)
 
          END DO ! atom_RI
+
+         CALL dbcsr_t_destroy(t_3c_tmp)
 
          !END DO ! RI index ranges
          CALL timestop(handle3)
@@ -9079,71 +9091,90 @@ CONTAINS
                                        ALLOCATE (tmp(blk_cnt))
                                        tmp(:) = aRI%array(:)
                                        DEALLOCATE (aRI%array)
-                                       IF (row == col) THEN
-                                          ALLOCATE (aRI%array(blk_cnt + 1))
-                                          aRI%array(1:blk_cnt) = tmp(:)
-                                          aRI%array(blk_cnt + 1) = atom_RI
-                                       ELSE
-                                          ALLOCATE (aRI%array(blk_cnt + 2))
-                                          aRI%array(1:blk_cnt) = tmp(:)
-                                          aRI%array(blk_cnt + 1:) = atom_RI
-                                       ENDIF
+                                       ALLOCATE(aRI%array(blk_cnt + 1))
+                                       aRI%array(1:blk_cnt) = tmp(:)
+                                       aRI%array(blk_cnt+1) = atom_RI
+                                       !IF (row == col) THEN
+                                       !   ALLOCATE (aRI%array(blk_cnt + 1))
+                                       !   aRI%array(1:blk_cnt) = tmp(:)
+                                       !   aRI%array(blk_cnt + 1) = atom_RI
+                                       !ELSE
+                                       !   ALLOCATE (aRI%array(blk_cnt + 2))
+                                       !   aRI%array(1:blk_cnt) = tmp(:)
+                                       !   aRI%array(blk_cnt + 1:) = atom_RI
+                                       !ENDIF
                                     ELSE
-                                       IF (row == col) THEN
-                                          ALLOCATE (aRI%array(1))
-                                          aRI%array(1) = atom_RI
-                                       ELSE
-                                          ALLOCATE (aRI%array(2))
-                                          aRI%array(1:) = atom_RI
-                                       ENDIF
+                                       ALLOCATE(aRI%array(1))
+                                       aRI%array(blk_cnt+1) = atom_RI
+                                       !IF (row == col) THEN
+                                       !   ALLOCATE (aRI%array(1))
+                                       !   aRI%array(1) = atom_RI
+                                       !ELSE
+                                       !   ALLOCATE (aRI%array(2))
+                                       !   aRI%array(1:) = atom_RI
+                                       !ENDIF
                                     ENDIF
 
                                     IF (allocated(a_ao1%array)) THEN
                                        tmp(:) = a_ao1%array(:)
                                        DEALLOCATE (a_ao1%array)
-                                       IF (row == col) THEN
-                                          ALLOCATE (a_ao1%array(blk_cnt + 1))
-                                          a_ao1%array(1:blk_cnt) = tmp(:)
-                                          a_ao1%array(blk_cnt + 1) = row
-                                       ELSE
-                                          ALLOCATE (a_ao1%array(blk_cnt + 2))
-                                          a_ao1%array(1:blk_cnt) = tmp(:)
-                                          a_ao1%array(blk_cnt + 1) = row
-                                          a_ao1%array(blk_cnt + 2) = col
-                                       ENDIF
+                                       ALLOCATE (a_ao1%array(blk_cnt + 1))
+                                       a_ao1%array(1:blk_cnt) = tmp(:)
+                                       a_ao1%array(blk_cnt + 1) = row
+                                       !IF (row == col) THEN
+                                       !   ALLOCATE (a_ao1%array(blk_cnt + 1))
+                                       !   a_ao1%array(1:blk_cnt) = tmp(:)
+                                       !   a_ao1%array(blk_cnt + 1) = row
+                                       !ELSE
+                                       !   ALLOCATE (a_ao1%array(blk_cnt + 2))
+                                       !   a_ao1%array(1:blk_cnt) = tmp(:)
+                                       !   a_ao1%array(blk_cnt + 1) = row
+                                       !   a_ao1%array(blk_cnt + 2) = col
+                                       !ENDIF
                                     ELSE
-                                       IF (row == col) THEN
-                                          ALLOCATE (a_ao1%array(1))
-                                          a_ao1%array(1) = row
-                                       ELSE
-                                          ALLOCATE (a_ao1%array(2))
-                                          a_ao1%array(1) = row
-                                          a_ao1%array(2) = col
-                                       ENDIF
+                                       ALLOCATE (a_ao1%array(1))
+                                       a_ao1%array(1) = row
+
+                                       !IF (row == col) THEN
+                                       !   ALLOCATE (a_ao1%array(1))
+                                       !   a_ao1%array(1) = row
+                                       !ELSE
+                                       !   ALLOCATE (a_ao1%array(2))
+                                       !   a_ao1%array(1) = row
+                                       !   a_ao1%array(2) = col
+                                       !ENDIF
                                     ENDIF
 
                                     IF (allocated(a_ao2%array)) THEN
                                        tmp(:) = a_ao2%array(:)
                                        DEALLOCATE (a_ao2%array)
-                                       IF (row == col) THEN
-                                          ALLOCATE (a_ao2%array(blk_cnt + 1))
-                                          a_ao2%array(1:blk_cnt) = tmp(:)
-                                          a_ao2%array(blk_cnt + 1) = row
-                                       ELSE
-                                          ALLOCATE (a_ao2%array(blk_cnt + 2))
-                                          a_ao2%array(1:blk_cnt) = tmp(:)
-                                          a_ao2%array(blk_cnt + 1) = col
-                                          a_ao2%array(blk_cnt + 2) = row
-                                       ENDIF
+                                       ALLOCATE (a_ao2%array(blk_cnt + 1))
+                                       a_ao2%array(1:blk_cnt) = tmp(:)
+                                       a_ao2%array(blk_cnt + 1) = col
+
+                                       !DEALLOCATE (a_ao2%array)
+                                       !IF (row == col) THEN
+                                       !   ALLOCATE (a_ao2%array(blk_cnt + 1))
+                                       !   a_ao2%array(1:blk_cnt) = tmp(:)
+                                       !   a_ao2%array(blk_cnt + 1) = row
+                                       !ELSE
+                                       !   ALLOCATE (a_ao2%array(blk_cnt + 2))
+                                       !   a_ao2%array(1:blk_cnt) = tmp(:)
+                                       !   a_ao2%array(blk_cnt + 1) = col
+                                       !   a_ao2%array(blk_cnt + 2) = row
+                                       !ENDIF
                                     ELSE
-                                       IF (row == col) THEN
-                                          ALLOCATE (a_ao2%array(1))
-                                          a_ao2%array(1) = row
-                                       ELSE
-                                          ALLOCATE (a_ao2%array(2))
-                                          a_ao2%array(1) = col
-                                          a_ao2%array(2) = row
-                                       ENDIF
+                                       ALLOCATE (a_ao2%array(1))
+                                       a_ao2%array(1) =col
+
+                                       !IF (row == col) THEN
+                                       !   ALLOCATE (a_ao2%array(1))
+                                       !   a_ao2%array(1) = row
+                                       !ELSE
+                                       !   ALLOCATE (a_ao2%array(2))
+                                       !   a_ao2%array(1) = col
+                                       !   a_ao2%array(2) = row
+                                       !ENDIF
                                     ENDIF
 
                                     old_row(i_img_outer, j_img_outer) = row
@@ -9187,6 +9218,7 @@ CONTAINS
                ENDIF
             ENDDO
          ENDDO
+
          CALL timestop(handle3)
       ELSE ! do_dbcsr_t
 
