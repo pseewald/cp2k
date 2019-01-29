@@ -7707,32 +7707,10 @@ CONTAINS
       IF (do_dbcsr_t) THEN
 
          CALL timeset(routineN//"_dbcsr_t", handle3)
-         !DO i_cut_RI = 1, cut_RI
-
-         !my_group_L_start = my_group_L_starts_im_time(1)
-         !my_group_L_end = my_group_L_ends_im_time(cut_RI)
-         !atom_RI_start = eri_offsets(my_group_L_start, 1)
-         !atom_RI_end = eri_offsets(my_group_L_end, 1)
-         !set_RI_start = eri_offsets(my_group_L_start, 2)
-         !set_RI_end = eri_offsets(my_group_L_end, 2)
-         !set_RI_offset_start = eri_offsets(my_group_L_start, 3)
-         !set_RI_offset_end = eri_offsets(my_group_L_end, 3)
-         !atom_RI_offset_start = eri_offsets(my_group_L_start, 4)
-         !atom_RI_offset_end = eri_offsets(my_group_L_end, 4)
-
-         !my_group_L_size = my_group_L_sizes_im_time(i_cut_RI)
-
-         !atom_RI_start = atom_from_RI_index(my_group_L_start)
-         !atom_RI_end = atom_from_RI_index(my_group_L_end)
-
-         !DO atom_RI = atom_RI_start, atom_RI_end
-
-
 
          DO iatom_RI = 1, SIZE(local_atoms_RI)
             atom_RI = local_atoms_RI(iatom_RI)
 
-            !atom_RI_index = atom_RI + (RI_blk_offset + 1 - atom_RI_start)
 
             kind_RI = kind_of(atom_RI)
             CALL get_qs_kind(qs_kind=qs_kind_set(kind_RI), basis_set=basis_set_RI, basis_type="RI_AUX")
@@ -7749,20 +7727,6 @@ CONTAINS
             zet_RI => basis_set_RI%zet
 
             CALL neighbor_list_iterator_create(nl_iterator_outer, sab_orb_all)
-
-            !set_RI_first=1
-            !set_RI_last=nset_RI
-            !atom_RI_first = 1
-            !atom_RI_last = SUM(nsgf_RI)
-
-            !IF (atom_RI == atom_RI_start) THEN
-            !   set_RI_first = set_RI_start
-            !   atom_RI_first = atom_RI_offset_start
-            !ENDIF
-            !IF (atom_RI == atom_RI_end) THEN
-            !   set_RI_last = set_RI_end
-            !   atom_RI_last = atom_RI_offset_end
-            !ENDIF
 
             DO WHILE (neighbor_list_iterate(nl_iterator_outer) == 0)
 
@@ -7887,17 +7851,7 @@ CONTAINS
                         ALLOCATE (block_t(blk_size(1), blk_size(2), blk_size(3)))
                         block_t = 0.0_dp
 
-                        DO set_RI = 1, nset_RI !set_RI_first, set_RI_last
-                           !set_RI_offset_first = 1
-                           !set_RI_offset_last = nset_RI(set_RI)
-
-                           !IF(atom_RI == atom_RI_first .AND. set_RI == set_RI_first) THEN
-                           !   set_RI_offset_first = set_RI_offset_start
-                           !ENDIF
-
-                           !IF(atom_RI == atom_RI_last .AND. set_RI == set_RI_last) THEN
-                           !   set_RI_offset_last = set_RI_offset_end
-                           !ENDIF
+                        DO set_RI = 1, nset_RI
 
                            dab = SQRT(SUM(rab**2))
                            daRI = SQRT(SUM(raRI**2))
@@ -7946,18 +7900,8 @@ CONTAINS
                                  sgfa = first_sgfa(1, iset)
                                  sgfb = first_sgfb(1, jset)
 
-                                 !block_start_RI = sgf_RI - atom_RI_first + 1
-                                 !IF (set_RI < set_RI_last) THEN
-                                 !   block_end_RI = sgf_RI - atom_RI_first + nsgf_RI(set_RI)
-                                 !ELSE
-                                 !   block_end_RI = block_start_RI + atom_RI_last - atom_RI_first
-                                 !ENDIF
-
                                  IF (ncoa*ncob*nco_RI > 0) THEN
 
-                                    PRINT *, "nco RI", nco_RI
-                                    PRINT *, "nco a", ncoa
-                                    PRINT *, "nco b", ncob
                                     ALLOCATE (s_abRI(nco_RI, ncoa, ncob))
                                     s_abRI(:, :, :) = 0.0_dp
 
@@ -7983,14 +7927,6 @@ CONTAINS
                                           END DO
                                        END DO
                                     END DO
-
-                                    !ALLOCATE (block(row_blk_sizes(row), col_blk_sizes(col)*my_group_L_size))
-
-                                    !ALLOCATE (block_transposed(col_blk_sizes(col), row_blk_sizes(row)*my_group_L_size))
-
-                                    !offset_row_from_LLL = (LLL - 1)*row_blk_sizes(row)
-                                    !offset_col_from_LLL = (LLL - 1)*col_blk_sizes(col)
-
 
                                     block_start_row = sgfa
                                     block_end_row = sgfa + nsgfa(iset) - 1
@@ -8038,25 +7974,17 @@ CONTAINS
                         END DO ! set RI
                         CALL timeset(routineN//"_put_dbcsr", handle2)
 
+                        ! debug start
                         CALL dbcsr_t_get_block(t_3c_overl_int(img_row, img_col), &
                                                [atom_RI, row, col], dummy_block_t, found=found)
                         CPASSERT(found)
+                        ! debug end
+
                         CALL dbcsr_t_put_block(t_3c_overl_int(img_row, img_col), &
                                                [atom_RI, row, col], SHAPE(block_t), block_t, summation=.TRUE.)
 
-                        !IF (row .NE. col) THEN
-                        !   CALL dbcsr_t_get_block(t_3c_overl_int(img_col, img_row), &
-                        !                          [atom_RI, col, row], dummy_block_t, found=found)
-                        !   IF (found) THEN
-                        !      CALL dbcsr_t_put_block(t_3c_overl_int(img_col, img_row), &
-                        !                             [atom_RI, col, row], SHAPE(block_t_transposed), &
-                        !                             block_t_transposed, summation=.TRUE.)
-                        !   ENDIF
-                        !ENDIF
 
                         !mao not supported with dbcsr_t
-
-
 
                         CALL timestop(handle2)
 
