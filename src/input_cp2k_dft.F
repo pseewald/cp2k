@@ -7881,7 +7881,7 @@ CONTAINS
                           description="XAS simulations using TDDFPT. Excitation from specified "//&
                           "core orbitals are considered one at a time. In case of high symmetry "//&
                           "structures, donor core orbitals should be localized.", &
-                          n_keywords=12, n_subsections=5, repeats=.FALSE.)
+                          n_keywords=13, n_subsections=4, repeats=.FALSE.)
 
       NULLIFY (keyword, subsection, print_key)
 
@@ -7899,7 +7899,7 @@ CONTAINS
                                       "be done or not. If set to .TRUE., only the determination "//&
                                       "of donor MOs is conducted. In the case of iterative OT "// &
                                       "diagonalization, the LUMOs eigenvalues are also screened for "//&
-                                      "gaps and values for ADDED_MOS are suggested. This run "// &
+                                      "gaps and values for N_EXCITED are suggested. This run "// &
                                       "option allows for cheap verification of the input parameters", &
                           usage="CHECK_ONLY {logical}", &
                           default_l_val=.FALSE., &
@@ -7939,7 +7939,7 @@ CONTAINS
       CALL keyword_create(keyword, name="STATE_TYPES", &
                           variants=(/"TYPES"/), &
                           description="Types of orbitals that are excited, for each atom/kind, "//&
-                          "in order to do  tdp  xas spectra calculation."//&
+                          "in order to do  TDDFPT driven  xas spectra calculation."//&
                           "This keyword MUST have the same number of entries as the relevant "//&
                           "KIND_LIST or ATOM_LIST. The order of the specified state types must "//&
                           "correspond to the order of the relevant kinds/indices."//&
@@ -7954,10 +7954,10 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, name="N_SEARCH", & 
-                          description="Number of MOs to search to find specified donor core "//&
+                          description="Number of MOs (per spin) to search to find specified donor core "//&
                           "orbitals, starting from the lowest in energy and upward. By default, "//&
-                          "all HOMOs are searched. If the LOCALIZED subsection is used, then "//&
-                          "all searched states are first localized.",&
+                          "all HOMOs are searched. If the LOCALIZE subsection is used, "//&
+                          "then all searched states are first localized.",&
                           usage="N_SEARCH {integer}",&
                           default_i_val=-1)
       CALL section_add_keyword(section, keyword)         
@@ -7988,7 +7988,8 @@ CONTAINS
                           variants=(/"EXCITATION"/), &
                           description="Whether singlet or triplet excitations should be "// &
                                      "considered (starting from the spin-restricted ground state)."//&
-                                     "BOTH is needed for spin-orbit coupling calculations.",&
+                                     "BOTH is needed for spin-orbit coupling calculations." //&
+                                     "Note: only applies for spin-restricted calculations",&
                           usage="EXCITATIONS {string}", &
                           default_i_val=tddfpt_singlet, &
                           enum_c_vals=s2a("SINGLET", "TRIPLET", "BOTH"), & 
@@ -7998,7 +7999,9 @@ CONTAINS
 
       CALL keyword_create(keyword, name="SPIN_ORBIT_COUPLING", &
                           variants=(/"SOC"/), &
-                          description="Whether spin-orbit coupling should be added. ", &
+                          description="Whether spin-orbit coupling should be added. " // &
+                                      "Note: only applies for spin-restricted calculations with "//&
+                                      "BOTH singlet and triplet excitations.", &
                           usage="SOC {logical}", &
                           default_l_val=.FALSE.)
       CALL section_add_keyword(section, keyword)
@@ -8014,7 +8017,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="GRID", &
                           description="Specification of the atomic grids for a given atomic kind."//&
-                                      "This keyword can/should be repeated for each kind. "//&
+                                      "This keyword can/should be repeated for each excited kind. "//&
                                       "The default grid dimensions are those set for the GAPW "// &
                                       "ground state calculation. These grids are used for the "// &
                                       "xc-kernel calculations and/or for spin-orbit coupling.", &
@@ -8033,8 +8036,8 @@ CONTAINS
 
       CALL keyword_create(keyword, name="N_EXCITED", &
                           variants=(/"N_ROOTS"/), &
-                          description="The number of excited states (singlet/triplet) to compute "//&
-                                      "per donor molecular orbital. (e.g. if 2p excitations, "// &
+                          description="The number of excited states to compute per donor " //&
+                                      "molecular orbital. (e.g. if 2p excitations, "// &
                                       "3*N_EXCITED excited states are considered)."// & 
                                       "If N_EXCITED is set to -1, all excitations are considered", &
                           usage="N_EXCITED {integer}", &
@@ -8052,15 +8055,16 @@ CONTAINS
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
 
+      !TODO: update keywrod description
       CALL section_create(subsubsection, name="OT_DIAG", &
                           description="Defines a set of parameters in case the OT (orbital " // &
                                       "transformation) iterative eigensolver should be used. " // &
                                       "The parameters that are not defined here are set to defaults"// &
-                                      "according to SCF%DIAGONALIZATION%OT. N_EXCITED should be " //&
-                                      "lower or equal to ADDED_MOS (used as guess). Better convergence"// &
+                                      "according to SCF%DIAGONALIZATION%OT. Better convergence "// &
                                       "is reached if there is an energy gap between the N_EXCITED"//& 
-                                      "and the N_EXCITED+1 ADDED_MOS. A XAS TDP specific inverse-"//&
-                                      "and diagonalization-free preconditioner is used.", &
+                                      "and the N_EXCITED+1 LUMOs. A XAS TDP specific inverse-"//&
+                                      "and diagonalization-free preconditioner is used."//&
+                                      "Run a CHECK_ONLY calculation for optimal values of N_EXCITEED", &
                                       n_keywords=3, &
                                       n_subsections=0, &
                                       repeats=.FALSE.)
@@ -8159,7 +8163,7 @@ CONTAINS
 ! End of Kernel subsection
 
       CALL create_localize_section(subsection)
-      CALL section_add_subsection(section, subsection)         
+      CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
       CALL section_create(subsection, "PRINT", "Controls the printing of information during "//&
