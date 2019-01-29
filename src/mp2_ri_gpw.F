@@ -7596,7 +7596,7 @@ CONTAINS
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgf_RI, first_sgfa, first_sgfb
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL                                            :: do_kpoints_cubic_RPA, found
-      REAL(KIND=dp)                                      :: dab, daRI, dbRI
+      REAL(KIND=dp)                                      :: dab, daRI, dbRI, prefac
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :) :: block, block_mao_for_occ, &
                                                   block_mao_for_occ_transposed, block_mao_for_virt, block_mao_for_virt_transposed, &
                                                      block_transposed, temp_mat_mao_occ_virt, temp_mat_mao_virt_occ
@@ -7607,7 +7607,7 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: dummy_block, rpgf_RI, rpgfa, rpgfb, &
                                                             sphi_a, sphi_b, sphi_RI, zet_RI, zeta, &
                                                             zetb
-      REAL(KIND=dp), DIMENSION(:, :, :), ALLOCATABLE     :: dummy_block_t, block_t, block_t_transposed
+      REAL(KIND=dp), DIMENSION(:, :, :), ALLOCATABLE     :: dummy_block_t, block_t
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cell_type), POINTER                           :: cell
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int_tmp
@@ -7728,7 +7728,6 @@ CONTAINS
          !DO atom_RI = atom_RI_start, atom_RI_end
 
 
-         CALL dbcsr_t_create(t_3c_overl_int(1, 1), t_3c_tmp)
 
          DO iatom_RI = 1, SIZE(local_atoms_RI)
             atom_RI = local_atoms_RI(iatom_RI)
@@ -7887,8 +7886,6 @@ CONTAINS
                         CALL dbcsr_t_blk_sizes(t_3c_overl_int(img_row, img_col), [atom_RI, row, col], blk_size)
                         ALLOCATE (block_t(blk_size(1), blk_size(2), blk_size(3)))
                         block_t = 0.0_dp
-                        ALLOCATE (block_t_transposed(blk_size(1), blk_size(3), blk_size(2)))
-                        block_t_transposed = 0.0_dp
 
                         DO set_RI = 1, nset_RI !set_RI_first, set_RI_last
                            !set_RI_offset_first = 1
@@ -7958,6 +7955,9 @@ CONTAINS
 
                                  IF (ncoa*ncob*nco_RI > 0) THEN
 
+                                    PRINT *, "nco RI", nco_RI
+                                    PRINT *, "nco a", ncoa
+                                    PRINT *, "nco b", ncob
                                     ALLOCATE (s_abRI(nco_RI, ncoa, ncob))
                                     s_abRI(:, :, :) = 0.0_dp
 
@@ -7991,78 +7991,41 @@ CONTAINS
                                     !offset_row_from_LLL = (LLL - 1)*row_blk_sizes(row)
                                     !offset_col_from_LLL = (LLL - 1)*col_blk_sizes(col)
 
-                                    IF (iatom < jatom) THEN
 
-                                       block_start_row = sgfa
-                                       block_end_row = sgfa + nsgfa(iset) - 1
-                                       block_start_col = sgfb
-                                       block_end_col = sgfb + nsgfb(jset) - 1
-                                       block_start_RI = sgf_RI
-                                       block_end_RI = sgf_RI + nsgf_RI(set_RI) - 1
+                                    block_start_row = sgfa
+                                    block_end_row = sgfa + nsgfa(iset) - 1
+                                    block_start_col = sgfb
+                                    block_end_col = sgfb + nsgfb(jset) - 1
+                                    block_start_RI = sgf_RI
+                                    block_end_RI = sgf_RI + nsgf_RI(set_RI) - 1
 
+                                    IF (iatom == jatom) THEN
+                                       ! factor 0.5 is necessary because matrix is added to its transpose
+                                       prefac = 0.5_dp
+                                    ELSE
                                        ! factor 0.5 is necessary due to double filling due to double iterate loop
+                                       prefac = 0.5_dp
+                                    ENDIF
+
+                                    IF(iatom <= jatom) THEN
                                        block_t(block_start_RI:block_end_RI, &
                                                block_start_row:block_end_row, &
                                                block_start_col:block_end_col) = &
                                           block_t(block_start_RI:block_end_RI, &
                                                   block_start_row:block_end_row, &
                                                   block_start_col:block_end_col) + &
-                                          !0.5_dp*s_abRI_contr(:, :, set_RI_offset_first:set_RI_offset_last)
-                                          0.5_dp*s_abRI_contr(:, :, :)
-
-                                       block_t_transposed(block_start_RI:block_end_RI, &
-                                                          block_start_col:block_end_col, &
-                                                          block_start_row:block_end_row) = &
-                                          block_t_transposed(block_start_RI:block_end_RI, &
-                                                             block_start_col:block_end_col, &
-                                                             block_start_row:block_end_row) + &
-                                          0.5_dp*s_abRI_contr_transposed(:, :, :)
-
-                                    ELSE IF (iatom > jatom) THEN
-
-                                       block_start_row = sgfb
-                                       block_end_row = sgfb + nsgfb(jset) - 1
-                                       block_start_col = sgfa
-                                       block_end_col = sgfa + nsgfa(iset) - 1
-                                       block_start_RI = sgf_RI
-                                       block_end_RI = sgf_RI + nsgf_RI(set_RI) - 1
-
-                                       ! factor 0.5 is necessary due to double filling due to double iterate loop
+                                          prefac*s_abRI_contr(:, :, :)
+                                    ELSE
                                        block_t(block_start_RI:block_end_RI, &
-                                               block_start_row:block_end_row, &
-                                               block_start_col:block_end_col) = &
+                                               block_start_col:block_end_col, &
+                                               block_start_row:block_end_row) = &
                                           block_t(block_start_RI:block_end_RI, &
-                                                  block_start_row:block_end_row, &
-                                                  block_start_col:block_end_col) + &
-                                          0.5_dp*s_abRI_contr_transposed(:, :, :)
+                                                  block_start_col:block_end_col, &
+                                                  block_start_row:block_end_row) + &
+                                          prefac*s_abRI_contr_transposed(:, :, :)
+                                    ENDIF
 
-                                       block_t_transposed(block_start_RI:block_end_RI, &
-                                                          block_start_col:block_end_col, &
-                                                          block_start_row:block_end_row) = &
-                                          block_t_transposed(block_start_RI:block_end_RI, &
-                                                             block_start_col:block_end_col, &
-                                                             block_start_row:block_end_row) + &
-                                          0.5_dp*s_abRI_contr(:, :, :)
-                                    ELSE IF (iatom .EQ. jatom) THEN
 
-                                       block_start_row = sgfa
-                                       block_end_row = sgfa + nsgfa(iset) - 1
-                                       block_start_col = sgfb
-                                       block_end_col = sgfb + nsgfb(jset) - 1
-                                       block_start_RI = sgf_RI
-                                       block_end_RI = sgf_RI + nsgf_RI(set_RI) - 1
-
-                                       block_t(block_start_RI:block_end_RI, &
-                                               block_start_row:block_end_row, &
-                                               block_start_col:block_end_col) = &
-                                          block_t(block_start_RI:block_end_RI, &
-                                                  block_start_row:block_end_row, &
-                                                  block_start_col:block_end_col) + &
-                                          0.5_dp*s_abRI_contr(:, :, :)
-
-                                    END IF
-
-!                                       END DO ! single RI basis functions
 
                                     DEALLOCATE (s_abRI, s_abRI_contr, s_abRI_contr_transposed)
 
@@ -8093,15 +8056,11 @@ CONTAINS
 
                         !mao not supported with dbcsr_t
 
-                        ! add transposed of overlap integrals:
-                        CALL dbcsr_t_copy(t_3c_overl_int(img_row, img_col), t_3c_tmp)
-                        CALL dbcsr_t_copy(t_3c_tmp, t_3c_overl_int(img_row, img_col), order=[1,3,2], summation=.TRUE.)
-                        CALL dbcsr_t_set(t_3c_tmp, 0.0_dp)
-                        CALL dbcsr_t_filter(t_3c_tmp, 1.0_dp)
+
 
                         CALL timestop(handle2)
 
-                        DEALLOCATE (block_t, block_t_transposed)
+                        DEALLOCATE (block_t)
 
                      END DO ! j_img
 
@@ -8117,9 +8076,15 @@ CONTAINS
 
          END DO ! atom_RI
 
+         ! add transposed of overlap integrals:
+         CALL dbcsr_t_create(t_3c_overl_int(1, 1), t_3c_tmp)
+         CALL dbcsr_t_copy(t_3c_overl_int(img_row, img_col), t_3c_tmp)
+         CALL dbcsr_t_copy(t_3c_tmp, t_3c_overl_int(img_row, img_col), order=[1,3,2], summation=.TRUE.)
+         CALL dbcsr_t_set(t_3c_tmp, 0.0_dp)
+         CALL dbcsr_t_filter(t_3c_tmp, 1.0_dp)
+
          CALL dbcsr_t_destroy(t_3c_tmp)
 
-         !END DO ! RI index ranges
          CALL timestop(handle3)
       ELSE
 
