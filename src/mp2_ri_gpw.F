@@ -1093,7 +1093,6 @@ CONTAINS
       ALLOCATE(starts_array_mc(mem_cut))
       ALLOCATE(ends_array_mc(mem_cut))
 
-      PRINT *, "pdims P", pdims
       IF(natoms < mem_cut) THEN
          CPABORT("Use smaller MEMORY_CUT")
       ENDIF
@@ -9100,7 +9099,6 @@ CONTAINS
                                      [alloc_RI(i_img, j_img)%array(i), alloc_ao1(i_img, j_img)%array(i), &
                                      alloc_ao2(i_img, j_img)%array(i)], &
                                                          iproc)
-                     PRINT *, "iproc - mepos", iproc, para_env%mepos
                   ENDDO
                   !CPASSERT(iproc .EQ. para_env%mepos)
 
