@@ -1097,7 +1097,7 @@ CONTAINS
          CPABORT("Use smaller MEMORY_CUT")
       ENDIF
 
-      CALL contiguous_dist(natoms, mem_cut, limits_start=starts_array_mc, limits_end=ends_array_mc)
+      CALL contiguous_dist(natoms, mem_cut, ao_blk_sizes, limits_start=starts_array_mc, limits_end=ends_array_mc)
 
       ALLOCATE(dist_ao_1(natoms))
       ALLOCATE(dist_ao_2(natoms))
@@ -1105,11 +1105,13 @@ CONTAINS
 
          na_cut = ends_array_mc(imem) - starts_array_mc(imem) + 1
 
-         IF(na_cut < MIN(pdims(2), pdims(3))) THEN
+         IF (na_cut < MIN(pdims(2), pdims(3))) THEN
             CPABORT("Increment GROUP_SIZE_P, use smaller MEMORY_CUT or use less MPI ranks")
          ENDIF
-         CALL contiguous_dist(na_cut, pdims(2), dist=dist_ao_1(starts_array_mc(imem):ends_array_mc(imem)))
-         CALL contiguous_dist(na_cut, pdims(3), dist=dist_ao_2(starts_array_mc(imem):ends_array_mc(imem)))
+         CALL contiguous_dist(na_cut, pdims(2), ao_blk_sizes(starts_array_mc(imem):ends_array_mc(imem)), &
+                              dist=dist_ao_1(starts_array_mc(imem):ends_array_mc(imem)))
+         CALL contiguous_dist(na_cut, pdims(3), ao_blk_sizes(starts_array_mc(imem):ends_array_mc(imem)), &
+                              dist=dist_ao_2(starts_array_mc(imem):ends_array_mc(imem)))
       ENDDO
 
       CALL dbcsr_t_distribution_new(dist, mp_comm_t3c_m, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2, &
@@ -1126,7 +1128,7 @@ CONTAINS
       TYPE(dbcsr_t_pgrid_type), INTENT(IN) :: mp_comm_t3c
       INTEGER, INTENT(IN) :: ngroup
       INTEGER, DIMENSION(:), INTENT(IN) :: ao_blk_sizes, row_blk_sizes_RI_t
-      INTEGER :: natoms, iatom
+      INTEGER :: natoms
       INTEGER, DIMENSION(3)             :: pdims, pcoord
       INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_ao_1, dist_ao_2, dist_RI
       TYPE(dbcsr_t_distribution_type) :: dist
@@ -1138,11 +1140,15 @@ CONTAINS
       ALLOCATE(dist_RI(natoms))
       ALLOCATE(dist_ao_1(natoms))
       ALLOCATE(dist_ao_2(natoms))
-      DO iatom = 1, natoms
-         dist_RI(iatom) = MOD(iatom-1, pdims(1))
-         dist_ao_1(iatom) = MOD(iatom-1, pdims(2))
-         dist_ao_2(iatom) = MOD(iatom-1, pdims(3))
-      ENDDO
+
+      CALL cyclic_dist(natoms, pdims(1), row_blk_sizes_RI_t, dist_RI)
+      CALL cyclic_dist(natoms, pdims(2), ao_blk_sizes, dist_ao_1)
+      CALL cyclic_dist(natoms, pdims(3), ao_blk_sizes, dist_ao_2)
+      !DO iatom = 1, natoms
+      !   dist_RI(iatom) = MOD(iatom-1, pdims(1))
+      !   dist_ao_1(iatom) = MOD(iatom-1, pdims(2))
+      !   dist_ao_2(iatom) = MOD(iatom-1, pdims(3))
+      !ENDDO
 
       CALL dbcsr_t_distribution_new(dist, mp_comm_t3c, [1, 2], [3], dist_RI, dist_ao_1, dist_ao_2, &
                                     ngroup=ngroup, dimsplit=1, own_comm=.TRUE.)
@@ -1153,30 +1159,66 @@ CONTAINS
 
    END SUBROUTINE
 
-   SUBROUTINE contiguous_dist(nel, nbin, limits_start, limits_end, dist)
+   SUBROUTINE contiguous_dist(nel, nbin, weights, limits_start, limits_end, dist)
       INTEGER, INTENT(IN) :: nel
       INTEGER, INTENT(IN) :: nbin
+      INTEGER, DIMENSION(nel), INTENT(IN)            :: weights
       INTEGER, DIMENSION(nbin), OPTIONAL, INTENT(OUT) :: limits_start
       INTEGER, DIMENSION(nbin), OPTIONAL, INTENT(OUT) :: limits_end
       INTEGER, DIMENSION(nel), OPTIONAL, INTENT(OUT) :: dist
       INTEGER :: nel_div, nel_rem
-      INTEGER :: dist_end, dist_start
-      INTEGER :: ibin, nel_split
+      INTEGER :: nel_split, nel_w, w_partialsum, el_start, el_end, end_weight, ibin
 
-      nel_div = nel/nbin
-      nel_rem = MOD(nel, nbin)
-      dist_end = 0
-      DO ibin=1,nbin
+      nel_w = SUM(weights)
+      nel_div = nel_w/nbin
+      nel_rem = MOD(nel_w, nbin)
+
+      w_partialsum = 0
+      el_end = 0
+      end_weight = 0
+      DO ibin = 1, nbin
          nel_split = nel_div
-         IF(ibin <= nel_rem) THEN
-            nel_split = nel_split+1
+         IF (ibin <= nel_rem) THEN
+            nel_split = nel_split + 1
          ENDIF
-         dist_start = dist_end + 1
-         dist_end = dist_start + nel_split - 1
-         IF (PRESENT(dist)) dist(dist_start:dist_end) = ibin - 1
-         IF (PRESENT(limits_start)) limits_start(ibin) = dist_start
-         IF (PRESENT(limits_end)) limits_end(ibin) = dist_end
+         el_start = el_end + 1
+         el_end = el_start
+         w_partialsum = w_partialsum + weights(el_end)
+         end_weight = end_weight + nel_split
+         DO WHILE (w_partialsum < end_weight)
+            IF (ABS(w_partialsum + weights(el_end) - end_weight) > ABS(w_partialsum - end_weight)) EXIT
+            el_end = el_end + 1
+            w_partialsum = w_partialsum + weights(el_end)
+         ENDDO
+         IF (PRESENT(dist)) dist(el_start:el_end) = ibin - 1
+         IF (PRESENT(limits_start)) limits_start(ibin) = el_start
+         IF (PRESENT(limits_end)) limits_end(ibin) = el_end
       ENDDO
+
+   END SUBROUTINE
+
+   SUBROUTINE cyclic_dist(nel, nbin, weights, dist)
+      INTEGER, INTENT(IN) :: nel
+      INTEGER, INTENT(IN) :: nbin
+      INTEGER, DIMENSION(nel), INTENT(IN)            :: weights
+      INTEGER, DIMENSION(nel), INTENT(OUT)            :: dist
+      INTEGER, DIMENSION(nbin)                        :: occup
+      INTEGER                :: occ_max
+      INTEGER                :: iel, ibin
+
+      occup(:) = 0
+      occ_max = 0
+      ibin = 0
+      DO iel = 1, nel
+         DO WHILE (occup(ibin + 1) .GE. occ_max)
+            IF (ALL(occup(:) == occ_max)) EXIT
+            ibin = MOD(ibin + 1, nbin)
+         ENDDO
+         dist(iel) = ibin
+         occup(ibin + 1) = occup(ibin + 1) + weights(iel)
+         occ_max = MAXVAL(occup)
+      ENDDO
+
    END SUBROUTINE
 
 ! **************************************************************************************************
