@@ -901,9 +901,9 @@ CONTAINS
             CALL timeset(routineN//"_dbcsr_t", handle4)
 
             CALL get_qs_env(qs_env, natom=natom)
-            IF(ngroup_im_time .GT. natom) THEN
-               CPABORT("Increase GROUP_SIZE_3C for this number of MPI ranks")
-            ENDIF
+            !IF(ngroup_im_time .GT. natom) THEN
+            !   CPABORT("Increase GROUP_SIZE_3C for this number of MPI ranks")
+            !ENDIF
 
             CALL dbcsr_get_info(mat_munu%matrix, &
                                 distribution=dist_sub)
