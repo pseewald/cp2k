@@ -8005,8 +8005,12 @@ CONTAINS
 
          ! add transposed of overlap integrals:
          CALL dbcsr_t_create(t_3c_overl_int(1, 1), t_3c_tmp)
-         CALL dbcsr_t_copy(t_3c_overl_int(img_row, img_col), t_3c_tmp)
-         CALL dbcsr_t_copy(t_3c_tmp, t_3c_overl_int(img_row, img_col), order=[1,3,2], summation=.TRUE.)
+         DO img_row = 1, nimg
+            DO img_col = 1, nimg
+               CALL dbcsr_t_copy(t_3c_overl_int(img_row, img_col), t_3c_tmp)
+               CALL dbcsr_t_copy(t_3c_tmp, t_3c_overl_int(img_row, img_col), order=[1, 3, 2], summation=.TRUE.)
+            ENDDO
+         ENDDO
          CALL dbcsr_t_set(t_3c_tmp, 0.0_dp)
          CALL dbcsr_t_filter(t_3c_tmp, 1.0_dp)
 
