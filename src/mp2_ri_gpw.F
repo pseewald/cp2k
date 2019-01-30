@@ -1076,7 +1076,7 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT) :: starts_array_mc, ends_array_mc
       INTEGER, DIMENSION(3)             :: pdims, pcoord
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_RI
-      INTEGER :: natoms, iatom
+      INTEGER :: natoms
       TYPE(dbcsr_t_distribution_type) :: dist
       INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_ao_1, dist_ao_2
       INTEGER :: imem, na_cut
@@ -1086,9 +1086,7 @@ CONTAINS
       natoms = SIZE(ao_blk_sizes)
 
       ALLOCATE(dist_RI(natoms))
-      DO iatom = 1, natoms
-         dist_RI(iatom) = MOD(iatom-1, pdims(1))
-      ENDDO
+      CALL cyclic_dist(natoms, pdims(1), row_blk_sizes_RI_t, dist_RI)
 
       ALLOCATE(starts_array_mc(mem_cut))
       ALLOCATE(ends_array_mc(mem_cut))
@@ -1186,7 +1184,7 @@ CONTAINS
          w_partialsum = w_partialsum + weights(el_end)
          end_weight = end_weight + nel_split
          DO WHILE (w_partialsum < end_weight)
-            IF (ABS(w_partialsum + weights(el_end) - end_weight) > ABS(w_partialsum - end_weight)) EXIT
+            !IF (ABS(w_partialsum + weights(el_end) - end_weight) > ABS(w_partialsum - end_weight)) EXIT
             el_end = el_end + 1
             w_partialsum = w_partialsum + weights(el_end)
          ENDDO
@@ -1207,16 +1205,16 @@ CONTAINS
       INTEGER                :: iel, ibin
 
       occup(:) = 0
-      occ_max = 0
       ibin = 0
+      occ_max=0
       DO iel = 1, nel
          DO WHILE (occup(ibin + 1) .GE. occ_max)
-            IF (ALL(occup(:) == occ_max)) EXIT
+            IF (ALL(occup(:) == occup(1))) EXIT
             ibin = MOD(ibin + 1, nbin)
+            IF(ibin <= 1) occ_max = MAXVAL(occup)
          ENDDO
          dist(iel) = ibin
          occup(ibin + 1) = occup(ibin + 1) + weights(iel)
-         occ_max = MAXVAL(occup)
       ENDDO
 
    END SUBROUTINE
