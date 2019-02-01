@@ -1201,17 +1201,16 @@ CONTAINS
       INTEGER, DIMENSION(nel), INTENT(IN)            :: weights
       INTEGER, DIMENSION(nel), INTENT(OUT)            :: dist
       INTEGER, DIMENSION(nbin)                        :: occup
-      INTEGER                :: occ_max
+      INTEGER                :: occ_avg
       INTEGER                :: iel, ibin
 
       occup(:) = 0
       ibin = 0
-      occ_max=0
+      occ_avg=0
       DO iel = 1, nel
-         DO WHILE (occup(ibin + 1) .GE. occ_max)
-            IF (ALL(occup(:) == occup(1))) EXIT
+         DO WHILE (occup(ibin + 1) .GT. occ_avg)
             ibin = MOD(ibin + 1, nbin)
-            IF(ibin <= 1) occ_max = MAXVAL(occup)
+            IF(ibin == 0) occ_avg = SUM(occup)/nbin
          ENDDO
          dist(iel) = ibin
          occup(ibin + 1) = occup(ibin + 1) + weights(iel)
