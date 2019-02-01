@@ -1201,17 +1201,17 @@ CONTAINS
       INTEGER, DIMENSION(nel), INTENT(IN)            :: weights
       INTEGER, DIMENSION(nel), INTENT(OUT)            :: dist
       INTEGER, DIMENSION(nbin)                        :: occup
-      INTEGER                :: occ_max
       INTEGER                :: iel, ibin
+      INTEGER                :: niter
 
       occup(:) = 0
       ibin = 0
-      occ_max=0
       DO iel = 1, nel
-         DO WHILE (occup(ibin + 1) .GE. occ_max)
-            IF (ALL(occup(:) == occup(1))) EXIT
+         niter = 0
+         DO WHILE (occup(ibin + 1) + weights(iel) .GE. MAXVAL(occup))
+            IF (MINLOC(occup, DIM=1) == ibin + 1) EXIT
             ibin = MOD(ibin + 1, nbin)
-            IF(ibin <= 1) occ_max = MAXVAL(occup)
+            niter = niter + 1
          ENDDO
          dist(iel) = ibin
          occup(ibin + 1) = occup(ibin + 1) + weights(iel)
