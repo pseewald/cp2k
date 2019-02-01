@@ -8017,11 +8017,11 @@ CONTAINS
                         ! debug start
                         CALL dbcsr_t_get_block(t_3c_overl_int(img_row, img_col), &
                                                [atom_RI, row, col], dummy_block_t, found=found)
-                        CPASSERT(found)
+                        !CPASSERT(found)
                         ! debug end
 
-                        CALL dbcsr_t_put_block(t_3c_overl_int(img_row, img_col), &
-                                               [atom_RI, row, col], SHAPE(block_t), block_t, summation=.TRUE.)
+                        IF(found) CALL dbcsr_t_put_block(t_3c_overl_int(img_row, img_col), &
+                                                         [atom_RI, row, col], SHAPE(block_t), block_t, summation=.TRUE.)
 
 
                         !mao not supported with dbcsr_t
