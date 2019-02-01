@@ -1208,6 +1208,7 @@ CONTAINS
       ibin = 0
       DO iel = 1, nel
          niter = 0
+         ibin = MOD(ibin + 1, nbin)
          DO WHILE (occup(ibin + 1) + weights(iel) .GE. MAXVAL(occup))
             IF (MINLOC(occup, DIM=1) == ibin + 1) EXIT
             ibin = MOD(ibin + 1, nbin)
