@@ -103,7 +103,8 @@ MODULE xas_tdp_methods
                                               xas_atom_env_type, &
                                               xas_atom_env_create, &
                                               xas_atom_env_release, &
-                                              donor_state_create
+                                              donor_state_create, &
+                                              free_exat_memory
    USE xas_tdp_utils,                   ONLY: setup_xas_tdp_prob, &
                                               solve_xas_tdp_prob, &
                                               compute_ri_coulomb2_int, &
@@ -363,6 +364,8 @@ CONTAINS
                NULLIFY(current_state)
                   
             END DO ! state type
+
+            CALL free_exat_memory(xas_tdp_env, iatom)
          END DO ! atom of kind 
       END DO ! kind
 
@@ -748,7 +751,11 @@ CONTAINS
       CALL get_qs_env(qs_env, matrix_ks=matrix_ks, matrix_s=matrix_s, nelectron_spin=nelec_spin, &
                       rho=rho, para_env=para_env, blacs_env=blacs_env, mos=mos)
       CALL dbcsr_get_info(matrix_s(1)%matrix, nfullrows_total=nao)
-      nevals = nao - nelec_spin
+      IF (do_lsd .OR. do_roks) THEN
+         nevals = nao - nelec_spin
+      ELSE
+         nevals = nao -nelec_spin(1)/2
+      END IF
       IF (xas_tdp_control%n_excited > 0 .AND. ANY(xas_tdp_control%n_excited < nevals)) THEN
          nevals = xas_tdp_control%n_excited/nspins !total # of evals is n_excited
       END IF
