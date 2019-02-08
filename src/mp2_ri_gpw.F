@@ -71,7 +71,8 @@ MODULE mp2_ri_gpw
         dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_iterator_type, dbcsr_t_nd_mp_comm, &
         dbcsr_t_nd_mp_free, dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_split_blocks, &
         dbcsr_t_type, dbcsr_t_pgrid_type, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, mp_environ_pgrid, &
-        dbcsr_t_blk_sizes, dbcsr_t_create, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_set, dbcsr_t_filter
+        dbcsr_t_blk_sizes, dbcsr_t_create, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_set, dbcsr_t_filter,&
+        dbcsr_t_split_copyback
    USE gaussian_gridlevels,             ONLY: gaussian_gridlevel
    USE input_constants,                 ONLY: do_eri_gpw,&
                                               do_eri_mme,&
@@ -1242,7 +1243,7 @@ CONTAINS
 
       LOGICAL, PARAMETER                                 :: debug = .FALSE.
 
-      INTEGER                                            :: blk, check_proc, i, iend, ii, ioff, &
+      INTEGER                                            :: check_proc, i, iend, ii, ioff, &
                                                             iproc, iproc_glob, istart, loc_a, &
                                                             loc_P, nproc, &
                                                             nproc_glob
@@ -1251,14 +1252,10 @@ CONTAINS
       INTEGER, DIMENSION(1)                              :: dist_B_i, map_B_1, map_L_1, map_L_2, &
                                                             sizes_i
       INTEGER, DIMENSION(2)                              :: map_B_2, pdims_L
-      INTEGER, DIMENSION(3)                              :: blk_ind, blk_offset, blk_offset_first, &
-                                                            blk_sizes, offset_B, pdims_B
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: blk_data
-      LOGICAL                                            :: first_block
+      INTEGER, DIMENSION(3)                              :: pdims_B
       INTEGER, DIMENSION(ngroup)                         :: dist_L_P, dist_L_R
       INTEGER, DIMENSION(para_env_sub%num_pe)            :: dist_B_a
       TYPE(dbcsr_t_distribution_type)                    :: dist_B, dist_L
-      TYPE(dbcsr_t_iterator_type)                        :: iter
       TYPE(dbcsr_t_type)                                 :: tB_in, tB_in_split, tB_out, &
                                                             tB_out_split, tL, tL_split
       INTEGER                                            :: handle, ierr
@@ -1314,16 +1311,8 @@ CONTAINS
       period_2d = .FALSE.
       ierr = 0
 
-      !CALL timeset("mpi_cart_create_3d", handle2)
-      !CALL mpi_cart_create(mp_comm, 3, pdims_B, period_3d, reorder, mp_comm_B, ierr)
       CALL dbcsr_t_pgrid_create(mp_comm, pdims_B, mp_comm_B)
-      !CALL timestop(handle2)
-      !CALL mp_cart_create(mp_comm, 3, pdims_B, ploc_B, mp_comm_B)
-      !CALL timeset("mpi_cart_create_2d", handle3)
-      !CALL mpi_cart_create(mp_comm, 2, pdims_L, period_2d, reorder, mp_comm_L, ierr)
       CALL dbcsr_t_pgrid_create(mp_comm, pdims_L, mp_comm_L)
-      !CALL timestop(handle3)
-      !CALL mp_cart_create(mp_comm, 2, pdims_L, ploc_L, mp_comm_L)
 
       ! setup distribution vectors such that distribution matches parallel data layout of BIb_C and my_Lrows
       dist_B_i = [0]
@@ -1392,24 +1381,10 @@ CONTAINS
                             map_1=[2, 3], map_2=[1], optimize_dist=.TRUE.)
 
       ! retrieve local block of contraction result (P|ai)
-      CALL dbcsr_t_iterator_start(iter, tB_out_split)
-      first_block = .TRUE.
-      DO WHILE (dbcsr_t_iterator_blocks_left(iter))
-         CALL dbcsr_t_iterator_next_block(iter, blk_ind, blk, blk_size=blk_sizes, blk_offset=blk_offset)
-         IF (first_block) THEN
-            blk_offset_first(:) = blk_offset(:)
-            first_block = .FALSE.
-         ENDIF
-         offset_B(:) = blk_offset(:)-blk_offset_first(:)
-         CALL dbcsr_t_get_block(tB_out_split, blk_ind, blk_data, found)
-         CPASSERT(found)
-         BIb_C(offset_B(1)+1:offset_B(1)+blk_sizes(1), &
-               offset_B(2)+1:offset_B(2)+blk_sizes(2), &
-               offset_B(3)+1:offset_B(3)+blk_sizes(3)) = &
-            blk_data(:, :, :)
-         DEALLOCATE (blk_data)
-      END DO
-      CALL dbcsr_t_iterator_stop(iter)
+      CALL dbcsr_t_split_copyback(tB_out_split, tB_out)
+
+      CALL dbcsr_t_get_block(tB_out, [loc_P, loc_a, 1], SHAPE(BIb_C), BIb_C, found)
+      CPASSERT(found)
 
       ! cleanup
       CALL dbcsr_t_destroy(tB_in)
@@ -1424,8 +1399,6 @@ CONTAINS
 
       CALL dbcsr_t_pgrid_destroy(mp_comm_B)
       CALL dbcsr_t_pgrid_destroy(mp_comm_L)
-      !CALL mpi_comm_free(mp_comm_B, ierr)
-      !CALL mpi_comm_free(mp_comm_L, ierr)
 
       CALL timestop(handle)
 
