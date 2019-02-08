@@ -71,8 +71,7 @@ MODULE mp2_ri_gpw
         dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_iterator_type, dbcsr_t_nd_mp_comm, &
         dbcsr_t_nd_mp_free, dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_split_blocks, &
         dbcsr_t_type, dbcsr_t_pgrid_type, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, mp_environ_pgrid, &
-        dbcsr_t_blk_sizes, dbcsr_t_create, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_set, dbcsr_t_filter,&
-        dbcsr_t_split_copyback
+        dbcsr_t_blk_sizes, dbcsr_t_create, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_set, dbcsr_t_filter
    USE gaussian_gridlevels,             ONLY: gaussian_gridlevel
    USE input_constants,                 ONLY: do_eri_gpw,&
                                               do_eri_mme,&
@@ -1381,7 +1380,8 @@ CONTAINS
                             map_1=[2, 3], map_2=[1], optimize_dist=.TRUE.)
 
       ! retrieve local block of contraction result (P|ai)
-      CALL dbcsr_t_split_copyback(tB_out_split, tB_out)
+      !CALL dbcsr_t_split_copyback(tB_out_split, tB_out)
+      CALL dbcsr_t_copy(tB_out_split, tB_out)
 
       CALL dbcsr_t_get_block(tB_out, [loc_P, loc_a, 1], SHAPE(BIb_C), BIb_C, found)
       CPASSERT(found)
