@@ -892,13 +892,15 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Link rho_ao diagonal blocks to the processors where they are needed
 !> \param pab_dest the processors where a given pab needs to be sent
+!> \param max_mes an upper bound for the number of messages that will be sent
 !> \param xas_atom_env ...
 !> \note It is assumed that the array pab_dest is already allocated (but not the sub-arrays)
 !>       Use the value -1 to signify that one does not need to send the block
 ! **************************************************************************************************
-   SUBROUTINE get_pab_dest(pab_dest, xas_atom_env)
+   SUBROUTINE get_pab_dest(pab_dest, max_mes, xas_atom_env)
 
       TYPE(cp_1d_i_p_type), DIMENSION(:), ALLOCATABLE :: pab_dest
+      INTEGER, INTENT(OUT)                            :: max_mes
       TYPE(xas_atom_env_type), POINTER                :: xas_atom_env
 
       CHARACTER(len=*), PARAMETER :: routineN = "get_pab_dest", routineP = moduleN//":"//routineN
@@ -923,6 +925,7 @@ CONTAINS
             nsend(exat_neighbors(inb)) = nsend(exat_neighbors(inb)) + 1
          END DO !inb
       END DO !iex
+      max_mes = SUM(nsend)
 
       ! Now we can allocate the proper amount of space
       DO iat = 1, natom
@@ -967,9 +970,9 @@ CONTAINS
                                                          nspins, natom, i, bo(2), num_pe, mepos, &
                                                          n, nsotot, nset, maxso, ispin, inb, &
                                                          nb_at, nb_kind, ub, ri_nsgf, iblk, jblk, &
-                                                         blk, tag, dest, group, nsgf, source, ctr,&
-                                                         req
-      INTEGER, DIMENSION(:), ALLOCATABLE              :: reqs
+                                                         blk, tag, dest, group, nsgf, source, is,&
+                                                         req, max_mes
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: send_req
       REAL(dp), DIMENSION(:, :), ALLOCATABLE          :: fxc, int_so
       INTEGER, DIMENSION(2,3)                         :: bounds
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
@@ -991,6 +994,7 @@ CONTAINS
       LOGICAL                                         :: found
       TYPE(dbcsr_iterator_type)                       :: iter
       TYPE(cp_1d_i_p_type), DIMENSION(:), ALLOCATABLE :: pab_dest     
+      TYPE(cp_2d_r_p_type), DIMENSION(:), ALLOCATABLE :: send_buff
 
       NULLIFY(particle_set, qs_kind_set, grid_atom, ri_basis, ri_sphi_so, dft_control, rho_set, rho)
       NULLIFY(deriv_set, input, xc_functionals, deriv, para_env, rho_ao, pab)
@@ -1022,9 +1026,13 @@ CONTAINS
 !  Need to send the diagonal blocks of rho_ao to the appropriate excited atoms in order to compute 
 !  the ri_dcoeffs. Use Isend as to not block anything
       ALLOCATE(pab_dest(natom))
-      CALL get_pab_dest(pab_dest, xas_atom_env)
+      CALL get_pab_dest(pab_dest, max_mes, xas_atom_env)
       group = para_env%group
       mepos = para_env%mepos
+
+!  Use an array of pointer for the send buffers, such that we can always call a new isend without risk
+      ALLOCATE(send_buff(max_mes))
+      ALLOCATE(send_req(max_mes))
 
       DO ispin = 1, nspins
          CALL dbcsr_iterator_start(iter, rho_ao(1)%matrix)
@@ -1037,8 +1045,7 @@ CONTAINS
             CALL dbcsr_get_block_p(rho_ao(ispin)%matrix, iblk, iblk, pab, found)
             IF (.NOT. found) CYCLE
 
-            ctr = 0
-            ALLOCATE(reqs(SIZE(pab_dest(iblk)%array)))
+            is = 0
             DO i = 1, SIZE(pab_dest(iblk)%array)
                
                dest = pab_dest(iblk)%array(i)
@@ -1047,14 +1054,11 @@ CONTAINS
 
                !Use unique tag by concatenating atom index and spin
                tag = 10*iblk + ispin
-
-               ctr = ctr + 1
-               CALL mp_isend(msgin=pab, dest=dest, comm=group, request=reqs(ctr), tag=tag)
+               is = is + 1
+               send_buff(is)%array => pab
+               CALL mp_isend(msgin=send_buff(is)%array, dest=dest, comm=group, &
+                             request=send_req(is), tag=tag)
             END DO !dest
-
-            !need to send this pab everywhere needed before changing the buffer
-            CALL mp_waitall(reqs(1:ctr))
-            DEALLOCATE(reqs)
 
          END DO !iterator
          CALL dbcsr_iterator_stop(iter)
@@ -1180,6 +1184,9 @@ CONTAINS
          CALL xc_rho_set_release(rho_set)
 
       END DO !iex
+
+!  Making sure that all communication is over
+      CALL mp_waitall(send_req(1:is)) !is is zero if no comm
 
 !  Clean-up
       DO ispin = 1, nspins

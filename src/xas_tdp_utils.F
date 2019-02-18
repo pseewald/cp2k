@@ -14,14 +14,17 @@ MODULE xas_tdp_utils
                                               gto_basis_set_p_type
    USE cell_types,                      ONLY: cell_type
    USE constants_operator,              ONLY: operator_coulomb
+   USE cp_array_utils,                  ONLY: cp_2d_r_p_type
    USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose, cp_dbcsr_cholesky_invert
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm, cp_dbcsr_sm_fm_multiply, &
                                               copy_fm_to_dbcsr, cp_fm_to_dbcsr_row_template
    USE cp_cfm_basic_linalg,             ONLY: cp_cfm_gemm
    USE cp_cfm_diag,                     ONLY: cp_cfm_heevd
    USE cp_cfm_types,                    ONLY: cp_fm_to_cfm, cp_cfm_to_fm, cp_cfm_type, &
-                                              cp_cfm_create, cp_cfm_release, cp_cfm_get_submatrix
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale, cp_fm_trace, cp_fm_upper_to_full
+                                              cp_cfm_create, cp_cfm_release, cp_cfm_get_submatrix, &
+                                              cp_cfm_get_element
+   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale, cp_fm_trace, cp_fm_upper_to_full,&
+                                              cp_fm_scale
    USE cp_fm_diag,                      ONLY: choose_eigv_solver, cp_fm_geeig, cp_fm_power
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create, cp_fm_struct_release, &     
                                               cp_fm_struct_type
@@ -57,7 +60,8 @@ MODULE xas_tdp_utils
    USE input_section_types,             ONLY: section_vals_val_get
    USE kinds,                           ONLY: dp
    USE mathlib,                         ONLY: invmat_symm
-   USE message_passing,                 ONLY: mp_min, mp_max, mp_bcast, mp_isend, mp_irecv, mp_wait
+   USE message_passing,                 ONLY: mp_min, mp_max, mp_bcast, mp_isend, mp_irecv, &
+                                              mp_wait, mp_waitall
    USE molecule_types,                  ONLY: molecule_type
    USE orbital_pointers,                ONLY: ncoset
    USE particle_methods,                ONLY: get_particle_set
@@ -125,8 +129,6 @@ CONTAINS
 !>        - G: the metric  S_pq*delta_IJ
 !>        For the xc functionals, C_aa + C_ab or C_aa - C_ab are stored in the same matrix
 !>        In the above definitions, I,J label the donnor MOs and p,q the sgfs of the basis
-!>        Under TDA, only the on-diagonal elements of M are computed
-!>        In the case of non-TDA, one turns the problem Hermitian 
 !>
 !>       -In the SPIN-UNRESTRICTED case:
 !>        the on- and off-diagonal elements of M are:
@@ -140,10 +142,13 @@ CONTAINS
 !>        - E: the off-diagonal exact-exchange kernel: (pJ_b|I_a q) delta_ab
 !>        - G: the metric S_pq*delta_IJ*delta_ab
 !>        p,q label the sgfs, I,J the donro MOs and a,b the spins
+!>
 !>       -In both cases, the matrix M is always  projected onto the unperturbed unoccupied  
 !>        ground state: M <= Q * M * Q^T = (1 - SP) * M * (1 - PS)
 !>        All possibilities: TDA or full-TDDFT, singlet or triplet, xc or hybrid, etc are treated
 !>        in the same routine to avoid recomputing stuff
+!>        Under TDA, only the on-diagonal elements of M are computed
+!>        In the case of non-TDA, one turns the problem Hermitian 
 ! **************************************************************************************************
    SUBROUTINE setup_xas_tdp_prob(donor_state, qs_env, xas_tdp_env, xas_tdp_control)
 
@@ -1684,18 +1689,27 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "change_dist", routineP = moduleN//":"//routineN
 
       INTEGER                                         :: handle, iblk, jblk, blk, s1, s2, dest, &
-                                                         tag, nblk_row, req, group, source
+                                                         tag, nblk, group, source, num_pe, &
+                                                         is, ir
       TYPE(dbcsr_iterator_type)                       :: iter
       REAL(dp), DIMENSION(:,:), POINTER               :: pbin, pbout
       LOGICAL                                         :: found_in, found_out
+      TYPE(cp_2d_r_p_type), DIMENSION(:), ALLOCATABLE :: send_buff, recv_buff
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: send_req, recv_req
 
       NULLIFY(pbin, pbout)
 
       CALL timeset(routineN, handle)
 
-      CALL dbcsr_get_info(mat_in, nfullrows_total=nblk_row)
+      CALL dbcsr_get_info(mat_in, nblkrows_total=nblk)
       group = para_env%group
-      !TODO: smarter send/recv if it turns out to be costly
+      num_pe = para_env%num_pe
+
+      !Allocate a pointer array which will point on the block => we won't need to send more than
+      !nblk**2/(2*num_pe) message per processor (only look at upper diagonal, blocks well distributed)
+      ALLOCATE(send_buff(nblk**2/(2*num_pe)+1), recv_buff(nblk**2/(2*num_pe)+1))
+      ALLOCATE(send_req(nblk**2/(2*num_pe)+1), recv_req(nblk**2/(2*num_pe)+1))
+      is = 0; ir = 0
 
       !Iterate over input matrix
       CALL dbcsr_iterator_start(iter, mat_in)
@@ -1716,9 +1730,12 @@ CONTAINS
                !If block not on the same processor, need to send it
                CALL dbcsr_get_stored_coordinates(mat_out, iblk, jblk, dest) 
                !unique tag
-               tag = nblk_row*iblk + jblk
-               CALL mp_isend(msgin=pbin, dest=dest, comm=group, request=req, tag=tag)
-               CALL mp_wait(req)
+               tag = nblk*iblk + jblk
+               !point on the block such that the buffer is not changed after isend
+               is = is + 1
+               send_buff(is)%array => pbin
+               CALL mp_isend(msgin=send_buff(is)%array, dest=dest, comm=group, request=send_req(is), &
+                             tag=tag)
             END IF
 
          END IF !found_in
@@ -1739,14 +1756,20 @@ CONTAINS
             !If not, need to receiv it
             IF (.NOT. found_in) THEN
                CALL dbcsr_get_stored_coordinates(mat_in, iblk, jblk, source)
-               tag = nblk_row*iblk + jblk
-               CALL mp_irecv(msgout=pbout, source=source, request=req, tag=tag, comm=group)
-               CALL mp_wait(req)
+               tag = nblk*iblk + jblk
+               ir = ir + 1
+               recv_buff(ir)%array => pbout
+               CALL mp_irecv(msgout=recv_buff(ir)%array, source=source, request=recv_req(ir), &
+                             tag=tag, comm=group)
             END IF
          END IF
 
       END DO !iterator
       CALL dbcsr_iterator_stop(iter)
+
+      !Make sure all communication is over. is, ir are 0 is no communication
+      CALL mp_waitall(send_req(1:is))
+      CALL mp_waitall(recv_req(1:ir))
 
       CALL timestop(handle)
 
