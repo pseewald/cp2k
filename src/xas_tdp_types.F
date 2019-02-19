@@ -1029,11 +1029,6 @@ CONTAINS
 
       INTEGER                                         :: i
 
-      IF (ASSOCIATED(xas_tdp_env%ri_o3c_coul)) THEN
-         CALL release_o3c_container(xas_tdp_env%ri_o3c_coul)
-         DEALLOCATE(xas_tdp_env%ri_o3c_coul)
-      END IF
-
       IF (ASSOCIATED(xas_tdp_env%ri_o3c_ex)) THEN
          CALL release_o3c_container(xas_tdp_env%ri_o3c_ex)
          DEALLOCATE(xas_tdp_env%ri_o3c_ex)
