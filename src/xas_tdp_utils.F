@@ -98,7 +98,7 @@ MODULE xas_tdp_utils
 
    PUBLIC :: setup_xas_tdp_prob, solve_xas_tdp_prob, &
              compute_ri_coulomb2_int, include_full_soc, build_xas_tdp_3c_nl, &
-             compute_ri_o3c_coulomb, compute_ri_o3c_exchange
+             compute_ri_o3c_coulomb, compute_ri_o3c_exchange, get_ri_o3c_coul_bonds
 
 CONTAINS
 
@@ -1380,17 +1380,14 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Computes the RI Coulomb 3-center integrals (ab|c), where c is from the RI_XAS basis and
-!>        centered on the given excited atom
-!> \param ex_atom the excited atom on which the third center is
-!> \param ex_kind the kind of the excited atom
+!>        centered on the excited atoms of xas_tdp_env
 !> \param xas_tdp_env ...
 !> \param qs_env ...
-!> \note  The ri_o3c_coul member of xas_tdp_env is defined and allocated here
+!> \note  The ri_o3c_coul member of xas_tdp_env is defined and allocated here. Only computed once
+!>        for the whole system (for optimized load balance). Ok because not too much memory needed
 ! **************************************************************************************************
-   SUBROUTINE compute_ri_o3c_coulomb(ex_atom, ex_kind, xas_tdp_env, qs_env)
+   SUBROUTINE compute_ri_o3c_coulomb(xas_tdp_env, qs_env)
 
-      INTEGER, INTENT(IN)                             :: ex_atom
-      INTEGER, INTENT(IN)                             :: ex_kind
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(qs_environment_type), POINTER              :: qs_env
 
@@ -1403,7 +1400,6 @@ CONTAINS
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
                                              POINTER  :: ac_list, sab_orb
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
-      INTEGER, DIMENSION(:), ALLOCATABLE              :: exat, exki
       TYPE(cp_para_env_type), POINTER                 :: para_env
 
       NULLIFY(basis_set_ri, basis_set_orb, ac_list, sab_orb, qs_kind_set, para_env)
@@ -1422,22 +1418,15 @@ CONTAINS
 !  Build a neighbor list for the ac centers. Since we later contract as (aI|c) and we assume I is 
 !  very localized on the same atom as c, we take a,c as neighbors if they overlap => the effective
 !  range is then second nearest neightbors (relatively weak assumption)
-      ALLOCATE(exat(1), exki(1))
-      exat(1) = ex_atom; exki(1) = ex_kind;
       CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "OVERLAP", &
-                               exat, exki, qs_env)
+                               xas_tdp_env%ex_atom_indices, xas_tdp_env%ex_kind_indices, qs_env)
 
 !  Allocate, init and compute the integrals
       ALLOCATE(xas_tdp_env%ri_o3c_coul)
+      !only one spin needed for copulomb integrals
       CALL init_o3c_container(xas_tdp_env%ri_o3c_coul, 1, basis_set_orb, basis_set_orb, &
                               basis_set_ri, sab_orb, ac_list)
       CALL calculate_o3c_coulomb_integrals(xas_tdp_env%ri_o3c_coul)
-
-!  Get the lower and upper bonds of a,b in (ab|P) integrals and sotre in xas_tdp_env
-      CALL get_o3c_container(xas_tdp_env%ri_o3c_coul, lbij=xas_tdp_env%lb_o3c_coul, &
-                             ubij=xas_tdp_env%ub_o3c_coul)
-      CALL mp_min(xas_tdp_env%lb_o3c_coul, para_env%group)
-      CALL mp_max(xas_tdp_env%ub_o3c_coul, para_env%group)
 
 ! Clean-up
       DO ilist = 1,SIZE(ac_list)
@@ -1456,7 +1445,9 @@ CONTAINS
 !> \param ex_kind the kind of the excited atom
 !> \param xas_tdp_env ...
 !> \param qs_env ...
-!> \note  The ri_o3c_ex member of xas_tdp_env is defined and allocated here
+!> \note  The ri_o3c_ex member of xas_tdp_env is defined and allocated here. Recompute for each 
+!>        excited atom because of the many integrals involved (=> ok load balance and a lot of
+!>        memory used)
 ! **************************************************************************************************
    SUBROUTINE compute_ri_o3c_exchange(ex_atom, ex_kind, xas_tdp_env, qs_env)
 
@@ -1863,6 +1854,69 @@ CONTAINS
       END IF
 
    END SUBROUTINE reserve_contraction_blocks
+
+! **************************************************************************************************
+!> \brief Iterates over the ri_o3c_coulomb integrals of xas_tdp_env and look for the upper and lower
+!>        bonds of i,j in the (ij|k) integrals for atom k
+!> \param xas_tdp_env ...
+!> \param qs_env ...
+! **************************************************************************************************
+   SUBROUTINE get_ri_o3c_coul_bonds(atom_k, xas_tdp_env, qs_env)
+
+      INTEGER, INTENT(IN)                             :: atom_k
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "get_ri_o3c_coul_bonds", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: iatom, jatom, katom, lbij, ubij, nthread, &
+                                                         mepos
+      TYPE(o3c_iterator_type)                         :: o3c_iterator
+      TYPE(o3c_container_type), POINTER               :: ri_o3c_coul
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+
+      NULLIFY(ri_o3c_coul, para_env)
+
+      ri_o3c_coul => xas_tdp_env%ri_o3c_coul
+      ubij = 0
+      lbij = 10000000
+
+      nthread = 1
+!$    nthread = omp_get_max_threads()
+      CALL o3c_iterator_create(ri_o3c_coul, o3c_iterator, nthread=nthread)
+
+!$OMP PARALLEL DEFAULT(NONE) &
+!$OMP SHARED (nthread,o3c_iterator,atom_k)&
+!$OMP PRIVATE (mepos,iatom,jatom,katom)&
+!$OMP REDUCTION(min: lbij)&
+!$OMP REDUCTION(max: ubij)
+
+      mepos = 0
+!$    mepos = omp_get_thread_num()
+
+      DO WHILE (o3c_iterate(o3c_iterator, mepos=mepos) == 0)
+
+         CALL get_o3c_iterator_info(o3c_iterator, mepos=mepos, iatom=iatom, jatom=jatom, katom=katom)
+
+         IF (katom == atom_k) THEN
+            IF (iatom < lbij .OR. jatom < lbij) lbij = MIN(iatom, jatom)
+            IF (iatom > ubij .OR. jatom > ubij) ubij = MAX(iatom, jatom)
+         END IF
+
+      END DO
+!$OMP END PARALLEL
+      CALL o3c_iterator_release(o3c_iterator)
+
+      ! Still need to get the max/min out of the MPI procs
+      CALL get_qs_env(qs_env, para_env=para_env)
+      CALL mp_min(lbij, para_env%group)
+      CALL mp_max(ubij, para_env%group)
+
+      xas_tdp_env%lb_o3c_coul = lbij
+      xas_tdp_env%ub_o3c_coul = ubij
+
+   END SUBROUTINE get_ri_o3c_coul_bonds
    
 ! **************************************************************************************************
 !> \brief Contraction of the 3-center integrals over index 1 and 2, for a given atom_k. The results

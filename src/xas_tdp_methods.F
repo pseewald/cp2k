@@ -110,7 +110,8 @@ MODULE xas_tdp_methods
                                               compute_ri_coulomb2_int, &
                                               include_full_soc, &
                                               compute_ri_o3c_coulomb, &
-                                              compute_ri_o3c_exchange
+                                              compute_ri_o3c_exchange, &
+                                              get_ri_o3c_coul_bonds
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -293,8 +294,8 @@ CONTAINS
                CALL rRc_xyz_ao(xas_tdp_env%dipmat, qs_env, rc, order=1)
             END IF
 
-!           For this excited atom, also compute the RI coulomb integrals
-            CALL compute_ri_o3c_coulomb(iatom, ikind, xas_tdp_env, qs_env)
+!           Get the lower and upper bonds of the Ri Coulomb integrals for this atom
+            CALL get_ri_o3c_coul_bonds(iatom, xas_tdp_env, qs_env)
 
 !           If exact exchange is riquired, compute the 3-center integrals for this atom
             IF (xas_tdp_control%do_hfx) THEN
@@ -677,6 +678,9 @@ CONTAINS
          CALL cp_fm_struct_release(fm_struct)
             
       END IF
+
+!  Precompute the o3c RI coulomb integrals for all excited atoms
+      CALL compute_ri_o3c_coulomb(xas_tdp_env, qs_env)
       
 !  Create the structure for the dipole in the AO basis 
       ALLOCATE(xas_tdp_env%dipmat(3))
