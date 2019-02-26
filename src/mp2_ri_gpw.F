@@ -71,7 +71,7 @@ MODULE mp2_ri_gpw
         dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_iterator_type, dbcsr_t_nd_mp_comm, &
         dbcsr_t_nd_mp_free, dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_split_blocks, &
         dbcsr_t_type, dbcsr_t_pgrid_type, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, mp_environ_pgrid, &
-        dbcsr_t_blk_sizes, dbcsr_t_create, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_set, dbcsr_t_filter
+        dbcsr_t_blk_sizes, dbcsr_t_create, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_set, dbcsr_t_filter, dbcsr_t_checksum
    USE gaussian_gridlevels,             ONLY: gaussian_gridlevel
    USE input_constants,                 ONLY: do_eri_gpw,&
                                               do_eri_mme,&
@@ -334,7 +334,8 @@ CONTAINS
          my_B_occ_bse_start, my_B_size, my_B_size_beta, my_B_virt_bse_end, my_B_virt_bse_size, &
          my_B_virt_bse_start, my_B_virtual_end, my_B_virtual_end_beta, my_B_virtual_start, &
          my_B_virtual_start_beta, my_group_L_end, my_group_L_size, my_group_L_start, natom, nproc_sub
-      INTEGER :: ngroup, ngroup_im_time, ngroup_im_time_P, num_diff_blk, num_small_eigen, virtual, virtual_beta
+      INTEGER :: ngroup, ngroup_im_time, ngroup_im_time_P, num_diff_blk, num_small_eigen, virtual, virtual_beta, &
+                 sqrt_max_bsize
       INTEGER, ALLOCATABLE, DIMENSION(:) :: local_atoms_for_mao_basis, my_group_L_ends_im_time, &
          my_group_L_sizes_im_time, my_group_L_starts_im_time, sub_proc_map, local_atoms_RI
       INTEGER, ALLOCATABLE, DIMENSION(:, :) :: local_col_row_info, local_col_row_info_beta, &
@@ -357,11 +358,12 @@ CONTAINS
       TYPE(pw_p_type)                                    :: psi_L
       TYPE(two_dim_real_array), ALLOCATABLE, &
          DIMENSION(:)                                    :: mao_coeff_repl_occ, mao_coeff_repl_virt
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: row_blk_sizes_RI_t, row_dist_RI_t
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: row_blk_sizes_RI_t, row_blk_sizes_RI_t_split, row_dist_RI_t
       TYPE(dbcsr_t_pgrid_type)                           :: mp_comm_t3c_overl, mp_comm_t3c_overl_2, mp_comm_t3c_m
       TYPE(dbcsr_distribution_type)                      :: dist_sub
       !INTEGER, ALLOCATABLE, DIMENSION(:,:)               :: eri_offsets
       INTEGER, DIMENSION(:), POINTER                     :: ao_blk_sizes
+      INTEGER, DIMENSION(:), ALLOCATABLE                 :: ao_blk_sizes_split
       INTEGER, DIMENSION(2)                              :: pdims_sub_2d, pdims_2_2d
       !INTEGER, ALLOCATABLE, DIMENSION(:)                 :: nblk_RI_offset
 
@@ -946,12 +948,18 @@ CONTAINS
 
             CALL dbcsr_get_info(mat_munu%matrix, row_blk_size=ao_blk_sizes)
 
+            sqrt_max_bsize = qs_env%mp2_env%ri_rpa_im_time%max_bsize_sqrt
+
+            CALL split_block_sizes(ao_blk_sizes, ao_blk_sizes_split, sqrt_max_bsize)
+            CALL split_block_sizes(row_blk_sizes_RI_t, row_blk_sizes_RI_t_split, sqrt_max_bsize)
+
             CALL create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, &
                                     cut_memory, ngroup_im_time_P, &
-                                    ao_blk_sizes, row_blk_sizes_RI_t, starts_array_mc_t, ends_array_mc_t)
+                                    ao_blk_sizes_split, row_blk_sizes_RI_t, starts_array_mc_t, ends_array_mc_t)
 
             ALLOCATE(t_3c_O(SIZE(t_3c_overl_int,1), SIZE(t_3c_overl_int,2)))
-            CALL create_tensor_O_3c(t_3c_O(1, 1), mp_comm_t3c_overl_2, ngroup_im_time, ao_blk_sizes, row_blk_sizes_RI_t)
+            CALL create_tensor_O_3c(t_3c_O(1, 1), mp_comm_t3c_overl_2, ngroup_im_time, ao_blk_sizes_split, &
+                                    ao_blk_sizes, row_blk_sizes_RI_t_split)
             DO i = 1, SIZE(t_3c_O, 1)
                DO j = 1, SIZE(t_3c_O, 2)
                   IF (i>1 .OR. j>1) CALL dbcsr_t_create(t_3c_O(1, 1), t_3c_O(i, j))
@@ -1067,6 +1075,33 @@ CONTAINS
 
    END SUBROUTINE mp2_ri_gpw_compute_in
 
+   SUBROUTINE split_block_sizes(blk_sizes, blk_sizes_split, max_size)
+      INTEGER, DIMENSION(:), INTENT(IN) :: blk_sizes
+      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT) :: blk_sizes_split
+      INTEGER, INTENT(IN) :: max_size
+      INTEGER :: isplit, isplit_sum, i, nsplit, blk_remainder
+
+      isplit_sum = 0
+      DO i = 1, SIZE(blk_sizes)
+         nsplit = (blk_sizes(i)+max_size-1)/max_size
+         isplit_sum = isplit_sum + nsplit
+      ENDDO
+
+      ALLOCATE(blk_sizes_split(isplit_sum))
+
+      isplit_sum = 0
+      DO i = 1, SIZE(blk_sizes)
+         nsplit = (blk_sizes(i)+max_size-1)/max_size
+         blk_remainder = blk_sizes(i)
+         DO isplit = 1, nsplit
+            isplit_sum = isplit_sum + 1
+            blk_sizes_split(isplit_sum) = MIN(max_size, blk_remainder)
+            blk_remainder = blk_remainder - max_size
+         ENDDO
+      ENDDO
+
+   END SUBROUTINE
+
    SUBROUTINE create_tensor_M_3c(t_3c_M, mp_comm_t3c_m, mem_cut, ngroup, ao_blk_sizes, row_blk_sizes_RI_t, &
                                  starts_array_mc, ends_array_mc)
       TYPE(dbcsr_t_type), INTENT(OUT) :: t_3c_M
@@ -1076,40 +1111,50 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(OUT) :: starts_array_mc, ends_array_mc
       INTEGER, DIMENSION(3)             :: pdims, pcoord
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_RI
-      INTEGER :: natoms
+      INTEGER :: size_RI, size_AO
       TYPE(dbcsr_t_distribution_type) :: dist
-      INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_ao_1, dist_ao_2
-      INTEGER :: imem, na_cut
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_ao_1, dist_ao_2, starts_array_mc_block, ends_array_mc_block
+      INTEGER :: imem, size_AO_cut, bsum
 
       CALL mp_environ_pgrid(mp_comm_t3c_m, pdims, pcoord)
 
-      natoms = SIZE(ao_blk_sizes)
+      size_RI = SIZE(row_blk_sizes_RI_t)
+      size_AO = SIZE(ao_blk_sizes)
 
-      ALLOCATE(dist_RI(natoms))
-      CALL cyclic_dist(natoms, pdims(1), row_blk_sizes_RI_t, dist_RI)
+      ALLOCATE(dist_RI(size_RI))
+      CALL cyclic_dist(size_RI, pdims(1), row_blk_sizes_RI_t, dist_RI)
 
       ALLOCATE(starts_array_mc(mem_cut))
       ALLOCATE(ends_array_mc(mem_cut))
+      ALLOCATE(starts_array_mc_block(mem_cut))
+      ALLOCATE(ends_array_mc_block(mem_cut))
 
-      IF(natoms < mem_cut) THEN
+      IF(size_AO < mem_cut) THEN
          CPABORT("Use smaller MEMORY_CUT")
       ENDIF
 
-      CALL contiguous_dist(natoms, mem_cut, ao_blk_sizes, limits_start=starts_array_mc, limits_end=ends_array_mc)
+      CALL contiguous_dist(size_AO, mem_cut, ao_blk_sizes, limits_start=starts_array_mc_block, limits_end=ends_array_mc_block)
 
-      ALLOCATE(dist_ao_1(natoms))
-      ALLOCATE(dist_ao_2(natoms))
+      bsum = 0
+      DO imem = 1, mem_cut
+         starts_array_mc(imem) = bsum + 1
+         bsum = bsum + SUM(ao_blk_sizes(starts_array_mc_block(imem):ends_array_mc_block(imem)))
+         ends_array_mc(imem) = bsum
+      ENDDO
+
+      ALLOCATE(dist_ao_1(size_AO))
+      ALLOCATE(dist_ao_2(size_AO))
       DO imem = 1, mem_cut
 
-         na_cut = ends_array_mc(imem) - starts_array_mc(imem) + 1
+         size_AO_cut = ends_array_mc_block(imem) - starts_array_mc_block(imem) + 1
 
-         IF (na_cut < MIN(pdims(2), pdims(3))) THEN
+         IF (size_AO_cut < MIN(pdims(2), pdims(3))) THEN
             CPABORT("Increment GROUP_SIZE_P, use smaller MEMORY_CUT or use less MPI ranks")
          ENDIF
-         CALL contiguous_dist(na_cut, pdims(2), ao_blk_sizes(starts_array_mc(imem):ends_array_mc(imem)), &
-                              dist=dist_ao_1(starts_array_mc(imem):ends_array_mc(imem)))
-         CALL contiguous_dist(na_cut, pdims(3), ao_blk_sizes(starts_array_mc(imem):ends_array_mc(imem)), &
-                              dist=dist_ao_2(starts_array_mc(imem):ends_array_mc(imem)))
+         CALL contiguous_dist(size_AO_cut, pdims(2), ao_blk_sizes(starts_array_mc_block(imem):ends_array_mc_block(imem)), &
+            dist=dist_ao_1(starts_array_mc_block(imem):ends_array_mc_block(imem)))
+         CALL contiguous_dist(size_AO_cut, pdims(3), ao_blk_sizes(starts_array_mc_block(imem):ends_array_mc_block(imem)), &
+            dist=dist_ao_2(starts_array_mc_block(imem):ends_array_mc_block(imem)))
       ENDDO
 
       CALL dbcsr_t_distribution_new(dist, mp_comm_t3c_m, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2, &
@@ -1121,39 +1166,35 @@ CONTAINS
    END SUBROUTINE
 
 
-   SUBROUTINE create_tensor_O_3c(t_3c_O, mp_comm_t3c, ngroup, ao_blk_sizes, row_blk_sizes_RI_t)
+   SUBROUTINE create_tensor_O_3c(t_3c_O, mp_comm_t3c, ngroup, ao_blk_sizes_1, ao_blk_sizes_2, row_blk_sizes_RI_t)
       TYPE(dbcsr_t_type), INTENT(OUT) :: t_3c_O
       TYPE(dbcsr_t_pgrid_type), INTENT(IN) :: mp_comm_t3c
       INTEGER, INTENT(IN) :: ngroup
-      INTEGER, DIMENSION(:), INTENT(IN) :: ao_blk_sizes, row_blk_sizes_RI_t
-      INTEGER :: natoms
+      INTEGER, DIMENSION(:), INTENT(IN) :: ao_blk_sizes_1, ao_blk_sizes_2, row_blk_sizes_RI_t
+      INTEGER :: size_AO_1, size_AO_2, size_RI
       INTEGER, DIMENSION(3)             :: pdims, pcoord
       INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_ao_1, dist_ao_2, dist_RI
       TYPE(dbcsr_t_distribution_type) :: dist
 
       CALL mp_environ_pgrid(mp_comm_t3c, pdims, pcoord)
 
-      natoms = SIZE(ao_blk_sizes)
+      size_AO_1 = SIZE(ao_blk_sizes_1)
+      size_AO_2 = SIZE(ao_blk_sizes_2)
+      size_RI = SIZE(row_blk_sizes_RI_t)
 
-      ALLOCATE(dist_RI(natoms))
-      ALLOCATE(dist_ao_1(natoms))
-      ALLOCATE(dist_ao_2(natoms))
+      ALLOCATE(dist_RI(size_RI))
+      ALLOCATE(dist_ao_1(size_AO_1))
+      ALLOCATE(dist_ao_2(size_AO_2))
 
-      CALL cyclic_dist(natoms, pdims(1), row_blk_sizes_RI_t, dist_RI)
-      CALL cyclic_dist(natoms, pdims(2), ao_blk_sizes, dist_ao_1)
-      CALL cyclic_dist(natoms, pdims(3), ao_blk_sizes, dist_ao_2)
-      !DO iatom = 1, natoms
-      !   dist_RI(iatom) = MOD(iatom-1, pdims(1))
-      !   dist_ao_1(iatom) = MOD(iatom-1, pdims(2))
-      !   dist_ao_2(iatom) = MOD(iatom-1, pdims(3))
-      !ENDDO
+      CALL cyclic_dist(size_RI, pdims(1), row_blk_sizes_RI_t, dist_RI)
+      CALL cyclic_dist(size_AO_1, pdims(2), ao_blk_sizes_1, dist_ao_1)
+      CALL cyclic_dist(size_AO_2, pdims(3), ao_blk_sizes_2, dist_ao_2)
 
       CALL dbcsr_t_distribution_new(dist, mp_comm_t3c, [1, 2], [3], dist_RI, dist_ao_1, dist_ao_2, &
                                     ngroup=ngroup, dimsplit=1, own_comm=.TRUE.)
       CALL dbcsr_t_create(t_3c_O, "O (RI AO | AO)", dist, [1, 2], [3], dbcsr_type_real_8, row_blk_sizes_RI_t, &
-                          ao_blk_sizes, ao_blk_sizes)
+                          ao_blk_sizes_1, ao_blk_sizes_2)
       CALL dbcsr_t_distribution_destroy(dist)
-
 
    END SUBROUTINE
 
@@ -7636,9 +7677,12 @@ CONTAINS
       TYPE(two_dim_real_array), ALLOCATABLE, &
          DIMENSION(:)                                    :: blocks_to_send_around
       TYPE(dbcsr_t_type)                                 :: t_3c_tmp
+      LOGICAL                                            :: debug
       !INTEGER, ALLOCATABLE, DIMENSION(:,:)               :: eri_offsets
 
       CALL timeset(routineN, handle)
+
+      debug = .FALSE.
 
       NULLIFY (qs_kind_set, atomic_kind_set, cell, particle_set, molecule_kind_set, basis_set_RI, basis_set_a, basis_set_b, &
                nl_iterator)
@@ -7844,21 +7888,10 @@ CONTAINS
 
                         END IF
 
-                        IF (iatom < jatom) THEN
-
-                           row = iatom
-                           col = jatom
-                           img_row = i_img
-                           img_col = j_img
-
-                        ELSE IF (iatom >= jatom) THEN
-
-                           row = jatom
-                           col = iatom
-                           img_row = j_img
-                           img_col = i_img
-
-                        END IF
+                        row = iatom
+                        col = jatom
+                        img_row = i_img
+                        img_col = j_img
 
                         CALL dbcsr_t_blk_sizes(t_3c_overl_int(img_row, img_col), [atom_RI, row, col], blk_size)
                         ALLOCATE (block_t(blk_size(1), blk_size(2), blk_size(3)))
@@ -7930,17 +7963,6 @@ CONTAINS
                                                       sphi_RI(:, sgf_RI:), sphi_a(:, sgfa:), sphi_b(:, sgfb:), &
                                                       nco_RI, ncoa, ncob, nsgf_RI(set_RI), nsgfa(iset), nsgfb(jset))
 
-                                    ALLOCATE (s_abRI_contr_transposed(nsgf_RI(set_RI), nsgfb(jset), nsgfa(iset)))
-
-                                    DO isgf_RI = 1, nsgf_RI(set_RI)
-                                       DO isgfa = 1, nsgfa(iset)
-                                          DO jsgfb = 1, nsgfb(jset)
-                                             s_abRI_contr_transposed(isgf_RI, jsgfb, isgfa) = &
-                                                s_abRI_contr(isgf_RI, isgfa, jsgfb)
-                                          END DO
-                                       END DO
-                                    END DO
-
                                     block_start_row = sgfa
                                     block_end_row = sgfa + nsgfa(iset) - 1
                                     block_start_col = sgfb
@@ -7956,27 +7978,14 @@ CONTAINS
                                        prefac = 0.5_dp
                                     ENDIF
 
-                                    IF(iatom <= jatom) THEN
+                                    block_t(block_start_RI:block_end_RI, &
+                                            block_start_row:block_end_row, &
+                                            block_start_col:block_end_col) = &
                                        block_t(block_start_RI:block_end_RI, &
                                                block_start_row:block_end_row, &
-                                               block_start_col:block_end_col) = &
-                                          block_t(block_start_RI:block_end_RI, &
-                                                  block_start_row:block_end_row, &
-                                                  block_start_col:block_end_col) + &
-                                          prefac*s_abRI_contr(:, :, :)
-                                    ELSE
-                                       block_t(block_start_RI:block_end_RI, &
-                                               block_start_col:block_end_col, &
-                                               block_start_row:block_end_row) = &
-                                          block_t(block_start_RI:block_end_RI, &
-                                                  block_start_col:block_end_col, &
-                                                  block_start_row:block_end_row) + &
-                                          prefac*s_abRI_contr_transposed(:, :, :)
-                                    ENDIF
-
-
-
-                                    DEALLOCATE (s_abRI, s_abRI_contr, s_abRI_contr_transposed)
+                                               block_start_col:block_end_col) + &
+                                       prefac*s_abRI_contr(:, :, :)
+                                    DEALLOCATE (s_abRI, s_abRI_contr)
 
                                  END IF ! number of triples > 0
 
@@ -7987,14 +7996,14 @@ CONTAINS
                         END DO ! set RI
                         CALL timeset(routineN//"_put_dbcsr", handle2)
 
-                        ! debug start
-                        CALL dbcsr_t_get_block(t_3c_overl_int(img_row, img_col), &
-                                               [atom_RI, row, col], dummy_block_t, found=found)
-                        !CPASSERT(found)
-                        ! debug end
+                        IF (debug) THEN
+                           CALL dbcsr_t_get_block(t_3c_overl_int(img_row, img_col), &
+                                                  [atom_RI, row, col], dummy_block_t, found=found)
+                           CPASSERT(found)
+                        ENDIF
 
-                        IF(found) CALL dbcsr_t_put_block(t_3c_overl_int(img_row, img_col), &
-                                                         [atom_RI, row, col], SHAPE(block_t), block_t, summation=.TRUE.)
+                        CALL dbcsr_t_put_block(t_3c_overl_int(img_row, img_col), &
+                                               [atom_RI, row, col], SHAPE(block_t), block_t, summation=.TRUE.)
 
 
                         !mao not supported with dbcsr_t
@@ -8968,13 +8977,12 @@ CONTAINS
                            IF (kind_radius_a + kind_radius_b < dab) CYCLE
                            IF (kind_radius_b + kind_radius_RI < dbRI) CYCLE
 
-                           IF (iatom < jatom) THEN
-                              row = iatom
-                              col = jatom
-                           ELSE IF (iatom >= jatom) THEN
-                              row = jatom
-                              col = iatom
-                           END IF
+                           ! tensor is not symmetric therefore need to allocate rows and columns in
+                           ! correspondence with neighborlist. Note that this only allocates half
+                           ! of the blocks (since neighborlist is symmetric). After filling the blocks,
+                           ! tensor will be added to its transposed
+
+                           row = iatom; col = jatom
 
                            IF (old_row(i_img_outer, j_img_outer) == row .AND. &
                                old_col(i_img_outer, j_img_outer) == col) CYCLE
@@ -9114,11 +9122,11 @@ CONTAINS
                   !ENDDO
                   DO i = 1, SIZE(alloc_RI(i_img, j_img)%array)
                      CALL dbcsr_t_get_stored_coordinates(t_3c_overl_int(i_img, j_img), &
-                                     [alloc_RI(i_img, j_img)%array(i), alloc_ao1(i_img, j_img)%array(i), &
-                                     alloc_ao2(i_img, j_img)%array(i)], &
+                                                         [alloc_RI(i_img, j_img)%array(i), alloc_ao1(i_img, j_img)%array(i), &
+                                                          alloc_ao2(i_img, j_img)%array(i)], &
                                                          iproc)
+                     CPASSERT(iproc .EQ. para_env%mepos)
                   ENDDO
-                  !CPASSERT(iproc .EQ. para_env%mepos)
 
                   CALL dbcsr_t_reserve_blocks(t_3c_overl_int(i_img, j_img), &
                                               alloc_RI(i_img, j_img)%array, &

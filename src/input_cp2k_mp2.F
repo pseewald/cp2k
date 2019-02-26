@@ -1383,6 +1383,16 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(&
+         keyword=keyword, &
+         name="MAX_BLOCK_SIZE_SQRT", &
+         description="Square root of maximum block size for splitting blocks of matrix representation of large tensors "// &
+                     "along the combined dimension. "// &
+                     "Atomic blocks are split in order to allow for better load balance.", &
+         default_i_val=10)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       ! here we generate a RPA imag. time subsection to use for MAOs
       CALL create_mao_section(subsection)
       CALL section_add_subsection(section, subsection)

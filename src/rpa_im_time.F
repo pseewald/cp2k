@@ -3247,7 +3247,7 @@ CONTAINS
       INTEGER, DIMENSION(cut_memory), INTENT(IN) :: starts_array_mc_t, ends_array_mc_t
       REAL(KIND=dp), INTENT(IN)                                      :: eps_filter
       TYPE(dbcsr_t_iterator_type)                                    :: iter
-      INTEGER, DIMENSION(3)                                          :: blk_ind
+      INTEGER, DIMENSION(3)                                          :: blk_ind, blk_off
       INTEGER :: blk, i_mem, num_3c_repl, i_cell, j_cell
       REAL(KIND=dp), DIMENSION(:, :, :), ALLOCATABLE                 :: t_block
       LOGICAL                                                        :: found
@@ -3269,8 +3269,8 @@ CONTAINS
 
                CALL dbcsr_t_iterator_start(iter, t_3c_overl_int(i_cell, j_cell))
                DO WHILE(dbcsr_t_iterator_blocks_left(iter))
-                  CALL dbcsr_t_iterator_next_block(iter, blk_ind, blk)
-                  IF(blk_ind(2) >= starts_array_mc_t(i_mem) .AND. blk_ind(2) <= ends_array_mc_t(i_mem)) THEN
+                  CALL dbcsr_t_iterator_next_block(iter, blk_ind, blk, blk_offset=blk_off)
+                  IF(blk_off(2) >= starts_array_mc_t(i_mem) .AND. blk_off(2) <= ends_array_mc_t(i_mem)) THEN
                      CALL dbcsr_t_get_block(t_3c_overl_int(i_cell, j_cell), blk_ind, t_block, found)
                      CALL dbcsr_t_put_block(t_3c_overl_int_cut(i_mem, i_cell, j_cell), blk_ind, SHAPE(t_block), t_block)
                      DEALLOCATE(t_block)
@@ -3303,7 +3303,7 @@ CONTAINS
       REAL(KIND=dp), INTENT(IN)                                      :: eps_filter
       INTEGER :: blk, i_mem, num_3c_repl, i_cell
       TYPE(dbcsr_t_iterator_type) :: iter
-      INTEGER, DIMENSION(2)                                          :: blk_ind
+      INTEGER, DIMENSION(2)                                          :: blk_ind, blk_off, blk_size, inblock_offset
       REAL(KIND=dp), DIMENSION(:, :), ALLOCATABLE :: t_block
       LOGICAL :: found
 
@@ -3324,9 +3324,13 @@ CONTAINS
 
             CALL dbcsr_t_iterator_start(iter, t_dm(i_cell))
             DO WHILE(dbcsr_t_iterator_blocks_left(iter))
-               CALL dbcsr_t_iterator_next_block(iter, blk_ind, blk)
-               IF(blk_ind(2) >= starts_array_mc_t(i_mem) .AND. blk_ind(2) <= ends_array_mc_t(i_mem)) THEN
+               CALL dbcsr_t_iterator_next_block(iter, blk_ind, blk, blk_size=blk_size, blk_offset=blk_off)
+               IF(blk_off(2) - 1 + blk_size(2) >= starts_array_mc_t(i_mem) .AND. blk_off(2) <= ends_array_mc_t(i_mem)) THEN
                   CALL dbcsr_t_get_block(t_dm(i_cell), blk_ind, t_block, found)
+                  inblock_offset(1) = MAX(starts_array_mc_t(i_mem) - blk_off(2), 0)
+                  inblock_offset(2) = MIN(inblock_offset(1) + ends_array_mc_t(i_mem) - starts_array_mc_t(i_mem) + 1, blk_size(2))
+                  t_block(:, :inblock_offset(1)) = 0.0_dp
+                  t_block(:, inblock_offset(2) + 1:) = 0.0_dp
                   CALL dbcsr_t_put_block(t_dm_cut(i_mem, i_cell), blk_ind, SHAPE(t_block), t_block)
                   DEALLOCATE(t_block)
                ENDIF
