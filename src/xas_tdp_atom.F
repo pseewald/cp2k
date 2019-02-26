@@ -114,7 +114,7 @@ CONTAINS
       nex_atoms = xas_tdp_env%nex_atoms
       do_xc = xas_tdp_control%do_xc
       do_soc = xas_tdp_control%do_soc
-      nspins = 1; IF (xas_tdp_control%do_lsd .OR. xas_tdp_control%do_roks) nspins = 2
+      nspins = 1; IF (xas_tdp_control%do_uks .OR. xas_tdp_control%do_roks) nspins = 2
 
       ALLOCATE(xas_atom_env%grid_atom_set(nkind))
       ALLOCATE(xas_atom_env%harmonics_atom_set(nkind))

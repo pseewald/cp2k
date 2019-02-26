@@ -14,13 +14,14 @@ MODULE xas_tdp_types
    USE cp_fm_types,                     ONLY: cp_fm_type, cp_fm_release, cp_fm_p_type
    USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_release, dbcsr_p_type, &
                                               dbcsr_release_p
-   USE input_constants,                 ONLY: xas_dip_vel,&
-                                              xas_tdp_by_index,&
+   USE input_constants,                 ONLY: xas_tdp_by_index,&
                                               xas_tdp_by_kind, &
                                               tddfpt_singlet, &
                                               tddfpt_triplet, &
                                               ot_mini_cg, &
-                                              ot_mini_diis
+                                              ot_mini_diis, &
+                                              tddfpt_spin_cons, &
+                                              tddfpt_spin_flip
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_val_get,&
                                               section_vals_get_subs_vals
@@ -42,7 +43,6 @@ MODULE xas_tdp_types
 ! **************************************************************************************************
 !> \brief Type containing control information for TDP XAS calculations
 !> \param define_excited whether excited atoms are chosen by kind or index
-!> \param dipole_form whether the dipole moment is computed in the length or velocity representation
 !> \param n_search # of lowest energy MOs to search for donor orbitals
 !> \param check_only whether a check run for donor MOs and LUMOs guesses is conducted
 !> \param do_hfx whether exact exchange is included
@@ -52,7 +52,7 @@ MODULE xas_tdp_types
 !> \param list_ex_atoms list of excited atom indices, kept empty if define_excited=by_kind
 !> \param list_ex_kinds list of excited atom kinds, kept empty if define_excited=by_index
 !> \param do_loc whether the core MOs should be localized
-!> \param do_lsd whether the calculation is spin-unrestricted
+!> \param do_uks whether the calculation is spin-unrestricted
 !> \param do_roks whether the calculation is restricted open-shell
 !> \param do_singlet whether singlet excitations should be computed
 !> \param do_triplet whether triplet excitations should be computed
@@ -68,7 +68,6 @@ MODULE xas_tdp_types
 ! **************************************************************************************************
    TYPE xas_tdp_control_type
       INTEGER                                 :: define_excited   
-      INTEGER                                 :: dipole_form
       INTEGER                                 :: n_search
       INTEGER                                 :: n_excited
       INTEGER                                 :: max_iter
@@ -79,7 +78,7 @@ MODULE xas_tdp_types
       LOGICAL                                 :: check_only
       LOGICAL                                 :: tamm_dancoff
       LOGICAL                                 :: do_loc
-      LOGICAL                                 :: do_lsd
+      LOGICAL                                 :: do_uks
       LOGICAL                                 :: do_roks
       LOGICAL                                 :: do_soc
       LOGICAL                                 :: do_singlet
@@ -279,7 +278,6 @@ CONTAINS
       CPASSERT(.NOT. ASSOCIATED(xas_tdp_control))
       ALLOCATE (xas_tdp_control)
       
-      xas_tdp_control%dipole_form = xas_dip_vel
       xas_tdp_control%define_excited = xas_tdp_by_index
       xas_tdp_control%n_search = -1
       xas_tdp_control%do_hfx = .TRUE.
@@ -288,10 +286,10 @@ CONTAINS
       xas_tdp_control%check_only = .FALSE.
       xas_tdp_control%tamm_dancoff = .FALSE.
       xas_tdp_control%do_loc = .FALSE.
-      xas_tdp_control%do_lsd = .FALSE.
+      xas_tdp_control%do_uks = .FALSE.
       xas_tdp_control%do_roks = .FALSE.
       xas_tdp_control%do_soc = .FALSE.
-      xas_tdp_control%do_singlet = .TRUE.
+      xas_tdp_control%do_singlet = .FALSE.
       xas_tdp_control%do_triplet = .FALSE.
       xas_tdp_control%full_diag = .TRUE.
       xas_tdp_control%n_excited = -1
@@ -359,10 +357,7 @@ CONTAINS
 
       NULLIFY (k_list, a_list, t_list)
       
-      CALL section_vals_val_get(xas_tdp_section, "DEFINE_EXCITED", &
-                                i_val=xas_tdp_control%define_excited)
-
-      CALL section_vals_val_get(xas_tdp_section, "DIPOLE_FORM", i_val=xas_tdp_control%dipole_form)
+!  Deal with the lone keywords
 
       CALL section_vals_val_get(xas_tdp_section, "CHECK_ONLY", &
                                 l_val=xas_tdp_control%check_only)
@@ -373,17 +368,30 @@ CONTAINS
       CALL section_vals_val_get(xas_tdp_section, "SPIN_ORBIT_COUPLING", &
                                 l_val=xas_tdp_control%do_soc)
 
-      CALL section_vals_val_get(xas_tdp_section, "EXCITATIONS", i_val=excitation)
-      IF (excitation == tddfpt_singlet) THEN
-         xas_tdp_control%do_singlet = .TRUE.
-         xas_tdp_control%do_triplet = .FALSE.
-      ELSE IF (excitation == tddfpt_triplet) THEN
-         xas_tdp_control%do_singlet = .FALSE.
-         xas_tdp_control%do_triplet = .TRUE.
-      ELSE
-         xas_tdp_control%do_singlet = .TRUE.
-         xas_tdp_control%do_triplet = .TRUE.
+      CALL section_vals_val_get(xas_tdp_section, "GRID", n_rep_val=nrep)
+
+      IF (.NOT. ASSOCIATED(xas_tdp_control%grid_info)) THEN
+         ALLOCATE(xas_tdp_control%grid_info(nrep,3))
+         DO irep = 1, nrep
+            CALL section_vals_val_get(xas_tdp_section, "GRID", i_rep_val=irep, c_vals=k_list)
+            IF (SIZE(k_list) .NE. 3) CPABORT("The GRID keyword needs three values")
+            xas_tdp_control%grid_info(irep,:) = k_list
+         END DO
       END IF
+
+      CALL section_vals_val_get(xas_tdp_section, "EXCITATIONS", n_rep_val=nrep) 
+      DO irep = 1, nrep
+         CALL section_vals_val_get(xas_tdp_section, "EXCITATIONS", i_rep_val=irep, i_val=excitation)
+         IF (excitation == tddfpt_singlet) xas_tdp_control%do_singlet = .TRUE.
+         IF (excitation == tddfpt_triplet) xas_tdp_control%do_triplet = .TRUE.
+         !IF (excitation == tddfpt_spin_cons) 
+         IF (excitation == tddfpt_spin_flip) CPABORT("NYI")
+      END DO
+
+!  Deal with the DONOR_STATES subsection
+
+      CALL section_vals_val_get(xas_tdp_section, "DONOR_STATES%DEFINE_EXCITED", &
+                                i_val=xas_tdp_control%define_excited)
 
       IF (.NOT. ASSOCIATED(xas_tdp_control%list_ex_kinds)) THEN
          IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_index) THEN
@@ -392,7 +400,7 @@ CONTAINS
 
          ELSE IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_kind) THEN                   
 
-            CALL section_vals_val_get(xas_tdp_section, "KIND_LIST", c_vals=k_list)
+            CALL section_vals_val_get(xas_tdp_section, "DONOR_STATES%KIND_LIST", c_vals=k_list)
          
             IF (ASSOCIATED(k_list)) THEN
                nexc = SIZE(k_list)
@@ -410,7 +418,7 @@ CONTAINS
 
          ELSE IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_index) THEN
 
-            CALL section_vals_val_get(xas_tdp_section, "ATOM_LIST", i_vals=a_list)
+            CALL section_vals_val_get(xas_tdp_section, "DONOR_STATES%ATOM_LIST", i_vals=a_list)
 
             IF (ASSOCIATED(a_list)) THEN
                nexc = SIZE(a_list)
@@ -421,12 +429,12 @@ CONTAINS
          END IF
       END IF
 
-      CALL section_vals_val_get(xas_tdp_section, "STATE_TYPES", n_rep_val=nrep)
+      CALL section_vals_val_get(xas_tdp_section, "DONOR_STATES%STATE_TYPES", n_rep_val=nrep)
 
       IF(.NOT. ASSOCIATED(xas_tdp_control%state_types)) THEN
          ALLOCATE (xas_tdp_control%state_types(nrep,nexc))
          DO irep = 1,nrep
-            CALL section_vals_val_get(xas_tdp_section, "STATE_TYPES", i_rep_val=irep, i_vals=t_list)
+            CALL section_vals_val_get(xas_tdp_section, "DONOR_STATES%STATE_TYPES", i_rep_val=irep, i_vals=t_list)
             IF (SIZE(t_list) .NE. nexc) THEN
                CPABORT("The STATE_TYPES keywords do not have the correct number of entries.")
             END IF
@@ -434,26 +442,18 @@ CONTAINS
          END DO
       END IF
       
-      CALL section_vals_val_get(xas_tdp_section, "N_SEARCH", i_val=xas_tdp_control%n_search)
+      CALL section_vals_val_get(xas_tdp_section, "DONOR_STATES%N_SEARCH", i_val=xas_tdp_control%n_search)
 
-      CALL section_vals_val_get(xas_tdp_section, "GRID", n_rep_val=nrep)
-
-      IF (.NOT. ASSOCIATED(xas_tdp_control%grid_info)) THEN
-         ALLOCATE(xas_tdp_control%grid_info(nrep,3))
-         DO irep = 1, nrep
-            CALL section_vals_val_get(xas_tdp_section, "GRID", i_rep_val=irep, c_vals=k_list)
-            IF (SIZE(k_list) .NE. 3) CPABORT("The GRID keyword needs three values")
-            xas_tdp_control%grid_info(irep,:) = k_list
-         END DO
-      END IF
-
+!  Deal with the LOCALIZE subsection
       xas_tdp_control%loc_subsection => section_vals_get_subs_vals(xas_tdp_section, "LOCALIZE")       
       xas_tdp_control%print_loc_subsection => section_vals_get_subs_vals(&
                                                          xas_tdp_control%loc_subsection, "PRINT")                      
+
+!  Deal with the PRINT subsection
       CALL section_vals_val_get(xas_tdp_control%loc_subsection, "_SECTION_PARAMETERS_", &
                                 l_val=xas_tdp_control%do_loc)
 
-      !Kernel analysis
+!  Deal with the KERNEL subsection
       CALL section_vals_val_get(xas_tdp_section, "KERNEL%XC_FUNCTIONAL%_SECTION_PARAMETERS_", &
                                 l_val=xas_tdp_control%do_xc) 
       CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%_SECTION_PARAMETERS_", &
@@ -468,7 +468,7 @@ CONTAINS
          CPABORT("You must at least define a XC functional OR exact exchange.")
       END IF
 
-      !Diagonalization analysis
+!  Deal with the diagonalization subsection
       CALL section_vals_val_get(xas_tdp_section, "DIAGONALIZATION%N_EXCITED", &
                                 i_val=xas_tdp_control%n_excited)
       CALL section_vals_val_get(xas_tdp_section, "DIAGONALIZATION%FULL_DIAG", &

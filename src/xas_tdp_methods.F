@@ -48,8 +48,8 @@ MODULE xas_tdp_methods
                                               dbcsr_get_info
    USE input_constants,                 ONLY: xas_tdp_by_index, xas_tdp_by_kind, xas_not_excited,&
                                               do_loc_none, xas_1s_type, xas_2s_type, xas_2p_type,&
-                                              op_loc_berry, xas_dip_len, xas_dip_vel, tddfpt_singlet,&
-                                              tddfpt_triplet, tddfpt_lsd, tddfpt_roks, &
+                                              op_loc_berry, tddfpt_singlet,&
+                                              tddfpt_triplet, xas_tdp_uks, xas_tdp_roks, &
                                               general_roks, high_spin_roks, state_loc_list
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_get_subs_vals,&
@@ -81,7 +81,7 @@ MODULE xas_tdp_methods
    USE qs_mo_methods,                   ONLY: calculate_subspace_eigenvalues
    USE qs_mo_types,                     ONLY: get_mo_set,&
                                               mo_set_p_type
-   USE qs_operators_ao,                 ONLY: p_xyz_ao, rRc_xyz_ao       
+   USE qs_operators_ao,                 ONLY: p_xyz_ao
    USE qs_rho_types,                    ONLY: qs_rho_get, qs_rho_type
    USE qs_scf_methods,                  ONLY: combine_ks_matrices
    USE scf_control_types,               ONLY: scf_control_type
@@ -141,20 +141,18 @@ CONTAINS
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
-      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set       
       CHARACTER(len=2)                                   :: symbol_of_kind
       INTEGER, DIMENSION(:), POINTER                     :: atoms_of_kind
       TYPE(donor_state_type), POINTER                    :: current_state
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
-      REAL(dp), DIMENSION(3)                             :: rc
       TYPE(cell_type), POINTER                           :: cell
       TYPE(xas_atom_env_type), POINTER                   :: xas_atom_env
       TYPE(dft_control_type), POINTER                    :: dft_control
       LOGICAL                                            :: do_os
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state)
-      NULLIFY(particle_set, cell, xas_atom_env, dft_control)
+      NULLIFY(cell, xas_atom_env, dft_control)
 
       CALL timeset(routineN, handle)
 
@@ -206,7 +204,7 @@ CONTAINS
                "# Localizing core orbitals for better identification"
          END IF
 !        closed shell or ROKS => myspin=1
-         IF (xas_tdp_control%do_lsd) THEN
+         IF (xas_tdp_control%do_uks) THEN
             CALL qs_loc_driver(qs_env, xas_tdp_env%qs_loc_env, xas_tdp_control%print_loc_subsection)
          ELSE
             CALL qs_loc_driver(qs_env, xas_tdp_env%qs_loc_env, &
@@ -248,7 +246,7 @@ CONTAINS
       
          CALL xas_atom_env_create(xas_atom_env)
          CALL init_xas_atom_env(xas_atom_env, xas_tdp_env, xas_tdp_control, qs_env) 
-         do_os = xas_tdp_control%do_lsd .OR. xas_tdp_control%do_roks
+         do_os = xas_tdp_control%do_uks .OR. xas_tdp_control%do_roks
 
          IF (xas_tdp_control%do_xc) THEN
             CALL integrate_fxc_atoms(xas_tdp_env%ri_fxc, xas_atom_env, qs_env)
@@ -283,16 +281,6 @@ CONTAINS
 
             IF (.NOT. ANY(xas_tdp_env%ex_atom_indices == iatom)) CYCLE
             tmp_index = locate(xas_tdp_env%ex_atom_indices, iatom)
-
-!           If length representation for the dipole, compute it here in the AO basis, for this atom
-            IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
-               CALL get_qs_env(qs_env, particle_set=particle_set)
-               rc = particle_set(iatom)%r    
-               CALL dbcsr_set(xas_tdp_env%dipmat(1)%matrix, 0.0_dp)
-               CALL dbcsr_set(xas_tdp_env%dipmat(2)%matrix, 0.0_dp)
-               CALL dbcsr_set(xas_tdp_env%dipmat(3)%matrix, 0.0_dp)
-               CALL rRc_xyz_ao(xas_tdp_env%dipmat, qs_env, rc, order=1)
-            END IF
 
 !           Get the lower and upper bonds of the Ri Coulomb integrals for this atom
             CALL get_ri_o3c_coul_bonds(iatom, xas_tdp_env, qs_env)
@@ -330,14 +318,14 @@ CONTAINS
 !              Do main calculations here
                CALL setup_xas_tdp_prob(current_state, qs_env, xas_tdp_env, xas_tdp_control)
 
-               IF (xas_tdp_control%do_lsd) THEN
+               IF (xas_tdp_control%do_uks) THEN
                   CALL solve_xas_tdp_prob(current_state, xas_tdp_control, xas_tdp_env, qs_env, &
-                                          tddfpt_lsd)
+                                          ex_type=xas_tdp_uks)
                   CALL compute_dipole_fosc(current_state, xas_tdp_control, xas_tdp_env)
                END IF
                IF (xas_tdp_control%do_roks) THEN
                   CALL solve_xas_tdp_prob(current_state, xas_tdp_control, xas_tdp_env, qs_env, &
-                                          tddfpt_roks)
+                                          ex_type=xas_tdp_roks)
                   CALL compute_dipole_fosc(current_state, xas_tdp_control, xas_tdp_env)
                END IF
                IF (xas_tdp_control%do_singlet) THEN
@@ -423,7 +411,7 @@ CONTAINS
       TYPE(cp_1d_r_p_type), DIMENSION(:), POINTER        :: lumo_evals
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct
       REAL(dp)                                           :: fact
-      LOGICAL                                            :: do_lsd, do_os
+      LOGICAL                                            :: do_uks, do_os
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
 
@@ -443,7 +431,7 @@ CONTAINS
 
 !  Check the qs_env for a LSD/ROKS calculation. If so, overwrite do_singlet, do_triplet and do_soc
       IF (dft_control%uks) THEN
-         xas_tdp_control%do_lsd = .TRUE.
+         xas_tdp_control%do_uks = .TRUE.
          xas_tdp_control%do_singlet = .FALSE.
          xas_tdp_control%do_triplet = .FALSE.
          xas_tdp_control%do_soc = .FALSE.
@@ -453,8 +441,8 @@ CONTAINS
          xas_tdp_control%do_triplet = .FALSE.
          xas_tdp_control%do_soc = .FALSE.
       END IF
-      do_lsd = xas_tdp_control%do_lsd
-      do_os = do_lsd .OR. xas_tdp_control%do_roks
+      do_uks = xas_tdp_control%do_uks
+      do_os = do_uks .OR. xas_tdp_control%do_roks
 
 !  XAS TDP environment type initialization
       CALL xas_tdp_env_create(xas_tdp_env)
@@ -563,7 +551,7 @@ CONTAINS
       homo(2) = homo(1)
       nspins = 1
       IF (do_os) CALL get_mo_set(mos(2)%mo_set, nmo=n_mo(2), homo=homo(2))
-      IF (do_lsd) nspins = 2
+      IF (do_uks) nspins = 2
 
       ! by default, all (doubly occupied) homo are localized
       IF (xas_tdp_control%n_search < 0 .OR. xas_tdp_control%n_search > MINVAL(homo)) &
@@ -572,7 +560,7 @@ CONTAINS
                                nloc_xas=xas_tdp_control%n_search, spin_xas=1)
 
       ! do_xas argument above only prepares spin-alpha localization
-      IF (do_lsd) THEN
+      IF (do_uks) THEN
          qs_loc_env%localized_wfn_control%nloc_states(2) = xas_tdp_control%n_search
          qs_loc_env%localized_wfn_control%lu_bound_states(1,2) = 1
          qs_loc_env%localized_wfn_control%lu_bound_states(2,2) = xas_tdp_control%n_search
@@ -585,7 +573,7 @@ CONTAINS
       ELSE
          n_moloc = qs_loc_env%localized_wfn_control%nloc_states
          CALL set_loc_centers(qs_loc_env%localized_wfn_control, n_moloc, nspins)  
-         IF (do_lsd) THEN
+         IF (do_uks) THEN
             CALL qs_loc_env_init(qs_loc_env, qs_loc_env%localized_wfn_control, &    
                                  qs_env, do_localize=.TRUE.) 
          ELSE 
@@ -690,8 +678,8 @@ CONTAINS
          CALL dbcsr_set(xas_tdp_env%dipmat(i)%matrix, 0.0_dp)
       END DO
 
-!     Precompute it if velocity represnetation. If length, need to do it for each excited atom 
-      IF (xas_tdp_control%dipole_form == xas_dip_vel) CALL p_xyz_ao(xas_tdp_env%dipmat, qs_env)
+!     Precompute it in the velocity representation
+      CALL p_xyz_ao(xas_tdp_env%dipmat, qs_env)
 
 !  Allocate SOC in AO basis matrices
       IF (xas_tdp_control%do_soc) THEN
@@ -727,7 +715,7 @@ CONTAINS
 
       INTEGER                                            :: handle, nspins, ispin, nevals(2), &
                                                             nelec_spin(2), nao, minel
-      LOGICAL                                            :: do_lsd, do_roks
+      LOGICAL                                            :: do_uks, do_roks
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_ks, matrix_s, rho_ao, matrices
       TYPE(dbcsr_type), POINTER                          :: sps, m_ks
       TYPE(qs_rho_type), POINTER                         :: rho
@@ -746,16 +734,16 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      do_lsd = xas_tdp_control%do_lsd
+      do_uks = xas_tdp_control%do_uks
       do_roks = xas_tdp_control%do_roks
-      nspins = 1; IF (do_lsd) nspins = 2 
+      nspins = 1; IF (do_uks) nspins = 2 
       ALLOCATE(xas_tdp_env%lumo_guess(nspins))
       ALLOCATE(xas_tdp_env%lumo_evals(nspins))
       ALLOCATE(sps, m_ks, work) 
       CALL get_qs_env(qs_env, matrix_ks=matrix_ks, matrix_s=matrix_s, nelectron_spin=nelec_spin, &
                       rho=rho, para_env=para_env, blacs_env=blacs_env, mos=mos)
       CALL dbcsr_get_info(matrix_s(1)%matrix, nfullrows_total=nao)
-      IF (do_lsd .OR. do_roks) THEN
+      IF (do_uks .OR. do_roks) THEN
          nevals = nao - nelec_spin
       ELSE
          nevals = nao -nelec_spin(1)/2
@@ -765,7 +753,7 @@ CONTAINS
       END IF
       !Add some padding to make sure we have enough on both spins
       !Less electron for a given spin => more evals
-      IF (do_lsd .OR. do_roks) THEN
+      IF (do_uks .OR. do_roks) THEN
          minel = MINLOC(nelec_spin, 1)
          nevals(minel) = nevals(minel) + ABS(nelec_spin(2)-nelec_spin(1))
       END IF
@@ -773,7 +761,7 @@ CONTAINS
       DO ispin = 1,nspins
 
       ! creating the projector SPS to shift the occupied levels. 
-         factor = 0.5_dp; IF (do_lsd .OR. do_roks) factor = 1.0_dp
+         factor = 0.5_dp; IF (do_uks .OR. do_roks) factor = 1.0_dp
          CALL qs_rho_get(rho, rho_ao=rho_ao)
          CALL dbcsr_copy(sps, matrix_s(1)%matrix, name="SPS")
          CALL dbcsr_create(work, template=matrix_s(1)%matrix, matrix_type="N")
@@ -901,7 +889,7 @@ CONTAINS
       localized_wfn_control => xas_tdp_env%qs_loc_env%localized_wfn_control
       CALL get_qs_env(qs_env=qs_env, particle_set=particle_set, cell=cell)
       n_atoms = SIZE(particle_set)
-      nspins = 1; IF (xas_tdp_control%do_lsd) nspins = 2
+      nspins = 1; IF (xas_tdp_control%do_uks) nspins = 2
 
 !     Temporarly impose periodic BCs because of Berry's phase operator used for localization
       perd_init = cell%perd
@@ -945,17 +933,17 @@ CONTAINS
 !> \brief Re-initialize the qs_loc_env to the current MOs. 
 !> \param qs_loc_env the env to re-initialize
 !> \param n_loc_states the number of states to include
-!> \param do_lsd in cas of spin unrestricted calculation, initialize for both spins
+!> \param do_uks in cas of spin unrestricted calculation, initialize for both spins
 !> \param qs_env ...
 !> \note  Useful when one needs to make use of qs_loc features and it is either with canonical MOs
 !>        or the localized MOs have been modified. do_localize is overwritten. 
 !>        Same loc range for both spins
 !> *************************************************************************************************
-   SUBROUTINE reinit_qs_loc_env(qs_loc_env, n_loc_states, do_lsd, qs_env)
+   SUBROUTINE reinit_qs_loc_env(qs_loc_env, n_loc_states, do_uks, qs_env)
 
       TYPE(qs_loc_env_new_type), POINTER              :: qs_loc_env
       INTEGER, INTENT(IN)                             :: n_loc_states
-      LOGICAL, INTENT(IN)                             :: do_lsd
+      LOGICAL, INTENT(IN)                             :: do_uks
       TYPE(qs_environment_type), POINTER              :: qs_env
 
       CHARACTER(len=*), PARAMETER :: routineN ="reinit_qs_loc_env", routineP = moduleN//":"//routineN
@@ -985,10 +973,10 @@ CONTAINS
          loc_wfn_control%loc_states(i,:) = i
       END DO
 
-      nspins = 1; IF (do_lsd) nspins = 2
+      nspins = 1; IF (do_uks) nspins = 2
       CALL set_loc_centers(loc_wfn_control, loc_wfn_control%nloc_states, nspins=nspins)
       ! need to set do_localize=.TRUE. because otherwise no routine works
-      IF (do_lsd) THEN
+      IF (do_uks) THEN
          CALL qs_loc_env_init(qs_loc_env, loc_wfn_control, qs_env, do_localize=.TRUE.)
       ELSE
          CALL qs_loc_env_init(qs_loc_env, loc_wfn_control, qs_env, myspin=1, do_localize=.TRUE.)
@@ -1029,10 +1017,10 @@ CONTAINS
    ! Get what we need from qs_env
       CALL get_qs_env(qs_env, mos=mos, matrix_ks=matrix_ks, para_env=para_env, blacs_env=blacs_env)
 
-      nspins = 1; IF (xas_tdp_control%do_lsd) nspins = 2
+      nspins = 1; IF (xas_tdp_control%do_uks) nspins = 2
       ALLOCATE(m_ks(nspins))
       m_ks(1)%matrix => matrix_ks(1)%matrix
-      IF (xas_tdp_control%do_lsd) m_ks(2)%matrix => matrix_ks(2)%matrix
+      IF (xas_tdp_control%do_uks) m_ks(2)%matrix => matrix_ks(2)%matrix
       IF (xas_tdp_control%do_roks) m_ks(1)%matrix => xas_tdp_env%roks_ks_mat
 
    ! Loop over the excited atoms and spin
@@ -1159,7 +1147,7 @@ CONTAINS
       CALL get_qs_env(qs_env=qs_env, qs_kind_set=qs_kind_set, mos=mos, particle_set=particle_set,&
                       matrix_ks=matrix_ks, para_env=para_env, blacs_env=blacs_env)
 
-      nspins = 1; IF (xas_tdp_control%do_lsd) nspins = 2
+      nspins = 1; IF (xas_tdp_control%do_uks) nspins = 2
 
 !  Contruction of a STO that fits the type of orbital we look for
       ALLOCATE(zeta(1))
@@ -1365,7 +1353,7 @@ CONTAINS
 
             ALLOCATE(m_ks(nspins)); ALLOCATE(diag(ndo_so))
             m_ks(1)%matrix => matrix_ks(1)%matrix
-            IF (xas_tdp_control%do_lsd) m_ks(2)%matrix => matrix_ks(2)%matrix
+            IF (xas_tdp_control%do_uks) m_ks(2)%matrix => matrix_ks(2)%matrix
             IF (xas_tdp_control%do_roks) m_ks(1)%matrix => xas_tdp_env%roks_ks_mat
 
 !           Compute gs_coeff^T * matrix_ks * gs_coeff to get the epsilon_ij matrix
@@ -1453,7 +1441,7 @@ CONTAINS
                            i_val=debug_print_level)
 
 !  Re-initialize the qs_loc_env to get the current MOs. Use force_loc because needed for centers 
-      CALL reinit_qs_loc_env(xas_tdp_env%qs_loc_env, n_centers, xas_tdp_control%do_lsd, qs_env)
+      CALL reinit_qs_loc_env(xas_tdp_env%qs_loc_env, n_centers, xas_tdp_control%do_uks, qs_env)
       qs_loc_env => xas_tdp_env%qs_loc_env
 
 !  Get what we need from the qs_lovc_env
@@ -1481,7 +1469,7 @@ CONTAINS
       END DO
 
  !  If spin-unrestricted, need to go spin by spin
-      nspins = 1; IF (xas_tdp_control%do_lsd) nspins = 2
+      nspins = 1; IF (xas_tdp_control%do_uks) nspins = 2
 
       DO ispin = 1,nspins                
 !     zij computation, copied from qs_loc_methods:optimize_loc_berry
@@ -1664,7 +1652,7 @@ CONTAINS
       
 !  Two different approaches depending on calculation type
 !  If spin-restricted
-      IF (.NOT. xas_tdp_control%do_lsd .AND. .NOT. xas_tdp_control%do_roks) THEN
+      IF (.NOT. xas_tdp_control%do_uks .AND. .NOT. xas_tdp_control%do_roks) THEN
          DO imo = 1, nlumo(1)-1
             IF (min_gap <= lumo_evals(1)%array(imo+1)-lumo_evals(1)%array(imo)) THEN
                IF (output_unit > 0) THEN
@@ -1728,7 +1716,7 @@ CONTAINS
 
 !  If LSD, ignore the singly occupied MOs, consider the two LUMO eigenvalue vector with the
 !  appropriate reference (also with a shift)
-      IF (xas_tdp_control%do_lsd) THEN
+      IF (xas_tdp_control%do_uks) THEN
          !assume more alpha electrons
          offset = nelec_spin(1)-nelec_spin(2)
          DO imo = 1, MINVAL(nlumo)-offset-1
@@ -1795,15 +1783,15 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       REAL(dp)                                        :: dip_mom, pref
-      LOGICAL                                         :: do_roks, do_lsd, do_os
+      LOGICAL                                         :: do_roks, do_uks, do_os
 
       NULLIFY(dipmat, col_work, mat_work, col_struct, mat_struct, para_env, blacs_env, lr_coeffs)
       NULLIFY(lr_evals, osc_str)
 
 !  Initialization
       do_roks = xas_tdp_control%do_roks
-      do_lsd = xas_tdp_control%do_lsd
-      do_os = do_roks .OR. do_lsd
+      do_uks = xas_tdp_control%do_uks
+      do_os = do_roks .OR. do_uks
       IF (do_os) THEN
          nspins = 2
          lr_evals => donor_state%os_evals
@@ -1815,16 +1803,12 @@ CONTAINS
       END IF
       ndo_mo = donor_state%ndo_mo
       ndo_so = ndo_mo 
-      IF (do_lsd) ndo_so = ndo_mo*2 !both spins in ground state
+      IF (do_uks) ndo_so = ndo_mo*2 !both spins in ground state
       nosc = SIZE(lr_evals)
 
       dipmat => xas_tdp_env%dipmat
-      !compute the prefactor
-      IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
-         osc_str(:) = 2.0_dp/3.0_dp*lr_evals(:)
-      ELSE
-         osc_str(:) = 2.0_dp/3.0_dp/lr_evals(:)
-      END IF
+      !compute the prefactor (velocity representation)
+      osc_str(:) = 2.0_dp/3.0_dp/lr_evals(:)
 
       ! do some work matrix initialization
       CALL cp_fm_get_info(donor_state%gs_coeffs, matrix_struct=col_struct, para_env=para_env, &
@@ -1856,7 +1840,7 @@ CONTAINS
             CALL cp_dbcsr_sm_fm_multiply(dipmat(j)%matrix, donor_state%gs_coeffs, col_work, ncol=ndo_so)
             DO ispin = 1,nspins
                is = ispin
-               IF (.NOT. do_lsd) is = 1 !only have alpha MOs
+               IF (.NOT. do_uks) is = 1 !only have alpha MOs
 
                !computing c^i * dipmat(j) * c^0
                CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, lr_coeffs, col_work, 0.0_dp, &
@@ -1924,7 +1908,7 @@ CONTAINS
       END IF
 
 !  Initialization
-      nspins = 1; IF (xas_tdp_control%do_lsd) nspins = 2
+      nspins = 1; IF (xas_tdp_control%do_uks) nspins = 2
       mos_of_ex_atoms => xas_tdp_env%mos_of_ex_atoms
       ex_atom_indices => xas_tdp_env%ex_atom_indices
       nmo = xas_tdp_control%n_search
@@ -2103,7 +2087,7 @@ CONTAINS
 
       IF (xas_tdp_unit > 0) THEN
 
-         IF (xas_tdp_control%do_lsd) THEN
+         IF (xas_tdp_control%do_uks) THEN
 
 !           Printing the general donor state information
             WRITE(xas_tdp_unit, FMT="(A,/,A,A,A/,A,I5,A,I5,A,A,/,A)") &
@@ -2124,7 +2108,7 @@ CONTAINS
             END DO
 
             WRITE(xas_tdp_unit, FMT="(A,/)") " "
-         END IF ! do_lsd
+         END IF ! do_uks
 
          IF (xas_tdp_control%do_roks) THEN
 
