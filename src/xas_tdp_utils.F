@@ -54,9 +54,9 @@ MODULE xas_tdp_utils
    USE distribution_1d_types,           ONLY: distribution_1d_type
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE generic_os_integrals,            ONLY: int_operators_r12_ab_os
-   USE input_constants,                 ONLY: xas_dip_len, xas_dip_vel, ot_precond_full_single, &
-                                              tddfpt_singlet, tddfpt_triplet, tddfpt_lsd, &
-                                              tddfpt_roks
+   USE input_constants,                 ONLY: ot_precond_full_single, &
+                                              tddfpt_singlet, tddfpt_triplet, xas_tdp_uks, &
+                                              xas_tdp_roks
    USE input_section_types,             ONLY: section_vals_val_get
    USE kinds,                           ONLY: dp
    USE mathlib,                         ONLY: invmat_symm
@@ -163,7 +163,7 @@ CONTAINS
       INTEGER                                         :: handle
       REAL(dp)                                        :: sx
       LOGICAL                                         :: do_xc, do_hfx, do_sg, do_tp, do_tda, &
-                                                         do_os, do_lsd, do_roks
+                                                         do_os, do_uks, do_roks
       TYPE(dbcsr_type), POINTER                       :: sg_matrix_tdp, tp_matrix_tdp, matrix_a, &
                                                          matrix_b, matrix_d, matrix_e, proj_Q, &
                                                          work, matrix_c_sg, matrix_c_tp, & 
@@ -177,9 +177,9 @@ CONTAINS
       CALL timeset(routineN, handle)
 
 !  Initialization
-      do_lsd = xas_tdp_control%do_lsd
+      do_uks = xas_tdp_control%do_uks
       do_roks = xas_tdp_control%do_roks
-      do_os = do_lsd .OR. do_roks
+      do_os = do_uks .OR. do_roks
       do_sg = xas_tdp_control%do_singlet
       do_tp = xas_tdp_control%do_triplet
       do_xc = xas_tdp_control%do_xc
@@ -212,7 +212,7 @@ CONTAINS
                         row_blk_size=submat_blk_size, col_blk_size=submat_blk_size)
 
       ! The ground state contribution
-      CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, do_lsd, &
+      CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, do_uks, &
                                  do_roks, xas_tdp_env, qs_env)
 
       ! The Coulomb and XC kernels. Internal analysis to know which matrix to compute
@@ -251,7 +251,7 @@ CONTAINS
             ! The product with the Q projector
             CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q, os_matrix_tdp, 0.0_dp, work)
             CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q, 0.0_dp, os_matrix_tdp)
-            
+
          END IF !do_os
          
          IF (do_sg) THEN ! singlets under TDA
@@ -439,7 +439,7 @@ CONTAINS
       CPASSERT(ASSOCIATED(xas_tdp_env))
 
       do_os = .FALSE.
-      IF (ex_type == tddfpt_lsd .OR. ex_type == tddfpt_roks) THEN
+      IF (ex_type == xas_tdp_uks .OR. ex_type == xas_tdp_roks) THEN
          matrix_tdp => donor_state%os_matrix_tdp
          do_os = .TRUE.
       ELSE IF (ex_type == tddfpt_singlet) THEN
@@ -672,7 +672,7 @@ CONTAINS
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: diag
       TYPE(dbcsr_distribution_type), POINTER          :: dist
       INTEGER, DIMENSION(:), POINTER                  :: blk_size
-      LOGICAL                                         :: do_lsd, do_roks
+      LOGICAL                                         :: do_uks, do_roks
       TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: lumo_guess
 
       NULLIFY(precond, para_env, blacs_env, work1, work2, vector, dist, blk_size, lumo_guess)
@@ -686,9 +686,9 @@ CONTAINS
       END IF
       
 !  Initialization
-      do_lsd = xas_tdp_control%do_lsd
+      do_uks = xas_tdp_control%do_uks
       do_roks = xas_tdp_control%do_roks
-      nspins = 1; IF(do_lsd .OR. do_roks) nspins = 2
+      nspins = 1; IF(do_uks .OR. do_roks) nspins = 2
       ndo_mo = donor_state%ndo_mo
       CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env, nelectron_spin=nelec_spin)
       CALL cp_fm_get_info(evecs, nrow_global=nao)
@@ -698,11 +698,11 @@ CONTAINS
       ALLOCATE(lumo_guess(nspins))
       lumo_guess(1)%matrix => xas_tdp_env%lumo_guess(1)%matrix
       IF (do_roks) lumo_guess(2)%matrix => xas_tdp_env%lumo_guess(1)%matrix
-      IF (do_lsd) lumo_guess(2)%matrix => xas_tdp_env%lumo_guess(2)%matrix
+      IF (do_uks) lumo_guess(2)%matrix => xas_tdp_env%lumo_guess(2)%matrix
 
 !  Find where/if there are partially occupied MOs
       minel = 1; offset = 0
-      IF (do_lsd .OR. do_roks) THEN
+      IF (do_uks .OR. do_roks) THEN
          minel = MINLOC(nelec_spin,1)
          offset = ABS(nelec_spin(2)-nelec_spin(1))
       END IF
@@ -774,7 +774,7 @@ CONTAINS
       CALL dbcsr_release(work1)
       ALLOCATE(dist)
       CALL dbcsr_get_info(matrix_tdp, distribution=dist, row_blk_size=blk_size)
-      CALL get_q_projector(work1, dist, blk_size, donor_state, (do_lsd .OR. do_roks), xas_tdp_env)
+      CALL get_q_projector(work1, dist, blk_size, donor_state, (do_uks .OR. do_roks), xas_tdp_env)
       CALL dbcsr_multiply('T', 'N', 1.0_dp, work1, precond%dbcsr_matrix, 0.0_dp, work2)
       CALL dbcsr_multiply('N', 'N', 1.0_dp, work2, work1, 0.0_dp, precond%dbcsr_matrix)
 
@@ -972,6 +972,7 @@ CONTAINS
 !  Fill the projector by looping over 1-SP and duplicating blocks. (all on the spin-MO block diagonal)
       DO ispin = 1,nspins
          one_sp => xas_tdp_env%q_projector(ispin)%matrix
+
          CALL dbcsr_iterator_start(iter, one_sp)
          DO WHILE (dbcsr_iterator_blocks_left(iter))
          
@@ -1009,13 +1010,13 @@ CONTAINS
 !> \param dist_a the dbcsr distribution of matrix A
 !> \param blk_size_a the row/col block sizes of matrix A
 !> \param donor_state ...
-!> \param do_lsd ...
+!> \param do_uks ...
 !> \param do_roks ...
 !> \param xas_tdp_env ...
 !> \param qs_env ...
 !> \note Even localized non-canonical MOs are diagonalized in their subsapce => eps_ij = eps_ii*delta_ij
 ! **************************************************************************************************
-   SUBROUTINE build_gs_contribution(matrix_a, dist_a, blk_size_a, donor_state, do_lsd, do_roks, &
+   SUBROUTINE build_gs_contribution(matrix_a, dist_a, blk_size_a, donor_state, do_uks, do_roks, &
                                     xas_tdp_env, qs_env)
 
       TYPE(dbcsr_type), POINTER                       :: matrix_a
@@ -1024,7 +1025,7 @@ CONTAINS
       TYPE(qs_environment_type), POINTER              :: qs_env
       TYPE(dbcsr_distribution_type), POINTER          :: dist_a
       INTEGER, DIMENSION(:), POINTER                  :: blk_size_a
-      LOGICAL, INTENT(IN)                             :: do_lsd, do_roks
+      LOGICAL, INTENT(IN)                             :: do_uks, do_roks
       
       CHARACTER(len=*), PARAMETER :: routineN = 'build_gs_contribution', &
                                      routineP = moduleN//":"//routineN
@@ -1045,7 +1046,7 @@ CONTAINS
       !  Note: matrix A is symmetric and block diagonal. 
 
 !  Initialization
-      nspins = 1; IF (do_lsd .OR. do_roks) nspins = 2
+      nspins = 1; IF (do_uks .OR. do_roks) nspins = 2
       ndo_mo = donor_state%ndo_mo
       CALL get_qs_env(qs_env=qs_env, matrix_ks=matrix_ks, matrix_s=matrix_s, dbcsr_dist=dbcsr_dist)
       CALL dbcsr_get_info(matrix_s(1)%matrix, row_blk_size=row_blk_size)
@@ -1054,7 +1055,7 @@ CONTAINS
 !  Prepare the KS matrix pointer
       ALLOCATE(m_ks(nspins))
       m_ks(1)%matrix => matrix_ks(1)%matrix
-      IF (do_lsd) m_ks(2)%matrix => matrix_ks(2)%matrix
+      IF (do_uks) m_ks(2)%matrix => matrix_ks(2)%matrix
       IF (do_roks) THEN
          m_ks(1)%matrix => xas_tdp_env%roks_ks_mat
          m_ks(2)%matrix => xas_tdp_env%roks_ks_mat
@@ -1094,7 +1095,7 @@ CONTAINS
 
 !     Loop over the blocks of S and put them on the block diagonal of work
          energy_evals => donor_state%energy_evals(:,1)
-         IF (do_lsd) energy_evals => donor_state%energy_evals(:,ispin)
+         IF (do_uks) energy_evals => donor_state%energy_evals(:,ispin)
 
          CALL dbcsr_iterator_start(iter, matrix_s(1)%matrix)
          DO WHILE (dbcsr_iterator_blocks_left(iter))
@@ -1542,7 +1543,7 @@ CONTAINS
       REAL(dp), DIMENSION(:), POINTER                 :: v
       TYPE(o3c_container_type), POINTER               :: o3c_coul, o3c_ex
       INTEGER, DIMENSION(:), ALLOCATABLE              :: nsgf_orb
-      LOGICAL                                         :: do_lsd
+      LOGICAL                                         :: do_uks
       TYPE(cp_para_env_type), POINTER                 :: para_env
 
       NULLIFY(matrix_s, std_blk_size, ri_blk_size, dbcsr_dist, qs_kind_set, ri_basis, o3c_vec)
@@ -1564,8 +1565,8 @@ CONTAINS
          CPASSERT(ASSOCIATED(xas_tdp_env%ri_o3c_ex))
          o3c_ex => xas_tdp_env%ri_o3c_ex
       END IF
-      do_lsd = xas_tdp_control%do_lsd
-      nspins = 1; IF (do_lsd) nspins = 2
+      do_uks = xas_tdp_control%do_uks
+      nspins = 1; IF (do_uks) nspins = 2
       ndo_so = nspins*ndo_mo
 
 !  contracted integrals block sizes
@@ -2090,7 +2091,7 @@ CONTAINS
       TYPE(dbcsr_type), POINTER                       :: work_mat
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
       TYPE(cp_para_env_type), POINTER                 :: para_env
-      LOGICAL                                         :: found, do_roks, do_lsd, quadrants(3), &
+      LOGICAL                                         :: found, do_roks, do_uks, quadrants(3), &
                                                          do_coulomb, do_xc, do_sg, do_tp
 
       NULLIFY(lhs_int, rhs_int, PQ, ri_blk_size, dbcsr_dist, lhs_work, matrices, work_mat, para_env)
@@ -2101,12 +2102,12 @@ CONTAINS
       CPASSERT(ASSOCIATED(xc_kernel_os))
       ndo_mo = donor_state%ndo_mo
       ndo_so = ndo_mo
-      do_lsd = xas_tdp_control%do_lsd
+      do_uks = xas_tdp_control%do_uks
       do_roks = xas_tdp_control%do_roks
       do_xc = xas_tdp_control%do_xc
       do_sg = xas_tdp_control%do_singlet
       do_tp = xas_tdp_control%do_triplet
-      IF (do_lsd) ndo_so = 2*ndo_mo
+      IF (do_uks) ndo_so = 2*ndo_mo
       ri_atom = donor_state%at_index
       CALL get_qs_env(qs_env, natom=natom, dbcsr_dist=dbcsr_dist, para_env=para_env)
       !we always need the coulomb kernel, except for triplets
@@ -2202,7 +2203,7 @@ CONTAINS
          END DO !ip
 
       ! Broadcast the integrals to all procs (delete it later)
-         ub = 2; IF (do_lsd .OR. do_roks) ub = 3
+         ub = 2; IF (do_uks .OR. do_roks) ub = 3
          DO i = 1,ub
             IF (.NOT. ASSOCIATED(xas_tdp_env%ri_fxc(ri_atom,i)%array)) THEN
                ALLOCATE(xas_tdp_env%ri_fxc(ri_atom,i)%array(nsgfp, nsgfp))
@@ -2211,7 +2212,7 @@ CONTAINS
          END DO
 
       ! Case study on the calculation type
-         IF (do_lsd) THEN
+         IF (do_uks) THEN
 
             ! Here we have different kernels and contracted RI integrals for each spin quadrant
             ! Create a normal type work matrix 
@@ -2415,7 +2416,7 @@ CONTAINS
       REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: coeffs
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_int, rhs_int, matrix_s, matrices
       TYPE(dbcsr_iterator_type)                       :: iter
-      LOGICAL                                         :: found, do_roks, do_lsd, quadrants(3)
+      LOGICAL                                         :: found, do_roks, do_uks, quadrants(3)
       TYPE(dbcsr_type)                                :: lhs_t
       TYPE(dbcsr_type), POINTER                       :: abIJ, abIJ_desymm, work_mat
       TYPE(cp_fm_struct_type), POINTER                :: fm_struct
@@ -2436,8 +2437,8 @@ CONTAINS
       ri_atom = donor_state%at_index
       CALL get_qs_env(qs_env, natom=natom, dbcsr_dist=dbcsr_dist)
       do_roks = xas_tdp_control%do_roks
-      do_lsd = xas_tdp_control%do_lsd
-      IF (do_lsd) ndo_so = 2*ndo_mo
+      do_uks = xas_tdp_control%do_uks
+      IF (do_uks) ndo_so = 2*ndo_mo
 
 !  Get the RI inverse coulomb for the excited kind (P|Q)^-1
       PQ => xas_tdp_env%ri_inv_coul
@@ -2485,7 +2486,7 @@ CONTAINS
             quadrants(1) = .TRUE.
             quadrants(3) = .TRUE.
             CALL ri_int_product(work_mat, lhs_int, rhs_int, quadrants, qs_env, mo_transpose=.TRUE.)
-         ELSE IF (do_lsd) THEN
+         ELSE IF (do_uks) THEN
             !Different alpha-alpha and beta-beta quadrants
             quadrants(1) = .TRUE.
             CALL ri_int_product(work_mat, lhs_int(1:ndo_mo), rhs_int(1:ndo_mo), quadrants, & 
@@ -2555,7 +2556,7 @@ CONTAINS
 
             ! There is no alpha-beta exchange. In case of LSD, iso,jso span all spin-orbitals
             ! => CYCLE if iso and jso are indexing MOs with different spin (and we have LSD)
-            IF (do_lsd .AND. (iso <= ndo_mo .AND. jso > ndo_mo)) CYCLE
+            IF (do_uks .AND. (iso <= ndo_mo .AND. jso > ndo_mo)) CYCLE
 
             ! compute (ab|IJ) = sum (ab|P) * (P|Q)^-1 * (Q|IJ)
             CALL get_o3c_vec(o3c_vec, ri_atom, v)
@@ -3213,11 +3214,8 @@ CONTAINS
 
       END DO
 
-      IF (xas_tdp_control%dipole_form == xas_dip_len) THEN 
-         donor_state%soc_osc_str(:) = 2.0_dp/3.0_dp*donor_state%soc_evals(:)*donor_state%soc_osc_str(:)
-      ELSE
-         donor_state%soc_osc_str(:) = 2.0_dp/3.0_dp/donor_state%soc_evals(:)*donor_state%soc_osc_str(:)
-      END IF
+      !velocity representation
+      donor_state%soc_osc_str(:) = 2.0_dp/3.0_dp/donor_state%soc_evals(:)*donor_state%soc_osc_str(:)
 
 !  Clean-up
       DO i = 1,SIZE(amew_dip)
