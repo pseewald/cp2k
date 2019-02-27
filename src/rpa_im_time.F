@@ -375,7 +375,7 @@ CONTAINS
                            ! copy matrix to optimal contraction layout - copy is done manually in order
                            ! to better control memory allocations (we can release data of previous
                            ! representation)
-                           CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_occ, order=[1, 3, 2])
+                           CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_occ, order=[1, 3, 2], move_data=.TRUE.)
                            CALL dbcsr_t_set(t_3c_M_tmp, 0.0_dp)
                            CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
                            CALL timestop(handle5)
@@ -404,7 +404,7 @@ CONTAINS
                            ENDDO
 
                            CALL timeset(routineN//"_copy_M_t", handle5)
-                           CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_virt, order=[1, 2, 3])
+                           CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_virt, order=[1, 2, 3], move_data=.TRUE.)
                            CALL dbcsr_t_set(t_3c_M_tmp, 0.0_dp)
                            CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
                            CALL timestop(handle5)
@@ -424,6 +424,7 @@ CONTAINS
                                                  contract_2=[2, 3], notcontract_2=[1], &
                                                  map_1=[1], map_2=[2], flop=num_flops_mat_P, &
                                                  filter_eps=eps_filter_im_time/REAL(cut_memory**2, KIND=dp), &
+                                                 move_data=.TRUE., &
                                                  unit_nr=unit_nr_prv)
 
                            CALL dbcsr_t_copy_tensor_to_matrix(t_P, mat_P_global%matrix)
