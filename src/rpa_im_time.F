@@ -376,6 +376,7 @@ CONTAINS
                            ! to better control memory allocations (we can release data of previous
                            ! representation)
                            CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_occ, order=[1, 3, 2], move_data=.TRUE.)
+                           CALL dbcsr_t_filter(t_3c_M_occ, eps_filter)
                            CALL dbcsr_t_set(t_3c_M_tmp, 0.0_dp)
                            CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
                            CALL timestop(handle5)
@@ -405,6 +406,7 @@ CONTAINS
 
                            CALL timeset(routineN//"_copy_M_t", handle5)
                            CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_virt, order=[1, 2, 3], move_data=.TRUE.)
+                           CALL dbcsr_t_filter(t_3c_M_virt, eps_filter)
                            CALL dbcsr_t_set(t_3c_M_tmp, 0.0_dp)
                            CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
                            CALL timestop(handle5)

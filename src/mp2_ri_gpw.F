@@ -1011,7 +1011,10 @@ CONTAINS
          IF (do_dbcsr_t) THEN
             DO i = 1, SIZE(t_3c_overl_int, 1)
                DO j = 1, SIZE(t_3c_overl_int, 2)
+
+                  CALL dbcsr_t_filter(t_3c_overl_int(i, j), qs_env%mp2_env%mp2_gpw%eps_filter)
                   CALL dbcsr_t_copy(t_3c_overl_int(i, j), t_3c_O(i, j), move_data=.TRUE.)
+                  CALL dbcsr_t_filter(t_3c_O(i, j), qs_env%mp2_env%mp2_gpw%eps_filter)
                   !PRINT *, "COMPARING CHECKSUMS", dbcsr_t_checksum(t_3c_overl_int(i,j)), dbcsr_t_checksum(t_3c_O(i,j))
                   CALL dbcsr_t_destroy(t_3c_overl_int(i, j))
                ENDDO
