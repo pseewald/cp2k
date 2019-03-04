@@ -48,9 +48,10 @@ MODULE xas_tdp_methods
                                               dbcsr_get_info
    USE input_constants,                 ONLY: xas_tdp_by_index, xas_tdp_by_kind, xas_not_excited,&
                                               do_loc_none, xas_1s_type, xas_2s_type, xas_2p_type,&
-                                              op_loc_berry, tddfpt_singlet,&
+                                              op_loc_berry, tddfpt_singlet, tddfpt_spin_cons, &
                                               tddfpt_triplet, xas_tdp_uks, xas_tdp_roks, &
-                                              general_roks, high_spin_roks, state_loc_list
+                                              general_roks, high_spin_roks, state_loc_list, &
+                                              tddfpt_spin_flip
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_get_subs_vals,&
                                               section_vals_val_set
@@ -318,24 +319,24 @@ CONTAINS
 !              Do main calculations here
                CALL setup_xas_tdp_prob(current_state, qs_env, xas_tdp_env, xas_tdp_control)
 
-               IF (xas_tdp_control%do_uks) THEN
+               IF (xas_tdp_control%do_spin_cons) THEN
                   CALL solve_xas_tdp_prob(current_state, xas_tdp_control, xas_tdp_env, qs_env, &
-                                          ex_type=xas_tdp_uks)
+                                          ex_type=tddfpt_spin_cons)
                   CALL compute_dipole_fosc(current_state, xas_tdp_control, xas_tdp_env)
                END IF
-               IF (xas_tdp_control%do_roks) THEN
+               IF (xas_tdp_control%do_spin_flip) THEN
                   CALL solve_xas_tdp_prob(current_state, xas_tdp_control, xas_tdp_env, qs_env, &
-                                          ex_type=xas_tdp_roks)
-                  CALL compute_dipole_fosc(current_state, xas_tdp_control, xas_tdp_env)
+                                          ex_type=tddfpt_spin_flip)
+                  !no dipole in spin-flip (spin-forbidden)
                END IF
                IF (xas_tdp_control%do_singlet) THEN
                   CALL solve_xas_tdp_prob(current_state, xas_tdp_control, xas_tdp_env, qs_env, &
-                                          tddfpt_singlet)
+                                          ex_type=tddfpt_singlet)
                   CALL compute_dipole_fosc(current_state, xas_tdp_control, xas_tdp_env)
                END IF
                IF (xas_tdp_control%do_triplet) THEN
                   CALL solve_xas_tdp_prob(current_state, xas_tdp_control, xas_tdp_env, qs_env, &
-                                          tddfpt_triplet)
+                                          ex_type=tddfpt_triplet)
                   !no dipole for triplets by construction
                END IF
 
@@ -429,20 +430,13 @@ CONTAINS
 
       xas_tdp_control => dft_control%xas_tdp_control
 
-!  Check the qs_env for a LSD/ROKS calculation. If so, overwrite do_singlet, do_triplet and do_soc
-      IF (dft_control%uks) THEN
-         xas_tdp_control%do_uks = .TRUE.
-         xas_tdp_control%do_singlet = .FALSE.
-         xas_tdp_control%do_triplet = .FALSE.
-         xas_tdp_control%do_soc = .FALSE.
-      ELSE IF (dft_control%roks) THEN
-         xas_tdp_control%do_roks = .TRUE.
-         xas_tdp_control%do_singlet = .FALSE.
-         xas_tdp_control%do_triplet = .FALSE.
-         xas_tdp_control%do_soc = .FALSE.
-      END IF
+!  Check the qs_env for a LSD/ROKS calculation
+      IF (dft_control%uks) xas_tdp_control%do_uks = .TRUE.
+      IF (dft_control%roks) xas_tdp_control%do_roks = .TRUE.
       do_uks = xas_tdp_control%do_uks
       do_os = do_uks .OR. xas_tdp_control%do_roks
+      !TODO: implement some safety checks: spin-flip only with ROKS, singlet/triplet only in closed
+      !shell, etc.
 
 !  XAS TDP environment type initialization
       CALL xas_tdp_env_create(xas_tdp_env)
@@ -551,7 +545,7 @@ CONTAINS
       homo(2) = homo(1)
       nspins = 1
       IF (do_os) CALL get_mo_set(mos(2)%mo_set, nmo=n_mo(2), homo=homo(2))
-      IF (do_uks) nspins = 2
+      IF (do_uks) nspins = 2 !in roks, same MOs for both spins
 
       ! by default, all (doubly occupied) homo are localized
       IF (xas_tdp_control%n_search < 0 .OR. xas_tdp_control%n_search > MINVAL(homo)) &
@@ -601,7 +595,7 @@ CONTAINS
                            template=matrix_s(1)%matrix, matrix_type="N")
       END IF
 
-!     TODO: Add a filter_eps in the multiplication ? Cuz many almost zero blocks
+!     TODO: Add a filter_eps in the multiplication ? Cuz possible many almost zero blocks
 !     In the case of spin-restricted calculations, rho_ao includes double occupency => 0.5 prefactor
       fact = -0.5_dp; IF (do_os) fact = -1.0_dp
       CALL dbcsr_multiply('N', 'N', fact, matrix_s(1)%matrix, rho_ao(1)%matrix, 0.0_dp, &
@@ -1754,13 +1748,13 @@ CONTAINS
    END SUBROUTINE check_lumo_guess
 
 ! **************************************************************************************************
-!> \brief Computes the oscillator strength based on the dipole moment (velocity or length rep) for
+!> \brief Computes the oscillator strength based on the dipole moment (velocity rep) for
 !>        all available excitation energies and store the results in the donor_state. There is no
-!>        triplet dipole in the spin-restricted ground state
+!>        triplet dipole in the spin-restricted ground state.
 !> \param donor_state the donor state which is excited
 !> \param xas_tdp_control ...
 !> \param xas_tdp_env ... 
-!> \note The oscillator strength is a scalar: osc_str = 2/3*omega*(dipole_r)^2 = 2/(3*omega)*(dipole_v)^2
+!> \note The oscillator strength is a scalar: osc_str = 2/(3*omega)*(dipole_v)^2
 !>       The formulae for the dipoles come from the trace of the dipole operator with the transition
 !>       densities, i.e. what we get from solving the xas_tdp problem. Same procedure with or wo TDA
 ! **************************************************************************************************
@@ -1783,27 +1777,28 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       REAL(dp)                                        :: dip_mom, pref
-      LOGICAL                                         :: do_roks, do_uks, do_os
+      LOGICAL                                         :: do_sg, do_sc
 
       NULLIFY(dipmat, col_work, mat_work, col_struct, mat_struct, para_env, blacs_env, lr_coeffs)
       NULLIFY(lr_evals, osc_str)
 
 !  Initialization
-      do_roks = xas_tdp_control%do_roks
-      do_uks = xas_tdp_control%do_uks
-      do_os = do_roks .OR. do_uks
-      IF (do_os) THEN
+      do_sc = xas_tdp_control%do_spin_cons
+      do_sg = xas_tdp_control%do_singlet
+      IF (do_sc) THEN
          nspins = 2
-         lr_evals => donor_state%os_evals
-         osc_str => donor_state%os_osc_str
-      ELSE
+         lr_evals => donor_state%sc_evals
+         osc_str => donor_state%sc_osc_str
+      ELSE IF (do_sg) THEN
          nspins = 1
          lr_evals => donor_state%sg_evals
          osc_str => donor_state%sg_osc_str
+      ELSE
+         CPABORT("Dipole oscilaltor strength only for singlets and spin-conserving excitations.")
       END IF
       ndo_mo = donor_state%ndo_mo
       ndo_so = ndo_mo 
-      IF (do_uks) ndo_so = ndo_mo*2 !both spins in ground state
+      IF (xas_tdp_control%do_uks) ndo_so = ndo_mo*2 !both spins explicitely in the ground state
       nosc = SIZE(lr_evals)
 
       dipmat => xas_tdp_env%dipmat
@@ -1820,14 +1815,14 @@ CONTAINS
 
       ALLOCATE(diag(ndo_mo), tot_contr(ndo_mo))
       tot_contr = 0.0_dp
-      pref = 2.0_dp; IF (do_os) pref = 1.0_dp !because of singlet definition u = 1/sqrt(2)(c_a+c_b)
+      pref = 2.0_dp; IF (do_sc) pref = 1.0_dp !because of singlet definition u = 1/sqrt(2)(c_a+c_b)
     
 !  Looping over the excited singlets
       DO iosc = 1,nosc
             
          dip_mom = 0.0_dp
-         IF (do_os) THEN
-            lr_coeffs => donor_state%os_coeffs(iosc)%matrix
+         IF (do_sc) THEN
+            lr_coeffs => donor_state%sc_coeffs(iosc)%matrix
          ELSE
             lr_coeffs => donor_state%sg_coeffs(iosc)%matrix
          END IF
@@ -1840,11 +1835,11 @@ CONTAINS
             CALL cp_dbcsr_sm_fm_multiply(dipmat(j)%matrix, donor_state%gs_coeffs, col_work, ncol=ndo_so)
             DO ispin = 1,nspins
                is = ispin
-               IF (.NOT. do_uks) is = 1 !only have alpha MOs
+               IF (.NOT. xas_tdp_control%do_uks) is = 1 !only have alpha MOs
 
                !computing c^i * dipmat(j) * c^0
                CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, lr_coeffs, col_work, 0.0_dp, &
-                            mat_work, a_first_col=(ispin-1)*ndo_mo+1, & !check maybe a_first_row
+                            mat_work, a_first_col=(ispin-1)*ndo_mo+1, & 
                             b_first_col=(is-1)*ndo_mo+1)
 
                CALL cp_fm_get_diag(mat_work, diag)
@@ -1956,8 +1951,6 @@ CONTAINS
       cell%perd = perd_init
 
    END SUBROUTINE write_mos_to_ex_atoms_association
-
-
 
 !> *************************************************************************************************
 !> \brief Performs Mulliken population analysis for the MO(s) of a donor_state_type so that user
@@ -2087,62 +2080,62 @@ CONTAINS
 
       IF (xas_tdp_unit > 0) THEN
 
-         IF (xas_tdp_control%do_uks) THEN
+         IF (xas_tdp_control%do_spin_cons) THEN
 
 !           Printing the general donor state information
             WRITE(xas_tdp_unit, FMT="(A,/,A,A,A/,A,I5,A,I5,A,A,/,A)") &
-               "====================================================================", &
-               "XAS TDP spin-unrestricted excitations for DONOR STATE: ", &
+               "================================================================================", &
+               "XAS TDP open-shell spin-conserving (no SOC) excitations for DONOR STATE: ", &
                 xas_tdp_env%state_type_char(donor_state%state_type), ",",&
                "from EXCITED ATOM: ", donor_state%at_index, ", of KIND (index/symbol): ", &
                donor_state%kind_index, "/", donor_state%at_symbol,&
-               "===================================================================="
+               "================================================================================"
 
 !           Simply dump the excitation energies/ oscillator strength as they come
             WRITE(xas_tdp_unit, FMT="(T3,A)") &
                " Index            Excitation energy (eV)            Oscillator strength (a.u.)"
 
-            DO i =1,SIZE(donor_state%os_evals)
+            DO i =1,SIZE(donor_state%sc_evals)
                WRITE(xas_tdp_unit, FMT="(T3,I6,F34.6,F38.6)") &
-                  i, donor_state%os_evals(i)*evolt, donor_state%os_osc_str(i)
+                  i, donor_state%sc_evals(i)*evolt, donor_state%sc_osc_str(i)
             END DO
 
             WRITE(xas_tdp_unit, FMT="(A,/)") " "
-         END IF ! do_uks
+         END IF ! do_spin_cons
 
-         IF (xas_tdp_control%do_roks) THEN
+         IF (xas_tdp_control%do_spin_flip) THEN
 
 !           Printing the general donor state information
             WRITE(xas_tdp_unit, FMT="(A,/,A,A,A/,A,I5,A,I5,A,A,/,A)") &
-               "====================================================================", &
-               "XAS TDP restricted open-shell excitations for DONOR STATE: ", &
+               "================================================================================", &
+               "XAS TDP open-shell spin-flip (no SOC) excitations for DONOR STATE: ", &
                 xas_tdp_env%state_type_char(donor_state%state_type), ",",&
                "from EXCITED ATOM: ", donor_state%at_index, ", of KIND (index/symbol): ", &
                donor_state%kind_index, "/", donor_state%at_symbol,&
-               "===================================================================="
+               "================================================================================"
 
 !           Simply dump the excitation energies/ oscillator strength as they come
             WRITE(xas_tdp_unit, FMT="(T3,A)") &
                " Index            Excitation energy (eV)            Oscillator strength (a.u.)"
 
-            DO i =1,SIZE(donor_state%os_evals)
+            DO i =1,SIZE(donor_state%sf_evals)
                WRITE(xas_tdp_unit, FMT="(T3,I6,F34.6,F38.6)") &
-                  i, donor_state%os_evals(i)*evolt, donor_state%os_osc_str(i)
+                  i, donor_state%sf_evals(i)*evolt, 0.0_dp !spin-forbidden !
             END DO
 
             WRITE(xas_tdp_unit, FMT="(A,/)") " "
-         END IF ! do_roks
+         END IF ! do_spin_flip
 
          IF (xas_tdp_control%do_singlet) THEN
 
 !           Printing the general donor state information
             WRITE(xas_tdp_unit, FMT="(A,/,A,A,A/,A,I5,A,I5,A,A,/,A)") &
-               "====================================================================", &
+               "================================================================================", &
                "XAS TDP singlet excitations (no SOC) for DONOR STATE: ", &
                 xas_tdp_env%state_type_char(donor_state%state_type), ",",&
                "from EXCITED ATOM: ", donor_state%at_index, ", of KIND (index/symbol): ", &
                donor_state%kind_index, "/", donor_state%at_symbol,&
-               "===================================================================="
+               "================================================================================"
 
 !           Simply dump the excitation energies/ oscillator strength as they come
             WRITE(xas_tdp_unit, FMT="(T3,A)") &
@@ -2160,12 +2153,12 @@ CONTAINS
 
 !           Printing the general donor state information
             WRITE(xas_tdp_unit, FMT="(A,/,A,A,A/,A,I5,A,I5,A,A,/,A)") &
-               "====================================================================", &
+               "================================================================================", &
                "XAS TDP triplet excitations (no SOC) for DONOR STATE: ", &
                 xas_tdp_env%state_type_char(donor_state%state_type), ",",&
                "from EXCITED ATOM: ", donor_state%at_index, ", of KIND (index/symbol): ", &
                donor_state%kind_index, "/", donor_state%at_symbol,&
-               "===================================================================="
+               "================================================================================"
 
 !           Simply dump the excitation energies/ oscillator strength as they come
             WRITE(xas_tdp_unit, FMT="(T3,A)") &
@@ -2173,7 +2166,7 @@ CONTAINS
 
             DO i =1,SIZE(donor_state%tp_evals)
                WRITE(xas_tdp_unit, FMT="(T3,I6,F34.6,F38.6)") &
-                  i, donor_state%tp_evals(i)*evolt, donor_state%tp_osc_str(i)
+                  i, donor_state%tp_evals(i)*evolt, 0.0_dp !triplets from closed-shell have none
             END DO
 
             WRITE(xas_tdp_unit, FMT="(A,/)") " "
@@ -2183,12 +2176,12 @@ CONTAINS
             
 !           Printing the general donor state information
             WRITE(xas_tdp_unit, FMT="(A,/,A,A,A/,A,I5,A,I5,A,A,/,A)") &
-               "====================================================================", &
+               "================================================================================", &
                "XAS TDP  excitations after spin-orbit coupling for DONOR STATE: ", &
                 xas_tdp_env%state_type_char(donor_state%state_type), ",",&
                "from EXCITED ATOM: ", donor_state%at_index, ", of KIND (index/symbol): ", &
                donor_state%kind_index, "/", donor_state%at_symbol,&
-               "===================================================================="
+               "================================================================================"
 
 !           Simply dump the excitation energies/ oscillator strength as they come
             WRITE(xas_tdp_unit, FMT="(T3,A)") &
