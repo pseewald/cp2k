@@ -56,6 +56,8 @@ MODULE xas_tdp_types
 !> \param do_roks whether the calculation is restricted open-shell
 !> \param do_singlet whether singlet excitations should be computed
 !> \param do_triplet whether triplet excitations should be computed
+!> \param do_spin_cons whether spin-conserving excitation (for open-shell) should be computed
+!> \param do_spin_flip whether spin-flip excitation (for open-shell) should be computed
 !> \param do_soc whether spin-orbit coupling should be included
 !> \param n_excited the number of excited states to compute
 !> \param state_types columns correspond to the states to excite for each atom kind/index
@@ -83,6 +85,8 @@ MODULE xas_tdp_types
       LOGICAL                                 :: do_soc
       LOGICAL                                 :: do_singlet
       LOGICAL                                 :: do_triplet
+      LOGICAL                                 :: do_spin_cons
+      LOGICAL                                 :: do_spin_flip
       LOGICAL                                 :: full_diag
       INTEGER, DIMENSION(:), POINTER          :: list_ex_atoms
       CHARACTER(len=default_string_length),&
@@ -166,19 +170,21 @@ MODULE xas_tdp_types
 !> \param state_type whether this is a 1s, 2s, etc state
 !> \param energy_evals the energy eigenvalue of the donor state, for each spin
 !> \param mo_indices indices of associated MOs. Greater than 1 when not a s-type state.
-!> \param os_coeffs solutions of the linear-response TDDFT equation for open-shell calculations
+!> \param sc_coeffs solutions of the linear-response TDDFT equation for spin-conserving open-shell
+!> \param sf_coeffs solutions of the linear-response TDDFT equation for spin-flip open-shell
 !> \param sg_coeffs solutions of the linear-response TDDFT singlet equations
 !> \param tp_coeffs solutions of the linear-response TDDFT triplet equations
 !> \param gs_coeffs the ground state MO coefficients 
-!> \param os_evals open-shell excitation energies
+!> \param sc_evals open-shell spin-conserving excitation energies
+!> \param sf_evals open-shell spin-flip excitation energies
 !> \param sg_evals singlet excitation energies => the eigenvalues of the linear response equation
 !> \param tp_evals triplet excitation energies => the eigenvalues of the linear response equation
 !> \param soc_evals excitation energies after inclusion of SOC
-!> \param os_osc_str oscilaltor strenghts for open-shell excitations
+!> \param sc_osc_str oscilaltor strenghts for open-shell spin-conserving excitations
 !> \param sg_osc_str oscillator strengths for the different excitation energies of singlets
-!> \param tp_osc_str oscillator strengths for the different excitation energies of triplets
 !> \param soc_osc_str oscillator strengths after the inclusion of SOC
-!> \param os_matrix_tdp the dbcsr matrix to be diagonalized for open-shell calculations
+!> \param sc_matrix_tdp the dbcsr matrix to be diagonalized for open-shell spin-conserving calculations
+!> \param sf_matrix_tdp the dbcsr matrix to be diagonalized for open-shell spin-flip calculations
 !> \param sg_matrix_tdp the dbcsr matrix to be diagonalized to solve the problem for singlets
 !> \param tp_matrix_tdp the dbcsr matrix to be diagonalized to solve the problem for triplets
 !> \param metric the metric of the linear response problem M*c = omega*S*c and its inverse
@@ -193,21 +199,24 @@ MODULE xas_tdp_types
       REAL(dp), DIMENSION(:,:), POINTER       :: energy_evals
       INTEGER, DIMENSION(:,:), POINTER        :: mo_indices
       TYPE(cp_fm_p_type), DIMENSION(:), &
-                                    POINTER   :: os_coeffs
+                                    POINTER   :: sc_coeffs
+      TYPE(cp_fm_p_type), DIMENSION(:), &
+                                    POINTER   :: sf_coeffs
       TYPE(cp_fm_p_type), DIMENSION(:), &
                                     POINTER   :: sg_coeffs
       TYPE(cp_fm_p_type), DIMENSION(:), &
                                     POINTER   :: tp_coeffs
       TYPE(cp_fm_type), POINTER               :: gs_coeffs
-      REAL(dp), DIMENSION(:), POINTER         :: os_evals
+      REAL(dp), DIMENSION(:), POINTER         :: sc_evals
+      REAL(dp), DIMENSION(:), POINTER         :: sf_evals
       REAL(dp), DIMENSION(:), POINTER         :: sg_evals
       REAL(dp), DIMENSION(:), POINTER         :: tp_evals
       REAL(dp), DIMENSION(:), POINTER         :: soc_evals
-      REAL(dp), DIMENSION(:), POINTER         :: os_osc_str
+      REAL(dp), DIMENSION(:), POINTER         :: sc_osc_str
       REAL(dp), DIMENSION(:), POINTER         :: sg_osc_str
-      REAL(dp), DIMENSION(:), POINTER         :: tp_osc_str
       REAL(dp), DIMENSION(:), POINTER         :: soc_osc_str
-      TYPE(dbcsr_type), POINTER               :: os_matrix_tdp
+      TYPE(dbcsr_type), POINTER               :: sc_matrix_tdp
+      TYPE(dbcsr_type), POINTER               :: sf_matrix_tdp
       TYPE(dbcsr_type), POINTER               :: sg_matrix_tdp
       TYPE(dbcsr_type), POINTER               :: tp_matrix_tdp
       TYPE(dbcsr_p_type), DIMENSION(:), &
@@ -291,6 +300,8 @@ CONTAINS
       xas_tdp_control%do_soc = .FALSE.
       xas_tdp_control%do_singlet = .FALSE.
       xas_tdp_control%do_triplet = .FALSE.
+      xas_tdp_control%do_spin_cons = .FALSE.
+      xas_tdp_control%do_spin_flip = .FALSE.
       xas_tdp_control%full_diag = .TRUE.
       xas_tdp_control%n_excited = -1
       xas_tdp_control%eps_iter = 1.0E-6_dp
@@ -384,8 +395,8 @@ CONTAINS
          CALL section_vals_val_get(xas_tdp_section, "EXCITATIONS", i_rep_val=irep, i_val=excitation)
          IF (excitation == tddfpt_singlet) xas_tdp_control%do_singlet = .TRUE.
          IF (excitation == tddfpt_triplet) xas_tdp_control%do_triplet = .TRUE.
-         !IF (excitation == tddfpt_spin_cons) 
-         IF (excitation == tddfpt_spin_flip) CPABORT("NYI")
+         IF (excitation == tddfpt_spin_cons) xas_tdp_control%do_spin_cons = .TRUE.
+         IF (excitation == tddfpt_spin_flip) xas_tdp_control%do_spin_flip = .TRUE.
       END DO
 
 !  Deal with the DONOR_STATES subsection
@@ -656,19 +667,21 @@ CONTAINS
 
       NULLIFY (donor_state%energy_evals)
       NULLIFY (donor_state%mo_indices)
-      NULLIFY (donor_state%os_coeffs)
+      NULLIFY (donor_state%sc_coeffs)
+      NULLIFY (donor_state%sf_coeffs)
       NULLIFY (donor_state%sg_coeffs)
       NULLIFY (donor_state%tp_coeffs)
       NULLIFY (donor_state%gs_coeffs)
-      NULLIFY (donor_state%os_evals)
+      NULLIFY (donor_state%sc_evals)
+      NULLIFY (donor_state%sf_evals)
       NULLIFY (donor_state%sg_evals)
       NULLIFY (donor_state%tp_evals)
       NULLIFY (donor_state%soc_evals)
       NULLIFY (donor_state%soc_osc_str)
-      NULLIFY (donor_state%os_osc_str)
+      NULLIFY (donor_state%sc_osc_str)
       NULLIFY (donor_state%sg_osc_str)
-      NULLIFY (donor_state%tp_osc_str)
-      NULLIFY (donor_state%os_matrix_tdp)
+      NULLIFY (donor_state%sc_matrix_tdp)
+      NULLIFY (donor_state%sf_matrix_tdp)
       NULLIFY (donor_state%sg_matrix_tdp)
       NULLIFY (donor_state%tp_matrix_tdp)
       NULLIFY (donor_state%metric)
@@ -716,13 +729,22 @@ CONTAINS
       IF (ASSOCIATED(donor_state_set)) THEN
          DO i = 1,SIZE(donor_state_set)
 
-            IF (ASSOCIATED(donor_state_set(i)%os_coeffs)) THEN
-               DO j = 1,SIZE(donor_state_set(i)%os_coeffs)
-                  IF(ASSOCIATED(donor_state_set(i)%os_coeffs(j)%matrix)) THEN
-                     CALL cp_fm_release(donor_state_set(i)%os_coeffs(j)%matrix)
+            IF (ASSOCIATED(donor_state_set(i)%sc_coeffs)) THEN
+               DO j = 1,SIZE(donor_state_set(i)%sc_coeffs)
+                  IF(ASSOCIATED(donor_state_set(i)%sc_coeffs(j)%matrix)) THEN
+                     CALL cp_fm_release(donor_state_set(i)%sc_coeffs(j)%matrix)
                   END IF
                END DO
-               DEALLOCATE(donor_state_set(i)%os_coeffs)
+               DEALLOCATE(donor_state_set(i)%sc_coeffs)
+            END IF
+
+            IF (ASSOCIATED(donor_state_set(i)%sf_coeffs)) THEN
+               DO j = 1,SIZE(donor_state_set(i)%sf_coeffs)
+                  IF(ASSOCIATED(donor_state_set(i)%sf_coeffs(j)%matrix)) THEN
+                     CALL cp_fm_release(donor_state_set(i)%sf_coeffs(j)%matrix)
+                  END IF
+               END DO
+               DEALLOCATE(donor_state_set(i)%sf_coeffs)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%sg_coeffs)) THEN
@@ -747,8 +769,12 @@ CONTAINS
                CALL cp_fm_release(donor_state_set(i)%gs_coeffs)
             END IF
 
-            IF (ASSOCIATED(donor_state_set(i)%os_evals)) THEN
-               DEALLOCATE(donor_state_set(i)%os_evals)
+            IF (ASSOCIATED(donor_state_set(i)%sc_evals)) THEN
+               DEALLOCATE(donor_state_set(i)%sc_evals)
+            END IF
+
+            IF (ASSOCIATED(donor_state_set(i)%sf_evals)) THEN
+               DEALLOCATE(donor_state_set(i)%sf_evals)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%sg_evals)) THEN
@@ -763,17 +789,13 @@ CONTAINS
                DEALLOCATE(donor_state_set(i)%soc_evals)
             END IF
 
-            IF (ASSOCIATED(donor_state_set(i)%os_osc_str)) THEN
-               DEALLOCATE(donor_state_set(i)%os_osc_str)
+            IF (ASSOCIATED(donor_state_set(i)%sc_osc_str)) THEN
+               DEALLOCATE(donor_state_set(i)%sc_osc_str)
             END IF
             
             IF (ASSOCIATED(donor_state_set(i)%sg_osc_str)) THEN
                DEALLOCATE(donor_state_set(i)%sg_osc_str)
             END IF
-
-            IF (ASSOCIATED(donor_state_set(i)%tp_osc_str)) THEN
-               DEALLOCATE(donor_state_set(i)%tp_osc_str)
-            END IF 
 
             IF (ASSOCIATED(donor_state_set(i)%soc_osc_str)) THEN
                DEALLOCATE(donor_state_set(i)%soc_osc_str)
@@ -787,9 +809,14 @@ CONTAINS
                DEALLOCATE(donor_state_set(i)%mo_indices)
             END IF
 
-            IF (ASSOCIATED(donor_state_set(i)%os_matrix_tdp)) THEN
-               CALL dbcsr_release(donor_state_set(i)%os_matrix_tdp)
-               DEALLOCATE(donor_state_set(i)%os_matrix_tdp)
+            IF (ASSOCIATED(donor_state_set(i)%sc_matrix_tdp)) THEN
+               CALL dbcsr_release(donor_state_set(i)%sc_matrix_tdp)
+               DEALLOCATE(donor_state_set(i)%sc_matrix_tdp)
+            END IF
+
+            IF (ASSOCIATED(donor_state_set(i)%sf_matrix_tdp)) THEN
+               CALL dbcsr_release(donor_state_set(i)%sf_matrix_tdp)
+               DEALLOCATE(donor_state_set(i)%sf_matrix_tdp)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%sg_matrix_tdp)) THEN
@@ -835,21 +862,28 @@ CONTAINS
 
       INTEGER                                            :: i
 
-      IF (ASSOCIATED(donor_state%os_evals)) DEALLOCATE(donor_state%os_evals)
+      IF (ASSOCIATED(donor_state%sc_evals)) DEALLOCATE(donor_state%sc_evals)
+      IF (ASSOCIATED(donor_state%sf_evals)) DEALLOCATE(donor_state%sf_evals)
       IF (ASSOCIATED(donor_state%sg_evals)) DEALLOCATE(donor_state%sg_evals)
       IF (ASSOCIATED(donor_state%tp_evals)) DEALLOCATE(donor_state%tp_evals)
       IF (ASSOCIATED(donor_state%soc_evals)) DEALLOCATE(donor_state%soc_evals)
-      IF (ASSOCIATED(donor_state%os_osc_str)) DEALLOCATE(donor_state%os_osc_str)
+      IF (ASSOCIATED(donor_state%sc_osc_str)) DEALLOCATE(donor_state%sc_osc_str)
       IF (ASSOCIATED(donor_state%sg_osc_str)) DEALLOCATE(donor_state%sg_osc_str)
-      IF (ASSOCIATED(donor_state%tp_osc_str)) DEALLOCATE(donor_state%tp_osc_str)
       IF (ASSOCIATED(donor_state%soc_osc_str)) DEALLOCATE(donor_state%soc_osc_str)
       IF (ASSOCIATED(donor_state%gs_coeffs)) CALL cp_fm_release(donor_state%gs_coeffs)
 
-      IF (ASSOCIATED(donor_state%os_coeffs)) THEN
-         DO i = 1,SIZE(donor_state%os_coeffs)
-            CALL cp_fm_release(donor_state%os_coeffs(i)%matrix)
+      IF (ASSOCIATED(donor_state%sc_coeffs)) THEN
+         DO i = 1,SIZE(donor_state%sc_coeffs)
+            CALL cp_fm_release(donor_state%sc_coeffs(i)%matrix)
          END DO
-         DEALLOCATE(donor_state%os_coeffs)
+         DEALLOCATE(donor_state%sc_coeffs)
+      END IF
+
+      IF (ASSOCIATED(donor_state%sf_coeffs)) THEN
+         DO i = 1,SIZE(donor_state%sf_coeffs)
+            CALL cp_fm_release(donor_state%sf_coeffs(i)%matrix)
+         END DO
+         DEALLOCATE(donor_state%sf_coeffs)
       END IF
 
       IF (ASSOCIATED(donor_state%sg_coeffs)) THEN
@@ -866,9 +900,14 @@ CONTAINS
          DEALLOCATE(donor_state%tp_coeffs)
       END IF
 
-      IF (ASSOCIATED(donor_state%os_matrix_tdp)) THEN
-         CALL dbcsr_release(donor_state%os_matrix_tdp)
-         DEALLOCATE(donor_state%os_matrix_tdp)
+      IF (ASSOCIATED(donor_state%sc_matrix_tdp)) THEN
+         CALL dbcsr_release(donor_state%sc_matrix_tdp)
+         DEALLOCATE(donor_state%sc_matrix_tdp)
+      END IF
+
+      IF (ASSOCIATED(donor_state%sf_matrix_tdp)) THEN
+         CALL dbcsr_release(donor_state%sf_matrix_tdp)
+         DEALLOCATE(donor_state%sf_matrix_tdp)
       END IF
 
       IF (ASSOCIATED(donor_state%sg_matrix_tdp)) THEN
