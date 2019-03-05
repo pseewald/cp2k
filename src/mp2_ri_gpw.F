@@ -998,7 +998,8 @@ CONTAINS
 
          END IF
 
-         CALL compute_3c_overlap_int(mat_3c_overl_int, t_3c_overl_int, do_dbcsr_t, mat_3c_overl_int_mao_for_occ, &
+         CALL compute_3c_overlap_int(mat_3c_overl_int, t_3c_overl_int, do_dbcsr_t, &
+                                     qs_env%mp2_env%mp2_gpw%eps_filter, mat_3c_overl_int_mao_for_occ, &
                                      mat_3c_overl_int_mao_for_virt, &
                                      mat_munu, mat_munu_mao_occ_virt, &
                                      qs_env, my_group_L_starts_im_time, &
@@ -1012,7 +1013,6 @@ CONTAINS
             DO i = 1, SIZE(t_3c_overl_int, 1)
                DO j = 1, SIZE(t_3c_overl_int, 2)
 
-                  CALL dbcsr_t_filter(t_3c_overl_int(i, j), qs_env%mp2_env%mp2_gpw%eps_filter)
                   CALL dbcsr_t_copy(t_3c_overl_int(i, j), t_3c_O(i, j), move_data=.TRUE.)
                   CALL dbcsr_t_filter(t_3c_O(i, j), qs_env%mp2_env%mp2_gpw%eps_filter)
                   !PRINT *, "COMPARING CHECKSUMS", dbcsr_t_checksum(t_3c_overl_int(i,j)), dbcsr_t_checksum(t_3c_O(i,j))
@@ -7596,7 +7596,7 @@ CONTAINS
 !> \param mao_coeff_repl_virt ...
 !> \param num_diff_blk ...
 ! **************************************************************************************************
-   SUBROUTINE compute_3c_overlap_int(mat_3c_overl_int, t_3c_overl_int, do_dbcsr_t, mat_3c_overl_int_mao_for_occ, &
+   SUBROUTINE compute_3c_overlap_int(mat_3c_overl_int, t_3c_overl_int, do_dbcsr_t, filter_eps, mat_3c_overl_int_mao_for_occ, &
                                      mat_3c_overl_int_mao_for_virt, mat_munu, mat_munu_mao_occ_virt, &
                                      qs_env, my_group_L_starts_im_time, &
                                      my_group_L_ends_im_time, my_group_L_sizes_im_time, &
@@ -7607,6 +7607,7 @@ CONTAINS
 
       TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE, INTENT(INOUT) :: t_3c_overl_int
       LOGICAL, INTENT(IN)                                :: do_dbcsr_t
+      REAL(KIND=dp), INTENT(IN)                          :: filter_eps
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int, &
                                                             mat_3c_overl_int_mao_for_occ, &
                                                             mat_3c_overl_int_mao_for_virt
@@ -8030,16 +8031,22 @@ CONTAINS
          END DO ! atom_RI
 
          ! add transposed of overlap integrals:
+         DO img_row = 1, nimg
+            DO img_col = 1, nimg
+               ! we need to take half of filter_eps, since we are adding tensor to its transpose afterwards
+               CALL dbcsr_t_filter(t_3c_overl_int(img_row, img_col), filter_eps/2)
+            ENDDO
+         ENDDO
          CALL dbcsr_t_create(t_3c_overl_int(1, 1), t_3c_tmp)
          DO img_row = 1, nimg
             DO img_col = 1, nimg
                CALL dbcsr_t_copy(t_3c_overl_int(img_row, img_col), t_3c_tmp)
-               CALL dbcsr_t_copy(t_3c_tmp, t_3c_overl_int(img_row, img_col), order=[1, 3, 2], summation=.TRUE.)
+               CALL dbcsr_t_copy(t_3c_tmp, t_3c_overl_int(img_row, img_col), order=[1, 3, 2], summation=.TRUE., move_data=.TRUE.)
+               CALL dbcsr_t_filter(t_3c_overl_int(img_row, img_col), filter_eps)
             ENDDO
          ENDDO
          CALL dbcsr_t_set(t_3c_tmp, 0.0_dp)
          CALL dbcsr_t_filter(t_3c_tmp, 1.0_dp)
-
          CALL dbcsr_t_destroy(t_3c_tmp)
 
          CALL timestop(handle3)

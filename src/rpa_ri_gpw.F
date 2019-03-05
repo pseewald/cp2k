@@ -2302,14 +2302,14 @@ CONTAINS
             num_3c_repl = SIZE(t_3c_O, 2)
          ENDIF
 
-         IF (do_dbcsr_t) THEN
-            DO i_cell = 1, num_3c_repl
-               DO j_cell = 1, num_3c_repl
-                  CALL dbcsr_t_filter(t_3c_O(i_cell, j_cell), eps_filter)
+        ! IF (do_dbcsr_t) THEN
+        !    DO i_cell = 1, num_3c_repl
+        !       DO j_cell = 1, num_3c_repl
+        !          CALL dbcsr_t_filter(t_3c_O(i_cell, j_cell), eps_filter)
 
-               ENDDO
-            ENDDO
-         ELSE
+        !       ENDDO
+        !    ENDDO
+         IF (.NOT. do_dbcsr_t) THEN
             DO i_cut_RI = 1, cut_RI
 
                my_group_L_size_im_time = my_group_L_sizes_im_time(i_cut_RI)
