@@ -85,6 +85,7 @@ MODULE xas_tdp_methods
    USE qs_operators_ao,                 ONLY: p_xyz_ao
    USE qs_rho_types,                    ONLY: qs_rho_get, qs_rho_type
    USE qs_scf_methods,                  ONLY: combine_ks_matrices
+   USE qs_scf_types,                    ONLY: ot_method_nr
    USE scf_control_types,               ONLY: scf_control_type
    USE util,                            ONLY: locate
    USE xas_methods,                     ONLY: calc_stogto_overlap
@@ -250,7 +251,7 @@ CONTAINS
          do_os = xas_tdp_control%do_uks .OR. xas_tdp_control%do_roks
 
          IF (xas_tdp_control%do_xc) THEN
-            CALL integrate_fxc_atoms(xas_tdp_env%ri_fxc, xas_atom_env, qs_env)
+            CALL integrate_fxc_atoms(xas_tdp_env%ri_fxc, xas_atom_env, xas_tdp_control, qs_env)
          END IF
 
          IF (xas_tdp_control%do_soc) THEN
@@ -395,13 +396,13 @@ CONTAINS
       INTEGER                                            :: nex_atoms, n_kinds, i, nat_of_kind,&
                                                             j, nex_kinds, k, n_donor_states,&
                                                             nspins, natom, nmatch, kind_ind, &
-                                                            at_ind, nao, nalpha, nbeta
+                                                            at_ind, nao, nalpha, nbeta, ispin
       INTEGER, DIMENSION(2)                              :: n_mo, n_moloc, homo
       INTEGER, DIMENSION(:), POINTER                     :: ind_of_kind
       CHARACTER(len=2)                                   :: symbol
       TYPE(qs_loc_env_new_type), POINTER                 :: qs_loc_env
       TYPE(cp_fm_type), POINTER                          :: ksa, ksb, moa, work, mo2ao
-      REAL(dp), DIMENSION(:), POINTER                    :: occa, occb
+      REAL(dp), DIMENSION(:), POINTER                    :: occa, occb, mo_evals
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s, rho_ao, matrix_ks
@@ -409,7 +410,6 @@ CONTAINS
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(scf_control_type), POINTER                    :: scf_control
-      TYPE(cp_1d_r_p_type), DIMENSION(:), POINTER        :: lumo_evals
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct
       REAL(dp)                                           :: fact
       LOGICAL                                            :: do_uks, do_os
@@ -417,7 +417,7 @@ CONTAINS
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
 
       NULLIFY(dft_section, xas_tdp_section, at_kind_set, ind_of_kind, qs_kind_set, dft_control)
-      NULLIFY(qs_loc_env, loc_section, mos, particle_set, rho, rho_ao, lumo_evals, ksa, ksb)
+      NULLIFY(qs_loc_env, loc_section, mos, particle_set, rho, rho_ao, ksa, ksb, mo_evals)
       NULLIFY(occa, occb, moa, work, scf_control, mo2ao, matrix_ks, fm_struct, para_env, blacs_env)
 
 !  XAS TDP control type initialization
@@ -533,6 +533,19 @@ CONTAINS
       DO i = 1,n_donor_states
          CALL donor_state_create(xas_tdp_env%donor_states(i))
       END DO
+
+!  In case of ground state OT optimization, compute the MO eigenvalues => we need them. The arrays
+!  are allocated anyways so the only cost is that of a MM
+      IF (qs_env%scf_env%method == ot_method_nr) THEN
+
+         CALL get_qs_env(qs_env, mos=mos, matrix_ks=matrix_ks)
+         nspins = 1; IF (do_uks) nspins = 2
+
+         DO ispin = 1, nspins
+            CALL get_mo_set(mos(ispin)%mo_set, mo_coeff=moa, eigenvalues=mo_evals)
+            CALL calculate_subspace_eigenvalues(moa, matrix_ks(ispin)%matrix, evals_arg=mo_evals)
+         END DO
+      END IF
 
 !  Initializing the qs_loc_env from the LOCALIZE subsection of XAS_TDP (largely inpired by MI's XAS)
       CALL qs_loc_env_create(xas_tdp_env%qs_loc_env)
@@ -711,9 +724,9 @@ CONTAINS
                                                             nelec_spin(2), nao, minel
       LOGICAL                                            :: do_uks, do_roks
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_ks, matrix_s, rho_ao, matrices
-      TYPE(dbcsr_type), POINTER                          :: sps, m_ks
+      TYPE(dbcsr_type), POINTER                          :: m_ks
       TYPE(qs_rho_type), POINTER                         :: rho
-      TYPE(dbcsr_type), POINTER                          :: work
+      TYPE(dbcsr_type)                                   :: work, sps
       REAL(dp)                                           :: factor, max_ev
       TYPE(arnoldi_data_type)                            :: my_arnoldi
       TYPE(cp_para_env_type), POINTER                    :: para_env
@@ -723,7 +736,7 @@ CONTAINS
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
       REAL(dp), DIMENSION(:), POINTER                    :: mo_evals
 
-      NULLIFY(matrix_ks, m_ks, matrix_s, sps, rho_ao, rho, work, para_env, blacs_env, mos)
+      NULLIFY(matrix_ks, m_ks, matrix_s, rho_ao, rho, para_env, blacs_env, mos)
       NULLIFY(lumo_struct, amatrix, bmatrix, work_fm, fm_struct, mo_evals)
 
       CALL timeset(routineN, handle)
@@ -733,7 +746,7 @@ CONTAINS
       nspins = 1; IF (do_uks) nspins = 2 
       ALLOCATE(xas_tdp_env%lumo_guess(nspins))
       ALLOCATE(xas_tdp_env%lumo_evals(nspins))
-      ALLOCATE(sps, m_ks, work) 
+      ALLOCATE(m_ks) 
       CALL get_qs_env(qs_env, matrix_ks=matrix_ks, matrix_s=matrix_s, nelectron_spin=nelec_spin, &
                       rho=rho, para_env=para_env, blacs_env=blacs_env, mos=mos)
       CALL dbcsr_get_info(matrix_s(1)%matrix, nfullrows_total=nao)
@@ -829,7 +842,7 @@ CONTAINS
       END DO
 
       !clean-up
-      DEALLOCATE(m_ks, sps, work)
+      DEALLOCATE(m_ks)
       IF (.NOT. xas_tdp_control%check_only) THEN
          DO ispin = 1,nspins
             DEALLOCATE(xas_tdp_env%lumo_evals(ispin)%array)
@@ -1307,6 +1320,8 @@ CONTAINS
 !           Canonical MO, no change in eigenvalues, only diagonal elements
             DO ispin = 1, nspins
                CALL get_mo_set(mos(ispin)%mo_set, eigenvalues=mo_evals)
+               PRINT*, "MO evals for spin ", ispin, ":"
+               PRINT*, mo_evals
                DO i = 1,n_states 
                   donor_state%energy_evals(i,ispin) = mo_evals(my_mos(i,ispin))
                

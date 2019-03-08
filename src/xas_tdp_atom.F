@@ -326,19 +326,19 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE truncate_radial_grid(grid_atom, max_radius)
 
-       TYPE(grid_atom_type), POINTER                   :: grid_atom
+      TYPE(grid_atom_type), POINTER                   :: grid_atom
       REAL(dp), INTENT(IN)                            :: max_radius
 
-       CHARACTER(len=*), PARAMETER :: routineN = "truncate_radial_grid", &
+      CHARACTER(len=*), PARAMETER :: routineN = "truncate_radial_grid", &
                                      routineP = moduleN//":"//routineN
 
-       INTEGER                                         :: first_ir, ir, nr, na, llmax_p1, new_nr
+      INTEGER                                         :: first_ir, ir, nr, na, llmax_p1, new_nr
 
-       nr = grid_atom%nr
+      nr = grid_atom%nr
       na = grid_atom%ng_sphere
       llmax_p1 = SIZE(grid_atom%rad2l,2) - 1
 
- !     Find the index corresponding to the limiting radius (small ir => large radius)
+!     Find the index corresponding to the limiting radius (small ir => large radius)
       DO ir = 1, nr
          IF(grid_atom%rad(ir) < max_radius) THEN
             first_ir = ir
@@ -347,17 +347,17 @@ CONTAINS
       END DO
       new_nr = nr-first_ir+1
 
- !     Reallcoate everything that depends on r
+!     Reallcoate everything that depends on r
       grid_atom%nr = new_nr
 
-       grid_atom%rad(1:new_nr) = grid_atom%rad(first_ir:nr)
+      grid_atom%rad(1:new_nr) = grid_atom%rad(first_ir:nr)
       grid_atom%rad2(1:new_nr) = grid_atom%rad2(first_ir:nr)
       grid_atom%wr(1:new_nr) = grid_atom%wr(first_ir:nr)
       grid_atom%weight(:,1:new_nr) = grid_atom%weight(:,first_ir:nr)
       grid_atom%rad2l(1:new_nr,:) = grid_atom%rad2l(first_ir:nr,:)
       grid_atom%oorad2l(1:new_nr,:) = grid_atom%oorad2l(first_ir:nr,:)
 
-       CALL reallocate(grid_atom%rad, 1, new_nr)
+      CALL reallocate(grid_atom%rad, 1, new_nr)
       CALL reallocate(grid_atom%rad2, 1, new_nr)
       CALL reallocate(grid_atom%wr, 1, new_nr)
       CALL reallocate(grid_atom%weight, 1, na, 1, new_nr)
@@ -1002,17 +1002,19 @@ CONTAINS
 ! **************************************************************************************************
 !> \brief Integrate the xc kernel as a function of r on the atomic grids for the RI_XAS basis
 !> \param int_fxc the global array containing the (P|fxc|Q) integrals, for all spin configurations
-!> \param int_fxc the global array containing the (P|fxc|Q) integrals, for all spin configurations
 !> \param xas_atom_env ...
+!> \param xas_tdp_control ...
 !> \param qs_env ...
 !> \note Note that if closed-shell, alpha-alpha term and beta-beta terms are the same
 !>       Store the (P|fxc|Q) integrals on the processor they were computed on
 !>       int_fxc(1)%matrix is alpha-alpha, 2: alpha-beta, 3: beta-beta
+!>       In case of spin flip, the SF int_fxc is store in the 4th position
 ! **************************************************************************************************
-   SUBROUTINE integrate_fxc_atoms(int_fxc, xas_atom_env, qs_env)
+   SUBROUTINE integrate_fxc_atoms(int_fxc, xas_atom_env, xas_tdp_control, qs_env)
 
       TYPE(cp_2d_r_p_type), DIMENSION(:,:), POINTER   :: int_fxc
       TYPE(xas_atom_env_type), POINTER                :: xas_atom_env  
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
       TYPE(qs_environment_type), POINTER              :: qs_env
 
       CHARACTER(len=*), PARAMETER :: routineN = "integrate_fxc_atoms", &
@@ -1020,36 +1022,29 @@ CONTAINS
 
       INTEGER                                         :: handle, nex, iex, iatom, ikind, na, nr, &
                                                          nspins, natom, i, bo(2), num_pe, mepos, &
-                                                         n, nsotot, nset, maxso, ispin, inb, &
-                                                         nb_at, nb_kind, ub, ri_nsgf, iblk, jblk, &
+                                                         ispin, inb, nb_at, nb_kind, iblk, jblk, &
                                                          blk, tag, dest, group, nsgf, source, is,&
                                                          req, max_mes
       INTEGER, DIMENSION(:), ALLOCATABLE              :: send_req
-      REAL(dp), DIMENSION(:, :), ALLOCATABLE          :: fxc, int_so
       INTEGER, DIMENSION(2,3)                         :: bounds
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
-      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
-      TYPE(grid_atom_type), POINTER                   :: grid_atom
-      TYPE(gto_basis_set_type), POINTER               :: ri_basis
-      REAL(dp), DIMENSION(:,:), POINTER               :: ri_sphi_so, pab
+      REAL(dp), DIMENSION(:,:), POINTER               :: pab
       TYPE(dft_control_type), POINTER                 :: dft_control
       TYPE(xc_rho_set_type), POINTER                  :: rho_set
       TYPE(xc_derivative_set_type), POINTER           :: deriv_set
       TYPE(xc_rho_cflags_type)                        :: needs
       TYPE(section_vals_type), POINTER                :: input, xc_functionals
-      TYPE(xc_derivative_type), POINTER               :: deriv
-      TYPE(cp_3d_r_p_type), DIMENSION(:), ALLOCATABLE :: d2e
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_1d_r_p_type), DIMENSION(:), ALLOCATABLE :: ri_dcoeff
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: rho_ao
       TYPE(qs_rho_type), POINTER                      :: rho
-      LOGICAL                                         :: found
+      LOGICAL                                         :: found, do_sc, do_sf
       TYPE(dbcsr_iterator_type)                       :: iter
       TYPE(cp_1d_i_p_type), DIMENSION(:), ALLOCATABLE :: pab_dest     
       TYPE(cp_2d_r_p_type), DIMENSION(:), ALLOCATABLE :: send_buff
 
-      NULLIFY(particle_set, qs_kind_set, grid_atom, ri_basis, ri_sphi_so, dft_control, rho_set, rho)
-      NULLIFY(deriv_set, input, xc_functionals, deriv, para_env, rho_ao, pab)
+      NULLIFY(particle_set, dft_control, rho_set, rho)
+      NULLIFY(deriv_set, input, xc_functionals, para_env, rho_ao, pab)
 
       CALL timeset(routineN, handle)
 
@@ -1058,16 +1053,19 @@ CONTAINS
       CALL compute_ri_overlaps(xas_atom_env, qs_env)
       CALL exat_to_proc(xas_atom_env, qs_env)
 
-      CALL get_qs_env(qs_env, particle_set=particle_set, qs_kind_set=qs_kind_set, natom=natom, &
+      CALL get_qs_env(qs_env, particle_set=particle_set, natom=natom, &
                       dft_control=dft_control, input=input, para_env=para_env, rho=rho)
-      ALLOCATE(int_fxc(natom, 3))
+      ALLOCATE(int_fxc(natom, 4))
       DO iatom = 1, natom
-         DO i = 1,3
+         DO i = 1,4
             NULLIFY(int_fxc(iatom,i)%array)
          END DO
       END DO
       nex = SIZE(xas_atom_env%excited_atoms)
       nspins = dft_control%nspins
+      !spin conserving in the general sense here
+      do_sc = xas_tdp_control%do_spin_cons .OR. xas_tdp_control%do_singlet .OR. xas_tdp_control%do_triplet
+      do_sf = xas_tdp_control%do_spin_flip
       ALLOCATE(ri_dcoeff(nspins))
       DO ispin = 1,nspins
          NULLIFY(ri_dcoeff(ispin)%array)
@@ -1127,15 +1125,9 @@ CONTAINS
          iatom = xas_atom_env%excited_atoms(iex)
          ikind = particle_set(iatom)%atomic_kind%kind_number
 
-         grid_atom => xas_atom_env%grid_atom_set(ikind)%grid_atom
-         CALL get_qs_kind(qs_kind_set(ikind), basis_set=ri_basis, basis_type="RI_XAS")
-
          ! General grid/basis info
-         na = grid_atom%ng_sphere
-         nr = grid_atom%nr
-         n = na*nr
-         CALL get_gto_basis_set(ri_basis, nset=nset, maxso=maxso)
-         nsotot = nset*maxso
+         na = xas_atom_env%grid_atom_set(ikind)%grid_atom%ng_sphere
+         nr = xas_atom_env%grid_atom_set(ikind)%grid_atom%nr
 
          ! Get the xc functionals subsection
          xc_functionals => section_vals_get_subs_vals(input, "DFT%XAS_TDP%KERNEL%XC_FUNCTIONAL")
@@ -1196,42 +1188,20 @@ CONTAINS
                                            xas_atom_env, qs_env)
          END DO !inb
 
-         ! Compute the kernel on the grid
-         CALL xc_functionals_eval(xc_functionals, lsd=.TRUE., rho_set=rho_set, deriv_set=deriv_set, &
-                                  deriv_order=-2) ! only interested in the second deriv
+      !Now that we have the density on the grid, we can integrate the kernel
 
-         ! Get the second derivative
-         ALLOCATE(d2e(3))
-         deriv => xc_dset_get_derivative(deriv_set, "(rhoa)(rhoa)")
-         CALL xc_derivative_get(deriv, deriv_data=d2e(1)%array)
-         deriv => xc_dset_get_derivative(deriv_set, "(rhoa)(rhob)")
-         CALL xc_derivative_get(deriv, deriv_data=d2e(2)%array)
-         deriv => xc_dset_get_derivative(deriv_set, "(rhob)(rhob)")
-         CALL xc_derivative_get(deriv, deriv_data=d2e(3)%array)
+         !spin-conserving
+         IF (do_sc) THEN
+            CALL integrate_sc_fxc(int_fxc, iatom, ikind, rho_set, deriv_set, xc_functionals, &
+                                  xas_atom_env, qs_env) 
+         END IF
 
-         ! Allocating work arrays
-         CALL get_gto_basis_set(ri_basis, nsgf=ri_nsgf)
-         ALLOCATE(fxc(na,nr))
-         ALLOCATE(int_so(nsotot,nsotot))
-         ri_sphi_so => xas_atom_env%ri_sphi_so(ikind)%array
+         !spin-flip
+         IF (do_sf) THEN
+            CALL integrate_sf_fxc(int_fxc, iatom, ikind, rho_set, deriv_set, xc_functionals, &
+                                  xas_atom_env, qs_env)
+         END IF
 
-         ! Integrate for all three derivatives, taking the grid weight into account
-         ! If closed shell, do not need to integrate beta-beta as it is the same as alpha-alpha
-         ub = 2; IF (nspins == 2) ub = 3
-         DO i = 1,ub
-
-            int_so = 0.0_dp
-            fxc(:,:) = d2e(i)%array(:,:,1)*grid_atom%weight(:,:)
-            CALL integrate_so_prod(int_so, fxc, ikind, xas_atom_env, qs_env)
-
-            !contract into sgf. Array allocate on current processor only
-            ALLOCATE(int_fxc(iatom,i)%array(ri_nsgf,ri_nsgf))
-            CALL contract_so2sgf(int_fxc(iatom,i)%array, int_so, ri_basis, ri_sphi_so)
-
-         END DO
-
-         ! Clean-up
-         DEALLOCATE(int_so, fxc, d2e)
          CALL xc_dset_release(deriv_set)
          CALL xc_rho_set_release(rho_set)
 
@@ -1253,6 +1223,181 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE integrate_fxc_atoms
+
+! **************************************************************************************************
+!> \brief Integrate the fxc kernel in the spin-conserving case, be it closed- or open-shell
+!> \param int_fxc the array containing the (P|fxc|Q) integrals 
+!> \param iatom the index of the current excited atom
+!> \param ikind the index of the current excited kind
+!> \param rho_set the density in the atomic grid
+!> \param deriv_set the set of functional derivatives
+!> \param xc_functionals the input values for the xc functionals
+!> \param xas_atom_env ...
+!> \param qs_env ...
+! **************************************************************************************************
+   SUBROUTINE integrate_sc_fxc(int_fxc, iatom, ikind, rho_set, deriv_set, xc_functionals, &
+                               xas_atom_env, qs_env)
+
+      TYPE(cp_2d_r_p_type), DIMENSION(:,:), POINTER   :: int_fxc
+      INTEGER, INTENT(IN)                             :: iatom, ikind
+      TYPE(xc_rho_set_type), POINTER                  :: rho_set
+      TYPE(xc_derivative_set_type), POINTER           :: deriv_set
+      TYPE(section_vals_type), POINTER                :: xc_functionals
+      TYPE(xas_atom_env_type), POINTER                :: xas_atom_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "integrate_sc_fxc", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: nspins, ub, i, na, nr, ri_nsgf, nsotot, &
+                                                         nset, maxso
+      TYPE(grid_atom_type), POINTER                   :: grid_atom
+      TYPE(xc_derivative_type), POINTER               :: deriv
+      TYPE(cp_3d_r_p_type), DIMENSION(:), ALLOCATABLE :: d2e
+      TYPE(gto_basis_set_type), POINTER               :: ri_basis
+      REAL(dp), DIMENSION(:, :), ALLOCATABLE          :: fxc, int_so
+      REAL(dp), DIMENSION(:,:), POINTER               :: ri_sphi_so
+      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
+      TYPE(dft_control_type), POINTER                 :: dft_control
+
+      NULLIFY(grid_atom, deriv, ri_basis, ri_sphi_so, qs_kind_set, dft_control)
+
+      ! Initialization
+      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, dft_control=dft_control)
+      grid_atom => xas_atom_env%grid_atom_set(ikind)%grid_atom
+      na = grid_atom%ng_sphere
+      nr = grid_atom%nr
+      CALL get_qs_kind(qs_kind_set(ikind), basis_set=ri_basis, basis_type="RI_XAS")
+      CALL get_gto_basis_set(ri_basis, nset=nset, maxso=maxso, nsgf=ri_nsgf)
+      nsotot = nset*maxso
+      ri_sphi_so => xas_atom_env%ri_sphi_so(ikind)%array
+      nspins = dft_control%nspins
+
+      ! Compute the kernel on the grid => only interested in second derivative
+      CALL xc_functionals_eval(xc_functionals, lsd=.TRUE., rho_set=rho_set, deriv_set=deriv_set, &
+                                deriv_order=-2)
+
+      ! Get the second derivatives
+      ALLOCATE(d2e(3))
+      deriv => xc_dset_get_derivative(deriv_set, "(rhoa)(rhoa)")
+      CALL xc_derivative_get(deriv, deriv_data=d2e(1)%array)
+      deriv => xc_dset_get_derivative(deriv_set, "(rhoa)(rhob)")
+      CALL xc_derivative_get(deriv, deriv_data=d2e(2)%array)
+      deriv => xc_dset_get_derivative(deriv_set, "(rhob)(rhob)")
+      CALL xc_derivative_get(deriv, deriv_data=d2e(3)%array)
+
+      ! Allocate some work arrays
+      ALLOCATE(fxc(na,nr))
+      ALLOCATE(int_so(nsotot,nsotot))
+
+      ! Integrate for all three derivatives, taking the grid weight into account
+      ! If closed shell, do not need to integrate beta-beta as it is the same as alpha-alpha
+      ub = 2; IF (nspins == 2) ub = 3
+      DO i = 1, ub
+
+         int_so = 0.0_dp
+         fxc(:,:) = d2e(i)%array(:,:,1)*grid_atom%weight(:,:)
+         CALL integrate_so_prod(int_so, fxc, ikind, xas_atom_env, qs_env)
+
+         !contract into sgf. Array allocated on current processor only
+         ALLOCATE(int_fxc(iatom,i)%array(ri_nsgf,ri_nsgf))
+         CALL contract_so2sgf(int_fxc(iatom,i)%array, int_so, ri_basis, ri_sphi_so)
+
+      END DO
+
+   END SUBROUTINE integrate_sc_fxc
+
+! **************************************************************************************************
+!> \brief Integrate the fxc kernel in the spin-flip case (open-shell assumed). The spin-flip LDA
+!>        kernel reads: fxc = 1/(rhoa - rhob) * (dE/drhoa - dE/drhob)
+!> \param int_fxc the array containing the (P|fxc|Q) integrals
+!> \param iatom the index of the current excited atom
+!> \param ikind the index of the current excited kind
+!> \param rho_set the density in the atomic grid
+!> \param deriv_set the set of functional derivatives
+!> \param xc_functionals the input values for the xc functionals
+!> \param xas_atom_env ...
+!> \param qs_env ...
+! **************************************************************************************************
+   SUBROUTINE integrate_sf_fxc(int_fxc, iatom, ikind, rho_set, deriv_set, xc_functionals, &
+                               xas_atom_env, qs_env)
+      
+      TYPE(cp_2d_r_p_type), DIMENSION(:,:), POINTER   :: int_fxc
+      INTEGER, INTENT(IN)                             :: iatom, ikind
+      TYPE(xc_rho_set_type), POINTER                  :: rho_set
+      TYPE(xc_derivative_set_type), POINTER           :: deriv_set
+      TYPE(section_vals_type), POINTER                :: xc_functionals
+      TYPE(xas_atom_env_type), POINTER                :: xas_atom_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "integrate_sf_fxc", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: na, nr, ri_nsgf, nsotot, nset, maxso, ir, &
+                                                         ia
+      TYPE(grid_atom_type), POINTER                   :: grid_atom
+      TYPE(xc_derivative_type), POINTER               :: deriv
+      TYPE(cp_3d_r_p_type), DIMENSION(:), ALLOCATABLE :: d1e
+      TYPE(gto_basis_set_type), POINTER               :: ri_basis
+      REAL(dp), DIMENSION(:, :), ALLOCATABLE          :: fxc, int_so
+      REAL(dp), DIMENSION(:,:), POINTER               :: ri_sphi_so
+      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
+      REAL(dp), DIMENSION(:,:,:), POINTER             :: rhoa, rhob
+      TYPE(dft_control_type), POINTER                 :: dft_control
+      
+      NULLIFY(grid_atom, deriv, ri_basis, ri_sphi_so, qs_kind_set, rhoa, rhob, dft_control)
+
+      ! Initialization
+      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, dft_control=dft_control)
+      grid_atom => xas_atom_env%grid_atom_set(ikind)%grid_atom
+      na = grid_atom%ng_sphere
+      nr = grid_atom%nr
+      CALL get_qs_kind(qs_kind_set(ikind), basis_set=ri_basis, basis_type="RI_XAS")
+      CALL get_gto_basis_set(ri_basis, nset=nset, maxso=maxso, nsgf=ri_nsgf)
+      nsotot = nset*maxso
+      ri_sphi_so => xas_atom_env%ri_sphi_so(ikind)%array
+      rhoa => rho_set%rhoa
+      rhob => rho_set%rhob
+
+      ! Compute the first (only) derivatives on the grid
+      CALL xc_functionals_eval(xc_functionals, lsd=.TRUE., rho_set=rho_set, deriv_set=deriv_set, &
+                               deriv_order=-1)
+
+      ALLOCATE(d1e(2))
+      deriv => xc_dset_get_derivative(deriv_set, "(rhoa)")
+      CALL xc_derivative_get(deriv, deriv_data=d1e(1)%array)
+      deriv => xc_dset_get_derivative(deriv_set, "(rhob)")
+      CALL xc_derivative_get(deriv, deriv_data=d1e(2)%array)
+
+      !Compute the kernel on the grid. Already take weight into acocunt there
+      ALLOCATE(fxc(na,nr))
+!$OMP PARALLEL DO COLLAPSE(2) SCHEDULE(STATIC) DEFAULT(NONE), &
+!$OMP SHARED(grid_atom,fxc,d1e,dft_control), &
+!$OMP PRIVATE(ia,ir)
+      DO ir = 1, nr
+         DO ia = 1, na
+
+            !Need to be careful not to devide by zero. Assume that if rhoa == rhob, then
+            !dE/drhoa == dE/drhob and we send everything to zero
+            IF (ABS(rhoa(ia,ir,1)-rhob(ia,ir,1)) > dft_control%qs_control%eps_rho_rspace) THEN
+               fxc(ia,ir) = grid_atom%weight(ia,ir)/(rhoa(ia,ir,1)-rhob(ia,ir,1)) &
+                            * (d1e(1)%array(ia,ir,1) - d1e(2)%array(ia,ir,1))
+            ELSE
+               fxc(ia,ir) = 0.0_dp
+            END IF
+
+         END DO
+      END DO
+!$OMP END PARALLEL DO
+
+      ! Integrate wrt to so
+      ALLOCATE(int_so(nsotot, nsotot))
+      int_so = 0.0_dp
+      CALL integrate_so_prod(int_so, fxc, ikind, xas_atom_env, qs_env)
+
+      ! Contract into sgf. Array located on current processor only
+      ALLOCATE(int_fxc(iatom,4)%array(ri_nsgf,ri_nsgf))
+      CALL contract_so2sgf(int_fxc(iatom,4)%array, int_so, ri_basis, ri_sphi_so)
+
+   END SUBROUTINE integrate_sf_fxc
 
 ! **************************************************************************************************
 !> \brief Contract spherical orbitals to spherical Gaussians (so to sgf)

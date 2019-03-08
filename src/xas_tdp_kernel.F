@@ -11,7 +11,8 @@
 MODULE xas_tdp_kernel
    USE basis_set_types,                 ONLY: gto_basis_set_type, get_gto_basis_set
    USE cp_array_utils,                  ONLY: cp_2d_r_p_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply, dbcsr_deallocate_matrix_set
+   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply, dbcsr_deallocate_matrix_set,&
+                                              dbcsr_allocate_matrix_set
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create, cp_fm_struct_release, &
                                               cp_fm_struct_type
    USE cp_fm_types,                     ONLY: cp_fm_create, cp_fm_release, cp_fm_type, &
@@ -57,9 +58,13 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Computes, if asked for it, the Coulomb and XC kernel matrices, in the usuall matrix format
-!> \param coulomb_kernel pointer the the Coulomb kernel matrix (can be void pointer)
-!> \param xc_kernel_sg pointer the the XC singlet kernel matrix (can be void pointer)
-!> \param xc_kernel_tp pointer the the XC triplet kernel matrix (can be void pointer)
+!> \param coul_ker pointer the the Coulomb kernel matrix (can be void pointer)
+!> \param xc_ker array of pointer to the different xc kernels (5 of them):
+!>               1) the restricted closed-shell singlet kernel
+!>               2) the restricted closed-shell triplet kernel
+!>               3) the spin-conserving open-shell xc kernel
+!>               4) the on-diagonal spin-flip open-shell xc kernel
+!>               5) the off-diagonal spin-flip open-shell xc kernel
 !> \param dist the dbcsr_dist of the kernel matrices
 !> \param blk_size the block size of the kernel matrices
 !> \param donor_state ...
@@ -72,15 +77,13 @@ CONTAINS
 !>       In the above formula, a,b label the sgfs
 !>       The routine analyses the xas_tdp_control to know which kernel must be computed and how
 !>       (open-shell, singlet, triplet, ROKS, LSD, etc...)
+!>       On entry, the pointers should be allocated
 ! **************************************************************************************************
-   SUBROUTINE kernel_coulomb_xc(coulomb_kernel, xc_kernel_os, xc_kernel_sg, xc_kernel_tp, &
-                                dist, blk_size, donor_state, xas_tdp_env, &
+   SUBROUTINE kernel_coulomb_xc(coul_ker, xc_ker, dist, blk_size, donor_state, xas_tdp_env, &
                                 xas_tdp_control, qs_env)
 
-      TYPE(dbcsr_type), POINTER                       :: coulomb_kernel
-      TYPE(dbcsr_type), POINTER                       :: xc_kernel_os
-      TYPE(dbcsr_type), POINTER                       :: xc_kernel_sg
-      TYPE(dbcsr_type), POINTER                       :: xc_kernel_tp
+      TYPE(dbcsr_type), INTENT(INOUT)                 :: coul_ker
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: xc_ker
       TYPE(dbcsr_distribution_type), POINTER          :: dist
       INTEGER, DIMENSION(:), POINTER                  :: blk_size
       TYPE(donor_state_type), POINTER                 :: donor_state
@@ -92,108 +95,80 @@ CONTAINS
 
       INTEGER                                         :: handle, ndo_mo, ri_atom, iex, &
                                                          natom, nsgfp, source, ip, nex_atom, bo(2),&
-                                                         ndo_so, i, ub
+                                                         ndo_so, i, ub, lb
       INTEGER, DIMENSION(:), POINTER                  :: ri_blk_size
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_int, rhs_int, matrices, lhs_work
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_int, rhs_int, matrices
       REAL(dp), DIMENSION(:,:), POINTER               :: PQ
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: fxc
-      TYPE(dbcsr_type), POINTER                       :: work_mat
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
       TYPE(cp_para_env_type), POINTER                 :: para_env
-      LOGICAL                                         :: found, do_roks, do_uks, quadrants(3), &
-                                                         do_coulomb, do_xc, do_sg, do_tp
+      LOGICAL                                         :: found, do_coulomb, do_xc, do_sg, do_tp, &
+                                                         do_sc, do_sf
 
-      NULLIFY(lhs_int, rhs_int, PQ, ri_blk_size, dbcsr_dist, lhs_work, matrices, work_mat, para_env)
+      NULLIFY(lhs_int, rhs_int, PQ, ri_blk_size, dbcsr_dist, matrices, para_env)
 
       CALL timeset(routineN, handle)
 
 !  Initialization
-      CPASSERT(ASSOCIATED(xc_kernel_os))
       ndo_mo = donor_state%ndo_mo
-      ndo_so = ndo_mo
-      do_uks = xas_tdp_control%do_uks
-      do_roks = xas_tdp_control%do_roks
       do_xc = xas_tdp_control%do_xc
       do_sg = xas_tdp_control%do_singlet
       do_tp = xas_tdp_control%do_triplet
-      IF (do_uks) ndo_so = 2*ndo_mo
+      do_sc = xas_tdp_control%do_spin_cons
+      do_sf = xas_tdp_control%do_spin_flip
+      ndo_so = ndo_mo; IF (xas_tdp_control%do_uks) ndo_so = 2*ndo_mo
       ri_atom = donor_state%at_index
       CALL get_qs_env(qs_env, natom=natom, dbcsr_dist=dbcsr_dist, para_env=para_env)
-      !we always need the coulomb kernel, except for triplets
-      do_coulomb = .TRUE.; IF (do_tp .AND. .NOT. do_sg) do_coulomb = .FALSE.
+      !we always need the coulomb kernel, except for triplets only or spin-flip only
+      do_coulomb = .TRUE.
+      IF ((do_tp .AND. .NOT. do_sg) .OR. (do_sf .AND. .NOT. do_sc)) do_coulomb = .FALSE.
 
-!  Get the RI inverse coulomb for the excited kind (P|Q)^-1
+! Pre-kernel calculation RI preparation
+
+   !  Get the RI inverse coulomb for the excited kind (P|Q)^-1
       PQ => xas_tdp_env%ri_inv_coul
       nsgfp = SIZE(PQ, 1)
 
-!  Get the contracted 3-center integrals in lhs_int and copy them into rhs_int
+   !  Get the contracted 3-center integrals in lhs_int and copy them into rhs_int
       CALL contract_o3c_int(lhs_int, "COULOMB", donor_state, xas_tdp_env, xas_tdp_control, qs_env)
       ALLOCATE(rhs_int(ndo_so))
       CALL copy_ri_contr_int(rhs_int, lhs_int)
 
-!  In both Coulomb and XC need to multiply lhs_int by (P|Q)^-1
-!  Coming out of contract_o3c_int, the intrgrals are (aI_b|P), so need to sum over b as well
-!  => create a symmetric matrix with the same block dist as contr_int and (P|Q)^-1 everywhere
-      ALLOCATE(ri_blk_size(natom), work_mat)
+   !  In both Coulomb and XC need to multiply lhs_int by (P|Q)^-1
+   !  Coming out of contract_o3c_int, the intrgrals are (aI_c|P), so still need to sum over c
+   !  => create a symmetric matrix with the same block dist as contr_int and (P|Q)^-1 everywhere
+      CALL dbcsr_allocate_matrix_set(matrices, 1)
+      ALLOCATE(ri_blk_size(natom), matrices(1)%matrix)
       ri_blk_size = nsgfp
-      CALL dbcsr_create(work_mat, name="WORK", matrix_type="S", dist=dbcsr_dist, &
+      CALL dbcsr_create(matrices(1)%matrix, name="WORK", matrix_type="S", dist=dbcsr_dist, &
                         row_blk_size=ri_blk_size, col_blk_size=ri_blk_size)
-      ALLOCATE(matrices(1))
-      matrices(1)%matrix => work_mat
       CALL reserve_contraction_blocks(matrices, xas_tdp_env%lb_o3c_coul, xas_tdp_env%ub_o3c_coul, &
                                       qs_env, block_content=PQ)
-      DEALLOCATE(matrices)
 
-      ! After this all rows of LHS contain (aI|P)*(P|Q)^-1 integrals (identitcal columns)
+      ! After this each row of LHS with index a contains (aI|P)*(P|Q)^-1 (identitcal block columns)
       DO i = 1, ndo_so
-         CALL dbcsr_multiply('N', 'N', 1.0_dp, lhs_int(i)%matrix, work_mat, 0.0_dp, lhs_int(i)%matrix)
+         CALL dbcsr_multiply('N', 'N', 1.0_dp, lhs_int(i)%matrix, matrices(1)%matrix, 0.0_dp, &
+                             lhs_int(i)%matrix)
       END DO
 
-      CALL dbcsr_release(work_mat)
+      CALL dbcsr_deallocate_matrix_set(matrices)
       DEALLOCATE(ri_blk_size)
 
 !  Deal with the Coulomb case  
-      IF (do_coulomb) THEN
-
-         ! Create a normal type work matrix
-         CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
-                           row_blk_size=blk_size, col_blk_size=blk_size)
-
-         !Compute the product (rhs_int is still in (aI_b|P) format, sum over b done during the MM
-         !In the special case of ROKS, same MOs for each spin => put same (aI|Jb) product on the
-         !alpha-alpha, alpha-beta and beta-beta quadrants of the kernel matrix.
-         quadrants = .FALSE.
-         IF (do_roks) THEN
-            quadrants(1:3) = .TRUE.
-         ELSE
-            quadrants(1) = .TRUE.
-         END IF
-         CALL ri_int_product(work_mat, lhs_int, rhs_int, quadrants, qs_env)
-         CALL dbcsr_finalize(work_mat)
-
-         !Create the symmetric kernel matrix and redistribute work_mat into it
-         CALL dbcsr_create(coulomb_kernel, name="COULOMB KERNEL", matrix_type="S", dist=dist, &
-                           row_blk_size=blk_size, col_blk_size=blk_size)
-         CALL dbcsr_complete_redistribute(work_mat, coulomb_kernel)
-
-         CALL dbcsr_release(work_mat)
-
-      END IF !do_coulomb
+      IF (do_coulomb) CALL coulomb(coul_ker, lhs_int, rhs_int, dist, blk_size, &
+                                   xas_tdp_control, qs_env)
 
 !  Deal with the XC case
       IF (do_xc) THEN
 
          ! In the end, we compute: (aI|fxc|Jb) = (aI|P) (P|Q)^-1 (Q|fxc|R) (R|S)^-1 (S|Jb)
-         ! where fxc can take different spin contributions => Keep lhs_int as (aI|P) (P|Q)^-1 and
-         ! copy it into lhs_work, so that the proper product with fxc can be taken for each case
-         ALLOCATE(lhs_work(ndo_so))
+         ! where fxc can take different spin contributions => Keep lhs_int as (aI|P) (P|Q)^-1
 
          ! Precompute the product (R|S)^-1 (S|Jb) and store it in rhs_int
-         ! Careful: rhs_int is still in the (aI_b|P) format, the contraction over I is made in the
+         ! Careful: rhs_int is still in the (aI_c|P) format, the contraction over I is made in the
          !          final MM product
          CALL ri_all_blocks_mm(rhs_int, PQ)
 
-         ! Find on which processor the integrals (Q|fxc|R) for this atom are stored
+      ! Find on which processor the integrals (Q|fxc|R) for this atom are stored
          CALL get_qs_env(qs_env, para_env=para_env)
          found = .FALSE.
          nex_atom = SIZE(xas_tdp_env%ex_atom_indices)
@@ -212,8 +187,9 @@ CONTAINS
          END DO !ip
 
       ! Broadcast the integrals to all procs (delete it later)
-         ub = 2; IF (do_uks .OR. do_roks) ub = 3
-         DO i = 1,ub
+         lb = 1; IF (do_sf .AND. .NOT. do_sc) lb = 4
+         ub = 2; IF (do_sc) ub = 3; IF (do_sf) ub = 4
+         DO i = lb,ub
             IF (.NOT. ASSOCIATED(xas_tdp_env%ri_fxc(ri_atom,i)%array)) THEN
                ALLOCATE(xas_tdp_env%ri_fxc(ri_atom,i)%array(nsgfp, nsgfp))
             END IF
@@ -221,169 +197,407 @@ CONTAINS
          END DO
 
       ! Case study on the calculation type
-         IF (do_uks) THEN
-
-            ! Here we have different kernels and contracted RI integrals for each spin quadrant
-            ! Create a normal type work matrix 
-            CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
-                              row_blk_size=blk_size, col_blk_size=blk_size)
-
-         ! alpha-alpha kernel (and MOs) in the upper left quadrant
-            quadrants = .FALSE.; quadrants(1) = .TRUE.
-
-            ! Copy the alpha part of lhs_int, multiply by the alpha-alpha (Q|fxc|R) and then
-            ! by the alpha part of rhs_int
-            CALL copy_ri_contr_int(lhs_work(1:ndo_mo), lhs_int(1:ndo_mo))
-            CALL ri_all_blocks_mm(lhs_work(1:ndo_mo), xas_tdp_env%ri_fxc(ri_atom,1)%array)
-            CALL ri_int_product(work_mat, lhs_work(1:ndo_mo), rhs_int(1:ndo_mo), quadrants, qs_env)
-
-         ! alpha-beta kernel (and MOs) in the upper-right quadrant
-            quadrants = .FALSE.; quadrants(2) = .TRUE.
-
-            !Copy the alpha part of LHS, multiply by the alpha-beta kernel and the beta part of RHS
-            CALL copy_ri_contr_int(lhs_work(1:ndo_mo), lhs_int(1:ndo_mo))
-            CALL ri_all_blocks_mm(lhs_work(1:ndo_mo), xas_tdp_env%ri_fxc(ri_atom,2)%array)
-            CALL ri_int_product(work_mat, lhs_work(1:ndo_mo), rhs_int(ndo_mo+1:2*ndo_mo), &
-                                    quadrants, qs_env)
-
-         ! Finally the beta-beta kernel in the lower-right quadrant
-            quadrants = .FALSE.; quadrants(3) = .TRUE.
-
-            !Copy the beta part of LHS, multiply by the beta-beta kernel and the beta part of RHS
-            CALL copy_ri_contr_int(lhs_work(ndo_mo+1:2*ndo_mo), lhs_int(ndo_mo+1:2*ndo_mo))
-            CALL ri_all_blocks_mm(lhs_work(ndo_mo+1:2*ndo_mo), xas_tdp_env%ri_fxc(ri_atom,3)%array)
-            CALL ri_int_product(work_mat, lhs_work(ndo_mo+1:2*ndo_mo), rhs_int(ndo_mo+1:2*ndo_mo), &
-                                    quadrants, qs_env)
-
-            CALL dbcsr_finalize(work_mat)
-            !Create the symmetric kernel matrix and redistribute work_mat into it
-            CALL dbcsr_create(xc_kernel_os, name="XC OS KERNEL", matrix_type="S", dist=dist, &
-                              row_blk_size=blk_size, col_blk_size=blk_size)
-            CALL dbcsr_complete_redistribute(work_mat, xc_kernel_os) 
-
-            CALL dbcsr_release(work_mat)
-
+         IF (do_sg .OR. do_tp) THEN
+            CALL rcs_xc(xc_ker(1)%matrix, xc_ker(2)%matrix, lhs_int, rhs_int, dist, blk_size, &
+                        donor_state, xas_tdp_env, xas_tdp_control, qs_env)
          END IF
 
-         IF (do_roks) THEN
-
-            ! In ROKS. we have different kernel for each spin quadrant, but the same MOs
-            CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
-                              row_blk_size=blk_size, col_blk_size=blk_size)
-
-         ! alpha-alpha kernel in the upper left quadrant
-            quadrants = .FALSE.; quadrants(1) = .TRUE. 
-
-            !Copy the LHS and multiply by alpha-alpha kernel
-            CALL copy_ri_contr_int(lhs_work, lhs_int)
-            CALL ri_all_blocks_mm(lhs_work, xas_tdp_env%ri_fxc(ri_atom,1)%array)
-            CALL ri_int_product(work_mat, lhs_work, rhs_int, quadrants, qs_env)
-
-         ! alpha-beta kernel in the upper-right quadrant
-            quadrants = .FALSE.; quadrants(2) = .TRUE.
-
-            !Copy LHS and multiply by the alpha-beta kernel
-            CALL copy_ri_contr_int(lhs_work, lhs_int)
-            CALL ri_all_blocks_mm(lhs_work, xas_tdp_env%ri_fxc(ri_atom,2)%array)
-            CALL ri_int_product(work_mat, lhs_work, rhs_int, quadrants, qs_env)
-
-         ! Finally the beta-beta kernel in the lower-right quadrant
-            quadrants = .FALSE.; quadrants(3) = .TRUE.
-
-            !Copy the LHS and multiply by the beta-beta kernel
-            CALL copy_ri_contr_int(lhs_work, lhs_int)
-            CALL ri_all_blocks_mm(lhs_work, xas_tdp_env%ri_fxc(ri_atom,3)%array)
-            CALL ri_int_product(work_mat, lhs_work, rhs_int, quadrants, qs_env)
-
-            CALL dbcsr_finalize(work_mat)
-            !Create the symmetric kernel matrix and redistribute work_mat into it
-            CALL dbcsr_create(xc_kernel_os, name="XC OS KERNEL", matrix_type="S", dist=dist, &
-                              row_blk_size=blk_size, col_blk_size=blk_size)
-            CALL dbcsr_complete_redistribute(work_mat, xc_kernel_os) 
-
-            CALL dbcsr_release(work_mat)
-
+         IF (do_sc) THEN
+            CALL sc_os_xc(xc_ker(3)%matrix, lhs_int, rhs_int, dist, blk_size, donor_state, &
+                          xas_tdp_env, xas_tdp_control, qs_env)
          END IF
 
-         IF (do_sg) THEN
-
-            ! Take the sum of fxc for alpha-alpha and alpha-beta
-            ALLOCATE(fxc(nsgfp, nsgfp))
-            CALL dcopy(nsgfp*nsgfp, xas_tdp_env%ri_fxc(ri_atom,1)%array, 1, fxc, 1)
-            CALL daxpy(nsgfp*nsgfp, 1.0_dp, xas_tdp_env%ri_fxc(ri_atom,2)%array, 1, fxc, 1)
-
-            ! Copy the fresh lhs_int = (aI|P) (P|Q)^-1 and multiply by (Q|fxc|R)
-            CALL copy_ri_contr_int(lhs_work, lhs_int)
-            CALL ri_all_blocks_mm(lhs_work, fxc)
-
-            ! Create a normal type work matrix
-            CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
-                              row_blk_size=blk_size, col_blk_size=blk_size)
-
-            ! Compute the final LHS RHS product => spin-restricted, only upper-left quadrant
-            quadrants = .FALSE.; quadrants(1) = .TRUE.
-            CALL ri_int_product(work_mat, lhs_work, rhs_int, quadrants, qs_env)
-            CALL dbcsr_finalize(work_mat)
-
-            !Create the symmetric kernel matrix and redistribute work_mat into it
-            CALL dbcsr_create(xc_kernel_sg, name="XC SINGLET KERNEL", matrix_type="S", dist=dist, &
-                              row_blk_size=blk_size, col_blk_size=blk_size)
-            CALL dbcsr_complete_redistribute(work_mat, xc_kernel_sg)
-
-            CALL dbcsr_release(work_mat)  
-            DEALLOCATE(fxc)
+         IF (do_sf) THEN
+            CALL ondiag_sf_os_xc(xc_ker(4)%matrix, lhs_int, rhs_int, dist, blk_size, donor_state, &
+                                 xas_tdp_env, xas_tdp_control, qs_env)
          END IF
 
-         IF (do_tp) THEN
-
-            ! Take the difference of fxc for alpha-alpha and alpha-beta
-            ALLOCATE(fxc(nsgfp, nsgfp))
-            CALL dcopy(nsgfp*nsgfp, xas_tdp_env%ri_fxc(ri_atom,1)%array, 1, fxc, 1)
-            CALL daxpy(nsgfp*nsgfp, -1.0_dp, xas_tdp_env%ri_fxc(ri_atom,2)%array, 1, fxc, 1)
-
-            ! Copy the fresh lhs_int = (aI|P) (P|Q)^-1 and multiply by (Q|fxc|R)
-            CALL copy_ri_contr_int(lhs_work, lhs_int)
-            CALL ri_all_blocks_mm(lhs_work, fxc)
-
-            ! Create a normal type work matrix
-            CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
-                              row_blk_size=blk_size, col_blk_size=blk_size)
-
-            ! Compute the final LHS RHS product => spin-restricted, only upper-left quadrant
-            quadrants = .FALSE.; quadrants(1) = .TRUE.
-            CALL ri_int_product(work_mat, lhs_work, rhs_int, quadrants, qs_env)
-            CALL dbcsr_finalize(work_mat)
-
-            !Create the symmetric kernel matrix and redistribute work_mat into it
-            CALL dbcsr_create(xc_kernel_tp, name="XC TRIPLET KERNEL", matrix_type="S", dist=dist, &
-                              row_blk_size=blk_size, col_blk_size=blk_size)
-            CALL dbcsr_complete_redistribute(work_mat, xc_kernel_tp)
-
-            CALL dbcsr_release(work_mat)  
-            DEALLOCATE(fxc) 
+         IF (do_sf .AND. .NOT. xas_tdp_control%tamm_dancoff) THEN
+            CPABORT("NYI")
          END IF
-
-         !xc specific clean-up
-         DO i = 1,ndo_so
-            CALL dbcsr_release(lhs_work(i)%matrix)
-            DEALLOCATE(lhs_work(i)%matrix)
-         END DO
-         DEALLOCATE(lhs_work)
-
+ 
       END IF ! do_xc
 
 !  Clean-up
-      DO i = 1,ndo_so
-         CALL dbcsr_release(lhs_int(i)%matrix)
-         CALL dbcsr_release(rhs_int(i)%matrix)
-         DEALLOCATE(lhs_int(i)%matrix, rhs_int(i)%matrix)
-      END DO
-      DEALLOCATE(lhs_int, rhs_int, work_mat)
+      CALL dbcsr_deallocate_matrix_set(lhs_int)
+      CALL dbcsr_deallocate_matrix_set(rhs_int)
 
       CALL timestop(handle)
    
    END SUBROUTINE kernel_coulomb_xc
    
+! **************************************************************************************************
+!> \brief Create the matrix containing the Coulomb kernel, which is:
+!>        (aI_sigma|J_tau b) ~= (aI_sigma|P) * (P|Q) * (Q|J_tau b)
+!> \param coul_ker the Coulomb kernel
+!> \param lhs_int the LHS part of the RI: (aI_sigma|P)*(P|Q)^-1, each element of the array is the
+!>                contraction for a specific donor spin-orbital
+!> \param rhs_int the RHS part of the RI: (bJ_tau|Q), not fully contracted yet, to be transposed too
+!> \param dist the inherited dbcsr ditribution
+!> \param blk_size the inherited block sizes
+!> \param xas_tdp_control ...
+!> \param qs_env ...
+! **************************************************************************************************
+   SUBROUTINE  coulomb(coul_ker, lhs_int, rhs_int, dist, blk_size, xas_tdp_control, qs_env)
+      
+      TYPE(dbcsr_type), INTENT(INOUT)                 :: coul_ker
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_int, rhs_int
+      TYPE(dbcsr_distribution_type), POINTER          :: dist
+      INTEGER, DIMENSION(:), POINTER                  :: blk_size
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "coulomb", routineP = moduleN//":"//routineN
+
+      TYPE(dbcsr_type)                                :: work_mat
+      LOGICAL                                         :: quadrants(3)
+
+      ! Create a normal type work matrix
+      CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
+                        row_blk_size=blk_size, col_blk_size=blk_size)
+
+      !Compute the product (rhs_int is still in (aI_b|P) format, that is not fully contracted over b
+      !the sum over b is done during the MM
+      !In the special case of ROKS, same MOs for each spin => put same (aI|Jb) product on the
+      !alpha-alpha, alpha-beta and beta-beta quadrants of the kernel matrix.
+      quadrants = .FALSE.
+      IF (xas_tdp_control%do_roks) THEN
+         quadrants(1:3) = .TRUE.
+      ELSE
+         quadrants(1) = .TRUE.
+      END IF
+      CALL ri_int_product(work_mat, lhs_int, rhs_int, quadrants, qs_env)
+      CALL dbcsr_finalize(work_mat)
+
+      !Create the symmetric kernel matrix and redistribute work_mat into it
+      CALL dbcsr_create(coul_ker, name="COULOMB KERNEL", matrix_type="S", dist=dist, &
+                        row_blk_size=blk_size, col_blk_size=blk_size)
+      CALL dbcsr_complete_redistribute(work_mat, coul_ker)
+
+      !clean-up
+      CALL dbcsr_release(work_mat)
+
+   END SUBROUTINE coulomb
+
+! **************************************************************************************************
+!> \brief Create the matrix containing the XC kenrel in the spin-conserving open-shell case:
+!>        (aI_sigma|fxc|J_tau b) ~= (aI_sigma|P) (P|Q)^-1 (Q|fxc|R) (R|S)^-1 (S|J_tau b)
+!> \param xc_ker the kernel matrix
+!> \param lhs_int the LHS part of the RI: (aI_sigma|P) (P|Q)^-1
+!> \param rhs_int the RHS part of the RI: (bJ_tau|S) (S|R)^-1, not fully contracted yet
+!> \param dist inherited dbcsr dist
+!> \param blk_size inherited block sizes
+!> \param donor_state ...
+!> \param xas_tdp_env ...
+!> \param xas_tdp_control ...
+!> \param qs_env ...
+!> note Prior to calling this function, the (Q|fxc|R) integral must be brodcasted to all procs
+! **************************************************************************************************
+   SUBROUTINE sc_os_xc(xc_ker, lhs_int, rhs_int, dist, blk_size, donor_state, xas_tdp_env, &
+                       xas_tdp_control, qs_env)
+
+      TYPE(dbcsr_type), INTENT(INOUT)                 :: xc_ker
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_int, rhs_int
+      TYPE(dbcsr_distribution_type), POINTER          :: dist
+      INTEGER, DIMENSION(:), POINTER                  :: blk_size
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "sc_os_xc", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: ndo_mo, ri_atom
+      TYPE(dbcsr_type)                                :: work_mat
+      LOGICAL                                         :: quadrants(3)
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_work
+
+      NULLIFY(lhs_work)
+
+   ! Initialization
+      ndo_mo = donor_state%ndo_mo
+      ri_atom = donor_state%at_index
+      !normal type work matrix such that distribution of all spin quadrants match
+      CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
+                        row_blk_size=blk_size, col_blk_size=blk_size)
+      !Create a lhs_work, in which the whole (aI_sigma|P) (P|Q)^-1 (Q|fxc|R) will be put
+      ALLOCATE(lhs_work(SIZE(lhs_int)))
+
+   ! Case study: UKS or ROKS ?
+      IF (xas_tdp_control%do_uks) THEN
+
+         ! In the case of UKS, donor MOs might be different for different spins. Moreover, the 
+         ! fxc itself might change since fxc = fxc_sigma,tau
+         ! => Carfully treat each spin-quadrant separately
+
+      ! alpha-alpha spin quadrant (upper-lefet)
+         quadrants = .FALSE.; quadrants(1) = .TRUE.
+
+         ! Copy the alpha part of lhs_int, multiply by the alpha-alpha (Q|fxc|R) and then
+         ! by the alpha part of rhs_int
+         CALL copy_ri_contr_int(lhs_work(1:ndo_mo), lhs_int(1:ndo_mo))
+         CALL ri_all_blocks_mm(lhs_work(1:ndo_mo), xas_tdp_env%ri_fxc(ri_atom,1)%array)
+         CALL ri_int_product(work_mat, lhs_work(1:ndo_mo), rhs_int(1:ndo_mo), quadrants, qs_env)
+
+      ! alpha-beta spin quadrant (upper-right)
+         quadrants = .FALSE.; quadrants(2) = .TRUE.
+
+         !Copy the alpha part of LHS, multiply by the alpha-beta kernel and the beta part of RHS
+         CALL copy_ri_contr_int(lhs_work(1:ndo_mo), lhs_int(1:ndo_mo))
+         CALL ri_all_blocks_mm(lhs_work(1:ndo_mo), xas_tdp_env%ri_fxc(ri_atom,2)%array)
+         CALL ri_int_product(work_mat, lhs_work(1:ndo_mo), rhs_int(ndo_mo+1:2*ndo_mo), &
+                             quadrants, qs_env)
+
+      ! beta-beta spin quadrant (lower-right)
+         quadrants = .FALSE.; quadrants(3) = .TRUE.
+
+         !Copy the beta part of LHS, multiply by the beta-beta kernel and the beta part of RHS
+         CALL copy_ri_contr_int(lhs_work(ndo_mo+1:2*ndo_mo), lhs_int(ndo_mo+1:2*ndo_mo))
+         CALL ri_all_blocks_mm(lhs_work(ndo_mo+1:2*ndo_mo), xas_tdp_env%ri_fxc(ri_atom,3)%array)
+         CALL ri_int_product(work_mat, lhs_work(ndo_mo+1:2*ndo_mo), rhs_int(ndo_mo+1:2*ndo_mo), &
+                             quadrants, qs_env)
+
+      ELSE IF (xas_tdp_control%do_roks) THEN
+
+         ! In the case of ROKS, fxc = fxc_sigma,tau is different for each spin quadrant, but the
+         ! donor MOs remain the same
+
+      ! alpha-alpha kernel in the upper left quadrant
+         quadrants = .FALSE.; quadrants(1) = .TRUE.
+
+         !Copy the LHS and multiply by alpha-alpha kernel
+         CALL copy_ri_contr_int(lhs_work, lhs_int)
+         CALL ri_all_blocks_mm(lhs_work, xas_tdp_env%ri_fxc(ri_atom,1)%array)
+         CALL ri_int_product(work_mat, lhs_work, rhs_int, quadrants, qs_env)
+
+      ! alpha-beta kernel in the upper-right quadrant
+         quadrants = .FALSE.; quadrants(2) = .TRUE.
+
+         !Copy LHS and multiply by the alpha-beta kernel
+         CALL copy_ri_contr_int(lhs_work, lhs_int)
+         CALL ri_all_blocks_mm(lhs_work, xas_tdp_env%ri_fxc(ri_atom,2)%array)
+         CALL ri_int_product(work_mat, lhs_work, rhs_int, quadrants, qs_env)
+
+      ! beta-beta kernel in the lower-right quadrant
+         quadrants = .FALSE.; quadrants(3) = .TRUE.
+
+         !Copy the LHS and multiply by the beta-beta kernel
+         CALL copy_ri_contr_int(lhs_work, lhs_int)
+         CALL ri_all_blocks_mm(lhs_work, xas_tdp_env%ri_fxc(ri_atom,3)%array)
+         CALL ri_int_product(work_mat, lhs_work, rhs_int, quadrants, qs_env)
+
+      END IF
+      CALL dbcsr_finalize(work_mat)
+
+   ! Create a symmetric kernel matrix and redistribute the normal work matrix into it
+      CALL dbcsr_create(xc_ker, name="SC OS XC KERNEL", matrix_type="S", dist=dist, &
+                        row_blk_size=blk_size, col_blk_size=blk_size)
+      CALL dbcsr_complete_redistribute(work_mat, xc_ker)
+
+   !clean-up
+      CALL dbcsr_deallocate_matrix_set(lhs_work)
+      CALL dbcsr_release(work_mat)
+
+   END SUBROUTINE sc_os_xc
+
+! **************************************************************************************************
+!> \brief Create the matrix containing the on-diagonal spin-flip XC kernel (open-shell), which is:
+!>        (a I_sigma|fxc|J_tau b) * delta_sigma,tau, fxc = 1/(rhoa-rhob) * (dE/drhoa - dE/drhob)
+!>        with RI: (a I_sigma|fxc|J_tau b) ~= (aI_sigma|P) (P|Q)^-1 (Q|fxc|R) (R|S)^-1 (S|J_tau b)
+!> \param xc_ker the kernel matrix
+!> \param lhs_int the LHS part of the RI: (aI_sigma|P) (P|Q)^-1
+!> \param rhs_int the RHS part of the RI: (bJ_tau|S) (S|R)^-1, not fully contracted yet
+!> \param dist inherited dbcsr dist
+!> \param blk_size inherited block sizes
+!> \param donor_state ...
+!> \param xas_tdp_env ...
+!> \param xas_tdp_control ...
+!> \param qs_env ...
+!> \note  It must be later on multiplied by the spin-swapped Q projector
+!>        Prior to calling this function, the (Q|fxc|R) integral must be brodcasted to all procs
+! **************************************************************************************************
+   SUBROUTINE ondiag_sf_os_xc(xc_ker, lhs_int, rhs_int, dist, blk_size, donor_state, xas_tdp_env, &
+                              xas_tdp_control, qs_env)
+
+      TYPE(dbcsr_type), INTENT(INOUT)                 :: xc_ker
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_int, rhs_int
+      TYPE(dbcsr_distribution_type), POINTER          :: dist
+      INTEGER, DIMENSION(:), POINTER                  :: blk_size
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "ondiag_sf_os_xc", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: ndo_mo, ri_atom
+      TYPE(dbcsr_type)                                :: work_mat
+      LOGICAL                                         :: quadrants(3)
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_work
+
+      NULLIFY(lhs_work)
+
+   ! Initialization
+      ndo_mo = donor_state%ndo_mo
+      ri_atom = donor_state%at_index
+      !normal type work matrix such that distribution of all spin quadrants match
+      CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
+                        row_blk_size=blk_size, col_blk_size=blk_size)
+      !Create a lhs_work, in which the whole (aI_sigma|P) (P|Q)^-1 (Q|fxc|R) will be put
+      !because in spin-flip fxc is spin-independant, can take the product once and for all
+      ALLOCATE(lhs_work(SIZE(lhs_int)))
+      CALL copy_ri_contr_int(lhs_work(:), lhs_int(:))
+      CALL ri_all_blocks_mm(lhs_work(:), xas_tdp_env%ri_fxc(ri_atom,4)%array)
+
+   ! Case study: UKS or ROKS ?
+      IF (xas_tdp_control%do_uks) THEN
+
+         ! In the case of UKS, donor MOs might be different for different spins
+         ! => Carfully treat each spin-quadrant separately
+         ! NO alpha-beta because of the delta_sigma,tau
+
+      ! alpha-alpha spin quadrant (upper-lefet)
+         quadrants = .FALSE.; quadrants(1) = .TRUE.
+         CALL ri_int_product(work_mat, lhs_work(1:ndo_mo), rhs_int(1:ndo_mo), quadrants, qs_env)
+
+      ! beta-beta spin quadrant (lower-right)
+         quadrants = .FALSE.; quadrants(3) = .TRUE.
+         CALL ri_int_product(work_mat, lhs_work(ndo_mo+1:2*ndo_mo), rhs_int(ndo_mo+1:2*ndo_mo), &
+                             quadrants, qs_env)
+
+      ELSE IF (xas_tdp_control%do_roks) THEN
+
+         ! In the case of ROKS, same donor MOs for both spins => can do it all at once
+         ! But NOT the alpha-beta quadrant because of delta_sigma,tau
+
+         quadrants(1) = .TRUE.; quadrants(2) = .FALSE.; quadrants(3) = .TRUE.
+         CALL ri_int_product(work_mat, lhs_work, rhs_int, quadrants, qs_env)
+
+      END IF
+      CALL dbcsr_finalize(work_mat)
+
+   ! Create a symmetric kernel matrix and redistribute the normal work matrix into it
+      CALL dbcsr_create(xc_ker, name="ON-DIAG SF OS XC KERNEL", matrix_type="S", dist=dist, &
+                        row_blk_size=blk_size, col_blk_size=blk_size)
+      CALL dbcsr_complete_redistribute(work_mat, xc_ker)
+
+   !clean-up
+      CALL dbcsr_deallocate_matrix_set(lhs_work)
+      CALL dbcsr_release(work_mat)
+
+   END SUBROUTINE ondiag_sf_os_xc
+
+! **************************************************************************************************
+!> \brief Create the matrix containing the XC kernel in the restricted closed-shell case, for
+!>        singlets: (aI|fxc|Jb) = (aI|P) (P|Q)^-1 (Q|fxc_alp,alp+fxc_alp,bet|R) (R|S)^-1 (S|Jb)
+!>        triplets: (aI|fxc|Jb) = (aI|P) (P|Q)^-1 (Q|fxc_alp,alp-fxc_alp,bet|R) (R|S)^-1 (S|Jb)
+!> \param sg_xc_ker the singlet kernel matrix
+!> \param tp_xc_ker the triplet kernel matrix
+!> \param lhs_int the LHS part of the RI: (aI|P) (P|Q)^-1
+!> \param rhs_int the RHS part of the RI: (bJ|S) (S|R)^-1, not fully contracted yet
+!> \param dist inherited dbcsr dist
+!> \param blk_size inherited block sizes
+!> \param donor_state ...
+!> \param xas_tdp_env ...
+!> \param xas_tdp_control ...
+!> \param qs_env ...
+! **************************************************************************************************
+   SUBROUTINE rcs_xc(sg_xc_ker, tp_xc_ker, lhs_int, rhs_int, dist, blk_size, donor_state, &
+                     xas_tdp_env, xas_tdp_control, qs_env)
+
+      TYPE(dbcsr_type), INTENT(INOUT)                 :: sg_xc_ker, tp_xc_ker
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_int, rhs_int
+      TYPE(dbcsr_distribution_type), POINTER          :: dist
+      INTEGER, DIMENSION(:), POINTER                  :: blk_size
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "rcx_xc", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: nsgfp, ri_atom
+      LOGICAL                                         :: quadrants(3)
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: fxc
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_work
+      TYPE(dbcsr_type)                                :: work_mat
+
+      NULLIFY(lhs_work)
+
+   ! Initialization
+      ri_atom = donor_state%at_index
+      nsgfp = SIZE(xas_tdp_env%ri_fxc(ri_atom,1)%array, 1)
+      !Create a lhs_work in which the wholw (aI|P) (P|Q)^-1 (Q|fxc|R) will be placed
+      ALLOCATE(lhs_work(SIZE(lhs_int)))
+
+   ! Case study: singlet and/or triplet ?
+      IF (xas_tdp_control%do_singlet) THEN
+
+         ! singlet work structures
+         ALLOCATE(fxc(nsgfp, nsgfp))
+         CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
+                           row_blk_size=blk_size, col_blk_size=blk_size)
+
+         ! Take the sum of fxc for alpha-alpha and alpha-beta
+         CALL dcopy(nsgfp*nsgfp, xas_tdp_env%ri_fxc(ri_atom,1)%array, 1, fxc, 1)
+         CALL daxpy(nsgfp*nsgfp, 1.0_dp, xas_tdp_env%ri_fxc(ri_atom,2)%array, 1, fxc, 1)
+
+         ! Copy the fresh lhs_int = (aI|P) (P|Q)^-1 and multiply by (Q|fxc|R)
+         CALL copy_ri_contr_int(lhs_work, lhs_int)
+         CALL ri_all_blocks_mm(lhs_work, fxc)
+
+         ! Compute the final LHS RHS product => spin-restricted, only upper-left quadrant
+         quadrants = .FALSE.; quadrants(1) = .TRUE.
+         CALL ri_int_product(work_mat, lhs_work, rhs_int, quadrants, qs_env)
+         CALL dbcsr_finalize(work_mat)
+
+         !Create the symmetric kernel matrix and redistribute work_mat into it
+         CALL dbcsr_create(sg_xc_ker, name="XC SINGLET KERNEL", matrix_type="S", dist=dist, &
+                           row_blk_size=blk_size, col_blk_size=blk_size)
+         CALL dbcsr_complete_redistribute(work_mat, sg_xc_ker)
+
+         !singlet clean-up
+         CALL dbcsr_release(work_mat)
+         DEALLOCATE(fxc)
+
+      END IF
+
+      IF (xas_tdp_control%do_triplet) THEN
+
+         ! triplet work structures
+         ALLOCATE(fxc(nsgfp, nsgfp))
+         CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
+                           row_blk_size=blk_size, col_blk_size=blk_size)
+
+         ! Take the difference of fxc for alpha-alpha and alpha-beta
+         CALL dcopy(nsgfp*nsgfp, xas_tdp_env%ri_fxc(ri_atom,1)%array, 1, fxc, 1)
+         CALL daxpy(nsgfp*nsgfp, -1.0_dp, xas_tdp_env%ri_fxc(ri_atom,2)%array, 1, fxc, 1)
+
+         ! Copy the fresh lhs_int = (aI|P) (P|Q)^-1 and multiply by (Q|fxc|R)
+         CALL copy_ri_contr_int(lhs_work, lhs_int)
+         CALL ri_all_blocks_mm(lhs_work, fxc)
+
+         ! Compute the final LHS RHS product => spin-restricted, only upper-left quadrant
+         quadrants = .FALSE.; quadrants(1) = .TRUE.
+         CALL ri_int_product(work_mat, lhs_work, rhs_int, quadrants, qs_env)
+         CALL dbcsr_finalize(work_mat)
+
+         !Create the symmetric kernel matrix and redistribute work_mat into it
+         CALL dbcsr_create(tp_xc_ker, name="XC TRIPLET KERNEL", matrix_type="S", dist=dist, &
+                           row_blk_size=blk_size, col_blk_size=blk_size)
+         CALL dbcsr_complete_redistribute(work_mat, tp_xc_ker)
+
+         ! triplet clean-up
+         CALL dbcsr_release(work_mat)
+         DEALLOCATE(fxc)
+
+      END IF
+
+   ! clean-up
+      CALL dbcsr_deallocate_matrix_set(lhs_work)
+
+   END SUBROUTINE rcs_xc
+
 ! **************************************************************************************************
 !> \brief Computes the exact exchange kernel matrix using RI. Returns an array of 3 matrices, 
 !>        which are:
@@ -421,15 +635,16 @@ CONTAINS
       INTEGER, DIMENSION(:), POINTER                  :: ri_blk_size
       REAL(dp), DIMENSION(:,:), POINTER               :: PQ
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_int, rhs_int, matrices
-      TYPE(dbcsr_type), POINTER                       :: work_mat
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
 
-      NULLIFY(PQ, lhs_int, rhs_int, dbcsr_dist, work_mat, matrices)
+      NULLIFY(PQ, lhs_int, rhs_int, dbcsr_dist, matrices)
+
+      !Don't do anything if no hfx
+      IF (.NOT. xas_tdp_control%do_hfx) RETURN
 
       CALL timeset(routineN, handle)
       
 !  Initialization
-      IF (.NOT. xas_tdp_control%do_hfx) RETURN
       CALL get_qs_env(qs_env, natom=natom, dbcsr_dist=dbcsr_dist)
       ndo_so = donor_state%ndo_mo; IF (xas_tdp_control%do_uks) ndo_so = 2*ndo_so
 
@@ -454,22 +669,21 @@ CONTAINS
       END IF
 
       ! Multiply lhs by (P|Q)^-1, ensuring the full contraction over b too
-      ALLOCATE(ri_blk_size(natom), work_mat)
+      CALL dbcsr_allocate_matrix_set(matrices, 1)
+      ALLOCATE(ri_blk_size(natom), matrices(1)%matrix)
       ri_blk_size = nsgfp
-      CALL dbcsr_create(work_mat, name="WORK", matrix_type="S", dist=dbcsr_dist, &
+      CALL dbcsr_create(matrices(1)%matrix, name="WORK", matrix_type="S", dist=dbcsr_dist, &
                         row_blk_size=ri_blk_size, col_blk_size=ri_blk_size)
-      ALLOCATE(matrices(1))
-      matrices(1)%matrix => work_mat
       CALL reserve_contraction_blocks(matrices, xas_tdp_env%lb_o3c_coul, xas_tdp_env%ub_o3c_coul, &
                                       qs_env, block_content=PQ)
-      DEALLOCATE(matrices)
 
       ! After this each row of LHS with index a contains (aI|P)*(P|Q)^-1 (identitcal block columns)
       DO i = 1, ndo_so
-         CALL dbcsr_multiply('N', 'N', 1.0_dp, lhs_int(i)%matrix, work_mat, 0.0_dp, lhs_int(i)%matrix)
+         CALL dbcsr_multiply('N', 'N', 1.0_dp, lhs_int(i)%matrix, matrices(1)%matrix, 0.0_dp, &
+                             lhs_int(i)%matrix)
       END DO
 
-      CALL dbcsr_release(work_mat)
+      CALL dbcsr_deallocate_matrix_set(matrices)
       DEALLOCATE(ri_blk_size)
 
 !  The on-diagonal exchange : (ab|P) * (P|Q)^-1 * (Q|I_sigma J_tau) * delta_sigma,tau
@@ -490,7 +704,6 @@ CONTAINS
       !clean-up 
       CALL dbcsr_deallocate_matrix_set(lhs_int)
       IF (do_off_sc .OR. do_off_sf) CALL dbcsr_deallocate_matrix_set(rhs_int)
-      DEALLOCATE(work_mat)
 
       CALL timestop(handle)
 
@@ -515,7 +728,7 @@ CONTAINS
    SUBROUTINE ondiag_ex(ondiag_ex_ker, contr1_int, dist, blk_size, donor_state, xas_tdp_env, &
                             xas_tdp_control, qs_env)
 
-      TYPE(dbcsr_type), POINTER                       :: ondiag_ex_ker
+      TYPE(dbcsr_type), INTENT(INOUT)                 :: ondiag_ex_ker
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: contr1_int
       TYPE(dbcsr_distribution_type), POINTER          :: dist
       INTEGER, DIMENSION(:), POINTER                  :: blk_size
@@ -537,14 +750,14 @@ CONTAINS
       TYPE(cp_fm_type), POINTER                       :: contr2_int
       REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: coeffs
       TYPE(o3c_vec_type), DIMENSION(:), POINTER       :: o3c_vec
-      TYPE(dbcsr_type), POINTER                       :: abIJ, abIJ_desymm, work_mat
-      TYPE(dbcsr_type)                                :: contr1_int_t
+      TYPE(dbcsr_type), POINTER                       :: abIJ
+      TYPE(dbcsr_type)                                :: contr1_int_t, abIJ_desymm, work_mat
       REAL(dp), DIMENSION(:), POINTER                 :: v
       REAL(dp), DIMENSION(:,:), POINTER               :: pblock
       TYPE(dbcsr_iterator_type)                       :: iter
 
       NULLIFY(para_env, blacs_env, matrix_s, ri_blk_size, fm_struct, contr2_int, o3c_vec, v)
-      NULLIFY(vec_blk_size, abIJ, abIJ_desymm, work_mat, pblock)
+      NULLIFY(vec_blk_size, pblock, abIJ)
 
       ! Initialization
       ndo_mo = donor_state%ndo_mo
@@ -569,7 +782,7 @@ CONTAINS
       CALL o3c_vec_create(o3c_vec, vec_blk_size)
 
       ! a and b need to overlap for non-zero (ab|IJ) => same block structure as overlap S
-      ALLOCATE(abIJ, abIJ_desymm, work_mat)
+      ALLOCATE(abIJ)
       CALL dbcsr_copy(abIJ, matrix_s(1)%matrix, name="(ab|IJ)")
       CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
                         row_blk_size=blk_size, col_blk_size=blk_size)
@@ -641,7 +854,7 @@ CONTAINS
       CALL dbcsr_release(work_mat)
       CALL dbcsr_release(abIJ)
       CALL o3c_vec_release(o3c_vec)
-      DEALLOCATE(abIJ, abIJ_desymm, work_mat, o3c_vec, vec_blk_size)
+      DEALLOCATE(o3c_vec, vec_blk_size, abIJ)
 
    END SUBROUTINE ondiag_ex
 
@@ -653,7 +866,7 @@ CONTAINS
 !> \param offdiag_ex_ker the off-diagonal, spin-conserving exchange kernel in dbcsr format
 !> \param lhs_int the LHS part of the RI: (aJ_sigma|P)*(P|Q)^-1, each element of the array is the
 !>                contraction for a specific donor spin-orbital
-!> \param ths_int the RHS part of the RI: (b I_tau|Q), still needs transposing
+!> \param rhs_int the RHS part of the RI: (b I_tau|Q), still needs transposing
 !> \param dist the inherited dbcsr ditribution
 !> \param blk_size the inherited block sizes 
 !> \param donor_state ...
@@ -663,7 +876,7 @@ CONTAINS
    SUBROUTINE offdiag_ex_sc(offdiag_ex_ker, lhs_int, rhs_int, dist, blk_size, donor_state, &
                             xas_tdp_control, qs_env)
 
-      TYPE(dbcsr_type), POINTER                       :: offdiag_ex_ker
+      TYPE(dbcsr_type), INTENT(INOUT)                 :: offdiag_ex_ker
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: lhs_int
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: rhs_int
       TYPE(dbcsr_distribution_type), POINTER          :: dist
@@ -675,10 +888,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "offdiag_ex_sc", routineP = moduleN//":"//routineN
 
       INTEGER                                         :: ndo_mo
-      TYPE(dbcsr_type), POINTER                       :: work_mat
+      TYPE(dbcsr_type)                                :: work_mat
       LOGICAL                                         :: quadrants(3), do_roks, do_uks
-
-      NULLIFY(work_mat)
 
       !Initialization
       ndo_mo = donor_state%ndo_mo
@@ -689,7 +900,6 @@ CONTAINS
       !the transpose of the later, and put the result in the correct spin quadrants
 
       !Create a normal type work matrix
-      ALLOCATE(work_mat)
       CALL dbcsr_create(work_mat, name="WORK", matrix_type="N", dist=dist, &
                         row_blk_size=blk_size, col_blk_size=blk_size)
 
@@ -724,7 +934,6 @@ CONTAINS
 
       !clean-up
       CALL dbcsr_release(work_mat)
-      DEALLOCATE(work_mat)
 
    END SUBROUTINE offdiag_ex_sc
 
@@ -900,7 +1109,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE change_dist(mat_in, mat_out, para_env)
 
-      TYPE(dbcsr_type), POINTER                       :: mat_in, mat_out
+      TYPE(dbcsr_type), INTENT(INOUT)                 :: mat_in, mat_out
       TYPE(cp_para_env_type), POINTER                 :: para_env
 
       CHARACTER(len=*), PARAMETER :: routineN = "change_dist", routineP = moduleN//":"//routineN
@@ -1097,7 +1306,7 @@ CONTAINS
    SUBROUTINE contract_o3c_once(o3c, vec, mat_aIb, mat_bIa, atom_k)
       TYPE(o3c_container_type), POINTER                  :: o3c
       TYPE(o3c_vec_type), DIMENSION(:), POINTER          :: vec
-      TYPE(dbcsr_type), POINTER                          :: mat_aIb, mat_bIa
+      TYPE(dbcsr_type), INTENT(INOUT)                    :: mat_aIb, mat_bIa
       INTEGER, INTENT(IN)                                :: atom_k
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'contract_o3c_once', routineP = moduleN//':'//routineN
@@ -1262,7 +1471,8 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE copy_ri_contr_int(new_int, ref_int)
 
-      TYPE(dbcsr_p_type), DIMENSION(:)                :: new_int, ref_int
+      TYPE(dbcsr_p_type), DIMENSION(:), INTENT(INOUT) :: new_int
+      TYPE(dbcsr_p_type), DIMENSION(:), INTENT(IN)    :: ref_int
 
       CHARACTER(len=*), PARAMETER :: routineN = "copy_ri_contr_int", routineP = moduleN//":"//routineN
 
@@ -1294,8 +1504,8 @@ CONTAINS
    SUBROUTINE ri_int_product(kernel, lhs_int, rhs_int, quadrants, qs_env, mo_transpose)
 
       TYPE(dbcsr_type), INTENT(INOUT)                 :: kernel
-      TYPE(dbcsr_p_type), DIMENSION(:)                :: lhs_int
-      TYPE(dbcsr_p_type), DIMENSION(:)                :: rhs_int
+      TYPE(dbcsr_p_type), DIMENSION(:), INTENT(IN)    :: lhs_int
+      TYPE(dbcsr_p_type), DIMENSION(:), INTENT(IN)    :: rhs_int
       TYPE(qs_environment_type), POINTER              :: qs_env
       LOGICAL, DIMENSION(3), INTENT(IN)               :: quadrants
       LOGICAL, INTENT(IN), OPTIONAL                   :: mo_transpose
