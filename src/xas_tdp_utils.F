@@ -161,18 +161,19 @@ CONTAINS
       REAL(dp)                                        :: sx
       LOGICAL                                         :: do_xc, do_hfx, do_sg, do_tp, do_tda, &
                                                          do_os, do_uks, do_roks, do_sc, do_sf
-      TYPE(dbcsr_type), POINTER                       :: sg_matrix_tdp, tp_matrix_tdp, matrix_a, &
-                                                         matrix_b, matrix_d, matrix_e_sc, proj_Q, &
-                                                         work, matrix_c_sg, matrix_c_tp, proj_Q_sf,& 
-                                                         sc_matrix_tdp, sf_matrix_tdp, matrix_c_os,&
-                                                         matrix_a_sf
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: ex_ker
+      TYPE(dbcsr_type), POINTER                       :: sg_matrix_tdp, tp_matrix_tdp, &
+                                                         matrix_d, matrix_e_sc, matrix_c_ondiag_sf,&
+                                                         matrix_c_sg, matrix_c_tp, & 
+                                                         sc_matrix_tdp, sf_matrix_tdp, matrix_c_sc
+      TYPE(dbcsr_type)                                :: matrix_b, proj_Q, proj_Q_sf, matrix_a, &
+                                                         matrix_a_sf, work
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: ex_ker, xc_ker
       TYPE(dbcsr_distribution_type), POINTER          :: submat_dist
       INTEGER, DIMENSION(:), POINTER                  :: submat_blk_size
 
-      NULLIFY(sg_matrix_tdp, tp_matrix_tdp, submat_dist, submat_blk_size, matrix_a, matrix_b )
-      NULLIFY(matrix_c_sg, matrix_c_tp, matrix_c_os, matrix_d, matrix_e_sc, proj_Q, work)
-      NULLIFY(sc_matrix_tdp, sf_matrix_tdp, ex_ker, proj_Q_sf, matrix_a_sf)
+      NULLIFY(sg_matrix_tdp, tp_matrix_tdp, submat_dist, submat_blk_size, matrix_c_ondiag_sf)
+      NULLIFY(matrix_c_sg, matrix_c_tp, matrix_c_sc, matrix_d, matrix_e_sc)
+      NULLIFY(sc_matrix_tdp, sf_matrix_tdp, ex_ker, xc_ker)
 
       CALL timeset(routineN, handle)
 
@@ -211,7 +212,6 @@ CONTAINS
 !  Allocate and compute all the matrices A, B, C, etc we will need
       
       ! The projector(s) on the unoccupied unperturbed ground state 1-SP and associated work matrix
-      ALLOCATE(proj_Q, proj_Q_sf)
       IF (do_sg .OR. do_tp .OR. do_sc) THEN !spin-conserving
          CALL get_q_projector(proj_Q, submat_dist, submat_blk_size, donor_state, do_os, xas_tdp_env)
       END IF
@@ -219,12 +219,10 @@ CONTAINS
          CALL get_q_projector(proj_Q_sf, submat_dist, submat_blk_size, donor_state, do_os, &
             xas_tdp_env, do_sf=.TRUE.)
       END IF
-      ALLOCATE(work)
       CALL dbcsr_create(matrix=work, matrix_type="N", dist=submat_dist, name="WORK", &
                         row_blk_size=submat_blk_size, col_blk_size=submat_blk_size)
 
       ! The ground state contribution(s)
-      ALLOCATE(matrix_a, matrix_a_sf)
       IF (do_sg .OR. do_tp .OR. do_sc) THEN !spin-conserving
          CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, do_uks, &
                                     do_roks, xas_tdp_env, qs_env)
@@ -235,9 +233,12 @@ CONTAINS
       END IF
 
       ! The Coulomb and XC kernels. Internal analysis to know which matrix to compute
-      ALLOCATE(matrix_b, matrix_c_sg, matrix_c_tp, matrix_c_os)
-      CALL kernel_coulomb_xc(matrix_b, matrix_c_os, matrix_c_sg, matrix_c_tp, submat_dist, &
-                             submat_blk_size, donor_state, xas_tdp_env, xas_tdp_control, qs_env)
+      CALL dbcsr_allocate_matrix_set(xc_ker, 4)
+      ALLOCATE(xc_ker(1)%matrix, xc_ker(2)%matrix, xc_ker(3)%matrix, xc_ker(4)%matrix)
+      CALL kernel_coulomb_xc(matrix_b, xc_ker, submat_dist, submat_blk_size, donor_state, &
+                             xas_tdp_env, xas_tdp_control, qs_env)
+      matrix_c_sg => xc_ker(1)%matrix; matrix_c_tp => xc_ker(2)%matrix
+      matrix_c_sc => xc_ker(3)%matrix; matrix_c_ondiag_sf => xc_ker(4)%matrix
 
       ! The exact exchange. Internal analysis to know which matrices to compute
       CALL dbcsr_allocate_matrix_set(ex_ker, 3)
@@ -257,8 +258,8 @@ CONTAINS
                            qs_env, do_os, do_inv=.TRUE.)
       END IF
 
-! TODO: probably should branch into 2 or three subroutines for closed-shell, spin-conserving
-!       and spin-flip to avoid this whole mess
+! TODO: -probably should branch into 2 or three subroutines for closed-shell, spin-conserving
+!        and spin-flip to avoid this whole mess
 
 !  Build the eigenvalue problem, depending on the case (TDA, singlet, triplet, hfx, etc ...)
       IF (do_tda) THEN
@@ -269,7 +270,7 @@ CONTAINS
             CALL dbcsr_copy(sc_matrix_tdp, matrix_a, name="OS MATRIX TDP")
             CALL dbcsr_add(sc_matrix_tdp, matrix_b, 1.0_dp, 1.0_dp)
 
-            IF (do_xc) CALL dbcsr_add(sc_matrix_tdp, matrix_c_os, 1.0_dp, 1.0_dp) !xc kernel
+            IF (do_xc) CALL dbcsr_add(sc_matrix_tdp, matrix_c_sc, 1.0_dp, 1.0_dp) !xc kernel
             IF (do_hfx) CALL dbcsr_add(sc_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx) !scaled hfx
 
             ! The product with the Q projector
@@ -280,12 +281,10 @@ CONTAINS
 
          IF (do_sf) THEN ! open-shell spin-flip under TDA
 
-            ! The final matrix is M = A - D (for now)
+            ! The final matrix is M = A + C - D (for now)
              CALL dbcsr_copy(sf_matrix_tdp, matrix_a_sf, name="OS MATRIX TDP")
 
-             IF (do_xc) THEN
-               CPABORT("NYI")
-             END IF
+             IF (do_xc) CALL dbcsr_add(sf_matrix_tdp, matrix_c_ondiag_sf, 1.0_dp, 1.0_dp) !xc kernel
              IF (do_hfx) CALL dbcsr_add(sf_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx) !scaled hfx
 
              ! Take the product with the (spin-flip) Q projector
@@ -342,7 +341,7 @@ CONTAINS
                CALL dbcsr_add(sc_matrix_tdp, matrix_e_sc, 1.0_dp, -1.0_dp*sx)
             END IF
             IF (do_xc) THEN
-               CALL dbcsr_add(sc_matrix_tdp, matrix_c_os, 1.0_dp, 2.0_dp)
+               CALL dbcsr_add(sc_matrix_tdp, matrix_c_sc, 1.0_dp, 2.0_dp)
             END IF
 
             ! Take the product with the Q projector
@@ -413,16 +412,13 @@ CONTAINS
       CALL dbcsr_release(matrix_a)
       CALL dbcsr_release(matrix_a_sf)
       CALL dbcsr_release(matrix_b)
-      CALL dbcsr_release(matrix_c_os)
-      CALL dbcsr_release(matrix_c_sg)
-      CALL dbcsr_release(matrix_c_tp)
       CALL dbcsr_release(proj_Q)
       CALL dbcsr_release(proj_Q_sf)
       CALL dbcsr_release(work)
       CALL dbcsr_deallocate_matrix_set(ex_ker)
+      CALL dbcsr_deallocate_matrix_set(xc_ker)
       CALL dbcsr_distribution_release(submat_dist)
-      DEALLOCATE(matrix_a, matrix_a_sf, matrix_b, matrix_c_sg, matrix_c_tp, proj_Q, work, proj_Q_sf)
-      DEALLOCATE(submat_dist, submat_blk_size, matrix_c_os)
+      DEALLOCATE(submat_dist, submat_blk_size)
 
       CALL timestop(handle)
 
@@ -464,7 +460,8 @@ CONTAINS
                                                          nevals, nocc, handle, &
                                                          nspins, ispin
       TYPE(cp_para_env_type), POINTER                 :: para_env
-      TYPE(dbcsr_type), POINTER                       :: matrix_tdp, tmp_mat
+      TYPE(dbcsr_type), POINTER                       :: matrix_tdp
+      TYPE(dbcsr_type)                                :: tmp_mat
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       TYPE(cp_fm_struct_type), POINTER                :: fm_struct, ex_struct, ot_fm_struct
       TYPE(cp_fm_type), POINTER                       :: rhs_matrix, lhs_matrix, work, c_diff, &
@@ -472,21 +469,23 @@ CONTAINS
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: scaling, tmp_evals
       REAL(dp), DIMENSION(:), POINTER                 :: lr_evals
       TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: lr_coeffs
-      LOGICAL                                         :: full_diag, do_os
+      LOGICAL                                         :: full_diag, do_os, do_sf
 
       CALL timeset(routineN, handle)
 
-      NULLIFY(para_env, blacs_env, fm_struct, rhs_matrix, matrix_tdp, lhs_matrix, work, tmp_mat)
+      NULLIFY(para_env, blacs_env, fm_struct, rhs_matrix, matrix_tdp, lhs_matrix, work)
       NULLIFY(c_diff, c_sum, ex_struct, lr_evals, lr_coeffs, ot_fm_struct, ot_coeffs)
       CPASSERT(ASSOCIATED(xas_tdp_env))
 
       do_os = .FALSE.
+      do_sf = .FALSE.
       IF (ex_type == tddfpt_spin_cons) THEN
          matrix_tdp => donor_state%sc_matrix_tdp
          do_os = .TRUE.
       ELSE IF (ex_type == tddfpt_spin_flip) THEN
          matrix_tdp => donor_state%sf_matrix_tdp
          do_os = .TRUE.
+         do_sf = .TRUE.
       ELSE IF (ex_type == tddfpt_singlet) THEN
          matrix_tdp => donor_state%sg_matrix_tdp
       ELSE IF (ex_type == tddfpt_triplet) THEN
@@ -572,7 +571,6 @@ CONTAINS
 
 !           Need to multiply the current matrix_tdp with the auxiliary matrix
 !           tmp_mat =  (A-D+E)^0.5 * M * (A-D+E)^0.5
-            ALLOCATE(tmp_mat)
             CALL dbcsr_create(matrix=tmp_mat, template=matrix_tdp, matrix_type="N")
             CALL dbcsr_multiply('N', 'N', 1.0_dp, donor_state%matrix_aux, matrix_tdp, 0.0_dp, tmp_mat)
             CALL dbcsr_multiply('N', 'N', 1.0_dp, tmp_mat, donor_state%matrix_aux, 0.0_dp, tmp_mat)
@@ -617,7 +615,7 @@ CONTAINS
 !           Full TDDFT specific clean-up
             CALL cp_fm_release(c_diff)
             CALL dbcsr_release(tmp_mat)
-            DEALLOCATE(tmp_mat, scaling)
+            DEALLOCATE(scaling)
 
          END IF ! TDA
 
@@ -636,7 +634,7 @@ CONTAINS
          CALL cp_fm_create(ot_coeffs, ot_fm_struct)
 
          CALL xas_ot_solver(matrix_tdp, donor_state%metric(1)%matrix, ot_coeffs, lr_evals, nevals, &
-                            donor_state, xas_tdp_env, xas_tdp_control, qs_env)
+                            donor_state, xas_tdp_env, xas_tdp_control, qs_env, do_sf)
 
          !Put the newly obtained coeffs into c_sum
          CALL cp_fm_to_fm_submat(msource=ot_coeffs, mtarget=c_sum, nrow=nrow, ncol=nevals, &
@@ -692,12 +690,13 @@ CONTAINS
 !> \param xas_tdp_env ...
 !> \param xas_tdp_control
 !> \param qs_env ...
+!> \param do_sf Whtether the problem involves spin-flip => the guesses are done differently
 !> \note Requires LUMOs from the ground state calculations for guesses and will converge much faster
 !>       if there is a gap in the spectrum right after the last computed excitation energy
 !>       All checks on number of LUMOs and appropriate N_EXCITED are done before hand
 ! **************************************************************************************************
    SUBROUTINE xas_ot_solver(matrix_tdp, metric, evecs, evals, neig, donor_state, xas_tdp_env, &
-                            xas_tdp_control, qs_env)
+                            xas_tdp_control, qs_env, do_sf)
 
       TYPE(dbcsr_type), POINTER                       :: matrix_tdp, metric
       TYPE(cp_fm_type), POINTER                       :: evecs
@@ -707,25 +706,26 @@ CONTAINS
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
       TYPE(qs_environment_type), POINTER              :: qs_env
+      LOGICAL, INTENT(IN), OPTIONAL                   :: do_sf
 
       CHARACTER(len=*), PARAMETER :: routineN = "xas_ot_solver", routineP = moduleN//":"//routineN
 
       INTEGER                                         :: handle, ndo_mo, iex, imo, nao, &
                                                          ido_mo, max_iter, output_unit, &
                                                          nelec_spin(2), minel, offset, ilumo, &
-                                                         ispin, nspins
+                                                         ispin, nspins, ex_spin
       REAL(dp)                                        :: eps_iter, min_ev, shift
       TYPE(preconditioner_type), POINTER              :: precond
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
-      TYPE(dbcsr_type), POINTER                       :: work1, work2, vector
+      TYPE(dbcsr_type)                                :: work1, work2, vector
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: diag
       TYPE(dbcsr_distribution_type), POINTER          :: dist
       INTEGER, DIMENSION(:), POINTER                  :: blk_size
-      LOGICAL                                         :: do_uks, do_roks
+      LOGICAL                                         :: do_uks, do_roks, my_dosf
       TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: lumo_guess
 
-      NULLIFY(precond, para_env, blacs_env, work1, work2, vector, dist, blk_size, lumo_guess)
+      NULLIFY(precond, para_env, blacs_env, dist, blk_size, lumo_guess)
 
       CALL timeset(routineN, handle)
 
@@ -734,8 +734,6 @@ CONTAINS
          WRITE(output_unit, "(/,T5,A)") &
             "Using OT eigensolver for diagonalization: "
       END IF
-
-! TODO: adapt the guesses for spin-flip excitations
       
 !  Initialization
       do_uks = xas_tdp_control%do_uks
@@ -751,6 +749,8 @@ CONTAINS
       lumo_guess(1)%matrix => xas_tdp_env%lumo_guess(1)%matrix
       IF (do_roks) lumo_guess(2)%matrix => xas_tdp_env%lumo_guess(1)%matrix
       IF (do_uks) lumo_guess(2)%matrix => xas_tdp_env%lumo_guess(2)%matrix
+      my_dosf = .FALSE.
+      IF (PRESENT(do_sf)) my_dosf = do_sf !then either roks or uks
 
 !  Find where/if there are partially occupied MOs
       minel = 1; offset = 0
@@ -765,9 +765,10 @@ CONTAINS
       DO imo = 1,offset
          DO ido_mo = 1, ndo_mo
             iex = iex + 1
+            ex_spin = minel; IF (my_dosf) ex_spin = 3-minel
             CALL cp_fm_to_fm_submat(msource=lumo_guess(minel)%matrix, mtarget=evecs, &
                                     nrow=nao, ncol=1, s_firstrow=1, s_firstcol=imo, &
-                                    t_firstrow=((minel-1)*ndo_mo+ido_mo-1)*nao+1, t_firstcol=iex)
+                                    t_firstrow=((ex_spin-1)*ndo_mo+ido_mo-1)*nao+1, t_firstcol=iex)
          END DO !ido_mo
       END DO !imo
 
@@ -775,12 +776,13 @@ CONTAINS
       DO imo = 1, neig/ndo_mo
          DO ispin = 1, nspins
             ilumo = imo; IF (ispin == minel .OR. do_roks) ilumo = imo+offset
+            ex_spin = ispin; IF (my_dosf) ex_spin = 3-ispin
             DO ido_mo = 1, ndo_mo
                iex = iex + 1
                IF (iex > neig) EXIT
                CALL cp_fm_to_fm_submat(msource=lumo_guess(ispin)%matrix, mtarget=evecs, &
                                        nrow=nao, ncol=1, s_firstrow=1, s_firstcol=ilumo, &
-                                       t_firstrow=((ispin-1)*ndo_mo+ido_mo-1)*nao+1, t_firstcol=iex)
+                                       t_firstrow=((ex_spin-1)*ndo_mo+ido_mo-1)*nao+1, t_firstcol=iex)
             END DO !ido_mo
          END DO !ispin
       END DO !imo
@@ -796,7 +798,6 @@ CONTAINS
       ALLOCATE(precond%dbcsr_matrix)
 
       ! init
-      ALLOCATE(vector, work1, work2)
       CALL dbcsr_copy(precond%dbcsr_matrix, matrix_tdp, name="OT PRECONDITIONER")
       CALL cp_fm_to_dbcsr_row_template(vector, evecs, matrix_tdp)
       CALL dbcsr_create(work1, template=matrix_tdp, matrix_type="N")
@@ -826,7 +827,7 @@ CONTAINS
       CALL dbcsr_release(work1)
       ALLOCATE(dist)
       CALL dbcsr_get_info(matrix_tdp, distribution=dist, row_blk_size=blk_size)
-      CALL get_q_projector(work1, dist, blk_size, donor_state, (do_uks .OR. do_roks), xas_tdp_env)
+      CALL get_q_projector(work1, dist, blk_size, donor_state, (do_uks .OR. do_roks), xas_tdp_env, my_dosf)
       CALL dbcsr_multiply('T', 'N', 1.0_dp, work1, precond%dbcsr_matrix, 0.0_dp, work2)
       CALL dbcsr_multiply('N', 'N', 1.0_dp, work2, work1, 0.0_dp, precond%dbcsr_matrix)
 
@@ -838,7 +839,7 @@ CONTAINS
       CALL dbcsr_release(vector)
       CALL dbcsr_release(work1)
       CALL dbcsr_release(work2)
-      DEALLOCATE(work1, work2, vector, diag, dist)
+      DEALLOCATE(diag, dist)
 
 !  Actually solving the eigenvalue problem
       CALL ot_eigensolver(matrix_h=matrix_tdp, matrix_s=metric, matrix_c_fm=evecs, &
@@ -995,7 +996,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE get_q_projector(proj_Q, dist_q, blk_size_q, donor_state, do_os, xas_tdp_env, do_sf)
 
-      TYPE(dbcsr_type), POINTER                       :: proj_Q
+      TYPE(dbcsr_type), INTENT(INOUT)                 :: proj_Q
       TYPE(dbcsr_distribution_type), POINTER          :: dist_q
       INTEGER, DIMENSION(:), POINTER                  :: blk_size_q
       TYPE(donor_state_type), POINTER                 :: donor_state
@@ -1082,7 +1083,7 @@ CONTAINS
    SUBROUTINE build_gs_contribution(matrix_a, dist_a, blk_size_a, donor_state, do_uks, do_roks, &
                                     xas_tdp_env, qs_env, do_sf)
 
-      TYPE(dbcsr_type), POINTER                       :: matrix_a
+      TYPE(dbcsr_type), INTENT(INOUT)                 :: matrix_a
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(qs_environment_type), POINTER              :: qs_env
@@ -1124,7 +1125,7 @@ CONTAINS
          m_ks(1)%matrix => xas_tdp_env%roks_ks_mat
          m_ks(2)%matrix => xas_tdp_env%roks_ks_mat
       END IF
-! If spin-flip, swap tha alpha-alpha and beta-beta quadrants. No change for ROKS
+! If spin-flip, swap the KS alpha-alpha and beta-beta quadrants. No change for ROKS
       my_dosf = .FALSE.
       IF (PRESENT(do_sf)) my_dosf = do_sf
       IF (my_dosf .AND. do_uks) THEN
@@ -1234,7 +1235,7 @@ CONTAINS
       REAL(dp), DIMENSION(:), POINTER                 :: work_block
       LOGICAL                                         :: found_block
       TYPE(dbcsr_iterator_type)                       :: iter     
-      TYPE(dbcsr_type), POINTER                       :: matrix_sinv
+      TYPE(dbcsr_type)                                :: matrix_sinv
       LOGICAL                                         :: my_do_inv
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
@@ -1291,7 +1292,6 @@ CONTAINS
                            dist=dist_g, row_blk_size=blk_size_g, col_blk_size=blk_size_g)  
 
          ! Invert the overlap matrix
-         ALLOCATE(matrix_sinv)
          CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env)
          CALL dbcsr_copy(matrix_sinv, matrix_s(1)%matrix)
          CALL cp_dbcsr_cholesky_decompose(matrix_sinv, para_env=para_env, blacs_env=blacs_env)
@@ -1324,7 +1324,6 @@ CONTAINS
 
          !  Clean-up
          CALL dbcsr_release(matrix_sinv)
-         DEALLOCATE(matrix_sinv)
       END IF !do_inv
 
    END SUBROUTINE build_metric
@@ -1347,7 +1346,7 @@ CONTAINS
                                   work, donor_state, qs_env)
 
       REAL(dp), INTENT(IN)                            :: threshold, sx
-      TYPE(dbcsr_type), POINTER                       :: matrix_a, matrix_d, matrix_e, proj_Q, work
+      TYPE(dbcsr_type), INTENT(INOUT)                 :: matrix_a, matrix_d, matrix_e, proj_Q, work
       LOGICAL, INTENT(IN)                             :: do_hfx
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(qs_environment_type), POINTER              :: qs_env
@@ -1357,15 +1356,14 @@ CONTAINS
 
       INTEGER                                         :: nrow, ndep
       REAL(dp)                                        :: evals(2)
-      TYPE(dbcsr_type), POINTER                       :: tmp_mat
+      TYPE(dbcsr_type)                                :: tmp_mat
       TYPE(cp_fm_type), POINTER                       :: aux_fm, work_fm
       TYPE(cp_fm_struct_type), POINTER                :: struct
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       TYPE(cp_para_env_type), POINTER                 :: para_env
 
-      NULLIFY(tmp_mat, aux_fm, work_fm, struct, blacs_env, para_env)
+      NULLIFY(aux_fm, work_fm, struct, blacs_env, para_env)
 
-      ALLOCATE(tmp_mat)
       CALL dbcsr_copy(tmp_mat, matrix_a)
       IF (do_hfx) THEN
          CALL dbcsr_add(tmp_mat, matrix_d, 1.0_dp, -1.0_dp*sx) !scaled hfx
@@ -1403,7 +1401,6 @@ CONTAINS
       CALL cp_fm_release(aux_fm)
       CALL cp_fm_release(work_fm)
       CALL dbcsr_release(tmp_mat)
-      DEALLOCATE (tmp_mat)
 
    END SUBROUTINE build_aux_matrix
 
