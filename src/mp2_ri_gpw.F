@@ -900,8 +900,6 @@ CONTAINS
 
          IF (do_dbcsr_t) THEN
 
-            CALL timeset(routineN//"_dbcsr_t", handle4)
-
             CALL get_qs_env(qs_env, natom=natom)
             !IF(ngroup_im_time .GT. natom) THEN
             !   CPABORT("Increase GROUP_SIZE_3C for this number of MPI ranks")
@@ -912,8 +910,6 @@ CONTAINS
             CALL dbcsr_distribution_get(dist_sub, nprows = pdims_sub_2d(1), npcols = pdims_sub_2d(2))
 
             pdims_t3c = [ngroup_im_time, pdims_sub_2d(1), pdims_sub_2d(2)]
-
-
 
             CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, mp_comm_t3c_overl, map1_2d=[1,2], map2_2d=[3])
 
@@ -966,7 +962,6 @@ CONTAINS
                ENDDO
             ENDDO
 
-            CALL timestop(handle4)
          ENDIF
 
          ! if we do modified atomic orbitals for the primary basis (one MAO basis for D^occ one for D^virt, then
@@ -1010,6 +1005,7 @@ CONTAINS
                                      num_diff_blk)
 
          IF (do_dbcsr_t) THEN
+            CALL timeset(routineN//"_copy_3c", handle4)
             DO i = 1, SIZE(t_3c_overl_int, 1)
                DO j = 1, SIZE(t_3c_overl_int, 2)
 
@@ -1019,6 +1015,7 @@ CONTAINS
                   CALL dbcsr_t_destroy(t_3c_overl_int(i, j))
                ENDDO
             ENDDO
+            CALL timestop(handle4)
          ENDIF
 
          CALL cp_para_env_release(para_env_L)
@@ -7767,8 +7764,6 @@ CONTAINS
 
       IF (do_dbcsr_t) THEN
 
-         CALL timeset(routineN//"_dbcsr_t", handle3)
-
          DO iatom_RI = 1, SIZE(local_atoms_RI)
             atom_RI = local_atoms_RI(iatom_RI)
 
@@ -8049,7 +8044,6 @@ CONTAINS
          CALL dbcsr_t_filter(t_3c_tmp, 1.0_dp)
          CALL dbcsr_t_destroy(t_3c_tmp)
 
-         CALL timestop(handle3)
       ELSE
 
          DO i_cut_RI = 1, cut_RI
@@ -8716,7 +8710,6 @@ CONTAINS
 
       IF (do_dbcsr_t) THEN
 
-         CALL timeset(routineN//"_dbcsr_t", handle3)
          ALLOCATE (t_3c_overl_int(nimg, nimg))
 
          CALL dbcsr_get_info(mat_munu%matrix, &
@@ -8738,7 +8731,6 @@ CONTAINS
 
          CALL dbcsr_t_distribution_destroy(dist_o3c)
 
-         CALL timestop(handle3)
       ELSE
 
          ! allocate matrix for storing 3c overlap integrals
@@ -8804,7 +8796,6 @@ CONTAINS
 
       IF (do_dbcsr_t) THEN
 
-         CALL timeset(routineN//"_dbcsr_t", handle3)
          !my_group_L_start = my_group_L_starts_im_time(1)
          !my_group_L_end = my_group_L_end_im_time(cut_RI)
          !atom_RI_start = eri_offsets(my_group_L_start, 1)
@@ -9146,7 +9137,6 @@ CONTAINS
             ENDDO
          ENDDO
 
-         CALL timestop(handle3)
       ELSE ! do_dbcsr_t
 
          DO i_cut_RI = 1, cut_RI

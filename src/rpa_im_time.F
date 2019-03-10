@@ -513,21 +513,25 @@ CONTAINS
 
                DO j_mem = 1, cut_memory
 
+                  CALL timeset(routineN//"_calc_M", handle5)
                   CALL replicate_dm_to_subgroup(para_env, para_env_sub, mat_dm_virt_global, nmo, jquad, &
                                                 mat_dm_loc_virt_cut, starts_array_cm_mao_virt, ends_array_cm_mao_virt, &
                                                 j_mem, cut_memory, cut_RI, non_zero_blocks_3c, &
                                                 non_zero_blocks_3c_cut_col, multiply_needed_virt, do_kpoints_cubic_RPA, &
                                                 cell_to_index_3c, index_to_cell_dm)
+                  CALL timestop(handle5)
 
                   DO i_mem = 1, cut_memory
 
                      IF (cycle_due_to_sparse_dm(i_mem, j_mem, jquad) .AND. do_Gamma_RPA) CYCLE
 
+                     CALL timeset(routineN//"_calc_M", handle5)
                      CALL replicate_dm_to_subgroup(para_env, para_env_sub, mat_dm_occ_global, nmo, jquad, &
                                                    mat_dm_loc_occ_cut, starts_array_cm_mao_occ, ends_array_cm_mao_occ, &
                                                    i_mem, cut_memory, cut_RI, non_zero_blocks_3c, &
                                                    non_zero_blocks_3c_cut_col, multiply_needed_occ, do_kpoints_cubic_RPA, &
                                                    cell_to_index_3c, index_to_cell_dm)
+                     CALL timestop(handle5)
 
                      DO i_cell_R_1 = 1, num_3c_repl
 
@@ -699,10 +703,10 @@ CONTAINS
 
                            CALL mp_sync(para_env%group)
 
-                           CALL timestop(handle5)
-
                            CALL fill_mat_P_global_from_mat_P_local(mat_P_global, mat_P_global_copy, mat_P_local, para_env, &
                                                                    eps_filter_im_time)
+
+                           CALL timestop(handle5)
 
                            IF (do_ri_sos_laplace_mp2) THEN
                               ! For RI-SOS-Laplace-MP2 we do not perform a cosine transform,
