@@ -1151,9 +1151,9 @@ CONTAINS
          IF (size_AO_cut < MIN(pdims(2), pdims(3))) THEN
             CPABORT("Increment GROUP_SIZE_P, use smaller MEMORY_CUT or use less MPI ranks")
          ENDIF
-         CALL contiguous_dist(size_AO_cut, pdims(2), ao_blk_sizes(starts_array_mc_block(imem):ends_array_mc_block(imem)), &
+         CALL cyclic_dist(size_AO_cut, pdims(2), ao_blk_sizes(starts_array_mc_block(imem):ends_array_mc_block(imem)), &
             dist=dist_ao_1(starts_array_mc_block(imem):ends_array_mc_block(imem)))
-         CALL contiguous_dist(size_AO_cut, pdims(3), ao_blk_sizes(starts_array_mc_block(imem):ends_array_mc_block(imem)), &
+         CALL cyclic_dist(size_AO_cut, pdims(3), ao_blk_sizes(starts_array_mc_block(imem):ends_array_mc_block(imem)), &
             dist=dist_ao_2(starts_array_mc_block(imem):ends_array_mc_block(imem)))
       ENDDO
 
