@@ -62,7 +62,8 @@ MODULE rpa_im_time
                                               dbcsr_t_contract_test, dbcsr_t_get_info, dbcsr_t_checksum, &
                                               dbcsr_t_iterator_type, dbcsr_t_iterator_blocks_left, &
                                               dbcsr_t_iterator_stop, dbcsr_t_reserve_blocks, dbcsr_t_iterator_start, &
-                                              dbcsr_t_iterator_next_block, dbcsr_t_get_block, dbcsr_t_put_block
+                                              dbcsr_t_iterator_next_block, dbcsr_t_get_block, dbcsr_t_put_block, &
+                                              dbcsr_t_need_contract
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -258,8 +259,6 @@ CONTAINS
       TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE :: t_dm_virt_cut, t_dm_occ_cut
       TYPE(dbcsr_t_type)                                 :: t_3c_M_tmp
       TYPE(dbcsr_t_type)                                 :: t_3c_M_virt, t_3c_M_occ, t_P
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsize_P_1, bsize_P_2, bsize_t_1, bsize_t_2, bsize_t_3, &
-                                                            boff_P_1, boff_P_2, boff_t_1, boff_t_2, boff_t_3
       INTEGER                                            :: unit_nr_prv
 
 
@@ -329,7 +328,7 @@ CONTAINS
          IF (do_dbcsr_t) THEN
             DO i_cell_T = 1, num_cells_dm/2 + 1
 
-               IF (does_mat_P_T_tau_have_blocks(i_cell_T) .EQV. .FALSE.) CYCLE
+               !IF (does_mat_P_T_tau_have_blocks(i_cell_T) .EQV. .FALSE.) CYCLE
                DO j_mem = 1, cut_memory
                   DO i_mem = 1, cut_memory
                   IF (unit_nr_prv > 0) WRITE (UNIT=unit_nr_prv, FMT="(T3,A,I2,1X,I2)") &
@@ -337,12 +336,24 @@ CONTAINS
                      ! not implemented:
                      !IF (cycle_due_to_sparse_dm(i_mem, j_mem, jquad) .AND. do_Gamma_RPA) CYCLE
 
+                     IF (do_gamma_RPA) THEN
+                        IF (.NOT. dbcsr_t_need_contract(t_3c_O_cut(j_mem, 1, 1), &
+                                                        t_dm_occ_cut(i_mem, 1), &
+                                                        [3], [1])) CYCLE
+                        IF (.NOT. dbcsr_t_need_contract(t_3c_O_cut( &
+                                                        i_mem, 1, 1), &
+                                                        t_dm_virt_cut(j_mem, 1), &
+                                                        [3], [1])) CYCLE
+                     ENDIF
+
                      DO i_cell_R_1 = 1, num_3c_repl
 
                         DO i_cell_R_2 = 1, num_3c_repl
 
+
+
                            ! not sure if i_mem, j_mem work here correctly
-                           IF (has_mat_P_blocks(i_cell_T, i_mem, j_mem, i_cell_R_1, i_cell_R_2) .EQV. .FALSE.) CYCLE
+                           !IF (has_mat_P_blocks(i_cell_T, i_mem, j_mem, i_cell_R_1, i_cell_R_2) .EQV. .FALSE.) CYCLE
 
                            CALL get_diff_index_3c(i_cell_R_1, i_cell_T, i_cell_R_1_minus_T, &
                                                   index_to_cell_3c, cell_to_index_3c, index_to_cell_dm, &
@@ -364,7 +375,7 @@ CONTAINS
                                                        tensor_3=t_3c_M_tmp, &
                                                        contract_1=[3], notcontract_1=[1, 2], &
                                                        contract_2=[1], notcontract_2=[2], &
-                                                       map_1=[1, 2], map_2=[3], flop=flop_occ,&
+                                                       map_1=[1, 2], map_2=[3], &
                                                        filter_eps=eps_filter, unit_nr=unit_nr_prv)
                                  CALL timestop(handle5)
 
@@ -398,7 +409,7 @@ CONTAINS
                                                        tensor_3=t_3c_M_tmp, &
                                                        contract_1=[3], notcontract_1=[1, 2], &
                                                        contract_2=[1], notcontract_2=[2], &
-                                                       map_1=[1, 2], map_2=[3], flop=flop_virt, &
+                                                       map_1=[1, 2], map_2=[3], &
                                                        filter_eps=eps_filter, unit_nr=unit_nr_prv)
                                  CALL timestop(handle5)
                               ENDIF
@@ -413,10 +424,13 @@ CONTAINS
 
                            CALL timeset(routineN//"_calc_P_t", handle5)
 
-                           CALL dbcsr_t_get_info(t_3c_M_virt, blk_size_1=bsize_t_1, blk_size_2=bsize_t_2, blk_size_3=bsize_t_3)
-                           CALL dbcsr_t_get_info(t_P, blk_size_1=bsize_P_1, blk_size_2=bsize_P_2)
-                           CALL dbcsr_t_get_info(t_3c_M_virt, blk_offset_1=boff_t_1, blk_offset_2=boff_t_2, blk_offset_3=boff_t_3)
-                           CALL dbcsr_t_get_info(t_P, blk_offset_1=boff_P_1, blk_offset_2=boff_P_2)
+                           !CALL dbcsr_t_get_info(t_3c_M_virt, blk_size_1=bsize_t_1, blk_size_2=bsize_t_2, blk_size_3=bsize_t_3)
+                           !CALL dbcsr_t_get_info(t_P, blk_size_1=bsize_P_1, blk_size_2=bsize_P_2)
+                           !CALL dbcsr_t_get_info(t_3c_M_virt, blk_offset_1=boff_t_1, blk_offset_2=boff_t_2, blk_offset_3=boff_t_3)
+                           !CALL dbcsr_t_get_info(t_P, blk_offset_1=boff_P_1, blk_offset_2=boff_P_2)
+
+                           IF(.NOT. dbcsr_t_need_contract(t_3c_M_occ, t_3c_M_virt, &
+                                                          [2, 3], [2, 3])) CYCLE
 
                            CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), tensor_1=t_3c_M_occ, &
                                                  tensor_2=t_3c_M_virt, &
@@ -424,7 +438,7 @@ CONTAINS
                                                  tensor_3=t_P, &
                                                  contract_1=[2, 3], notcontract_1=[1], &
                                                  contract_2=[2, 3], notcontract_2=[1], &
-                                                 map_1=[1], map_2=[2], flop=num_flops_mat_P, &
+                                                 map_1=[1], map_2=[2], &
                                                  filter_eps=eps_filter_im_time/REAL(cut_memory**2, KIND=dp), &
                                                  move_data=.TRUE., &
                                                  unit_nr=unit_nr_prv)
@@ -477,18 +491,18 @@ CONTAINS
 
                               CALL timestop(handle5)
 
-                              first_cycle_im_time = .FALSE.
+                              !first_cycle_im_time = .FALSE.
 
-                              CALL check_if_mat_P_T_tau_has_blocks(does_mat_P_T_tau_have_blocks, mat_P_global, i_cell_T, &
-                                                                   jquad, i_mem, j_mem, i_cell_R_1, i_cell_R_2, &
-                                                                   para_env, has_mat_P_blocks, num_flops_mat_P)
+                              !CALL check_if_mat_P_T_tau_has_blocks(does_mat_P_T_tau_have_blocks, mat_P_global, i_cell_T, &
+                              !                                     jquad, i_mem, j_mem, i_cell_R_1, i_cell_R_2, &
+                              !                                     para_env, has_mat_P_blocks, num_flops_mat_P)
                            END IF ! do_ri_sos_laplace_mp2
                         ENDDO
                      ENDDO
                   ENDDO
                ENDDO
-               CALL sync_does_mat_P_T_tau_have_blocks(does_mat_P_T_tau_have_blocks, para_env, unit_nr, &
-                                                      i_cell_T, jquad, index_to_cell_dm)
+               !CALL sync_does_mat_P_T_tau_have_blocks(does_mat_P_T_tau_have_blocks, para_env, unit_nr, &
+               !                                       i_cell_T, jquad, index_to_cell_dm)
             ENDDO
 
             CALL dbcsr_t_destroy(t_P)

@@ -7630,7 +7630,7 @@ CONTAINS
       INTEGER :: acell, atom_RI, atom_RI_end, atom_RI_start, bcell, block_end_col, block_end_row, &
                  block_start_col, block_start_row, col, col_basis_size_mao_occ, col_basis_size_mao_virt, &
                  end_col_from_LLL_mao_occ, end_col_from_LLL_mao_virt, end_row_from_LLL_mao_occ, &
-                 end_row_from_LLL_mao_virt, handle, handle2, handle3, i_cut_RI, i_img, iatom, &
+                 end_row_from_LLL_mao_virt, handle, handle2, i_cut_RI, i_img, iatom, &
                  iatom_basis_size_mao_occ, iatom_basis_size_mao_virt, iatom_outer, iblk, iblk_send, ikind, &
                  img_col, img_row, iset, isgf_RI, isgfa, j_img, jatom, jatom_basis_size_mao_occ, &
                  jatom_basis_size_mao_virt, jatom_outer, jkind, jset, jsgfb, kind_RI, LLL, LLL_set_end, block_start_RI, &
@@ -8640,7 +8640,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER :: acell, atom_RI, atom_RI_end, atom_RI_start, bcell, blk, blk_cnt, col, handle, &
-         handle2, handle3, i_cut_RI, i_img, i_img_outer, i_loop, iatom, iatom_outer, ikind, iset, isgf_RI, &
+         handle2, i_cut_RI, i_img, i_img_outer, i_loop, iatom, iatom_outer, ikind, iset, isgf_RI, &
          j_img, j_img_outer, jatom, jatom_outer, jkind, jset, kind_RI, LLL, LLL_set_end, &
          LLL_set_start, maxval_1, maxval_2, maxval_3, minval_1, minval_2, minval_3, &
          my_group_L_end, my_group_L_size, my_group_L_start, natom, nblkrows_total, nco_RI, ncoa, &
