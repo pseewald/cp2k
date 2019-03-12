@@ -422,15 +422,15 @@ CONTAINS
                            CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
                            CALL timestop(handle5)
 
+                           IF(.NOT. dbcsr_t_need_contract(t_3c_M_occ, t_3c_M_virt, &
+                                                          [2, 3], [2, 3])) CYCLE
+
                            CALL timeset(routineN//"_calc_P_t", handle5)
 
                            !CALL dbcsr_t_get_info(t_3c_M_virt, blk_size_1=bsize_t_1, blk_size_2=bsize_t_2, blk_size_3=bsize_t_3)
                            !CALL dbcsr_t_get_info(t_P, blk_size_1=bsize_P_1, blk_size_2=bsize_P_2)
                            !CALL dbcsr_t_get_info(t_3c_M_virt, blk_offset_1=boff_t_1, blk_offset_2=boff_t_2, blk_offset_3=boff_t_3)
                            !CALL dbcsr_t_get_info(t_P, blk_offset_1=boff_P_1, blk_offset_2=boff_P_2)
-
-                           IF(.NOT. dbcsr_t_need_contract(t_3c_M_occ, t_3c_M_virt, &
-                                                          [2, 3], [2, 3])) CYCLE
 
                            CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), tensor_1=t_3c_M_occ, &
                                                  tensor_2=t_3c_M_virt, &
