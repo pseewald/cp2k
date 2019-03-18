@@ -30,7 +30,8 @@ MODULE xas_tdp_utils
    USE cp_fm_types,                     ONLY: cp_fm_create, cp_fm_release, cp_fm_type, &
                                               cp_fm_to_fm_submat, cp_fm_get_info, &
                                               cp_fm_set_submatrix, cp_fm_to_fm, &
-                                              cp_fm_set_element, cp_fm_p_type, cp_fm_get_diag
+                                              cp_fm_set_element, cp_fm_p_type, cp_fm_get_diag, &
+                                              cp_fm_get_submatrix
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_gemm_interface,               ONLY: cp_gemm
    USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
@@ -57,7 +58,7 @@ MODULE xas_tdp_utils
                                               xas_tdp_roks, tddfpt_spin_cons, tddfpt_spin_flip
    USE input_section_types,             ONLY: section_vals_val_get
    USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: invmat_symm
+   USE mathlib,                         ONLY: invmat_symm, get_diag
    USE message_passing,                 ONLY: mp_min, mp_max
    USE molecule_types,                  ONLY: molecule_type
    USE particle_types,                  ONLY: particle_type
@@ -92,7 +93,7 @@ MODULE xas_tdp_utils
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = "xas_tdp_utils"
 
    PUBLIC :: setup_xas_tdp_prob, solve_xas_tdp_prob, &
-             compute_ri_coulomb2_int, include_full_soc, &
+             compute_ri_coulomb2_int, include_rcs_soc, include_os_soc, &
              compute_ri_o3c_coulomb, compute_ri_o3c_exchange, get_ri_o3c_coul_bonds
 
 CONTAINS
@@ -282,14 +283,14 @@ CONTAINS
          IF (do_sf) THEN ! open-shell spin-flip under TDA
 
             ! The final matrix is M = A + C - D (for now)
-             CALL dbcsr_copy(sf_matrix_tdp, matrix_a_sf, name="OS MATRIX TDP")
+            CALL dbcsr_copy(sf_matrix_tdp, matrix_a_sf, name="OS MATRIX TDP")
 
-             IF (do_xc) CALL dbcsr_add(sf_matrix_tdp, matrix_c_ondiag_sf, 1.0_dp, 1.0_dp) !xc kernel
-             IF (do_hfx) CALL dbcsr_add(sf_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx) !scaled hfx
+            IF (do_xc) CALL dbcsr_add(sf_matrix_tdp, matrix_c_ondiag_sf, 1.0_dp, 1.0_dp) !xc kernel
+            IF (do_hfx) CALL dbcsr_add(sf_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx) !scaled hfx
 
-             ! Take the product with the (spin-flip) Q projector
-             CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q_sf, sf_matrix_tdp, 0.0_dp, work)
-             CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q_sf, 0.0_dp, sf_matrix_tdp)
+            ! Take the product with the (spin-flip) Q projector
+            CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q_sf, sf_matrix_tdp, 0.0_dp, work)
+            CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q_sf, 0.0_dp, sf_matrix_tdp)
 
          END IF !do_sf
          
@@ -1734,7 +1735,378 @@ CONTAINS
    END SUBROUTINE build_xas_tdp_3c_nl
 
 ! **************************************************************************************************
-!> \brief Includes the SOC effects on the precomputed singlet and triplet excitations
+!> \brief Includes the SOC effects on the precomputed spin-conserving and spin-flip excitations
+!>        from an open-shell calculation (UKS or ROKS). This is a perturbative treatment
+! **************************************************************************************************
+   SUBROUTINE include_os_soc(donor_state, xas_tdp_env, xas_tdp_control, qs_env)
+
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "include_os_soc", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: handle, nsc, nsf, ntot, isc, isf, ndo_mo, &
+                                                         ndo_so, nao, homo, jsc, jsf
+      REAL(dp)                                        :: gs_sum, soc
+      LOGICAL                                         :: do_roks, do_uks
+      REAL(dp), DIMENSION(:), POINTER                 :: sc_evals, sf_evals
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: diag, tmp_evals
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: domo_soc_x, domo_soc_y, domo_soc_z, &
+                                                         S_ex, SOC_ex
+      TYPE(cp_fm_type), POINTER                       :: gs_coeffs, real_fm, img_fm, mo_coeff, &
+                                                         vec_work, prod_work, vec_s, vec_soc_x, &
+                                                         vec_soc_y, vec_soc_z
+      TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: sc_coeffs, sf_coeffs
+      TYPE(cp_fm_struct_type), POINTER                :: full_struct, vec_struct, prod_struct
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
+      TYPE(dbcsr_type), POINTER                       :: orb_soc_x, orb_soc_y, orb_soc_z
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      TYPE(mo_set_p_type), DIMENSION(:), POINTER      :: mos
+      TYPE(cp_cfm_type), POINTER                      :: pert_cfm, evecs_cfm
+
+      NULLIFY(gs_coeffs, sc_coeffs, sf_coeffs, matrix_s, orb_soc_x, orb_soc_y, orb_soc_z, mos)
+      NULLIFY(real_fm, img_fm, full_struct, para_env, blacs_env, mo_coeff, vec_s, vec_soc_x)
+      NULLIFY(sc_evals, sf_evals, vec_work, prod_work, vec_struct, prod_struct, vec_soc_y)
+      NULLIFY(vec_soc_z, pert_cfm, evecs_cfm)
+
+      CALL timeset(routineN, handle)
+
+! Initialization
+      sc_coeffs => donor_state%sc_coeffs
+      sf_coeffs => donor_state%sf_coeffs
+      sc_evals => donor_state%sc_evals
+      sf_evals => donor_state%sf_evals
+      nsc = SIZE(sc_evals)
+      nsf = SIZE(sf_evals)
+      ntot = 1 + nsc + nsf
+      ndo_mo = donor_state%ndo_mo
+      ndo_so = 2*ndo_mo
+      CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env, mos=mos, matrix_s=matrix_s)
+      CALL dbcsr_get_info(matrix_s(1)%matrix, nfullrows_total=nao)
+      orb_soc_x => xas_tdp_env%orb_soc(1)%matrix
+      orb_soc_y => xas_tdp_env%orb_soc(2)%matrix
+      orb_soc_z => xas_tdp_env%orb_soc(3)%matrix
+      do_roks = xas_tdp_control%do_roks
+      do_uks = xas_tdp_control%do_uks
+
+   ! For the GS coeffs, we use the same structure both for ROKS and UKS here => allows us to write
+   ! general code later on, and not use IF (do_roks) statements every second line
+      IF (do_uks) gs_coeffs => donor_state%gs_coeffs
+      IF (do_roks) THEN
+         CALL cp_fm_struct_create(vec_struct, context=blacs_env, para_env=para_env, &
+                                  nrow_global=nao, ncol_global=ndo_so)
+         CALL cp_fm_create(gs_coeffs, vec_struct)
+
+         ! only alpha donor MOs are stored, need to copy them intoboth the alpha and the beta slot
+         CALL cp_fm_to_fm_submat(msource=donor_state%gs_coeffs, mtarget=gs_coeffs, nrow=nao, &
+                                 ncol=ndo_mo, s_firstrow=1, s_firstcol=1, t_firstrow=1, &
+                                 t_firstcol=1) 
+         CALL cp_fm_to_fm_submat(msource=donor_state%gs_coeffs, mtarget=gs_coeffs, nrow=nao, &
+                                 ncol=ndo_mo, s_firstrow=1, s_firstcol=1, t_firstrow=1, &
+                                 t_firstcol=ndo_mo+1)
+
+         CALL cp_fm_struct_release(vec_struct)
+      END IF
+
+! Creating the real and the imaginary part of the SOC perturbation matrix
+      CALL cp_fm_struct_create(full_struct, context=blacs_env, para_env=para_env, &
+                               nrow_global=ntot, ncol_global=ntot)
+      CALL cp_fm_create(real_fm, full_struct)
+      CALL cp_fm_create(img_fm, full_struct)
+
+! Put the excitation energies on the diagonal of the real  matrix. Element 1,1 is the ground state
+      DO isc = 1, nsc
+         CALL cp_fm_set_element(real_fm, 1+isc, 1+isc, sc_evals(isc))
+      END DO
+      DO isf = 1, nsf
+         CALL cp_fm_set_element(real_fm, 1+nsc+isf, 1+nsc+isf, sf_evals(isf))
+      END DO
+            
+! Precompute what we can before looping over excited states. 
+   ! Need to compute: <phi^0_Isigma|SOC|phi^0_Jtau> for the donor MOs
+
+      CALL cp_fm_struct_create(vec_struct, context=blacs_env, para_env=para_env, &
+                               nrow_global=nao, ncol_global=ndo_so)
+      CALL cp_fm_struct_create(prod_struct, context=blacs_env, para_env=para_env, & 
+                               nrow_global=ndo_so, ncol_global=ndo_so)
+      CALL cp_fm_create(vec_work, vec_struct)
+      CALL cp_fm_create(prod_work, prod_struct)
+
+      ALLOCATE(domo_soc_x(ndo_so, ndo_so), domo_soc_y(ndo_so, ndo_so), domo_soc_z(ndo_so, ndo_so))
+
+      CALL cp_dbcsr_sm_fm_multiply(orb_soc_x, gs_coeffs, vec_work, ncol=ndo_so)
+      CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, gs_coeffs, vec_work, 0.0_dp, prod_work)
+      CALL cp_fm_get_submatrix(prod_work, domo_soc_x)
+
+      CALL cp_dbcsr_sm_fm_multiply(orb_soc_y, gs_coeffs, vec_work, ncol=ndo_so)
+      CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, gs_coeffs, vec_work, 0.0_dp, prod_work)
+      CALL cp_fm_get_submatrix(prod_work, domo_soc_y)
+
+      CALL cp_dbcsr_sm_fm_multiply(orb_soc_z, gs_coeffs, vec_work, ncol=ndo_so)
+      CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, gs_coeffs, vec_work, 0.0_dp, prod_work)
+      CALL cp_fm_get_submatrix(prod_work, domo_soc_z)
+
+      CALL cp_fm_release(vec_work)
+      CALL cp_fm_release(prod_work)
+      CALL cp_fm_struct_release(vec_struct)
+      CALL cp_fm_struct_release(prod_struct)
+
+   ! Need to compute the scalar: sum_i sum_sigma <phi^0_i,sigma|SOC|phi^0_i,sigma>, where all
+   ! occupied MOs are taken into account
+
+      !start with the alpha MOs
+      CALL get_mo_set(mos(1)%mo_set, mo_coeff=mo_coeff, homo=homo)
+      ALLOCATE(diag(homo))
+      CALL cp_fm_get_info(mo_coeff, matrix_struct=vec_struct)
+      CALL cp_fm_struct_create(prod_struct, context=blacs_env, para_env=para_env, &
+                               nrow_global=homo, ncol_global=homo)
+      CALL cp_fm_create(vec_work, vec_struct)
+      CALL cp_fm_create(prod_work, prod_struct)
+
+      ! <alpha|SOC_z|alpha> => spin integration yields +1
+      CALL cp_dbcsr_sm_fm_multiply(orb_soc_z, mo_coeff, vec_work, ncol=homo)
+      CALL cp_gemm('T', 'N', homo, homo, nao, 1.0_dp, mo_coeff, vec_work, 0.0_dp, prod_work)
+      CALL cp_fm_get_diag(prod_work, diag)
+      gs_sum = SUM(diag)
+
+      CALL cp_fm_release(vec_work)
+      CALL cp_fm_release(prod_work)
+      CALL cp_fm_struct_release(prod_struct)
+      DEALLOCATE(diag)
+      NULLIFY(vec_struct)
+
+      ! Now do the same with the beta gs coeffs
+      CALL get_mo_set(mos(2)%mo_set, mo_coeff=mo_coeff, homo=homo)
+      ALLOCATE(diag(homo))
+      CALL cp_fm_get_info(mo_coeff, matrix_struct=vec_struct)
+      CALL cp_fm_struct_create(prod_struct, context=blacs_env, para_env=para_env, &
+                               nrow_global=homo, ncol_global=homo)
+      CALL cp_fm_create(vec_work, vec_struct)
+      CALL cp_fm_create(prod_work, prod_struct)
+
+      ! <beta|SOC_z|beta> => spin integration yields -1
+      CALL cp_dbcsr_sm_fm_multiply(orb_soc_z, mo_coeff, vec_work, ncol=homo)
+      CALL cp_gemm('T', 'N', homo, homo, nao, 1.0_dp, mo_coeff, vec_work, 0.0_dp, prod_work)
+      CALL cp_fm_get_diag(prod_work, diag)
+      gs_sum = gs_sum - SUM(diag) ! -1 because of spin integration
+
+      CALL cp_fm_release(vec_work)
+      CALL cp_fm_release(prod_work)
+      CALL cp_fm_struct_release(prod_struct)
+      DEALLOCATE(diag)
+      NULLIFY(vec_struct)
+
+   ! Create some work structures and matrices where intermediate results will be stored
+      CALL cp_fm_struct_create(vec_struct, context=blacs_env, para_env=para_env, &
+                               nrow_global=nao, ncol_global=ndo_so)
+      CALL cp_fm_struct_create(prod_struct, context=blacs_env, para_env=para_env, & 
+                               nrow_global=ndo_so, ncol_global=ndo_so)      
+      CALL cp_fm_create(vec_s, vec_struct) ! for S*coeffs storage
+      CALL cp_fm_create(vec_soc_x, vec_struct) ! for SOC_x*coeffs
+      CALL cp_fm_create(vec_soc_y, vec_struct) ! for SOC_y*coeffs
+      CALL cp_fm_create(vec_soc_z, vec_struct) ! for SOC_z*coeffs
+      CALL cp_fm_create(prod_work, prod_struct) ! for anything like coeffs^T * MAT * coeffs
+      ALLOCATE(S_ex(ndo_so, ndo_so)) ! Overlap between LR coeffs
+      ALLOCATE(SOC_ex(ndo_so, ndo_so)) ! SOC between LR coeffs
+      ALLOCATE(diag(ndo_so))
+
+! Looping over the excited states, computing the SOC and filling the perturbation matrix
+! There are 3 loops to do: sc-sc, sc-sf and sf-sf
+
+!  Do the spin-conserving spin-conserving coupling loop. Block is on the diagonal and the end
+!  perturbation matrix is Hermitian => only loop over the upper diagonal
+      DO jsc = 1, nsc
+         ! For each SC, need to couple it to the ground state SD: <Psi_0|SOC|Psi_Jsc>
+         ! Compute SOC_z|psi^Jc_k,sigma>, which we store as it will be needed afterwards
+         CALL cp_dbcsr_sm_fm_multiply(orb_soc_z, sc_coeffs(jsc)%matrix, vec_soc_z, ncol=ndo_so) 
+
+         !<Psi_0|SOC|Psi_Jsc> = sum_k,sigma <phi^0_k,sigma|SOC|phi^Jsc_k,sigma>
+         CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, gs_coeffs, vec_soc_z, 0.0_dp, prod_work)
+         CALL cp_fm_get_diag(prod_work, diag)
+         !same spin integration => <alpha|sigma_z|alpha> = 1, <beta|sigma_z|beta> = -1
+         soc = SUM(diag(1:ndo_mo)) - SUM(diag(ndo_mo+1:ndo_so))
+
+         !purely imaginary element
+         CALL cp_fm_set_element(img_fm, 1, 1+jsc, soc)
+
+         !we also precompute and store S|phi^Jsc_k,sigma>
+         CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, sc_coeffs(jsc)%matrix, vec_s, ncol=ndo_so)
+         
+         DO isc = 1, jsc
+
+            ! <Psi_Isc|SOC|Psi_Jsc> = 
+            ! sum_k,sigma [<psi^Isc_k,sigma|SOC|psi^Jsc_k,sigma> + <psi^Isc_k,sigma|psi^Jsc_k,sigma> * gs_sum]
+            ! - sum_k,l,sigma <psi^0_k,sigma|SOC|psi^0_l,sigma> * <psi^Isc_l,sigma|psi^Jsc_k,sigma> 
+
+            ! Compute the LR orbitals overlap
+            CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, sc_coeffs(isc)%matrix, vec_s, 0.0_dp, prod_work)
+            CALL cp_fm_get_submatrix(prod_work, S_ex)
+
+            ! Compute the LR SOC: same-spin integration => only need SOC_z
+            CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, sc_coeffs(isc)%matrix, vec_soc_z, 0.0_dp, prod_work)
+            CALL cp_fm_get_submatrix(prod_work, SOC_ex)
+
+            ! Actually compute the SOC, with <alpha|sigma_z|alpha> = 1, <beta|sigma_z|beta> = -1
+            diag(:) = get_diag(SOC_ex)
+            soc = SUM(diag(1:ndo_mo)) - SUM(diag(ndo_mo+1:ndo_so))
+
+            diag(:) = get_diag(S_ex)
+            soc = soc + SUM(diag)*gs_sum
+
+            soc = soc - SUM(S_ex(1:ndo_mo,1:ndo_mo)*TRANSPOSE(domo_soc_z(1:ndo_mo,1:ndo_mo))) !alpha
+            soc = soc + SUM(S_ex(ndo_mo+1:ndo_so,ndo_mo+1:ndo_so)* &                          !beta
+                            TRANSPOSE(domo_soc_z(ndo_mo+1:ndo_so,ndo_mo+1:ndo_so)))
+
+            !purely imaginary element
+            CALL cp_fm_set_element(img_fm, 1+isc, 1+jsc, soc)
+
+         END DO !isc
+      END DO !jsc
+
+!  Do the spin-flip spin-flip loop followed by the spin-conserving spin-flip loop
+!  Reminder: for the SF LR orbitals, the alpha-beta transition coeffs sit at the usual alpha spot
+!            and the beta-alpha transition coeffs sit the the usual beta spot
+      DO jsf = 1, nsf
+         ! For each SF, need to couple it to the ground state SD: <Psi_0|SOC|Psi_Jsf>
+         ! Need to compute both SOC_x|psi^Jsf_k,sigma> and SOC_y|psi^Jsf_k,sigma> 
+         CALL cp_dbcsr_sm_fm_multiply(orb_soc_x, sf_coeffs(jsf)%matrix, vec_soc_x, ncol=ndo_so)
+         CALL cp_dbcsr_sm_fm_multiply(orb_soc_y, sf_coeffs(jsf)%matrix, vec_soc_y, ncol=ndo_so)
+
+         !<Psi_0|SOC|Psi_Jsf> = sum_k,sigma <phi^0_k,sigma|SOC|phi^Jsc_k,tau>   sigma != tau
+         ! the imaginary SOC_x part, both <alpha|sigma_x|beta> and <beta|sigma_x|alpha> = 1
+         CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, gs_coeffs, vec_soc_x, 0.0_dp, prod_work)
+         CALL cp_fm_get_diag(prod_work, diag)
+         soc = SUM(diag)
+
+         CALL cp_fm_set_element(img_fm, 1, 1+nsc+jsf, soc)
+
+         !the real SOC_y part, <alpha|sigma_y|beta> = -i, <beta|sigma_y|alpha> = i
+         CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, gs_coeffs, vec_soc_y, 0.0_dp, prod_work)
+         CALL cp_fm_get_diag(prod_work, diag)
+         soc = SUM(diag(1:ndo_mo)) ! alpha-beta
+         soc = soc - SUM(diag(ndo_mo+1:ndo_so)) !beta-alpha
+
+         CALL cp_fm_set_element(real_fm, 1, 1+nsc+jsf, soc)
+
+         !Some other stuff we can precompute
+         CALL cp_dbcsr_sm_fm_multiply(orb_soc_z, sf_coeffs(jsf)%matrix, vec_soc_z, ncol=ndo_so)
+         CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, sf_coeffs(jsf)%matrix, vec_s, ncol=ndo_so)
+
+      ! Do the spin-flip spin-flip loop => block is on diagonal, only cover upper diag
+         DO isf = 1, jsf
+
+            !<Psi_Isf|SOC|Psi_Jsf> = 
+            ! sum_k,sigma [<psi^Isf_k,tau|SOC|psi^Jsf_k,tau> + <psi^Isf_k,tau|psi^Jsf_k,tau> * gs_sum]
+            ! - sum_k,l,sigma <psi^0_k,sigma|SOC|psi^0_l,sigma> * <psi^Isf_l,tau|psi^Jsf_k,tau> , tau != sigma
+
+            ! Compute the LR orbitals overlap
+            CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, sf_coeffs(isf)%matrix, vec_s, 0.0_dp, prod_work)
+            CALL cp_fm_get_submatrix(prod_work, S_ex)
+
+            ! Compute the LR SOC: same-spin integration => only need SOC_z
+            CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, sf_coeffs(isf)%matrix, vec_soc_z, 0.0_dp, prod_work)
+            CALL cp_fm_get_submatrix(prod_work, SOC_ex)
+
+            ! Actually compute the SOC, with <alpha|sigma_z|alpha> = 1, <beta|sigma_z|beta> = -1
+            ! Careful: the alpha-BETA LR are in the alpha spot and the beta-ALPHA in the beta spot
+            diag(:) = get_diag(SOC_ex)
+            soc = -SUM(diag(1:ndo_mo)) + SUM(diag(ndo_mo+1:ndo_so))
+
+            diag(:) = get_diag(S_ex)
+            soc = soc + SUM(diag)*gs_sum
+
+            soc = soc - SUM(S_ex(1:ndo_mo,1:ndo_mo)*TRANSPOSE(domo_soc_z(1:ndo_mo,1:ndo_mo))) !beta LR, alpha gs
+            soc = soc + SUM(S_ex(ndo_mo+1:ndo_so,ndo_mo+1:ndo_so)* &                          !alpha LR, beta gs
+                                 TRANSPOSE(domo_soc_z(ndo_mo+1:ndo_so,ndo_mo+1:ndo_so)))
+
+            !purely imaginary element
+            CALL cp_fm_set_element(img_fm, 1+nsc+isf, 1+nsc+jsf, soc)
+
+         END DO !isf
+
+      ! Do the spin-conserving spin-flip SOC. Block is off-diagonal => cover all combinations
+         DO isc = 1, nsc
+
+            !<Psi_Isc|SOC|Psi_Jsf> =   sum_k,sigma <psi^Isc_k,sigma|SOC|psi^Isf_k,tau>
+            !                        - sum_k,l,sigma <psi^0_k,tau|SOC|psi^0_l,sigma
+
+            !Compute the LR orbitals overlap
+            CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, sc_coeffs(isc)%matrix, vec_s, 0.0_dp, prod_work)
+            CALL cp_fm_get_submatrix(prod_work, S_ex)
+
+            !Start with the fully imaginary SOC_x part => <alpha|sigma_x|beta> = <beta|sigma_x|alpha> = 1
+            CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, sc_coeffs(isc)%matrix, vec_soc_x, 0.0_dp, prod_work)
+            CALL cp_fm_get_submatrix(prod_work, SOC_ex)
+
+            diag(:) = get_diag(SOC_ex)
+            soc = SUM(diag)
+
+            soc = soc - SUM(S_ex(1:ndo_mo,ndo_mo+1:ndo_so)*TRANSPOSE(domo_soc_x(1:ndo_mo,ndo_mo+1:ndo_so)))
+            soc = soc - SUM(S_ex(ndo_mo+1:ndo_so,1:ndo_mo)*TRANSPOSE(domo_soc_x(ndo_mo+1:ndo_so,1:ndo_mo)))
+
+            CALL cp_fm_set_element(img_fm, 1+isc, 1+nsc+jsf, soc)
+
+            !Now do the fully real SOC_y part => <alpha|sigma_y|beta> = -i, <beta|sigma_y|alpha> = i
+            CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, sc_coeffs(isc)%matrix, vec_soc_y, 0.0_dp, prod_work)
+            CALL cp_fm_get_submatrix(prod_work, SOC_ex)
+
+            diag(:) = get_diag(SOC_ex)
+            soc = SUM(diag(1:ndo_mo)) - SUM(diag(ndo_mo+1:ndo_so))
+
+            soc = soc + SUM(S_ex(1:ndo_mo,ndo_mo+1:ndo_so)*TRANSPOSE(domo_soc_y(1:ndo_mo,ndo_mo+1:ndo_so)))
+            soc = soc - SUM(S_ex(ndo_mo+1:ndo_so,1:ndo_mo)*TRANSPOSE(domo_soc_y(ndo_mo+1:ndo_so,1:ndo_mo)))
+
+            CALL cp_fm_set_element(real_fm, 1+isc, 1+nsc+jsf, soc)
+
+         END DO !isc
+
+      END DO !jsf
+
+!  Intermediate clean-up
+      CALL cp_fm_release(vec_s)
+      CALL cp_fm_release(vec_soc_x)
+      CALL cp_fm_release(vec_soc_y)
+      CALL cp_fm_release(vec_soc_z)
+      CALL cp_fm_release(prod_work)
+      IF (do_roks) CALL cp_fm_release(gs_coeffs)
+      CALL cp_fm_struct_release(prod_struct)
+      CALL cp_fm_struct_release(vec_struct)
+
+!  Setting up the complex Hermitian perturbed matrix
+      CALL cp_cfm_create(pert_cfm, full_struct)
+      CALL cp_fm_to_cfm(real_fm, img_fm, pert_cfm)
+
+!  Diagonalize the perturbed matrix
+      ALLOCATE(tmp_evals(ntot))
+      CALL cp_cfm_create(evecs_cfm, full_struct)
+      CALL cp_cfm_heevd(pert_cfm, evecs_cfm, tmp_evals)
+
+      !shift the energies such that the GS has zero and store all that in soc_evals (\wo the GS)
+      ALLOCATE(donor_state%soc_evals(ntot-1))
+      donor_state%soc_evals(:) = tmp_evals(2:ntot) - tmp_evals(1)
+
+!  The SOC oscillator strengths
+      !keep zeros for now
+      ALLOCATE(donor_state%soc_osc_str(ntot))
+      donor_state%soc_osc_str = 0.0_dp
+
+! Clean-up
+      CALL cp_cfm_release(pert_cfm)
+      CALL cp_cfm_release(evecs_cfm)
+      CALL cp_fm_release(real_fm)
+      CALL cp_fm_release(img_fm)
+      CALL cp_fm_struct_release(full_struct)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE include_os_soc
+
+! **************************************************************************************************
+!> \brief Includes the SOC effects on the precomputed restricted closed-shell singlet and triplet 
+!>        excitations. This is a perturbative treatmnent
 !> \param donor_state ...
 !> \param xas_tdp_env ...
 !> \param xas_tdp_control ...
@@ -1745,14 +2117,14 @@ CONTAINS
 !>       The AMEWs are normalized
 !>       Only for spin-restricted calculations
 ! **************************************************************************************************
-   SUBROUTINE include_full_soc(donor_state, xas_tdp_env, xas_tdp_control, qs_env)
+   SUBROUTINE include_rcs_soc(donor_state, xas_tdp_env, xas_tdp_control, qs_env)
 
       TYPE(donor_state_type), POINTER                 :: donor_state
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
       TYPE(qs_environment_type), POINTER              :: qs_env
 
-      CHARACTER(len=*), PARAMETER :: routineN = "include_full_soc", routineP = moduleN//":"//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = "include_rcs_soc", routineP = moduleN//":"//routineN
 
       INTEGER                                         :: itp, ntp, isg, nsg, ntot, ndo_mo, nao, &
                                                          jtp, homo, i, handle
@@ -1782,6 +2154,9 @@ CONTAINS
       NULLIFY(vec_soc_x, vec_soc_y, vec_soc_z)
 
       CALL timeset(routineN, handle)
+
+!  Note: everytime the cp_fm_trace is used, it does: sum_ij A_ji * B_ij = sum_ij A^T_ij * B_ij
+!        this directly takes into account our sum_IJ <phi_J|H|phi_I> * <phi_I|phi_J> constructes
 
 !  Initialization
       CPASSERT(ASSOCIATED(xas_tdp_control))
@@ -2083,7 +2458,7 @@ CONTAINS
 
       CALL timestop(handle)
       
-   END SUBROUTINE include_full_soc
+   END SUBROUTINE include_rcs_soc
 
 ! **************************************************************************************************
 !> \brief Computes the matrix elements of a one-body operator (given wrt AOs) in the basis of the

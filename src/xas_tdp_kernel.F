@@ -1534,7 +1534,10 @@ CONTAINS
       ! The kernel matrix is symmetric (even if normal type) => only fill upper half on diagonal
       ! quadrants, but the whole thing on upper-right quadrant
       DO iso = 1, ndo_so
-         DO jso = iso, ndo_so
+         DO jso = 1, ndo_so
+
+            ! If on-diagonal quadrants only, can skip jso < iso
+            IF (.NOT. quadrants(2) .AND. jso<iso) CYCLE
 
             i = iso; j = jso;
             IF (my_mt) THEN

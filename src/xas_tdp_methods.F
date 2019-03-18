@@ -110,7 +110,8 @@ MODULE xas_tdp_methods
    USE xas_tdp_utils,                   ONLY: setup_xas_tdp_prob, &
                                               solve_xas_tdp_prob, &
                                               compute_ri_coulomb2_int, &
-                                              include_full_soc, &
+                                              include_rcs_soc, &
+                                              include_os_soc, &
                                               compute_ri_o3c_coulomb, &
                                               compute_ri_o3c_exchange, &
                                               get_ri_o3c_coul_bonds
@@ -343,7 +344,12 @@ CONTAINS
 
 !              Include the SOC if required
                IF (xas_tdp_control%do_soc) THEN
-                  CALL include_full_soc(current_state, xas_tdp_env, xas_tdp_control, qs_env)
+                  IF (xas_tdp_control%do_singlet .AND. xas_tdp_control%do_triplet) THEN
+                     CALL include_rcs_soc(current_state, xas_tdp_env, xas_tdp_control, qs_env)
+                  END IF
+                  IF (xas_tdp_control%do_spin_cons .AND. xas_tdp_control%do_spin_flip) THEN
+                     CALL include_os_soc(current_state, xas_tdp_env, xas_tdp_control, qs_env)
+                  END IF
                END IF
 
                CALL print_xas_tdp_to_file(current_state, xas_tdp_env, xas_tdp_control, xas_tdp_section)
@@ -437,6 +443,7 @@ CONTAINS
       do_os = do_uks .OR. xas_tdp_control%do_roks
       !TODO: implement some safety checks: spin-flip only with ROKS, singlet/triplet only in closed
       !shell, etc.
+      !Should warn against use of ROKS for states with spin-multiplicity > doublet
 
 !  XAS TDP environment type initialization
       CALL xas_tdp_env_create(xas_tdp_env)
@@ -740,6 +747,9 @@ CONTAINS
       NULLIFY(lumo_struct, amatrix, bmatrix, work_fm, fm_struct, mo_evals)
 
       CALL timeset(routineN, handle)
+
+      !TODO: it looks like in ROKS, all LUMOs are already computed in the GS calculation.
+      !      if this is actually the case, then it is stupid to redo it !
 
       do_uks = xas_tdp_control%do_uks
       do_roks = xas_tdp_control%do_roks
