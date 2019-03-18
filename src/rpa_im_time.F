@@ -417,7 +417,7 @@ CONTAINS
 
                            CALL timeset(routineN//"_copy_M_t", handle5)
                            CALL dbcsr_t_copy(t_3c_M_tmp, t_3c_M_virt, order=[1, 2, 3], move_data=.TRUE.)
-                           CALL dbcsr_t_filter(t_3c_M_virt, eps_filter)
+                           CALL dbcsr_t_filter(t_3c_M_virt, eps_filter) ! todo: check memory consumption and that t_3c_M_tmp is empty!
                            CALL dbcsr_t_set(t_3c_M_tmp, 0.0_dp)
                            CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
                            CALL timestop(handle5)
