@@ -78,6 +78,8 @@ MODULE xas_tdp_atom
 
 CONTAINS
 
+!TODO: need to go back to the general RI projection for the density. The current thing is not good
+
 ! **************************************************************************************************
 !> \brief Initializes a xas_atom_env type given the qs_env
 !> \param xas_atom_env the xas_atom_env to initialize
