@@ -14,6 +14,7 @@ MODULE xas_tdp_utils
                                               gto_basis_set_p_type
    USE cell_types,                      ONLY: cell_type
    USE constants_operator,              ONLY: operator_coulomb
+   USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose, cp_dbcsr_cholesky_invert
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm, cp_dbcsr_sm_fm_multiply, &
                                               copy_fm_to_dbcsr, cp_fm_to_dbcsr_row_template, &
@@ -43,7 +44,7 @@ MODULE xas_tdp_utils
                                               dbcsr_put_block, dbcsr_release, dbcsr_finalize,&
                                               dbcsr_distribution_release, &
                                               dbcsr_copy, dbcsr_set, dbcsr_multiply, &
-                                              dbcsr_desymmetrize, &
+                                              dbcsr_desymmetrize, dbcsr_complete_redistribute, &
                                               dbcsr_iterator_type, &
                                               dbcsr_iterator_blocks_left, dbcsr_iterator_start, &
                                               dbcsr_iterator_stop, dbcsr_iterator_next_block, &
@@ -278,6 +279,9 @@ CONTAINS
             CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q, sc_matrix_tdp, 0.0_dp, work)
             CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q, 0.0_dp, sc_matrix_tdp)
 
+            ! TEST: the S-TDDFT correction
+            !CALL add_s_tddft_corr(sc_matrix_tdp, donor_state, xas_tdp_env, qs_env)
+
          END IF !do_sc
 
          IF (do_sf) THEN ! open-shell spin-flip under TDA
@@ -424,6 +428,177 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE setup_xas_tdp_prob
+
+! **************************************************************************************************
+!> \brief TEST: add the Delta_A correction of Li & Liu S-TDDFT
+!> \note Implemented for TDA, where B = 0 so matrix_tda = A. ROKS is assumed
+! **************************************************************************************************
+   SUBROUTINE add_s_tddft_corr(matrix_tdp, donor_state, xas_tdp_env, qs_env)
+
+      TYPE(dbcsr_type), INTENT(INOUT)                 :: matrix_tdp
+      TYPE(donor_state_type), POINTER                 :: donor_state
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "add_s_tddft_corr", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: ndo_mo, multi, nao, imo, jmo, iblk, jblk,&
+                                                         blk, natom
+      REAL(dp)                                        :: tot_spin, pref_aa, pref_ab, pref_bb
+      REAL(dp), DIMENSION(:,:), POINTER               :: pblock
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s, matrix_ks
+      TYPE(dbcsr_type)                                :: Fs, work, corr, desymm_s, desymm_Fs
+      TYPE(dbcsr_type), POINTER                       :: proj_virt
+      TYPE(cp_fm_type), POINTER                       :: gs_coeffs, vec_fm, prod_fm
+      TYPE(cp_fm_struct_type), POINTER                :: vec_struct, prod_struct
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: Fs_IJ
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      TYPE(dft_control_type), POINTER                 :: dft_control
+      TYPE(dbcsr_iterator_type)                       :: iter
+      LOGICAL                                         :: found
+      
+      NULLIFY(matrix_s, matrix_ks, proj_virt, vec_struct, prod_struct, dft_control, pblock)
+      NULLIFY(para_env, blacs_env, vec_fm, prod_fm, vec_struct, prod_struct)
+
+   ! Generalities
+      ndo_mo = donor_state%ndo_mo
+      gs_coeffs => donor_state%gs_coeffs
+      CALL get_qs_env(qs_env, blacs_env=blacs_env, para_env=para_env, matrix_s=matrix_s, natom=natom)
+
+   ! Compute Fs = 0.5*(F_beta - F_alpha)
+      CALL get_qs_env(qs_env, matrix_ks=matrix_ks) 
+      CALL dbcsr_copy(Fs, matrix_ks(2)%matrix)
+      CALL dbcsr_add(Fs, matrix_ks(1)%matrix, 0.5_dp, -0.5_dp)
+
+   ! Get the total spin of the ground state
+      CALL get_qs_env(qs_env, dft_control=dft_control)
+      multi = dft_control%multiplicity
+      tot_spin = 0.5_dp*(REAL(multi, dp)-1.0_dp)
+
+   ! Get the projector on the virtual orbitals. Since ROKS, this is simply the alpha proj_Q
+      proj_virt => xas_tdp_env%q_projector(1)%matrix
+
+   ! Compute the Fs_IJ for the donor MOs
+      ALLOCATE(Fs_IJ(ndo_mo,ndo_mo))
+      CALL cp_fm_get_info(gs_coeffs, matrix_struct=vec_struct, nrow_global=nao)
+      CALL cp_fm_struct_create(prod_struct, context=blacs_env, para_env=para_env, &
+                               nrow_global=ndo_mo, ncol_global=ndo_mo)
+      CALL cp_fm_create(vec_fm, vec_struct)
+      CALL cp_fm_create(prod_fm, prod_struct)
+
+      CALL cp_dbcsr_sm_fm_multiply(Fs, gs_coeffs, vec_fm, ncol=ndo_mo)
+      CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_fm, 0.0_dp, prod_fm)
+      CALL cp_fm_get_submatrix(prod_fm, Fs_IJ)
+
+      CALL cp_fm_release(vec_fm)
+      CALL cp_fm_release(prod_fm)
+      CALL cp_fm_struct_release(prod_struct)
+
+   ! Because Fs_IJ is not necessarily digonal, work with normal type matrices 
+      CALL dbcsr_desymmetrize(matrix_s(1)%matrix, desymm_s)    
+      CALL dbcsr_desymmetrize(Fs, desymm_Fs)
+      CALL dbcsr_create(corr, template=matrix_tdp, matrix_type="N")
+      CALL dbcsr_create(work, template=matrix_tdp, matrix_type="N")
+
+   ! Take the projection to the virtual space
+      CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_virt, desymm_Fs, 0.0_dp, desymm_Fs)
+      CALL dbcsr_multiply('N', 'T', 1.0_dp, desymm_Fs, proj_virt, 0.0_dp, desymm_Fs)
+
+      CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_virt, desymm_s, 0.0_dp, desymm_s)
+      CALL dbcsr_multiply('N', 'T', 1.0_dp, desymm_s, proj_virt, 0.0_dp, desymm_s)
+
+   ! Start with Fs_ab (virtual space) and put its contribution into corr
+      !compute some prefactors
+      pref_aa = 1._dp - SQRT((tot_spin+1)/tot_spin) + 1._dp/(2._dp*tot_spin)
+      pref_ab = 1._dp/(2._dp*tot_spin)
+      pref_bb = -1._dp + SQRT((tot_spin+1)/tot_spin) + 1._dp/(2._dp*tot_spin)
+
+      CALL dbcsr_iterator_start(iter, desymm_Fs) 
+      DO WHILE(dbcsr_iterator_blocks_left(iter))
+
+         CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
+         !There is always a delta_IJ with Fs_ab => on-diagonal => only do upper half explicitely
+         IF (jblk < iblk) CYCLE
+
+         CALL dbcsr_get_block_p(desymm_Fs, iblk, jblk, pblock, found)
+
+         IF (found) THEN
+            DO imo = 1, ndo_mo
+
+               ! the alpha-alpha quadrant
+               ! (1 - sqrt((S+1)/S) + 1/2S )*delta_IJ*Fs
+               CALL dbcsr_put_block(corr, (imo-1)*natom+iblk, (imo-1)*natom+jblk, pref_aa*pblock)
+
+               ! the alpha-beta quadrant
+               ! 1/2S * delta_IJ * Fs
+               CALL dbcsr_put_block(corr, (imo-1)*natom+iblk, (ndo_mo+imo-1)*natom+jblk, pref_ab*pblock)
+
+               !the beta-beta quadrant
+               ! (-1 + sqrt((S+1)/S) + 1/2S )*delta_IJ*Fs 
+               CALL dbcsr_put_block(corr, (ndo_mo+imo-1)*natom+iblk, (ndo_mo+imo-1)*natom+jblk, pref_bb*pblock)
+
+            END DO
+         END IF
+
+      END DO !dbcsr iter
+      CALL dbcsr_iterator_stop(iter)
+      CALL dbcsr_finalize(corr)
+
+   ! Now deal with the Fs_IJ part (donor MOs) and put its contribuition into work
+      ! compute some prefactors
+      pref_aa = -1._dp + SQRT((tot_spin+1)/tot_spin) + 1._dp/(2._dp*tot_spin)
+      pref_ab = 1._dp/(2._dp*tot_spin)
+      pref_bb = 1._dp - SQRT((tot_spin+1)/tot_spin) + 1._dp/(2._dp*tot_spin)
+
+      CALL dbcsr_iterator_start(iter, desymm_s)
+      DO WHILE(dbcsr_iterator_blocks_left(iter))
+
+         CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
+         CALL dbcsr_get_block_p(desymm_s, iblk, jblk, pblock, found)
+
+         IF (found) THEN
+            DO imo = 1, ndo_mo
+               DO jmo = 1, ndo_mo
+
+                  ! the alpha-alpha quadrant
+                  CALL dbcsr_put_block(work, (imo-1)*natom+iblk, (imo-1)*natom+jblk, pref_aa*Fs_IJ(imo,jmo)*pblock)
+
+                  ! the alpha-beta quadrant
+                  CALL dbcsr_put_block(work, (imo-1)*natom+iblk, (ndo_mo+imo-1)*natom+jblk, &
+                                       pref_ab*Fs_IJ(imo,jmo)*pblock)
+
+                  ! the beta-beta quadrant
+                  CALL dbcsr_put_block(work, (ndo_mo+imo-1)*natom+iblk, (ndo_mo+imo-1)*natom+jblk, &
+                                       pref_bb*Fs_IJ(imo,jmo)*pblock)
+                  
+               END DO
+            END DO 
+         END IF
+
+      END DO !dbcsr iterator
+      CALL dbcsr_iterator_stop(iter)
+      CALL dbcsr_finalize(work)
+
+   ! Take the whole thing and store it in work
+      CALL dbcsr_add(work, corr, 1.0_dp, 1.0_dp)
+      CALL dbcsr_release(corr)
+
+   ! Create a symmetric correction and redistribute work into it
+      CALL dbcsr_create(corr, template=matrix_tdp, name="S-TDDFT CORR")
+      CALL dbcsr_complete_redistribute(work, corr)
+
+   ! Add the correction to the input matrix
+      CALL dbcsr_add(matrix_tdp, corr, 1.0_dp, 1.0_dp)
+
+   ! Clean-up
+      CALL dbcsr_release(desymm_s)
+      CALL dbcsr_release(desymm_Fs)
+      CALL dbcsr_release(corr)
+      CALL dbcsr_release(work)
+      CALL dbcsr_release(Fs)
+
+   END SUBROUTINE add_s_tddft_corr
 
 ! **************************************************************************************************
 !> \brief Solves the XAS TDP generalized eigenvalue problem omega*C = matrix_tdp*C using standard

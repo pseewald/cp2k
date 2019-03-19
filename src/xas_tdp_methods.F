@@ -191,9 +191,6 @@ CONTAINS
       END IF
 
 !  Safety checks
-      !IF (dft_control%lsd) THEN
-      !   CPABORT("XAS TDP only implemented for closed shell ground state calculations")
-      !END IF
 !     Check on periodicity: PBCs only available without exact exchange
       CALL get_qs_env(qs_env, cell=cell)
       IF ((.NOT. ALL(cell%perd .EQ. 0)) .AND. xas_tdp_control%do_hfx) THEN
@@ -1330,8 +1327,6 @@ CONTAINS
 !           Canonical MO, no change in eigenvalues, only diagonal elements
             DO ispin = 1, nspins
                CALL get_mo_set(mos(ispin)%mo_set, eigenvalues=mo_evals)
-               PRINT*, "MO evals for spin ", ispin, ":"
-               PRINT*, mo_evals
                DO i = 1,n_states 
                   donor_state%energy_evals(i,ispin) = mo_evals(my_mos(i,ispin))
                
