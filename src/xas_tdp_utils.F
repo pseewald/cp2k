@@ -93,7 +93,7 @@ MODULE xas_tdp_utils
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = "xas_tdp_utils"
 
-   PUBLIC :: setup_xas_tdp_prob, solve_xas_tdp_prob, &
+   PUBLIC :: setup_xas_tdp_prob, solve_xas_tdp_prob, build_xas_tdp_3c_nl, &
              compute_ri_coulomb2_int, include_rcs_soc, include_os_soc, &
              compute_ri_o3c_coulomb, compute_ri_o3c_exchange, get_ri_o3c_coul_bonds
 
