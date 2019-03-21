@@ -238,11 +238,9 @@ MODULE xas_tdp_types
 !> \brief a environment type that contains all the info needed for XAS_TDP atomic grid calculations
 !> \param excited_atoms the atoms for which RI xc-kernel calculations must be done 
 !> \param excited_kinds the kinds for which RI xc-kernel calculations must be done 
-!> \param proc_of_exat the mapping of the excited atoms on the processors
 !> \param grid_atom_set the set of atomic grid for each kind
-!> \param ri_dcoeff the expansion coefficients to express the spin-density in the RI basis for each atom
+!> \param ri_dcoeff the expansion coefficients to express the density in the RI basis for each atom
 !> \param exat_neighbors the neighbors of each excited atom
-!> \param kind_3c_overlap contains the (abP) overlap for each kind, where a,b and P share the same center
 !> \param ri_sphi_so contains the coefficient for direct contraction from so to sgf, for the ri basis
 !> \param orb_sphi_so contains the coefficient for direct contraction from so to sgf, for the orb basis
 !> *************************************************************************************************
@@ -254,10 +252,9 @@ MODULE xas_tdp_types
       TYPE(harmonics_atom_p_type), DIMENSION(:), & 
                                              POINTER  :: harmonics_atom_set
       TYPE(cp_1d_r_p_type), DIMENSION(:,:), POINTER   :: ri_dcoeff
-      TYPE(cp_3d_r_p_type), DIMENSION(:), POINTER     :: kind_3c_overlap
-      TYPE(cp_1d_i_p_type), DIMENSION(:), POINTER     :: exat_neighbors
       TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: ri_sphi_so
       TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: orb_sphi_so
+      TYPE(cp_1d_i_p_type), DIMENSION(:), POINTER     :: exat_neighbors
    END TYPE xas_atom_env_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE  :: moduleN = 'xas_tdp_types'
@@ -953,14 +950,12 @@ CONTAINS
       
       NULLIFY(xas_atom_env%excited_atoms)
       NULLIFY(xas_atom_env%excited_kinds)
-      NULLIFY(xas_atom_env%proc_of_exat)
       NULLIFY(xas_atom_env%grid_atom_set)
       NULLIFY(xas_atom_env%harmonics_atom_set)
-      NULLIFY(xas_atom_env%exat_neighbors)
       NULLIFY(xas_atom_env%ri_dcoeff)
-      NULLIFY(xas_atom_env%kind_3c_overlap)
       NULLIFY(xas_atom_env%ri_sphi_so)
       NULLIFY(xas_atom_env%orb_sphi_so)
+      NULLIFY(xas_atom_env%exat_neighbors)
 
    END SUBROUTINE xas_atom_env_create
 
@@ -998,28 +993,6 @@ CONTAINS
       ! Note that excited_atoms and excited_kinds are not deallocated because they point to other 
       ! ressources, namely xas_tdp_env
 
-      IF (ASSOCIATED(xas_atom_env%proc_of_exat)) THEN
-         DEALLOCATE(xas_atom_env%proc_of_exat)
-      END IF
-
-      IF (ASSOCIATED(xas_atom_env%exat_neighbors)) THEN
-         DO i = 1,SIZE(xas_atom_env%exat_neighbors)
-            IF (ASSOCIATED(xas_atom_env%exat_neighbors(i)%array)) THEN
-               DEALLOCATE(xas_atom_env%exat_neighbors(i)%array)
-            END IF
-         END DO
-         DEALLOCATE(xas_atom_env%exat_neighbors)
-      END IF
-
-      IF (ASSOCIATED(xas_atom_env%kind_3c_overlap)) THEN
-         DO i = 1,SIZE(xas_atom_env%kind_3c_overlap)
-            IF (ASSOCIATED(xas_atom_env%kind_3c_overlap(i)%array)) THEN
-               DEALLOCATE(xas_atom_env%kind_3c_overlap(i)%array)
-            END IF
-         END DO
-         DEALLOCATE(xas_atom_env%kind_3c_overlap)
-      END IF
-
       IF (ASSOCIATED(xas_atom_env%ri_dcoeff)) THEN
          DO i = 1,SIZE(xas_atom_env%ri_dcoeff,1)
             DO j = 1,SIZE(xas_atom_env%ri_dcoeff,2)
@@ -1038,6 +1011,15 @@ CONTAINS
             END IF
          END DO
          DEALLOCATE(xas_atom_env%ri_sphi_so)
+      END IF
+
+      IF (ASSOCIATED(xas_atom_env%exat_neighbors)) THEN
+         DO i = 1,SIZE(xas_atom_env%exat_neighbors)
+            IF (ASSOCIATED(xas_atom_env%exat_neighbors(i)%array)) THEN 
+               DEALLOCATE(xas_atom_env%exat_neighbors(i)%array)
+            END IF
+         END DO
+         DEALLOCATE(xas_atom_env%exat_neighbors)
       END IF
 
       IF (ASSOCIATED(xas_atom_env%orb_sphi_so)) THEN
