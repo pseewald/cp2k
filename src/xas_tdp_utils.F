@@ -162,7 +162,7 @@ CONTAINS
       INTEGER                                         :: handle
       REAL(dp)                                        :: sx
       LOGICAL                                         :: do_xc, do_hfx, do_sg, do_tp, do_tda, &
-                                                         do_os, do_uks, do_roks, do_sc, do_sf
+                                                         do_os, do_sc, do_sf
       TYPE(dbcsr_type), POINTER                       :: sg_matrix_tdp, tp_matrix_tdp, &
                                                          matrix_d, matrix_e_sc, matrix_c_ondiag_sf,&
                                                          matrix_c_sg, matrix_c_tp, & 
@@ -180,9 +180,7 @@ CONTAINS
       CALL timeset(routineN, handle)
 
 !  Initialization
-      do_uks = xas_tdp_control%do_uks
-      do_roks = xas_tdp_control%do_roks
-      do_os = do_uks .OR. do_roks
+      do_os = xas_tdp_control%do_uks .OR. xas_tdp_control%do_roks
       do_sc = xas_tdp_control%do_spin_cons
       do_sf = xas_tdp_control%do_spin_flip
       do_sg = xas_tdp_control%do_singlet
@@ -226,12 +224,12 @@ CONTAINS
 
       ! The ground state contribution(s)
       IF (do_sg .OR. do_tp .OR. do_sc) THEN !spin-conserving
-         CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, do_uks, &
-                                    do_roks, xas_tdp_env, qs_env)
+         CALL build_gs_contribution(matrix_a, submat_dist, submat_blk_size, donor_state, do_os, &
+                                    qs_env)
       END IF
       IF (do_sf) THEN !spin-flip
-         CALL build_gs_contribution(matrix_a_sf, submat_dist, submat_blk_size, donor_state, do_uks, &
-                                    do_roks, xas_tdp_env, qs_env, do_sf=.TRUE.)
+         CALL build_gs_contribution(matrix_a_sf, submat_dist, submat_blk_size, donor_state, do_os, &
+                                    qs_env, do_sf=.TRUE.)
       END IF
 
       ! The Coulomb and XC kernels. Internal analysis to know which matrix to compute
@@ -278,9 +276,6 @@ CONTAINS
             ! The product with the Q projector
             CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_Q, sc_matrix_tdp, 0.0_dp, work)
             CALL dbcsr_multiply('N', 'T', 1.0_dp, work, proj_Q, 0.0_dp, sc_matrix_tdp)
-
-            ! TEST: the S-TDDFT correction
-            !CALL add_s_tddft_corr(sc_matrix_tdp, donor_state, xas_tdp_env, qs_env)
 
          END IF !do_sc
 
@@ -428,177 +423,6 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE setup_xas_tdp_prob
-
-! **************************************************************************************************
-!> \brief TEST: add the Delta_A correction of Li & Liu S-TDDFT
-!> \note Implemented for TDA, where B = 0 so matrix_tda = A. ROKS is assumed
-! **************************************************************************************************
-   SUBROUTINE add_s_tddft_corr(matrix_tdp, donor_state, xas_tdp_env, qs_env)
-
-      TYPE(dbcsr_type), INTENT(INOUT)                 :: matrix_tdp
-      TYPE(donor_state_type), POINTER                 :: donor_state
-      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
-      TYPE(qs_environment_type), POINTER              :: qs_env
-
-      CHARACTER(len=*), PARAMETER :: routineN = "add_s_tddft_corr", routineP = moduleN//":"//routineN
-
-      INTEGER                                         :: ndo_mo, multi, nao, imo, jmo, iblk, jblk,&
-                                                         blk, natom
-      REAL(dp)                                        :: tot_spin, pref_aa, pref_ab, pref_bb
-      REAL(dp), DIMENSION(:,:), POINTER               :: pblock
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s, matrix_ks
-      TYPE(dbcsr_type)                                :: Fs, work, corr, desymm_s, desymm_Fs
-      TYPE(dbcsr_type), POINTER                       :: proj_virt
-      TYPE(cp_fm_type), POINTER                       :: gs_coeffs, vec_fm, prod_fm
-      TYPE(cp_fm_struct_type), POINTER                :: vec_struct, prod_struct
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: Fs_IJ
-      TYPE(cp_para_env_type), POINTER                 :: para_env
-      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
-      TYPE(dft_control_type), POINTER                 :: dft_control
-      TYPE(dbcsr_iterator_type)                       :: iter
-      LOGICAL                                         :: found
-      
-      NULLIFY(matrix_s, matrix_ks, proj_virt, vec_struct, prod_struct, dft_control, pblock)
-      NULLIFY(para_env, blacs_env, vec_fm, prod_fm, vec_struct, prod_struct)
-
-   ! Generalities
-      ndo_mo = donor_state%ndo_mo
-      gs_coeffs => donor_state%gs_coeffs
-      CALL get_qs_env(qs_env, blacs_env=blacs_env, para_env=para_env, matrix_s=matrix_s, natom=natom)
-
-   ! Compute Fs = 0.5*(F_beta - F_alpha)
-      CALL get_qs_env(qs_env, matrix_ks=matrix_ks) 
-      CALL dbcsr_copy(Fs, matrix_ks(2)%matrix)
-      CALL dbcsr_add(Fs, matrix_ks(1)%matrix, 0.5_dp, -0.5_dp)
-
-   ! Get the total spin of the ground state
-      CALL get_qs_env(qs_env, dft_control=dft_control)
-      multi = dft_control%multiplicity
-      tot_spin = 0.5_dp*(REAL(multi, dp)-1.0_dp)
-
-   ! Get the projector on the virtual orbitals. Since ROKS, this is simply the alpha proj_Q
-      proj_virt => xas_tdp_env%q_projector(1)%matrix
-
-   ! Compute the Fs_IJ for the donor MOs
-      ALLOCATE(Fs_IJ(ndo_mo,ndo_mo))
-      CALL cp_fm_get_info(gs_coeffs, matrix_struct=vec_struct, nrow_global=nao)
-      CALL cp_fm_struct_create(prod_struct, context=blacs_env, para_env=para_env, &
-                               nrow_global=ndo_mo, ncol_global=ndo_mo)
-      CALL cp_fm_create(vec_fm, vec_struct)
-      CALL cp_fm_create(prod_fm, prod_struct)
-
-      CALL cp_dbcsr_sm_fm_multiply(Fs, gs_coeffs, vec_fm, ncol=ndo_mo)
-      CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, gs_coeffs, vec_fm, 0.0_dp, prod_fm)
-      CALL cp_fm_get_submatrix(prod_fm, Fs_IJ)
-
-      CALL cp_fm_release(vec_fm)
-      CALL cp_fm_release(prod_fm)
-      CALL cp_fm_struct_release(prod_struct)
-
-   ! Because Fs_IJ is not necessarily digonal, work with normal type matrices 
-      CALL dbcsr_desymmetrize(matrix_s(1)%matrix, desymm_s)    
-      CALL dbcsr_desymmetrize(Fs, desymm_Fs)
-      CALL dbcsr_create(corr, template=matrix_tdp, matrix_type="N")
-      CALL dbcsr_create(work, template=matrix_tdp, matrix_type="N")
-
-   ! Take the projection to the virtual space
-      CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_virt, desymm_Fs, 0.0_dp, desymm_Fs)
-      CALL dbcsr_multiply('N', 'T', 1.0_dp, desymm_Fs, proj_virt, 0.0_dp, desymm_Fs)
-
-      CALL dbcsr_multiply('N', 'N', 1.0_dp, proj_virt, desymm_s, 0.0_dp, desymm_s)
-      CALL dbcsr_multiply('N', 'T', 1.0_dp, desymm_s, proj_virt, 0.0_dp, desymm_s)
-
-   ! Start with Fs_ab (virtual space) and put its contribution into corr
-      !compute some prefactors
-      pref_aa = 1._dp - SQRT((tot_spin+1)/tot_spin) + 1._dp/(2._dp*tot_spin)
-      pref_ab = 1._dp/(2._dp*tot_spin)
-      pref_bb = -1._dp + SQRT((tot_spin+1)/tot_spin) + 1._dp/(2._dp*tot_spin)
-
-      CALL dbcsr_iterator_start(iter, desymm_Fs) 
-      DO WHILE(dbcsr_iterator_blocks_left(iter))
-
-         CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
-         !There is always a delta_IJ with Fs_ab => on-diagonal => only do upper half explicitely
-         IF (jblk < iblk) CYCLE
-
-         CALL dbcsr_get_block_p(desymm_Fs, iblk, jblk, pblock, found)
-
-         IF (found) THEN
-            DO imo = 1, ndo_mo
-
-               ! the alpha-alpha quadrant
-               ! (1 - sqrt((S+1)/S) + 1/2S )*delta_IJ*Fs
-               CALL dbcsr_put_block(corr, (imo-1)*natom+iblk, (imo-1)*natom+jblk, pref_aa*pblock)
-
-               ! the alpha-beta quadrant
-               ! 1/2S * delta_IJ * Fs
-               CALL dbcsr_put_block(corr, (imo-1)*natom+iblk, (ndo_mo+imo-1)*natom+jblk, pref_ab*pblock)
-
-               !the beta-beta quadrant
-               ! (-1 + sqrt((S+1)/S) + 1/2S )*delta_IJ*Fs 
-               CALL dbcsr_put_block(corr, (ndo_mo+imo-1)*natom+iblk, (ndo_mo+imo-1)*natom+jblk, pref_bb*pblock)
-
-            END DO
-         END IF
-
-      END DO !dbcsr iter
-      CALL dbcsr_iterator_stop(iter)
-      CALL dbcsr_finalize(corr)
-
-   ! Now deal with the Fs_IJ part (donor MOs) and put its contribuition into work
-      ! compute some prefactors
-      pref_aa = -1._dp + SQRT((tot_spin+1)/tot_spin) + 1._dp/(2._dp*tot_spin)
-      pref_ab = 1._dp/(2._dp*tot_spin)
-      pref_bb = 1._dp - SQRT((tot_spin+1)/tot_spin) + 1._dp/(2._dp*tot_spin)
-
-      CALL dbcsr_iterator_start(iter, desymm_s)
-      DO WHILE(dbcsr_iterator_blocks_left(iter))
-
-         CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
-         CALL dbcsr_get_block_p(desymm_s, iblk, jblk, pblock, found)
-
-         IF (found) THEN
-            DO imo = 1, ndo_mo
-               DO jmo = 1, ndo_mo
-
-                  ! the alpha-alpha quadrant
-                  CALL dbcsr_put_block(work, (imo-1)*natom+iblk, (imo-1)*natom+jblk, pref_aa*Fs_IJ(imo,jmo)*pblock)
-
-                  ! the alpha-beta quadrant
-                  CALL dbcsr_put_block(work, (imo-1)*natom+iblk, (ndo_mo+imo-1)*natom+jblk, &
-                                       pref_ab*Fs_IJ(imo,jmo)*pblock)
-
-                  ! the beta-beta quadrant
-                  CALL dbcsr_put_block(work, (ndo_mo+imo-1)*natom+iblk, (ndo_mo+imo-1)*natom+jblk, &
-                                       pref_bb*Fs_IJ(imo,jmo)*pblock)
-                  
-               END DO
-            END DO 
-         END IF
-
-      END DO !dbcsr iterator
-      CALL dbcsr_iterator_stop(iter)
-      CALL dbcsr_finalize(work)
-
-   ! Take the whole thing and store it in work
-      CALL dbcsr_add(work, corr, 1.0_dp, 1.0_dp)
-      CALL dbcsr_release(corr)
-
-   ! Create a symmetric correction and redistribute work into it
-      CALL dbcsr_create(corr, template=matrix_tdp, name="S-TDDFT CORR")
-      CALL dbcsr_complete_redistribute(work, corr)
-
-   ! Add the correction to the input matrix
-      CALL dbcsr_add(matrix_tdp, corr, 1.0_dp, 1.0_dp)
-
-   ! Clean-up
-      CALL dbcsr_release(desymm_s)
-      CALL dbcsr_release(desymm_Fs)
-      CALL dbcsr_release(corr)
-      CALL dbcsr_release(work)
-      CALL dbcsr_release(Fs)
-
-   END SUBROUTINE add_s_tddft_corr
 
 ! **************************************************************************************************
 !> \brief Solves the XAS TDP generalized eigenvalue problem omega*C = matrix_tdp*C using standard
@@ -898,7 +722,7 @@ CONTAINS
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: diag
       TYPE(dbcsr_distribution_type), POINTER          :: dist
       INTEGER, DIMENSION(:), POINTER                  :: blk_size
-      LOGICAL                                         :: do_uks, do_roks, my_dosf
+      LOGICAL                                         :: do_os, my_dosf
       TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: lumo_guess
 
       NULLIFY(precond, para_env, blacs_env, dist, blk_size, lumo_guess)
@@ -912,9 +736,8 @@ CONTAINS
       END IF
       
 !  Initialization
-      do_uks = xas_tdp_control%do_uks
-      do_roks = xas_tdp_control%do_roks
-      nspins = 1; IF(do_uks .OR. do_roks) nspins = 2
+      do_os = xas_tdp_control%do_uks .OR. xas_tdp_control%do_roks
+      nspins = 1; IF(do_os) nspins = 2
       ndo_mo = donor_state%ndo_mo
       CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env, nelectron_spin=nelec_spin)
       CALL cp_fm_get_info(evecs, nrow_global=nao)
@@ -923,14 +746,13 @@ CONTAINS
       eps_iter = xas_tdp_control%eps_iter
       ALLOCATE(lumo_guess(nspins))
       lumo_guess(1)%matrix => xas_tdp_env%lumo_guess(1)%matrix
-      IF (do_roks) lumo_guess(2)%matrix => xas_tdp_env%lumo_guess(1)%matrix
-      IF (do_uks) lumo_guess(2)%matrix => xas_tdp_env%lumo_guess(2)%matrix
+      IF (do_os) lumo_guess(2)%matrix => xas_tdp_env%lumo_guess(2)%matrix
       my_dosf = .FALSE.
       IF (PRESENT(do_sf)) my_dosf = do_sf !then either roks or uks
 
 !  Find where/if there are partially occupied MOs
       minel = 1; offset = 0
-      IF (do_uks .OR. do_roks) THEN
+      IF (do_os) THEN
          minel = MINLOC(nelec_spin,1)
          offset = ABS(nelec_spin(2)-nelec_spin(1))
       END IF
@@ -951,7 +773,7 @@ CONTAINS
       ! Put the unoccupied LUMOs next
       DO imo = 1, neig/ndo_mo
          DO ispin = 1, nspins
-            ilumo = imo; IF (ispin == minel .OR. do_roks) ilumo = imo+offset
+            ilumo = imo; IF (ispin == minel) ilumo = imo+offset
             ex_spin = ispin; IF (my_dosf) ex_spin = 3-ispin
             DO ido_mo = 1, ndo_mo
                iex = iex + 1
@@ -1003,7 +825,7 @@ CONTAINS
       CALL dbcsr_release(work1)
       ALLOCATE(dist)
       CALL dbcsr_get_info(matrix_tdp, distribution=dist, row_blk_size=blk_size)
-      CALL get_q_projector(work1, dist, blk_size, donor_state, (do_uks .OR. do_roks), xas_tdp_env, my_dosf)
+      CALL get_q_projector(work1, dist, blk_size, donor_state, do_os, xas_tdp_env, my_dosf)
       CALL dbcsr_multiply('T', 'N', 1.0_dp, work1, precond%dbcsr_matrix, 0.0_dp, work2)
       CALL dbcsr_multiply('N', 'N', 1.0_dp, work2, work1, 0.0_dp, precond%dbcsr_matrix)
 
@@ -1249,23 +1071,19 @@ CONTAINS
 !> \param dist_a the dbcsr distribution of matrix A
 !> \param blk_size_a the row/col block sizes of matrix A
 !> \param donor_state ...
-!> \param do_uks ...
-!> \param do_roks ...
-!> \param xas_tdp_env ...
+!> \param do_os ...
 !> \param qs_env ...
 !> \param do_sf whther the ground state contribution should accomodate spin-flip
 !> \note Even localized non-canonical MOs are diagonalized in their subsapce => eps_ij = eps_ii*delta_ij
 ! **************************************************************************************************
-   SUBROUTINE build_gs_contribution(matrix_a, dist_a, blk_size_a, donor_state, do_uks, do_roks, &
-                                    xas_tdp_env, qs_env, do_sf)
+   SUBROUTINE build_gs_contribution(matrix_a, dist_a, blk_size_a, donor_state, do_os, qs_env, do_sf)
 
       TYPE(dbcsr_type), INTENT(INOUT)                 :: matrix_a
       TYPE(donor_state_type), POINTER                 :: donor_state
-      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(qs_environment_type), POINTER              :: qs_env
       TYPE(dbcsr_distribution_type), POINTER          :: dist_a
       INTEGER, DIMENSION(:), POINTER                  :: blk_size_a
-      LOGICAL, INTENT(IN)                             :: do_uks, do_roks
+      LOGICAL, INTENT(IN)                             :: do_os
       LOGICAL, INTENT(IN), OPTIONAL                   :: do_sf
       
       CHARACTER(len=*), PARAMETER :: routineN = 'build_gs_contribution', &
@@ -1287,7 +1105,7 @@ CONTAINS
       !  Note: matrix A is symmetric and block diagonal. 
 
 !  Initialization
-      nspins = 1; IF (do_uks .OR. do_roks) nspins = 2
+      nspins = 1; IF (do_os) nspins = 2
       ndo_mo = donor_state%ndo_mo
       CALL get_qs_env(qs_env=qs_env, matrix_ks=matrix_ks, matrix_s=matrix_s, dbcsr_dist=dbcsr_dist)
       CALL dbcsr_get_info(matrix_s(1)%matrix, row_blk_size=row_blk_size)
@@ -1296,15 +1114,12 @@ CONTAINS
 !  Prepare the KS matrix pointer
       ALLOCATE(m_ks(nspins))
       m_ks(1)%matrix => matrix_ks(1)%matrix
-      IF (do_uks) m_ks(2)%matrix => matrix_ks(2)%matrix
-      IF (do_roks) THEN
-         m_ks(1)%matrix => xas_tdp_env%roks_ks_mat
-         m_ks(2)%matrix => xas_tdp_env%roks_ks_mat
-      END IF
-! If spin-flip, swap the KS alpha-alpha and beta-beta quadrants. No change for ROKS
+      IF (do_os) m_ks(2)%matrix => matrix_ks(2)%matrix
+
+! If spin-flip, swap the KS alpha-alpha and beta-beta quadrants.
       my_dosf = .FALSE.
       IF (PRESENT(do_sf)) my_dosf = do_sf
-      IF (my_dosf .AND. do_uks) THEN
+      IF (my_dosf .AND. do_os) THEN
          m_ks(1)%matrix => matrix_ks(2)%matrix
          m_ks(2)%matrix => matrix_ks(1)%matrix
       END IF
@@ -1342,8 +1157,7 @@ CONTAINS
          CALL dbcsr_iterator_stop(iter)
 
 !     Loop over the blocks of S and put them on the block diagonal of work
-         energy_evals => donor_state%energy_evals(:,1)
-         IF (do_uks) energy_evals => donor_state%energy_evals(:,ispin)
+         energy_evals => donor_state%energy_evals(:,ispin)
 
          CALL dbcsr_iterator_start(iter, matrix_s(1)%matrix)
          DO WHILE (dbcsr_iterator_blocks_left(iter))
@@ -1664,7 +1478,7 @@ CONTAINS
 !  very localized on the same atom as c, we take a,c as neighbors if they overlap => the effective
 !  range is then second nearest neightbors (relatively weak assumption)
       CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "OVERLAP", &
-                               xas_tdp_env%ex_atom_indices, xas_tdp_env%ex_kind_indices, qs_env)
+                               qs_env, excited_atoms=xas_tdp_env%ex_atom_indices)
 
 !  Allocate, init and compute the integrals
       ALLOCATE(xas_tdp_env%ri_o3c_coul)
@@ -1687,17 +1501,15 @@ CONTAINS
 !> \brief Computes the RI exchange 3-center integrals (ab|c), where c is from the RI_XAS basis and
 !>        centered on the given excited atom and kind
 !> \param ex_atom the excited atom on which the third center is
-!> \param ex_kind the kind of the excited atom
 !> \param xas_tdp_env ...
 !> \param qs_env ...
 !> \note  The ri_o3c_ex member of xas_tdp_env is defined and allocated here. Recompute for each 
 !>        excited atom because of the many integrals involved (=> ok load balance and a lot of
 !>        memory used)
 ! **************************************************************************************************
-   SUBROUTINE compute_ri_o3c_exchange(ex_atom, ex_kind, xas_tdp_env, qs_env)
+   SUBROUTINE compute_ri_o3c_exchange(ex_atom, xas_tdp_env, qs_env)
 
       INTEGER, INTENT(IN)                             :: ex_atom
-      INTEGER, INTENT(IN)                             :: ex_kind
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(qs_environment_type), POINTER              :: qs_env
 
@@ -1710,7 +1522,7 @@ CONTAINS
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
                                              POINTER  :: ac_list, sab_orb
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
-      INTEGER, DIMENSION(:), ALLOCATABLE              :: exat, exki
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: exat
 
       NULLIFY(basis_set_ri, basis_set_orb, ac_list, sab_orb, qs_kind_set)
 
@@ -1726,10 +1538,10 @@ CONTAINS
       CALL basis_set_list_setup(basis_set_orb, "ORB", qs_kind_set)
 
 !  Build a neighbor list for the ac centers. Currently only coulomb operator (with "inifinte" range)
-      ALLOCATE(exat(1), exki(1))
-      exat(1) = ex_atom; exki(1) = ex_kind;
+      ALLOCATE(exat(1))
+      exat(1) = ex_atom
       CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "COULOMB", &
-                               exat, exki, qs_env)
+                               qs_env, excited_atoms=exat)
 
 !  Allocate, init and compute the integrals
       ALLOCATE(xas_tdp_env%ri_o3c_ex)
@@ -1817,26 +1629,25 @@ CONTAINS
 !> \param basis_a basis set list for atom a
 !> \param basis_c basis set list for atom c
 !> \param op_type to indicate whther the list should be built with overlap or Coulomb in mind
-!> \param excited_atoms the indices of the excited atoms to consider
-!> \param excited_kinds the indices of the excited kinds to consider
+!> \param excited_atoms the indices of the excited atoms to consider (if not given, all atoms are taken)
 !> \param qs_env ...
 !> \note Based on setup_neighbor_list with added features
 ! **************************************************************************************************
-   SUBROUTINE build_xas_tdp_3c_nl(ac_list, basis_a, basis_c, op_type, excited_atoms, &
-                                  excited_kinds, qs_env)
+   SUBROUTINE build_xas_tdp_3c_nl(ac_list, basis_a, basis_c, op_type, qs_env, excited_atoms)
 
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &                                                
                                              POINTER  :: ac_list
       TYPE(gto_basis_set_p_type), DIMENSION(:), &
                                              POINTER  :: basis_a, basis_c
       CHARACTER(len=*), INTENT(IN)                    :: op_type
-      INTEGER, DIMENSION(:), INTENT(IN)               :: excited_atoms, excited_kinds
       TYPE(qs_environment_type), POINTER              :: qs_env
+      INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: excited_atoms
 
       CHARACTER(len=*), PARAMETER :: routineN =  "build_xas_tdp_3c_nl", &
                                      routineP = moduleN//":"//routineN
 
       INTEGER                                         :: nkind, ikind
+      LOGICAL                                         :: sort_atoms
       REAL(dp)                                        :: subcells
       LOGICAL, DIMENSION(:), ALLOCATABLE              :: a_present, c_present
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: a_radius, c_radius
@@ -1860,6 +1671,8 @@ CONTAINS
 !  Initialization
       CALL get_qs_env(qs_env, nkind=nkind)
       CALL section_vals_val_get(qs_env%input, "DFT%SUBCELLS", r_val=subcells)
+      sort_atoms = .FALSE.
+      IF ((PRESENT(excited_atoms))) sort_atoms = .TRUE.
 
       ALLOCATE(a_present(nkind), c_present(nkind))
       a_present = .FALSE.
@@ -1875,8 +1688,8 @@ CONTAINS
             a_present(ikind) = .TRUE.
             CALL get_gto_basis_set(basis_a(ikind)%gto_basis_set, kind_radius=a_radius(ikind))
          END IF
-         !RI_XAS basis set, take only excited kinds
-         IF (ASSOCIATED(basis_c(ikind)%gto_basis_set) .AND. ANY(excited_kinds == ikind)) THEN
+         !RI_XAS basis set
+         IF (ASSOCIATED(basis_c(ikind)%gto_basis_set)) THEN
             c_present(ikind) = .TRUE.
             ! If operator is coulomb, then center c interacts with everything
             IF (my_op == "O") THEN
@@ -1900,9 +1713,14 @@ CONTAINS
       CALL atom2d_build(atom2d, distribution_1d, distribution_2d, atomic_kind_set, &
                         molecule_set, .FALSE., particle_set)
 
-      CALL build_neighbor_lists(ac_list, particle_set, atom2d, cell, pair_radius, subcells, &
-                                operator_type = "ABC", atomb_to_keep=excited_atoms, &
-                                nlname="XAS_TDP_3c_nl")
+      IF (sort_atoms) THEN
+         CALL build_neighbor_lists(ac_list, particle_set, atom2d, cell, pair_radius, subcells, &
+                                   operator_type = "ABC", atomb_to_keep=excited_atoms, &
+                                   nlname="XAS_TDP_3c_nl")
+      ELSE
+         CALL build_neighbor_lists(ac_list, particle_set, atom2d, cell, pair_radius, subcells, &
+                                   operator_type = "ABC", nlname="XAS_TDP_3c_nl")
+      END IF
 
 !  Clean-up
       CALL atom2d_cleanup(atom2d) 
