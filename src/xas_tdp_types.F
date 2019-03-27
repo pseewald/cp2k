@@ -120,7 +120,6 @@ MODULE xas_tdp_types
 !>        contracted spherical gaussians. It can either be in the length or the velocity 
 !>        representation. For length representation, it has to be computed once with the origin on 
 !>        each excited atom
-!> \param roks_ks_mat the KS combined ROKS matrix, if needed
 !> \param ri_o3c_coul the container for the RI 3-center Coulomb integrals (updated for each ex atom)
 !> \param ri_o3c_ex the container for the RI 3-center exchange integrals (updated for each ex atom)
 !> \param lb_o3c_coul the lower bond of a,b present in the 3-center RI Coulomb integrals (ab|P)
@@ -150,7 +149,6 @@ MODULE xas_tdp_types
       INTEGER, DIMENSION(:,:,:), POINTER      :: mos_of_ex_atoms
       TYPE(qs_loc_env_new_type), POINTER      :: qs_loc_env
       REAL(dp), DIMENSION(:,:), POINTER       :: ri_inv_coul
-      TYPE(dbcsr_type), POINTER               :: roks_ks_mat
       TYPE(dbcsr_p_type), DIMENSION(:), &
                                     POINTER   :: q_projector
       TYPE(dbcsr_p_type), DIMENSION(:), &
@@ -524,7 +522,6 @@ CONTAINS
       NULLIFY (xas_tdp_env%ri_inv_coul)
       NULLIFY (xas_tdp_env%lumo_guess)
       NULLIFY (xas_tdp_env%lumo_evals)
-      NULLIFY (xas_tdp_env%roks_ks_mat)
       NULLIFY (xas_tdp_env%q_projector)
       NULLIFY (xas_tdp_env%dipmat)
       NULLIFY (xas_tdp_env%ri_o3c_coul)
@@ -586,9 +583,6 @@ CONTAINS
                DEALLOCATE(xas_tdp_env%lumo_evals(i)%array)
             END DO
             DEALLOCATE(xas_tdp_env%lumo_evals)
-         END IF
-         IF (ASSOCIATED(xas_tdp_env%roks_ks_mat)) THEN
-            CALL dbcsr_release_p(xas_tdp_env%roks_ks_mat)
          END IF
          IF (ASSOCIATED(xas_tdp_env%q_projector)) THEN
             DO i=1,SIZE(xas_tdp_env%q_projector)
