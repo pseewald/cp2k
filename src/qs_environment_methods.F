@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -295,6 +295,12 @@ CONTAINS
             END IF
          ELSE IF (dft_control%qs_control%dftb) THEN
             IF (dft_control%qs_control%dftb_control%do_ewald) THEN
+               ! rebuild Ewald environment
+               CALL get_qs_env(qs_env=qs_env, ewald_env=ewald_env, ewald_pw=ewald_pw)
+               CALL ewald_pw_grid_update(ewald_pw, ewald_env, cell%hmat)
+            END IF
+         ELSE IF (dft_control%qs_control%xtb) THEN
+            IF (dft_control%qs_control%xtb_control%do_ewald) THEN
                ! rebuild Ewald environment
                CALL get_qs_env(qs_env=qs_env, ewald_env=ewald_env, ewald_pw=ewald_pw)
                CALL ewald_pw_grid_update(ewald_pw, ewald_env, cell%hmat)

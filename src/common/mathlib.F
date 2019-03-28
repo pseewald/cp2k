@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -394,6 +394,7 @@ CONTAINS
 
       ! Diagonalize the matrix a
 
+      info = 0
       IF (divide_and_conquer) THEN
          CALL dsyevd("V", "U", n, a, n, eigval, work, lwork, iwork, liwork, info)
       ELSE

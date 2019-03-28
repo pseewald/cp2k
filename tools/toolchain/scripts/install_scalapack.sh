@@ -21,7 +21,7 @@ case "$with_scalapack" in
         echo "==================== Installing ScaLAPACK ===================="
         pkg_install_dir="${INSTALLDIR}/scalapack-${scalapack_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [[ $install_lock_file -nt $SCRIPT_NAME ]]; then
+        if verify_checksums "${install_lock_file}" ; then
             echo "scalapack-${scalapack_ver} is already installed, skipping it."
         else
             require_env MATH_LIBS
@@ -39,7 +39,7 @@ case "$with_scalapack" in
 CDEFS         = -DAdd_
 FC            = ${MPIFC}
 CC            = ${MPICC}
-NOOPT         = ${FFLAGS} -O0 -fno-fast-math
+NOOPT         = ${FFLAGS} -O0
 FCFLAGS       = ${FFLAGS} ${MATH_CFLAGS}
 CCFLAGS       = ${CFLAGS} ${MATH_CFLAGS}
 FCLOADER      = \$(FC)
@@ -55,12 +55,15 @@ LAPACKLIB     = ${MATH_LIBS}
 LIBS          = \$(LAPACKLIB) \$(BLASLIB)
 EOF
             # scalapack build not parallel safe (update to the archive race)
-            make -j 1 lib > make.log 2>&1
+            # Run first in parallel which will result most likely in an incomplete library
+            make -j $NPROCS lib > make.log 2>&1
+            # Complete library in non-parallel mode
+            make -j 1 lib > make1.log 2>&1
             # does not have make install, so install manually
             ! [ -d "${pkg_install_dir}/lib" ] && mkdir -p "${pkg_install_dir}/lib"
             cp libscalapack.a "${pkg_install_dir}/lib"
             cd ..
-            touch "${install_lock_file}"
+            write_checksums "${install_lock_file}" "${SCRIPT_DIR}/$(basename ${SCRIPT_NAME})"
         fi
         SCALAPACK_LDFLAGS="-L'${pkg_install_dir}/lib' -Wl,-rpath='${pkg_install_dir}/lib'"
         ;;
@@ -85,12 +88,14 @@ if [ "$with_scalapack" != "__DONTUSE__" ] ; then
 prepend_path LD_LIBRARY_PATH "${pkg_install_dir}/lib"
 prepend_path LD_RUN_PATH "${pkg_install_dir}/lib"
 prepend_path LIBRARY_PATH "${pkg_install_dir}/lib"
+export SCALAPACKROOT="${pkg_install_dir}" 
 EOF
         cat "${BUILDDIR}/setup_scalapack" >> $SETUPFILE
     fi
     cat <<EOF >> "${BUILDDIR}/setup_scalapack"
 export SCALAPACK_LDFLAGS="${SCALAPACK_LDFLAGS}"
 export SCALAPACK_LIBS="${SCALAPACK_LIBS}"
+export SCALAPACKROOT="${pkg_install_dir}" 
 export CP_DFLAGS="\${CP_DFLAGS} IF_MPI(-D__SCALAPACK|)"
 export CP_LDFLAGS="\${CP_LDFLAGS} IF_MPI(${SCALAPACK_LDFLAGS}|)"
 export CP_LIBS="IF_MPI(-lscalapack|) \${CP_LIBS}"

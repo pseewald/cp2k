@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -27,11 +27,11 @@ MODULE input_cp2k_subsys
                                               medium_print_level
    USE cp_units,                        ONLY: cp_unit_to_cp2k
    USE input_constants,                 ONLY: &
-        do_add, do_bondparm_covalent, do_bondparm_vdw, do_cell_cp2k, do_cell_xsc, do_conn_amb7, &
-        do_conn_g87, do_conn_g96, do_conn_generate, do_conn_mol_set, do_conn_off, do_conn_psf, &
-        do_conn_psf_u, do_conn_user, do_coord_cif, do_coord_cp2k, do_coord_crd, do_coord_g96, &
-        do_coord_off, do_coord_pdb, do_coord_xtl, do_coord_xyz, do_remove, do_skip_11, do_skip_12, &
-        do_skip_13, do_skip_14, dump_pdb, gaussian
+        do_add, do_bondparm_covalent, do_bondparm_vdw, do_cell_cif, do_cell_cp2k, do_cell_xsc, &
+        do_conn_amb7, do_conn_g87, do_conn_g96, do_conn_generate, do_conn_mol_set, do_conn_off, &
+        do_conn_psf, do_conn_psf_u, do_conn_user, do_coord_cif, do_coord_cp2k, do_coord_crd, &
+        do_coord_g96, do_coord_off, do_coord_pdb, do_coord_xtl, do_coord_xyz, do_remove, &
+        do_skip_11, do_skip_12, do_skip_13, do_skip_14, dump_pdb, gaussian
    USE input_cp2k_colvar,               ONLY: create_colvar_section
    USE input_cp2k_mm,                   ONLY: create_neighbor_lists_section
    USE input_keyword_types,             ONLY: keyword_create,&
@@ -155,10 +155,11 @@ CONTAINS
 
       CALL keyword_create(keyword, name="CELL_FILE_FORMAT", &
                           description="Specify the format of the cell file (if used)", &
-                          usage="CELL_FILE_FORMAT (CP2K|XSC)", &
-                          enum_c_vals=s2a("CP2K", "XSC"), &
-                          enum_i_vals=(/do_cell_cp2k, do_cell_xsc/), &
+                          usage="CELL_FILE_FORMAT (CP2K|CIF|XSC)", &
+                          enum_c_vals=s2a("CP2K", "CIF", "XSC"), &
+                          enum_i_vals=(/do_cell_cp2k, do_cell_cif, do_cell_xsc/), &
                           enum_desc=s2a("Cell info in the CP2K native format.", &
+                                        "Cell info from CIF file.", &
                                         "Cell info in the XSC format (NAMD)"), &
                           default_i_val=do_cell_cp2k)
       CALL section_add_keyword(section, keyword)
@@ -1067,7 +1068,7 @@ CONTAINS
                           description="The primary Gaussian basis set (NONE implies no basis used, meaningful with GHOST)"// &
                    "Defaults are set for TYPE {ORB} and FORM {GTO}. Possible values for TYPE are {ORB, AUX, RI_AUX, LRI, ...}. "// &
                          "Possible values for FORM are {GTO, STO}. Where STO results in a GTO expansion of a Slater type basis."// &
-                          "If a value for FORM is given, also TYPE has to be set explicitely.", &
+                          "If a value for FORM is given, also TYPE has to be set explicitly.", &
                           usage="BASIS_SET [type] [form] DZVP", type_of_var=char_t, default_c_vals=(/" ", " ", " "/), &
                           citations=(/VandeVondele2005a, VandeVondele2007/), &
                           repeats=.TRUE., n_var=-1)
@@ -1075,10 +1076,10 @@ CONTAINS
       CALL keyword_release(keyword)
 
       ! old type basis set input keywords
-      ! kept for back compatability
+      ! kept for backward compatibility
       CALL keyword_create(keyword, name="AUX_BASIS_SET", &
                           variants=s2a("AUXILIARY_BASIS_SET", "AUX_BASIS"), &
-                          description="DEPRECATED (use BASIS_SET): The auxliliary basis set (GTO type)", &
+                          description="DEPRECATED (use BASIS_SET): The auxiliary basis set (GTO type)", &
                           usage="AUX_BASIS_SET DZVP", default_c_val=" ", &
                           n_var=1)
       CALL section_add_keyword(section, keyword)
@@ -1086,7 +1087,7 @@ CONTAINS
 
       CALL keyword_create(keyword, name="RI_AUX_BASIS_SET", &
                           variants=s2a("RI_MP2_BASIS_SET", "RI_RPA_BASIS_SET", "RI_AUX_BASIS"), &
-                          description="DEPRECATED (use BASIS_SET): The RI auxliliary basis set used in WF_CORRELATION (GTO type)", &
+                          description="DEPRECATED (use BASIS_SET): The RI auxiliary basis set used in WF_CORRELATION (GTO type)", &
                           usage="RI_AUX_BASIS_SET DZVP", default_c_val=" ", &
                           n_var=1)
       CALL section_add_keyword(section, keyword)
@@ -1103,7 +1104,7 @@ CONTAINS
       CALL keyword_create( &
          keyword, name="AUX_FIT_BASIS_SET", &
          variants=s2a("AUXILIARY_FIT_BASIS_SET", "AUX_FIT_BASIS"), &
-         description="DEPRECATED (use BASIS_SET): The auxliliary basis set (GTO type) for auxiliary density matrix method", &
+         description="DEPRECATED (use BASIS_SET): The auxiliary basis set (GTO type) for auxiliary density matrix method", &
          usage="AUX_FIT_BASIS_SET DZVP", default_c_val=" ", &
          citations=(/Guidon2010/), &
          n_var=1)
@@ -1112,7 +1113,7 @@ CONTAINS
       ! end of old basis set keywords
 
       CALL keyword_create(keyword, name="ELEC_CONF", &
-                          description="Specifies the electronic configration used in construction the "// &
+                          description="Specifies the electronic configuration used in construction the "// &
                           "atomic initial guess (see the pseudo potential file for the default values.", &
                           usage="ELEC_COND n_elec(s)  n_elec(p)  n_elec(d)  ... ", &
                           n_var=-1, type_of_var=integer_t)

@@ -2,7 +2,7 @@
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
-elpa_ver=${elpa_ver:-2017.05.002}
+elpa_ver=${elpa_ver:-2017.05.003}
 source "${SCRIPT_DIR}"/common_vars.sh
 source "${SCRIPT_DIR}"/tool_kit.sh
 source "${SCRIPT_DIR}"/signal_trap.sh
@@ -33,7 +33,7 @@ case "$with_elpa" in
         echo "==================== Installing ELPA ===================="
         pkg_install_dir="${INSTALLDIR}/elpa-${elpa_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [[ $install_lock_file -nt $SCRIPT_NAME ]]; then
+        if verify_checksums "${install_lock_file}" ; then
             echo "elpa-${elpa_ver} is already installed, skipping it."
         else
             require_env MATH_LIBS
@@ -41,7 +41,7 @@ case "$with_elpa" in
                 echo "elpa-${elpa_ver}.tar.gz is found"
             else
                 download_pkg ${DOWNLOADER_FLAGS} \
-                             https://www.cp2k.org/static/downloads/elpa-${elpa_ver}.tar.gz
+                             https://elpa.mpcdf.mpg.de/html/Releases/${elpa_ver}/elpa-${elpa_ver}.tar.gz
             fi
             [ -d elpa-${elpa_ver} ] && rm -rf elpa-${elpa_ver}
             echo "Installing from scratch into ${pkg_install_dir}"
@@ -56,13 +56,6 @@ case "$with_elpa" in
             # elpa expect FC to be an mpi fortran compiler that is happy
             # with long lines, and that a bunch of libs can be found
             cd elpa-${elpa_ver}
-            # shared libraries cannot be built if linked with
-            # reflapack (the case when valgrind is enabled)
-            if [ "$ENABLE_VALGRIND" = "__TRUE__" ] ; then
-                shared_flag=no
-            else
-                shared_flag=yes
-            fi
             # specific settings needed on CRAY Linux Environment
             if [ "$ENABLE_CRAY" = "__TRUE__" ] ; then
                 # extra LDFLAGS needed
@@ -72,14 +65,18 @@ case "$with_elpa" in
             # In addition, --disable-option-checking is needed for older versions, which don't know
             # about this option.
             has_AVX=`grep '\bavx\b' /proc/cpuinfo 1>/dev/null && echo 'yes' || echo 'no'`
+            [ "${has_AVX}" == "yes" ] && AVX_flag="-mavx" || AVX_flag=""
             has_AVX2=`grep '\bavx2\b' /proc/cpuinfo 1>/dev/null && echo 'yes' || echo 'no'`
+            [ "${has_AVX2}" == "yes" ] && AVX_flag="-mavx2"
             has_AVX512=`grep '\bavx512\b' /proc/cpuinfo 1>/dev/null && echo 'yes' || echo 'no'`
+            FMA_flag=`grep '\bfma\b' /proc/cpuinfo 1>/dev/null && echo '-mfma' || echo '-mno-fma'`
+            SSE4_flag=`grep '\bsse4_1\b' /proc/cpuinfo 1>/dev/null && echo '-msse4' || echo '-mno-sse4'`
             # non-threaded version
             mkdir -p obj_no_thread; cd obj_no_thread
             ../configure  --prefix="${pkg_install_dir}" \
                           --libdir="${pkg_install_dir}/lib" \
                           --enable-openmp=no \
-                          --enable-shared=$shared_flag \
+                          --enable-shared=no \
                           --enable-static=yes \
                           --disable-option-checking \
                           --enable-avx=${has_AVX} \
@@ -88,9 +85,9 @@ case "$with_elpa" in
                           FC=${MPIFC} \
                           CC=${MPICC} \
                           CXX=${MPICXX} \
-                          FCFLAGS="${FCFLAGS} ${MATH_CFLAGS} ${SCALAPACK_CFLAGS} -ffree-line-length-none" \
-                          CFLAGS="${CFLAGS} ${MATH_CFLAGS} ${SCALAPACK_CFLAGS}" \
-                          CXXFLAGS="${CXXFLAGS} ${MATH_CFLAGS} ${SCALAPACK_CFLAGS}" \
+                          FCFLAGS="${FCFLAGS} ${MATH_CFLAGS} ${SCALAPACK_CFLAGS} -ffree-line-length-none ${AVX_flag} ${FMA_flag} ${SSE4_flag}" \
+                          CFLAGS="${CFLAGS} ${MATH_CFLAGS} ${SCALAPACK_CFLAGS} ${AVX_flag} ${FMA_flag} ${SSE4_flag}" \
+                          CXXFLAGS="${CXXFLAGS} ${MATH_CFLAGS} ${SCALAPACK_CFLAGS} ${AVX_flag} ${FMA_flag} ${SSE4_flag}" \
                           LDFLAGS="-Wl,--enable-new-dtags ${MATH_LDFLAGS} ${SCALAPACK_LDFLAGS} ${cray_ldflags}" \
                           LIBS="${SCALAPACK_LIBS} $(resolve_string "${MATH_LIBS}")" \
                           > configure.log 2>&1
@@ -103,7 +100,7 @@ case "$with_elpa" in
                 ../configure  --prefix="${pkg_install_dir}" \
                               --libdir="${pkg_install_dir}/lib" \
                               --enable-openmp=yes \
-                              --enable-shared=$shared_flag \
+                              --enable-shared=no \
                               --enable-static=yes \
                               --disable-option-checking \
                               --enable-avx=${has_AVX} \
@@ -112,9 +109,9 @@ case "$with_elpa" in
                               FC=${MPIFC} \
                               CC=${MPICC} \
                               CXX=${MPICXX} \
-                              FCFLAGS="${FCFLAGS} ${MATH_CFLAGS} ${SCALAPACK_CFLAGS} -ffree-line-length-none" \
-                              CFLAGS="${CFLAGS} ${MATH_CFLAGS} ${SCALAPACK_CFLAGS}" \
-                              CXXFLAGS="${CXXFLAGS} ${MATH_CFLAGS} ${SCALAPACK_CFLAGS}" \
+                              FCFLAGS="${FCFLAGS} ${MATH_CFLAGS} ${SCALAPACK_CFLAGS} -ffree-line-length-none ${AVX_flag} ${FMA_flag} ${SSE4_flag}" \
+                              CFLAGS="${CFLAGS} ${MATH_CFLAGS} ${SCALAPACK_CFLAGS} ${AVX_flag} ${FMA_flag} ${SSE4_flag}" \
+                              CXXFLAGS="${CXXFLAGS} ${MATH_CFLAGS} ${SCALAPACK_CFLAGS} ${AVX_flag} ${FMA_flag} ${SSE4_flag}" \
                               LDFLAGS="-Wl,--enable-new-dtags ${MATH_LDFLAGS} ${SCALAPACK_LDFLAGS} ${cray_ldflags}" \
                               LIBS="${SCALAPACK_LIBS} $(resolve_string "${MATH_LIBS}" OMP)" \
                               > configure.log 2>&1
@@ -123,7 +120,7 @@ case "$with_elpa" in
                 cd ..
             fi
             cd ..
-            touch "${install_lock_file}"
+            write_checksums "${install_lock_file}" "${SCRIPT_DIR}/$(basename ${SCRIPT_NAME})"
         fi
         ELPA_CFLAGS="-I'${pkg_install_dir}/include/elpa-${elpa_ver}/modules' -I'${pkg_install_dir}/include/elpa-${elpa_ver}/elpa'"
         ELPA_CFLAGS_OMP="-I'${pkg_install_dir}/include/elpa_openmp-${elpa_ver}/modules' -I'${pkg_install_dir}/include/elpa_openmp-${elpa_ver}/elpa'"
@@ -199,6 +196,7 @@ prepend_path PATH "$pkg_install_dir/bin"
 prepend_path LD_LIBRARY_PATH "$pkg_install_dir/lib"
 prepend_path LD_RUN_PATH "$pkg_install_dir/lib"
 prepend_path LIBRARY_PATH "$pkg_install_dir/lib"
+export ELPAROOT="$pkg_install_dir"
 EOF
     fi
     cat "${BUILDDIR}/setup_elpa" >> $SETUPFILE
@@ -213,6 +211,9 @@ export CP_DFLAGS="\${CP_DFLAGS} IF_MPI(-D__ELPA=${elpa_ver:0:4}${elpa_ver:5:2}|)
 export CP_CFLAGS="\${CP_CFLAGS} IF_MPI(IF_OMP(${ELPA_CFLAGS_OMP}|${ELPA_CFLAGS})|)"
 export CP_LDFLAGS="\${CP_LDFLAGS} IF_MPI(${ELPA_LDFLAGS}|)"
 export CP_LIBS="IF_MPI(IF_OMP(${ELPA_LIBS_OMP}|${ELPA_LIBS})|) \${CP_LIBS}"
+prepend_path PKG_CONFIG_PATH "$pkg_install_dir/lib/pkgconfig"
+export ELPAROOT="$pkg_install_dir"
+export ELPAVERSION="${elpa_ver}"
 EOF
 fi
 cd "${ROOTDIR}"

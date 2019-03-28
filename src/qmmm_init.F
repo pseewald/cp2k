@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -556,6 +556,10 @@ CONTAINS
          IF (dft_control%qs_control%semi_empirical) THEN
             CPABORT("QM/MM periodic calculations not implemented for semi empirical methods")
          ELSE IF (dft_control%qs_control%dftb) THEN
+            CALL qmmm_ewald_potential_init(qmmm_env_qm%ewald_env, qmmm_env_qm%ewald_pw, &
+                                           qmmm_coupl_type=qmmm_env_qm%qmmm_coupl_type, mm_cell=mm_cell, &
+                                           para_env=para_env, qmmm_periodic=qmmm_periodic, print_section=print_section)
+         ELSE IF (dft_control%qs_control%xtb) THEN
             CALL qmmm_ewald_potential_init(qmmm_env_qm%ewald_env, qmmm_env_qm%ewald_pw, &
                                            qmmm_coupl_type=qmmm_env_qm%qmmm_coupl_type, mm_cell=mm_cell, &
                                            para_env=para_env, qmmm_periodic=qmmm_periodic, print_section=print_section)

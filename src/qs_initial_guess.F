@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -86,6 +86,8 @@ MODULE qs_initial_guess
    USE qs_wf_history_methods,           ONLY: wfi_update
    USE scf_control_types,               ONLY: scf_control_type
    USE util,                            ONLY: sort
+   USE xtb_types,                       ONLY: get_xtb_atom_param,&
+                                              xtb_atom_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -222,7 +224,9 @@ CONTAINS
       do_std_diag = .FALSE.
 
       safe_density_guess = atomic_guess
-      IF (dft_control%qs_control%semi_empirical .OR. dft_control%qs_control%dftb) THEN
+      IF (dft_control%qs_control%semi_empirical .OR. &
+          dft_control%qs_control%dftb .OR. &
+          dft_control%qs_control%xtb) THEN
          IF (density_guess == atomic_guess) density_guess = mopac_guess
          ! in case we need to bail to a safe restart type later on
          safe_density_guess = mopac_guess
@@ -1164,13 +1168,15 @@ CONTAINS
 
       INTEGER                                            :: atom_a, group, handle, iatom, ikind, &
                                                             iset, isgf, isgfa, ishell, ispin, la, &
-                                                            maxl, maxll, nao, natom, ncount, nset, &
-                                                            nsgf, z
+                                                            maxl, maxll, na, nao, natom, ncount, &
+                                                            nset, nsgf, z
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: first_sgf
+      INTEGER, DIMENSION(25)                             :: laox, naox
+      INTEGER, DIMENSION(5)                              :: occupation
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, elec_conf, nshell
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, l, last_sgfa
       LOGICAL                                            :: has_pot
-      REAL(KIND=dp)                                      :: maxocc, my_sum, nelec, paa, rscale, &
+      REAL(KIND=dp)                                      :: maxocc, my_sum, nelec, occ, paa, rscale, &
                                                             trps1, trps2, yy, zeff
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: econf, pdiag, sdiag
       REAL(KIND=dp), DIMENSION(0:3)                      :: edftb
@@ -1179,6 +1185,7 @@ CONTAINS
       TYPE(gth_potential_type), POINTER                  :: gth_potential
       TYPE(gto_basis_set_type), POINTER                  :: orb_basis_set
       TYPE(sgp_potential_type), POINTER                  :: sgp_potential
+      TYPE(xtb_atom_type), POINTER                       :: xtb_kind
 
       CALL timeset(routineN, handle)
 
@@ -1236,6 +1243,9 @@ CONTAINS
                                         lmax=maxll, occupation=edftb)
                maxll = MIN(maxll, maxl)
                econf(0:maxl) = edftb(0:maxl)
+            ELSEIF (dft_control%qs_control%xtb) THEN
+               CALL get_qs_kind(qs_kind_set(ikind), xtb_parameter=xtb_kind)
+               CALL get_xtb_atom_param(xtb_kind, natorb=nsgf, nao=naox, lao=laox, occupation=occupation)
             ELSEIF (has_pot) THEN
                CALL get_atomic_kind(atomic_kind_set(ikind), z=z)
                CALL get_qs_kind(qs_kind_set(ikind), nsgf=nsgf, elec_conf=elec_conf, zeff=zeff)
@@ -1276,6 +1286,17 @@ CONTAINS
                      CASE DEFAULT
                         CPABORT("")
                      END SELECT
+                  END DO
+               END DO
+            ELSEIF (dft_control%qs_control%xtb) THEN
+               DO iatom = 1, natom
+                  atom_a = atom_list(iatom)
+                  isgfa = first_sgf(atom_a)
+                  DO isgf = 1, nsgf
+                     na = naox(isgf)
+                     la = laox(isgf)
+                     occ = REAL(occupation(na), dp)/REAL(2*la+1, dp)
+                     pdiag(isgfa+isgf-1) = occ
                   END DO
                END DO
             ELSEIF (dft_control%qs_control%semi_empirical) THEN

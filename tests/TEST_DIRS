@@ -5,11 +5,16 @@
 # the order will be regularly checked and modified...
 QS/regtest-cdft-hirshfeld-2                                 parallel mpiranks>1
 QS/regtest-cdft-hirshfeld
-SIRIUS/regtest-1                                            libxc sirius elpa scalapack mpiranks=4
+SIRIUS/regtest-1                                            libxc sirius elpa scalapack mpiranks=4                                          libxc sirius elpa scalapack mpiranks=4
+xTB/regtest-1
+xTB/regtest-2
+xTB/regtest-3
+xTB/regtest-4
 QS/regtest-almo-strong
 QS/regtest-elpa-2                                           elpa
 QS/regtest-cdft-5
-Pimd
+Pimd/regtest-1
+Pimd/regtest-2
 QS/regtest-mp2-grad                                         libint
 QS/regtest-kp-2
 QS/regtest-pao-2
@@ -36,6 +41,7 @@ QS/regtest-kp-3
 QS/regtest-slab
 ATOM/regtest-pseudo
 DFTB/regtest-scc
+DFTB/regtest-scc-2
 QS/regtest-gpw-3
 QS/regtest-ot
 QS/regtest-gpw-1                                            libint
@@ -169,6 +175,7 @@ QS/regtest-ot-refine-2
 QS/regtest-gpw-2-1
 QS/regtest-dft-vdw-corr-1
 QMMM/DFTB/regtest
+QMMM/xTB/regtest
 QS/regtest-gpw-9                                            libxc
 QMMM/QS/regtest-gapw                                        libint
 QS/regtest-cdft-4-1

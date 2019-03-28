@@ -2,6 +2,8 @@
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
+#TODO: Remove valgrind suppressions below after upgrading to next release.
+# For details see: https://github.com/hfp/libxsmm/issues/298 .
 libxsmm_ver=${libxsmm_ver:-1.10.0}
 source "${SCRIPT_DIR}"/common_vars.sh
 source "${SCRIPT_DIR}"/tool_kit.sh
@@ -28,7 +30,7 @@ EOF
         fi
         pkg_install_dir="${INSTALLDIR}/libxsmm-${libxsmm_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [[ $install_lock_file -nt $SCRIPT_NAME ]]; then
+        if verify_checksums "${install_lock_file}" ; then
             echo "libxsmm-${libxsmm_ver} is already installed, skipping it."
         else
             if [ "$libxsmm_ver" = "master" ] ; then
@@ -68,7 +70,7 @@ EOF
                  PREFIX=${pkg_install_dir} \
                  install > install.log 2>&1
             cd ..
-            touch "${install_lock_file}"
+            write_checksums "${install_lock_file}" "${SCRIPT_DIR}/$(basename ${SCRIPT_NAME})"
         fi
         LIBXSMM_CFLAGS="-I'${pkg_install_dir}/include'"
         LIBXSMM_LDFLAGS="-L'${pkg_install_dir}/lib' -Wl,-rpath='${pkg_install_dir}/lib'"
@@ -115,3 +117,21 @@ export CP_LIBS="\${LIBXSMM_LIBS} \${CP_LIBS}"
 EOF
 fi
 cd "${ROOTDIR}"
+
+# ----------------------------------------------------------------------
+# Suppress reporting of known problems
+# ----------------------------------------------------------------------
+cat <<EOF >> ${INSTALLDIR}/valgrind.supp
+{
+   <FalsePositiveLibxsmm1>
+   Memcheck:Cond
+   ...
+   fun:libxsmm_otrans
+}
+{
+   <FalsePositiveLibxsmm2>
+   Memcheck:Value8
+   ...
+   fun:libxsmm_otrans
+}
+EOF

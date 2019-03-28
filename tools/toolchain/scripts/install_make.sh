@@ -2,7 +2,7 @@
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
-make_ver=${make_ver:-4.2}
+make_ver=${make_ver:-4.2.1}
 source "${SCRIPT_DIR}"/common_vars.sh
 source "${SCRIPT_DIR}"/tool_kit.sh
 source "${SCRIPT_DIR}"/signal_trap.sh
@@ -18,7 +18,7 @@ case "$with_make" in
         echo "==================== Installing make ===================="
         pkg_install_dir="${INSTALLDIR}/make-${make_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [[ $install_lock_file -nt $SCRIPT_NAME ]]; then
+        if verify_checksums "${install_lock_file}" ; then
             echo "make-${make_ver} is already installed, skipping it."
         else
             if [ -f make-${make_ver}.tar.gz ] ; then
@@ -35,7 +35,7 @@ case "$with_make" in
             make -j $NPROCS > make.log 2>&1
             make -j $NPROCS install > install.log 2>&1
             cd ..
-            touch "${install_lock_file}"
+            write_checksums "${install_lock_file}" "${SCRIPT_DIR}/$(basename ${SCRIPT_NAME})"
         fi
         ;;
     __SYSTEM__)

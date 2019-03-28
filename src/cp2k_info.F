@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -285,6 +285,9 @@ CONTAINS
 #endif
 #if defined __SIRIUS
       flags = TRIM(flags)//" sirius"
+#endif
+#if defined __CHECK_DIAG
+      flags = TRIM(flags)//" check_diag"
 #endif
 
    END FUNCTION cp2k_flags

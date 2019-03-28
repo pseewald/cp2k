@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -346,6 +346,7 @@ CONTAINS
 !> \param sab_se ...
 !> \param sab_tbe ...
 !> \param sab_core ...
+!> \param sab_xb ...
 !> \param sab_almo ...
 !> \param sab_kp ...
 !> \param particle_set ...
@@ -375,7 +376,6 @@ CONTAINS
 !> \param matrix_w ...
 !> \param matrix_w_mp2 ...
 !> \param matrix_p_mp2 ...
-!> \param gamma_matrix ...
 !> \param rho ...
 !> \param rho_aux_fit ...
 !> \param rho_aux_fit_buffer ...
@@ -484,12 +484,12 @@ CONTAINS
    SUBROUTINE get_qs_env(qs_env, atomic_kind_set, qs_kind_set, cell, super_cell, cell_ref, use_ref_cell, kpoints, &
                          dft_control, mos, mos_aux_fit, sab_orb, sab_aux_fit, sab_aux_fit_asymm, sab_aux_fit_vs_orb, &
                          sab_all, qmmm, qmmm_periodic, sac_ae, sac_ppl, sac_lri, sap_ppnl, sab_vdw, sab_scp, sap_oce, sab_lrc, &
-                         sab_se, sab_tbe, sab_core, sab_almo, sab_kp, particle_set, energy, force, &
+                         sab_se, sab_tbe, sab_core, sab_xb, sab_almo, sab_kp, particle_set, energy, force, &
                          matrix_h, matrix_ks, matrix_ks_im, matrix_vxc, run_rtp, rtp, &
                          matrix_h_kp, matrix_ks_kp, matrix_vxc_kp, kinetic_kp, matrix_s_kp, matrix_w_kp, matrix_s_RI_aux_kp, &
                          matrix_ks_aux_fit, matrix_ks_aux_fit_im, matrix_ks_aux_fit_dft, matrix_ks_aux_fit_hfx, &
                          matrix_s, matrix_s_aux_fit, matrix_s_aux_fit_vs_orb, matrix_s_RI_aux, matrix_w, &
-                         matrix_w_mp2, matrix_p_mp2, gamma_matrix, rho, rho_aux_fit, rho_aux_fit_buffer, &
+                         matrix_w_mp2, matrix_p_mp2, rho, rho_aux_fit, rho_aux_fit_buffer, &
                          rho_buffer, rho_xc, pw_env, ewald_env, ewald_pw, active_space, &
                          mpools, mpools_aux_fit, input, para_env, blacs_env, scf_control, rel_control, kinetic, qs_charges, &
                          vppl, rho_core, rho_nlcc, rho_nlcc_g, ks_env, ks_qmmm_env, wf_history, scf_env, id_nr, local_particles, &
@@ -523,11 +523,9 @@ CONTAINS
          OPTIONAL, POINTER                               :: sab_orb, sab_aux_fit, sab_aux_fit_asymm, &
                                                             sab_aux_fit_vs_orb, sab_all
       LOGICAL, OPTIONAL                                  :: qmmm, qmmm_periodic
-      TYPE(neighbor_list_set_p_type), DIMENSION(:), &
-         OPTIONAL, POINTER                               :: sac_ae, sac_ppl, sac_lri, sap_ppnl, &
-                                                            sab_vdw, sab_scp, sap_oce, sab_lrc, &
-                                                            sab_se, sab_tbe, sab_core, sab_almo, &
-                                                            sab_kp
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), OPTIONAL, POINTER :: sac_ae, sac_ppl, sac_lri, &
+         sap_ppnl, sab_vdw, sab_scp, sap_oce, sab_lrc, sab_se, sab_tbe, sab_core, sab_xb, &
+         sab_almo, sab_kp
       TYPE(particle_type), DIMENSION(:), OPTIONAL, &
          POINTER                                         :: particle_set
       TYPE(qs_energy_type), OPTIONAL, POINTER            :: energy
@@ -546,7 +544,7 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:), OPTIONAL, POINTER :: matrix_ks_aux_fit, &
          matrix_ks_aux_fit_im, matrix_ks_aux_fit_dft, matrix_ks_aux_fit_hfx, matrix_s, &
          matrix_s_aux_fit, matrix_s_aux_fit_vs_orb, matrix_s_RI_aux, matrix_w, matrix_w_mp2, &
-         matrix_p_mp2, gamma_matrix
+         matrix_p_mp2
       TYPE(qs_rho_type), OPTIONAL, POINTER               :: rho, rho_aux_fit, rho_aux_fit_buffer, &
                                                             rho_buffer, rho_xc
       TYPE(pw_env_type), OPTIONAL, POINTER               :: pw_env
@@ -763,7 +761,6 @@ CONTAINS
                       matrix_w=matrix_w, &
                       matrix_w_mp2=matrix_w_mp2, &
                       matrix_p_mp2=matrix_p_mp2, &
-                      gamma_matrix=gamma_matrix, &
                       matrix_h_kp=matrix_h_kp, &
                       matrix_ks_kp=matrix_ks_kp, &
                       matrix_vxc_kp=matrix_vxc_kp, &
@@ -798,6 +795,7 @@ CONTAINS
                       sab_lrc=sab_lrc, &
                       sab_tbe=sab_tbe, &
                       sab_core=sab_core, &
+                      sab_xb=sab_xb, &
                       sab_almo=sab_almo, &
                       sab_kp=sab_kp, &
                       task_list=task_list, &

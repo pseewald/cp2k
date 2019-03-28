@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -44,7 +44,8 @@ MODULE qs_dispersion_pairpot
                                               dp
    USE mathconstants,                   ONLY: twopi
    USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_bcast,&
+   USE message_passing,                 ONLY: mp_allgather,&
+                                              mp_bcast,&
                                               mp_max,&
                                               mp_shift,&
                                               mp_sum
@@ -95,6 +96,8 @@ MODULE qs_dispersion_pairpot
       REAL(KIND=dp), DIMENSION(:), POINTER   :: dvals
       REAL(KIND=dp), DIMENSION(:, :), POINTER :: rik
    END TYPE dcnum_type
+
+   PUBLIC :: d3_cnumber, dcnum_type, d3_cnumber_bcast
 
 ! **************************************************************************************************
 
@@ -859,19 +862,19 @@ CONTAINS
 
       INTEGER :: atom_a, atom_b, atom_c, atom_d, handle, hashb, hashc, i, ia, iat, iatom, icx, &
          icy, icz, idmp, ikind, ilist, imol, jatom, jkind, katom, kkind, kstart, latom, lkind, &
-         max_elem, maxc, mepos, na, natom, nb, nc, ni, nj, nkind, num_pe, unit_nr, za, zb, zc
+         max_elem, maxc, mepos, na, natom, nb, nc, nkind, num_pe, unit_nr, za, zb, zc
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, atomnumber, kind_of
       INTEGER, DIMENSION(3)                              :: cell_b, cell_c, ncell, periodic
       INTEGER, DIMENSION(:), POINTER                     :: atom_list
       LOGICAL :: atenergy, atstress, debug, debugall, debugx, domol, floating_a, floating_b, &
          floating_c, ghost_a, ghost_b, ghost_c, is000, use_virial
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: dodisp, floating, ghost
-      REAL(KIND=dp) :: a1, a2, alp6, alp8, ang, c6, c8, c9, cc6ab, cc6bc, cc6ca, cnab, cnum, dc6a, &
-         dc6b, dc8a, dc8b, dcc6aba, dcc6abb, dcc6bcb, dcc6bcc, dcc6caa, dcc6cac, dcnab, dd, de6, &
-         de8, de91, de921, de922, dea, devdw, dfdab6, dfdab8, dfdabc, dfdmp, dr, drk, e6, e6tot, &
-         e8, e8tot, e9, e9tot, elrc6, elrc8, elrc9, eps_cn, er, esrb, evdw, f0ab, fac, fac0, &
-         fdab6, fdab8, fdabc, fdmp, gnorm, kgc8, nab, nabc, r0, r0ab, r2ab, r2abc, r2bc, r2ca, r6, &
-         r8, rabc, rc2, rcc, rcova, rcovb, rcut, rs6, rs8, s1, s2, s3, s6, s8, s8i, s9, srbe, xp
+      REAL(KIND=dp) :: a1, a2, alp6, alp8, ang, c6, c8, c9, cc6ab, cc6bc, cc6ca, cnum, dc6a, dc6b, &
+         dc8a, dc8b, dcc6aba, dcc6abb, dcc6bcb, dcc6bcc, dcc6caa, dcc6cac, dd, de6, de8, de91, &
+         de921, de922, dea, devdw, dfdab6, dfdab8, dfdabc, dfdmp, dr, drk, e6, e6tot, e8, e8tot, &
+         e9, e9tot, elrc6, elrc8, elrc9, eps_cn, er, esrb, evdw, f0ab, fac, fac0, fdab6, fdab8, &
+         fdabc, fdmp, gnorm, kgc8, nab, nabc, r0, r0ab, r2ab, r2abc, r2bc, r2ca, r6, r8, rabc, &
+         rc2, rcc, rcut, rs6, rs8, s1, s2, s3, s6, s8, s8i, s9, srbe, xp
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: atom2mol, c6d2, cnkind, cnumbers, &
                                                             cnumfix, radd2
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: rcpbc
@@ -890,15 +893,12 @@ CONTAINS
       TYPE(neighbor_list_iterator_p_type), &
          DIMENSION(:), POINTER                           :: nl_iterator
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
-         POINTER                                         :: sab_cn, sab_vdw
+         POINTER                                         :: sab_vdw
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(qs_atom_dispersion_type), POINTER             :: disp_a, disp_b, disp_c
       TYPE(qs_force_type), DIMENSION(:), POINTER         :: force
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(virial_type), POINTER                         :: virial
-
-!$    INTEGER(kind=omp_lock_kind), ALLOCATABLE, DIMENSION(:) :: locks
-!$    INTEGER                                            :: lock, number_of_locks
 
       energy = 0._dp
 
@@ -908,7 +908,7 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      NULLIFY (atomic_kind_set, qs_kind_set, sab_cn, sab_vdw)
+      NULLIFY (atomic_kind_set, qs_kind_set, sab_vdw)
 
       CALL get_qs_env(qs_env=qs_env, atomic_kind_set=atomic_kind_set, qs_kind_set=qs_kind_set, &
                       cell=cell, virial=virial, para_env=para_env, atprop=atprop)
@@ -1070,102 +1070,12 @@ CONTAINS
             DO iatom = 1, natom
                ALLOCATE (dcnum(iatom)%nlist(10), dcnum(iatom)%dvals(10), dcnum(iatom)%rik(3, 10))
             END DO
+         ELSE
+            ALLOCATE (dcnum(1))
          END IF
 
-         sab_cn => dispersion_env%sab_cn
-         num_pe = 1
-!$       num_pe = omp_get_max_threads()
-         CALL neighbor_list_iterator_create(nl_iterator, sab_cn, nthread=num_pe)
-!$       number_of_locks = natom
-
-!$OMP PARALLEL DEFAULT( NONE )                                        &
-!$OMP           SHARED( locks, number_of_locks, nl_iterator           &
-!$OMP                 , ghost, floating, atomnumber, eps_cn           &
-!$OMP                 , dispersion_env, calculate_forces, debugall    &
-!$OMP                 , dcnum, cnumbers                               &
-!$OMP                 )                                               &
-!$OMP          PRIVATE( mepos                                         &
-!$OMP                 , ikind, jkind, iatom, jatom, rij, rcc          &
-!$OMP                 , za, zb, rcova, rcovb, cnab, dcnab             &
-!$OMP                 , ni, nj                                        &
-!$OMP                 )
-
-!$OMP SINGLE
-!$       ALLOCATE (locks(number_of_locks))
-!$OMP END SINGLE
-
-!$OMP DO
-!$       DO lock = 1, number_of_locks
-!$          call omp_init_lock(locks(lock))
-!$       END DO
-!$OMP END DO
-
-         mepos = 0
-!$       mepos = omp_get_thread_num()
-         DO WHILE (neighbor_list_iterate(nl_iterator, mepos=mepos) == 0)
-
-            CALL get_iterator_info(nl_iterator, mepos=mepos, ikind=ikind, jkind=jkind, iatom=iatom, jatom=jatom, r=rij)
-            IF (ghost(ikind) .OR. ghost(jkind) .OR. floating(ikind) .OR. floating(jkind)) CYCLE
-
-            rcc = SQRT(rij(1)*rij(1)+rij(2)*rij(2)+rij(3)*rij(3))
-            IF (rcc > 1.e-6_dp) THEN
-               za = atomnumber(ikind)
-               zb = atomnumber(jkind)
-               rcova = dispersion_env%rcov(za)
-               rcovb = dispersion_env%rcov(zb)
-               CALL cnparam_d3(rcc, rcova, rcovb, dispersion_env%k1, cnab, dcnab)
-               IF (cnab > eps_cn) THEN
-!$OMP ATOMIC
-                  cnumbers(iatom) = cnumbers(iatom)+cnab
-                  IF (iatom /= jatom) THEN
-!$OMP ATOMIC
-                     cnumbers(jatom) = cnumbers(jatom)+cnab
-                  END IF
-               END IF
-               IF (calculate_forces .OR. debugall .AND. cnab > eps_cn) THEN
-!$                CALL omp_set_lock(locks(iatom))
-                  dcnum(iatom)%neighbors = dcnum(iatom)%neighbors+1
-                  ni = dcnum(iatom)%neighbors
-                  IF (ni > SIZE(dcnum(iatom)%nlist)) THEN
-                     CALL reallocate(dcnum(iatom)%nlist, 1, 2*ni)
-                     CALL reallocate(dcnum(iatom)%dvals, 1, 2*ni)
-                     CALL reallocate(dcnum(iatom)%rik, 1, 3, 1, 2*ni)
-                  END IF
-                  dcnum(iatom)%nlist(ni) = jatom
-                  dcnum(iatom)%dvals(ni) = dcnab
-                  dcnum(iatom)%rik(1:3, ni) = rij(1:3)
-!$                CALL omp_unset_lock(locks(iatom))
-
-                  IF (iatom /= jatom) THEN
-!$                   CALL omp_set_lock(locks(jatom))
-                     dcnum(jatom)%neighbors = dcnum(jatom)%neighbors+1
-                     nj = dcnum(jatom)%neighbors
-                     IF (nj > SIZE(dcnum(jatom)%dvals)) THEN
-                        CALL reallocate(dcnum(jatom)%nlist, 1, 2*nj)
-                        CALL reallocate(dcnum(jatom)%dvals, 1, 2*nj)
-                        CALL reallocate(dcnum(jatom)%rik, 1, 3, 1, 2*nj)
-                     END IF
-                     dcnum(jatom)%nlist(nj) = iatom
-                     dcnum(jatom)%dvals(nj) = dcnab
-                     dcnum(jatom)%rik(1:3, nj) = -rij(1:3)
-!$                   CALL omp_unset_lock(locks(jatom))
-                  END IF
-               END IF
-            END IF
-         END DO
-
-!$OMP BARRIER        ! Wait for all threads to finish the loop before locks can be freed
-!$OMP DO
-!$       DO lock = 1, number_of_locks
-!$          call omp_destroy_lock(locks(lock))
-!$       END DO
-!$OMP END DO
-!$OMP SINGLE
-!$       DEALLOCATE (locks)
-!$OMP END SINGLE NOWAIT
-
-!$OMP END PARALLEL
-         CALL neighbor_list_iterator_release(nl_iterator)
+         CALL d3_cnumber(qs_env, dispersion_env, cnumbers, dcnum, ghost, floating, atomnumber, &
+                         calculate_forces, debugall)
 
          CALL mp_sum(cnumbers, para_env%group)
          ! for parallel runs we have to update dcnum on all processors
@@ -1749,6 +1659,8 @@ CONTAINS
             DO iatom = 1, natom
                DEALLOCATE (dcnum(iatom)%nlist, dcnum(iatom)%dvals, dcnum(iatom)%rik)
             END DO
+            DEALLOCATE (dcnum)
+         ELSE
             DEALLOCATE (dcnum)
          END IF
       END IF
@@ -3095,6 +3007,214 @@ CONTAINS
 
    END SUBROUTINE dcnum_distribute
 
+! **************************************************************************************************
+!> \brief ...
+!> \param qs_env ...
+!> \param dispersion_env ...
+!> \param cnumbers ...
+!> \param dcnum ...
+!> \param ghost ...
+!> \param floating ...
+!> \param atomnumber ...
+!> \param calculate_forces ...
+!> \param debugall ...
+! **************************************************************************************************
+   SUBROUTINE d3_cnumber(qs_env, dispersion_env, cnumbers, dcnum, ghost, floating, atomnumber, &
+                         calculate_forces, debugall)
+
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(qs_dispersion_type), POINTER                  :: dispersion_env
+      REAL(KIND=dp), DIMENSION(:), INTENT(INOUT)         :: cnumbers
+      TYPE(dcnum_type), DIMENSION(:), INTENT(INOUT)      :: dcnum
+      LOGICAL, DIMENSION(:), INTENT(IN)                  :: ghost, floating
+      INTEGER, DIMENSION(:), INTENT(IN)                  :: atomnumber
+      LOGICAL, INTENT(IN)                                :: calculate_forces, debugall
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'd3_cnumber', routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, iatom, ikind, jatom, jkind, &
+                                                            mepos, natom, ni, nj, num_pe, za, zb
+      REAL(KIND=dp)                                      :: cnab, dcnab, eps_cn, rcc, rcova, rcovb
+      REAL(KIND=dp), DIMENSION(3)                        :: rij
+      TYPE(neighbor_list_iterator_p_type), &
+         DIMENSION(:), POINTER                           :: nl_iterator
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), &
+         POINTER                                         :: sab_cn
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
+
+!$    INTEGER(kind=omp_lock_kind), ALLOCATABLE, DIMENSION(:) :: locks
+!$    INTEGER                                            :: lock, number_of_locks
+
+      CALL timeset(routineN, handle)
+
+      ! Calculate coordination numbers
+      NULLIFY (particle_set)
+      CALL get_qs_env(qs_env=qs_env, particle_set=particle_set)
+      natom = SIZE(particle_set)
+
+      eps_cn = dispersion_env%eps_cn
+      sab_cn => dispersion_env%sab_cn
+      num_pe = 1
+!$    num_pe = omp_get_max_threads()
+      CALL neighbor_list_iterator_create(nl_iterator, sab_cn, nthread=num_pe)
+!$    number_of_locks = natom
+
+!$OMP PARALLEL DEFAULT( NONE )                                        &
+!$OMP           SHARED( locks, number_of_locks, nl_iterator           &
+!$OMP                 , ghost, floating, atomnumber, eps_cn           &
+!$OMP                 , dispersion_env, calculate_forces, debugall    &
+!$OMP                 , dcnum, cnumbers                               &
+!$OMP                 )                                               &
+!$OMP          PRIVATE( mepos                                         &
+!$OMP                 , ikind, jkind, iatom, jatom, rij, rcc          &
+!$OMP                 , za, zb, rcova, rcovb, cnab, dcnab             &
+!$OMP                 , ni, nj                                        &
+!$OMP                 )
+
+!$OMP SINGLE
+!$    ALLOCATE (locks(number_of_locks))
+!$OMP END SINGLE
+
+!$OMP DO
+!$    DO lock = 1, number_of_locks
+!$       call omp_init_lock(locks(lock))
+!$    END DO
+!$OMP END DO
+
+      mepos = 0
+!$    mepos = omp_get_thread_num()
+      DO WHILE (neighbor_list_iterate(nl_iterator, mepos=mepos) == 0)
+
+         CALL get_iterator_info(nl_iterator, mepos=mepos, ikind=ikind, jkind=jkind, iatom=iatom, jatom=jatom, r=rij)
+         IF (ghost(ikind) .OR. ghost(jkind) .OR. floating(ikind) .OR. floating(jkind)) CYCLE
+
+         rcc = SQRT(rij(1)*rij(1)+rij(2)*rij(2)+rij(3)*rij(3))
+         IF (rcc > 1.e-6_dp) THEN
+            za = atomnumber(ikind)
+            zb = atomnumber(jkind)
+            rcova = dispersion_env%rcov(za)
+            rcovb = dispersion_env%rcov(zb)
+            CALL cnparam_d3(rcc, rcova, rcovb, dispersion_env%k1, cnab, dcnab)
+            IF (cnab > eps_cn) THEN
+!$OMP ATOMIC
+               cnumbers(iatom) = cnumbers(iatom)+cnab
+               IF (iatom /= jatom) THEN
+!$OMP ATOMIC
+                  cnumbers(jatom) = cnumbers(jatom)+cnab
+               END IF
+            END IF
+            IF (calculate_forces .OR. debugall .AND. cnab > eps_cn) THEN
+!$             CALL omp_set_lock(locks(iatom))
+               dcnum(iatom)%neighbors = dcnum(iatom)%neighbors+1
+               ni = dcnum(iatom)%neighbors
+               IF (ni > SIZE(dcnum(iatom)%nlist)) THEN
+                  CALL reallocate(dcnum(iatom)%nlist, 1, 2*ni)
+                  CALL reallocate(dcnum(iatom)%dvals, 1, 2*ni)
+                  CALL reallocate(dcnum(iatom)%rik, 1, 3, 1, 2*ni)
+               END IF
+               dcnum(iatom)%nlist(ni) = jatom
+               dcnum(iatom)%dvals(ni) = dcnab
+               dcnum(iatom)%rik(1:3, ni) = rij(1:3)
+!$             CALL omp_unset_lock(locks(iatom))
+
+               IF (iatom /= jatom) THEN
+!$                CALL omp_set_lock(locks(jatom))
+                  dcnum(jatom)%neighbors = dcnum(jatom)%neighbors+1
+                  nj = dcnum(jatom)%neighbors
+                  IF (nj > SIZE(dcnum(jatom)%dvals)) THEN
+                     CALL reallocate(dcnum(jatom)%nlist, 1, 2*nj)
+                     CALL reallocate(dcnum(jatom)%dvals, 1, 2*nj)
+                     CALL reallocate(dcnum(jatom)%rik, 1, 3, 1, 2*nj)
+                  END IF
+                  dcnum(jatom)%nlist(nj) = iatom
+                  dcnum(jatom)%dvals(nj) = dcnab
+                  dcnum(jatom)%rik(1:3, nj) = -rij(1:3)
+!$                CALL omp_unset_lock(locks(jatom))
+               END IF
+            END IF
+         END IF
+      END DO
+
+!$OMP BARRIER        ! Wait for all threads to finish the loop before locks can be freed
+!$OMP DO
+!$    DO lock = 1, number_of_locks
+!$       call omp_destroy_lock(locks(lock))
+!$    END DO
+!$OMP END DO
+!$OMP SINGLE
+!$    DEALLOCATE (locks)
+!$OMP END SINGLE NOWAIT
+
+!$OMP END PARALLEL
+      CALL neighbor_list_iterator_release(nl_iterator)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE d3_cnumber
+
+! **************************************************************************************************
+!> \brief Broadcast the DCNUM array to all processes (sum up results)
+!> \param dcnum ...
+!> \param para_env ...
+! **************************************************************************************************
+   SUBROUTINE d3_cnumber_bcast(dcnum, para_env)
+      TYPE(dcnum_type), DIMENSION(:), INTENT(INOUT)      :: dcnum
+      TYPE(cp_para_env_type), POINTER                    :: para_env
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'd3_cnumber_bcast', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: iatom, ip, j, jn, natom, ne, nn, np, ntot
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: nl1, nne
+      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: nlist
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: dv1
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: dvals, r1
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: rik
+
+      np = para_env%num_pe
+      IF (np > 1) THEN
+         natom = SIZE(dcnum)
+         ALLOCATE (nne(np))
+         DO iatom = 1, natom
+            ne = dcnum(iatom)%neighbors
+            CALL mp_allgather(ne, nne, para_env%group)
+            nn = MAXVAL(nne)
+            ALLOCATE (nlist(nn, np), nl1(nn))
+            nl1 = 0
+            nl1(1:ne) = dcnum(iatom)%nlist(1:ne)
+            CALL mp_allgather(nl1, nlist, para_env%group)
+            ALLOCATE (dvals(nn, np), dv1(nn))
+            dv1 = 0.0_dp
+            dv1(1:ne) = dcnum(iatom)%dvals(1:ne)
+            CALL mp_allgather(dv1, dvals, para_env%group)
+            ALLOCATE (rik(3, nn, np), r1(3, nn))
+            r1 = 0.0_dp
+            r1(1:3, 1:ne) = dcnum(iatom)%rik(1:3, 1:ne)
+            CALL mp_allgather(r1, rik, para_env%group)
+            !
+            ntot = SUM(nne)
+            !
+            dcnum(iatom)%neighbors = ntot
+            CALL reallocate(dcnum(iatom)%nlist, 1, ntot)
+            CALL reallocate(dcnum(iatom)%dvals, 1, ntot)
+            CALL reallocate(dcnum(iatom)%rik, 1, 3, 1, ntot)
+            !
+            jn = 0
+            DO ip = 1, np
+               DO j = 1, nne(ip)
+                  jn = jn+1
+                  dcnum(iatom)%nlist(jn) = nlist(j, ip)
+                  dcnum(iatom)%dvals(jn) = dvals(j, ip)
+                  dcnum(iatom)%rik(1:3, jn) = rik(1:3, j, ip)
+               END DO
+            END DO
+            !
+            DEALLOCATE (nlist, dvals, rik, nl1, dv1, r1)
+         END DO
+         DEALLOCATE (nne)
+      END IF
+
+   END SUBROUTINE d3_cnumber_bcast
 ! **************************************************************************************************
 
 END MODULE qs_dispersion_pairpot

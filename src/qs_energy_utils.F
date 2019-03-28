@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -239,6 +239,7 @@ CONTAINS
       IF (atprop%energy) THEN
          CALL qs_energies_mulliken(qs_env)
          IF (.NOT. dft_control%qs_control%semi_empirical .AND. &
+             .NOT. dft_control%qs_control%xtb .AND. &
              .NOT. dft_control%qs_control%dftb) THEN
             ! Nuclear charge correction
             CALL integrate_v_core_rspace(v_hartree_rspace, qs_env)
@@ -334,7 +335,6 @@ CONTAINS
             CALL atom_trace(matrix_ks(ispin)%matrix, rho_ao(ispin)%matrix, &
                             0.5_dp, atprop%atener)
          END DO
-
       END IF
 
    END SUBROUTINE qs_energies_mulliken

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -2456,10 +2456,6 @@ CONTAINS
          ALLOCATE (orb_radius(nkind))
          ALLOCATE (pair_radius(nkind, nkind))
          ALLOCATE (atom2d(nkind))
-
-!        CALL atom2d_build(atom2d, orb_radius, orb_present, local_particles_sub, distribution_2d_sub, &
-!                          atomic_kind_set, qs_kind_set, molecule_set, molecule_only=.FALSE., dftb=.FALSE., &
-!                          particle_set=particle_set)
 
          CALL atom2d_build(atom2d, local_particles_sub, distribution_2d_sub, &
                            atomic_kind_set, molecule_set, molecule_only=.FALSE., &

@@ -2,7 +2,7 @@
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
-cmake_ver=${cmake_ver:-3.11.2}
+cmake_ver=${cmake_ver:-3.13.4}
 source "${SCRIPT_DIR}"/common_vars.sh
 source "${SCRIPT_DIR}"/tool_kit.sh
 source "${SCRIPT_DIR}"/signal_trap.sh
@@ -18,14 +18,14 @@ case "$with_cmake" in
         echo "==================== Installing CMake ===================="
         pkg_install_dir="${INSTALLDIR}/cmake-${cmake_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [[ $install_lock_file -nt $SCRIPT_NAME ]]; then
+        if verify_checksums "${install_lock_file}" ; then
             echo "cmake-${cmake_ver} is already installed, skipping it."
         else
             if [ -f cmake-${cmake_ver}.tar.gz ] ; then
                 echo "cmake-${cmake_ver}.tar.gz is found"
             else
                 download_pkg ${DOWNLOADER_FLAGS} \
-                             https://www.cp2k.org/static/downloads/cmake-${cmake_ver}.tar.gz
+                             https://github.com/Kitware/CMake/releases/download/v${cmake_ver}/cmake-${cmake_ver}.tar.gz
             fi
             echo "Installing from scratch into ${pkg_install_dir}"
             [ -d cmake-${cmake_ver} ] && rm -rf cmake-${cmake_ver}
@@ -39,11 +39,11 @@ case "$with_cmake" in
                 cp CMakeLists.txt CMakeLists.txt.orig
                 sed -i 's/option(BUILD_CursesDialog "Build the CMake Curses Dialog ccmake" ON)/option(BUILD_CursesDialog "Build the CMake Curses Dialog ccmake" OFF)/g' CMakeLists.txt
             fi
-            ./bootstrap --prefix="${pkg_install_dir}" > configure.log 2>&1
+            ./bootstrap --prefix="${pkg_install_dir}" --parallel="${NPROCS}" > configure.log 2>&1
             make -j $NPROCS >  make.log 2>&1
             make install > install.log 2>&1
             cd ..
-            touch "${install_lock_file}"
+            write_checksums "${install_lock_file}" "${SCRIPT_DIR}/$(basename ${SCRIPT_NAME})"
         fi
         ;;
     __SYSTEM__)

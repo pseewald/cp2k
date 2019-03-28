@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -77,7 +77,8 @@ MODULE input_constants
                                                do_constr_molec = 3
 
    INTEGER, PARAMETER, PUBLIC               :: do_cell_cp2k = 1, &
-                                               do_cell_xsc = 2
+                                               do_cell_cif = 2, &
+                                               do_cell_xsc = 3
 
    INTEGER, PARAMETER, PUBLIC               :: rmsd_all = 0, &
                                                rmsd_list = 1, &
@@ -257,7 +258,8 @@ MODULE input_constants
                                                do_method_pnnl = 16, &
                                                do_method_ofgpw = 17, &
                                                do_method_pm6fm = 18, &
-                                               do_method_pw = 19
+                                               do_method_pw = 19, &
+                                               do_method_xtb = 20
 
    INTEGER, PARAMETER, PUBLIC               :: do_multipole_section_on = 0, &
                                                do_multipole_section_off = 1

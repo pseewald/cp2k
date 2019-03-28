@@ -66,7 +66,7 @@ endif
 # Declare PHONY targets =====================================================
 .PHONY : $(VERSION) $(EXE_NAMES) \
          dirs makedep default_target all \
-         toolversions libcp2k exts \
+         toolversions extversions extclean libcp2k exts \
          doxify doxifyclean \
          pretty prettyclean doxygen/clean doxygen \
          install clean realclean distclean mrproper help \
@@ -111,7 +111,7 @@ ORIG_TARGET = default_target
 fes :
 	@+$(MAKE) --no-print-directory -f $(MAKEFILE) $(VERSION) ORIG_TARGET=graph
 
-$(EXE_NAMES) all toolversions libcp2k exts $(EXTSPACKAGES) test testbg:
+$(EXE_NAMES) all toolversions extversions extclean libcp2k exts $(EXTSPACKAGES) test testbg:
 	@+$(MAKE) --no-print-directory -f $(MAKEFILE) $(VERSION) ORIG_TARGET=$@
 
 # stage 2: Store the version target in $(ONEVERSION),
@@ -214,6 +214,9 @@ OTHER_HELP += "testbg : run the regression tests in background"
 
 OTHER_HELP += "toolversions : Print versions of build tools"
 
+OTHER_HELP += "extversions : Print versions of external modules"
+OTHER_HELP += "extclean : Clean build of external modules"
+
 #   extract help text from doxygen "\brief"-tag
 help:
 	@echo "=================== Binaries ===================="
@@ -265,7 +268,7 @@ OTHER_HELP += "execlean : Remove the executables, for given ARCH and VERSION"
 # delete the intermediate files, the programs and libraries and anything that might be in the objdir or libdir directory
 # Use this if you want to fully rebuild an executable (for a given compiler and or VERSION)
 #
-realclean: clean execlean
+realclean: extclean clean execlean
 	rm -rf $(foreach v, $(VERSION), $(MAINOBJDIR)/$(ARCH)/$(v))
 	rm -rf $(foreach v, $(VERSION), $(MAINLIBDIR)/$(ARCH)/$(v))
 OTHER_HELP += "realclean : Remove all files for given ARCH and VERSION"
@@ -440,8 +443,8 @@ FYPPFLAGS ?= -n
 
 %.o: %.F
 ifneq ($(CPP),)
-	$(TOOLSRC)/build_utils/fypp $(FYPPFLAGS) $< $*.fypped
-	$(CPP) $(CPPFLAGS) -D__SHORT_FILE__="\"$(subst $(SRCDIR)/,,$<)\"" -I'$(dir $<)' $*.fypped > $*.f90
+	$(TOOLSRC)/build_utils/fypp $(FYPPFLAGS) $< $*.F90
+	$(CPP) $(CPPFLAGS) -D__SHORT_FILE__="\"$(subst $(SRCDIR)/,,$<)\"" -I'$(dir $<)' $*.F90 > $*.f90
 	$(FC) -c $(FCFLAGS) $(OBJEXTSINCL) $*.f90 $(FCLOGPIPE)
 else
 	$(TOOLSRC)/build_utils/fypp $(FYPPFLAGS) $< $*.F90

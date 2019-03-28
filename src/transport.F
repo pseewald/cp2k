@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -700,6 +700,7 @@ CONTAINS
 
             ! calculate_jrho_resp uses sab_all which is not associated in DFTB environment
             IF (dft_control%qs_control%dftb) CPABORT("Current is not available for DFTB.")
+            IF (dft_control%qs_control%xtb) CPABORT("Current is not available for xTB.")
 
             ! now do the current
             IF (do_current_cube) THEN

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -1008,6 +1008,11 @@ CONTAINS
       gama = 6.0_dp-4.0_dp*(SQRT(2.0_dp))
       gama = gama-gama*gama
       DO WHILE (nu(i) < gama)
+         ! safeguard against negative root, is skipping correct?
+         IF ((1.0_dp-4.0_dp*nu(i)*nu(i)/wu(i)) < 0.0_dp) THEN
+            i = i-1
+            CYCLE
+         END IF
          Y(1) = 0.5_dp*(1.0_dp-SQRT(1.0_dp-4.0_dp*nu(i)*nu(i)/wu(i)))
          Y(2) = 0.5_dp*(1.0_dp-SQRT(1.0_dp-4.0_dp*nu(i)))
          Y(3) = 0.5_dp*(1.0_dp+SQRT(1.0_dp-4.0_dp*nu(i)))

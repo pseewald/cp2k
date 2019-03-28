@@ -2,7 +2,7 @@
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
-gcc_ver=${gcc_ver:-8.2.0}
+gcc_ver=${gcc_ver:-8.3.0}
 source "${SCRIPT_DIR}"/common_vars.sh
 source "${SCRIPT_DIR}"/tool_kit.sh
 source "${SCRIPT_DIR}"/signal_trap.sh
@@ -21,7 +21,7 @@ case "$with_gcc" in
         echo "==================== Installing GCC ===================="
         pkg_install_dir="${INSTALLDIR}/gcc-${gcc_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [[ $install_lock_file -nt $SCRIPT_NAME ]]; then
+        if verify_checksums "${install_lock_file}" ; then
             echo "gcc-${gcc_ver} is already installed, skipping it."
         else
             if [ "${gcc_ver}" == "master" ]; then
@@ -50,7 +50,10 @@ case "$with_gcc" in
                                  --enable-lto \
                                  --enable-plugins \
                                  > configure.log 2>&1
-            make -j $NPROCS > make.log 2>&1
+            make -j $NPROCS \
+                 CFLAGS="-fPIC $CFLAGS"\
+                 CXXFLAGS="-fPIC $CXXFLAGS"\
+                 > make.log 2>&1
             make -j $NPROCS install > install.log 2>&1
             # thread sanitizer
             if [ $ENABLE_TSAN = "__TRUE__" ] ; then
@@ -82,7 +85,7 @@ case "$with_gcc" in
                 cd $GCCROOT/obj/
             fi
             cd ../..
-            touch "${install_lock_file}"
+            write_checksums "${install_lock_file}" "${SCRIPT_DIR}/$(basename ${SCRIPT_NAME})"
         fi
         GCC_CFLAGS="-I'${pkg_install_dir}/include'"
         GCC_LDFLAGS="-L'${pkg_install_dir}/lib64' -L'${pkg_install_dir}/lib' -Wl,-rpath='${pkg_install_dir}/lib64' -Wl,-rpath='${pkg_install_dir}/lib64'"

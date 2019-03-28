@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -20,7 +20,6 @@ MODULE qs_core_energies
                                               dbcsr_trace,&
                                               dbcsr_type
    USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE erf_fn,                          ONLY: erfc
    USE kinds,                           ONLY: dp
    USE mathconstants,                   ONLY: oorootpi,&
                                               twopi

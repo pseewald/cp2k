@@ -30,7 +30,7 @@ case "$with_pexsi" in
         require_env MPI_LIBS
         pkg_install_dir="${INSTALLDIR}/pexsi-${pexsi_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [[ $install_lock_file -nt $SCRIPT_NAME ]]; then
+        if verify_checksums "${install_lock_file}" ; then
             echo "pexsi_dist-${pexsi_ver} is already installed, skipping it."
         else
             if [ -f pexsi_v${pexsi_ver}.tar.gz ] ; then
@@ -53,7 +53,7 @@ case "$with_pexsi" in
                     -e "s|\(PEXSI_DIR *=\).*|\1 ${PWD}|g" \
                     -e "s|\(PEXSI_BUILD_DIR *=\).*|\1 ${pkg_install_dir}|g" \
                     -e "s|\(CPP_LIB *=\).*|\1 -lstdc++ ${MPI_LDFLAGS} ${MPI_LIBS} |g" \
-                    -e "s|\(LAPACK_LIB *=\).*|\1 ${MATH_LDFLAGS} ${MATH_LIBS}|g" \
+                    -e "s|\(LAPACK_LIB *=\).*|\1 ${MATH_LDFLAGS} $(resolve_string "${MATH_LIBS}")|g" \
                     -e "s|\(BLAS_LIB *=\).*|\1|g" \
                     -e "s|\(\bMETIS_LIB *=\).*|\1 ${METIS_LDFLAGS} ${METIS_LIBS}|g" \
                     -e "s|\(PARMETIS_LIB *=\).*|\1 ${PARMETIS_LDFLAGS} ${PARMETIS_LIBS}|g" \
@@ -79,7 +79,7 @@ case "$with_pexsi" in
 
             cp -r ./include/* ${pkg_install_dir}/include/  # bug: make install neglects most header files
 
-            touch "${install_lock_file}"
+            write_checksums "${install_lock_file}" "${SCRIPT_DIR}/$(basename ${SCRIPT_NAME})"
         fi
         PEXSI_CFLAGS="-I'${pkg_install_dir}/include'"
 

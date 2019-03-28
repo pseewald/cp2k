@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -441,6 +441,7 @@ CONTAINS
 
          ! Solve the linear DIIS equation system
 
+         ev(1:nb1) = 0.0_dp
          CALL diamat_all(b(1:nb1, 1:nb1), ev(1:nb1))
 
          a(1:nb1, 1:nb1) = b(1:nb1, 1:nb1)

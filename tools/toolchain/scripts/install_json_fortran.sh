@@ -2,14 +2,14 @@
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
-json_fortran_ver=${json_fortran_ver:-6.9.0}
+json_fortran_ver=${json_fortran_ver:-7.0.0}
 source "${SCRIPT_DIR}"/common_vars.sh
 source "${SCRIPT_DIR}"/tool_kit.sh
 source "${SCRIPT_DIR}"/signal_trap.sh
 
 with_json_fortran=${1:-__INSTALL__}
 
-[ -f "${BUILDDIR}/setup_json_fortran" ] && rm -f "${BUILDDIR}/setup_json_fortram"
+[ -f "${BUILDDIR}/setup_json_fortran" ] && rm -f "${BUILDDIR}/setup_json_fortran"
 
 ! [ -d "${BUILDDIR}" ] && mkdir -p "${BUILDDIR}"
 cd "${BUILDDIR}"
@@ -18,17 +18,18 @@ case "$with_json_fortran" in
         echo "==================== Installing json_fortran ===================="
         pkg_install_dir="${INSTALLDIR}/json_fortran-${json_fortran_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [ -f "${install_lock_file}" ] ; then
+        if verify_checksums "${install_lock_file}" ; then
             echo "json-fortran-${json_fortran_ver} is already installed, skipping it."
         else
             if [ -f json-fortran-${json_fortran_ver}.tar.gz ] ; then
                 echo "json-fortran-${json_fortran_ver}.tar.gz is found"
             else
                 download_pkg ${DOWNLOADER_FLAGS} \
-                             https://www.cp2k.org/static/downloads/json-fortran-${json_fortran_ver}.tar.gz
+                             https://github.com/jacobwilliams/json-fortran/archive/${json_fortran_ver}.tar.gz \
+                             -o json-fortran-${json_fortran_ver}.tar.gz
             fi
             echo "Installing from scratch into ${pkg_install_dir}"
-            [ -d json-fortran-${json_fortran_ver} ] && rm -rf josn-fortran-${json_fortran_ver}
+            [ -d json-fortran-${json_fortran_ver} ] && rm -rf json-fortran-${json_fortran_ver}
             tar -xzf json-fortran-${json_fortran_ver}.tar.gz
             cd json-fortran-${json_fortran_ver}
             mkdir build
@@ -37,7 +38,7 @@ case "$with_json_fortran" in
             make -j $NPROCS >> make.log 2>&1
             make -j $NPROCS install > install.log 2>&1
             cd ../..
-            touch "${install_lock_file}"
+            write_checksums "${install_lock_file}" "${SCRIPT_DIR}/$(basename ${SCRIPT_NAME})"
         fi
 
         JSON_CFLAGS="-I'${pkg_install_dir}/include'"

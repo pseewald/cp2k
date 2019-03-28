@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -283,7 +283,7 @@ CONTAINS
          END IF
 
          ! *** compute properties that depend on the converged wavefunction
-         IF (.NOT. (should_stop)) CALL qs_scf_compute_properties(qs_env, dft_section)
+         IF (.NOT. (should_stop)) CALL qs_scf_compute_properties(qs_env)
 
          ! *** cleanup
          CALL scf_env_cleanup(scf_env)
@@ -650,7 +650,9 @@ CONTAINS
          END IF
 
          ! disable DFTB and SE for now
-         IF (dft_control%qs_control%dftb .OR. dft_control%qs_control%semi_empirical) THEN
+         IF (dft_control%qs_control%dftb .OR. &
+             dft_control%qs_control%xtb .OR. &
+             dft_control%qs_control%semi_empirical) THEN
             CPABORT("DFTB and SE not available with OT/DIAG")
          END IF
 

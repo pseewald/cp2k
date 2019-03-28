@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -12,7 +12,6 @@ MODULE atom_sgp
    USE atom_upf,                        ONLY: atom_upfpot_type
    USE atom_utils,                      ONLY: integrate_grid,&
                                               numpot_matrix
-   USE erf_fn,                          ONLY: erf
    USE input_constants,                 ONLY: ecp_pseudo,&
                                               gaussian,&
                                               gth_pseudo,&
@@ -20,6 +19,7 @@ MODULE atom_sgp
                                               upf_pseudo
    USE input_section_types,             ONLY: section_vals_get,&
                                               section_vals_type
+   USE kahan_sum,                       ONLY: accurate_dot_product
    USE kinds,                           ONLY: dp
    USE mathconstants,                   ONLY: dfac,&
                                               rootpi
@@ -1050,9 +1050,9 @@ CONTAINS
             END DO
          END DO
          DO ir = 1, nl
-            tv(ir) = tv(ir)+SUM(rmat(:, :)*gmat(:, :, ir))
+            tv(ir) = tv(ir)+accurate_dot_product(rmat, gmat(:, :, ir))
             DO ix = ir, nl
-               smat(ir, ix) = smat(ir, ix)+SUM(gmat(:, :, ix)*gmat(:, :, ir))
+               smat(ir, ix) = smat(ir, ix)+accurate_dot_product(gmat(:, :, ix), gmat(:, :, ir))
                smat(ix, ir) = smat(ir, ix)
             END DO
          END DO

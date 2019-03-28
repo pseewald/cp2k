@@ -1,15 +1,38 @@
 # How to compile the CP2K code
 
-##  1. Acquire the code:
+##  1. Acquire the code
 
-See  https://www.cp2k.org/download
 
-For users, the preferred method is to download a release.
-For developers, the preferred method is to download it from Git.
+For users, the preferred method is to [download a release](https://github.com/cp2k/cp2k/releases/).
+For developers, the preferred method is to [download from Git](./README.md#downloading-cp2k-source-code).
 
-## 2. Install Prerequisites
+For more details on downloading CP2K, see  https://www.cp2k.org/download.
 
-Sub-points here discuss prerequisites needed to build CP2K. Most of these can be conveniently installed via the [toolchain script](./tools/toolchain). Copies of the recommended versions of 3rd party software can be downloaded from https://www.cp2k.org/static/downloads/.
+## 2. Install prerequisites
+
+The most convenient way to install pre-requisites is by using the [toolchain script](./tools/toolchain/install_cp2k_toolchain.sh).
+
+For a complete introduction to the toolchain script, see the [README for users](./tools/toolchain/README_FOR_USERS.md) or the [README for developers](./tools/toolchain/README_FOR_DEVELOPERS.md).
+
+The basic steps are:
+
+- Read toolchain installation options:
+
+```
+> cd tools/toolchain/
+> ./install_cp2k_toolchain.sh --help
+```
+
+- Launch toolchain script (example option choice)
+
+```
+> ./install_cp2k_toolchain.sh --with-libxsmm=install --with-openblas=system \
+     --with-fftw=system --with-reflapack=no  --enable-cuda --enable-omp
+```
+
+- Once the script has completed successfully, follow the instructions given at the end of its output.
+
+Sub-points here discuss prerequisites needed to build CP2K. Copies of the recommended versions of 3rd party software can be downloaded from https://www.cp2k.org/static/downloads/.
 
 ### 2a. GNU make (required, build system)
 
@@ -19,7 +42,7 @@ GNU make should be on your system (gmake or make on linux) and used for the buil
 Python 2.x is needed to run the dependency generator. On most system Python is already installed. For more information visit: https://www.python.org/
 
 ### 2c. Fortran and C Compiler (required, build system)
-A Fortran 2003 compiler and matching C compiler should be installed on your system. We have good experience with gcc/gfortran (gcc >=4.6 works, later version recommended). Be aware that some compilers have bugs that might cause them to fail (internal compiler errors, segfaults) or, worse, yield a mis-compiled CP2K. Report bugs to compiler vendors; they (and we) have an interest in fixing them. Always run a `make -j test` (See point 5.) after compilation to identify these problems.
+A Fortran 2008 compiler and matching C compiler should be installed on your system. We have good experience with gcc/gfortran (gcc >=4.6 works, later version recommended). Be aware that some compilers have bugs that might cause them to fail (internal compiler errors, segfaults) or, worse, yield a mis-compiled CP2K. Report bugs to compiler vendors; they (and we) have an interest in fixing them. Always run a `make -j test` (See point 5.) after compilation to identify these problems.
 
 ### 2d. BLAS and LAPACK (required, base functionality)
 BLAS and LAPACK should be installed.  Using vendor-provided libraries can make a very significant difference (up to 100%, e.g., ACML, MKL, ESSL), not all optimized libraries are bug free. Use the latest versions available, use the interfaces matching your compiler, and download all patches!
@@ -33,13 +56,13 @@ BLAS and LAPACK should be installed.  Using vendor-provided libraries can make a
     * http://math-atlas.sourceforge.net/
     * https://www.tacc.utexas.edu/research-development/tacc-software/gotoblas2
 
-If compiling with OpenMP support then it is recommended to use a non-threaded version of BLAS. In particular if compiling with MKL and using OpenMP you must define `-D__MKL` to ensure the code is thread-safe. MKL with multiple OpenMP threads in CP2K requires that CP2K was compiled with the Intel compiler (and `-D__INTEL_COMPILER` is defined if explicit pre-processing is performed using cpp instead of the compiler).
+If compiling with OpenMP support then it is recommended to use a non-threaded version of BLAS. In particular if compiling with MKL and using OpenMP you must define `-D__MKL` to ensure the code is thread-safe. MKL with multiple OpenMP threads in CP2K requires that CP2K was compiled with the Intel compiler. If the `cpp` precompiler is used in a separate precompilation step in combination with the Intel Fortran compiler, `-D__INTEL_COMPILER` must be added explicitly (the Intel compiler sets `__INTEL_COMPILER` otherwise automatically).
 
 On the Mac, BLAS and LAPACK may be provided by Apple's Accelerate framework. If using this framework, `-D__ACCELERATE` must be defined to account for some interface incompatibilities between Accelerate and reference BLAS/LAPACK.
 
 When building on/for Windows using the Minimalist GNU for Windows (MinGW) environment, you must set `-D__MINGW`,  `-D__NO_STATM_ACCESS` and `-D__NO_IPI_DRIVER` to avoid undefined references during linking, respectively errors while printing the statistics.
 
-## 2e. MPI and SCALAPACK (optional, required for MPI parallel builds)
+### 2e. MPI and SCALAPACK (optional, required for MPI parallel builds)
 MPI (version 2) and SCALAPACK are needed for parallel code. (Use the latest versions available and download all patches!).
 
 :warning: Note that your MPI installation must match the used Fortran compiler. If your computing platform does not provide MPI, there are several freely available alternatives:
@@ -54,14 +77,14 @@ MPI (version 2) and SCALAPACK are needed for parallel code. (Use the latest vers
 
 CP2K assumes that the MPI library implements MPI version 3. If you have an older version of MPI (e.g. MPI 2.0) available you must define `-D__MPI_VERSION=2` in the arch file.
 
-## 2f. FFTW (optional, improved performance of FFTs)
+### 2f. FFTW (optional, improved performance of FFTs)
 FFTW can be used to improve FFT speed on a wide range of architectures. It is strongly recommended to install and use FFTW3. The current version of CP2K works with FFTW 3.X (use `-D__FFTW3`). It can be downloaded from http://www.fftw.org/
 
 :warning: Note that FFTW must know the Fortran compiler you will use in order to install properly (e.g., `export F77=gfortran` before configure if you intend to use gfortran).
 
 :warning: Note that on machines and compilers which support SSE you can configure FFTW3 with `--enable-sse2`. Compilers/systems that do not align memory (NAG f95, Intel IA32/gfortran) should either not use `--enable-sse2` or otherwise set the define `-D__FFTW3_UNALIGNED` in the arch file. When building an OpenMP parallel version of CP2K (ssmp or psmp), the FFTW3 threading library libfftw3_threads (or libfftw3_omp) is required.
 
-## 2g. LIBINT (optional, enables methods including HF exchange)
+### 2g. LIBINT (optional, enables methods including HF exchange)
 Hartree-Fock exchange (optional, use `-D__LIBINT`) requires the libint package to be installed.
   * Download from http://sourceforge.net/projects/libint/files/v1-releases/libint-1.1.4.tar.gz/download.
   * Additional information can be found in [README_LIBINT](./tools/hfx_tools/libint_tools/README_LIBINT).
@@ -82,7 +105,9 @@ Hartree-Fock exchange (optional, use `-D__LIBINT`) requires the libint package t
 ### 2j. CUDA (optional, improved performance on GPU systems)
   * `-D__ACC` needed to enable accelerator support.
   * Use the `-D__DBCSR_ACC` to enable accelerator support for matrix multiplications.
-  * Add `-lcudart -lrt` to LIBS.
+  * Add `-lcudart -lrt -lnvrtc` to LIBS.
+  * Specify the GPU type (e.g. `GPUVER   = P100`)
+  * Specify the C++ compiler (e.g. `CXX = g++`). Rember to set the flags to support C++11 standard.
   * Use `-D__PW_CUDA` for CUDA support for PW (gather/scatter/fft) calculations.
   * CUFFT 7.0 has a known bug and is therefore disabled by default. NVidia's webpage list a patch (an upgraded version cufft i.e. >= 7.0.35) - use this together with `-D__HAS_PATCHED_CUFFT_70`.
   * Use `-D__CUDA_PROFILING` to turn on Nvidia Tools Extensions.
@@ -172,7 +197,7 @@ Conventionally, there are six versions:
 | sdbg    | serial                  | single core testing and debugging  |
 | sopt    | serial                  | general single core usage          |
 | ssmp    | parallel (only OpenMP)  | optimized, single node, multi core |
-| pdbg    | parallel (only MPI)     | multinode testing and debugging    |
+| pdbg    | parallel (only MPI)     | multi-node testing and debugging   |
 | popt    | parallel (only MPI)     | general usage, no threads          |
 | psmp    | parallel (MPI + OpenMP) | general usage, threading might improve scalability and memory usage |
 
@@ -180,7 +205,6 @@ You'll need to modify one of these files to match your system's settings.
 
 You can now build CP2K using these settings (where -j N allows for a parallel build using N processes):
 ```
-> cd cp2k/makefiles
 > make -j N ARCH=architecture VERSION=version
 ```
 e.g.
@@ -233,7 +257,23 @@ Features useful to deal with legacy systems
   * `-D__HAS_NO_OMP_3` CP2K assumes that compilers support OpenMP 3.0. If this is not the case specify this flag to compile. Runtime performance will be poorer on low numbers of processors
   * `-D__HAS_NO_CUDA_STREAM_PRIORITIES` - Needed for CUDA sdk version < 5.5
   * `-D__NO_STATM_ACCESS` - Do not try to read from /proc/self/statm to get memory usage information. This is otherwise attempted on several. Linux-based architectures or using with the NAG, gfortran, compilers.
-  * `-D__F2008` Allow for conformity check with the Fortran 2008 standard when using the GFortran compiler flag `-std=f2008`
+  * `-D__CHECK_DIAG` Debug option which activates an orthonormality check of the eigenvectors calculated by the selected eigensolver
+
+### 3c. Building CP2K as a library
+
+You can build CP2K for use as a library by adding `libcp2k` as an option to your `make` command, e.g.
+```
+> make -j N ARCH=Linux-x86-64-gfortran VERSION=sopt libcp2k
+```
+This will create `libcp2k.a` in the relevant subdirectory of `./lib/`. You will need to add this subdirectory to the library search path of your compiler (typically via the `LD_LIBRARY_PATH` environment variable or the `-L` option to your compiler) and link to the library itself with `-lcp2k`.
+
+In order to use the functions in the library you will also require the `libcp2k.h` header file. This can be found in `./src/start/` directory. You should add this directory to the header search path of your compiler (typically via the `CPATH` environment variable or the `-I` option to your compiler).
+
+For Fortran users, you will require the module interface file (`.mod` file) for every MODULE encountered in the source. These are compiler specific and are to be found in the subdirectory of `./obj/` that corresponds to your build, e.g.,
+```
+./obj/Linux-x86-64-gfortran/sopt/
+```
+In order for your compiler to find these, you will need to indicate their location to the compiler as is done for header files  (typically via the `CPATH` environment variable or the `-I` option to your compiler).
 
 ## 4. If it doesn't work?
 If things fail, take a break... go back to 2a (or skip to step 6).

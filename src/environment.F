@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -213,6 +213,18 @@ CONTAINS
          CALL m_flush_internal(my_output_unit)
       END IF
 
+#if defined(__FAST_MATH__)
+      CALL cp_warn(__LOCATION__, &
+                   "During compilation one of the following flags was active:"// &
+                   "   `-ffast-math` (GCC)"// &
+                   "   `-hfpN` (Cray, N > 0, default N=2)"// &
+                   " This can lead to wrong results and numerical instabilities"// &
+                   " and is therefore no longer supported.")
+
+#if !defined(__FORCE_USE_FAST_MATH)
+#error -ffast-math (GCC) or -hfpN (N>0, Cray) can lead to wrong results and numerical instabilities and are therefore no longer supported
+#endif
+#endif
    END SUBROUTINE cp2k_init
 
 ! **************************************************************************************************

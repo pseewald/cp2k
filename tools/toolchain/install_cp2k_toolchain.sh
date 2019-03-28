@@ -4,7 +4,7 @@ SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
 # +-----------------------------------------------------------------------+
 # |  CP2K: A general program to perform molecular dynamics simulations    |
-# |  Copyright (C) 2000 - 2018  CP2K developers group                     |
+# |  Copyright (C) 2000 - 2019  CP2K developers group                     |
 # +-----------------------------------------------------------------------+
 #
 # *****************************************************************************
@@ -62,7 +62,7 @@ OPTIONS:
                           from wget or ones saying that "common name doesn't
                           match requested host name" while at tarball downloading
                           stage, then the recommended solution is to install
-                          the newest wget release.  Alternatively, you can use
+                          the newest wget release. Alternatively, you can use
                           this option to bypass the verification and proceed with
                           the download. Security wise this should still be okay
                           as the installation script will check file checksums
@@ -74,10 +74,10 @@ OPTIONS:
                           --with-PKG option placed AFTER this option on the
                           command line.
 --mpi-mode                Selects which MPI flavour to use. Available options
-                          are: mpich, openmpi and no.  By selecting no, you will
-                          be disabling MPI support.  By default the script
+                          are: mpich, openmpi and no. By selecting no, you will
+                          be disabling MPI support. By default the script
                           will try to determine the flavour based on the MPI library
-                          currently avaliable in your system path. For CRAY (CLE)
+                          currently available in your system path. For CRAY (CLE)
                           systems, the default flavour is mpich. Note that explicitly
                           setting --with-mpich or --with-openmpi options to values
                           other than no will also switch --mpi-mode to the respective
@@ -93,6 +93,10 @@ OPTIONS:
                           --with-acml, --with-mkl or --with-openblas options will
                           switch --math-mode to the respective modes, BUT
                           --with-reflapack option do not have this effect.
+--gpu-ver                 Selects the GPU architecture for which to compile. Available
+                          options are: K20X, K40, K80, P100, no. Default: no.
+                          The script will determine the correct corresponding value for
+                          nvcc's '-arch' flag.
 
 The --enable-FEATURE options follow the rules:
   --enable-FEATURE=yes    Enable this particular feature
@@ -174,7 +178,7 @@ The --with-PKG options follow the rules:
                           the one specified by --with-scalapack option.
                           Default = system
   --with-openblas         OpenBLAS is a free high performance LAPACK and BLAS library,
-                          the sucessor to GotoBLAS.
+                          the successor to GotoBLAS.
                           Default = install
   --with-scalapack        Parallel linear algebra library, needed for parallel
                           calculations.
@@ -184,7 +188,7 @@ The --with-PKG options follow the rules:
                           --with-libsmm=install, then instead of actually compiling
                           the library (which may take a long time), the script will
                           try to download a preexisting version from the CP2K website
-                          that is compatable with your system.
+                          that is compatible with your system.
                           Default = no
   --with-libxsmm          Small matrix multiplication library for x86_64 systems. If
                           your system arch is x86_64, then you can use libxsmm
@@ -192,13 +196,13 @@ The --with-PKG options follow the rules:
                           Default = install
   --with-elpa             Eigenvalue SoLvers for Petaflop-Applications library.
                           Fast library for large parallel jobs.
-                          Default = no
+                          Default = install
   --with-ptscotch         PT-SCOTCH, only used if PEXSI is used
                           Default = no
   --with-parmetis         ParMETIS, and if --with-parmetis=install will also install
                           METIS, only used if PEXSI is used
                           Default = no
-  --with-metis            METIS, --with-metis=install actuall does nothing, because
+  --with-metis            METIS, --with-metis=install actually does nothing, because
                           METIS is installed together with ParMETIS.  This option
                           is used to specify the METIS library if it is pre-installed
                           else-where. Only used if PEXSI is used
@@ -212,12 +216,14 @@ The --with-PKG options follow the rules:
   --with-sirius           Enable interface to the plane wave SIRIUS library.
                           This package requires: gsl, libspg, elpa, scalapack, json-fortran, hdf5 and libxc.
                           Default = install
-  --with-gsl              Enable the gnu scientific library library
+  --with-gsl              Enable the gnu scientific library
+                          Default = install
+  --with-libvdwxc         Enable support of Van der Waals interactions in SIRIUS. Support provided by libvdwxc
                           Default = install
   --with-spglib           Enable the spg library (search of symmetry groups)
                           This package depends on cmake.
                           Default = install
-  --with-hdf5             Enable the hdf5 library (use by sirius library)
+  --with-hdf5             Enable the hdf5 library (used by the sirius library)
                           Default = install
   --with-json-fortran     Enable the json fortran library (used by cp2k when sirius is activated)
                           This package depends on cmake.
@@ -226,7 +232,7 @@ The --with-PKG options follow the rules:
 
 FURTHER INSTRUCTIONS
 
-All packages to be installed locally will be downloaded and build inside
+All packages to be installed locally will be downloaded and built inside
 ./build, and then installed into package specific directories inside
 ./install.
 
@@ -238,7 +244,7 @@ the same location as it was first created, as it contains tools and libraries
 your version of CP2K binary will depend on.
 
 It should be safe to terminate running of this script in the middle of a
-build process.  The script will know if a package has been successfully
+build process. The script will know if a package has been successfully
 installed, and will just carry on and recompile and install the last
 package it is working on. This is true even if you lose the content of
 the entire ./build directory.
@@ -259,7 +265,7 @@ tool_list="binutils lcov valgrind make cmake gcc"
 mpi_list="mpich openmpi"
 math_list="mkl acml openblas reflapack"
 lib_list="fftw libint libxc libsmm libxsmm scalapack elpa \
-          ptscotch parmetis metis superlu pexsi quip gsl spglib hdf5 sirius json_fortran"
+          ptscotch parmetis metis superlu pexsi quip gsl spglib hdf5 libvdwxc sirius json_fortran"
 package_list="$tool_list $mpi_list $math_list $lib_list"
 # ------------------------------------------------------------------------
 
@@ -283,7 +289,6 @@ with_libint=__INSTALL__
 with_libxsmm=__INSTALL__
 with_libxc=__INSTALL__
 with_scalapack=__INSTALL__
-
 # default math library settings, FAST_MATH_MODE picks the math library
 # to use, and with_* defines the default method of installation if it
 # is picked. For non-CRAY systems defaults to mkl if $MKLROOT is
@@ -298,12 +303,14 @@ with_mkl=__SYSTEM__
 with_openblas=__INSTALL__
 with_reflapack=__INSTALL__
 
-# sirius is not activated by default.
+# sirius is activated by default
 with_sirius="__INSTALL__"
 with_gsl="__INSTALL__"
 with_spglib="__INSTALL__"
 with_hdf5="__INSTALL__"
 with_json_fortran="__INSTALL__"
+with_elpa="__INSTALL__"
+with_libvdwxc="__INSTALL__"
 
 # for MPI, we try to detect system MPI variant
 with_openmpi=__SYSTEM__
@@ -336,9 +343,11 @@ enable_omp=__TRUE__
 if (command -v nvcc >&- 2>&-) ; then
    echo "nvcc found, enabling CUDA by default"
    enable_cuda=__TRUE__
+   export GPUVER=no
 else
    echo "nvcc not found, disabling CUDA by default"
    enable_cuda=__FALSE__
+   export GPUVER=no
 fi
 
 # defaults for CRAY Linux Environment
@@ -419,6 +428,31 @@ while [ $# -ge 1 ] ; do
                 *)
                     report_error ${LINENO} \
                     "--math-mode currently only supports mkl, acml, openblas and reflapack as options"
+            esac
+            ;;
+        --gpu-ver=*)
+            user_input="${1#*=}"
+            case "$user_input" in
+                K20X)
+                    export GPUVER=K20X
+                    ;;
+                K40)
+                    export GPUVER=K40
+                    ;;
+                K80)
+                    export GPUVER=K80
+                    ;;
+                P100)
+                    export GPUVER=P100
+                    ;;
+                no)
+                    export GPUVER=no
+                    ;;
+                *)
+                    export GPUVER=no
+                    report_error ${LINENO} \
+                    "--gpu-ver currently only supports K20X, K40, K80, P100 and no as options"
+        exit 1
             esac
             ;;
         --enable-tsan*)
@@ -568,6 +602,9 @@ while [ $# -ge 1 ] ; do
         --with-json*)
             with_json_fortran=$(read_with $1)
             ;;
+        --with-libvdwxc*)
+            with_libvdwxc=$(read_with $1)
+            ;;
         --help*)
             show_help
             exit 0
@@ -601,7 +638,7 @@ export ENABLE_CRAY=$enable_cray
 # GCC thread sanitizer conflicts
 if [ $ENABLE_TSAN = "__TRUE__" ] ; then
     if [ "$with_openblas" != "__DONTUSE__" ] ; then
-        echo "TSAN is enabled, canoot use openblas, we will use reflapack instead"
+        echo "TSAN is enabled, cannot use openblas, we will use reflapack instead"
         [ "$with_reflapack" = "__DONTUSE__" ] && with_reflapack="__INSTALL__"
         export FAST_MATH_MODE=reflapack
     fi
@@ -641,6 +678,14 @@ else
         echo "You have chosen to install GCC, therefore MPI libraries will have to be installed too"
         with_openmpi="__INSTALL__"
         with_mpich="__INSTALL__"
+    fi
+fi
+
+# If CUDA is enabled, make sure the GPU version has been defined
+if [ $ENABLE_CUDA = __TRUE__ ] ; then
+    if [ "$GPUVER" = no ] ; then
+        report_error "CUDA enabled, please choose GPU architecture to compile for with --gpu-ver"
+        exit 1
     fi
 fi
 
@@ -684,11 +729,21 @@ else
         exit 1
     fi
 fi
+
 # ParMETIS requires cmake, it also installs METIS if it is chosen
-# __INSTALL__ option
 if [ "$with_parmetis" = "__INSTALL__" ] ; then
     [ "$with_cmake" = "__DONTUSE__" ] && with_cmake="__INSTALL__"
     with_metis="__INSTALL__"
+fi
+
+# spg library requires cmake.
+if [ "$with_spglib" = "__INSTALL__" ] ; then
+    [ "$with_cmake" = "__DONTUSE__" ] && with_cmake="__INSTALL__"
+fi
+
+# json-fortran requires cmake.
+if [ "$with_json_fortran" = "__INSTALL__" ] ; then
+    [ "$with_cmake" = "__DONTUSE__" ] && with_cmake="__INSTALL__"
 fi
 
 # SIRIUS dependencies. Remove the gsl library from the dependencies if SIRIUS is not activated
@@ -697,16 +752,8 @@ if [ "$with_sirius" = "__INSTALL__" ] ; then
         report_error "For SIRIUS to work you need a working gsl library use --with-gsl option to specify if you wish to install the library or specify its location."
         exit 1
     fi
-    if [ "$with_elpa" = "__DONTUSE__" ] ; then
-        report_error "For SIRIUS to work you need a working ELPA library use --with-elpa option to specify if you wish to install the library or specify its location."
-        exit 1
-    fi
     if [ "$with_libxc" = "__DONTUSE__" ] ; then
         report_error "For SIRIUS to work you need a working libxc library use --with-libxc option to specify if you wish to install the library or specify its location."
-        exit 1
-    fi
-    if [ "$with_scalpack" = "__DONTUSE__" ] ; then
-        report_error "For SIRIUS to work you need a working scalapack library use --with-scalapack option to specify if you wish to install the library or specify its location."
         exit 1
     fi
     if [ "$with_fftw" = "__DONTUSE__" ] ; then
@@ -726,6 +773,7 @@ if [ "$with_sirius" = "__INSTALL__" ] ; then
     exit 1
     fi
 fi
+
 
 # ------------------------------------------------------------------------
 # Preliminaries
@@ -830,6 +878,28 @@ export F90FLAGS=${F90FLAGS:-"-O2 -g -Wno-error"}
 export F77FLAGS=${F77FLAGS:-"-O2 -g -Wno-error"}
 export CXXFLAGS=${CXXFLAGS:-"-O2 -g -Wno-error"}
 
+# Select the correct compute number based on the GPU architecture
+case $GPUVER in
+    K20X)
+        export ARCH_NUM=35
+        ;;
+    K40)
+        export ARCH_NUM=35
+        ;;
+    K80)
+        export ARCH_NUM=37
+        ;;
+    P100)
+        export ARCH_NUM=60
+        ;;
+    no)
+        export ARCH_NUM=no
+        ;;
+    *)
+        report_error ${LINENO} \
+        "--gpu-ver currently only supports K20X, K40, K80, P100 as options"
+esac
+
 # need to setup tools after all of the tools are built. We should use
 # consistent pairs of gcc and binutils etc for make. So we use system
 # tool sets to compile the tool sets used to compile CP2K
@@ -850,12 +920,12 @@ done
 
 # setup compiler flags, leading to nice stack traces on crashes but
 # still optimised
-CFLAGS="-O2 -ftree-vectorize -g -fno-omit-frame-pointer -march=native -ffast-math $TSANFLAGS"
-FFLAGS="-O2 -ftree-vectorize -g -fno-omit-frame-pointer -march=native -ffast-math $TSANFLAGS"
-F77FLAGS="-O2 -ftree-vectorize -g -fno-omit-frame-pointer -march=native -ffast-math $TSANFLAGS"
-F90FLAGS="-O2 -ftree-vectorize -g -fno-omit-frame-pointer -march=native -ffast-math $TSANFLAGS"
-FCFLAGS="-O2 -ftree-vectorize -g -fno-omit-frame-pointer -march=native -ffast-math $TSANFLAGS"
-CXXFLAGS="-O2 -ftree-vectorize -g -fno-omit-frame-pointer -march=native -ffast-math $TSANFLAGS"
+CFLAGS="-O2 -ftree-vectorize -g -fno-omit-frame-pointer -march=native $TSANFLAGS"
+FFLAGS="-O2 -ftree-vectorize -g -fno-omit-frame-pointer -march=native $TSANFLAGS"
+F77FLAGS="-O2 -ftree-vectorize -g -fno-omit-frame-pointer -march=native $TSANFLAGS"
+F90FLAGS="-O2 -ftree-vectorize -g -fno-omit-frame-pointer -march=native $TSANFLAGS"
+FCFLAGS="-O2 -ftree-vectorize -g -fno-omit-frame-pointer -march=native $TSANFLAGS"
+CXXFLAGS="-O2 -ftree-vectorize -g -fno-omit-frame-pointer -march=native $TSANFLAGS"
 
 export CFLAGS=$(allowed_gcc_flags $CFLAGS)
 export FFLAGS=$(allowed_gfortran_flags $FFLAGS)
@@ -963,12 +1033,12 @@ LD_arch="IF_MPI(${MPIFC}|${FC})"
 
 # we always want good line information and backtraces
 BASEFLAGS="-march=native -fno-omit-frame-pointer -g ${TSANFLAGS}"
-OPT_FLAGS="-O3 -funroll-loops -ffast-math"
+OPT_FLAGS="-O3 -funroll-loops"
 NOOPT_FLAGS="-O1"
 
 # those flags that do not influence code generation are used always, the others if debug
-FCDEB_FLAGS="-ffree-form -std=f2003 -fimplicit-none"
-FCDEB_FLAGS_DEBUG="-fsanitize=leak -fcheck=bounds,do,recursion,pointer -ffpe-trap=invalid,zero,overflow -finit-real=snan -fno-fast-math -Werror=realloc-lhs-all -finline-matmul-limit=0"
+FCDEB_FLAGS="-ffree-form -std=f2008 -fimplicit-none"
+FCDEB_FLAGS_DEBUG="-fsanitize=leak -fcheck=all -ffpe-trap=invalid,zero,overflow -finit-derived -finit-real=snan -finit-integer=-42 -Werror=realloc-lhs-all -finline-matmul-limit=0"
 
 # code coverage generation flags
 COVERAGE_FLAGS="-O1 -coverage -fkeep-static-functions"
@@ -1011,7 +1081,7 @@ fi
 # finally into FCFLAGS and CFLAGS
 WFLAGS="$WFLAGS_ERROR $WFLAGS_WARN IF_WARNALL(${WFLAGS_WARNALL}|)"
 FCDEBFLAGS="$FCDEB_FLAGS IF_DEBUG($FCDEB_FLAGS_DEBUG|)"
-DFLAGS="${CP_DFLAGS} IF_DEBUG($IEEE_EXCEPTIONS_DFLAGS|) IF_COVERAGE($COVERAGE_DFLAGS|)"
+DFLAGS="${CP_DFLAGS} IF_DEBUG($IEEE_EXCEPTIONS_DFLAGS -D__CHECK_DIAG|) IF_COVERAGE($COVERAGE_DFLAGS|)"
 # language independent flags
 # valgrind with avx can lead to spurious out-of-bound results
 G_CFLAGS="$BASEFLAGS IF_VALGRIND(-mno-avx -mno-avx2|)"
@@ -1030,13 +1100,35 @@ LDFLAGS="\$(FCFLAGS) ${CP_LDFLAGS}"
 # add standard libs
 LIBS="${CP_LIBS} -lstdc++"
 
-# CUDA stuff
+# CUDA handling
 CUDA_LIBS="-lcudart -lnvrtc -lcuda -lcufft -lcublas -lrt IF_DEBUG(-lnvToolsExt|)"
 CUDA_DFLAGS="-D__ACC -D__DBCSR_ACC -D__PW_CUDA IF_DEBUG(-D__CUDA_PROFILING|)"
-if [ "$ENABLE_CUDA" = __TRUE__ ] ; then
+if [ "${ENABLE_CUDA}" = __TRUE__ ] && [ "${GPUVER}" != no ] ; then
     LIBS="${LIBS} IF_CUDA(${CUDA_LIBS}|)"
     DFLAGS="IF_CUDA(${CUDA_DFLAGS}|) ${DFLAGS}"
-    NVFLAGS="-arch sm_35 -Xcompiler='-fopenmp' --std=c++11 \$(DFLAGS)"
+    NVFLAGS="-arch sm_${ARCH_NUM} -Xcompiler='-fopenmp' --std=c++11 \$(DFLAGS)"
+    check_command nvcc "cuda"
+    check_lib -lcudart "cuda"
+    check_lib -lnvrtc "cuda"
+    check_lib -lcuda "cuda"
+    check_lib -lcufft "cuda"
+    check_lib -lcublas "cuda"
+
+    # Set include flags
+    CUDA_CFLAGS=''
+    add_include_from_paths CUDA_CFLAGS "cuda.h" $INCLUDE_PATHS
+    export CUDA_CFLAGS="${CUDA_CFLAGS}"
+    CFLAGS+=" ${CUDA_CFLAGS}"
+
+    # Set LD-flags
+    CUDA_LDFLAGS=''
+    add_lib_from_paths CUDA_LDFLAGS "libcudart.*" $LIB_PATHS
+    add_lib_from_paths CUDA_LDFLAGS "libnvrtc.*" $LIB_PATHS
+    add_lib_from_paths CUDA_LDFLAGS "libcuda.*" $LIB_PATHS
+    add_lib_from_paths CUDA_LDFLAGS "libcufft.*" $LIB_PATHS
+    add_lib_from_paths CUDA_LDFLAGS "libcublas.*" $LIB_PATHS
+    export CUDA_LDFLAGS="${CUDA_LDFLAGS}"
+    LDFLAGS+=" ${CUDA_LDFLAGS}"
 fi
 
 # -------------------------
@@ -1067,10 +1159,10 @@ gen_arch_file() {
     if [ "$__CUDA" = "on" ] ; then
       cat <<EOF >> $__filename
 #
-CXX         = CC
+CXX         = \${CC}
 CXXFLAGS    = \${CXXFLAGS} -I\\\${CUDA_PATH}/include -std=c++11
-GPUVER      = K20X
-NVCC        = \${NVCC} -D__GNUC__=4 -D__GNUC_MINOR__=9 -Xcompiler=--std=gnu++98
+GPUVER      = \${GPUVER}
+NVCC        = \${NVCC} -D__GNUC__=4 -D__GNUC_MINOR__=9
 NVFLAGS     = \${NVFLAGS}
 EOF
     fi
@@ -1129,9 +1221,9 @@ if [ "$ENABLE_CUDA" = __TRUE__ ] ; then
 fi
 # valgrind enabled arch files
 if [ "$ENABLE_VALGRIND" = __TRUE__ ] ; then
-      gen_arch_file "local_valgrind.sdbg"      VALGRIND
+      gen_arch_file "local_valgrind.sopt"      VALGRIND
     [ "$MPI_MODE" != no ] && \
-      gen_arch_file "local_valgrind.pdbg"      VALGRIND MPI
+      gen_arch_file "local_valgrind.popt"      VALGRIND MPI
 fi
 # coverage enabled arch files
 if [ "$ENABLE_COVERAGE" = __TRUE__ ]; then

@@ -2,7 +2,7 @@
 [ "${BASH_SOURCE[0]}" ] && SCRIPT_NAME="${BASH_SOURCE[0]}" || SCRIPT_NAME=$0
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_NAME")" && pwd -P)"
 
-openblas_ver=${openblas_ver:-0.3.3}  # Keep in sync with get_openblas_arch.sh.
+openblas_ver=${openblas_ver:-0.3.5}  # Keep in sync with get_openblas_arch.sh.
 source "${SCRIPT_DIR}"/common_vars.sh
 source "${SCRIPT_DIR}"/tool_kit.sh
 source "${SCRIPT_DIR}"/signal_trap.sh
@@ -14,10 +14,7 @@ with_openblas=${1:-__INSTALL__}
 OPENBLAS_CFLAGS=''
 OPENBLAS_LDFLAGS=''
 OPENBLAS_LIBS=''
-PATCHES=(
-    https://github.com/xianyi/OpenBLAS/commit/79ea839b635d1fd84b6ce8a47e086f01d64198e6.patch
-    https://github.com/xianyi/OpenBLAS/commit/288aeea8a285da8551c465681c7b9330a5486e7e.patch
-    )
+PATCHES=()
 
 ! [ -d "${BUILDDIR}" ] && mkdir -p "${BUILDDIR}"
 cd "${BUILDDIR}"
@@ -26,14 +23,15 @@ case "$with_openblas" in
         echo "==================== Installing OpenBLAS ===================="
         pkg_install_dir="${INSTALLDIR}/openblas-${openblas_ver}"
         install_lock_file="$pkg_install_dir/install_successful"
-        if [[ $install_lock_file -nt $SCRIPT_NAME ]]; then
+        if verify_checksums "${install_lock_file}" ; then
             echo "openblas-${openblas_ver} is already installed, skipping it."
         else
             if [ -f OpenBLAS-${openblas_ver}.tar.gz ] ; then
                 echo "OpenBLAS-${openblas_ver}.tar.gz is found"
             else
                 download_pkg ${DOWNLOADER_FLAGS} \
-                             https://www.cp2k.org/static/downloads/OpenBLAS-${openblas_ver}.tar.gz
+                             https://github.com/xianyi/OpenBLAS/archive/v${openblas_ver}.tar.gz \
+                             -o OpenBLAS-${openblas_ver}.tar.gz
             fi
 
             for patch in "${PATCHES[@]}" ; do
@@ -67,15 +65,15 @@ case "$with_openblas" in
                    PREFIX="${pkg_install_dir}" \
                    > make.serial.log 2>&1 \
             ) || ( \
-                make -j $NPROCS clean; \
-                make -j $NPROCS \
-                     MAKE_NB_JOBS=0 \
-                     TARGET=NEHALEM \
-                     USE_THREAD=0 \
-                     CC="${CC}" \
-                     FC="${FC}" \
-                     PREFIX="${pkg_install_dir}" \
-                     > make.serial.log 2>&1 \
+              make clean > clean.serial_nehalem.log 2>&1; \
+              make -j $NPROCS \
+                   MAKE_NB_JOBS=0 \
+                   TARGET=NEHALEM \
+                   USE_THREAD=0 \
+                   CC="${CC}" \
+                   FC="${FC}" \
+                   PREFIX="${pkg_install_dir}" \
+                   > make.serial_nehalem.log 2>&1 \
             )
             make -j $NPROCS \
                  MAKE_NB_JOBS=0 \
@@ -85,19 +83,33 @@ case "$with_openblas" in
                  PREFIX="${pkg_install_dir}" \
                  install > install.serial.log 2>&1
             if [ $ENABLE_OMP = "__TRUE__" ] ; then
-               make clean > clean.log 2>&1
+               make clean > clean.omp.log 2>&1
                # wrt NUM_THREADS=64: this is what the most common Linux distros seem to choose atm
                #                     for a good compromise between memory usage and scalability
-               make -j $NPROCS \
-                    MAKE_NB_JOBS=0 \
-                    NUM_THREADS=64 \
-                    USE_THREAD=1 \
-                    USE_OPENMP=1 \
-                    LIBNAMESUFFIX=omp \
-                    CC="${CC}" \
-                    FC="${FC}" \
-                    PREFIX="${pkg_install_dir}" \
-                    > make.omp.log 2>&1
+               ( make -j $NPROCS \
+                      MAKE_NB_JOBS=0 \
+                      NUM_THREADS=64 \
+                      USE_THREAD=1 \
+                      USE_OPENMP=1 \
+                      LIBNAMESUFFIX=omp \
+                      CC="${CC}" \
+                      FC="${FC}" \
+                      PREFIX="${pkg_install_dir}" \
+                      > make.omp.log 2>&1 \
+               ) || ( \
+                 make clean > clean.omp_nehalem.log 2>&1; \
+                 make -j $NPROCS \
+                      MAKE_NB_JOBS=0 \
+                      TARGET=NEHALEM \
+                      NUM_THREADS=64 \
+                      USE_THREAD=1 \
+                      USE_OPENMP=1 \
+                      LIBNAMESUFFIX=omp \
+                      CC="${CC}" \
+                      FC="${FC}" \
+                      PREFIX="${pkg_install_dir}" \
+                      > make.omp_nehalem.log 2>&1 \
+               )
                make -j $NPROCS \
                     MAKE_NB_JOBS=0 \
                     NUM_THREADS=64 \
@@ -110,7 +122,7 @@ case "$with_openblas" in
                     install > install.omp.log 2>&1
             fi 
             cd ..
-            touch "${install_lock_file}"
+            write_checksums "${install_lock_file}" "${SCRIPT_DIR}/$(basename ${SCRIPT_NAME})"
         fi
         OPENBLAS_CFLAGS="-I'${pkg_install_dir}/include'"
         OPENBLAS_LDFLAGS="-L'${pkg_install_dir}/lib' -Wl,-rpath='${pkg_install_dir}/lib'"

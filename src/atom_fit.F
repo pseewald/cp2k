@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2018  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -53,18 +53,17 @@ MODULE atom_fit
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER       :: wfn
    END TYPE wfn_init
 
-! **************************************************************************************************
-
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief ...
-!> \param atom ...
-!> \param num_gto ...
+!> \brief Fit the atomic electron density using a geometrical Gaussian basis set.
+!> \param atom            information about the atomic kind
+!> \param num_gto         number of Gaussian basis functions
 !> \param norder ...
-!> \param iunit ...
-!> \param powell_section ...
-!> \param results ...
+!> \param iunit           output file unit
+!> \param powell_section  POWELL input section
+!> \param results         (output) array of num_gto+2 real numbers in the following format:
+!>                starting exponent, factor of geometrical series, expansion coefficients(1:num_gto)
 ! **************************************************************************************************
    SUBROUTINE atom_fit_density(atom, num_gto, norder, iunit, powell_section, results)
       TYPE(atom_type), POINTER                           :: atom
@@ -163,8 +162,8 @@ CONTAINS
 !> \param atom_info ...
 !> \param basis ...
 !> \param pptype ...
-!> \param iunit ...
-!> \param powell_section ...
+!> \param iunit           output file unit
+!> \param powell_section  POWELL input section
 ! **************************************************************************************************
    SUBROUTINE atom_fit_basis(atom_info, basis, pptype, iunit, powell_section)
       TYPE(atom_p_type), DIMENSION(:, :), POINTER        :: atom_info
@@ -478,8 +477,8 @@ CONTAINS
 !> \param atom_info ...
 !> \param atom_refs ...
 !> \param ppot ...
-!> \param iunit ...
-!> \param powell_section ...
+!> \param iunit           output file unit
+!> \param powell_section  POWELL input section
 ! **************************************************************************************************
    SUBROUTINE atom_fit_pseudo(atom_info, atom_refs, ppot, iunit, powell_section)
       TYPE(atom_p_type), DIMENSION(:, :), POINTER        :: atom_info, atom_refs
@@ -1140,18 +1139,21 @@ CONTAINS
          DEALLOCATE (xtob)
       END IF
 
-      CALL close_file(unit_number=iw)
+      IF (debug) THEN
+         CALL close_file(unit_number=iw)
+      END IF
 
    END SUBROUTINE atom_fit_pseudo
 ! **************************************************************************************************
-!> \brief ...
-!> \param density ...
-!> \param atom ...
-!> \param n ...
-!> \param aval ...
-!> \param cval ...
-!> \param co ...
-!> \param aerr ...
+!> \brief Low level routine to fit an atomic electron density.
+!> \param density  electron density on an atomic radial grid 'atom%basis%grid'
+!> \param atom     information about the atomic kind
+!>                 (only 'atom%basis%grid' is accessed, why not to pass it instead?)
+!> \param n        number of Gaussian basis functions
+!> \param aval     exponent of the first Gaussian basis function in the series
+!> \param cval     factor of geometrical series
+!> \param co       computed expansion coefficients
+!> \param aerr     error in fitted density \f[\sqrt{\sum_{i}^{nr} (density_fitted(i)-density(i))^2 }\f]
 ! **************************************************************************************************
    SUBROUTINE density_fit(density, atom, n, aval, cval, co, aerr)
       TYPE(opgrid_type), POINTER                         :: density
@@ -1163,7 +1165,8 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'density_fit', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i, info, ip, ipiv(1000), iq, k, nr
+      INTEGER                                            :: i, info, ip, iq, k, nr
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ipiv
       REAL(dp)                                           :: a, rk, zval
       REAL(dp), ALLOCATABLE, DIMENSION(:)                :: den, pe, uval
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: bf, smat, tval
@@ -1202,7 +1205,9 @@ CONTAINS
       smat(n+1, 1:n) = uval(1:n)
       smat(n+1, n+1) = 0._dp
 
+      ALLOCATE (ipiv(n+1))
       CALL lapack_sgesv(n+1, 1, smat, n+1, ipiv, tval, n+1, info)
+      DEALLOCATE (ipiv)
       CPASSERT(info == 0)
       co(1:n) = tval(1:n, 1)
 
@@ -1221,7 +1226,7 @@ CONTAINS
 
    END SUBROUTINE density_fit
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Low level routine to fit a basis set.
 !> \param atom_info ...
 !> \param basis ...
 !> \param pptype ...
@@ -1302,7 +1307,7 @@ CONTAINS
 
       ! penalty
       IF (penalty) THEN
-         DO l = 0, 3
+         DO l = 0, lmat
             DO i = 1, basis%nbas(l)-1
                amin = MINVAL(ABS(basis%am(i, l)-basis%am(i+1:basis%nbas(l), l)))
                amin = amin/basis%am(i, l)
@@ -1319,7 +1324,7 @@ CONTAINS
 
    END SUBROUTINE basis_fit
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Low level routine to fit a pseudo-potential.
 !> \param atom_info ...
 !> \param wfn_guess ...
 !> \param ppot ...
@@ -1523,10 +1528,10 @@ CONTAINS
 
    END SUBROUTINE pseudo_fit
 ! **************************************************************************************************
-!> \brief ...
-!> \param fval ...
-!> \param ftarget ...
-!> \return ...
+!> \brief Compute the squared relative error.
+!> \param fval     actual value
+!> \param ftarget  target value
+!> \return squared relative error
 ! **************************************************************************************************
    FUNCTION get_error_value(fval, ftarget) RESULT(errval)
       REAL(KIND=dp), INTENT(in)                          :: fval, ftarget
@@ -1692,10 +1697,12 @@ CONTAINS
    END SUBROUTINE put_pseudo_param
 
 ! **************************************************************************************************
-!> \brief ...
-!> \param id ...
-!> \param xval ...
-!> \return ...
+!> \brief Transform xval according to the following rules:
+!>        direct  (id == +1): yval = 2 tanh^{2}(xval / 10)
+!>        inverse (id == -1): yval = 10 arctanh(\sqrt{xval/2})
+!> \param id    direction of the transformation
+!> \param xval  value to transform
+!> \return      transformed value
 ! **************************************************************************************************
    FUNCTION rcpro(id, xval) RESULT(yval)
       INTEGER, INTENT(IN)                                :: id
@@ -1931,6 +1938,5 @@ CONTAINS
       END DO
 
    END SUBROUTINE putvar
-! **************************************************************************************************
 
 END MODULE atom_fit

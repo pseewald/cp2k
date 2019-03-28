@@ -7,6 +7,7 @@ set -eo pipefail
 REPORT=/workspace/report.txt
 echo -n "StartDate: " | tee -a $REPORT
 date --utc --rfc-3339=seconds | tee -a $REPORT
+ulimit -c 0  # Disable core dumps as they can take a very long time to write.
 
 # Rsync with common args.
 function rsync_changes {
@@ -27,6 +28,27 @@ function upload_file {
     CONTENT_TYPE=$3
     wget --quiet --output-document=- --method=PUT --header="content-type: ${CONTENT_TYPE}" --header="cache-control: no-cache" --body-file="${FILE}" "${URL}" > /dev/null
 }
+
+# Handle preemption gracefully.
+function sigterm_handler {
+    echo -e "\nThis job just got preempted. No worries, it should restart soon.\n" | tee -a $REPORT
+    echo -n "EndDate: " | tee -a $REPORT
+    date --utc --rfc-3339=seconds | tee -a $REPORT
+    upload_file "${REPORT_UPLOAD_URL}" "${REPORT}" "text/plain;charset=utf-8"
+    exit 1
+}
+trap sigterm_handler SIGTERM
+
+# Upload preliminary report every 30s in the background.
+(
+while true ; do
+    sleep 1
+    count=$(( (count + 1) % 30 ))
+    if (( count == 1 )) && [ -n "${REPORT_UPLOAD_URL}" ]; then
+        upload_file "${REPORT_UPLOAD_URL}" "${REPORT}" "text/plain;charset=utf-8"
+    fi
+done
+)&
 
 # Calculate checksums of critical files.
 CHECKSUMS=/workspace/checksums.md5
@@ -86,7 +108,6 @@ fi
 
 if ! md5sum --status --check ${CHECKSUMS}; then
     echo -e "\n========== Cleaning Build Cache ==========" | tee -a $REPORT
-    (md5sum --quiet --check ${CHECKSUMS} || true) |& tee -a $REPORT
     cd /workspace/cp2k
     make distclean |& tee -a $REPORT
 fi
@@ -95,16 +116,10 @@ fi
 if $TOOLCHAIN_OK ; then
     echo -e "\n========== Running Test ==========" | tee -a $REPORT
     cd /workspace
-    "$@" |& tee -a $REPORT &  # Launch in the background.
-
-    # Upload preliminary report every 30s while test is running.
-    while jobs %1 &> /dev/null ; do
-        sleep 1
-        count=$(( (count + 1) % 30 ))
-        if (( count == 1 )) && [ -n "${REPORT_UPLOAD_URL}" ]; then
-            upload_file "${REPORT_UPLOAD_URL}" "${REPORT}" "text/plain;charset=utf-8"
-        fi
-    done
+    if ! "$@" |& tee -a $REPORT ; then
+       echo -e "\nSummary: Test had non-zero exit status." | tee -a $REPORT
+       echo -e "Status: FAILED\n" | tee -a $REPORT
+    fi
 fi
 
 # Wrap up.
@@ -121,7 +136,8 @@ fi
 if [ -n "${ARTIFACTS_UPLOAD_URL}" ] &&  [ -d /workspace/artifacts ]; then
     echo "Uploading artifacts..."
     ARTIFACTS_TGZ="/tmp/test_${TESTNAME}_artifacts.tgz"
-    tar -czf "${ARTIFACTS_TGZ}" -C /workspace/artifacts .
+    cd /workspace/artifacts
+    tar -czf "${ARTIFACTS_TGZ}" *
     upload_file "${ARTIFACTS_UPLOAD_URL}" "${ARTIFACTS_TGZ}" "application/gzip"
 fi
 
