@@ -68,6 +68,8 @@ MODULE rpa_ri_gpw
         dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, dbcsr_p_type, dbcsr_release, &
         dbcsr_release_p, dbcsr_reserve_all_blocks, dbcsr_scale, dbcsr_set, dbcsr_trace, &
         dbcsr_transposed, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_real_default
+   USE dbcsr_tensor_api,                ONLY: dbcsr_t_destroy,&
+                                              dbcsr_t_type
    USE hfx_energy_potential,            ONLY: integrate_four_center
    USE hfx_types,                       ONLY: hfx_release,&
                                               hfx_type
@@ -136,8 +138,6 @@ MODULE rpa_ri_gpw
                                               setup_tensor_for_mem_cut_3c,&
                                               zero_mat_P_omega
    USE util,                            ONLY: get_limit
-   USE dbcsr_tensor_api,                ONLY: dbcsr_t_type, dbcsr_t_destroy, &
-                                              dbcsr_t_filter
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -203,6 +203,11 @@ CONTAINS
 !> \param mat_P_global ...
 !> \param mat_M ...
 !> \param mat_3c_overl_int ...
+!> \param do_dbcsr_t ...
+!> \param t_3c_M ...
+!> \param t_3c_O ...
+!> \param starts_array_mc_t ...
+!> \param ends_array_mc_t ...
 !> \param mat_3c_overl_int_mao_for_occ ...
 !> \param mat_3c_overl_int_mao_for_virt ...
 !> \param eps_filter ...
@@ -259,13 +264,13 @@ CONTAINS
       TYPE(dbcsr_p_type)                                 :: mat_munu, mat_dm_occ_local, &
                                                             mat_dm_virt_local, mat_P_local, &
                                                             mat_P_global, mat_M
-      TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int, &
-                                                            mat_3c_overl_int_mao_for_occ, &
-                                                            mat_3c_overl_int_mao_for_virt
+      TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int
       LOGICAL, INTENT(IN)                                :: do_dbcsr_t
-      TYPE(dbcsr_t_type), DIMENSION(:,:), ALLOCATABLE                 :: t_3c_O
       TYPE(dbcsr_t_type)                                 :: t_3c_M
-      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(IN)                  :: starts_array_mc_t, ends_array_mc_t
+      TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_O
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc_t, ends_array_mc_t
+      TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int_mao_for_occ, &
+                                                            mat_3c_overl_int_mao_for_virt
       REAL(KIND=dp)                                      :: eps_filter
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :), &
          OPTIONAL                                        :: BIb_C_beta
@@ -2027,6 +2032,11 @@ CONTAINS
 !> \param mat_3c_overl_int ...
 !> \param mat_3c_overl_int_mao_for_occ ...
 !> \param mat_3c_overl_int_mao_for_virt ...
+!> \param do_dbcsr_t ...
+!> \param t_3c_M ...
+!> \param t_3c_O ...
+!> \param starts_array_mc_t ...
+!> \param ends_array_mc_t ...
 !> \param matrix_s ...
 !> \param mao_coeff_occ ...
 !> \param mao_coeff_virt ...
@@ -2104,9 +2114,10 @@ CONTAINS
                                                             mat_3c_overl_int_mao_for_occ, &
                                                             mat_3c_overl_int_mao_for_virt
       LOGICAL, INTENT(IN)                                :: do_dbcsr_t
-      TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE, INTENT(INOUT)    :: t_3c_O
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
-      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(IN)                  :: starts_array_mc_t, ends_array_mc_t
+      TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :), &
+         INTENT(INOUT)                                   :: t_3c_O
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc_t, ends_array_mc_t
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s, mao_coeff_occ, mao_coeff_virt
       REAL(KIND=dp)                                      :: eps_filter
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: starts_array, ends_array, sizes_array
@@ -2131,14 +2142,15 @@ CONTAINS
          contour_def_level_tot, contour_def_start, count_ev_sc_GW, cut_memory, cut_RI, &
          group_size_P, gw_corr_lev_tot, handle, handle2, handle3, handle4, i_cell, i_cut_RI, &
          i_dim, i_ener, i_global, i_kp, i_mem, i_mo, i_size, ierr, iiB, ikp, index_contour_def, &
-         info_chol, iocc, iquad, iter_ev_sc, j_cell, j_global, j_mem, j_mo, j_size, jjB, jquad, &
-         LLL, m_global, m_global_beta, max_iter_bse, my_group_L_size_im_time, my_num_dgemm_call, &
-         n_global, n_global_beta, n_group_col, n_group_row, n_level_gw, n_level_gw_ref, n_local_col
-      INTEGER :: n_local_row, nblkrows_total, ncol_local, ngroup_RI_orig, nkp, nm_global, nmo, &
-         nrow_local, num_3c_repl, num_cells_dm, num_fit_points, num_points_corr, &
-         num_points_per_magnitude, num_real_freq_cont_def, num_residues, num_var, num_Z_vectors, &
-         number_of_rec, number_of_rec_axk, number_of_rec_beta, number_of_send, number_of_send_axk, &
-         number_of_send_beta, row, row_start_local, size_P, isize, jsize, ksize
+         info_chol, iocc, iquad, isize, iter_ev_sc, j_cell, j_global, j_mem, j_mo, j_size, jjB, &
+         jquad, jsize, ksize, LLL, m_global, m_global_beta, max_iter_bse, my_group_L_size_im_time, &
+         my_num_dgemm_call, n_global, n_global_beta, n_group_col, n_group_row, n_level_gw
+      INTEGER :: n_level_gw_ref, n_local_col, n_local_row, nblkrows_total, ncol_local, &
+         ngroup_RI_orig, nkp, nm_global, nmo, nrow_local, num_3c_repl, num_cells_dm, &
+         num_fit_points, num_points_corr, num_points_per_magnitude, num_real_freq_cont_def, &
+         num_residues, num_var, num_Z_vectors, number_of_rec, number_of_rec_axk, &
+         number_of_rec_beta, number_of_send, number_of_send_axk, number_of_send_beta, row, &
+         row_start_local, size_P
       INTEGER, ALLOCATABLE, DIMENSION(:) :: alpha_beta_from_jquad, map_rec_size, map_rec_size_axk, &
          map_rec_size_beta, map_send_size, map_send_size_axk, map_send_size_beta, &
          mepos_P_from_RI_row, mo_from_jquad, my_group_L_sizes_im_time, my_group_L_starts_im_time, &
@@ -2203,6 +2215,8 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_dm_loc_occ_cut, mat_dm_loc_virt_cut
       TYPE(dbcsr_p_type), DIMENSION(:, :, :, :), POINTER :: mat_3c_overl_int_cut, &
          mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut
+      TYPE(dbcsr_t_type), ALLOCATABLE, &
+         DIMENSION(:, :, :)                              :: t_3c_O_cut
       TYPE(dbcsr_type), POINTER                          :: mat_contr_gf_occ, mat_contr_gf_virt, &
                                                             mat_contr_W, mat_dm_loc_occ, &
                                                             mat_dm_loc_virt
@@ -2213,8 +2227,6 @@ CONTAINS
       TYPE(kpoint_type), POINTER                         :: kpoints
       TYPE(two_dim_int_array), ALLOCATABLE, &
          DIMENSION(:, :)                                 :: offset_combi_block
-
-      TYPE(dbcsr_t_type), DIMENSION(:, :, :), ALLOCATABLE   :: t_3c_O_cut
 
       CALL timeset(routineN, handle)
 
@@ -2302,13 +2314,13 @@ CONTAINS
             num_3c_repl = SIZE(t_3c_O, 2)
          ENDIF
 
-        ! IF (do_dbcsr_t) THEN
-        !    DO i_cell = 1, num_3c_repl
-        !       DO j_cell = 1, num_3c_repl
-        !          CALL dbcsr_t_filter(t_3c_O(i_cell, j_cell), eps_filter)
+         ! IF (do_dbcsr_t) THEN
+         !    DO i_cell = 1, num_3c_repl
+         !       DO j_cell = 1, num_3c_repl
+         !          CALL dbcsr_t_filter(t_3c_O(i_cell, j_cell), eps_filter)
 
-        !       ENDDO
-        !    ENDDO
+         !       ENDDO
+         !    ENDDO
          IF (.NOT. do_dbcsr_t) THEN
             DO i_cut_RI = 1, cut_RI
 
@@ -2340,7 +2352,6 @@ CONTAINS
             CALL timestop(handle4)
             CALL timeset(routineN//"_im_t_alloc_mat_3", handle4)
          ENDIF
-
 
          IF (do_kpoints_cubic_RPA) THEN
             CALL get_qs_env(qs_env, &
@@ -2474,14 +2485,13 @@ CONTAINS
             CALL timestop(handle4)
             CALL timeset(routineN//"_im_t_alloc_mat_13", handle4)
 
-
          ENDIF
 
          ! if we do kpoints, mat_P has a kpoint and mat_P_omega has the inted
          ! mat_P(tau, kpoint)
          IF (do_kpoints_cubic_RPA) THEN
             CALL get_kpoint_info(kpoints, nkp=nkp)
-            size_P = MAX(num_cells_dm/2 + 1, nkp)
+            size_P = MAX(num_cells_dm/2+1, nkp)
          ELSE
             size_P = 1
          END IF
@@ -2551,47 +2561,47 @@ CONTAINS
             CALL timeset(routineN//"_im_t_alloc_mat_15", handle4)
 
             n_group_row = mp2_env%ri_rpa_im_time_util(1)%n_group_row
-            ALLOCATE (sizes_array_prim_row(0:n_group_row - 1, cut_memory))
+            ALLOCATE (sizes_array_prim_row(0:n_group_row-1, cut_memory))
             DO i_mem = 1, cut_memory
                sizes_array_prim_row(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(:)
             END DO
-            ALLOCATE (starts_array_prim_row(0:n_group_row - 1, cut_memory))
+            ALLOCATE (starts_array_prim_row(0:n_group_row-1, cut_memory))
             DO i_mem = 1, cut_memory
                starts_array_prim_row(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(:)
             END DO
-            ALLOCATE (ends_array_prim_row(0:n_group_row - 1, cut_memory))
+            ALLOCATE (ends_array_prim_row(0:n_group_row-1, cut_memory))
             DO i_mem = 1, cut_memory
                ends_array_prim_row(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row(:)
             END DO
 
-            ALLOCATE (starts_array_prim_fullrow(0:n_group_row - 1, cut_memory))
+            ALLOCATE (starts_array_prim_fullrow(0:n_group_row-1, cut_memory))
             DO i_mem = 1, cut_memory
                starts_array_prim_fullrow(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(:)
             END DO
-            ALLOCATE (ends_array_prim_fullrow(0:n_group_row - 1, cut_memory))
+            ALLOCATE (ends_array_prim_fullrow(0:n_group_row-1, cut_memory))
             DO i_mem = 1, cut_memory
                ends_array_prim_fullrow(:, i_mem) = mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(:)
             END DO
 
             n_group_col = mp2_env%ri_rpa_im_time_util(1)%n_group_col
-            ALLOCATE (sizes_array_prim_col(0:n_group_col - 1, cut_memory))
+            ALLOCATE (sizes_array_prim_col(0:n_group_col-1, cut_memory))
             DO j_mem = 1, cut_memory
                sizes_array_prim_col(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(:)
             END DO
-            ALLOCATE (starts_array_prim_col(0:n_group_col - 1, cut_memory))
+            ALLOCATE (starts_array_prim_col(0:n_group_col-1, cut_memory))
             DO j_mem = 1, cut_memory
                starts_array_prim_col(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(:)
             END DO
-            ALLOCATE (ends_array_prim_col(0:n_group_col - 1, cut_memory))
+            ALLOCATE (ends_array_prim_col(0:n_group_col-1, cut_memory))
             DO j_mem = 1, cut_memory
                ends_array_prim_col(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col(:)
             END DO
 
-            ALLOCATE (starts_array_prim_fullcol(0:n_group_col - 1, cut_memory))
+            ALLOCATE (starts_array_prim_fullcol(0:n_group_col-1, cut_memory))
             DO j_mem = 1, cut_memory
                starts_array_prim_fullcol(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(:)
             END DO
-            ALLOCATE (ends_array_prim_fullcol(0:n_group_col - 1, cut_memory))
+            ALLOCATE (ends_array_prim_fullcol(0:n_group_col-1, cut_memory))
             DO j_mem = 1, cut_memory
                ends_array_prim_fullcol(:, j_mem) = mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(:)
             END DO
@@ -2613,8 +2623,8 @@ CONTAINS
                   n_local_col = sizes_array_prim_col(color_sub_col, j_mem)
                   col_start_local = starts_array_prim_col(color_sub_col, j_mem)
 
-                  ALLOCATE (offset_combi_block(i_mem, j_mem)%array(row_start_local:row_start_local + n_local_row - 1, &
-                                                                   col_start_local:col_start_local + n_local_col - 1))
+                  ALLOCATE (offset_combi_block(i_mem, j_mem)%array(row_start_local:row_start_local+n_local_row-1, &
+                                                                   col_start_local:col_start_local+n_local_col-1))
                   offset_combi_block(i_mem, j_mem)%array(:, :) = &
                      mp2_env%ri_rpa_im_time_2d_util(i_mem, j_mem)%offset_combi_block(:, :)
 
@@ -2688,7 +2698,7 @@ CONTAINS
 
             DO LLL = 1, dimen_RI
                DO row = 1, nblkrows_total
-                  IF (row_blk_offset(row) <= LLL .AND. LLL < row_blk_offset(row) + row_blk_size(row)) THEN
+                  IF (row_blk_offset(row) <= LLL .AND. LLL < row_blk_offset(row)+row_blk_size(row)) THEN
                      row_from_LLL(LLL) = row
                   END IF
                END DO
@@ -2901,8 +2911,6 @@ CONTAINS
             ENDIF
          END IF
 
-
-
          IF (.NOT. do_dbcsr_t) THEN
             CALL get_non_zero_blocks_3c_cut_col(mat_3c_overl_int_cut, para_env_sub, cut_RI, &
                                                 cut_memory, non_zero_blocks_3c_cut_col)
@@ -2982,7 +2990,7 @@ CONTAINS
 
          CALL timestop(handle4)
 
-         ALLOCATE (has_mat_P_blocks(num_cells_dm/2 + 1, cut_memory, cut_memory, num_3c_repl, num_3c_repl))
+         ALLOCATE (has_mat_P_blocks(num_cells_dm/2+1, cut_memory, cut_memory, num_3c_repl, num_3c_repl))
          has_mat_P_blocks = .TRUE.
 
          IF (do_ri_Sigma_x .OR. do_ic_model) THEN

@@ -59,6 +59,7 @@ MODULE mp2_gpw
         dbcsr_p_type, dbcsr_release, dbcsr_reserve_all_blocks, dbcsr_reserve_diag_blocks, &
         dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_real_default, &
         dbcsr_type_symmetric
+   USE dbcsr_tensor_api,                ONLY: dbcsr_t_type
    USE distribution_1d_types,           ONLY: distribution_1d_release,&
                                               distribution_1d_type
    USE distribution_2d_types,           ONLY: distribution_2d_release,&
@@ -133,7 +134,6 @@ MODULE mp2_gpw
                                               deallocate_task_list,&
                                               task_list_type
    USE util,                            ONLY: get_limit
-   USE dbcsr_tensor_api,                ONLY: dbcsr_t_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -186,12 +186,14 @@ CONTAINS
          gw_corr_lev_virt_beta, handle, homo, homo_beta, i, i_multigrid, local_unit_nr, &
          my_group_L_end, my_group_L_size, my_group_L_start, n_multigrid, nelectron, &
          nelectron_beta, nmo, nspins, ri_metric, ri_metric_gw
-      INTEGER, ALLOCATABLE, DIMENSION(:) :: ends_array, ends_B_all, ends_B_occ_bse, &
-         ends_B_virt_bse, ends_B_virtual, ends_B_virtual_beta, sizes_array, sizes_B_all, &
-         sizes_B_occ_bse, sizes_B_virt_bse, sizes_B_virtual, sizes_B_virtual_beta, starts_array, &
-         starts_B_all, starts_B_occ_bse, starts_B_virt_bse, starts_B_virtual, starts_B_virtual_beta
-      LOGICAL :: blacs_repeatable, do_bse, do_im_time, do_kpoints_cubic_RPA, do_mao, my_do_gw, &
-         my_do_ri_mp2, my_do_ri_rpa, my_do_ri_sos_laplace_mp2, skip_load_balance_distributed, do_dbcsr_t
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: ends_array, ends_array_mc_t, ends_B_all, &
+         ends_B_occ_bse, ends_B_virt_bse, ends_B_virtual, ends_B_virtual_beta, sizes_array, &
+         sizes_B_all, sizes_B_occ_bse, sizes_B_virt_bse, sizes_B_virtual, sizes_B_virtual_beta, &
+         starts_array, starts_array_mc_t, starts_B_all, starts_B_occ_bse, starts_B_virt_bse, &
+         starts_B_virtual, starts_B_virtual_beta
+      LOGICAL :: blacs_repeatable, do_bse, do_dbcsr_t, do_im_time, do_kpoints_cubic_RPA, do_mao, &
+         my_do_gw, my_do_ri_mp2, my_do_ri_rpa, my_do_ri_sos_laplace_mp2, &
+         skip_load_balance_distributed
       REAL(KIND=dp) :: cutoff_old, Emp2_AB, Emp2_BB, Emp2_Cou_BB, Emp2_d2_AB, Emp2_d_AB, &
          Emp2_EX_BB, eps_gvg_rspace_old, eps_pgf_orb_old, eps_rho_rspace_old, progression_factor, &
          relative_cutoff_old
@@ -220,6 +222,8 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int, &
                                                             mat_3c_overl_int_mao_for_occ, &
                                                             mat_3c_overl_int_mao_for_virt
+      TYPE(dbcsr_t_type)                                 :: t_3c_M
+      TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_O
       TYPE(dbcsr_type), POINTER :: mo_coeff_all, mo_coeff_all_beta, mo_coeff_gw, mo_coeff_gw_beta, &
          mo_coeff_o, mo_coeff_o_beta, mo_coeff_v, mo_coeff_v_beta
       TYPE(dft_control_type), POINTER                    :: dft_control
@@ -238,9 +242,6 @@ CONTAINS
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(qs_ks_env_type), POINTER                      :: ks_env
       TYPE(task_list_type), POINTER                      :: task_list_sub
-      TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE   :: t_3c_O
-      TYPE(dbcsr_t_type)                                 :: t_3c_M
-      INTEGER, DIMENSION(:), ALLOCATABLE                 :: starts_array_mc_t, ends_array_mc_t
 
       CALL timeset(routineN, handle)
 
@@ -457,7 +458,7 @@ CONTAINS
          dft_control%qs_control%cutoff = mp2_env%mp2_gpw%cutoff*0.5_dp
          dft_control%qs_control%e_cutoff(1) = dft_control%qs_control%cutoff
          DO i_multigrid = 2, n_multigrid
-            dft_control%qs_control%e_cutoff(i_multigrid) = dft_control%qs_control%e_cutoff(i_multigrid - 1) &
+            dft_control%qs_control%e_cutoff(i_multigrid) = dft_control%qs_control%e_cutoff(i_multigrid-1) &
                                                            /progression_factor
          END DO
 
@@ -894,11 +895,11 @@ CONTAINS
             Emp2_EX_BB = Emp2_EX_BB*0.5_dp
 
             Emp2_S = Emp2_AB
-            Emp2_T = Emp2_Cou + Emp2_Cou_BB + Emp2_EX + Emp2_EX_BB
+            Emp2_T = Emp2_Cou+Emp2_Cou_BB+Emp2_EX+Emp2_EX_BB
 
-            Emp2_Cou = Emp2_Cou + Emp2_Cou_BB + Emp2_AB
-            Emp2_EX = Emp2_EX + Emp2_EX_BB
-            Emp2 = Emp2_EX + Emp2_Cou
+            Emp2_Cou = Emp2_Cou+Emp2_Cou_BB+Emp2_AB
+            Emp2_EX = Emp2_EX+Emp2_EX_BB
+            Emp2 = Emp2_EX+Emp2_Cou
          END IF
 
       END IF
@@ -1054,18 +1055,18 @@ CONTAINS
       REAL(KIND=dp), OPTIONAL                            :: Emp2_AB
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'mp2_gpw_compute', &
-                                     routineP = moduleN//':'//routineN
+         routineP = moduleN//':'//routineN
 
       INTEGER :: a, a_group_counter, b, b_global, b_group_counter, blk, col, col_offset, col_size, &
-                 color_counter, comm_exchange, EX_end, EX_end_send, EX_start, EX_start_send, &
-                 group_counter, handle, handle2, handle3, i, i_counter, i_group_counter, index_proc_shift, &
-                 j, max_b_size, max_batch_size_A, max_batch_size_I, max_row_col_local, mepos_in_EX_group, &
-                 my_A_batch_size, my_A_virtual_end, my_A_virtual_start, my_B_size, my_B_virtual_end, &
-                 my_B_virtual_start, my_I_batch_size, my_I_occupied_end, my_I_occupied_start, &
-                 my_q_position, ncol_local, nfullcols_total, nfullrows_total, ngroup, nrow_local, one, p
+         color_counter, comm_exchange, EX_end, EX_end_send, EX_start, EX_start_send, &
+         group_counter, handle, handle2, handle3, i, i_counter, i_group_counter, index_proc_shift, &
+         j, max_b_size, max_batch_size_A, max_batch_size_I, max_row_col_local, mepos_in_EX_group, &
+         my_A_batch_size, my_A_virtual_end, my_A_virtual_start, my_B_size, my_B_virtual_end, &
+         my_B_virtual_start, my_I_batch_size, my_I_occupied_end, my_I_occupied_start, &
+         my_q_position, ncol_local, nfullcols_total, nfullrows_total, ngroup, nrow_local, one, p
       INTEGER :: p_best, proc_receive, proc_send, q, q_best, row, row_offset, row_size, size_EX, &
-                 size_EX_send, size_of_exchange_group, sub_sub_color, virtual, virtual_beta, wfn_calc, &
-                 wfn_calc_best
+         size_EX_send, size_of_exchange_group, sub_sub_color, virtual, virtual_beta, wfn_calc, &
+         wfn_calc_best
       INTEGER(KIND=int_8)                                :: mem
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: proc_map, sub_proc_map, vector_B_sizes, &
                                                             vector_batch_A_size_group, &
@@ -1101,7 +1102,7 @@ CONTAINS
       CALL dbcsr_create(matrix_ia_jnu, template=mo_coeff_o)
 
       ! Allocate Sparse matrices: (ia|jb)
-      CALL cp_dbcsr_m_by_n_from_template(matrix_ia_jb, template=mo_coeff_o, m=homo, n=nmo - homo, &
+      CALL cp_dbcsr_m_by_n_from_template(matrix_ia_jb, template=mo_coeff_o, m=homo, n=nmo-homo, &
                                          sym=dbcsr_type_no_symmetry)
 
       ! set all to zero in such a way that the memory is actually allocated
@@ -1145,22 +1146,22 @@ CONTAINS
          CALL dbcsr_create(matrix_ia_jnu_beta, template=mo_coeff_o_beta)
 
          ! Allocate Sparse matrices: (ia|jb)
-         CALL cp_dbcsr_m_by_n_from_template(matrix_ia_jb_beta, template=mo_coeff_o_beta, m=homo_beta, n=nmo - homo_beta, &
+         CALL cp_dbcsr_m_by_n_from_template(matrix_ia_jb_beta, template=mo_coeff_o_beta, m=homo_beta, n=nmo-homo_beta, &
                                             sym=dbcsr_type_no_symmetry)
 
-         virtual_beta = nmo - homo_beta
+         virtual_beta = nmo-homo_beta
 
          CALL dbcsr_set(matrix_ia_jnu_beta, 0.0_dp)
          CALL dbcsr_set(matrix_ia_jb_beta, 0.0_dp)
       END IF
 
       CALL m_memory(mem)
-      mem_real = (mem + 1024*1024 - 1)/(1024*1024)
+      mem_real = (mem+1024*1024-1)/(1024*1024)
       ! mp_min .... a hack.. it should be mp_max, but as it turns out, on some processes the previously freed memory (hfx)
       ! has not been given back to the OS yet.
       CALL mp_min(mem_real, para_env%group)
 
-      virtual = nmo - homo
+      virtual = nmo-homo
 
       wfn_size = REAL(SIZE(rho_r%pw%cr3d), KIND=dp)
       CALL mp_max(wfn_size, para_env%group)
@@ -1186,7 +1187,7 @@ CONTAINS
       IF (unit_nr > 0) WRITE (unit_nr, '(T3,A,T69,F9.2,A3)') 'Minimum required memory per MPI process for MP2:', &
          mem_min, ' MB'
 
-      mem_real = mp2_memory - mem_real
+      mem_real = mp2_memory-mem_real
       mem_real = MAX(mem_real, mem_min)
       IF (unit_nr > 0) WRITE (unit_nr, '(T3,A,T69,F9.2,A3)') 'Available memory per MPI process for MP2:', &
          mem_real, ' MB'
@@ -1199,7 +1200,7 @@ CONTAINS
          CALL estimate_memory_usage(wfn_size, p, q, para_env_sub%num_pe, nmo, virtual, homo, calc_ex, mem_try)
 
          IF (mem_try > mem_real) CYCLE
-         wfn_calc = ((homo + p - 1)/p) + ((virtual + q - 1)/q)
+         wfn_calc = ((homo+p-1)/p)+((virtual+q-1)/q)
          IF (wfn_calc < wfn_calc_best) THEN
             wfn_calc_best = wfn_calc
             p_best = p
@@ -1207,8 +1208,8 @@ CONTAINS
          ENDIF
       ENDDO
 
-      max_batch_size_I = (homo + p_best - 1)/p_best
-      max_batch_size_A = (virtual + q_best - 1)/q_best
+      max_batch_size_I = (homo+p_best-1)/p_best
+      max_batch_size_A = (virtual+q_best-1)/q_best
 
       IF (unit_nr > 0) THEN
          WRITE (UNIT=unit_nr, FMT="(T3,A,T77,i4)") &
@@ -1217,8 +1218,8 @@ CONTAINS
             "MP2_GPW| max. batch size for the virtual states:", max_batch_size_A
       ENDIF
 
-      ALLOCATE (vector_batch_I_size_group(0:p_best - 1))
-      ALLOCATE (vector_batch_A_size_group(0:q_best - 1))
+      ALLOCATE (vector_batch_I_size_group(0:p_best-1))
+      ALLOCATE (vector_batch_A_size_group(0:q_best-1))
 
       vector_batch_I_size_group = max_batch_size_I
       IF (SUM(vector_batch_I_size_group) /= homo) THEN
@@ -1226,10 +1227,10 @@ CONTAINS
          IF (SUM(vector_batch_I_size_group) > homo) one = -1
          i = -1
          DO
-            i = i + 1
-            vector_batch_I_size_group(i) = vector_batch_I_size_group(i) + one
+            i = i+1
+            vector_batch_I_size_group(i) = vector_batch_I_size_group(i)+one
             IF (SUM(vector_batch_I_size_group) == homo) EXIT
-            IF (i == p_best - 1) i = -1
+            IF (i == p_best-1) i = -1
          END DO
       END IF
 
@@ -1239,10 +1240,10 @@ CONTAINS
          IF (SUM(vector_batch_A_size_group) > virtual) one = -1
          i = -1
          DO
-            i = i + 1
-            vector_batch_A_size_group(i) = vector_batch_A_size_group(i) + one
+            i = i+1
+            vector_batch_A_size_group(i) = vector_batch_A_size_group(i)+one
             IF (SUM(vector_batch_A_size_group) == virtual) EXIT
-            IF (i == q_best - 1) i = -1
+            IF (i == q_best-1) i = -1
          END DO
       END IF
 
@@ -1250,25 +1251,25 @@ CONTAINS
       group_counter = 0
       a_group_counter = 0
       my_A_virtual_start = 1
-      DO j = 0, q_best - 1
+      DO j = 0, q_best-1
          my_I_occupied_start = 1
          i_group_counter = 0
-         DO i = 0, p_best - 1
-            group_counter = group_counter + 1
-            IF (color_sub == group_counter - 1) EXIT
-            my_I_occupied_start = my_I_occupied_start + vector_batch_I_size_group(i)
-            i_group_counter = i_group_counter + 1
+         DO i = 0, p_best-1
+            group_counter = group_counter+1
+            IF (color_sub == group_counter-1) EXIT
+            my_I_occupied_start = my_I_occupied_start+vector_batch_I_size_group(i)
+            i_group_counter = i_group_counter+1
          END DO
          my_q_position = j
-         IF (color_sub == group_counter - 1) EXIT
-         my_A_virtual_start = my_A_virtual_start + vector_batch_A_size_group(j)
-         a_group_counter = a_group_counter + 1
+         IF (color_sub == group_counter-1) EXIT
+         my_A_virtual_start = my_A_virtual_start+vector_batch_A_size_group(j)
+         a_group_counter = a_group_counter+1
       END DO
       !XXXXXXXXXXXXX inverse group distribution
 
-      my_I_occupied_end = my_I_occupied_start + vector_batch_I_size_group(i_group_counter) - 1
+      my_I_occupied_end = my_I_occupied_start+vector_batch_I_size_group(i_group_counter)-1
       my_I_batch_size = vector_batch_I_size_group(i_group_counter)
-      my_A_virtual_end = my_A_virtual_start + vector_batch_A_size_group(a_group_counter) - 1
+      my_A_virtual_end = my_A_virtual_start+vector_batch_A_size_group(a_group_counter)-1
       my_A_batch_size = vector_batch_A_size_group(a_group_counter)
 
       DEALLOCATE (vector_batch_I_size_group)
@@ -1284,29 +1285,29 @@ CONTAINS
 
       ! divide the b states in the sub_group in such a way to create
       ! b_start and b_end for each proc inside the sub_group
-      max_b_size = (virtual + para_env_sub%num_pe - 1)/para_env_sub%num_pe
-      ALLOCATE (vector_B_sizes(0:para_env_sub%num_pe - 1))
+      max_b_size = (virtual+para_env_sub%num_pe-1)/para_env_sub%num_pe
+      ALLOCATE (vector_B_sizes(0:para_env_sub%num_pe-1))
       vector_B_sizes = max_b_size
       IF (SUM(vector_B_sizes) /= virtual) THEN
          one = 1
          IF (SUM(vector_B_sizes) > virtual) one = -1
          i = -1
          DO
-            i = i + 1
-            vector_B_sizes(i) = vector_B_sizes(i) + one
+            i = i+1
+            vector_B_sizes(i) = vector_B_sizes(i)+one
             IF (SUM(vector_B_sizes) == virtual) EXIT
-            IF (i == para_env_sub%num_pe - 1) i = -1
+            IF (i == para_env_sub%num_pe-1) i = -1
          END DO
       END IF
       ! now give to each proc its b_start and b_end
       b_group_counter = 0
       my_B_virtual_start = 1
-      DO j = 0, para_env_sub%num_pe - 1
-         b_group_counter = b_group_counter + 1
-         IF (b_group_counter - 1 == para_env_sub%mepos) EXIT
-         my_B_virtual_start = my_B_virtual_start + vector_B_sizes(j)
+      DO j = 0, para_env_sub%num_pe-1
+         b_group_counter = b_group_counter+1
+         IF (b_group_counter-1 == para_env_sub%mepos) EXIT
+         my_B_virtual_start = my_B_virtual_start+vector_B_sizes(j)
       END DO
-      my_B_virtual_end = my_B_virtual_start + vector_B_sizes(para_env_sub%mepos) - 1
+      my_B_virtual_end = my_B_virtual_start+vector_B_sizes(para_env_sub%mepos)-1
       my_B_size = vector_B_sizes(para_env_sub%mepos)
 
       DEALLOCATE (vector_B_sizes)
@@ -1314,12 +1315,12 @@ CONTAINS
       ! create an array containing a different "color" for each pair of
       ! A_start and B_start, communication will take place only among
       ! those proc that have the same A_start and B_start
-      ALLOCATE (color_array(0:para_env_sub%num_pe - 1, 0:q_best - 1))
+      ALLOCATE (color_array(0:para_env_sub%num_pe-1, 0:q_best-1))
       color_array = 0
       color_counter = 0
-      DO j = 0, q_best - 1
-         DO i = 0, para_env_sub%num_pe - 1
-            color_counter = color_counter + 1
+      DO j = 0, q_best-1
+         DO i = 0, para_env_sub%num_pe-1
+            color_counter = color_counter+1
             color_array(i, j) = color_counter
          END DO
       END DO
@@ -1335,22 +1336,22 @@ CONTAINS
       CALL cp_para_env_create(para_env_exchange, comm_exchange)
 
       ! crate the proc maps
-      ALLOCATE (proc_map(-para_env_exchange%num_pe:2*para_env_exchange%num_pe - 1))
-      DO i = 0, para_env_exchange%num_pe - 1
+      ALLOCATE (proc_map(-para_env_exchange%num_pe:2*para_env_exchange%num_pe-1))
+      DO i = 0, para_env_exchange%num_pe-1
          proc_map(i) = i
-         proc_map(-i - 1) = para_env_exchange%num_pe - i - 1
-         proc_map(para_env_exchange%num_pe + i) = i
+         proc_map(-i-1) = para_env_exchange%num_pe-i-1
+         proc_map(para_env_exchange%num_pe+i) = i
       END DO
 
-      ALLOCATE (sub_proc_map(-para_env_sub%num_pe:2*para_env_sub%num_pe - 1))
-      DO i = 0, para_env_sub%num_pe - 1
+      ALLOCATE (sub_proc_map(-para_env_sub%num_pe:2*para_env_sub%num_pe-1))
+      DO i = 0, para_env_sub%num_pe-1
          sub_proc_map(i) = i
-         sub_proc_map(-i - 1) = para_env_sub%num_pe - i - 1
-         sub_proc_map(para_env_sub%num_pe + i) = i
+         sub_proc_map(-i-1) = para_env_sub%num_pe-i-1
+         sub_proc_map(para_env_sub%num_pe+i) = i
       END DO
 
       ! create an array containing the information for communication
-      ALLOCATE (exchange_group_sizes(0:para_env_exchange%num_pe - 1, 3))
+      ALLOCATE (exchange_group_sizes(0:para_env_exchange%num_pe-1, 3))
       exchange_group_sizes = 0
       exchange_group_sizes(para_env_exchange%mepos, 1) = my_I_occupied_start
       exchange_group_sizes(para_env_exchange%mepos, 2) = my_I_occupied_end
@@ -1372,7 +1373,7 @@ CONTAINS
                                 in_space=REALSPACE)
          CALL calculate_wavefunction(mo_coeff, i, psi_i(i), rho_g, atomic_kind_set, &
                                      qs_kind_set, cell, dft_control, particle_set, &
-                                     pw_env_sub, external_vector=my_Cocc(:, i - my_I_occupied_start + 1))
+                                     pw_env_sub, external_vector=my_Cocc(:, i-my_I_occupied_start+1))
       END DO
 
       Emp2 = 0.0_dp
@@ -1384,17 +1385,17 @@ CONTAINS
       END IF
 
       CALL timeset(routineN//"_loop", handle2)
-      DO a = homo + my_A_virtual_start, homo + my_A_virtual_end
+      DO a = homo+my_A_virtual_start, homo+my_A_virtual_end
 
          IF (calc_ex) BIb_C = 0.0_dp
 
          ! psi_a
          CALL calculate_wavefunction(mo_coeff, a, psi_a, rho_g, atomic_kind_set, &
                                      qs_kind_set, cell, dft_control, particle_set, &
-                                     pw_env_sub, external_vector=my_Cvirt(:, a - (homo + my_A_virtual_start) + 1))
+                                     pw_env_sub, external_vector=my_Cvirt(:, a-(homo+my_A_virtual_start)+1))
          i_counter = 0
          DO i = my_I_occupied_start, my_I_occupied_end
-            i_counter = i_counter + 1
+            i_counter = i_counter+1
 
             ! potential
             CALL timeset(routineN//"_pot", handle3)
@@ -1442,8 +1443,8 @@ CONTAINS
                DO b = 1, col_size
                DO j = 1, row_size
                   ! Compute the coulomb MP2 energy
-                  Emp2_Cou = Emp2_Cou - 2.0_dp*data_block(j, b)**2/ &
-                             (Eigenval(a) + Eigenval(homo + col_offset + b - 1) - Eigenval(i) - Eigenval(row_offset + j - 1))
+                  Emp2_Cou = Emp2_Cou-2.0_dp*data_block(j, b)**2/ &
+                             (Eigenval(a)+Eigenval(homo+col_offset+b-1)-Eigenval(i)-Eigenval(row_offset+j-1))
                ENDDO
                ENDDO
             ENDDO
@@ -1458,8 +1459,8 @@ CONTAINS
                   DO b = 1, col_size
                   DO j = 1, row_size
                      ! Compute the coulomb MP2 energy alpha beta case
-                     Emp2_AB = Emp2_AB - data_block(j, b)**2/ &
-                     (Eigenval(a) + Eigenval_beta(homo_beta + col_offset + b - 1) - Eigenval(i) - Eigenval_beta(row_offset + j - 1))
+                     Emp2_AB = Emp2_AB-data_block(j, b)**2/ &
+                               (Eigenval(a)+Eigenval_beta(homo_beta+col_offset+b-1)-Eigenval(i)-Eigenval_beta(row_offset+j-1))
                   ENDDO
                   ENDDO
                ENDDO
@@ -1486,18 +1487,18 @@ CONTAINS
             DO i = 1, my_I_batch_size
                DO j = my_I_occupied_start, my_I_occupied_end
                   DO b = 1, my_B_size
-                     b_global = b - 1 + my_B_virtual_start
-                     Emp2_EX = Emp2_EX + BIb_C(b, j, i)*BIb_C(b, i + my_I_occupied_start - 1, j - my_I_occupied_start + 1) &
-                               /(Eigenval(a) + Eigenval(homo + b_global) - Eigenval(i + my_I_occupied_start - 1) - Eigenval(j))
+                     b_global = b-1+my_B_virtual_start
+                     Emp2_EX = Emp2_EX+BIb_C(b, j, i)*BIb_C(b, i+my_I_occupied_start-1, j-my_I_occupied_start+1) &
+                               /(Eigenval(a)+Eigenval(homo+b_global)-Eigenval(i+my_I_occupied_start-1)-Eigenval(j))
                   END DO
                END DO
             END DO
 
             ! start communicating and collecting exchange contributions from
             ! other processes in my exchange group
-            DO index_proc_shift = 1, size_of_exchange_group - 1
-               proc_send = proc_map(mepos_in_EX_group + index_proc_shift)
-               proc_receive = proc_map(mepos_in_EX_group - index_proc_shift)
+            DO index_proc_shift = 1, size_of_exchange_group-1
+               proc_send = proc_map(mepos_in_EX_group+index_proc_shift)
+               proc_receive = proc_map(mepos_in_EX_group-index_proc_shift)
 
                EX_start = exchange_group_sizes(proc_receive, 1)
                EX_end = exchange_group_sizes(proc_receive, 2)
@@ -1520,10 +1521,10 @@ CONTAINS
                DO i = 1, my_I_batch_size
                   DO j = 1, size_EX
                      DO b = 1, my_B_size
-                        b_global = b - 1 + my_B_virtual_start
-                        Emp2_EX = Emp2_EX + BIb_C(b, j + EX_start - 1, i)*BIb_EX(b, i, j) &
-                                  /(Eigenval(a) + Eigenval(homo + b_global) - Eigenval(i + my_I_occupied_start - 1) &
-                                    - Eigenval(j + EX_start - 1))
+                        b_global = b-1+my_B_virtual_start
+                        Emp2_EX = Emp2_EX+BIb_C(b, j+EX_start-1, i)*BIb_EX(b, i, j) &
+                                  /(Eigenval(a)+Eigenval(homo+b_global)-Eigenval(i+my_I_occupied_start-1) &
+                                    -Eigenval(j+EX_start-1))
                      END DO
                   END DO
                END DO
@@ -1540,7 +1541,7 @@ CONTAINS
 
       CALL mp_sum(Emp2_Cou, para_env%group)
       CALL mp_sum(Emp2_EX, para_env%group)
-      Emp2 = Emp2_Cou + Emp2_EX
+      Emp2 = Emp2_Cou+Emp2_EX
       IF (do_alpha_beta) CALL mp_sum(Emp2_AB, para_env%group)
 
       DEALLOCATE (my_Cocc)
@@ -1595,20 +1596,20 @@ CONTAINS
 
       mem_try = 0.0_dp
       ! integrals
-      mem_try = mem_try + virtual*REAL(homo, KIND=dp)**2/(p*num_w)
+      mem_try = mem_try+virtual*REAL(homo, KIND=dp)**2/(p*num_w)
       ! array for the coefficient matrix and wave vectors
-      mem_try = mem_try + REAL(homo, KIND=dp)*nmo/p + &
-                REAL(virtual, KIND=dp)*nmo/q + &
+      mem_try = mem_try+REAL(homo, KIND=dp)*nmo/p+ &
+                REAL(virtual, KIND=dp)*nmo/q+ &
                 2.0_dp*MAX(REAL(homo, KIND=dp)*nmo/p, REAL(virtual, KIND=dp)*nmo/q)
       ! temporary array for MO integrals and MO integrals to be exchanged
       IF (calc_ex) THEN
-         mem_try = mem_try + 2.0_dp*MAX(virtual*REAL(homo, KIND=dp)*MIN(1, num_w - 1)/num_w, &
-                                        virtual*REAL(homo, KIND=dp)**2/(p*p*num_w))
+         mem_try = mem_try+2.0_dp*MAX(virtual*REAL(homo, KIND=dp)*MIN(1, num_w-1)/num_w, &
+                                      virtual*REAL(homo, KIND=dp)**2/(p*p*num_w))
       ELSE
-         mem_try = mem_try + 2.0_dp*virtual*REAL(homo, KIND=dp)
+         mem_try = mem_try+2.0_dp*virtual*REAL(homo, KIND=dp)
       END IF
       ! wfn
-      mem_try = mem_try + ((homo + p - 1)/p)*wfn_size
+      mem_try = mem_try+((homo+p-1)/p)*wfn_size
       ! Mb
       mem_try = mem_try*8.0D+00/1024.0D+00**2
 
@@ -1637,7 +1638,7 @@ CONTAINS
       INTEGER                                            :: my_B_virtual_end, my_B_virtual_start
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'grep_my_integrals', &
-                                     routineP = moduleN//':'//routineN
+         routineP = moduleN//':'//routineN
 
       INTEGER                                            :: i_global, iiB, j_global, jjB, ncol_rec, &
                                                             nrow_rec, proc_receive, proc_send, &
@@ -1665,7 +1666,7 @@ CONTAINS
          IF (j_global >= my_B_virtual_start .AND. j_global <= my_B_virtual_end) THEN
             DO iiB = 1, nrow_rec
                i_global = row_indices_rec(iiB)
-               BIb_jb(j_global - my_B_virtual_start + 1, i_global) = fm_BIb_jb%local_data(iiB, jjB)
+               BIb_jb(j_global-my_B_virtual_start+1, i_global) = fm_BIb_jb%local_data(iiB, jjB)
             END DO
          END IF
       END DO
@@ -1677,9 +1678,9 @@ CONTAINS
          ALLOCATE (local_BI(nrow_rec, ncol_rec))
          local_BI(1:nrow_rec, 1:ncol_rec) = fm_BIb_jb%local_data(1:nrow_rec, 1:ncol_rec)
 
-         DO proc_shift = 1, para_env_sub%num_pe - 1
-            proc_send = proc_map(para_env_sub%mepos + proc_shift)
-            proc_receive = proc_map(para_env_sub%mepos - proc_shift)
+         DO proc_shift = 1, para_env_sub%num_pe-1
+            proc_send = proc_map(para_env_sub%mepos+proc_shift)
+            proc_receive = proc_map(para_env_sub%mepos-proc_shift)
 
             ! first exchange information on the local data
             rec_col_row_info = 0
@@ -1705,7 +1706,7 @@ CONTAINS
                IF (j_global >= my_B_virtual_start .AND. j_global <= my_B_virtual_end) THEN
                   DO iiB = 1, nrow_rec
                      i_global = row_indices_rec(iiB)
-                     BIb_jb(j_global - my_B_virtual_start + 1, i_global) = rec_BI(iiB, jjB)
+                     BIb_jb(j_global-my_B_virtual_start+1, i_global) = rec_BI(iiB, jjB)
                   END DO
                END IF
             END DO
@@ -1744,12 +1745,12 @@ CONTAINS
 
       TYPE(cp_para_env_type), POINTER                    :: para_env_sub
       INTEGER :: dimen, my_I_occupied_start, my_I_occupied_end, my_I_batch_size, &
-                 my_A_virtual_start, my_A_virtual_end, my_A_batch_size
+         my_A_virtual_start, my_A_virtual_end, my_A_batch_size
       TYPE(dbcsr_type), POINTER                          :: mo_coeff_o, mo_coeff_v
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: my_Cocc, my_Cvirt
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'grep_occ_virt_wavefunc', &
-                                     routineP = moduleN//':'//routineN
+         routineP = moduleN//':'//routineN
 
       INTEGER                                            :: blk, col, col_offset, col_size, handle, &
                                                             i, i_global, j, j_global, row, &
@@ -1772,11 +1773,11 @@ CONTAINS
                                         row_size=row_size, col_size=col_size, &
                                         row_offset=row_offset, col_offset=col_offset)
          DO j = 1, col_size
-            j_global = col_offset + j - 1
+            j_global = col_offset+j-1
             IF (j_global >= my_I_occupied_start .AND. j_global <= my_I_occupied_end) THEN
                DO i = 1, row_size
-                  i_global = row_offset + i - 1
-                  my_Cocc(i_global, j_global - my_I_occupied_start + 1) = data_block(i, j)
+                  i_global = row_offset+i-1
+                  my_Cocc(i_global, j_global-my_I_occupied_start+1) = data_block(i, j)
                END DO
             END IF
          END DO
@@ -1792,11 +1793,11 @@ CONTAINS
                                         row_size=row_size, col_size=col_size, &
                                         row_offset=row_offset, col_offset=col_offset)
          DO j = 1, col_size
-            j_global = col_offset + j - 1
+            j_global = col_offset+j-1
             IF (j_global >= my_A_virtual_start .AND. j_global <= my_A_virtual_end) THEN
                DO i = 1, row_size
-                  i_global = row_offset + i - 1
-                  my_Cvirt(i_global, j_global - my_A_virtual_start + 1) = data_block(i, j)
+                  i_global = row_offset+i-1
+                  my_Cvirt(i_global, j_global-my_A_virtual_start+1) = data_block(i, j)
                END DO
             END IF
          END DO
@@ -1842,12 +1843,12 @@ CONTAINS
       LOGICAL, OPTIONAL                                  :: only_mo_coeff_all
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'replicate_mat_to_subgroup', &
-                                     routineP = moduleN//':'//routineN
+         routineP = moduleN//':'//routineN
 
       INTEGER :: blk, col, col_offset, col_size, handle, i_global, iiB, iproc, itmp(2), j_global, &
-                 jjB, max_row_col_local, my_mu_end, my_mu_size, my_mu_start, ncol_local, ncol_rec, &
-                 nrow_local, nrow_rec, proc_receive, proc_receive_static, proc_send, proc_send_static, &
-                 proc_shift, row, row_offset, row_size, virtual
+         jjB, max_row_col_local, my_mu_end, my_mu_size, my_mu_start, ncol_local, ncol_rec, &
+         nrow_local, nrow_rec, proc_receive, proc_receive_static, proc_send, proc_send_static, &
+         proc_shift, row, row_offset, row_size, virtual
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ends_array, proc_map, sizes_array, &
                                                             starts_array
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: local_col_row_info, rec_col_row_info
@@ -1864,17 +1865,17 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      ALLOCATE (sizes_array(0:para_env_sub%num_pe - 1))
-      ALLOCATE (starts_array(0:para_env_sub%num_pe - 1))
+      ALLOCATE (sizes_array(0:para_env_sub%num_pe-1))
+      ALLOCATE (starts_array(0:para_env_sub%num_pe-1))
       starts_array = 0
-      ALLOCATE (ends_array(0:para_env_sub%num_pe - 1))
+      ALLOCATE (ends_array(0:para_env_sub%num_pe-1))
       ends_array = 0
 
-      DO iproc = 0, para_env_sub%num_pe - 1
+      DO iproc = 0, para_env_sub%num_pe-1
          itmp = get_limit(dimen, para_env_sub%num_pe, iproc)
          starts_array(iproc) = itmp(1)
          ends_array(iproc) = itmp(2)
-         sizes_array(iproc) = itmp(2) - itmp(1) + 1
+         sizes_array(iproc) = itmp(2)-itmp(1)+1
       ENDDO
 
       my_mu_size = sizes_array(para_env_sub%mepos)
@@ -1889,11 +1890,11 @@ CONTAINS
       ! for negative and positive number > num_pe
       ! needed to know which is the processor, to respect to another one,
       ! for a given shift
-      ALLOCATE (proc_map(-para_env%num_pe:2*para_env%num_pe - 1))
-      DO iiB = 0, para_env%num_pe - 1
+      ALLOCATE (proc_map(-para_env%num_pe:2*para_env%num_pe-1))
+      DO iiB = 0, para_env%num_pe-1
          proc_map(iiB) = iiB
-         proc_map(-iiB - 1) = para_env%num_pe - iiB - 1
-         proc_map(para_env%num_pe + iiB) = iiB
+         proc_map(-iiB-1) = para_env%num_pe-iiB-1
+         proc_map(para_env%num_pe+iiB) = iiB
       END DO
 
       CALL cp_fm_get_info(matrix=mo_coeff, &
@@ -1928,17 +1929,17 @@ CONTAINS
          IF (i_global >= my_mu_start .AND. i_global <= my_mu_end) THEN
             DO jjB = 1, ncol_local
                j_global = col_indices(jjB)
-               C(i_global - my_mu_start + 1, j_global) = local_C(iiB, jjB)
+               C(i_global-my_mu_start+1, j_global) = local_C(iiB, jjB)
             END DO
          END IF
       END DO
 
       ! start ring communication for collecting the data from the other
-      proc_send_static = proc_map(para_env%mepos + 1)
-      proc_receive_static = proc_map(para_env%mepos - 1)
-      DO proc_shift = 1, para_env%num_pe - 1
-         proc_send = proc_map(para_env%mepos + proc_shift)
-         proc_receive = proc_map(para_env%mepos - proc_shift)
+      proc_send_static = proc_map(para_env%mepos+1)
+      proc_receive_static = proc_map(para_env%mepos-1)
+      DO proc_shift = 1, para_env%num_pe-1
+         proc_send = proc_map(para_env%mepos+proc_shift)
+         proc_receive = proc_map(para_env%mepos-proc_shift)
 
          ! first exchange information on the local data
          rec_col_row_info = 0
@@ -1964,7 +1965,7 @@ CONTAINS
             IF (i_global >= my_mu_start .AND. i_global <= my_mu_end) THEN
                DO jjB = 1, ncol_rec
                   j_global = col_indices_rec(jjB)
-                  C(i_global - my_mu_start + 1, j_global) = rec_C(iiB, jjB)
+                  C(i_global-my_mu_start+1, j_global) = rec_C(iiB, jjB)
                END DO
             END IF
          END DO
@@ -1984,20 +1985,20 @@ CONTAINS
       DEALLOCATE (proc_map)
 
       ! proc_map, for the sub_group
-      ALLOCATE (proc_map(-para_env_sub%num_pe:2*para_env_sub%num_pe - 1))
-      DO iiB = 0, para_env_sub%num_pe - 1
+      ALLOCATE (proc_map(-para_env_sub%num_pe:2*para_env_sub%num_pe-1))
+      DO iiB = 0, para_env_sub%num_pe-1
          proc_map(iiB) = iiB
-         proc_map(-iiB - 1) = para_env_sub%num_pe - iiB - 1
-         proc_map(para_env_sub%num_pe + iiB) = iiB
+         proc_map(-iiB-1) = para_env_sub%num_pe-iiB-1
+         proc_map(para_env_sub%num_pe+iiB) = iiB
       END DO
 
       ! split the C matrix into occupied and virtual
       ALLOCATE (Cocc(my_mu_size, homo))
       Cocc(1:my_mu_size, 1:homo) = C(1:my_mu_size, 1:homo)
 
-      virtual = dimen - homo
+      virtual = dimen-homo
       ALLOCATE (Cvirt(my_mu_size, virtual))
-      Cvirt(1:my_mu_size, 1:virtual) = C(1:my_mu_size, homo + 1:dimen)
+      Cvirt(1:my_mu_size, 1:virtual) = C(1:my_mu_size, homo+1:dimen)
 
       IF (.NOT. my_only_mo_coeff_all) THEN
          ! create and fill mo_coeff_o, mo_coeff_v and mo_coeff_all
@@ -2022,11 +2023,11 @@ CONTAINS
 
          IF (my_do_gw) THEN
             ! also cut levels homo-gw_corr_lev_occ+1, ..., lumo+gw_corr_lev_virt-1 of C
-            ALLOCATE (Cgw(my_mu_size, gw_corr_lev_occ + gw_corr_lev_virt))
-            Cgw(1:my_mu_size, 1:(gw_corr_lev_occ + gw_corr_lev_virt)) = &
-               C(1:my_mu_size, homo - gw_corr_lev_occ + 1:homo + gw_corr_lev_virt)
+            ALLOCATE (Cgw(my_mu_size, gw_corr_lev_occ+gw_corr_lev_virt))
+            Cgw(1:my_mu_size, 1:(gw_corr_lev_occ+gw_corr_lev_virt)) = &
+               C(1:my_mu_size, homo-gw_corr_lev_occ+1:homo+gw_corr_lev_virt)
             CALL build_mo_coeff_v_o_all(mp2_env, para_env_sub, mo_coeff_gw, Cgw, &
-                                        gw_corr_lev_occ + gw_corr_lev_virt, &
+                                        gw_corr_lev_occ+gw_corr_lev_virt, &
                                         blk, row, col, row_size, col_size, row_offset, &
                                         col_offset, i_global, j_global, my_mu_start, my_mu_end, &
                                         mat_munu, iter, &
@@ -2104,7 +2105,7 @@ CONTAINS
                                                             starts_array
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'build_mo_coeff_v_o_all', &
-                                     routineP = moduleN//':'//routineN
+         routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, i, j, proc_receive, proc_send, &
                                                             proc_shift, rec_mu_end, rec_mu_size, &
@@ -2126,11 +2127,11 @@ CONTAINS
                                         row_size=row_size, col_size=col_size, &
                                         row_offset=row_offset, col_offset=col_offset)
          DO i = 1, row_size
-            i_global = row_offset + i - 1
+            i_global = row_offset+i-1
             IF (i_global >= my_mu_start .AND. i_global <= my_mu_end) THEN
                DO j = 1, col_size
-                  j_global = col_offset + j - 1
-                  data_block(i, j) = Cread(i_global - my_mu_start + 1, col_offset + j - 1)
+                  j_global = col_offset+j-1
+                  data_block(i, j) = Cread(i_global-my_mu_start+1, col_offset+j-1)
                ENDDO
             END IF
          ENDDO
@@ -2139,9 +2140,9 @@ CONTAINS
 
       ! start ring communication in the subgroup for collecting the data from the other
       ! proc (occupied)
-      DO proc_shift = 1, para_env_sub%num_pe - 1
-         proc_send = proc_map(para_env_sub%mepos + proc_shift)
-         proc_receive = proc_map(para_env_sub%mepos - proc_shift)
+      DO proc_shift = 1, para_env_sub%num_pe-1
+         proc_send = proc_map(para_env_sub%mepos+proc_shift)
+         proc_receive = proc_map(para_env_sub%mepos-proc_shift)
 
          rec_mu_start = starts_array(proc_receive)
          rec_mu_end = ends_array(proc_receive)
@@ -2160,11 +2161,11 @@ CONTAINS
                                            row_size=row_size, col_size=col_size, &
                                            row_offset=row_offset, col_offset=col_offset)
             DO i = 1, row_size
-               i_global = row_offset + i - 1
+               i_global = row_offset+i-1
                IF (i_global >= rec_mu_start .AND. i_global <= rec_mu_end) THEN
                   DO j = 1, col_size
-                     j_global = col_offset + j - 1
-                     data_block(i, j) = rec_C(i_global - rec_mu_start + 1, col_offset + j - 1)
+                     j_global = col_offset+j-1
+                     data_block(i, j) = rec_C(i_global-rec_mu_start+1, col_offset+j-1)
                   ENDDO
                END IF
             ENDDO
@@ -2232,7 +2233,7 @@ CONTAINS
       LOGICAL, OPTIONAL                                  :: do_im_time
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'create_mat_munu', &
-                                     routineP = moduleN//':'//routineN
+         routineP = moduleN//':'//routineN
 
       INTEGER                                            :: blacs_grid_layout, color_sub_1, &
                                                             comm_sub_1, handle, ikind, natom, nkind
@@ -2527,6 +2528,7 @@ CONTAINS
 !> \param para_env_sub_im_time_P ...
 !> \param blacs_env_sub_im_time_3c ...
 !> \param sab_orb_all ...
+!> \param do_dbcsr_t ...
 !> \author Jan Wilhelm
 ! **************************************************************************************************
    SUBROUTINE create_dbcsr_matrices_im_time(mat_munu, mat_P_local, mat_P_global, mat_M, mat_dm_occ_global_mao, &
@@ -2536,7 +2538,7 @@ CONTAINS
                                             para_env_sub_im_time_P, blacs_env_sub_im_time_3c, sab_orb_all, do_dbcsr_t)
 
       TYPE(dbcsr_p_type) :: mat_munu, mat_P_local, mat_P_global, mat_M, mat_dm_occ_global_mao, &
-                            mat_dm_virt_global_mao, mat_dm_occ_local, mat_dm_virt_local
+         mat_dm_virt_global_mao, mat_dm_occ_local, mat_dm_virt_local
       LOGICAL                                            :: do_mao
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(mp2_type), POINTER                            :: mp2_env
@@ -2553,24 +2555,24 @@ CONTAINS
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env_sub_im_time_3c
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: sab_orb_all
-      LOGICAL, INTENT(IN)                      :: do_dbcsr_t
+      LOGICAL, INTENT(IN)                                :: do_dbcsr_t
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'create_dbcsr_matrices_im_time', &
-                                     routineP = moduleN//':'//routineN
+         routineP = moduleN//':'//routineN
 
       INTEGER :: blacs_grid_layout, blk_end, blk_start, col_end_local, col_start_local, &
-                 color_sub_col, color_sub_P, color_sub_row, comm_sub_P, cut_memory, end_col, &
-                 end_col_data_block, end_row, end_row_data_block, group_size_P, handle, i, i_mem, icol, &
-                 igroup, itmp(2), j_mem, n_group_col, n_group_P, n_group_row, n_local_col_prim, &
-                 n_local_row_prim, nblkrows_RI, nblkrows_total, nblkrows_total_mao_occ, &
-                 nblkrows_total_mao_virt, nfullcols_to_split, nfullcols_total, nfullrows_to_split, &
-                 nfullrows_total, ngroup, offset_fullcol, offset_fullrow, ref_col, ref_row, row_end_local, &
-                 row_start_local, size_col
+         color_sub_col, color_sub_P, color_sub_row, comm_sub_P, cut_memory, end_col, &
+         end_col_data_block, end_row, end_row_data_block, group_size_P, handle, i, i_mem, icol, &
+         igroup, itmp(2), j_mem, n_group_col, n_group_P, n_group_row, n_local_col_prim, &
+         n_local_row_prim, nblkrows_RI, nblkrows_total, nblkrows_total_mao_occ, &
+         nblkrows_total_mao_virt, nfullcols_to_split, nfullcols_total, nfullrows_to_split, &
+         nfullrows_total, ngroup, offset_fullcol, offset_fullrow, ref_col, ref_row, row_end_local, &
+         row_start_local, size_col
       INTEGER :: size_mao_occ, size_mao_virt, size_row, start_col, start_col_data_block, &
-                 start_row, start_row_data_block
+         start_row, start_row_data_block
       INTEGER, DIMENSION(:), POINTER :: blk_offset_mao_occ, blk_offset_mao_virt, &
-                                        blk_sizes_mao_occ, blk_sizes_mao_virt, blk_sizes_occ, blk_sizes_virt, col_blk_offset, &
-                                        col_blk_sizes_prim, max_col_blk_sizes, row_blk_offset, row_blk_sizes, row_blk_sizes_prim
+         blk_sizes_mao_occ, blk_sizes_mao_virt, blk_sizes_occ, blk_sizes_virt, col_blk_offset, &
+         col_blk_sizes_prim, max_col_blk_sizes, row_blk_offset, row_blk_sizes, row_blk_sizes_prim
       INTEGER, DIMENSION(:, :), POINTER                  :: col_blk_sizes_cut_memory
       LOGICAL                                            :: blacs_repeatable
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env_global, blacs_env_sub_P
@@ -2687,7 +2689,7 @@ CONTAINS
 
          DO igroup = 1, ngroup
 
-            itmp = get_limit(nfullrows_total, ngroup, igroup - 1)
+            itmp = get_limit(nfullrows_total, ngroup, igroup-1)
 
             CALL get_start_end_size_indx(mp2_env%ri_rpa_im_time%starts_array_cm(igroup), &
                                          mp2_env%ri_rpa_im_time%ends_array_cm(igroup), &
@@ -2719,7 +2721,7 @@ CONTAINS
             ! the same for MAOs for occ and virt
             DO igroup = 1, ngroup
 
-               itmp = get_limit(size_mao_occ, ngroup, igroup - 1)
+               itmp = get_limit(size_mao_occ, ngroup, igroup-1)
 
                CALL get_start_end_size_indx(mp2_env%ri_rpa_im_time%starts_array_cm_mao_occ(igroup), &
                                             mp2_env%ri_rpa_im_time%ends_array_cm_mao_occ(igroup), &
@@ -2731,7 +2733,7 @@ CONTAINS
 
             DO igroup = 1, ngroup
 
-               itmp = get_limit(size_mao_virt, ngroup, igroup - 1)
+               itmp = get_limit(size_mao_virt, ngroup, igroup-1)
 
                CALL get_start_end_size_indx(mp2_env%ri_rpa_im_time%starts_array_cm_mao_virt(igroup), &
                                             mp2_env%ri_rpa_im_time%ends_array_cm_mao_virt(igroup), &
@@ -2760,21 +2762,21 @@ CONTAINS
 
          DO i_mem = 1, cut_memory
 
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(0:ngroup - 1))
+            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(0:ngroup-1))
             mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(0:ngroup - 1))
+            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(0:ngroup-1))
             mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row(0:ngroup - 1))
+            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row(0:ngroup-1))
             mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row = 0
 
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow(0:ngroup - 1))
+            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow(0:ngroup-1))
             mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(0:ngroup - 1))
+            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(0:ngroup-1))
             mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(0:ngroup - 1))
+            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(0:ngroup-1))
             mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow = 0
 
-            DO igroup = 0, ngroup - 1
+            DO igroup = 0, ngroup-1
 
                nfullrows_to_split = mp2_env%ri_rpa_im_time%sizes_array_cm_mao_occ(i_mem)
 
@@ -2784,31 +2786,31 @@ CONTAINS
 
                   mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(igroup) = itmp(1)
                   mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(igroup) = itmp(2)
-                  mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow(igroup) = itmp(2) - itmp(1) + 1
+                  mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow(igroup) = itmp(2)-itmp(1)+1
 
                   CALL get_blk_from_indx(indx=itmp(1), blk=blk_start, blk_offset=row_blk_offset, blk_sizes=row_blk_sizes_prim)
                   CALL get_blk_from_indx(indx=itmp(2), blk=blk_end, blk_offset=row_blk_offset, blk_sizes=row_blk_sizes_prim)
 
                   mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(igroup) = blk_start
                   mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row(igroup) = blk_end
-                  mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(igroup) = blk_end - blk_start + 1
+                  mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(igroup) = blk_end-blk_start+1
 
                ELSE
 
-                  offset_fullrow = mp2_env%ri_rpa_im_time_util(i_mem - 1)%ends_array_prim_fullrow(ngroup - 1)
+                  offset_fullrow = mp2_env%ri_rpa_im_time_util(i_mem-1)%ends_array_prim_fullrow(ngroup-1)
 
-                  mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(igroup) = itmp(1) + offset_fullrow
-                  mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(igroup) = itmp(2) + offset_fullrow
-                  mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow(igroup) = itmp(2) - itmp(1) + 1
+                  mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(igroup) = itmp(1)+offset_fullrow
+                  mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(igroup) = itmp(2)+offset_fullrow
+                  mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow(igroup) = itmp(2)-itmp(1)+1
 
-                  CALL get_blk_from_indx(indx=(itmp(1) + offset_fullrow), blk=blk_start, &
+                  CALL get_blk_from_indx(indx=(itmp(1)+offset_fullrow), blk=blk_start, &
                                          blk_offset=row_blk_offset, blk_sizes=row_blk_sizes_prim)
-                  CALL get_blk_from_indx(indx=(itmp(2) + offset_fullrow), blk=blk_end, &
+                  CALL get_blk_from_indx(indx=(itmp(2)+offset_fullrow), blk=blk_end, &
                                          blk_offset=row_blk_offset, blk_sizes=row_blk_sizes_prim)
 
                   mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(igroup) = blk_start
                   mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row(igroup) = blk_end
-                  mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(igroup) = blk_end - blk_start + 1
+                  mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(igroup) = blk_end-blk_start+1
 
                END IF
 
@@ -2823,21 +2825,21 @@ CONTAINS
 
          DO j_mem = 1, cut_memory
 
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(0:ngroup - 1))
+            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(0:ngroup-1))
             mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(0:ngroup - 1))
+            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(0:ngroup-1))
             mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col(0:ngroup - 1))
+            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col(0:ngroup-1))
             mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col = 0
 
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol(0:ngroup - 1))
+            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol(0:ngroup-1))
             mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(0:ngroup - 1))
+            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(0:ngroup-1))
             mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(0:ngroup - 1))
+            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(0:ngroup-1))
             mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol = 0
 
-            DO igroup = 0, ngroup - 1
+            DO igroup = 0, ngroup-1
 
                nfullcols_to_split = mp2_env%ri_rpa_im_time%sizes_array_cm_mao_virt(j_mem)
 
@@ -2847,31 +2849,31 @@ CONTAINS
 
                   mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(igroup) = itmp(1)
                   mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(igroup) = itmp(2)
-                  mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol(igroup) = itmp(2) - itmp(1) + 1
+                  mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol(igroup) = itmp(2)-itmp(1)+1
 
                   CALL get_blk_from_indx(indx=itmp(1), blk=blk_start, blk_offset=col_blk_offset, blk_sizes=col_blk_sizes_prim)
                   CALL get_blk_from_indx(indx=itmp(2), blk=blk_end, blk_offset=col_blk_offset, blk_sizes=col_blk_sizes_prim)
 
                   mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(igroup) = blk_start
                   mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col(igroup) = blk_end
-                  mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(igroup) = blk_end - blk_start + 1
+                  mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(igroup) = blk_end-blk_start+1
 
                ELSE
 
-                  offset_fullcol = mp2_env%ri_rpa_im_time_util(j_mem - 1)%ends_array_prim_fullcol(ngroup - 1)
+                  offset_fullcol = mp2_env%ri_rpa_im_time_util(j_mem-1)%ends_array_prim_fullcol(ngroup-1)
 
-                  mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(igroup) = itmp(1) + offset_fullcol
-                  mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(igroup) = itmp(2) + offset_fullcol
-                  mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol(igroup) = itmp(2) - itmp(1) + 1
+                  mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(igroup) = itmp(1)+offset_fullcol
+                  mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(igroup) = itmp(2)+offset_fullcol
+                  mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol(igroup) = itmp(2)-itmp(1)+1
 
-                  CALL get_blk_from_indx(indx=(itmp(1) + offset_fullcol), blk=blk_start, &
+                  CALL get_blk_from_indx(indx=(itmp(1)+offset_fullcol), blk=blk_start, &
                                          blk_offset=col_blk_offset, blk_sizes=col_blk_sizes_prim)
-                  CALL get_blk_from_indx(indx=(itmp(2) + offset_fullcol), blk=blk_end, &
+                  CALL get_blk_from_indx(indx=(itmp(2)+offset_fullcol), blk=blk_end, &
                                          blk_offset=col_blk_offset, blk_sizes=col_blk_sizes_prim)
 
                   mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(igroup) = blk_start
                   mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col(igroup) = blk_end
-                  mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(igroup) = blk_end - blk_start + 1
+                  mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(igroup) = blk_end-blk_start+1
 
                END IF
 
@@ -2890,13 +2892,13 @@ CONTAINS
 
             n_local_row_prim = mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(color_sub_row)
             row_start_local = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(color_sub_row)
-            row_end_local = row_start_local + n_local_row_prim - 1
+            row_end_local = row_start_local+n_local_row_prim-1
 
             ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%start_row_data_block(row_start_local: &
-                                                                              row_start_local + n_local_row_prim - 1))
+                                                                              row_start_local+n_local_row_prim-1))
             mp2_env%ri_rpa_im_time_util(i_mem)%start_row_data_block = 0
             ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%end_row_data_block(row_start_local: &
-                                                                            row_start_local + n_local_row_prim - 1))
+                                                                            row_start_local+n_local_row_prim-1))
             mp2_env%ri_rpa_im_time_util(i_mem)%end_row_data_block = 0
 
          END DO
@@ -2905,13 +2907,13 @@ CONTAINS
 
             n_local_col_prim = mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(color_sub_col)
             col_start_local = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(color_sub_col)
-            col_end_local = col_start_local + n_local_col_prim - 1
+            col_end_local = col_start_local+n_local_col_prim-1
 
             ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%start_col_data_block(col_start_local: &
-                                                                              col_start_local + n_local_col_prim - 1))
+                                                                              col_start_local+n_local_col_prim-1))
             mp2_env%ri_rpa_im_time_util(j_mem)%start_col_data_block = 0
             ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%end_col_data_block(col_start_local: &
-                                                                            col_start_local + n_local_col_prim - 1))
+                                                                            col_start_local+n_local_col_prim-1))
             mp2_env%ri_rpa_im_time_util(j_mem)%end_col_data_block = 0
 
          END DO
@@ -2925,35 +2927,35 @@ CONTAINS
 
             n_local_row_prim = mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(color_sub_row)
             row_start_local = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(color_sub_row)
-            row_end_local = row_start_local + n_local_row_prim - 1
+            row_end_local = row_start_local+n_local_row_prim-1
 
             DO j_mem = 1, cut_memory
 
                n_local_col_prim = mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(color_sub_col)
                col_start_local = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(color_sub_col)
-               col_end_local = col_start_local + n_local_col_prim - 1
+               col_end_local = col_start_local+n_local_col_prim-1
 
                ALLOCATE (mp2_env%ri_rpa_im_time_2d_util(i_mem, j_mem)%offset_combi_block( &
-                         row_start_local:row_start_local + n_local_row_prim - 1, &
-                         col_start_local:col_start_local + n_local_col_prim - 1))
+                         row_start_local:row_start_local+n_local_row_prim-1, &
+                         col_start_local:col_start_local+n_local_col_prim-1))
                mp2_env%ri_rpa_im_time_2d_util(i_mem, j_mem)%offset_combi_block = 0
 
                DO icol = 1, n_local_row_prim*n_local_col_prim
 
-                  ref_row = (icol - 1)/n_local_col_prim + 1 + row_start_local - 1
+                  ref_row = (icol-1)/n_local_col_prim+1+row_start_local-1
 
-                  ref_col = MODULO(icol - 1, n_local_col_prim) + 1 + col_start_local - 1
+                  ref_col = MODULO(icol-1, n_local_col_prim)+1+col_start_local-1
 
                   IF (ref_row == row_start_local) THEN
                      start_row = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(color_sub_row)
-                     end_row = row_blk_offset(ref_row) + row_blk_sizes_prim(ref_row) - 1
-                     size_row = end_row - start_row + 1
+                     end_row = row_blk_offset(ref_row)+row_blk_sizes_prim(ref_row)-1
+                     size_row = end_row-start_row+1
                      end_row_data_block = row_blk_sizes_prim(ref_row)
-                     start_row_data_block = end_row_data_block - size_row + 1
+                     start_row_data_block = end_row_data_block-size_row+1
                   ELSE IF (ref_row == row_end_local) THEN
                      start_row = row_blk_offset(ref_row)
                      end_row = mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(color_sub_row)
-                     size_row = end_row - start_row + 1
+                     size_row = end_row-start_row+1
                      start_row_data_block = 1
                      end_row_data_block = size_row
                   ELSE
@@ -2966,10 +2968,10 @@ CONTAINS
                   IF (row_start_local == row_end_local) THEN
                      start_row = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(color_sub_row)
                      end_row = mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(color_sub_row)
-                     size_row = end_row - start_row + 1
-                     start_row_data_block = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(color_sub_row) - &
-                                            row_blk_offset(ref_row) + 1
-                     end_row_data_block = start_row_data_block + size_row - 1
+                     size_row = end_row-start_row+1
+                     start_row_data_block = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(color_sub_row)- &
+                                            row_blk_offset(ref_row)+1
+                     end_row_data_block = start_row_data_block+size_row-1
                   END IF
 
                   mp2_env%ri_rpa_im_time_util(i_mem)%start_row_data_block(ref_row) = start_row_data_block
@@ -2977,14 +2979,14 @@ CONTAINS
 
                   IF (ref_col == col_start_local) THEN
                      start_col = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(color_sub_col)
-                     end_col = col_blk_offset(ref_col) + col_blk_sizes_prim(ref_col) - 1
-                     size_col = end_col - start_col + 1
+                     end_col = col_blk_offset(ref_col)+col_blk_sizes_prim(ref_col)-1
+                     size_col = end_col-start_col+1
                      end_col_data_block = col_blk_sizes_prim(ref_col)
-                     start_col_data_block = end_col_data_block - size_col + 1
+                     start_col_data_block = end_col_data_block-size_col+1
                   ELSE IF (ref_col == col_end_local) THEN
                      start_col = col_blk_offset(ref_col)
                      end_col = mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(color_sub_col)
-                     size_col = end_col - start_col + 1
+                     size_col = end_col-start_col+1
                      start_col_data_block = 1
                      end_col_data_block = size_col
                   ELSE
@@ -2996,10 +2998,10 @@ CONTAINS
                   IF (col_start_local == col_end_local) THEN
                      start_col = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(color_sub_col)
                      end_col = mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(color_sub_col)
-                     size_col = end_col - start_col + 1
-                     start_col_data_block = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(color_sub_col) - &
-                                            col_blk_offset(ref_col) + 1
-                     end_col_data_block = start_col_data_block + size_col - 1
+                     size_col = end_col-start_col+1
+                     start_col_data_block = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(color_sub_col)- &
+                                            col_blk_offset(ref_col)+1
+                     end_col_data_block = start_col_data_block+size_col-1
                   END IF
 
                   mp2_env%ri_rpa_im_time_util(j_mem)%start_col_data_block(ref_col) = start_col_data_block
@@ -3008,7 +3010,7 @@ CONTAINS
                   mp2_env%ri_rpa_im_time_2d_util(i_mem, j_mem)%offset_combi_block(ref_row, ref_col) = &
                      col_blk_sizes_cut_memory(i_mem, j_mem)
 
-                  col_blk_sizes_cut_memory(i_mem, j_mem) = col_blk_sizes_cut_memory(i_mem, j_mem) + size_row*size_col
+                  col_blk_sizes_cut_memory(i_mem, j_mem) = col_blk_sizes_cut_memory(i_mem, j_mem)+size_row*size_col
 
                END DO
 
@@ -3513,6 +3515,7 @@ CONTAINS
 !> \param mao_coeff_occ_A ...
 !> \param mao_coeff_virt_A ...
 !> \param mp2_env ...
+!> \param do_dbcsr_t ...
 !> \author Jan Wilhelm
 ! **************************************************************************************************
    SUBROUTINE clean_up_im_time(mat_munu, mat_P_local, mat_P_global, mat_M, mat_dm_occ_global_mao, &

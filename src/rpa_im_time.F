@@ -32,8 +32,14 @@ MODULE rpa_im_time
         dbcsr_get_info, dbcsr_get_num_blocks, dbcsr_get_occupation, dbcsr_get_stored_coordinates, &
         dbcsr_init_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
         dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, dbcsr_p_type, dbcsr_release_p, &
-        dbcsr_reserve_all_blocks, dbcsr_reserve_blocks, dbcsr_scale, dbcsr_set, dbcsr_transposed, &
-        dbcsr_type, dbcsr_type_no_symmetry, dbcsr_scalar, dbcsr_checksum
+        dbcsr_reserve_all_blocks, dbcsr_reserve_blocks, dbcsr_scalar, dbcsr_scale, dbcsr_set, &
+        dbcsr_transposed, dbcsr_type, dbcsr_type_no_symmetry
+   USE dbcsr_tensor_api,                ONLY: &
+        dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
+        dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
+        dbcsr_t_get_block, dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_next_block, &
+        dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_iterator_type, &
+        dbcsr_t_need_contract, dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_set, dbcsr_t_type
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE kpoint_types,                    ONLY: get_kpoint_info,&
@@ -56,14 +62,6 @@ MODULE rpa_im_time
                                               mo_set_p_type,&
                                               mo_set_type
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE dbcsr_tensor_api,                ONLY: dbcsr_t_type, dbcsr_t_contract, dbcsr_t_create, &
-                                              dbcsr_t_copy_matrix_to_tensor, dbcsr_t_copy, dbcsr_t_set, &
-                                              dbcsr_t_filter, dbcsr_t_destroy, dbcsr_t_copy_tensor_to_matrix, &
-                                              dbcsr_t_contract_test, dbcsr_t_get_info, dbcsr_t_checksum, &
-                                              dbcsr_t_iterator_type, dbcsr_t_iterator_blocks_left, &
-                                              dbcsr_t_iterator_stop, dbcsr_t_reserve_blocks, dbcsr_t_iterator_start, &
-                                              dbcsr_t_iterator_next_block, dbcsr_t_get_block, dbcsr_t_put_block, &
-                                              dbcsr_t_need_contract
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -78,7 +76,7 @@ MODULE rpa_im_time
              get_mat_3c_overl_int_gw, &
              reflect_mat_row, &
              zero_mat_P_omega, &
-             gap_and_max_eig_diff_kpoints,&
+             gap_and_max_eig_diff_kpoints, &
              setup_tensor_for_mem_cut_3c
 
 CONTAINS
@@ -108,6 +106,11 @@ CONTAINS
 !> \param mat_3c_overl_int_cut ...
 !> \param mat_3c_overl_int_mao_for_occ_cut ...
 !> \param mat_3c_overl_int_mao_for_virt_cut ...
+!> \param do_dbcsr_t ...
+!> \param t_3c_M ...
+!> \param t_3c_O_cut ...
+!> \param starts_array_mc_t ...
+!> \param ends_array_mc_t ...
 !> \param mat_dm_loc_occ_cut ...
 !> \param mat_dm_loc_virt_cut ...
 !> \param weights_cos_tf_t_to_w ...
@@ -201,9 +204,10 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :, :, :), POINTER :: mat_3c_overl_int_cut, &
          mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut
       LOGICAL, INTENT(IN)                                :: do_dbcsr_t
-      TYPE(dbcsr_t_type), DIMENSION(:, :, :), ALLOCATABLE, INTENT(INOUT)    :: t_3c_O_cut
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
-      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(IN)                  :: starts_array_mc_t, ends_array_mc_t
+      TYPE(dbcsr_t_type), ALLOCATABLE, &
+         DIMENSION(:, :, :), INTENT(INOUT)               :: t_3c_O_cut
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc_t, ends_array_mc_t
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_dm_loc_occ_cut, mat_dm_loc_virt_cut
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: weights_cos_tf_t_to_w
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: tj, tau_tj
@@ -247,7 +251,7 @@ CONTAINS
 
       INTEGER :: handle, handle4, handle5, handle6, i_cell, i_cell_R_1, i_cell_R_1_minus_S, &
          i_cell_R_1_minus_T, i_cell_R_2, i_cell_R_2_minus_S_minus_T, i_cell_S, i_cell_T, i_cut_RI, &
-         i_mem, iquad, j_mem, my_group_L_size, num_3c_repl, num_cells_dm
+         i_mem, iquad, j_mem, my_group_L_size, num_3c_repl, num_cells_dm, unit_nr_prv
       INTEGER(KIND=int_8)                                :: flop_occ, flop_virt, num_flops_mat_P
       INTEGER, DIMENSION(:, :), POINTER                  :: index_to_cell_dm
       LOGICAL :: do_Gamma_RPA, do_kpoints_cubic_RPA, first_cycle_im_time, first_cycle_omega_loop, &
@@ -255,12 +259,9 @@ CONTAINS
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: does_mat_P_T_tau_have_blocks
       REAL(KIND=dp)                                      :: omega, omega_old, tau, weight, weight_old
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: mat_dm_occ_global, mat_dm_virt_global
-      TYPE(dbcsr_t_type), DIMENSION(:), ALLOCATABLE                   :: t_dm_virt, t_dm_occ
-      TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE :: t_dm_virt_cut, t_dm_occ_cut
-      TYPE(dbcsr_t_type)                                 :: t_3c_M_tmp
-      TYPE(dbcsr_t_type)                                 :: t_3c_M_virt, t_3c_M_occ, t_P
-      INTEGER                                            :: unit_nr_prv
-
+      TYPE(dbcsr_t_type)                                 :: t_3c_M_occ, t_3c_M_tmp, t_3c_M_virt, t_P
+      TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:)      :: t_dm_occ, t_dm_virt
+      TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_dm_occ_cut, t_dm_virt_cut
 
       memory_info = mp2_env%ri_rpa_im_time%memory_info
       do_kpoints_cubic_RPA = qs_env%mp2_env%ri_rpa_im_time%do_im_time_kpoints
@@ -293,12 +294,11 @@ CONTAINS
 
          ! loop over T for chi^T(it)
          IF (do_dbcsr_t) THEN
-            IF(memory_info) THEN
+            IF (memory_info) THEN
                unit_nr_prv = unit_nr
             ELSE
                unit_nr_prv = 0
             ENDIF
-
 
             CALL timeset(routineN//"_dbcsr_t", handle6)
             ALLOCATE (t_dm_virt(num_cells_dm))
@@ -326,13 +326,13 @@ CONTAINS
          ENDIF
 
          IF (do_dbcsr_t) THEN
-            DO i_cell_T = 1, num_cells_dm/2 + 1
+            DO i_cell_T = 1, num_cells_dm/2+1
 
                !IF (does_mat_P_T_tau_have_blocks(i_cell_T) .EQV. .FALSE.) CYCLE
                DO j_mem = 1, cut_memory
                   DO i_mem = 1, cut_memory
-                  IF (unit_nr_prv > 0) WRITE (UNIT=unit_nr_prv, FMT="(T3,A,I2,1X,I2)") &
-                     "RPA_IM_TIME_INFO| Memory Cut iteration", i_mem, j_mem
+                     IF (unit_nr_prv > 0) WRITE (UNIT=unit_nr_prv, FMT="(T3,A,I2,1X,I2)") &
+                        "RPA_IM_TIME_INFO| Memory Cut iteration", i_mem, j_mem
                      ! not implemented:
                      !IF (cycle_due_to_sparse_dm(i_mem, j_mem, jquad) .AND. do_Gamma_RPA) CYCLE
 
@@ -349,8 +349,6 @@ CONTAINS
                      DO i_cell_R_1 = 1, num_3c_repl
 
                         DO i_cell_R_2 = 1, num_3c_repl
-
-
 
                            ! not sure if i_mem, j_mem work here correctly
                            !IF (has_mat_P_blocks(i_cell_T, i_mem, j_mem, i_cell_R_1, i_cell_R_2) .EQV. .FALSE.) CYCLE
@@ -422,8 +420,8 @@ CONTAINS
                            CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
                            CALL timestop(handle5)
 
-                           IF(.NOT. dbcsr_t_need_contract(t_3c_M_occ, t_3c_M_virt, &
-                                                          [2, 3], [2, 3])) CYCLE
+                           IF (.NOT. dbcsr_t_need_contract(t_3c_M_occ, t_3c_M_virt, &
+                                                           [2, 3], [2, 3])) CYCLE
 
                            CALL timeset(routineN//"_calc_P_t", handle5)
 
@@ -507,7 +505,7 @@ CONTAINS
 
             CALL dbcsr_t_destroy(t_P)
             DO i_cell = 1, num_cells_dm
-               do i_mem = 1, cut_memory
+               DO i_mem = 1, cut_memory
                   CALL dbcsr_t_destroy(t_dm_virt_cut(i_mem, i_cell))
                   CALL dbcsr_t_destroy(t_dm_occ_cut(i_mem, i_cell))
                ENDDO
@@ -521,7 +519,7 @@ CONTAINS
             CALL timestop(handle6)
          ELSE
 
-            DO i_cell_T = 1, num_cells_dm/2 + 1
+            DO i_cell_T = 1, num_cells_dm/2+1
 
                IF (does_mat_P_T_tau_have_blocks(i_cell_T) .EQV. .FALSE.) CYCLE
 
@@ -1907,6 +1905,7 @@ CONTAINS
 !> \param num_cells_dm ...
 !> \param index_to_cell_dm ...
 !> \param does_mat_P_T_tau_have_blocks ...
+!> \param do_dbcsr_t ...
 ! **************************************************************************************************
    SUBROUTINE compute_mat_dm_global(fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, tau_tj, num_integ_points, nmo, &
                                     fm_mo_coeff_occ, fm_mo_coeff_virt, fm_mo_coeff_occ_scaled, &
@@ -3260,27 +3259,40 @@ CONTAINS
 
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief ...
+!> \param t_3c_overl_int_cut ...
+!> \param t_3c_overl_int ...
+!> \param cut_memory ...
+!> \param starts_array_mc_t ...
+!> \param ends_array_mc_t ...
+!> \param eps_filter ...
+! **************************************************************************************************
    SUBROUTINE setup_tensor_for_mem_cut_3c(t_3c_overl_int_cut, t_3c_overl_int, cut_memory, &
                                           starts_array_mc_t, ends_array_mc_t, eps_filter)
-      TYPE(dbcsr_t_type), DIMENSION(:,:), ALLOCATABLE, INTENT(INOUT) :: t_3c_overl_int
-      TYPE(dbcsr_t_type), DIMENSION(:,:,:), ALLOCATABLE, INTENT(OUT) :: t_3c_overl_int_cut
-      INTEGER, INTENT(IN) :: cut_memory
-      INTEGER, DIMENSION(cut_memory), INTENT(IN) :: starts_array_mc_t, ends_array_mc_t
-      REAL(KIND=dp), INTENT(IN)                                      :: eps_filter
-      TYPE(dbcsr_t_iterator_type)                                    :: iter
-      INTEGER, DIMENSION(3)                                          :: blk_ind, blk_off
-      INTEGER :: blk, i_mem, num_3c_repl, i_cell, j_cell
-      REAL(KIND=dp), DIMENSION(:, :, :), ALLOCATABLE                 :: t_block
-      LOGICAL                                                        :: found
+      TYPE(dbcsr_t_type), ALLOCATABLE, &
+         DIMENSION(:, :, :), INTENT(OUT)                 :: t_3c_overl_int_cut
+      TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :), &
+         INTENT(INOUT)                                   :: t_3c_overl_int
+      INTEGER, INTENT(IN)                                :: cut_memory
+      INTEGER, DIMENSION(cut_memory), INTENT(IN)         :: starts_array_mc_t, ends_array_mc_t
+      REAL(KIND=dp), INTENT(IN)                          :: eps_filter
+
       CHARACTER(LEN=*), PARAMETER :: routineN = 'setup_tensor_for_mem_cut_3c', &
          routineP = moduleN//':'//routineN
-      INTEGER :: handle
+
+      INTEGER                                            :: blk, handle, i_cell, i_mem, j_cell, &
+                                                            num_3c_repl
+      INTEGER, DIMENSION(3)                              :: blk_ind, blk_off
+      LOGICAL                                            :: found
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: t_block
+      TYPE(dbcsr_t_iterator_type)                        :: iter
 
       CALL timeset(routineN, handle)
 
       num_3c_repl = SIZE(t_3c_overl_int, 2)
 
-      ALLOCATE(t_3c_overl_int_cut(cut_memory, num_3c_repl, num_3c_repl))
+      ALLOCATE (t_3c_overl_int_cut(cut_memory, num_3c_repl, num_3c_repl))
 
       DO i_mem = 1, cut_memory
          DO i_cell = 1, num_3c_repl
@@ -3289,12 +3301,12 @@ CONTAINS
                CALL dbcsr_t_reserve_blocks(t_3c_overl_int(i_cell, j_cell), t_3c_overl_int_cut(i_mem, i_cell, j_cell))
 
                CALL dbcsr_t_iterator_start(iter, t_3c_overl_int(i_cell, j_cell))
-               DO WHILE(dbcsr_t_iterator_blocks_left(iter))
+               DO WHILE (dbcsr_t_iterator_blocks_left(iter))
                   CALL dbcsr_t_iterator_next_block(iter, blk_ind, blk, blk_offset=blk_off)
-                  IF(blk_off(2) >= starts_array_mc_t(i_mem) .AND. blk_off(2) <= ends_array_mc_t(i_mem)) THEN
+                  IF (blk_off(2) >= starts_array_mc_t(i_mem) .AND. blk_off(2) <= ends_array_mc_t(i_mem)) THEN
                      CALL dbcsr_t_get_block(t_3c_overl_int(i_cell, j_cell), blk_ind, t_block, found)
                      CALL dbcsr_t_put_block(t_3c_overl_int_cut(i_mem, i_cell, j_cell), blk_ind, SHAPE(t_block), t_block)
-                     DEALLOCATE(t_block)
+                     DEALLOCATE (t_block)
                   ENDIF
                ENDDO
                CALL dbcsr_t_iterator_stop(iter)
@@ -3303,57 +3315,68 @@ CONTAINS
          ENDDO
       ENDDO
 
-
       DO i_cell = 1, num_3c_repl
          DO j_cell = 1, num_3c_repl
             CALL dbcsr_t_destroy(t_3c_overl_int(i_cell, j_cell))
          ENDDO
       ENDDO
 
-      DEALLOCATE(t_3c_overl_int)
+      DEALLOCATE (t_3c_overl_int)
 
       CALL timestop(handle)
 
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief ...
+!> \param t_dm_cut ...
+!> \param t_dm ...
+!> \param cut_memory ...
+!> \param starts_array_mc_t ...
+!> \param ends_array_mc_t ...
+!> \param eps_filter ...
+! **************************************************************************************************
    SUBROUTINE setup_dm_for_mem_cut(t_dm_cut, t_dm, cut_memory, starts_array_mc_t, ends_array_mc_t, eps_filter)
-      TYPE(dbcsr_t_type), DIMENSION(:), ALLOCATABLE, INTENT(INOUT) :: t_dm
-      TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE, INTENT(OUT) :: t_dm_cut
-      INTEGER, INTENT(IN) :: cut_memory
-      INTEGER, DIMENSION(cut_memory), INTENT(IN) :: starts_array_mc_t, ends_array_mc_t
-      REAL(KIND=dp), INTENT(IN)                                      :: eps_filter
-      INTEGER :: blk, i_mem, num_3c_repl, i_cell
-      TYPE(dbcsr_t_iterator_type) :: iter
-      INTEGER, DIMENSION(2)                                          :: blk_ind, blk_off, blk_size, inblock_offset
-      REAL(KIND=dp), DIMENSION(:, :), ALLOCATABLE :: t_block
-      LOGICAL :: found
+      TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :), &
+         INTENT(OUT)                                     :: t_dm_cut
+      TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:), &
+         INTENT(INOUT)                                   :: t_dm
+      INTEGER, INTENT(IN)                                :: cut_memory
+      INTEGER, DIMENSION(cut_memory), INTENT(IN)         :: starts_array_mc_t, ends_array_mc_t
+      REAL(KIND=dp), INTENT(IN)                          :: eps_filter
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'setup_dm_for_mem_cut', &
          routineP = moduleN//':'//routineN
-      INTEGER :: handle
+
+      INTEGER                                            :: blk, handle, i_cell, i_mem, num_3c_repl
+      INTEGER, DIMENSION(2)                              :: blk_ind, blk_off, blk_size, &
+                                                            inblock_offset
+      LOGICAL                                            :: found
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: t_block
+      TYPE(dbcsr_t_iterator_type)                        :: iter
 
       CALL timeset(routineN, handle)
 
       num_3c_repl = SIZE(t_dm, 1)
 
-      ALLOCATE(t_dm_cut(cut_memory, num_3c_repl))
+      ALLOCATE (t_dm_cut(cut_memory, num_3c_repl))
 
-      DO i_mem=1, cut_memory
+      DO i_mem = 1, cut_memory
          DO i_cell = 1, num_3c_repl
             CALL dbcsr_t_create(t_dm(i_cell), t_dm_cut(i_mem, i_cell))
             CALL dbcsr_t_reserve_blocks(t_dm(i_cell), t_dm_cut(i_mem, i_cell))
 
             CALL dbcsr_t_iterator_start(iter, t_dm(i_cell))
-            DO WHILE(dbcsr_t_iterator_blocks_left(iter))
+            DO WHILE (dbcsr_t_iterator_blocks_left(iter))
                CALL dbcsr_t_iterator_next_block(iter, blk_ind, blk, blk_size=blk_size, blk_offset=blk_off)
-               IF(blk_off(2) - 1 + blk_size(2) >= starts_array_mc_t(i_mem) .AND. blk_off(2) <= ends_array_mc_t(i_mem)) THEN
+               IF (blk_off(2)-1+blk_size(2) >= starts_array_mc_t(i_mem) .AND. blk_off(2) <= ends_array_mc_t(i_mem)) THEN
                   CALL dbcsr_t_get_block(t_dm(i_cell), blk_ind, t_block, found)
-                  inblock_offset(1) = MAX(starts_array_mc_t(i_mem) - blk_off(2), 0)
-                  inblock_offset(2) = MIN(inblock_offset(1) + ends_array_mc_t(i_mem) - starts_array_mc_t(i_mem) + 1, blk_size(2))
+                  inblock_offset(1) = MAX(starts_array_mc_t(i_mem)-blk_off(2), 0)
+                  inblock_offset(2) = MIN(inblock_offset(1)+ends_array_mc_t(i_mem)-starts_array_mc_t(i_mem)+1, blk_size(2))
                   t_block(:, :inblock_offset(1)) = 0.0_dp
-                  t_block(:, inblock_offset(2) + 1:) = 0.0_dp
+                  t_block(:, inblock_offset(2)+1:) = 0.0_dp
                   CALL dbcsr_t_put_block(t_dm_cut(i_mem, i_cell), blk_ind, SHAPE(t_block), t_block)
-                  DEALLOCATE(t_block)
+                  DEALLOCATE (t_block)
                ENDIF
             ENDDO
             CALL dbcsr_t_iterator_stop(iter)
@@ -3361,11 +3384,11 @@ CONTAINS
          ENDDO
       ENDDO
 
-      DO i_cell=1, num_3c_repl
+      DO i_cell = 1, num_3c_repl
          CALL dbcsr_t_destroy(t_dm(i_cell))
       ENDDO
 
-      DEALLOCATE(t_dm)
+      DEALLOCATE (t_dm)
 
       CALL timestop(handle)
    END SUBROUTINE

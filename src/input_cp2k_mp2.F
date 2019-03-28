@@ -238,8 +238,6 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-
-
       CALL create_mp2_direct(subsection)
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
@@ -1373,7 +1371,7 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(&
+      CALL keyword_create( &
          keyword=keyword, &
          name="DO_DBCSR_T", &
          description="Uses DBCSR tensors for cubic scaling RPA/L-SOS-MP2 instead of manually coded tensor contractions", &
@@ -1383,12 +1381,12 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(&
+      CALL keyword_create( &
          keyword=keyword, &
          name="MAX_BLOCK_SIZE_SQRT", &
          description="Square root of maximum block size for splitting blocks of matrix representation of large tensors "// &
-                     "along the combined dimension. "// &
-                     "Atomic blocks are split in order to allow for better load balance.", &
+         "along the combined dimension. "// &
+         "Atomic blocks are split in order to allow for better load balance.", &
          default_i_val=10)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
