@@ -67,8 +67,8 @@ CONTAINS
       REAL(KIND=dp)                                      :: vol
       REAL(KIND=dp), INTENT(IN)                          :: zet_mm
       INTEGER, INTENT(IN)                                :: l_mm
-      REAL(KIND=dp), INTENT(IN)            :: zet_c
-      INTEGER, INTENT(IN)                  :: l_c
+      REAL(KIND=dp), DIMENSION(:), INTENT(IN)            :: zet_c
+      INTEGER, DIMENSION(:), INTENT(IN)                  :: l_c
       INTEGER, INTENT(IN)                                :: n_minimax
       REAL(KIND=dp), INTENT(IN)                          :: cutoff_l, cutoff_r, tol, delta
       REAL(KIND=dp), INTENT(OUT)                         :: cutoff, err_mm, err_c, C_mm
@@ -85,16 +85,16 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: minimax_aw
       REAL(KIND=dp), DIMENSION(2)                        :: cutoff_lr, delta_c, delta_mm
 
-      !CPASSERT(SIZE(l_c) .EQ. SIZE(zet_c))
+      CPASSERT(SIZE(l_c) .EQ. SIZE(zet_c))
 
       do_print = unit_nr > 0 .AND. print_calib
       IF (do_print) THEN
          WRITE (unit_nr, '(/T2, A)') "ERI_MME| Basis set parameters for estimating minimax error"
          WRITE (unit_nr, '(T2, A, T67, ES12.2, 1X, I1)') "ERI_MME|   exp, l:", zet_mm, l_mm
          WRITE (unit_nr, '(T2, A)') "ERI_MME| Basis set parameters for estimating cutoff error"
-         !DO i = 1, SIZE(zet_c)
-            WRITE (unit_nr, '(T2, A, T67, ES12.2, 1X, I1)') "ERI_MME|   exp, l:", zet_c, l_c
-         !ENDDO
+         DO i = 1, SIZE(zet_c)
+            WRITE (unit_nr, '(T2, A, T67, ES12.2, 1X, I1)') "ERI_MME|   exp, l:", zet_c(i), l_c(i)
+         ENDDO
       ENDIF
 
       max_iter = 100
@@ -212,8 +212,8 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(3, 3), INTENT(IN)         :: hmat, h_inv
       REAL(KIND=dp), INTENT(IN)                          :: vol, G_min, zet_mm
       INTEGER, INTENT(IN)                                :: l_mm
-      REAL(KIND=dp), INTENT(IN)            :: zet_ctff
-      INTEGER, INTENT(IN)                  :: l_ctff
+      REAL(KIND=dp), DIMENSION(:), INTENT(IN)            :: zet_ctff
+      INTEGER, DIMENSION(:), INTENT(IN)                  :: l_ctff
       INTEGER, INTENT(IN)                                :: n_minimax
       REAL(KIND=dp), DIMENSION(:), INTENT(OUT)           :: minimax_aw
       REAL(KIND=dp), INTENT(OUT)                         :: err_mm, err_ctff, C_mm
@@ -222,12 +222,12 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'cutoff_minimax_error', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: i_aw, i_xyz, iG, iter, max_iter, nG
+      INTEGER                                            :: i_aw, i_xyz, iG, iter, max_iter, n, nG
       REAL(KIND=dp)                                      :: C, dG, E_mm, eps_zet, err0, err1, err_c, &
                                                             err_d, G, G_1, G_c, gr, prod_mm_k, &
                                                             zet_a, zet_b, zet_c, zet_d, zet_div
-      REAL(KIND=dp)                                      :: zet_ctff_tmp
-      REAL(KIND=dp)                        :: err_ctff_curr, err_ctff_prev
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: zet_ctff_tmp
+      REAL(KIND=dp), DIMENSION(2)                        :: err_ctff_curr, err_ctff_prev
 
       ! parameters for finding exponent maximizing cutoff error
 
@@ -235,10 +235,10 @@ CONTAINS
       zet_div = 2.0_dp ! sampling constant for finding initial values of exponents
       max_iter = 100 ! maximum number of iterations in golden section search
 
-      !CPASSERT(SIZE(l_ctff) .EQ. SIZE(zet_ctff))
+      CPASSERT(SIZE(l_ctff) .EQ. SIZE(zet_ctff))
 
-      !ALLOCATE (zet_ctff_tmp(SIZE(zet_ctff)))
-      zet_ctff_tmp = zet_ctff
+      ALLOCATE (zet_ctff_tmp(SIZE(zet_ctff)))
+      zet_ctff_tmp(:) = zet_ctff(:)
 
       CALL get_minimax_coeff_v_gspace(n_minimax, cutoff, G_min, minimax_aw(:), E_mm)
       G_c = SQRT(2.0*cutoff)
@@ -281,25 +281,25 @@ CONTAINS
       ENDIF
       C = MAX(1.0_dp, C_mm)
 
-      err_ctff_prev = 0.0_dp
+      err_ctff_prev(:) = 0.0_dp
       gr = 0.5_dp*(SQRT(5.0_dp)-1.0_dp) ! golden ratio
-      !DO n = 1, SIZE(l_ctff)
+      DO n = 1, SIZE(l_ctff)
          ! Find valid starting values for golden section search
          DO iter = 1, max_iter+1
-            !err_ctff_curr = 0.0_dp
+            err_ctff_curr = 0.0_dp
             IF (iter .GT. max_iter) &
                CALL cp_abort(__LOCATION__, "Maximum number of iterations for finding "// &
                              "exponent maximizing cutoff error has been exceeded.")
 
-            CALL cutoff_error_fixed_exp(cutoff, h_inv, G_min, l_ctff, zet_ctff_tmp, C, err_ctff_curr, para_env)
-            IF (err_ctff_prev .GE. err_ctff_curr) THEN
-               zet_a = zet_ctff_tmp
-               zet_b = MIN(zet_ctff_tmp*zet_div**2, zet_ctff)
+            CALL cutoff_error_fixed_exp(cutoff, h_inv, G_min, l_ctff(n), zet_ctff_tmp(n), C, err_ctff_curr(n), para_env)
+            IF (err_ctff_prev(n) .GE. err_ctff_curr(n)) THEN
+               zet_a = zet_ctff_tmp(n)
+               zet_b = MIN(zet_ctff_tmp(n)*zet_div**2, zet_ctff(n))
                EXIT
             ELSE
-               err_ctff_prev = err_ctff_curr
+               err_ctff_prev(n) = err_ctff_curr(n)
             ENDIF
-            zet_ctff_tmp = zet_ctff_tmp/zet_div
+            zet_ctff_tmp(n) = zet_ctff_tmp(n)/zet_div
          ENDDO
 
          ! Golden section search
@@ -307,13 +307,13 @@ CONTAINS
          zet_d = zet_a+gr*(zet_b-zet_a)
          DO iter = 1, max_iter+1
             IF (ABS(zet_c-zet_d) .LT. eps_zet*(zet_a+zet_b)) THEN
-               CALL cutoff_error_fixed_exp(cutoff, h_inv, G_min, l_ctff, zet_a, C, err0, para_env)
-               CALL cutoff_error_fixed_exp(cutoff, h_inv, G_min, l_ctff, zet_b, C, err1, para_env)
-               err_ctff_curr = MAX(err0, err1)
+               CALL cutoff_error_fixed_exp(cutoff, h_inv, G_min, l_ctff(n), zet_a, C, err0, para_env)
+               CALL cutoff_error_fixed_exp(cutoff, h_inv, G_min, l_ctff(n), zet_b, C, err1, para_env)
+               err_ctff_curr(n) = MAX(err0, err1)
                EXIT
             ENDIF
-            CALL cutoff_error_fixed_exp(cutoff, h_inv, G_min, l_ctff, zet_c, C, err_c, para_env)
-            CALL cutoff_error_fixed_exp(cutoff, h_inv, G_min, l_ctff, zet_d, C, err_d, para_env)
+            CALL cutoff_error_fixed_exp(cutoff, h_inv, G_min, l_ctff(n), zet_c, C, err_c, para_env)
+            CALL cutoff_error_fixed_exp(cutoff, h_inv, G_min, l_ctff(n), zet_d, C, err_d, para_env)
             IF (err_c .GT. err_d) THEN
                zet_b = zet_d
                zet_d = zet_c
@@ -324,8 +324,8 @@ CONTAINS
                zet_d = zet_a+gr*(zet_b-zet_a)
             ENDIF
          ENDDO
-      !ENDDO
-      err_ctff = err_ctff_curr
+      ENDDO
+      err_ctff = MAXVAL(err_ctff_curr)
 
    END SUBROUTINE cutoff_minimax_error
 
