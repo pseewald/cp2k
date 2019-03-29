@@ -182,9 +182,9 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'mp2_gpw_main', routineP = moduleN//':'//routineN
 
       INTEGER :: blacs_grid_layout, color_sub, color_sub_3c, comm_sub, comm_sub_3c, dimen, &
-         dimen_RI, group_size_3c, gw_corr_lev_occ, gw_corr_lev_occ_beta, gw_corr_lev_virt, &
-         gw_corr_lev_virt_beta, handle, homo, homo_beta, i, i_multigrid, local_unit_nr, &
-         my_group_L_end, my_group_L_size, my_group_L_start, n_multigrid, nelectron, &
+         dimen_RI, group_size_3c, group_size_P, gw_corr_lev_occ, gw_corr_lev_occ_beta, &
+         gw_corr_lev_virt, gw_corr_lev_virt_beta, handle, homo, homo_beta, i, i_multigrid, &
+         local_unit_nr, my_group_L_end, my_group_L_size, my_group_L_start, n_multigrid, nelectron, &
          nelectron_beta, nmo, nspins, ri_metric, ri_metric_gw
       INTEGER, ALLOCATABLE, DIMENSION(:) :: ends_array, ends_array_mc_t, ends_B_all, &
          ends_B_occ_bse, ends_B_virt_bse, ends_B_virtual, ends_B_virtual_beta, sizes_array, &
@@ -693,11 +693,39 @@ CONTAINS
                blacs_env_sub_RPA => blacs_env_sub_im_time_3c
             END IF
 
-            CALL create_dbcsr_matrices_im_time(mat_munu, mat_P_local, mat_P_global, mat_M, mat_dm_occ_global_mao, &
-                                               mat_dm_virt_global_mao, mat_dm_occ_local, mat_dm_virt_local, &
-                                               do_mao, qs_env, mp2_env, para_env, dft_control, atomic_kind_set, qs_kind_set, &
-                                               atom2d, molecule_kind_set, molecule_set, particle_set, cell, &
-                                               para_env_sub_im_time_P, blacs_env_sub_RPA, sab_orb_all, do_dbcsr_t)
+            ! release sab_orb_all
+            DO i = 1, SIZE(sab_orb_all)
+               CALL deallocate_neighbor_list_set(sab_orb_all(i)%neighbor_list_set)
+            END DO
+            DEALLOCATE (sab_orb_all)
+
+            group_size_P = mp2_env%ri_rpa_im_time%group_size_P
+
+            IF (group_size_P > para_env%num_pe) THEN
+
+               group_size_P = para_env%num_pe
+               mp2_env%ri_rpa_im_time%group_size_P = para_env%num_pe
+
+            END IF
+
+            ! only allow group_size_P which is a factor of the total number of MPI tasks
+            CPASSERT(MODULO(para_env%num_pe, group_size_P) == 0)
+
+            mp2_env%ri_rpa_im_time_util(1)%n_group_P = para_env%num_pe/group_size_P
+
+            ! a para_env with P groups
+            mp2_env%ri_rpa_im_time_util(1)%color_sub_P = para_env%mepos/group_size_P
+
+            IF (do_dbcsr_t) THEN
+               CALL create_matrix_P(mat_P_global, qs_env, mp2_env, para_env, dft_control, atomic_kind_set, &
+                                    qs_kind_set, atom2d, molecule_kind_set, molecule_set, particle_set, cell)
+            ELSE
+               CALL create_dbcsr_matrices_im_time(mat_munu, mat_P_local, mat_P_global, mat_M, mat_dm_occ_global_mao, &
+                                                  mat_dm_virt_global_mao, mat_dm_occ_local, mat_dm_virt_local, &
+                                                  do_mao, qs_env, mp2_env, para_env, dft_control, atomic_kind_set, qs_kind_set, &
+                                                  atom2d, molecule_kind_set, molecule_set, particle_set, cell, &
+                                                  para_env_sub_im_time_P, blacs_env_sub_RPA)
+            ENDIF
 
             CALL cp_blacs_env_release(blacs_env_sub_im_time_3c)
 
@@ -2504,6 +2532,71 @@ CONTAINS
    END SUBROUTINE create_mat_munu
 
 ! **************************************************************************************************
+!> \brief ...
+!> \param mat_P_global ...
+!> \param qs_env ...
+!> \param mp2_env ...
+!> \param para_env ...
+!> \param dft_control ...
+!> \param atomic_kind_set ...
+!> \param qs_kind_set ...
+!> \param atom2d ...
+!> \param molecule_kind_set ...
+!> \param molecule_set ...
+!> \param particle_set ...
+!> \param cell ...
+! **************************************************************************************************
+   SUBROUTINE create_matrix_P(mat_P_global, qs_env, mp2_env, para_env, dft_control, atomic_kind_set, &
+                              qs_kind_set, atom2d, molecule_kind_set, molecule_set, particle_set, cell)
+
+      TYPE(dbcsr_p_type)                                 :: mat_P_global
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(mp2_type), POINTER                            :: mp2_env
+      TYPE(cp_para_env_type), POINTER                    :: para_env
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
+      TYPE(local_atoms_type), ALLOCATABLE, DIMENSION(:)  :: atom2d
+      TYPE(molecule_kind_type), DIMENSION(:), POINTER    :: molecule_kind_set
+      TYPE(molecule_type), DIMENSION(:), POINTER         :: molecule_set
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
+      TYPE(cell_type), POINTER                           :: cell
+
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'create_matrix_P', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: blacs_grid_layout, handle, i
+      LOGICAL                                            :: blacs_repeatable
+      TYPE(cp_blacs_env_type), POINTER                   :: blacs_env_global
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), &
+         POINTER                                         :: sab_orb_sub
+
+      CALL timeset(routineN, handle)
+
+      blacs_grid_layout = BLACS_GRID_SQUARE
+      blacs_repeatable = .TRUE.
+      NULLIFY (blacs_env_global)
+      CALL cp_blacs_env_create(blacs_env_global, para_env, &
+                               blacs_grid_layout, &
+                               blacs_repeatable)
+
+      CALL create_mat_munu(mat_P_global, qs_env, mp2_env, para_env, dft_control, &
+                           atomic_kind_set, qs_kind_set, atom2d, molecule_kind_set, &
+                           molecule_set, sab_orb_sub, particle_set, cell, blacs_env_global, &
+                           do_ri_aux_basis=.TRUE.)
+
+      CALL dbcsr_reserve_all_blocks(mat_P_global%matrix)
+      CALL cp_blacs_env_release(blacs_env_global)
+
+      DO i = 1, SIZE(sab_orb_sub)
+         CALL deallocate_neighbor_list_set(sab_orb_sub(i)%neighbor_list_set)
+      END DO
+      DEALLOCATE (sab_orb_sub)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE
+! **************************************************************************************************
 !> \brief Set up dbcsr matrices for imaginary time
 !> \param mat_munu ...
 !> \param mat_P_local ...
@@ -2527,15 +2620,14 @@ CONTAINS
 !> \param cell ...
 !> \param para_env_sub_im_time_P ...
 !> \param blacs_env_sub_im_time_3c ...
-!> \param sab_orb_all ...
-!> \param do_dbcsr_t ...
 !> \author Jan Wilhelm
 ! **************************************************************************************************
+! hello diff
    SUBROUTINE create_dbcsr_matrices_im_time(mat_munu, mat_P_local, mat_P_global, mat_M, mat_dm_occ_global_mao, &
                                             mat_dm_virt_global_mao, mat_dm_occ_local, mat_dm_virt_local, do_mao, &
                                             qs_env, mp2_env, para_env, dft_control, atomic_kind_set, qs_kind_set, &
                                             atom2d, molecule_kind_set, molecule_set, particle_set, cell, &
-                                            para_env_sub_im_time_P, blacs_env_sub_im_time_3c, sab_orb_all, do_dbcsr_t)
+                                            para_env_sub_im_time_P, blacs_env_sub_im_time_3c)
 
       TYPE(dbcsr_p_type) :: mat_munu, mat_P_local, mat_P_global, mat_M, mat_dm_occ_global_mao, &
          mat_dm_virt_global_mao, mat_dm_occ_local, mat_dm_virt_local
@@ -2553,9 +2645,6 @@ CONTAINS
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_para_env_type), POINTER                    :: para_env_sub_im_time_P
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env_sub_im_time_3c
-      TYPE(neighbor_list_set_p_type), DIMENSION(:), &
-         POINTER                                         :: sab_orb_all
-      LOGICAL, INTENT(IN)                                :: do_dbcsr_t
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'create_dbcsr_matrices_im_time', &
          routineP = moduleN//':'//routineN
@@ -2581,40 +2670,12 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      ! release sab_orb_all
-      DO i = 1, SIZE(sab_orb_all)
-         CALL deallocate_neighbor_list_set(sab_orb_all(i)%neighbor_list_set)
-      END DO
-      DEALLOCATE (sab_orb_all)
+      CALL create_mat_munu(mat_munu, qs_env, mp2_env, para_env, dft_control, atomic_kind_set, qs_kind_set, &
+                           atom2d, molecule_kind_set, &
+                           molecule_set, sab_orb_sub, particle_set, cell, blacs_env_sub_im_time_3c, &
+                           do_im_time=.TRUE.)
 
-      IF (.NOT. do_dbcsr_t) THEN
-         CALL create_mat_munu(mat_munu, qs_env, mp2_env, para_env, dft_control, atomic_kind_set, qs_kind_set, &
-                              atom2d, molecule_kind_set, &
-                              molecule_set, sab_orb_sub, particle_set, cell, blacs_env_sub_im_time_3c, &
-                              do_im_time=.TRUE.)
-      ENDIF
-
-!      CALL cp_blacs_env_release(blacs_env_sub_im_time_3c)
-
-      group_size_P = mp2_env%ri_rpa_im_time%group_size_P
-
-      IF (group_size_P > para_env%num_pe) THEN
-
-         group_size_P = para_env%num_pe
-         mp2_env%ri_rpa_im_time%group_size_P = para_env%num_pe
-
-      END IF
-
-      ! only allow group_size_P which is a factor of the total number of MPI tasks
-      CPASSERT(MODULO(para_env%num_pe, group_size_P) == 0)
-
-      n_group_P = para_env%num_pe/group_size_P
-      mp2_env%ri_rpa_im_time_util(1)%n_group_P = n_group_P
-
-      ! a para_env with P groups
-      color_sub_P = para_env%mepos/group_size_P
-      mp2_env%ri_rpa_im_time_util(1)%color_sub_P = color_sub_P
-
+      color_sub_P = mp2_env%ri_rpa_im_time_util(1)%color_sub_P
       CALL mp_comm_split_direct(para_env%group, comm_sub_P, color_sub_P)
       NULLIFY (para_env_sub_im_time_P)
       CALL cp_para_env_create(para_env_sub_im_time_P, comm_sub_P)
@@ -2627,281 +2688,304 @@ CONTAINS
                                blacs_grid_layout, &
                                blacs_repeatable)
 
-      IF (.NOT. do_dbcsr_t) THEN
-         DO i = 1, SIZE(sab_orb_sub)
-            CALL deallocate_neighbor_list_set(sab_orb_sub(i)%neighbor_list_set)
-         END DO
-         DEALLOCATE (sab_orb_sub)
-      ENDIF
+      DO i = 1, SIZE(sab_orb_sub)
+         CALL deallocate_neighbor_list_set(sab_orb_sub(i)%neighbor_list_set)
+      END DO
+      DEALLOCATE (sab_orb_sub)
 
-      IF (.NOT. do_dbcsr_t) THEN
-         CALL create_mat_munu(mat_P_local, qs_env, mp2_env, para_env, dft_control, &
-                              atomic_kind_set, qs_kind_set, atom2d, molecule_kind_set, &
-                              molecule_set, sab_orb_sub, particle_set, cell, blacs_env_sub_P, &
-                              do_ri_aux_basis=.TRUE.)
-      ENDIF
+      CALL create_mat_munu(mat_P_local, qs_env, mp2_env, para_env, dft_control, &
+                           atomic_kind_set, qs_kind_set, atom2d, molecule_kind_set, &
+                           molecule_set, sab_orb_sub, particle_set, cell, blacs_env_sub_P, &
+                           do_ri_aux_basis=.TRUE.)
 
-      IF (.NOT. do_dbcsr_t) THEN
-         ! fragment n_group_P in product of integers of similar size, n_group_row*n_group_col=n_group_P
-         ! employing Fermat's factorization method
-         CALL generate_integer_product(n_group_P, n_group_row, n_group_col)
+      group_size_P = mp2_env%ri_rpa_im_time%group_size_P
+      n_group_P = para_env%num_pe/group_size_P
+      ! fragment n_group_P in product of integers of similar size, n_group_row*n_group_col=n_group_P
+      ! employing Fermat's factorization method
+      CALL generate_integer_product(n_group_P, n_group_row, n_group_col)
 
-         ! get number of row and col blocks
-         CALL dbcsr_get_info(mat_munu%matrix, &
-                             nblkrows_total=nblkrows_total, &
-                             row_blk_size=row_blk_sizes_prim, &
-                             col_blk_size=col_blk_sizes_prim, &
-                             row_blk_offset=row_blk_offset, &
-                             col_blk_offset=col_blk_offset, &
-                             nfullrows_total=nfullrows_total, &
-                             nfullcols_total=nfullcols_total)
+      ! get number of row and col blocks
+      CALL dbcsr_get_info(mat_munu%matrix, &
+                          nblkrows_total=nblkrows_total, &
+                          row_blk_size=row_blk_sizes_prim, &
+                          col_blk_size=col_blk_sizes_prim, &
+                          row_blk_offset=row_blk_offset, &
+                          col_blk_offset=col_blk_offset, &
+                          nfullrows_total=nfullrows_total, &
+                          nfullcols_total=nfullcols_total)
 
-         ! mat_munu has to be square matrix
-         CPASSERT(nfullrows_total == nfullcols_total)
+      ! mat_munu has to be square matrix
+      CPASSERT(nfullrows_total == nfullcols_total)
 
-         ! cut the memory of mat_M
-         cut_memory = mp2_env%ri_rpa_im_time%cut_memory
+      ! cut the memory of mat_M
+      cut_memory = mp2_env%ri_rpa_im_time%cut_memory
 
-         ! here: memory_cut
-         ALLOCATE (mp2_env%ri_rpa_im_time%sizes_array_cm(cut_memory))
-         mp2_env%ri_rpa_im_time%sizes_array_cm(:) = 0
-         ALLOCATE (mp2_env%ri_rpa_im_time%starts_array_cm(cut_memory))
-         mp2_env%ri_rpa_im_time%starts_array_cm(:) = 0
-         ALLOCATE (mp2_env%ri_rpa_im_time%ends_array_cm(cut_memory))
-         mp2_env%ri_rpa_im_time%ends_array_cm(:) = 0
+      ! here: memory_cut
+      ALLOCATE (mp2_env%ri_rpa_im_time%sizes_array_cm(cut_memory))
+      mp2_env%ri_rpa_im_time%sizes_array_cm(:) = 0
+      ALLOCATE (mp2_env%ri_rpa_im_time%starts_array_cm(cut_memory))
+      mp2_env%ri_rpa_im_time%starts_array_cm(:) = 0
+      ALLOCATE (mp2_env%ri_rpa_im_time%ends_array_cm(cut_memory))
+      mp2_env%ri_rpa_im_time%ends_array_cm(:) = 0
 
-         ! when doing maos, we need a memory cut for the occ dm and the virt dm
-         ALLOCATE (mp2_env%ri_rpa_im_time%sizes_array_cm_mao_occ(cut_memory))
-         mp2_env%ri_rpa_im_time%sizes_array_cm_mao_occ(:) = 0
-         ALLOCATE (mp2_env%ri_rpa_im_time%starts_array_cm_mao_occ(cut_memory))
-         mp2_env%ri_rpa_im_time%starts_array_cm_mao_occ(:) = 0
-         ALLOCATE (mp2_env%ri_rpa_im_time%ends_array_cm_mao_occ(cut_memory))
-         mp2_env%ri_rpa_im_time%ends_array_cm_mao_occ(:) = 0
+      ! when doing maos, we need a memory cut for the occ dm and the virt dm
+      ALLOCATE (mp2_env%ri_rpa_im_time%sizes_array_cm_mao_occ(cut_memory))
+      mp2_env%ri_rpa_im_time%sizes_array_cm_mao_occ(:) = 0
+      ALLOCATE (mp2_env%ri_rpa_im_time%starts_array_cm_mao_occ(cut_memory))
+      mp2_env%ri_rpa_im_time%starts_array_cm_mao_occ(:) = 0
+      ALLOCATE (mp2_env%ri_rpa_im_time%ends_array_cm_mao_occ(cut_memory))
+      mp2_env%ri_rpa_im_time%ends_array_cm_mao_occ(:) = 0
 
-         ALLOCATE (mp2_env%ri_rpa_im_time%sizes_array_cm_mao_virt(cut_memory))
-         mp2_env%ri_rpa_im_time%sizes_array_cm_mao_virt(:) = 0
-         ALLOCATE (mp2_env%ri_rpa_im_time%starts_array_cm_mao_virt(cut_memory))
-         mp2_env%ri_rpa_im_time%starts_array_cm_mao_virt(:) = 0
-         ALLOCATE (mp2_env%ri_rpa_im_time%ends_array_cm_mao_virt(cut_memory))
-         mp2_env%ri_rpa_im_time%ends_array_cm_mao_virt(:) = 0
+      ALLOCATE (mp2_env%ri_rpa_im_time%sizes_array_cm_mao_virt(cut_memory))
+      mp2_env%ri_rpa_im_time%sizes_array_cm_mao_virt(:) = 0
+      ALLOCATE (mp2_env%ri_rpa_im_time%starts_array_cm_mao_virt(cut_memory))
+      mp2_env%ri_rpa_im_time%starts_array_cm_mao_virt(:) = 0
+      ALLOCATE (mp2_env%ri_rpa_im_time%ends_array_cm_mao_virt(cut_memory))
+      mp2_env%ri_rpa_im_time%ends_array_cm_mao_virt(:) = 0
 
-         ngroup = cut_memory
+      ngroup = cut_memory
 
+      DO igroup = 1, ngroup
+
+         itmp = get_limit(nfullrows_total, ngroup, igroup-1)
+
+         CALL get_start_end_size_indx(mp2_env%ri_rpa_im_time%starts_array_cm(igroup), &
+                                      mp2_env%ri_rpa_im_time%ends_array_cm(igroup), &
+                                      mp2_env%ri_rpa_im_time%sizes_array_cm(igroup), &
+                                      nblkrows_total, itmp(1), itmp(2), row_blk_offset, row_blk_sizes_prim)
+
+      ENDDO
+
+      IF (do_mao) THEN
+
+         CALL dbcsr_get_info(mat_dm_occ_global_mao%matrix, &
+                             row_blk_size=blk_sizes_mao_occ, &
+                             nfullrows_total=size_mao_occ, &
+                             nblkrows_total=nblkrows_total_mao_occ, &
+                             row_blk_offset=blk_offset_mao_occ)
+
+         row_blk_sizes_prim => blk_sizes_mao_occ
+         row_blk_offset => blk_offset_mao_occ
+
+         CALL dbcsr_get_info(mat_dm_virt_global_mao%matrix, &
+                             row_blk_size=blk_sizes_mao_virt, &
+                             nfullrows_total=size_mao_virt, &
+                             nblkrows_total=nblkrows_total_mao_virt, &
+                             row_blk_offset=blk_offset_mao_virt)
+
+         col_blk_sizes_prim => blk_sizes_mao_virt
+         col_blk_offset => blk_offset_mao_virt
+
+         ! the same for MAOs for occ and virt
          DO igroup = 1, ngroup
 
-            itmp = get_limit(nfullrows_total, ngroup, igroup-1)
+            itmp = get_limit(size_mao_occ, ngroup, igroup-1)
 
-            CALL get_start_end_size_indx(mp2_env%ri_rpa_im_time%starts_array_cm(igroup), &
-                                         mp2_env%ri_rpa_im_time%ends_array_cm(igroup), &
-                                         mp2_env%ri_rpa_im_time%sizes_array_cm(igroup), &
-                                         nblkrows_total, itmp(1), itmp(2), row_blk_offset, row_blk_sizes_prim)
+            CALL get_start_end_size_indx(mp2_env%ri_rpa_im_time%starts_array_cm_mao_occ(igroup), &
+                                         mp2_env%ri_rpa_im_time%ends_array_cm_mao_occ(igroup), &
+                                         mp2_env%ri_rpa_im_time%sizes_array_cm_mao_occ(igroup), &
+                                         nblkrows_total_mao_occ, itmp(1), itmp(2), &
+                                         blk_offset_mao_occ, blk_sizes_mao_occ)
 
          ENDDO
 
-         IF (do_mao) THEN
+         DO igroup = 1, ngroup
 
-            CALL dbcsr_get_info(mat_dm_occ_global_mao%matrix, &
-                                row_blk_size=blk_sizes_mao_occ, &
-                                nfullrows_total=size_mao_occ, &
-                                nblkrows_total=nblkrows_total_mao_occ, &
-                                row_blk_offset=blk_offset_mao_occ)
+            itmp = get_limit(size_mao_virt, ngroup, igroup-1)
 
-            row_blk_sizes_prim => blk_sizes_mao_occ
-            row_blk_offset => blk_offset_mao_occ
+            CALL get_start_end_size_indx(mp2_env%ri_rpa_im_time%starts_array_cm_mao_virt(igroup), &
+                                         mp2_env%ri_rpa_im_time%ends_array_cm_mao_virt(igroup), &
+                                         mp2_env%ri_rpa_im_time%sizes_array_cm_mao_virt(igroup), &
+                                         nblkrows_total_mao_virt, itmp(1), itmp(2), &
+                                         blk_offset_mao_virt, blk_sizes_mao_virt)
 
-            CALL dbcsr_get_info(mat_dm_virt_global_mao%matrix, &
-                                row_blk_size=blk_sizes_mao_virt, &
-                                nfullrows_total=size_mao_virt, &
-                                nblkrows_total=nblkrows_total_mao_virt, &
-                                row_blk_offset=blk_offset_mao_virt)
+         ENDDO
 
-            col_blk_sizes_prim => blk_sizes_mao_virt
-            col_blk_offset => blk_offset_mao_virt
+      ELSE
 
-            ! the same for MAOs for occ and virt
-            DO igroup = 1, ngroup
+         mp2_env%ri_rpa_im_time%sizes_array_cm_mao_occ(:) = mp2_env%ri_rpa_im_time%sizes_array_cm(:)
+         mp2_env%ri_rpa_im_time%starts_array_cm_mao_occ(:) = mp2_env%ri_rpa_im_time%starts_array_cm(:)
+         mp2_env%ri_rpa_im_time%ends_array_cm_mao_occ(:) = mp2_env%ri_rpa_im_time%ends_array_cm(:)
 
-               itmp = get_limit(size_mao_occ, ngroup, igroup-1)
+         mp2_env%ri_rpa_im_time%sizes_array_cm_mao_virt(:) = mp2_env%ri_rpa_im_time%sizes_array_cm(:)
+         mp2_env%ri_rpa_im_time%starts_array_cm_mao_virt(:) = mp2_env%ri_rpa_im_time%starts_array_cm(:)
+         mp2_env%ri_rpa_im_time%ends_array_cm_mao_virt(:) = mp2_env%ri_rpa_im_time%ends_array_cm(:)
 
-               CALL get_start_end_size_indx(mp2_env%ri_rpa_im_time%starts_array_cm_mao_occ(igroup), &
-                                            mp2_env%ri_rpa_im_time%ends_array_cm_mao_occ(igroup), &
-                                            mp2_env%ri_rpa_im_time%sizes_array_cm_mao_occ(igroup), &
-                                            nblkrows_total_mao_occ, itmp(1), itmp(2), &
-                                            blk_offset_mao_occ, blk_sizes_mao_occ)
+      END IF
 
-            ENDDO
+      ! Cut n_group_row
+      ngroup = n_group_row
+      mp2_env%ri_rpa_im_time_util(1)%color_sub_row = color_sub_P/n_group_col
+      mp2_env%ri_rpa_im_time_util(1)%n_group_row = n_group_row
 
-            DO igroup = 1, ngroup
+      DO i_mem = 1, cut_memory
 
-               itmp = get_limit(size_mao_virt, ngroup, igroup-1)
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(0:ngroup-1))
+         mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row = 0
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(0:ngroup-1))
+         mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row = 0
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row(0:ngroup-1))
+         mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row = 0
 
-               CALL get_start_end_size_indx(mp2_env%ri_rpa_im_time%starts_array_cm_mao_virt(igroup), &
-                                            mp2_env%ri_rpa_im_time%ends_array_cm_mao_virt(igroup), &
-                                            mp2_env%ri_rpa_im_time%sizes_array_cm_mao_virt(igroup), &
-                                            nblkrows_total_mao_virt, itmp(1), itmp(2), &
-                                            blk_offset_mao_virt, blk_sizes_mao_virt)
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow(0:ngroup-1))
+         mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow = 0
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(0:ngroup-1))
+         mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow = 0
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(0:ngroup-1))
+         mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow = 0
 
-            ENDDO
+         DO igroup = 0, ngroup-1
 
-         ELSE
+            nfullrows_to_split = mp2_env%ri_rpa_im_time%sizes_array_cm_mao_occ(i_mem)
 
-            mp2_env%ri_rpa_im_time%sizes_array_cm_mao_occ(:) = mp2_env%ri_rpa_im_time%sizes_array_cm(:)
-            mp2_env%ri_rpa_im_time%starts_array_cm_mao_occ(:) = mp2_env%ri_rpa_im_time%starts_array_cm(:)
-            mp2_env%ri_rpa_im_time%ends_array_cm_mao_occ(:) = mp2_env%ri_rpa_im_time%ends_array_cm(:)
+            itmp = get_limit(nfullrows_to_split, ngroup, igroup)
 
-            mp2_env%ri_rpa_im_time%sizes_array_cm_mao_virt(:) = mp2_env%ri_rpa_im_time%sizes_array_cm(:)
-            mp2_env%ri_rpa_im_time%starts_array_cm_mao_virt(:) = mp2_env%ri_rpa_im_time%starts_array_cm(:)
-            mp2_env%ri_rpa_im_time%ends_array_cm_mao_virt(:) = mp2_env%ri_rpa_im_time%ends_array_cm(:)
+            IF (i_mem == 1) THEN
 
-         END IF
+               mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(igroup) = itmp(1)
+               mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(igroup) = itmp(2)
+               mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow(igroup) = itmp(2)-itmp(1)+1
 
-         ! Cut n_group_row
-         ngroup = n_group_row
-         mp2_env%ri_rpa_im_time_util(1)%color_sub_row = color_sub_P/n_group_col
-         mp2_env%ri_rpa_im_time_util(1)%n_group_row = n_group_row
+               CALL get_blk_from_indx(indx=itmp(1), blk=blk_start, blk_offset=row_blk_offset, blk_sizes=row_blk_sizes_prim)
+               CALL get_blk_from_indx(indx=itmp(2), blk=blk_end, blk_offset=row_blk_offset, blk_sizes=row_blk_sizes_prim)
 
-         DO i_mem = 1, cut_memory
+               mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(igroup) = blk_start
+               mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row(igroup) = blk_end
+               mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(igroup) = blk_end-blk_start+1
 
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(0:ngroup-1))
-            mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(0:ngroup-1))
-            mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row(0:ngroup-1))
-            mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row = 0
+            ELSE
 
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow(0:ngroup-1))
-            mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(0:ngroup-1))
-            mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(0:ngroup-1))
-            mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow = 0
+               offset_fullrow = mp2_env%ri_rpa_im_time_util(i_mem-1)%ends_array_prim_fullrow(ngroup-1)
 
-            DO igroup = 0, ngroup-1
+               mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(igroup) = itmp(1)+offset_fullrow
+               mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(igroup) = itmp(2)+offset_fullrow
+               mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow(igroup) = itmp(2)-itmp(1)+1
 
-               nfullrows_to_split = mp2_env%ri_rpa_im_time%sizes_array_cm_mao_occ(i_mem)
+               CALL get_blk_from_indx(indx=(itmp(1)+offset_fullrow), blk=blk_start, &
+                                      blk_offset=row_blk_offset, blk_sizes=row_blk_sizes_prim)
+               CALL get_blk_from_indx(indx=(itmp(2)+offset_fullrow), blk=blk_end, &
+                                      blk_offset=row_blk_offset, blk_sizes=row_blk_sizes_prim)
 
-               itmp = get_limit(nfullrows_to_split, ngroup, igroup)
+               mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(igroup) = blk_start
+               mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row(igroup) = blk_end
+               mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(igroup) = blk_end-blk_start+1
 
-               IF (i_mem == 1) THEN
+            END IF
 
-                  mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(igroup) = itmp(1)
-                  mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(igroup) = itmp(2)
-                  mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow(igroup) = itmp(2)-itmp(1)+1
+         ENDDO
 
-                  CALL get_blk_from_indx(indx=itmp(1), blk=blk_start, blk_offset=row_blk_offset, blk_sizes=row_blk_sizes_prim)
-                  CALL get_blk_from_indx(indx=itmp(2), blk=blk_end, blk_offset=row_blk_offset, blk_sizes=row_blk_sizes_prim)
+      END DO
 
-                  mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(igroup) = blk_start
-                  mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row(igroup) = blk_end
-                  mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(igroup) = blk_end-blk_start+1
+      ! Cut n_group_col
+      ngroup = n_group_col
+      mp2_env%ri_rpa_im_time_util(1)%color_sub_col = MODULO(color_sub_P, n_group_col)
+      mp2_env%ri_rpa_im_time_util(1)%n_group_col = n_group_col
 
-               ELSE
+      DO j_mem = 1, cut_memory
 
-                  offset_fullrow = mp2_env%ri_rpa_im_time_util(i_mem-1)%ends_array_prim_fullrow(ngroup-1)
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(0:ngroup-1))
+         mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col = 0
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(0:ngroup-1))
+         mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col = 0
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col(0:ngroup-1))
+         mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col = 0
 
-                  mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(igroup) = itmp(1)+offset_fullrow
-                  mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(igroup) = itmp(2)+offset_fullrow
-                  mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_fullrow(igroup) = itmp(2)-itmp(1)+1
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol(0:ngroup-1))
+         mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol = 0
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(0:ngroup-1))
+         mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol = 0
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(0:ngroup-1))
+         mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol = 0
 
-                  CALL get_blk_from_indx(indx=(itmp(1)+offset_fullrow), blk=blk_start, &
-                                         blk_offset=row_blk_offset, blk_sizes=row_blk_sizes_prim)
-                  CALL get_blk_from_indx(indx=(itmp(2)+offset_fullrow), blk=blk_end, &
-                                         blk_offset=row_blk_offset, blk_sizes=row_blk_sizes_prim)
+         DO igroup = 0, ngroup-1
 
-                  mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(igroup) = blk_start
-                  mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_row(igroup) = blk_end
-                  mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(igroup) = blk_end-blk_start+1
+            nfullcols_to_split = mp2_env%ri_rpa_im_time%sizes_array_cm_mao_virt(j_mem)
 
-               END IF
+            itmp = get_limit(nfullcols_to_split, ngroup, igroup)
 
-            ENDDO
+            IF (j_mem == 1) THEN
 
-         END DO
+               mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(igroup) = itmp(1)
+               mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(igroup) = itmp(2)
+               mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol(igroup) = itmp(2)-itmp(1)+1
 
-         ! Cut n_group_col
-         ngroup = n_group_col
-         mp2_env%ri_rpa_im_time_util(1)%color_sub_col = MODULO(color_sub_P, n_group_col)
-         mp2_env%ri_rpa_im_time_util(1)%n_group_col = n_group_col
+               CALL get_blk_from_indx(indx=itmp(1), blk=blk_start, blk_offset=col_blk_offset, blk_sizes=col_blk_sizes_prim)
+               CALL get_blk_from_indx(indx=itmp(2), blk=blk_end, blk_offset=col_blk_offset, blk_sizes=col_blk_sizes_prim)
 
-         DO j_mem = 1, cut_memory
+               mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(igroup) = blk_start
+               mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col(igroup) = blk_end
+               mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(igroup) = blk_end-blk_start+1
 
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(0:ngroup-1))
-            mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(0:ngroup-1))
-            mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col(0:ngroup-1))
-            mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col = 0
+            ELSE
 
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol(0:ngroup-1))
-            mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(0:ngroup-1))
-            mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(0:ngroup-1))
-            mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol = 0
+               offset_fullcol = mp2_env%ri_rpa_im_time_util(j_mem-1)%ends_array_prim_fullcol(ngroup-1)
 
-            DO igroup = 0, ngroup-1
+               mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(igroup) = itmp(1)+offset_fullcol
+               mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(igroup) = itmp(2)+offset_fullcol
+               mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol(igroup) = itmp(2)-itmp(1)+1
 
-               nfullcols_to_split = mp2_env%ri_rpa_im_time%sizes_array_cm_mao_virt(j_mem)
+               CALL get_blk_from_indx(indx=(itmp(1)+offset_fullcol), blk=blk_start, &
+                                      blk_offset=col_blk_offset, blk_sizes=col_blk_sizes_prim)
+               CALL get_blk_from_indx(indx=(itmp(2)+offset_fullcol), blk=blk_end, &
+                                      blk_offset=col_blk_offset, blk_sizes=col_blk_sizes_prim)
 
-               itmp = get_limit(nfullcols_to_split, ngroup, igroup)
+               mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(igroup) = blk_start
+               mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col(igroup) = blk_end
+               mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(igroup) = blk_end-blk_start+1
 
-               IF (j_mem == 1) THEN
+            END IF
 
-                  mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(igroup) = itmp(1)
-                  mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(igroup) = itmp(2)
-                  mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol(igroup) = itmp(2)-itmp(1)+1
+         ENDDO
 
-                  CALL get_blk_from_indx(indx=itmp(1), blk=blk_start, blk_offset=col_blk_offset, blk_sizes=col_blk_sizes_prim)
-                  CALL get_blk_from_indx(indx=itmp(2), blk=blk_end, blk_offset=col_blk_offset, blk_sizes=col_blk_sizes_prim)
+      END DO
 
-                  mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(igroup) = blk_start
-                  mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col(igroup) = blk_end
-                  mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(igroup) = blk_end-blk_start+1
+      color_sub_row = mp2_env%ri_rpa_im_time_util(1)%color_sub_row
+      color_sub_col = mp2_env%ri_rpa_im_time_util(1)%color_sub_col
 
-               ELSE
+      CALL dbcsr_get_info(mat_P_local%matrix, &
+                          nblkrows_total=nblkrows_RI, &
+                          row_blk_size=row_blk_sizes)
 
-                  offset_fullcol = mp2_env%ri_rpa_im_time_util(j_mem-1)%ends_array_prim_fullcol(ngroup-1)
+      DO i_mem = 1, cut_memory
 
-                  mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(igroup) = itmp(1)+offset_fullcol
-                  mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(igroup) = itmp(2)+offset_fullcol
-                  mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_fullcol(igroup) = itmp(2)-itmp(1)+1
+         n_local_row_prim = mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(color_sub_row)
+         row_start_local = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(color_sub_row)
+         row_end_local = row_start_local+n_local_row_prim-1
 
-                  CALL get_blk_from_indx(indx=(itmp(1)+offset_fullcol), blk=blk_start, &
-                                         blk_offset=col_blk_offset, blk_sizes=col_blk_sizes_prim)
-                  CALL get_blk_from_indx(indx=(itmp(2)+offset_fullcol), blk=blk_end, &
-                                         blk_offset=col_blk_offset, blk_sizes=col_blk_sizes_prim)
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%start_row_data_block(row_start_local: &
+                                                                           row_start_local+n_local_row_prim-1))
+         mp2_env%ri_rpa_im_time_util(i_mem)%start_row_data_block = 0
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%end_row_data_block(row_start_local: &
+                                                                         row_start_local+n_local_row_prim-1))
+         mp2_env%ri_rpa_im_time_util(i_mem)%end_row_data_block = 0
 
-                  mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(igroup) = blk_start
-                  mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_col(igroup) = blk_end
-                  mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(igroup) = blk_end-blk_start+1
+      END DO
 
-               END IF
+      DO j_mem = 1, cut_memory
 
-            ENDDO
+         n_local_col_prim = mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(color_sub_col)
+         col_start_local = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(color_sub_col)
+         col_end_local = col_start_local+n_local_col_prim-1
 
-         END DO
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%start_col_data_block(col_start_local: &
+                                                                           col_start_local+n_local_col_prim-1))
+         mp2_env%ri_rpa_im_time_util(j_mem)%start_col_data_block = 0
+         ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%end_col_data_block(col_start_local: &
+                                                                         col_start_local+n_local_col_prim-1))
+         mp2_env%ri_rpa_im_time_util(j_mem)%end_col_data_block = 0
 
-         color_sub_row = mp2_env%ri_rpa_im_time_util(1)%color_sub_row
-         color_sub_col = mp2_env%ri_rpa_im_time_util(1)%color_sub_col
+      END DO
 
-         CALL dbcsr_get_info(mat_P_local%matrix, &
-                             nblkrows_total=nblkrows_RI, &
-                             row_blk_size=row_blk_sizes)
+      ALLOCATE (col_blk_sizes_cut_memory(cut_memory, cut_memory))
+      col_blk_sizes_cut_memory(:, :) = 0
 
-         DO i_mem = 1, cut_memory
+      ALLOCATE (mp2_env%ri_rpa_im_time_2d_util(cut_memory, cut_memory))
 
-            n_local_row_prim = mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(color_sub_row)
-            row_start_local = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(color_sub_row)
-            row_end_local = row_start_local+n_local_row_prim-1
+      DO i_mem = 1, cut_memory
 
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%start_row_data_block(row_start_local: &
-                                                                              row_start_local+n_local_row_prim-1))
-            mp2_env%ri_rpa_im_time_util(i_mem)%start_row_data_block = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(i_mem)%end_row_data_block(row_start_local: &
-                                                                            row_start_local+n_local_row_prim-1))
-            mp2_env%ri_rpa_im_time_util(i_mem)%end_row_data_block = 0
-
-         END DO
+         n_local_row_prim = mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(color_sub_row)
+         row_start_local = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(color_sub_row)
+         row_end_local = row_start_local+n_local_row_prim-1
 
          DO j_mem = 1, cut_memory
 
@@ -2909,125 +2993,96 @@ CONTAINS
             col_start_local = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(color_sub_col)
             col_end_local = col_start_local+n_local_col_prim-1
 
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%start_col_data_block(col_start_local: &
-                                                                              col_start_local+n_local_col_prim-1))
-            mp2_env%ri_rpa_im_time_util(j_mem)%start_col_data_block = 0
-            ALLOCATE (mp2_env%ri_rpa_im_time_util(j_mem)%end_col_data_block(col_start_local: &
-                                                                            col_start_local+n_local_col_prim-1))
-            mp2_env%ri_rpa_im_time_util(j_mem)%end_col_data_block = 0
+            ALLOCATE (mp2_env%ri_rpa_im_time_2d_util(i_mem, j_mem)%offset_combi_block( &
+                      row_start_local:row_start_local+n_local_row_prim-1, &
+                      col_start_local:col_start_local+n_local_col_prim-1))
+            mp2_env%ri_rpa_im_time_2d_util(i_mem, j_mem)%offset_combi_block = 0
 
-         END DO
+            DO icol = 1, n_local_row_prim*n_local_col_prim
 
-         ALLOCATE (col_blk_sizes_cut_memory(cut_memory, cut_memory))
-         col_blk_sizes_cut_memory(:, :) = 0
+               ref_row = (icol-1)/n_local_col_prim+1+row_start_local-1
 
-         ALLOCATE (mp2_env%ri_rpa_im_time_2d_util(cut_memory, cut_memory))
+               ref_col = MODULO(icol-1, n_local_col_prim)+1+col_start_local-1
 
-         DO i_mem = 1, cut_memory
+               IF (ref_row == row_start_local) THEN
+                  start_row = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(color_sub_row)
+                  end_row = row_blk_offset(ref_row)+row_blk_sizes_prim(ref_row)-1
+                  size_row = end_row-start_row+1
+                  end_row_data_block = row_blk_sizes_prim(ref_row)
+                  start_row_data_block = end_row_data_block-size_row+1
+               ELSE IF (ref_row == row_end_local) THEN
+                  start_row = row_blk_offset(ref_row)
+                  end_row = mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(color_sub_row)
+                  size_row = end_row-start_row+1
+                  start_row_data_block = 1
+                  end_row_data_block = size_row
+               ELSE
+                  size_row = row_blk_sizes_prim(ref_row)
+                  start_row_data_block = 1
+                  end_row_data_block = size_row
+               END IF
 
-            n_local_row_prim = mp2_env%ri_rpa_im_time_util(i_mem)%sizes_array_prim_row(color_sub_row)
-            row_start_local = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_row(color_sub_row)
-            row_end_local = row_start_local+n_local_row_prim-1
+               ! overwrite the whole stuff when only one block for local indices
+               IF (row_start_local == row_end_local) THEN
+                  start_row = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(color_sub_row)
+                  end_row = mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(color_sub_row)
+                  size_row = end_row-start_row+1
+                  start_row_data_block = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(color_sub_row)- &
+                                         row_blk_offset(ref_row)+1
+                  end_row_data_block = start_row_data_block+size_row-1
+               END IF
 
-            DO j_mem = 1, cut_memory
+               mp2_env%ri_rpa_im_time_util(i_mem)%start_row_data_block(ref_row) = start_row_data_block
+               mp2_env%ri_rpa_im_time_util(i_mem)%end_row_data_block(ref_row) = end_row_data_block
 
-               n_local_col_prim = mp2_env%ri_rpa_im_time_util(j_mem)%sizes_array_prim_col(color_sub_col)
-               col_start_local = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_col(color_sub_col)
-               col_end_local = col_start_local+n_local_col_prim-1
+               IF (ref_col == col_start_local) THEN
+                  start_col = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(color_sub_col)
+                  end_col = col_blk_offset(ref_col)+col_blk_sizes_prim(ref_col)-1
+                  size_col = end_col-start_col+1
+                  end_col_data_block = col_blk_sizes_prim(ref_col)
+                  start_col_data_block = end_col_data_block-size_col+1
+               ELSE IF (ref_col == col_end_local) THEN
+                  start_col = col_blk_offset(ref_col)
+                  end_col = mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(color_sub_col)
+                  size_col = end_col-start_col+1
+                  start_col_data_block = 1
+                  end_col_data_block = size_col
+               ELSE
+                  size_col = col_blk_sizes_prim(ref_col)
+                  start_col_data_block = 1
+                  end_col_data_block = size_col
+               END IF
 
-               ALLOCATE (mp2_env%ri_rpa_im_time_2d_util(i_mem, j_mem)%offset_combi_block( &
-                         row_start_local:row_start_local+n_local_row_prim-1, &
-                         col_start_local:col_start_local+n_local_col_prim-1))
-               mp2_env%ri_rpa_im_time_2d_util(i_mem, j_mem)%offset_combi_block = 0
+               IF (col_start_local == col_end_local) THEN
+                  start_col = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(color_sub_col)
+                  end_col = mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(color_sub_col)
+                  size_col = end_col-start_col+1
+                  start_col_data_block = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(color_sub_col)- &
+                                         col_blk_offset(ref_col)+1
+                  end_col_data_block = start_col_data_block+size_col-1
+               END IF
 
-               DO icol = 1, n_local_row_prim*n_local_col_prim
+               mp2_env%ri_rpa_im_time_util(j_mem)%start_col_data_block(ref_col) = start_col_data_block
+               mp2_env%ri_rpa_im_time_util(j_mem)%end_col_data_block(ref_col) = end_col_data_block
 
-                  ref_row = (icol-1)/n_local_col_prim+1+row_start_local-1
+               mp2_env%ri_rpa_im_time_2d_util(i_mem, j_mem)%offset_combi_block(ref_row, ref_col) = &
+                  col_blk_sizes_cut_memory(i_mem, j_mem)
 
-                  ref_col = MODULO(icol-1, n_local_col_prim)+1+col_start_local-1
-
-                  IF (ref_row == row_start_local) THEN
-                     start_row = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(color_sub_row)
-                     end_row = row_blk_offset(ref_row)+row_blk_sizes_prim(ref_row)-1
-                     size_row = end_row-start_row+1
-                     end_row_data_block = row_blk_sizes_prim(ref_row)
-                     start_row_data_block = end_row_data_block-size_row+1
-                  ELSE IF (ref_row == row_end_local) THEN
-                     start_row = row_blk_offset(ref_row)
-                     end_row = mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(color_sub_row)
-                     size_row = end_row-start_row+1
-                     start_row_data_block = 1
-                     end_row_data_block = size_row
-                  ELSE
-                     size_row = row_blk_sizes_prim(ref_row)
-                     start_row_data_block = 1
-                     end_row_data_block = size_row
-                  END IF
-
-                  ! overwrite the whole stuff when only one block for local indices
-                  IF (row_start_local == row_end_local) THEN
-                     start_row = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(color_sub_row)
-                     end_row = mp2_env%ri_rpa_im_time_util(i_mem)%ends_array_prim_fullrow(color_sub_row)
-                     size_row = end_row-start_row+1
-                     start_row_data_block = mp2_env%ri_rpa_im_time_util(i_mem)%starts_array_prim_fullrow(color_sub_row)- &
-                                            row_blk_offset(ref_row)+1
-                     end_row_data_block = start_row_data_block+size_row-1
-                  END IF
-
-                  mp2_env%ri_rpa_im_time_util(i_mem)%start_row_data_block(ref_row) = start_row_data_block
-                  mp2_env%ri_rpa_im_time_util(i_mem)%end_row_data_block(ref_row) = end_row_data_block
-
-                  IF (ref_col == col_start_local) THEN
-                     start_col = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(color_sub_col)
-                     end_col = col_blk_offset(ref_col)+col_blk_sizes_prim(ref_col)-1
-                     size_col = end_col-start_col+1
-                     end_col_data_block = col_blk_sizes_prim(ref_col)
-                     start_col_data_block = end_col_data_block-size_col+1
-                  ELSE IF (ref_col == col_end_local) THEN
-                     start_col = col_blk_offset(ref_col)
-                     end_col = mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(color_sub_col)
-                     size_col = end_col-start_col+1
-                     start_col_data_block = 1
-                     end_col_data_block = size_col
-                  ELSE
-                     size_col = col_blk_sizes_prim(ref_col)
-                     start_col_data_block = 1
-                     end_col_data_block = size_col
-                  END IF
-
-                  IF (col_start_local == col_end_local) THEN
-                     start_col = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(color_sub_col)
-                     end_col = mp2_env%ri_rpa_im_time_util(j_mem)%ends_array_prim_fullcol(color_sub_col)
-                     size_col = end_col-start_col+1
-                     start_col_data_block = mp2_env%ri_rpa_im_time_util(j_mem)%starts_array_prim_fullcol(color_sub_col)- &
-                                            col_blk_offset(ref_col)+1
-                     end_col_data_block = start_col_data_block+size_col-1
-                  END IF
-
-                  mp2_env%ri_rpa_im_time_util(j_mem)%start_col_data_block(ref_col) = start_col_data_block
-                  mp2_env%ri_rpa_im_time_util(j_mem)%end_col_data_block(ref_col) = end_col_data_block
-
-                  mp2_env%ri_rpa_im_time_2d_util(i_mem, j_mem)%offset_combi_block(ref_row, ref_col) = &
-                     col_blk_sizes_cut_memory(i_mem, j_mem)
-
-                  col_blk_sizes_cut_memory(i_mem, j_mem) = col_blk_sizes_cut_memory(i_mem, j_mem)+size_row*size_col
-
-               END DO
+               col_blk_sizes_cut_memory(i_mem, j_mem) = col_blk_sizes_cut_memory(i_mem, j_mem)+size_row*size_col
 
             END DO
 
          END DO
 
-         ALLOCATE (max_col_blk_sizes(1))
-         max_col_blk_sizes(1) = MAXVAL(col_blk_sizes_cut_memory)
+      END DO
 
-         IF (.NOT. do_dbcsr_t) THEN
-            CALL create_mat_M(mat_M, blacs_env_sub_P, nblkrows_RI, row_blk_sizes, max_col_blk_sizes, &
-                              mp2_env%ri_rpa_im_time_util(1)%mepos_P_from_RI_row)
-         ENDIF
+      ALLOCATE (max_col_blk_sizes(1))
+      max_col_blk_sizes(1) = MAXVAL(col_blk_sizes_cut_memory)
 
-         DEALLOCATE (col_blk_sizes_cut_memory, max_col_blk_sizes)
-      ENDIF
+      CALL create_mat_M(mat_M, blacs_env_sub_P, nblkrows_RI, row_blk_sizes, max_col_blk_sizes, &
+                        mp2_env%ri_rpa_im_time_util(1)%mepos_P_from_RI_row)
+
+      DEALLOCATE (col_blk_sizes_cut_memory, max_col_blk_sizes)
 
       CALL cp_blacs_env_release(blacs_env_sub_P)
 
@@ -3039,12 +3094,10 @@ CONTAINS
                                blacs_grid_layout, &
                                blacs_repeatable)
 
-      IF (.NOT. do_dbcsr_t) THEN
-         DO i = 1, SIZE(sab_orb_sub)
-            CALL deallocate_neighbor_list_set(sab_orb_sub(i)%neighbor_list_set)
-         END DO
-         DEALLOCATE (sab_orb_sub)
-      ENDIF
+      DO i = 1, SIZE(sab_orb_sub)
+         CALL deallocate_neighbor_list_set(sab_orb_sub(i)%neighbor_list_set)
+      END DO
+      DEALLOCATE (sab_orb_sub)
 
       CALL create_mat_munu(mat_P_global, qs_env, mp2_env, para_env, dft_control, &
                            atomic_kind_set, qs_kind_set, atom2d, molecule_kind_set, &
@@ -3060,34 +3113,32 @@ CONTAINS
       END DO
       DEALLOCATE (sab_orb_sub)
 
-      IF (.NOT. do_dbcsr_t) THEN
-         IF (do_mao) THEN
-            CALL dbcsr_get_info(mat_dm_occ_global_mao%matrix, &
-                                row_blk_size=blk_sizes_mao_occ)
-            blk_sizes_occ => blk_sizes_mao_occ
-            CALL dbcsr_get_info(mat_dm_virt_global_mao%matrix, &
-                                row_blk_size=blk_sizes_mao_virt)
-            blk_sizes_virt => blk_sizes_mao_virt
-         ELSE
-            CALL dbcsr_get_info(mat_munu%matrix, &
-                                row_blk_size=row_blk_sizes)
-            blk_sizes_occ => row_blk_sizes
-            blk_sizes_virt => row_blk_sizes
-         END IF
+      IF (do_mao) THEN
+         CALL dbcsr_get_info(mat_dm_occ_global_mao%matrix, &
+                             row_blk_size=blk_sizes_mao_occ)
+         blk_sizes_occ => blk_sizes_mao_occ
+         CALL dbcsr_get_info(mat_dm_virt_global_mao%matrix, &
+                             row_blk_size=blk_sizes_mao_virt)
+         blk_sizes_virt => blk_sizes_mao_virt
+      ELSE
+         CALL dbcsr_get_info(mat_munu%matrix, &
+                             row_blk_size=row_blk_sizes)
+         blk_sizes_occ => row_blk_sizes
+         blk_sizes_virt => row_blk_sizes
+      END IF
 
-         ! create mat_dm_occ/virt_local_mao (in case not using MAOs, the size is the Gauss basis)
-         NULLIFY (mat_dm_occ_local%matrix)
-         ALLOCATE (mat_dm_occ_local%matrix)
-         CALL dbcsr_create(matrix=mat_dm_occ_local%matrix, template=mat_munu%matrix, &
-                           name="mat_dm_occ_local", &
-                           row_blk_size=blk_sizes_occ, col_blk_size=blk_sizes_occ)
+      ! create mat_dm_occ/virt_local_mao (in case not using MAOs, the size is the Gauss basis)
+      NULLIFY (mat_dm_occ_local%matrix)
+      ALLOCATE (mat_dm_occ_local%matrix)
+      CALL dbcsr_create(matrix=mat_dm_occ_local%matrix, template=mat_munu%matrix, &
+                        name="mat_dm_occ_local", &
+                        row_blk_size=blk_sizes_occ, col_blk_size=blk_sizes_occ)
 
-         NULLIFY (mat_dm_virt_local%matrix)
-         ALLOCATE (mat_dm_virt_local%matrix)
-         CALL dbcsr_create(matrix=mat_dm_virt_local%matrix, template=mat_munu%matrix, &
-                           name="mat_dm_virt_local", &
-                           row_blk_size=blk_sizes_virt, col_blk_size=blk_sizes_virt)
-      ENDIF
+      NULLIFY (mat_dm_virt_local%matrix)
+      ALLOCATE (mat_dm_virt_local%matrix)
+      CALL dbcsr_create(matrix=mat_dm_virt_local%matrix, template=mat_munu%matrix, &
+                        name="mat_dm_virt_local", &
+                        row_blk_size=blk_sizes_virt, col_blk_size=blk_sizes_virt)
 
       CALL timestop(handle)
 
