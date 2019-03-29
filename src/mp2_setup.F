@@ -265,6 +265,10 @@ CONTAINS
                                 r_val=mp2_env%ri_rpa_im_time%stabilize_exp)
       CALL section_vals_val_get(mp2_section, "IM_TIME%DO_KPOINTS", &
                                 l_val=mp2_env%ri_rpa_im_time%do_im_time_kpoints)
+      CALL section_vals_val_get(mp2_section, "IM_TIME%DO_DBCSR_T", &
+                                l_val=mp2_env%ri_rpa_im_time%do_dbcsr_t)
+      CALL section_vals_val_get(mp2_section, "IM_TIME%MAX_BLOCK_SIZE_SQRT", &
+                                i_val=mp2_env%ri_rpa_im_time%max_bsize_sqrt)
 
       CALL section_vals_val_get(mp2_section, "IM_TIME%RI_G0W0", &
                                 l_val=mp2_env%ri_rpa_im_time%do_gw_im_time)
