@@ -135,7 +135,6 @@ CONTAINS
    SUBROUTINE xas_tdp(qs_env)
 
       TYPE(qs_environment_type), POINTER                 :: qs_env
-
       CHARACTER(len=*), PARAMETER :: routineN = 'xas_tdp', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, ikind, iat, istate, tmp_index,&
@@ -149,13 +148,12 @@ CONTAINS
       TYPE(donor_state_type), POINTER                    :: current_state
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
-      TYPE(cell_type), POINTER                           :: cell
       TYPE(xas_atom_env_type), POINTER                   :: xas_atom_env
       TYPE(dft_control_type), POINTER                    :: dft_control
       LOGICAL                                            :: do_os
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state)
-      NULLIFY(cell, xas_atom_env, dft_control)
+      NULLIFY(xas_atom_env, dft_control)
 
       CALL timeset(routineN, handle)
 
@@ -190,13 +188,6 @@ CONTAINS
          END IF
       END IF
 
-!  Safety checks
-!     Check on periodicity: PBCs only available without exact exchange
-      CALL get_qs_env(qs_env, cell=cell)
-      IF ((.NOT. ALL(cell%perd .EQ. 0)) .AND. xas_tdp_control%do_hfx) THEN
-         CPABORT("XAS TDP calculations with exact exchange only support non-periodic BCs")
-      END IF
-      
 !  Localization of the core orbitals if requested (used for better identification of donor states)
       IF (xas_tdp_control%do_loc) THEN
          IF (output_unit > 0) THEN
@@ -438,9 +429,6 @@ CONTAINS
       IF (dft_control%roks) xas_tdp_control%do_roks = .TRUE.
       do_uks = xas_tdp_control%do_uks
       do_os = do_uks .OR. xas_tdp_control%do_roks
-      !TODO: implement some safety checks: spin-flip only with ROKS, singlet/triplet only in closed
-      !shell, etc.
-      !Should warn against use of ROKS for states with spin-multiplicity > doublet
 
 !  XAS TDP environment type initialization
       CALL xas_tdp_env_create(xas_tdp_env)
@@ -654,7 +642,74 @@ CONTAINS
          CALL make_lumo_guess(xas_tdp_env, xas_tdp_control, qs_env)        
       END IF
 
+!  Check that everything is allowed
+      CALL safety_check(xas_tdp_control, qs_env)
+
    END SUBROUTINE xas_tdp_init
+
+!> *************************************************************************************************
+!> \brief Checks for forbidden keywords combinations
+!> \param xas_tdp_env ...
+!> \param xas_tdp_control ...
+!> \param qs_env ...
+!> *************************************************************************************************
+   SUBROUTINE safety_check(xas_tdp_control, qs_env)
+
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "safety_check", routineP = moduleN//":"//routineN
+
+      TYPE(cell_type), POINTER                           :: cell
+
+      NULLIFY(cell)
+
+      CALL get_qs_env(qs_env, cell=cell)
+
+      !PBC only available without exact exchange
+      IF ((.NOT. ALL(cell%perd .EQ. 0)) .AND. xas_tdp_control%do_hfx) THEN
+         CPABORT("XAS TDP calculations with exact exchange only support non-periodic BCs")
+      END IF
+
+      !open-shell/closed-shell tests
+      IF (xas_tdp_control%do_roks .OR. xas_tdp_control%do_uks) THEN
+
+         IF (xas_tdp_control%do_singlet .OR. xas_tdp_control%do_triplet) THEN
+            CPABORT("Singlet/triplet excitations only for restricted closed-shell systems")
+         END IF
+
+         IF (xas_tdp_control%do_soc .AND. .NOT. &
+            (xas_tdp_control%do_spin_flip .AND. xas_tdp_control%do_spin_cons)) THEN
+
+            CPABORT("Both spin-conserving and spin-flip excitations are required for SOC")
+         END IF
+      ELSE
+
+         IF (xas_tdp_control%do_spin_cons .OR. xas_tdp_control%do_spin_flip) THEN
+            CPABORT("Spin-conserving/spin-flip excitations only for open-shell systems")
+         END IF
+
+         IF (xas_tdp_control%do_soc .AND. .NOT. &
+            (xas_tdp_control%do_singlet .AND. xas_tdp_control%do_triplet)) THEN
+
+            CPABORT("Both singlet and triplet excitations are needed for SOC")
+         END IF
+      END IF
+
+      !TDA, full-TDDFT and diagonalization
+      IF (.NOT. xas_tdp_control%tamm_dancoff) THEN
+
+         IF (xas_tdp_control%do_spin_flip) THEN
+            CPABORT("Spin-flip kernel only implemented for Tamm-Dancoff approximation")
+         END IF
+
+         IF (.NOT. xas_tdp_control%full_diag) THEN
+            CPABORT("Non-TDA (full TDDFT) calculation only available with stendard fm diagonalization")
+         END IF
+
+      END IF
+
+   END SUBROUTINE safety_check
 
 !> *************************************************************************************************
 !> \brief Computed the first N_EXCITED LUMOs for the OT eigensolver guesses

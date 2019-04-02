@@ -1750,6 +1750,7 @@ CONTAINS
          nr = grid%nr 
          na = grid%ng_sphere
          ALLOCATE(Vr(nr))
+         !TODO: do we need potential contribution from neighboring atoms ?!?
          CALL calculate_model_potential(Vr, grid, zeff)
 
          !Compute V/(4c^2-2V) and weight it
