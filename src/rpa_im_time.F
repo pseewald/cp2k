@@ -39,7 +39,8 @@ MODULE rpa_im_time
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
         dbcsr_t_get_block, dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_next_block, &
         dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_iterator_type, &
-        dbcsr_t_need_contract, dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_set, dbcsr_t_type
+        dbcsr_t_need_contract, dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_set, dbcsr_t_type, &
+        dbcsr_t_get_nze_total
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE kpoint_types,                    ONLY: get_kpoint_info,&
@@ -135,7 +136,7 @@ CONTAINS
                                     num_integ_points, jquad, cut_memory, unit_nr, &
                                     mp2_env, para_env, &
                                     stabilize_exp, qs_env, index_to_cell_3c, cell_to_index_3c, &
-                                    do_ri_sos_laplace_mp2)
+                                    has_mat_P_blocks, do_ri_sos_laplace_mp2)
 
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: mat_P_omega, mat_P_omega_im_part
       TYPE(cp_fm_type), POINTER :: fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, fm_mo_coeff_occ, &
@@ -177,6 +178,9 @@ CONTAINS
       TYPE(dbcsr_t_type)                                 :: t_3c_M_occ, t_3c_M_tmp, t_3c_M_virt, t_P
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:)      :: t_dm_occ, t_dm_virt
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_dm_occ_cut, t_dm_virt_cut
+      INTEGER(KIND=int_8)                                :: num_flops_mat_P
+
+      LOGICAL, ALLOCATABLE, DIMENSION(:, :, :, :, :)     :: has_mat_P_blocks
 
       memory_info = mp2_env%ri_rpa_im_time%memory_info
       do_kpoints_cubic_RPA = qs_env%mp2_env%ri_rpa_im_time%do_im_time_kpoints
@@ -236,6 +240,8 @@ CONTAINS
                                    eps_filter)
          DO i_cell_T = 1, num_cells_dm/2+1
 
+            IF (.NOT. does_mat_P_T_tau_have_blocks(i_cell_T)) CYCLE
+
             DO j_mem = 1, cut_memory
                DO i_mem = 1, cut_memory
                   IF (unit_nr_prv > 0) WRITE (UNIT=unit_nr_prv, FMT="(T3,A,I2,1X,I2)") &
@@ -255,6 +261,8 @@ CONTAINS
 
                      DO i_cell_R_2 = 1, num_3c_repl
 
+                        IF (.NOT. has_mat_P_blocks(i_cell_T, i_mem, j_mem, i_cell_R_1, i_cell_R_2)) CYCLE
+
                         CALL get_diff_index_3c(i_cell_R_1, i_cell_T, i_cell_R_1_minus_T, &
                                                index_to_cell_3c, cell_to_index_3c, index_to_cell_dm, &
                                                R_1_minus_T_needed, do_kpoints_cubic_RPA)
@@ -265,6 +273,10 @@ CONTAINS
                                                   do_kpoints_cubic_RPA)
 
                            IF (R_1_minus_S_needed) THEN
+                           IF (dbcsr_t_get_nze_total(t_3c_O_cut(j_mem, i_cell_R_1_minus_S, i_cell_R_2)) > 0) THEN
+                           IF (dbcsr_t_need_contract(t_3c_O_cut(j_mem, i_cell_R_1_minus_S, i_cell_R_2), &
+                                                     t_dm_occ_cut(i_mem, i_cell_S), &
+                                                     [3], [1])) THEN
 
                               CALL timeset(routineN//"_calc_M_t", handle5)
                               CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), &
@@ -278,6 +290,8 @@ CONTAINS
                                                     filter_eps=eps_filter, unit_nr=unit_nr_prv)
                               CALL timestop(handle5)
 
+                           ENDIF
+                           ENDIF
                            ENDIF
                         ENDDO
 
@@ -298,9 +312,15 @@ CONTAINS
                                                        R_2_minus_S_minus_T_needed, do_kpoints_cubic_RPA)
 
                            IF (R_1_minus_T_needed .AND. R_2_minus_S_minus_T_needed) THEN
+                           IF (dbcsr_t_get_nze_total(t_3c_O_cut( &
+                                                     i_mem, i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T)) > 0) THEN
+                           IF (dbcsr_t_need_contract(t_3c_O_cut( &
+                                                    i_mem, i_cell_R_2_minus_S_minus_T, &
+                                                    i_cell_R_1_minus_T), &
+                                                    t_dm_virt_cut(j_mem, i_cell_S), &
+                                                    [3], [1])) THEN
 
                               CALL timeset(routineN//"_calc_M_t", handle5)
-
                               CALL dbcsr_t_contract(alpha=dbcsr_scalar(alpha/2.0_dp), &
                                                     tensor_1=t_3c_O_cut( &
                                                     i_mem, i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
@@ -313,6 +333,8 @@ CONTAINS
                                                     filter_eps=eps_filter, unit_nr=unit_nr_prv)
                               CALL timestop(handle5)
                            ENDIF
+                           ENDIF
+                           ENDIF
                         ENDDO
 
                         CALL timeset(routineN//"_copy_M_t", handle5)
@@ -322,23 +344,29 @@ CONTAINS
                         CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
                         CALL timestop(handle5)
 
-                        IF (.NOT. dbcsr_t_need_contract(t_3c_M_occ, t_3c_M_virt, &
-                                                        [2, 3], [2, 3])) CYCLE
+                        num_flops_mat_P = 0
+                        CALL dbcsr_set(mat_P_global%matrix, 0.0_dp)
+                        IF (dbcsr_t_need_contract(t_3c_M_occ, t_3c_M_virt, &
+                                                  [2, 3], [2, 3])) THEN
 
-                        CALL timeset(routineN//"_calc_P_t", handle5)
+                           CALL timeset(routineN//"_calc_P_t", handle5)
 
-                        CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), tensor_1=t_3c_M_occ, &
-                                              tensor_2=t_3c_M_virt, &
-                                              beta=dbcsr_scalar(0.0_dp), &
-                                              tensor_3=t_P, &
-                                              contract_1=[2, 3], notcontract_1=[1], &
-                                              contract_2=[2, 3], notcontract_2=[1], &
-                                              map_1=[1], map_2=[2], &
-                                              filter_eps=eps_filter_im_time/REAL(cut_memory**2, KIND=dp), &
-                                              move_data=.TRUE., &
-                                              unit_nr=unit_nr_prv)
+                           CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), tensor_1=t_3c_M_occ, &
+                                                 tensor_2=t_3c_M_virt, &
+                                                 beta=dbcsr_scalar(0.0_dp), &
+                                                 tensor_3=t_P, &
+                                                 contract_1=[2, 3], notcontract_1=[1], &
+                                                 contract_2=[2, 3], notcontract_2=[1], &
+                                                 map_1=[1], map_2=[2], &
+                                                 filter_eps=eps_filter_im_time/REAL(cut_memory**2, KIND=dp), &
+                                                 flop=num_flops_mat_P, &
+                                                 move_data=.TRUE., &
+                                                 unit_nr=unit_nr_prv)
 
-                        CALL dbcsr_t_copy_tensor_to_matrix(t_P, mat_P_global%matrix)
+                           CALL dbcsr_t_copy_tensor_to_matrix(t_P, mat_P_global%matrix)
+
+                           CALL timestop(handle5)
+                        ENDIF
 
                         CALL dbcsr_t_set(t_3c_M_occ, 0.0_dp)
                         CALL dbcsr_t_filter(t_3c_M_occ, 1.0_dp)
@@ -346,8 +374,6 @@ CONTAINS
                         CALL dbcsr_t_filter(t_3c_M_virt, 1.0_dp)
                         CALL dbcsr_t_set(t_P, 0.0_dp)
                         CALL dbcsr_t_filter(t_P, 1.0_dp)
-
-                        CALL timestop(handle5)
 
                         IF (do_ri_sos_laplace_mp2) THEN
                            ! For RI-SOS-Laplace-MP2 we do not perform a cosine transform,
@@ -388,11 +414,19 @@ CONTAINS
 
                            first_cycle_im_time = .FALSE.
 
+                           CALL check_if_mat_P_T_tau_has_blocks(does_mat_P_T_tau_have_blocks, mat_P_global, i_cell_T, &
+                                                                jquad, i_mem, j_mem, i_cell_R_1, i_cell_R_2, &
+                                                                para_env, has_mat_P_blocks, num_flops_mat_P)
+
+
                         END IF ! do_ri_sos_laplace_mp2
                      ENDDO
                   ENDDO
                ENDDO
             ENDDO
+
+            CALL sync_does_mat_P_T_tau_have_blocks(does_mat_P_T_tau_have_blocks, para_env, unit_nr, &
+                                                   i_cell_T, jquad, index_to_cell_dm)
          ENDDO
 
          CALL dbcsr_t_destroy(t_P)
@@ -618,7 +652,7 @@ CONTAINS
                                     num_integ_points, jquad, cut_memory, unit_nr, &
                                     mp2_env, para_env, &
                                     stabilize_exp, qs_env, index_to_cell_3c, cell_to_index_3c, &
-                                    do_ri_sos_laplace_mp2)
+                                    has_mat_P_blocks, do_ri_sos_laplace_mp2)
          RETURN
       ENDIF
 

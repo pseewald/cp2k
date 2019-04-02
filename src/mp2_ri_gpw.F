@@ -7689,9 +7689,6 @@ CONTAINS
                       natom=natom, kpoints=kpoints, dft_control=dft_control)
 
       do_kpoints_cubic_RPA = qs_env%mp2_env%ri_rpa_im_time%do_im_time_kpoints
-      IF (do_kpoints_cubic_RPA) THEN
-         CPABORT("k points not yet implemented with DBCSR tensors")
-      ENDIF
 
       IF (do_kpoints_cubic_RPA) THEN
          ! No MAOs kpoints
@@ -7935,6 +7932,10 @@ CONTAINS
                                     prefac = 0.5_dp
                                  ENDIF
 
+                                 IF (do_kpoints_cubic_RPA) THEN
+                                    prefac = 1.0_dp
+                                 ENDIF
+
                                  block_t(block_start_RI:block_end_RI, &
                                          block_start_row:block_end_row, &
                                          block_start_col:block_end_col) = &
@@ -7982,24 +7983,31 @@ CONTAINS
 
       END DO ! atom_RI
 
-      ! add transposed of overlap integrals:
       DO img_row = 1, nimg
          DO img_col = 1, nimg
-            ! we need to take half of filter_eps, since we are adding tensor to its transpose afterwards
-            CALL dbcsr_t_filter(t_3c_overl_int(img_row, img_col), filter_eps/2)
+            IF (.NOT. do_kpoints_cubic_RPA) THEN
+               ! we need to take half of filter_eps, since we are adding tensor to its transpose afterwards
+               CALL dbcsr_t_filter(t_3c_overl_int(img_row, img_col), filter_eps/2)
+            ELSE
+               CALL dbcsr_t_filter(t_3c_overl_int(img_row, img_col), filter_eps)
+            ENDIF
          ENDDO
       ENDDO
-      CALL dbcsr_t_create(t_3c_overl_int(1, 1), t_3c_tmp)
-      DO img_row = 1, nimg
-         DO img_col = 1, nimg
-            CALL dbcsr_t_copy(t_3c_overl_int(img_row, img_col), t_3c_tmp)
-            CALL dbcsr_t_copy(t_3c_tmp, t_3c_overl_int(img_row, img_col), order=[1, 3, 2], summation=.TRUE., move_data=.TRUE.)
-            CALL dbcsr_t_filter(t_3c_overl_int(img_row, img_col), filter_eps)
+
+      IF (.NOT. do_kpoints_cubic_RPA) THEN
+         ! add transposed of overlap integrals (since neighbourlists are symmetric but tensor is not)
+         CALL dbcsr_t_create(t_3c_overl_int(1, 1), t_3c_tmp)
+         DO img_row = 1, nimg
+            DO img_col = 1, nimg
+               CALL dbcsr_t_copy(t_3c_overl_int(img_row, img_col), t_3c_tmp)
+               CALL dbcsr_t_copy(t_3c_tmp, t_3c_overl_int(img_row, img_col), order=[1, 3, 2], summation=.TRUE., move_data=.TRUE.)
+               CALL dbcsr_t_filter(t_3c_overl_int(img_row, img_col), filter_eps)
+            ENDDO
          ENDDO
-      ENDDO
-      CALL dbcsr_t_set(t_3c_tmp, 0.0_dp)
-      CALL dbcsr_t_filter(t_3c_tmp, 1.0_dp)
-      CALL dbcsr_t_destroy(t_3c_tmp)
+         CALL dbcsr_t_set(t_3c_tmp, 0.0_dp)
+         CALL dbcsr_t_filter(t_3c_tmp, 1.0_dp)
+         CALL dbcsr_t_destroy(t_3c_tmp)
+      ENDIF
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -8754,10 +8762,10 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'reserve_blocks_3c_t', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: acell, atom_RI, bcell, blk_cnt, col, handle, i, i_img, i_img_outer, i_loop, &
+      INTEGER :: acell, atom_RI, bcell, blk_cnt, col, handle, i, i_img, i_img_outer, &
          iatom, iatom_outer, iatom_RI, iblk, ikind, iproc, j_img, j_img_outer, jatom, jatom_outer, &
          jkind, kind_RI, maxval_1, maxval_2, maxval_3, minval_1, minval_2, minval_3, natom, nimg, &
-         nset_RI, nseta, nsetb, num_loops, row
+         nset_RI, nseta, nsetb, row
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of, tmp
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: old_col, old_row
       INTEGER, DIMENSION(3)                              :: cell_vec, outer_cell_vec
@@ -8788,9 +8796,6 @@ CONTAINS
       NULLIFY (qs_kind_set, atomic_kind_set, basis_set_RI, basis_set_a, basis_set_b, nl_iterator)
 
       do_kpoints_cubic_RPA = qs_env%mp2_env%ri_rpa_im_time%do_im_time_kpoints
-      IF (do_kpoints_cubic_RPA) THEN
-         CPABORT("k points not yet implemented with DBCSR tensors")
-      ENDIF
 
       CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, qs_kind_set=qs_kind_set, natom=natom, &
                       dft_control=dft_control, kpoints=kpoints)
@@ -8826,7 +8831,6 @@ CONTAINS
 
       DO i_img = 1, nimg
          DO j_img = 1, nimg
-            IF (i_img > j_img) CYCLE
             CALL dbcsr_t_create(t_3c_overl_int(i_img, j_img), "O (RI AO | AO)", dist_o3c, [1, 2], [3], &
                                 dbcsr_type_real_8, row_blk_sizes_RI_t, ao_blk_sizes, ao_blk_sizes)
          ENDDO
@@ -8882,22 +8886,8 @@ CONTAINS
                DO i_img_outer = 1, nimg
                   DO j_img_outer = 1, nimg
 
-                     IF (i_img_outer > j_img_outer) CYCLE
-                     IF (i_img_outer < j_img_outer) THEN
-                        num_loops = 2
-                     ELSE IF (i_img_outer == j_img_outer) THEN
-                        num_loops = 1
-                     END IF
-
-                     DO i_loop = 1, num_loops
-
-                        IF (i_loop == 1) THEN
-                           i_img = i_img_outer
-                           j_img = j_img_outer
-                        ELSE IF (i_loop == 2) THEN
-                           i_img = j_img_outer
-                           j_img = i_img_outer
-                        END IF
+                     i_img = i_img_outer
+                     j_img = j_img_outer
 
                         IF (atom_RI .EQ. iatom_outer .AND. &
                             iatom .NE. jatom_outer .AND. &
@@ -9080,7 +9070,6 @@ CONTAINS
                               END ASSOCIATE
                            END ASSOCIATE
                         END ASSOCIATE
-                     ENDDO
                   ENDDO
                ENDDO
             ENDDO
@@ -9091,7 +9080,6 @@ CONTAINS
 
       DO i_img = 1, nimg
          DO j_img = 1, nimg
-            IF (i_img > j_img) CYCLE
             IF (ALLOCATED(alloc_RI(i_img, j_img)%array)) THEN
                DO i = 1, SIZE(alloc_RI(i_img, j_img)%array)
                   CALL dbcsr_t_get_stored_coordinates(t_3c_overl_int(i_img, j_img), &
