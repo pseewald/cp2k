@@ -33,14 +33,14 @@ MODULE rpa_im_time
         dbcsr_init_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
         dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, dbcsr_p_type, dbcsr_release_p, &
         dbcsr_reserve_all_blocks, dbcsr_reserve_blocks, dbcsr_scalar, dbcsr_scale, dbcsr_set, &
-        dbcsr_transposed, dbcsr_type, dbcsr_type_no_symmetry
+        dbcsr_transposed, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_checksum, dbcsr_get_nze
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
         dbcsr_t_get_block, dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_next_block, &
         dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_iterator_type, &
         dbcsr_t_need_contract, dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_set, dbcsr_t_type, &
-        dbcsr_t_get_nze_total
+        dbcsr_t_get_nze_total, dbcsr_t_checksum
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE kpoint_types,                    ONLY: get_kpoint_info,&
@@ -242,6 +242,7 @@ CONTAINS
 
             IF (.NOT. does_mat_P_T_tau_have_blocks(i_cell_T)) CYCLE
 
+
             DO j_mem = 1, cut_memory
                DO i_mem = 1, cut_memory
                   IF (unit_nr_prv > 0) WRITE (UNIT=unit_nr_prv, FMT="(T3,A,I2,1X,I2)") &
@@ -267,16 +268,23 @@ CONTAINS
                                                index_to_cell_3c, cell_to_index_3c, index_to_cell_dm, &
                                                R_1_minus_T_needed, do_kpoints_cubic_RPA)
 
+                        CALL dbcsr_t_set(t_3c_M_tmp, 0.0_dp)
+                        CALL dbcsr_t_filter(t_3c_M_tmp, 1.0_dp)
+
                         DO i_cell_S = 1, num_cells_dm
                            CALL get_diff_index_3c(i_cell_R_1, i_cell_S, i_cell_R_1_minus_S, index_to_cell_3c, &
                                                   cell_to_index_3c, index_to_cell_dm, R_1_minus_S_needed, &
                                                   do_kpoints_cubic_RPA)
-
+                           !IF(jquad == 1 .AND. R_1_minus_S_needed) PRINT *, "checksum o3c", i_cell_R_1_minus_S, i_cell_R_2, &
+                           !   dbcsr_t_checksum(t_3c_O_cut(j_mem, i_cell_R_1_minus_S, i_cell_R_2))
                            IF (R_1_minus_S_needed) THEN
                            IF (dbcsr_t_get_nze_total(t_3c_O_cut(j_mem, i_cell_R_1_minus_S, i_cell_R_2)) > 0) THEN
-                           IF (dbcsr_t_need_contract(t_3c_O_cut(j_mem, i_cell_R_1_minus_S, i_cell_R_2), &
-                                                     t_dm_occ_cut(i_mem, i_cell_S), &
-                                                     [3], [1])) THEN
+                           !IF (dbcsr_t_need_contract(t_3c_O_cut(j_mem, i_cell_R_1_minus_S, i_cell_R_2), &
+                           !                          t_dm_occ_cut(i_mem, i_cell_S), &
+                           !                         [3], [1])) THEN ! todo uncomment
+
+                           !IF(jquad==1) PRINT *, "checksum o3c", i_cell_R_1_minus_S, i_cell_R_2, &
+                           !                dbcsr_t_checksum(t_3c_O_cut(j_mem, i_cell_R_1_minus_S, i_cell_R_2))
 
                               CALL timeset(routineN//"_calc_M_t", handle5)
                               CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), &
@@ -290,9 +298,14 @@ CONTAINS
                                                     filter_eps=eps_filter, unit_nr=unit_nr_prv)
                               CALL timestop(handle5)
 
+                              PRINT *, "cell index occ", i_cell_S, i_cell_R_1_minus_S, i_cell_R_2
+                              PRINT *, "checksum M occ", dbcsr_t_get_nze_total(t_3c_O_cut(j_mem, i_cell_R_1_minus_S, i_cell_R_2)), &
+                                       dbcsr_t_get_nze_total(t_dm_occ_cut(i_mem, i_cell_S)), &
+                                       dbcsr_t_checksum(t_3c_M_tmp)
+
                            ENDIF
                            ENDIF
-                           ENDIF
+                           !ENDIF
                         ENDDO
 
                         CALL timeset(routineN//"_copy_M_t", handle5)
@@ -314,11 +327,11 @@ CONTAINS
                            IF (R_1_minus_T_needed .AND. R_2_minus_S_minus_T_needed) THEN
                            IF (dbcsr_t_get_nze_total(t_3c_O_cut( &
                                                      i_mem, i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T)) > 0) THEN
-                           IF (dbcsr_t_need_contract(t_3c_O_cut( &
-                                                    i_mem, i_cell_R_2_minus_S_minus_T, &
-                                                    i_cell_R_1_minus_T), &
-                                                    t_dm_virt_cut(j_mem, i_cell_S), &
-                                                    [3], [1])) THEN
+                           !IF (dbcsr_t_need_contract(t_3c_O_cut( &
+                           !                         i_mem, i_cell_R_2_minus_S_minus_T, &
+                           !                         i_cell_R_1_minus_T), &
+                           !                         t_dm_virt_cut(j_mem, i_cell_S), &
+                           !                         [3], [1])) THEN ! todo: uncomment
 
                               CALL timeset(routineN//"_calc_M_t", handle5)
                               CALL dbcsr_t_contract(alpha=dbcsr_scalar(alpha/2.0_dp), &
@@ -331,8 +344,14 @@ CONTAINS
                                                     contract_2=[1], notcontract_2=[2], &
                                                     map_1=[1, 2], map_2=[3], &
                                                     filter_eps=eps_filter, unit_nr=unit_nr_prv)
+
+                              PRINT *, "cell index virt", i_cell_S, i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T
+                              PRINT *, "checksum M virt", dbcsr_t_get_nze_total(t_3c_O_cut(i_mem, &
+                                 i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T)), &
+                                       dbcsr_t_get_nze_total(t_dm_virt_cut(j_mem, i_cell_S)), &
+                                       dbcsr_t_checksum(t_3c_m_tmp)
                               CALL timestop(handle5)
-                           ENDIF
+                           !ENDIF
                            ENDIF
                            ENDIF
                         ENDDO
@@ -346,6 +365,7 @@ CONTAINS
 
                         num_flops_mat_P = 0
                         CALL dbcsr_set(mat_P_global%matrix, 0.0_dp)
+
                         IF (dbcsr_t_need_contract(t_3c_M_occ, t_3c_M_virt, &
                                                   [2, 3], [2, 3])) THEN
 
@@ -744,6 +764,10 @@ CONTAINS
                                   needed_cutRI_mem_R1vec_R2vec_for_kp(i_cut_RI, j_mem, i_cell_R_1_minus_S, &
                                                                       i_cell_R_2)) THEN
 
+                                 CPASSERT(cut_RI == 1)
+                                 !IF(jquad == 1) PRINT *, "checksum o3c", i_cell_R_1_minus_S, i_cell_R_2, &
+                                 !   dbcsr_checksum(mat_3c_overl_int_mao_for_occ_cut(i_cut_RI, j_mem, i_cell_R_1_minus_S, &
+                                 !   i_cell_R_2)%matrix)
                                  ! D^occ*(munuP)
                                  CALL dbcsr_multiply("N", "N", 1.0_dp, &
                                                      mat_dm_loc_occ_cut(i_cut_RI, i_mem, i_cell_S)%matrix, &
@@ -756,6 +780,14 @@ CONTAINS
                                                      ! last_column=ends_array_cm(j_mem)*my_group_L_size, &
                                                      filter_eps=eps_filter, &
                                                      flop=flop_occ)
+
+                              PRINT *, "cell index occ", i_cell_S, i_cell_R_1_minus_S, i_cell_R_2
+                              PRINT *, "checksum M occ", dbcsr_get_nze( &
+                                 mat_3c_overl_int_mao_for_occ_cut(i_cut_RI, j_mem, &
+                                                                   i_cell_R_1_minus_S, &
+                                                                   i_cell_R_2)%matrix), &
+                                 dbcsr_get_nze(mat_dm_loc_occ_cut(i_cut_RI, i_mem, i_cell_S)%matrix), &
+                                 dbcsr_checksum(mat_M_mu_Pnu_occ(i_cut_RI)%matrix)
 
                               END IF
 
@@ -786,6 +818,15 @@ CONTAINS
                                                      ! last_column=ends_array_cm(i_mem)*my_group_L_size, &
                                                      filter_eps=eps_filter, &
                                                      flop=flop_virt)
+
+                              PRINT *, "cell index virt", i_cell_S, i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T
+                              PRINT *, "checksum M virt", dbcsr_get_nze( &
+                                 mat_3c_overl_int_mao_for_virt_cut(i_cut_RI, i_mem, &
+                                                                   i_cell_R_2_minus_S_minus_T, &
+                                                                   i_cell_R_1_minus_T)%matrix), &
+                                 dbcsr_get_nze(mat_dm_loc_virt_cut(i_cut_RI, j_mem, i_cell_S)%matrix), &
+                                 dbcsr_checksum(mat_M_mu_Pnu_virt(i_cut_RI)%matrix)
+
 
                               END IF
 
