@@ -1318,6 +1318,9 @@ CONTAINS
       DO ir = 1, nr
          DO ia = 1, na
 
+            !TODO: https://doi.org/10.1063/1.3676736
+            !      if rhoa == rhob, one could also take the taylor expansion as in above ref
+
             !Need to be careful not to devide by zero. Assume that if rhoa == rhob, then
             !dE/drhoa == dE/drhob and we send everything to zero
             IF (ABS(rhoa(ia,ir,1)-rhob(ia,ir,1)) > dft_control%qs_control%eps_rho_rspace) THEN

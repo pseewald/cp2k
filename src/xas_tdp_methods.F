@@ -51,7 +51,7 @@ MODULE xas_tdp_methods
                                               op_loc_berry, tddfpt_singlet, tddfpt_spin_cons, &
                                               tddfpt_triplet, xas_tdp_uks, xas_tdp_roks, &
                                               general_roks, high_spin_roks, state_loc_list, &
-                                              tddfpt_spin_flip
+                                              tddfpt_spin_flip, do_hfx_potential_coulomb
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_get_subs_vals,&
                                               section_vals_val_set
@@ -183,8 +183,7 @@ CONTAINS
 
       IF (output_unit > 0) THEN 
          IF (xas_tdp_control%check_only) THEN
-            WRITE(UNIT=output_unit, FMT="(/,T3,A)") &
-               "! This is a CHECK_ONLY run for donor MOs (and possibly guess LUMOs) verification !"
+            CPWARN("This is a CHECK_ONLY run for donor MOs (and possibly guess LUMOs) verification")
          END IF
       END IF
 
@@ -250,6 +249,9 @@ CONTAINS
          CALL xas_atom_env_release(xas_atom_env)
       END IF
 
+!  Compute the 3-center Coulomb integrals
+      IF (.NOT. xas_tdp_control%check_only) CALL compute_ri_o3c_coulomb(xas_tdp_env, qs_env)
+
 !  Loop over donor states for calculation
       CALL get_qs_env(qs_env=qs_env, atomic_kind_set=atomic_kind_set)      
       current_state_index = 1
@@ -278,7 +280,7 @@ CONTAINS
 
 !           If exact exchange is riquired, compute the 3-center integrals for this atom
             IF (xas_tdp_control%do_hfx) THEN
-               CALL compute_ri_o3c_exchange(iatom, xas_tdp_env, qs_env)
+               CALL compute_ri_o3c_exchange(iatom, xas_tdp_env, xas_tdp_control, qs_env)
             END IF
 
 !           Loop over states of excited atom of kind
@@ -615,9 +617,6 @@ CONTAINS
          CALL dbcsr_finalize(xas_tdp_env%q_projector(2)%matrix)
       END IF
 
-!  Precompute the o3c RI coulomb integrals for all excited atoms
-      CALL compute_ri_o3c_coulomb(xas_tdp_env, qs_env)
-      
 !  Create the structure for the dipole in the AO basis 
       ALLOCATE(xas_tdp_env%dipmat(3))
       DO i =1,3
@@ -667,8 +666,9 @@ CONTAINS
       CALL get_qs_env(qs_env, cell=cell)
 
       !PBC only available without exact exchange
-      IF ((.NOT. ALL(cell%perd .EQ. 0)) .AND. xas_tdp_control%do_hfx) THEN
-         CPABORT("XAS TDP calculations with exact exchange only support non-periodic BCs")
+      IF ((.NOT. ALL(cell%perd .EQ. 0)) .AND. xas_tdp_control%do_hfx &
+          .AND. xas_tdp_control%x_op == do_hfx_potential_coulomb) THEN
+         CPABORT("XAS TDP with Coulomb operator for exact exchange only supports non-periodic BCs")
       END IF
 
       !open-shell/closed-shell tests
