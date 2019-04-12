@@ -56,7 +56,8 @@ MODULE xas_tdp_utils
    USE generic_os_integrals,            ONLY: int_operators_r12_ab_os
    USE input_constants,                 ONLY: ot_precond_full_single, &
                                               tddfpt_singlet, tddfpt_triplet, xas_tdp_uks, &
-                                              xas_tdp_roks, tddfpt_spin_cons, tddfpt_spin_flip
+                                              xas_tdp_roks, tddfpt_spin_cons, tddfpt_spin_flip, &
+                                              do_hfx_potential_coulomb, do_hfx_potential_truncated
    USE input_section_types,             ONLY: section_vals_val_get
    USE kinds,                           ONLY: dp
    USE mathlib,                         ONLY: invmat_symm, get_diag
@@ -1502,15 +1503,17 @@ CONTAINS
 !>        centered on the given excited atom and kind
 !> \param ex_atom the excited atom on which the third center is
 !> \param xas_tdp_env ...
+!> \param xas_tdp_control ...
 !> \param qs_env ...
 !> \note  The ri_o3c_ex member of xas_tdp_env is defined and allocated here. Recompute for each 
 !>        excited atom because of the many integrals involved (=> ok load balance and a lot of
 !>        memory used)
 ! **************************************************************************************************
-   SUBROUTINE compute_ri_o3c_exchange(ex_atom, xas_tdp_env, qs_env)
+   SUBROUTINE compute_ri_o3c_exchange(ex_atom, xas_tdp_env, xas_tdp_control, qs_env)
 
       INTEGER, INTENT(IN)                             :: ex_atom
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
       TYPE(qs_environment_type), POINTER              :: qs_env
 
       CHARACTER(len=*), PARAMETER :: routineN = "compute_ri_o3c_exchange", &
@@ -1527,7 +1530,7 @@ CONTAINS
       NULLIFY(basis_set_ri, basis_set_orb, ac_list, sab_orb, qs_kind_set)
 
       CALL timeset(routineN, handle)
-
+      
 !  Take what we need from the qs_env
       CALL get_qs_env(qs_env, nkind=nkind, sab_orb=sab_orb, qs_kind_set=qs_kind_set)
 
@@ -1537,11 +1540,17 @@ CONTAINS
       CALL basis_set_list_setup(basis_set_ri, "RI_XAS", qs_kind_set)
       CALL basis_set_list_setup(basis_set_orb, "ORB", qs_kind_set)
 
-!  Build a neighbor list for the ac centers. Currently only coulomb operator (with "inifinte" range)
+!  Build a neighbor list for the ac centers.
       ALLOCATE(exat(1))
       exat(1) = ex_atom
-      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "COULOMB", &
-                               qs_env, excited_atoms=exat)
+      !test on the exchange operator
+      IF (xas_tdp_control%x_op == do_hfx_potential_coulomb) THEN
+         CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "COULOMB", &
+                                  qs_env, excited_atoms=exat)
+      ELSE IF (xas_tdp_control%x_op == do_hfx_potential_truncated) THEN
+         CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "TRUNCATED COULOMB", &
+                                  qs_env, excited_atoms=exat, x_range=xas_tdp_control%x_range)
+      END IF
 
 !  Allocate, init and compute the integrals
       ALLOCATE(xas_tdp_env%ri_o3c_ex)
@@ -1621,6 +1630,13 @@ CONTAINS
       xas_tdp_env%ub_o3c_coul = ubij
 
    END SUBROUTINE get_ri_o3c_coul_bonds
+
+! **************************************************************************************************
+!> \brief Builds a neighbor lists set for overlaping 2-center S_ab, where b is restricted on a 
+!>        a given list of atoms. Used for Coulomb RI where (aI|P) = sum_b C_bI (ab|P), where 
+!>        contraction coeff C_bI is assumed to be non-zero only on excited atoms
+!> \param 
+! **************************************************************************************************
    
 ! **************************************************************************************************
 !> \brief Builds a neighbor lists set taylored for 3-center integral within XAS TDP, such that only
@@ -1630,10 +1646,11 @@ CONTAINS
 !> \param basis_c basis set list for atom c
 !> \param op_type to indicate whther the list should be built with overlap or Coulomb in mind
 !> \param excited_atoms the indices of the excited atoms to consider (if not given, all atoms are taken)
+!> \param x_range in case some truncated/screened operator is used, gives its range
 !> \param qs_env ...
 !> \note Based on setup_neighbor_list with added features
 ! **************************************************************************************************
-   SUBROUTINE build_xas_tdp_3c_nl(ac_list, basis_a, basis_c, op_type, qs_env, excited_atoms)
+   SUBROUTINE build_xas_tdp_3c_nl(ac_list, basis_a, basis_c, op_type, qs_env, excited_atoms, x_range)
 
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &                                                
                                              POINTER  :: ac_list
@@ -1642,6 +1659,7 @@ CONTAINS
       CHARACTER(len=*), INTENT(IN)                    :: op_type
       TYPE(qs_environment_type), POINTER              :: qs_env
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: excited_atoms
+      REAL(dp), INTENT(IN), OPTIONAL                  :: x_range
 
       CHARACTER(len=*), PARAMETER :: routineN =  "build_xas_tdp_3c_nl", &
                                      routineP = moduleN//":"//routineN
@@ -1660,13 +1678,17 @@ CONTAINS
                                           ALLOCATABLE :: atom2d
       TYPE(molecule_type), DIMENSION(:), POINTER      :: molecule_set
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
-      CHARACTER                                       :: my_op
+      CHARACTER(2)                                    :: my_op
 
       NULLIFY(atomic_kind_set, distribution_1d, distribution_2d, molecule_set, particle_set, cell)
       
 !  By default, take overlap operator
-      my_op = "O"
-      IF (op_type == "COULOMB ") my_op = "C"
+      my_op = "O "
+      IF (op_type == "COULOMB") my_op = "C "
+      IF (op_type == "TRUNCATED COULOMB") THEN
+         my_op = "TC"
+         IF (.NOT. PRESENT(x_range)) CPABORT("Need a range for the truncated Coulomb operator")
+      END IF
 
 !  Initialization
       CALL get_qs_env(qs_env, nkind=nkind)
@@ -1681,24 +1703,42 @@ CONTAINS
       a_radius = 0.0_dp
       c_radius = 0.0_dp
 
-!  Set up the radii
-      DO ikind = 1,nkind
-         !orbital basis set
-         IF (ASSOCIATED(basis_a(ikind)%gto_basis_set)) THEN
-            a_present(ikind) = .TRUE.
-            CALL get_gto_basis_set(basis_a(ikind)%gto_basis_set, kind_radius=a_radius(ikind))
-         END IF
-         !RI_XAS basis set
-         IF (ASSOCIATED(basis_c(ikind)%gto_basis_set)) THEN
-            c_present(ikind) = .TRUE.
-            ! If operator is coulomb, then center c interacts with everything
-            IF (my_op == "O") THEN
+!  Set up the radii, depending on the operator type
+      IF (my_op == "O ") THEN
+         !overlap => use the kind radius for both a and c
+         DO ikind = 1,nkind
+            !orbital basis set
+            IF (ASSOCIATED(basis_a(ikind)%gto_basis_set)) THEN
+               a_present(ikind) = .TRUE.
+               CALL get_gto_basis_set(basis_a(ikind)%gto_basis_set, kind_radius=a_radius(ikind))
+            END IF
+            !RI_XAS basis set
+            IF (ASSOCIATED(basis_c(ikind)%gto_basis_set)) THEN
+               c_present(ikind) = .TRUE.
                CALL get_gto_basis_set(basis_c(ikind)%gto_basis_set, kind_radius=c_radius(ikind))
-            ELSE
+            END IF
+         END DO !ikind
+
+      ELSE IF (my_op == "C ") THEN
+         !Coulomb operator, virtually infinite range => set c_radius to arbitrarily large number
+         DO ikind = 1,nkind
+            IF (ASSOCIATED(basis_c(ikind)%gto_basis_set)) THEN
+               c_present(ikind) = .TRUE.
                c_radius(ikind) = 1000000.0_dp
             END IF
-         END IF
-      END DO !ikind
+            IF (ASSOCIATED(basis_a(ikind)%gto_basis_set)) a_present(ikind) = .TRUE.
+         END DO !ikind
+
+      ELSE
+         !Truncated coulomb: set c_radius to x_range and leave a_radius at 0
+         DO ikind = 1, nkind
+            IF (ASSOCIATED(basis_c(ikind)%gto_basis_set)) THEN
+               c_present(ikind) = .TRUE.
+               c_radius(ikind) = x_range
+            END IF
+            IF (ASSOCIATED(basis_a(ikind)%gto_basis_set)) a_present(ikind) = .TRUE.
+         END DO !ikind
+      END IF
 
       ALLOCATE(pair_radius(nkind, nkind))
       pair_radius = 0.0_dp

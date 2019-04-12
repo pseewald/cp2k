@@ -21,12 +21,14 @@ MODULE xas_tdp_types
                                               ot_mini_cg, &
                                               ot_mini_diis, &
                                               tddfpt_spin_cons, &
-                                              tddfpt_spin_flip
+                                              tddfpt_spin_flip, &
+                                              do_hfx_potential_coulomb
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_val_get,&
                                               section_vals_get_subs_vals
    USE kinds,                           ONLY: dp ,default_string_length
    USE memory_utilities,                ONLY: reallocate
+   USE physcon,                         ONLY: bohr
    USE qs_grid_atom,                    ONLY: grid_atom_type, deallocate_grid_atom
    USE qs_harmonics_atom,               ONLY: harmonics_atom_type, deallocate_harmonics_atom
    USE qs_loc_types,                    ONLY: qs_loc_env_new_type,&
@@ -48,6 +50,8 @@ MODULE xas_tdp_types
 !> \param do_hfx whether exact exchange is included
 !> \param do_xc wheter xc functional(s) is(are) included
 !> \param sx the scaling applied to exact exchange
+!> \param x_op the operator used for exact exchange (Coulomb, TC, Sk)
+!> \param x_range the range for exact exchane operator (truncated coulomb or SR)
 !> \param tamm_dancoff whether the calculations should be done in the Tamm-Dancoff approximation
 !> \param list_ex_atoms list of excited atom indices, kept empty if define_excited=by_kind
 !> \param list_ex_kinds list of excited atom kinds, kept empty if define_excited=by_index
@@ -74,6 +78,8 @@ MODULE xas_tdp_types
       INTEGER                                 :: n_excited
       INTEGER                                 :: max_iter
       REAL(dp)                                :: sx
+      REAL(dp)                                :: x_range
+      INTEGER                                 :: x_op
       REAL(dp)                                :: eps_iter
       LOGICAL                                 :: do_hfx
       LOGICAL                                 :: do_xc
@@ -287,6 +293,8 @@ CONTAINS
       xas_tdp_control%do_hfx = .TRUE.
       xas_tdp_control%do_xc = .FALSE.
       xas_tdp_control%sx = 1.0_dp
+      xas_tdp_control%x_range = 0.0_dp
+      xas_tdp_control%x_op = do_hfx_potential_coulomb
       xas_tdp_control%check_only = .FALSE.
       xas_tdp_control%tamm_dancoff = .FALSE.
       xas_tdp_control%do_loc = .FALSE.
@@ -466,8 +474,14 @@ CONTAINS
                                 l_val=xas_tdp_control%do_hfx)
 
       IF (xas_tdp_control%do_hfx) THEN
-         CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%SCALE", &
+         CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%SCALE_X", &
                                    r_val=xas_tdp_control%sx)
+         CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%RANGE", &
+                                   r_val=xas_tdp_control%x_range)
+         !store the range in bohrs
+         xas_tdp_control%x_range = bohr*xas_tdp_control%x_range
+         CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%OPERATOR", &
+                                   i_val=xas_tdp_control%x_op)
       END IF
 
       IF ((.NOT. xas_tdp_control%do_xc) .AND. (.NOT. xas_tdp_control%do_hfx)) THEN
