@@ -128,9 +128,8 @@ MODULE xas_tdp_types
 !>        each excited atom
 !> \param ri_o3c_coul the container for the RI 3-center Coulomb integrals (updated for each ex atom)
 !> \param ri_o3c_ex the container for the RI 3-center exchange integrals (updated for each ex atom)
-!> \param lb_o3c_coul the lower bond of a,b present in the 3-center RI Coulomb integrals (ab|P)
-!> \param ub_o3c_coul the upper bond of a,b present in the 3-center RI Coulomb integrals (ab|P)
 !> \param ri_fxc the array of xc integrals of type (P|fxc|Q), for alpha-alpha, alpha-beta and beta-beta
+!> \param fxc_avail a boolean telling whwther fxc is availavle on all procs
 !> \param orb_soc the matrix where the SOC is evaluated wrt the orbital basis set, for x,y,z
 !> \param lumo_guess the coefficients for the LUMOs as guees for the OT eigensolver
 !> \param lumo_evals the eigenvalues of the guess LUMOs
@@ -144,8 +143,6 @@ MODULE xas_tdp_types
       INTEGER, DIMENSION(:,:), POINTER        :: state_types
       TYPE(o3c_container_type), POINTER       :: ri_o3c_coul
       TYPE(o3c_container_type), POINTER       :: ri_o3c_ex
-      INTEGER                                 :: lb_o3c_coul
-      INTEGER                                 :: ub_o3c_coul
       TYPE(cp_fm_p_type), DIMENSION(:), &
                                     POINTER   :: lumo_guess
       TYPE(cp_1d_r_p_type), DIMENSION(:), &
@@ -161,6 +158,7 @@ MODULE xas_tdp_types
                                     POINTER   :: dipmat
       TYPE(cp_2d_r_p_type), DIMENSION(:,:), &
                                     POINTER   :: ri_fxc
+      LOGICAL                                 :: fxc_avail
       TYPE(dbcsr_p_type), DIMENSION(:), &
                                     POINTER   :: orb_soc
    END TYPE xas_tdp_env_type
@@ -179,6 +177,7 @@ MODULE xas_tdp_types
 !> \param sg_coeffs solutions of the linear-response TDDFT singlet equations
 !> \param tp_coeffs solutions of the linear-response TDDFT triplet equations
 !> \param gs_coeffs the ground state MO coefficients 
+!> \param contract_coeffs the subset of gs_coeffs centered on excited atom, used for RI contraction
 !> \param sc_evals open-shell spin-conserving excitation energies
 !> \param sf_evals open-shell spin-flip excitation energies
 !> \param sg_evals singlet excitation energies => the eigenvalues of the linear response equation
@@ -211,6 +210,7 @@ MODULE xas_tdp_types
       TYPE(cp_fm_p_type), DIMENSION(:), &
                                     POINTER   :: tp_coeffs
       TYPE(cp_fm_type), POINTER               :: gs_coeffs
+      REAL(dp), DIMENSION(:,:), POINTER       :: contract_coeffs
       REAL(dp), DIMENSION(:), POINTER         :: sc_evals
       REAL(dp), DIMENSION(:), POINTER         :: sf_evals
       REAL(dp), DIMENSION(:), POINTER         :: sg_evals
@@ -526,6 +526,7 @@ CONTAINS
 
       xas_tdp_env%nex_atoms = 1
       xas_tdp_env%nex_kinds = 1
+      xas_tdp_env%fxc_avail = .FALSE.
 
       NULLIFY (xas_tdp_env%ex_atom_indices)
       NULLIFY (xas_tdp_env%ex_kind_indices)
@@ -677,6 +678,7 @@ CONTAINS
       NULLIFY (donor_state%sg_coeffs)
       NULLIFY (donor_state%tp_coeffs)
       NULLIFY (donor_state%gs_coeffs)
+      NULLIFY (donor_state%contract_coeffs)
       NULLIFY (donor_state%sc_evals)
       NULLIFY (donor_state%sf_evals)
       NULLIFY (donor_state%sg_evals)
@@ -774,6 +776,10 @@ CONTAINS
                CALL cp_fm_release(donor_state_set(i)%gs_coeffs)
             END IF
 
+            IF (ASSOCIATED(donor_state_set(i)%contract_coeffs)) THEN
+               DEALLOCATE(donor_state_set(i)%contract_coeffs)
+            END IF
+
             IF (ASSOCIATED(donor_state_set(i)%sc_evals)) THEN
                DEALLOCATE(donor_state_set(i)%sc_evals)
             END IF
@@ -868,6 +874,7 @@ CONTAINS
       INTEGER                                            :: i
 
       IF (ASSOCIATED(donor_state%sc_evals)) DEALLOCATE(donor_state%sc_evals)
+      IF (ASSOCIATED(donor_state%contract_coeffs)) DEALLOCATE(donor_state%contract_coeffs)
       IF (ASSOCIATED(donor_state%sf_evals)) DEALLOCATE(donor_state%sf_evals)
       IF (ASSOCIATED(donor_state%sg_evals)) DEALLOCATE(donor_state%sg_evals)
       IF (ASSOCIATED(donor_state%tp_evals)) DEALLOCATE(donor_state%tp_evals)
@@ -1058,11 +1065,6 @@ CONTAINS
 
       INTEGER                                         :: i
 
-      IF (ASSOCIATED(xas_tdp_env%ri_o3c_ex)) THEN
-         CALL release_o3c_container(xas_tdp_env%ri_o3c_ex)
-         DEALLOCATE(xas_tdp_env%ri_o3c_ex)
-      END IF
-
       IF (ASSOCIATED(xas_tdp_env%ri_fxc)) THEN
          DO i = 1, SIZE(xas_tdp_env%ri_fxc,2)
             IF (ASSOCIATED(xas_tdp_env%ri_fxc(atom,i)%array)) THEN
@@ -1070,6 +1072,8 @@ CONTAINS
             END IF
          END DO
       END IF
+
+      xas_tdp_env%fxc_avail = .FALSE.
 
    END SUBROUTINE free_exat_memory
 

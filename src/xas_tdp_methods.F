@@ -57,6 +57,7 @@ MODULE xas_tdp_methods
                                               section_vals_val_set
    USE kinds,                           ONLY: dp
    USE memory_utilities,                ONLY: reallocate
+   USE message_passing,                 ONLY: mp_sync
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE periodic_table,                  ONLY: ptable
@@ -113,8 +114,7 @@ MODULE xas_tdp_methods
                                               include_rcs_soc, &
                                               include_os_soc, &
                                               compute_ri_o3c_coulomb, &
-                                              compute_ri_o3c_exchange, &
-                                              get_ri_o3c_coul_bonds
+                                              compute_ri_o3c_exchange
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -150,10 +150,11 @@ CONTAINS
       TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
       TYPE(xas_atom_env_type), POINTER                   :: xas_atom_env
       TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(cp_para_env_type), POINTER                    :: para_env
       LOGICAL                                            :: do_os
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state)
-      NULLIFY(xas_atom_env, dft_control)
+      NULLIFY(xas_atom_env, dft_control, para_env)
 
       CALL timeset(routineN, handle)
 
@@ -249,8 +250,15 @@ CONTAINS
          CALL xas_atom_env_release(xas_atom_env)
       END IF
 
-!  Compute the 3-center Coulomb integrals
-      IF (.NOT. xas_tdp_control%check_only) CALL compute_ri_o3c_coulomb(xas_tdp_env, qs_env)
+!  Compute the 3-center Coulomb and exchange integrals
+      IF (.NOT. xas_tdp_control%check_only) THEN
+         CALL get_qs_env(qs_env, para_env=para_env)
+         CALL compute_ri_o3c_coulomb(xas_tdp_env, qs_env)
+         IF (xas_tdp_control%do_hfx) CALL compute_ri_o3c_exchange(xas_tdp_env, xas_tdp_control, qs_env)
+         !not strictly necessary, but avoid casting any load unbalance coming from the integrals
+         !to other subroutine and screwing the timings
+         CALL mp_sync(para_env%group)
+      END IF
 
 !  Loop over donor states for calculation
       CALL get_qs_env(qs_env=qs_env, atomic_kind_set=atomic_kind_set)      
@@ -274,14 +282,6 @@ CONTAINS
 
             IF (.NOT. ANY(xas_tdp_env%ex_atom_indices == iatom)) CYCLE
             tmp_index = locate(xas_tdp_env%ex_atom_indices, iatom)
-
-!           Get the lower and upper bonds of the Ri Coulomb integrals for this atom
-            CALL get_ri_o3c_coul_bonds(iatom, xas_tdp_env, qs_env)
-
-!           If exact exchange is riquired, compute the 3-center integrals for this atom
-            IF (xas_tdp_control%do_hfx) THEN
-               CALL compute_ri_o3c_exchange(iatom, xas_tdp_env, xas_tdp_control, qs_env)
-            END IF
 
 !           Loop over states of excited atom of kind
             DO istate = 1,SIZE(xas_tdp_env%state_types,1)
@@ -1233,18 +1233,18 @@ CONTAINS
 
          CALL get_mo_set(mos(ispin)%mo_set, mo_coeff=mo_coeff, nao=nao)
          overlap = 0.0_dp
-         
+
          my_mo = 0
          DO imo = 1,n_search
             IF(mos_of_ex_atoms(imo,iat,ispin) > 0) THEN
-            
+
                sto_overlap = 0.0_dp
                tmp_coeff = 0.0_dp
 
 !              Getting the relevant coefficients for the candidate state
                CALL cp_fm_get_submatrix(fm=mo_coeff, target_m=tmp_coeff, start_row=first_sgf(at_index),&
                                         start_col=imo, n_rows=nsgf_kind, n_cols=1, transpose=.FALSE.)
-                                  
+
 !              Computing the product overlap_matrix*coeffs
                CALL dgemm('N', 'N', nsgf_sto, 1, nsgf_kind, 1.0_dp, overlap_matrix, nsgf_sto, &
                           tmp_coeff, nsgf_kind, 0.0_dp, sto_overlap, nsgf_sto)
@@ -1271,7 +1271,7 @@ CONTAINS
       END DO !ispin
 
 !     Some clean-up
-      DEALLOCATE(first_sgf, overlap_matrix, tmp_coeff) 
+      DEALLOCATE(overlap_matrix, tmp_coeff) 
 
 !  Dealing with the result
       IF (ALL(my_mos > 0) .AND. ALL(my_mos <= n_search)) THEN
@@ -1294,6 +1294,11 @@ CONTAINS
             END DO
          END DO
          gs_coeffs => donor_state%gs_coeffs
+
+         !Keep the subset of the coeffs centered on the excited atom as global array (used a lot)
+         ALLOCATE(donor_state%contract_coeffs(nsgf_kind, n_states*nspins))
+         CALL cp_fm_get_submatrix(gs_coeffs, donor_state%contract_coeffs, start_row=first_sgf(at_index),&
+                                  start_col=1, n_rows=nsgf_kind, n_cols=n_states*nspins)
 
 !     Assigning corresponding energy eigenvalues and writing some info in standard input file
          
@@ -1398,6 +1403,7 @@ CONTAINS
 
 !        Clean-up
          CALL cp_fm_struct_release(gs_struct) 
+         DEALLOCATE(first_sgf)
 
          IF (output_unit > 0) WRITE(UNIT=output_unit, FMT="(T5,A)") " "
 
@@ -1784,9 +1790,10 @@ CONTAINS
                                      routineP = moduleN//":"//routineN
 
       INTEGER                                         :: nosc, iosc, ndo_mo, j, nao, nspins, ispin,&
-                                                         ndo_so, is
+                                                         ndo_so, is, handle
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: dipmat
-      TYPE(cp_fm_type), POINTER                       :: col_work, mat_work, lr_coeffs
+      TYPE(cp_fm_type), POINTER                       :: mat_work, lr_coeffs
+      TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: col_work
       TYPE(cp_fm_struct_type), POINTER                :: col_struct, mat_struct
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: diag, tot_contr
       REAL(dp), DIMENSION(:), POINTER                 :: lr_evals, osc_str
@@ -1797,6 +1804,8 @@ CONTAINS
 
       NULLIFY(dipmat, col_work, mat_work, col_struct, mat_struct, para_env, blacs_env, lr_coeffs)
       NULLIFY(lr_evals, osc_str)
+
+      CALL timeset(routineN, handle)
 
 !  Initialization
       do_sc = xas_tdp_control%do_spin_cons
@@ -1826,8 +1835,14 @@ CONTAINS
                           context=blacs_env, nrow_global=nao)
       CALL cp_fm_struct_create(mat_struct, para_env=para_env, context=blacs_env, &
                                nrow_global=ndo_mo, ncol_global=ndo_mo)
-      CALL cp_fm_create(col_work, col_struct)
       CALL cp_fm_create(mat_work, mat_struct)
+      ALLOCATE(col_work(3))
+      DO j = 1,3
+         CALL cp_fm_create(col_work(j)%matrix, col_struct)
+         ! get the product dipmat * c^0 for both spins (first columns for alpha)
+         CALL cp_dbcsr_sm_fm_multiply(dipmat(j)%matrix, donor_state%gs_coeffs, col_work(j)%matrix, &
+                                      ncol=ndo_so)
+      END DO
 
       ALLOCATE(diag(ndo_mo), tot_contr(ndo_mo))
       tot_contr = 0.0_dp
@@ -1847,15 +1862,13 @@ CONTAINS
          DO j = 1,3
 
             tot_contr = 0.0_dp
-            ! get the product dipmat * c^0 for both spins (first columns for alpha)
-            CALL cp_dbcsr_sm_fm_multiply(dipmat(j)%matrix, donor_state%gs_coeffs, col_work, ncol=ndo_so)
             DO ispin = 1,nspins
                is = ispin
                IF (.NOT. xas_tdp_control%do_uks) is = 1 !only have alpha MOs
 
                !computing c^i * dipmat(j) * c^0
-               CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, lr_coeffs, col_work, 0.0_dp, &
-                            mat_work, a_first_col=(ispin-1)*ndo_mo+1, & 
+               CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, lr_coeffs, col_work(j)%matrix, &
+                            0.0_dp, mat_work, a_first_col=(ispin-1)*ndo_mo+1, & 
                             b_first_col=(is-1)*ndo_mo+1)
 
                CALL cp_fm_get_diag(mat_work, diag)
@@ -1875,9 +1888,13 @@ CONTAINS
 
       !clean-up
       CALL cp_fm_release(mat_work)
-      CALL cp_fm_release(col_work)
       CALL cp_fm_struct_release(mat_struct)
-      DEALLOCATE(diag)
+      DO j = 1,3
+         CALL cp_fm_release(col_work(j)%matrix)
+      END DO
+      DEALLOCATE(diag, col_work)
+
+      CALL timestop(handle)
 
    END SUBROUTINE compute_dipole_fosc
 
@@ -1991,14 +2008,14 @@ CONTAINS
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
       TYPE(cp_fm_type), POINTER                       :: work_vect, gs_coeffs
-      REAL(dp), DIMENSION(:,:), POINTER               :: tmp_coeff, work_array
+      REAL(dp), DIMENSION(:,:), POINTER               :: work_array
       REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: pop_mat, mul_pop
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_s
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       TYPE(cp_fm_struct_type), POINTER                :: col_vect_struct
 
-      NULLIFY(mo_indices, qs_kind_set, particle_set, tmp_coeff, first_sgf,work_array)
+      NULLIFY(mo_indices, qs_kind_set, particle_set, first_sgf,work_array)
       NULLIFY(matrix_s, para_env, blacs_env, col_vect_struct, work_vect, last_sgf)
 
 !  Initialization
@@ -2011,7 +2028,6 @@ CONTAINS
       ndo_so = ndo_mo*nspins
       ALLOCATE(mul_pop(ndo_mo, nspins))
       mul_pop = 0.0_dp
-
 
       CALL get_qs_env(qs_env=qs_env, particle_set=particle_set, qs_kind_set=qs_kind_set, &
                       para_env=para_env, blacs_env=blacs_env, matrix_s=matrix_s)
@@ -2030,21 +2046,16 @@ CONTAINS
       CALL cp_dbcsr_sm_fm_multiply(matrix_s(1)%matrix, gs_coeffs, work_vect, ncol=ndo_so) 
 
 !  Only consider the product coeffs^T * S * coeffs on the atom of interest
-      ALLOCATE(tmp_coeff(ndo_so,nsgf))
       ALLOCATE(work_array(nsgf,ndo_so))
       ALLOCATE(pop_mat(ndo_so,ndo_so))
-
-      CALL cp_fm_get_submatrix(fm=gs_coeffs, target_m=tmp_coeff, start_row=first_sgf(at_index), &
-                               start_col=1, n_rows=nsgf, n_cols=ndo_so, transpose=.TRUE.)
 
       CALL cp_fm_get_submatrix(fm=work_vect, target_m=work_array, start_row=first_sgf(at_index), &
                                start_col=1, n_rows=nsgf, n_cols=ndo_so, transpose=.FALSE.)
 
-      CALL dgemm('N', 'N', ndo_so, ndo_so, nsgf, 1.0_dp, tmp_coeff, ndo_so, work_array, nsgf, 0.0_dp, &
-                 pop_mat, ndo_so)
+      CALL dgemm('T', 'N', ndo_so, ndo_so, nsgf, 1.0_dp, donor_state%contract_coeffs, nsgf, &
+                 work_array, nsgf, 0.0_dp, pop_mat, ndo_so)
 
-!  The Mullikan population for the MOs in on the diagonal. Factor of 2 because doubly occupied (core
-!  state assumption)
+!  The Mullikan population for the MOs in on the diagonal.
       DO ispin = 1,nspins
          DO i = 1,ndo_mo
             mul_pop(i,ispin) = pop_mat((ispin-1)*ndo_mo+i,(ispin-1)*ndo_mo+i)
@@ -2065,7 +2076,7 @@ CONTAINS
       END IF
 
 !  Clean-up
-      DEALLOCATE(first_sgf, last_sgf, tmp_coeff, work_array)
+      DEALLOCATE(first_sgf, last_sgf, work_array)
       CALL cp_fm_release(work_vect)
 
    END SUBROUTINE perform_mulliken_on_donor_state

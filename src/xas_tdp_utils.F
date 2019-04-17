@@ -81,7 +81,7 @@ MODULE xas_tdp_utils
                                               o3c_iterator_create, o3c_iterator_release, &
                                               o3c_iterator_type, get_o3c_iterator_info
    USE qs_ot_eigensolver,               ONLY: ot_eigensolver
-   USE util,                            ONLY: locate, get_limit
+   USE util,                            ONLY: locate
    USE xas_tdp_kernel,                  ONLY: kernel_coulomb_xc, kernel_exchange
    USE xas_tdp_types,                   ONLY: donor_state_type, xas_tdp_env_type, &
                                               xas_tdp_control_type
@@ -96,7 +96,7 @@ MODULE xas_tdp_utils
 
    PUBLIC :: setup_xas_tdp_prob, solve_xas_tdp_prob, build_xas_tdp_3c_nl, &
              compute_ri_coulomb2_int, include_rcs_soc, include_os_soc, &
-             compute_ri_o3c_coulomb, compute_ri_o3c_exchange, get_ri_o3c_coul_bonds
+             compute_ri_o3c_coulomb, compute_ri_o3c_exchange
 
 CONTAINS
 
@@ -144,7 +144,18 @@ CONTAINS
 !>       -In both above cases, the matrix M is always  projected onto the unperturbed unoccupied  
 !>        ground state: M <= Q * M * Q^T = (1 - SP) * M * (1 - PS)
 !>
-!>       -In the SPIN-FLIP case: TODO
+!>       -In the SPIN-FLIP case: 
+!>        Only the TDA is implemented, that is, there are only on-diagonal elements:
+!>                    M_d = A + C - D
+!>        where the submatrices A, C and D are:
+!>        - A: the ground state-contribution: (F_pq*delta_IJ - epsilon_IJ*S_pq) * delta_ab, but here,
+!>                                            the alph-alpha quadrant has the beta Fock matrix and
+!>                                            the beta-beta quadrant has the alpha Fock matrix
+!>        - C: the SF xc kernel: (pI_a|fxc|J_bq), fxc = 1/m * (vxc_a -vxc_b)
+!>        - D: the on-diagonal exact-exchange kernel: (pq|I_a J_b) delta_ab
+!>        To ensure that all excitation start from a given spin to the opposite, we then multiply
+!>        by a Q projector where we swap the alpha-alpha and beta-beta spin-quadrants
+!>
 !>        All possibilities: TDA or full-TDDFT, singlet or triplet, xc or hybrid, etc are treated
 !>        in the same routine to avoid recomputing stuff
 !>        Under TDA, only the on-diagonal elements of M are computed
@@ -165,7 +176,7 @@ CONTAINS
       LOGICAL                                         :: do_xc, do_hfx, do_sg, do_tp, do_tda, &
                                                          do_os, do_sc, do_sf
       TYPE(dbcsr_type), POINTER                       :: sg_matrix_tdp, tp_matrix_tdp, &
-                                                         matrix_d, matrix_e_sc, matrix_c_ondiag_sf,&
+                                                         matrix_d, matrix_e_sc, matrix_c_sf,&
                                                          matrix_c_sg, matrix_c_tp, & 
                                                          sc_matrix_tdp, sf_matrix_tdp, matrix_c_sc
       TYPE(dbcsr_type)                                :: matrix_b, proj_Q, proj_Q_sf, matrix_a, &
@@ -174,7 +185,7 @@ CONTAINS
       TYPE(dbcsr_distribution_type), POINTER          :: submat_dist
       INTEGER, DIMENSION(:), POINTER                  :: submat_blk_size
 
-      NULLIFY(sg_matrix_tdp, tp_matrix_tdp, submat_dist, submat_blk_size, matrix_c_ondiag_sf)
+      NULLIFY(sg_matrix_tdp, tp_matrix_tdp, submat_dist, submat_blk_size, matrix_c_sf)
       NULLIFY(matrix_c_sg, matrix_c_tp, matrix_c_sc, matrix_d, matrix_e_sc)
       NULLIFY(sc_matrix_tdp, sf_matrix_tdp, ex_ker, xc_ker)
 
@@ -239,11 +250,11 @@ CONTAINS
       CALL kernel_coulomb_xc(matrix_b, xc_ker, submat_dist, submat_blk_size, donor_state, &
                              xas_tdp_env, xas_tdp_control, qs_env)
       matrix_c_sg => xc_ker(1)%matrix; matrix_c_tp => xc_ker(2)%matrix
-      matrix_c_sc => xc_ker(3)%matrix; matrix_c_ondiag_sf => xc_ker(4)%matrix
+      matrix_c_sc => xc_ker(3)%matrix; matrix_c_sf => xc_ker(4)%matrix
 
       ! The exact exchange. Internal analysis to know which matrices to compute
-      CALL dbcsr_allocate_matrix_set(ex_ker, 3)
-      ALLOCATE(ex_ker(1)%matrix, ex_ker(2)%matrix, ex_ker(3)%matrix)
+      CALL dbcsr_allocate_matrix_set(ex_ker, 2)
+      ALLOCATE(ex_ker(1)%matrix, ex_ker(2)%matrix)
       CALL kernel_exchange(ex_ker, submat_dist, submat_blk_size, donor_state, xas_tdp_env, &
                            xas_tdp_control, qs_env)
       matrix_d => ex_ker(1)%matrix;  matrix_e_sc => ex_ker(2)%matrix
@@ -258,9 +269,6 @@ CONTAINS
          CALL build_metric(donor_state%metric, submat_dist, submat_blk_size, donor_state, &
                            qs_env, do_os, do_inv=.TRUE.)
       END IF
-
-! TODO: -probably should branch into 2 or three subroutines for closed-shell, spin-conserving
-!        and spin-flip to avoid this whole mess
 
 !  Build the eigenvalue problem, depending on the case (TDA, singlet, triplet, hfx, etc ...)
       IF (do_tda) THEN
@@ -282,10 +290,10 @@ CONTAINS
 
          IF (do_sf) THEN ! open-shell spin-flip under TDA
 
-            ! The final matrix is M = A + C - D (for now)
+            ! The final matrix is M = A + C - D 
             CALL dbcsr_copy(sf_matrix_tdp, matrix_a_sf, name="OS MATRIX TDP")
 
-            IF (do_xc) CALL dbcsr_add(sf_matrix_tdp, matrix_c_ondiag_sf, 1.0_dp, 1.0_dp) !xc kernel
+            IF (do_xc) CALL dbcsr_add(sf_matrix_tdp, matrix_c_sf, 1.0_dp, 1.0_dp) !xc kernel
             IF (do_hfx) CALL dbcsr_add(sf_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx) !scaled hfx
 
             ! Take the product with the (spin-flip) Q projector
@@ -1458,16 +1466,15 @@ CONTAINS
       TYPE(gto_basis_set_p_type), DIMENSION(:), &
                                              POINTER  :: basis_set_ri, basis_set_orb
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
-                                             POINTER  :: ac_list, sab_orb
+                                             POINTER  :: ac_list, ab_list
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
-      TYPE(cp_para_env_type), POINTER                 :: para_env
 
-      NULLIFY(basis_set_ri, basis_set_orb, ac_list, sab_orb, qs_kind_set, para_env)
+      NULLIFY(basis_set_ri, basis_set_orb, ac_list, ab_list, qs_kind_set)
 
       CALL timeset(routineN, handle)
 
 !  Take what we need from the qs_env
-      CALL get_qs_env(qs_env, nkind=nkind, sab_orb=sab_orb, qs_kind_set=qs_kind_set, para_env=para_env)
+      CALL get_qs_env(qs_env, nkind=nkind, qs_kind_set=qs_kind_set)
 
 !  Build the basis set lists
       ALLOCATE(basis_set_ri(nkind))
@@ -1475,9 +1482,14 @@ CONTAINS
       CALL basis_set_list_setup(basis_set_ri, "RI_XAS", qs_kind_set)
       CALL basis_set_list_setup(basis_set_orb, "ORB", qs_kind_set)
 
+!  Build a neighbor list for the ab centers. Assume (aI|c) = sum_b c_bI (ab|c), with c_bI only
+!  non-zero for b centered on the same atom as c => build overlap nl, but only keeping b if centered
+!  on an excited atom
+      CALL build_xas_tdp_ovlp_nl(ab_list, basis_set_orb, basis_set_orb, &
+                                 xas_tdp_env%ex_atom_indices, qs_env)
+
 !  Build a neighbor list for the ac centers. Since we later contract as (aI|c) and we assume I is 
-!  very localized on the same atom as c, we take a,c as neighbors if they overlap => the effective
-!  range is then second nearest neightbors (relatively weak assumption)
+!  very localized on the same atom as c, we take a,c as neighbors if they overlap
       CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "OVERLAP", &
                                qs_env, excited_atoms=xas_tdp_env%ex_atom_indices)
 
@@ -1485,14 +1497,17 @@ CONTAINS
       ALLOCATE(xas_tdp_env%ri_o3c_coul)
       !only one spin needed for copulomb integrals
       CALL init_o3c_container(xas_tdp_env%ri_o3c_coul, 1, basis_set_orb, basis_set_orb, &
-                              basis_set_ri, sab_orb, ac_list)
+                              basis_set_ri, ab_list, ac_list, only_bc_same_center=.TRUE.)
       CALL calculate_o3c_coulomb_integrals(xas_tdp_env%ri_o3c_coul)
 
 ! Clean-up
+      DO ilist = 1,SIZE(ab_list)
+         CALL deallocate_neighbor_list_set(ab_list(ilist)%neighbor_list_set)
+      END DO
       DO ilist = 1,SIZE(ac_list)
          CALL deallocate_neighbor_list_set(ac_list(ilist)%neighbor_list_set)
       END DO
-      DEALLOCATE(basis_set_ri, basis_set_orb, ac_list)
+      DEALLOCATE(basis_set_ri, basis_set_orb, ab_list, ac_list)
 
       CALL timestop(handle)
 
@@ -1500,18 +1515,17 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief Computes the RI exchange 3-center integrals (ab|c), where c is from the RI_XAS basis and
-!>        centered on the given excited atom and kind
-!> \param ex_atom the excited atom on which the third center is
+!>        centered on excited atoms and kind
 !> \param xas_tdp_env ...
 !> \param xas_tdp_control ...
 !> \param qs_env ...
-!> \note  The ri_o3c_ex member of xas_tdp_env is defined and allocated here. Recompute for each 
-!>        excited atom because of the many integrals involved (=> ok load balance and a lot of
-!>        memory used)
+!> \note  This routine is called once for the whole system. In the past, it was called separately
+!>        for each excited atom (to svae memory), but the load balance was sub-optimal
+!>        TODO: if this turns out to be too memory intensive, would be easy to go back to atom by
+!>              atom basis
 ! **************************************************************************************************
-   SUBROUTINE compute_ri_o3c_exchange(ex_atom, xas_tdp_env, xas_tdp_control, qs_env)
+   SUBROUTINE compute_ri_o3c_exchange(xas_tdp_env, xas_tdp_control, qs_env)
 
-      INTEGER, INTENT(IN)                             :: ex_atom
       TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
       TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
       TYPE(qs_environment_type), POINTER              :: qs_env
@@ -1525,7 +1539,6 @@ CONTAINS
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
                                              POINTER  :: ac_list, sab_orb
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
-      INTEGER, DIMENSION(:), ALLOCATABLE              :: exat
 
       NULLIFY(basis_set_ri, basis_set_orb, ac_list, sab_orb, qs_kind_set)
 
@@ -1541,18 +1554,18 @@ CONTAINS
       CALL basis_set_list_setup(basis_set_orb, "ORB", qs_kind_set)
 
 !  Build a neighbor list for the ac centers.
-      ALLOCATE(exat(1))
-      exat(1) = ex_atom
       !test on the exchange operator
       IF (xas_tdp_control%x_op == do_hfx_potential_coulomb) THEN
          CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "COULOMB", &
-                                  qs_env, excited_atoms=exat)
+                                  qs_env, excited_atoms=xas_tdp_env%ex_atom_indices)
       ELSE IF (xas_tdp_control%x_op == do_hfx_potential_truncated) THEN
          CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "TRUNCATED COULOMB", &
-                                  qs_env, excited_atoms=exat, x_range=xas_tdp_control%x_range)
+                                  qs_env, excited_atoms=xas_tdp_env%ex_atom_indices, &
+                                  x_range=xas_tdp_control%x_range)
       END IF
 
-!  Allocate, init and compute the integrals
+!  Allocate, init and compute the integrals. Use stendard sab_orb because in (ab|IJ), the only
+!  restriction is that a and b overlap
       ALLOCATE(xas_tdp_env%ri_o3c_ex)
       CALL init_o3c_container(xas_tdp_env%ri_o3c_ex, 1, basis_set_orb, basis_set_orb, &
                               basis_set_ri, sab_orb, ac_list)
@@ -1569,74 +1582,86 @@ CONTAINS
    END SUBROUTINE compute_ri_o3c_exchange
 
 ! **************************************************************************************************
-!> \brief Iterates over the ri_o3c_coulomb integrals of xas_tdp_env and look for the upper and lower
-!>        bonds of i,j in the (ij|k) integrals for atom k
-!> \param xas_tdp_env ...
-!> \param qs_env ...
-! **************************************************************************************************
-   SUBROUTINE get_ri_o3c_coul_bonds(atom_k, xas_tdp_env, qs_env)
-
-      INTEGER, INTENT(IN)                             :: atom_k
-      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
-      TYPE(qs_environment_type), POINTER              :: qs_env
-
-      CHARACTER(len=*), PARAMETER :: routineN = "get_ri_o3c_coul_bonds", &
-                                     routineP = moduleN//":"//routineN
-
-      INTEGER                                         :: iatom, jatom, katom, lbij, ubij, nthread, &
-                                                         mepos
-      TYPE(o3c_iterator_type)                         :: o3c_iterator
-      TYPE(o3c_container_type), POINTER               :: ri_o3c_coul
-      TYPE(cp_para_env_type), POINTER                 :: para_env
-
-      NULLIFY(ri_o3c_coul, para_env)
-
-      ri_o3c_coul => xas_tdp_env%ri_o3c_coul
-      ubij = 0
-      lbij = 10000000
-
-      nthread = 1
-!$    nthread = omp_get_max_threads()
-      CALL o3c_iterator_create(ri_o3c_coul, o3c_iterator, nthread=nthread)
-
-!$OMP PARALLEL DEFAULT(NONE) &
-!$OMP SHARED (nthread,o3c_iterator,atom_k)&
-!$OMP PRIVATE (mepos,iatom,jatom,katom)&
-!$OMP REDUCTION(min: lbij)&
-!$OMP REDUCTION(max: ubij)
-
-      mepos = 0
-!$    mepos = omp_get_thread_num()
-
-      DO WHILE (o3c_iterate(o3c_iterator, mepos=mepos) == 0)
-
-         CALL get_o3c_iterator_info(o3c_iterator, mepos=mepos, iatom=iatom, jatom=jatom, katom=katom)
-
-         IF (katom == atom_k) THEN
-            IF (iatom < lbij .OR. jatom < lbij) lbij = MIN(iatom, jatom)
-            IF (iatom > ubij .OR. jatom > ubij) ubij = MAX(iatom, jatom)
-         END IF
-
-      END DO
-!$OMP END PARALLEL
-      CALL o3c_iterator_release(o3c_iterator)
-
-      ! Still need to get the max/min out of the MPI procs
-      CALL get_qs_env(qs_env, para_env=para_env)
-      CALL mp_min(lbij, para_env%group)
-      CALL mp_max(ubij, para_env%group)
-
-      xas_tdp_env%lb_o3c_coul = lbij
-      xas_tdp_env%ub_o3c_coul = ubij
-
-   END SUBROUTINE get_ri_o3c_coul_bonds
-
-! **************************************************************************************************
 !> \brief Builds a neighbor lists set for overlaping 2-center S_ab, where b is restricted on a 
 !>        a given list of atoms. Used for Coulomb RI where (aI|P) = sum_b C_bI (ab|P), where 
 !>        contraction coeff C_bI is assumed to be non-zero only on excited atoms
-!> \param 
+!> \param ab_list the neighbor list 
+!> \param basis_a basis set list for atom a
+!> \param basis_b basis set list for atom b
+!> \param excited_atoms the indices of the excited atoms on which b is centered
+!> \param qs_env ...
 ! **************************************************************************************************
+   SUBROUTINE build_xas_tdp_ovlp_nl(ab_list, basis_a, basis_b, excited_atoms, qs_env)
+
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), &
+                                             POINTER  :: ab_list
+      TYPE(gto_basis_set_p_type), DIMENSION(:), &
+                                             POINTER  :: basis_a, basis_b
+      INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: excited_atoms
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "build_xas_tdp_ovlp_nl", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: nkind, ikind
+      REAL(dp)                                        :: subcells
+      LOGICAL, DIMENSION(:), ALLOCATABLE              :: a_present, b_present
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: a_radius, b_radius
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: pair_radius
+      TYPE(atomic_kind_type), DIMENSION(:), POINTER   :: atomic_kind_set
+      TYPE(cell_type), POINTER                        :: cell
+      TYPE(distribution_1d_type), POINTER             :: distribution_1d
+      TYPE(distribution_2d_type), POINTER             :: distribution_2d
+      TYPE(local_atoms_type), DIMENSION(:), &
+                                          ALLOCATABLE :: atom2d
+      TYPE(molecule_type), DIMENSION(:), POINTER      :: molecule_set
+      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
+
+      NULLIFY(atomic_kind_set, distribution_1d, distribution_2d, molecule_set, particle_set, cell)
+
+!  Initialization
+      CALL get_qs_env(qs_env, nkind=nkind)
+      CALL section_vals_val_get(qs_env%input, "DFT%SUBCELLS", r_val=subcells)
+
+      ALLOCATE(a_present(nkind), b_present(nkind))
+      a_present = .FALSE.
+      b_present = .FALSE.
+      ALLOCATE(a_radius(nkind), b_radius(nkind))
+      a_radius = 0.0_dp
+      b_radius = 0.0_dp
+
+!  Set up the radii
+      DO ikind = 1,nkind
+         IF (ASSOCIATED(basis_a(ikind)%gto_basis_set)) THEN
+            a_present(ikind) = .TRUE.
+            CALL get_gto_basis_set(basis_a(ikind)%gto_basis_set, kind_radius=a_radius(ikind))
+         END IF
+
+         IF (ASSOCIATED(basis_b(ikind)%gto_basis_set)) THEN
+            b_present(ikind) = .TRUE.
+            CALL get_gto_basis_set(basis_b(ikind)%gto_basis_set, kind_radius=b_radius(ikind))
+         END IF
+      END DO !ikind
+
+      ALLOCATE(pair_radius(nkind, nkind))
+      pair_radius = 0.0_dp
+      CALL pair_radius_setup(a_present, b_present, a_radius, b_radius, pair_radius)
+
+!  Set up the nl
+      CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, cell=cell, &
+                      distribution_2d=distribution_2d, local_particles=distribution_1d, &
+                      particle_set=particle_set, molecule_set=molecule_set)
+
+      ALLOCATE(atom2d(nkind))
+      CALL atom2d_build(atom2d, distribution_1d, distribution_2d, atomic_kind_set, &
+                        molecule_set, .FALSE., particle_set)
+
+      CALL build_neighbor_lists(ab_list, particle_set, atom2d, cell, pair_radius, subcells, &
+                                atomb_to_keep=excited_atoms, nlname="XAS_TDP_ovlp_nl")
+!  Clean-up
+      CALL atom2d_cleanup(atom2d)
+
+   END SUBROUTINE build_xas_tdp_ovlp_nl
    
 ! **************************************************************************************************
 !> \brief Builds a neighbor lists set taylored for 3-center integral within XAS TDP, such that only
