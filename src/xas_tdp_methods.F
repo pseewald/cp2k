@@ -51,7 +51,8 @@ MODULE xas_tdp_methods
                                               op_loc_berry, tddfpt_singlet, tddfpt_spin_cons, &
                                               tddfpt_triplet, xas_tdp_uks, xas_tdp_roks, &
                                               general_roks, high_spin_roks, state_loc_list, &
-                                              tddfpt_spin_flip, do_hfx_potential_coulomb
+                                              tddfpt_spin_flip, do_hfx_potential_coulomb, &
+                                              xas_dip_vel, xas_dip_len
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_get_subs_vals,&
                                               section_vals_val_set
@@ -83,7 +84,7 @@ MODULE xas_tdp_methods
    USE qs_mo_methods,                   ONLY: calculate_subspace_eigenvalues
    USE qs_mo_types,                     ONLY: get_mo_set,&
                                               mo_set_p_type
-   USE qs_operators_ao,                 ONLY: p_xyz_ao
+   USE qs_operators_ao,                 ONLY: p_xyz_ao, rRc_xyz_ao
    USE qs_rho_types,                    ONLY: qs_rho_get, qs_rho_type
    USE qs_scf_methods,                  ONLY: combine_ks_matrices
    USE qs_scf_types,                    ONLY: ot_method_nr
@@ -152,9 +153,11 @@ CONTAINS
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(cp_para_env_type), POINTER                    :: para_env
       LOGICAL                                            :: do_os
+      REAL(dp)                                           :: rc(3)
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state)
-      NULLIFY(xas_atom_env, dft_control, para_env)
+      NULLIFY(xas_atom_env, dft_control, para_env, particle_set)
 
       CALL timeset(routineN, handle)
 
@@ -234,6 +237,11 @@ CONTAINS
 !  If not simply exact exchange, setup a xas_atom_env and compute the xc integrals on the atomic grids
 !  Also needed if SOC is included. Done before looping on atoms as it's all done at once
       IF ((xas_tdp_control%do_xc .OR. xas_tdp_control%do_soc) .AND. .NOT. xas_tdp_control%check_only) THEN
+
+         IF (output_unit > 0) THEN
+            WRITE(UNIT=output_unit, FMT="(/,T3,A,I4,A)") &
+               "# Integrating the xc kernel on the atomic grids ..."
+         END IF
       
          CALL xas_atom_env_create(xas_atom_env)
          CALL init_xas_atom_env(xas_atom_env, xas_tdp_env, xas_tdp_control, qs_env) 
@@ -253,8 +261,19 @@ CONTAINS
 !  Compute the 3-center Coulomb and exchange integrals
       IF (.NOT. xas_tdp_control%check_only) THEN
          CALL get_qs_env(qs_env, para_env=para_env)
+         IF (output_unit > 0) THEN
+            WRITE(UNIT=output_unit, FMT="(/,T3,A,I4,A)") &
+               "# Computing the RI 3-center Coulomb integrals ..."
+         END IF
          CALL compute_ri_o3c_coulomb(xas_tdp_env, qs_env)
-         IF (xas_tdp_control%do_hfx) CALL compute_ri_o3c_exchange(xas_tdp_env, xas_tdp_control, qs_env)
+
+         IF (xas_tdp_control%do_hfx) THEN
+            IF (output_unit > 0) THEN
+               WRITE(UNIT=output_unit, FMT="(/,T3,A,I4,A)") &
+                  "# Computing the RI 3-center Exchange integrals ..."
+            END IF   
+            CALL compute_ri_o3c_exchange(xas_tdp_env, xas_tdp_control, qs_env)
+         END IF
          !not strictly necessary, but avoid casting any load unbalance coming from the integrals
          !to other subroutine and screwing the timings
          CALL mp_sync(para_env%group)
@@ -282,6 +301,16 @@ CONTAINS
 
             IF (.NOT. ANY(xas_tdp_env%ex_atom_indices == iatom)) CYCLE
             tmp_index = locate(xas_tdp_env%ex_atom_indices, iatom)
+
+            !if dipole in length rep, compute the dipole in the AO basis for this atom
+            IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
+               CALL get_qs_env(qs_env, particle_set=particle_set)
+               rc = particle_set(iatom)%r
+               CALL dbcsr_set(xas_tdp_env%dipmat(1)%matrix, 0.0_dp)
+               CALL dbcsr_set(xas_tdp_env%dipmat(2)%matrix, 0.0_dp)
+               CALL dbcsr_set(xas_tdp_env%dipmat(3)%matrix, 0.0_dp)
+               CALL rRc_xyz_ao(xas_tdp_env%dipmat, qs_env, rc, order=1)
+            END IF
 
 !           Loop over states of excited atom of kind
             DO istate = 1,SIZE(xas_tdp_env%state_types,1)
@@ -625,8 +654,8 @@ CONTAINS
          CALL dbcsr_set(xas_tdp_env%dipmat(i)%matrix, 0.0_dp)
       END DO
 
-!     Precompute it in the velocity representation
-      CALL p_xyz_ao(xas_tdp_env%dipmat, qs_env)
+!     Precompute it in the velocity representation, if so chosen
+      IF (xas_tdp_control%dipole_form == xas_dip_vel) CALL p_xyz_ao(xas_tdp_env%dipmat, qs_env)
 
 !  Allocate SOC in AO basis matrices
       IF (xas_tdp_control%do_soc) THEN
@@ -1776,7 +1805,8 @@ CONTAINS
 !> \param donor_state the donor state which is excited
 !> \param xas_tdp_control ...
 !> \param xas_tdp_env ... 
-!> \note The oscillator strength is a scalar: osc_str = 2/(3*omega)*(dipole_v)^2
+!> \note The oscillator strength is a scalar: osc_str = 2/(3*omega)*(dipole_v)^2 in the velocity rep
+!>       or : osc_str = 2/3*omega*(dipole_r)^2 in the length representation
 !>       The formulae for the dipoles come from the trace of the dipole operator with the transition
 !>       densities, i.e. what we get from solving the xas_tdp problem. Same procedure with or wo TDA
 ! **************************************************************************************************
@@ -1827,8 +1857,12 @@ CONTAINS
       nosc = SIZE(lr_evals)
 
       dipmat => xas_tdp_env%dipmat
-      !compute the prefactor (velocity representation)
-      osc_str(:) = 2.0_dp/3.0_dp/lr_evals(:)
+      !compute the prefactor
+      IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
+         osc_str(:) = 2.0_dp/3.0_dp*lr_evals(:)
+      ELSE
+         osc_str(:) = 2.0_dp/3.0_dp/lr_evals(:)
+      END IF
 
       ! do some work matrix initialization
       CALL cp_fm_get_info(donor_state%gs_coeffs, matrix_struct=col_struct, para_env=para_env, &

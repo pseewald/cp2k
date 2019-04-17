@@ -22,7 +22,8 @@ MODULE xas_tdp_types
                                               ot_mini_diis, &
                                               tddfpt_spin_cons, &
                                               tddfpt_spin_flip, &
-                                              do_hfx_potential_coulomb
+                                              do_hfx_potential_coulomb, &
+                                              xas_dip_vel
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_val_get,&
                                               section_vals_get_subs_vals
@@ -45,6 +46,7 @@ MODULE xas_tdp_types
 ! **************************************************************************************************
 !> \brief Type containing control information for TDP XAS calculations
 !> \param define_excited whether excited atoms are chosen by kind or index
+!> \param dipole_form whether the dipole moment is computed in the length or velocity representation
 !> \param n_search # of lowest energy MOs to search for donor orbitals
 !> \param check_only whether a check run for donor MOs and LUMOs guesses is conducted
 !> \param do_hfx whether exact exchange is included
@@ -74,6 +76,7 @@ MODULE xas_tdp_types
 ! **************************************************************************************************
    TYPE xas_tdp_control_type
       INTEGER                                 :: define_excited   
+      INTEGER                                 :: dipole_form
       INTEGER                                 :: n_search
       INTEGER                                 :: n_excited
       INTEGER                                 :: max_iter
@@ -290,6 +293,7 @@ CONTAINS
       
       xas_tdp_control%define_excited = xas_tdp_by_index
       xas_tdp_control%n_search = -1
+      xas_tdp_control%dipole_form = xas_dip_vel
       xas_tdp_control%do_hfx = .TRUE.
       xas_tdp_control%do_xc = .FALSE.
       xas_tdp_control%sx = 1.0_dp
@@ -381,6 +385,8 @@ CONTAINS
                            
       CALL section_vals_val_get(xas_tdp_section, "SPIN_ORBIT_COUPLING", &
                                 l_val=xas_tdp_control%do_soc)
+
+      CALL section_vals_val_get(xas_tdp_section, "DIPOLE_FORM", i_val=xas_tdp_control%dipole_form)
 
       CALL section_vals_val_get(xas_tdp_section, "GRID", n_rep_val=nrep)
 

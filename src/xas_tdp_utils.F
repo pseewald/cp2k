@@ -57,7 +57,8 @@ MODULE xas_tdp_utils
    USE input_constants,                 ONLY: ot_precond_full_single, &
                                               tddfpt_singlet, tddfpt_triplet, xas_tdp_uks, &
                                               xas_tdp_roks, tddfpt_spin_cons, tddfpt_spin_flip, &
-                                              do_hfx_potential_coulomb, do_hfx_potential_truncated
+                                              do_hfx_potential_coulomb, do_hfx_potential_truncated,&
+                                              xas_dip_len, xas_dip_vel
    USE input_section_types,             ONLY: section_vals_val_get
    USE kinds,                           ONLY: dp
    USE mathlib,                         ONLY: invmat_symm, get_diag
@@ -2196,8 +2197,12 @@ CONTAINS
 
       END DO !i
 
-      !velocity representation
-      donor_state%soc_osc_str(:) = 2.0_dp/3.0_dp/donor_state%soc_evals(:)*donor_state%soc_osc_str(:)
+      !which representation ?
+      IF (xas_tdp_control%dipole_form == xas_dip_len) THEN 
+         donor_state%soc_osc_str(:) = 2.0_dp/3.0_dp*donor_state%soc_evals(:)*donor_state%soc_osc_str(:)
+      ELSE
+         donor_state%soc_osc_str(:) = 2.0_dp/3.0_dp/donor_state%soc_evals(:)*donor_state%soc_osc_str(:)
+      END IF
 
 ! Clean-up
       DO i = 1,SIZE(amew_dip)
@@ -2510,8 +2515,12 @@ CONTAINS
 
       END DO
 
-      !velocity representation
-      donor_state%soc_osc_str(:) = 2.0_dp/3.0_dp/donor_state%soc_evals(:)*donor_state%soc_osc_str(:)
+      !which rep ?
+      IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
+         donor_state%soc_osc_str(:) = 2.0_dp/3.0_dp*donor_state%soc_evals(:)*donor_state%soc_osc_str(:)
+      ELSE
+         donor_state%soc_osc_str(:) = 2.0_dp/3.0_dp/donor_state%soc_evals(:)*donor_state%soc_osc_str(:)
+      END IF
 
 !  Clean-up
       DO i = 1,SIZE(amew_dip)

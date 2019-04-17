@@ -7827,7 +7827,7 @@ CONTAINS
                           description="XAS simulations using TDDFPT. Excitation from specified "//&
                           "core orbitals are considered one at a time. In case of high symmetry "//&
                           "structures, donor core orbitals should be localized.", &
-                          n_keywords=7, n_subsections=5, repeats=.FALSE.)
+                          n_keywords=8, n_subsections=5, repeats=.FALSE.)
 
       NULLIFY (keyword, subsection, print_key)
 
@@ -7869,6 +7869,18 @@ CONTAINS
       CALL section_add_keyword(section, keyword)      
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, name="DIPOLE_FORM", &
+                          variants=(/"DIP_FORM"/), &
+                          description="Type of integral to get the oscillator strengths "// &
+                                       "in the dipole approximation", &
+                          usage="DIPOLE_FORM {string}", &
+                          default_i_val=xas_dip_vel, &
+                          enum_c_vals=s2a("LENGTH", "VELOCITY"), &
+                          enum_desc=s2a("Length form &lang; 0 | e r | n &rang;", &
+                                        "Velocity form &lang; 0 | d/dr | n &rang;"), &
+                          enum_i_vals=(/xas_dip_len, xas_dip_vel/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
 
 !  The donor state subsection
       
