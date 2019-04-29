@@ -16,11 +16,18 @@ MODULE xas_tdp_atom
    USE basis_set_types,                 ONLY: gto_basis_set_type, gto_basis_set_p_type, &
                                               get_gto_basis_set, set_gto_basis_set
    USE cell_types,                      ONLY: cell_type, pbc
-   USE cp_array_utils,                  ONLY: cp_2d_r_p_type, cp_3d_r_p_type, cp_1d_i_p_type
+   USE cp_array_utils,                  ONLY: cp_2d_r_p_type, cp_3d_r_p_type, cp_1d_i_p_type, &
+                                              cp_1d_r_p_type
    USE cp_blacs_env,                    ONLY: cp_blacs_env_type
    USE cp_control_types,                ONLY: qs_control_type, dft_control_type
    USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose, cp_dbcsr_cholesky_invert
    USE cp_dbcsr_operations,             ONLY: dbcsr_deallocate_matrix_set
+   USE cp_fm_basic_linalg,              ONLY: cp_fm_upper_to_full
+   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose, cp_fm_cholesky_invert
+   USE cp_fm_struct,                    ONLY: cp_fm_struct_type, cp_fm_struct_create, &
+                                              cp_fm_struct_release
+   USE cp_fm_types,                     ONLY: cp_fm_type, cp_fm_get_submatrix, cp_fm_release, &
+                                              cp_fm_create, cp_fm_set_submatrix
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: dbcsr_p_type, dbcsr_distribution_type,&
                                               dbcsr_create, dbcsr_print, dbcsr_put_block, &
@@ -31,6 +38,7 @@ MODULE xas_tdp_atom
                                               dbcsr_type, dbcsr_distribution_get, dbcsr_get_info, &
                                               dbcsr_get_stored_coordinates, dbcsr_replicate_all
    USE generic_os_integrals,            ONLY: int_overlap_ab_os
+   USE input_constants,                 ONLY: xas_tdp_full_ri, xas_tdp_part_ri
    USE input_section_types,             ONLY: section_vals_type, &
                                               section_vals_get_subs_vals
    USE kinds,                           ONLY: dp, default_string_length
@@ -54,7 +62,11 @@ MODULE xas_tdp_atom
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_kind_types,                   ONLY: qs_kind_type, get_qs_kind, get_qs_kind_set
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type, &
-                                              deallocate_neighbor_list_set
+                                              deallocate_neighbor_list_set, neighbor_list_iterate,&
+                                              neighbor_list_iterator_create,&
+                                              neighbor_list_iterator_p_type,&
+                                              neighbor_list_iterator_release,&
+                                              get_iterator_info
    USE qs_ks_types,                     ONLY: qs_ks_env_type
    USE qs_o3c_methods,                  ONLY: calculate_o3c_integrals, contract12_o3c
    USE qs_o3c_types,                    ONLY: init_o3c_container, o3c_container_type, &
@@ -65,7 +77,7 @@ MODULE xas_tdp_atom
    USE qs_rho_types,                    ONLY: qs_rho_type, qs_rho_get
    USE spherical_harmonics,             ONLY: clebsch_gordon, clebsch_gordon_deallocate, &
                                               clebsch_gordon_init
-   USE util,                            ONLY: get_limit, locate
+   USE util,                            ONLY: get_limit
    USE xas_tdp_types,                   ONLY: xas_atom_env_type, xas_tdp_env_type, &
                                               xas_tdp_control_type
    USE xas_tdp_utils,                   ONLY: build_xas_tdp_3c_nl
@@ -92,7 +104,7 @@ MODULE xas_tdp_atom
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief Initializes a xas_atom_env type given the qs_env
+!> \brief Initializes a xas_atom_env type given the qs_enxas_atom_env, qs_envv
 !> \param xas_atom_env the xas_atom_env to initialize
 !> \param xas_tdp_env ...
 !> \param xas_tdp_control ...
@@ -129,11 +141,11 @@ CONTAINS
       do_soc = xas_tdp_control%do_soc
       nspins = 1; IF (xas_tdp_control%do_uks .OR. xas_tdp_control%do_roks) nspins = 2
 
+      xas_atom_env%nspins = nspins
       ALLOCATE(xas_atom_env%grid_atom_set(nkind))
       ALLOCATE(xas_atom_env%harmonics_atom_set(nkind))
       ALLOCATE(xas_atom_env%ri_sphi_so(nkind))
       ALLOCATE(xas_atom_env%orb_sphi_so(nkind))
-      ALLOCATE(xas_atom_env%ri_dcoeff(natom,nspins))
 
       xas_atom_env%excited_atoms => xas_tdp_env%ex_atom_indices
       xas_atom_env%excited_kinds => xas_tdp_env%ex_kind_indices
@@ -153,7 +165,12 @@ CONTAINS
       END DO !ikind
 
 !  Compute the coefficients to expand the density in the RI_XAS basis, if requested
-      IF (do_xc) CALL calculate_density_coeffs(xas_atom_env, qs_env)
+!  Coefficients are computed differently depending in th RI scheme
+      IF (do_xc .AND. xas_tdp_control%ri_type == xas_tdp_full_ri) THEN
+         CALL calculate_density_coeffs_full_ri(xas_atom_env, qs_env)
+      ELSE IF (do_xc .AND. xas_tdp_control%ri_type == xas_tdp_part_ri) THEN
+         CALL calculate_density_coeffs_part_ri(xas_atom_env, qs_env)
+      END IF
 
       CALL timestop(handle)
 
@@ -462,7 +479,7 @@ CONTAINS
 ! ************************************************************************************************** 
    SUBROUTINE find_neighbors(base_atoms, mat_s, qs_env, all_neighbors, neighbor_set) 
 
-      INTEGER, DIMENSION(:), INTENT(IN)               :: base_atoms
+      INTEGER, DIMENSION(:), INTENT(INOUT)            :: base_atoms
       TYPE(dbcsr_type), INTENT(IN)                    :: mat_s
       TYPE(qs_environment_type), POINTER              :: qs_env 
       INTEGER, DIMENSION(:), POINTER, OPTIONAL        :: all_neighbors
@@ -474,12 +491,13 @@ CONTAINS
 
       INTEGER                                         :: iblk, jblk, blk, nbase, ibase, mepos, &
                                                          natom, nb, iat, i
-      INTEGER, DIMENSION(:), ALLOCATABLE              :: inb, who_is_there 
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: inb, who_is_there, blk_to_base
       INTEGER, DIMENSION(:,:), ALLOCATABLE            :: n_neighbors
       TYPE(dbcsr_iterator_type)                       :: iter 
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
       TYPE(cp_1d_i_p_type), DIMENSION(:), POINTER     :: my_neighbor_set
+      LOGICAL, DIMENSION(:), ALLOCATABLE              :: is_base_atom
 
       NULLIFY(particle_set, para_env, my_neighbor_set)
 
@@ -489,6 +507,13 @@ CONTAINS
       nbase = SIZE(base_atoms)
       !work with the neighbor_set structure, see at the end if we keep it
       ALLOCATE(my_neighbor_set(nbase))
+
+      ALLOCATE(blk_to_base(natom), is_base_atom(natom))
+      blk_to_base = 0; is_base_atom = .FALSE.
+      DO ibase = 1, nbase
+         blk_to_base(base_atoms(ibase)) = ibase
+         is_base_atom(base_atoms(ibase)) = .TRUE.
+      END DO
 
    ! First loop over S => count the number of neighbors 
       ALLOCATE(n_neighbors(nbase,0:para_env%num_pe-1))
@@ -502,12 +527,12 @@ CONTAINS
          !avoid self-neighbors
          IF (iblk == jblk) CYCLE
 
-         IF (ANY(base_atoms == iblk)) THEN
-            ibase = locate(base_atoms, iblk)
+         IF (is_base_atom(iblk)) THEN
+            ibase = blk_to_base(iblk)
             n_neighbors(ibase,mepos) = n_neighbors(ibase,mepos) + 1
          END IF
-         IF (ANY(base_atoms == jblk)) THEN
-            ibase = locate(base_atoms, jblk)
+         IF (is_base_atom(jblk)) THEN
+            ibase = blk_to_base(jblk)
             n_neighbors(ibase,mepos) = n_neighbors(ibase,mepos) + 1
          END IF
 
@@ -530,13 +555,13 @@ CONTAINS
          CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
          IF (iblk == jblk) CYCLE
 
-         IF (ANY(base_atoms == iblk)) THEN
-            ibase = locate(base_atoms, iblk)
+         IF (is_base_atom(iblk)) THEN
+            ibase = blk_to_base(iblk)
             my_neighbor_set(ibase)%array(SUM(n_neighbors(ibase,0:mepos-1))+inb(ibase)) = jblk
             inb(ibase) = inb(ibase) + 1
          END IF
-         IF (ANY(base_atoms == jblk)) THEN
-            ibase = locate(base_atoms, jblk)
+         IF (is_base_atom(jblk)) THEN
+            ibase = blk_to_base(jblk)
             my_neighbor_set(ibase)%array(SUM(n_neighbors(ibase,0:mepos-1))+inb(ibase)) = iblk
             inb(ibase) = inb(ibase) + 1
          END IF
@@ -555,7 +580,7 @@ CONTAINS
          who_is_there = 0
 
          DO ibase = 1,nbase
-            who_is_there(ibase) = 1
+            who_is_there(base_atoms(ibase)) = 1
             DO nb = 1, SIZE(my_neighbor_set(ibase)%array)
                who_is_there(my_neighbor_set(ibase)%array(nb)) = 1
             END DO
@@ -583,6 +608,166 @@ CONTAINS
       END IF
 
    END SUBROUTINE find_neighbors
+
+! **************************************************************************************************
+!> \brief Returns the RI inverse overlap for a subset of the RI_XAS matrix spaning a given
+!>        excited atom and its neighbors. 
+!> \param ri_sinv the inverse overlap. Organised as an array of blocks of which only the upper
+!>                triangular part is defined (symmetric)
+!> \param neighbors the indeces of the excited atom and their neighbors
+!> \param idx_to_nb array telling where any atom can be found in neighbors (if there at all)
+!> \param basis_set_ri the RI basis set list for all kinds
+!> \param qs_env ...
+! **************************************************************************************************
+   SUBROUTINE get_exat_ri_sinv(ri_sinv, neighbors, idx_to_nb, basis_set_ri, qs_env)
+
+      TYPE(cp_2d_r_p_type), DIMENSION(:,:), POINTER   :: ri_sinv
+      INTEGER, DIMENSION(:), INTENT(IN)               :: neighbors, idx_to_nb
+      TYPE(gto_basis_set_p_type), DIMENSION(:), &
+                                             POINTER  :: basis_set_ri
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "get_exat_ri_sinv", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: handle, nnb, iat, ikind, jat, nsgf_tot, &
+                                                         jkind, starti, startj, nthread, mepos, &
+                                                         inb, jnb, natom
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: nsgf, first_sgf
+      REAL(dp)                                        :: dmax
+      REAL(dp), DIMENSION(3)                          :: rij
+      REAL(dp), DIMENSION(:,:), POINTER               :: work
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: sinv_array
+      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(cell_type), POINTER                        :: cell
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), & 
+                                             POINTER  :: sab_orb
+      TYPE(neighbor_list_iterator_p_type), &
+                              DIMENSION(:), POINTER   :: nl_iterator
+      LOGICAL                                         :: trans
+      TYPE(cp_fm_type), POINTER                       :: ri_sinv_fm, work_fm
+      TYPE(cp_fm_struct_type), POINTER                :: fm_struct
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      LOGICAL, DIMENSION(:), ALLOCATABLE              :: is_neighbor
+
+      NULLIFY(particle_set, cell, sab_orb, para_env, ri_sinv_fm, fm_struct, work_fm)
+      NULLIFY(work, blacs_env)
+   
+      CALL timeset(routineN, handle)
+
+      CALL get_qs_env(qs_env, particle_set=particle_set, cell=cell, para_env=para_env, &
+                      blacs_env=blacs_env, sab_orb=sab_orb, natom=natom)
+
+      !First, determine the size of the matrix
+      nnb = SIZE(neighbors)
+      ALLOCATE(nsgf(nnb), first_sgf(nnb))
+      nsgf_tot = 0
+      ALLOCATE(is_neighbor(natom))
+      is_neighbor = .FALSE.
+
+      DO inb = 1, nnb
+         iat = neighbors(inb)
+         ikind = particle_set(iat)%atomic_kind%kind_number
+         CALL get_gto_basis_set(basis_set_ri(ikind)%gto_basis_set, nsgf=nsgf(inb))
+         first_sgf(inb) = nsgf_tot + 1 
+         nsgf_tot = nsgf_tot + nsgf(inb)
+         is_neighbor(iat) = .TRUE.
+      END DO
+
+      ALLOCATE(sinv_array(nsgf_tot, nsgf_tot))
+      sinv_array = 0.0_dp
+
+      !Build the overlap
+      nthread = 1
+!$    nthread = omp_get_max_threads()
+      CALL neighbor_list_iterator_create(nl_iterator, sab_orb, nthread=nthread)
+
+!$OMP PARALLEL DEFAULT(NONE) &
+!$OMP SHARED (sinv_array,nl_iterator,nthread,neighbors,nsgf,basis_set_ri,first_sgf,idx_to_nb,is_neighbor)&
+!$OMP PRIVATE (mepos,iat,jat,ikind,jkind,rij,starti,startj,inb,jnb,dmax,work,trans)
+
+      mepos = 0
+!$    mepos = omp_get_thread_num()
+
+      DO WHILE (neighbor_list_iterate(nl_iterator, mepos=mepos) == 0)
+
+         CALL get_iterator_info(nl_iterator, mepos=mepos, iatom=iat, jatom=jat, &
+                                ikind=ikind, jkind=jkind, r=rij)
+
+         IF (.NOT. is_neighbor(iat)) CYCLE
+         IF (.NOT. is_neighbor(jat)) CYCLE
+
+         inb = idx_to_nb(iat)
+         jnb = idx_to_nb(jat)
+
+         trans = .FALSE.
+         IF (inb > jnb) trans = .TRUE.
+
+         starti = first_sgf(inb)
+         startj = first_sgf(jnb)
+
+         ALLOCATE(work(nsgf(inb), nsgf(jnb)))
+         work = 0.0_dp
+
+         CALL int_overlap_ab_os(work, rab=rij, fba=basis_set_ri(ikind)%gto_basis_set, &
+                                fbb=basis_set_ri(jkind)%gto_basis_set, dmax=dmax, &
+                                calculate_forces=.FALSE., debug=.FALSE.)
+
+!$OMP CRITICAL(ri_sinv)
+         IF (trans) THEN
+            CALL daxpy(nsgf(inb)*nsgf(jnb), 1.0_dp, TRANSPOSE(work(:,:)), 1, &
+                       sinv_array(startj:startj+nsgf(jnb)-1, starti:starti+nsgf(inb)-1), 1)
+         ELSE
+            CALL daxpy(nsgf(inb)*nsgf(jnb), 1.0_dp, work(:,:), 1, &
+                       sinv_array(starti:starti+nsgf(inb)-1, startj:startj+nsgf(jnb)-1), 1)
+         END IF
+!$OMP END CRITICAL(ri_sinv)
+
+         DEALLOCATE(work)
+      END DO !nl_iterator
+!$OMP END PARALLEL
+      CALL neighbor_list_iterator_release(nl_iterator)
+
+      CALL mp_sum(sinv_array, para_env%group)
+
+      !Invert the matrix
+      CALL cp_fm_struct_create(fm_struct, para_env=para_env, context=blacs_env, &
+                               nrow_global=nsgf_tot, ncol_global=nsgf_tot)
+      CALL cp_fm_create(ri_sinv_fm, fm_struct)
+      CALL cp_fm_create(work_fm, fm_struct)
+
+      CALL cp_fm_set_submatrix(ri_sinv_fm, sinv_array)
+      CALL cp_fm_cholesky_decompose(ri_sinv_fm)
+      CALL cp_fm_cholesky_invert(ri_sinv_fm)
+      CALL cp_fm_upper_to_full(ri_sinv_fm, work_fm)
+
+      CALL cp_fm_struct_release(fm_struct)
+      CALL cp_fm_release(work_fm)
+      DEALLOCATE(sinv_array)
+
+      !Store it in block form.
+      ALLOCATE(ri_sinv(nnb, nnb))
+      DO inb = 1, nnb
+         DO jnb = 1, nnb
+
+            NULLIFY(ri_sinv(inb,jnb)%array) !symmetric, just need upper half
+
+            IF (inb > jnb) CYCLE
+
+            starti = first_sgf(inb)
+            startj = first_sgf(jnb)
+
+            ALLOCATE(ri_sinv(inb,jnb)%array(nsgf(inb), nsgf(jnb)))
+            CALL cp_fm_get_submatrix(fm=ri_sinv_fm, target_m=ri_sinv(inb,jnb)%array, &
+                                     start_row=first_sgf(inb), start_col=first_sgf(jnb), &
+                                     n_rows=nsgf(inb), n_cols=nsgf(jnb))
+         END DO 
+      END DO
+
+      CALL cp_fm_release(ri_sinv_fm)
+      CALL timestop(handle)
+
+   END SUBROUTINE get_exat_ri_sinv
 
 ! **************************************************************************************************
 !> \brief Returns a replicated over all procs copy of a given row/col of a dbcsr matrix
@@ -632,6 +817,221 @@ CONTAINS
    END SUBROUTINE get_replicated_rowcol
 
 ! **************************************************************************************************
+!> \brief Compute the coefficients to project the density on a partial RI_XAS basis
+!> \param xas_atom_env ...
+!> \param qs_env ...
+!> \note The density is n = sum_ab P_ab*phi_a*phi_b, the RI basis covers the products of orbital sgfs
+!>       => n = sum_ab sum_cd P_ab (phi_a phi_b xi_c) S_cd^-1 xi_d
+!>            = sum_d coeff_d xi_d , where xi are the RI basis func.
+!>       In this case, with the partial RI projection, the RI basis is restricted to an excited atom
+!>       and its neighbors at a time. Leads to smaller overlap matrix to invert and less 3-center
+!>       overlap to compute. The procedure is repeated for each ecited atom
+! **************************************************************************************************
+   SUBROUTINE calculate_density_coeffs_part_ri(xas_atom_env, qs_env)
+
+      TYPE(xas_atom_env_type), POINTER                :: xas_atom_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "calculate_density_coeffs_part_ri", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: nkind, ilist, katom, ikind, natom, &
+                                                         iat, mepos, nthread, handle, &
+                                                         nspins, ispin, ri_at, &
+                                                         iex, exat, &
+                                                         inb, ic, nnb, nex
+      REAL(dp)                                        :: factor
+      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
+      TYPE(gto_basis_set_p_type), DIMENSION(:), &
+                                             POINTER  :: basis_set_ri, basis_set_orb
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), & 
+                                             POINTER  :: ac_list, sab_orb
+      TYPE(o3c_container_type), POINTER               :: o3c
+      TYPE(qs_rho_type), POINTER                      :: rho
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: rho_ao, matrix_s
+      TYPE(o3c_iterator_type)                         :: o3c_iterator
+      REAL(dp), DIMENSION(:,:), POINTER               :: tvec
+      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: nsgf, neighbors, idx_to_nb
+      INTEGER, DIMENSION(:), POINTER                  :: all_ri_atoms
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: work
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      TYPE(cp_2d_r_p_type), DIMENSION(:,:), POINTER   :: ri_sinv
+      REAL(dp), DIMENSION(:,:), POINTER               :: sinv_block
+      LOGICAL, DIMENSION(:), ALLOCATABLE              :: is_neighbor
+
+      NULLIFY(qs_kind_set, basis_set_ri, basis_set_orb, ac_list, rho, rho_ao) 
+      NULLIFY(o3c, tvec, particle_set, para_env, all_ri_atoms, sab_orb)
+      NULLIFY(blacs_env, matrix_s, ri_sinv, sinv_block)
+
+      !Idea: instead of doing a RI for the whole system (very costly in the end because of the
+      !      inversion of the overlap and a lot of all-to-all communication), we only fo RI
+      !      on the excited atom and it's neighbors, on excited atom at a time. We compute
+      !      all the o3c integrals at once, then look over the excited atoms and compute the
+      !      ri_sinv on the local basis
+
+      CALL timeset(routineN, handle)
+
+      CALL get_qs_env(qs_env, nkind=nkind, sab_orb=sab_orb, qs_kind_set=qs_kind_set, rho=rho, &
+                      natom=natom, particle_set=particle_set, matrix_s=matrix_s, &
+                      para_env=para_env, blacs_env=blacs_env)
+      nspins = xas_atom_env%nspins
+      nex = SIZE(xas_atom_env%excited_atoms)
+
+!  Get the neighbors of the excited atoms (= all the atoms where density coeffs are needed)
+      CALL find_neighbors(xas_atom_env%excited_atoms, matrix_s(1)%matrix, qs_env, &
+                          all_neighbors=all_ri_atoms, neighbor_set=xas_atom_env%exat_neighbors)
+
+!  Create the needed neighbor list and basis set lists.
+      ALLOCATE(basis_set_ri(nkind))
+      ALLOCATE(basis_set_orb(nkind))
+      CALL basis_set_list_setup(basis_set_ri, "RI_XAS", qs_kind_set)
+      CALL basis_set_list_setup(basis_set_orb, "ORB", qs_kind_set)
+      
+!  Build the ac neighbor lists where centers C are either en excited atom or it's neighbor
+      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "OVERLAP", qs_env, &
+                               excited_atoms=all_ri_atoms)
+
+!  Create the 3-center overlap integrals for the RI basis
+      ALLOCATE(o3c)
+      CALL init_o3c_container(o3c, nspins, basis_set_orb, basis_set_orb, basis_set_ri, sab_orb, ac_list)
+      CALL calculate_o3c_integrals(o3c)
+
+!  Contract the 3-center tensor with the density matrix
+      CALL qs_rho_get(rho, rho_ao=rho_ao)
+      CALL contract12_o3c(o3c, rho_ao)
+
+      !keep in mind that double occupation is included in rho_ao in case of closed-shell
+      factor = 0.5_dp; IF (nspins == 2) factor = 1.0_dp
+
+!  Allocate space for the projected density coefficients. On all ri_atoms. 
+!  Note: the sub-region where we project the density changes from excited atom to excited atom
+!        => need different sets of RI coeffs
+      ALLOCATE(nsgf(natom))
+      CALL get_particle_set(particle_set, qs_kind_set, nsgf=nsgf, basis=basis_set_ri)
+      ALLOCATE(xas_atom_env%ri_dcoeff(natom, nspins, nex))
+      DO iex = 1, nex
+         DO ispin = 1,nspins
+            DO iat = 1,natom
+               NULLIFY(xas_atom_env%ri_dcoeff(iat,ispin,iex)%array)
+               IF ((.NOT. ANY(xas_atom_env%exat_neighbors(iex)%array  == iat)) &
+                    .AND. (.NOT. xas_atom_env%excited_atoms(iex) == iat)) CYCLE
+               ikind = particle_set(iat)%atomic_kind%kind_number
+               ALLOCATE(xas_atom_env%ri_dcoeff(iat,ispin,iex)%array(nsgf(iat)))
+               xas_atom_env%ri_dcoeff(iat,ispin,iex)%array = 0.0_dp
+            END DO
+         END DO
+      END DO
+
+!  Loop over the excited atoms
+      DO iex = 1, nex
+
+         !get the neighbors of excited atom
+         exat = xas_atom_env%excited_atoms(iex)
+         nnb = 1+SIZE(xas_atom_env%exat_neighbors(iex)%array)
+         ALLOCATE(neighbors(nnb))
+         neighbors(1) = exat
+         neighbors(2:nnb) = xas_atom_env%exat_neighbors(iex)%array(:)
+
+         !link the atoms to their position in neighbors
+         ALLOCATE(idx_to_nb(natom), is_neighbor(natom))
+         idx_to_nb = 0; is_neighbor = .FALSE.
+         DO inb = 1, nnb
+            idx_to_nb(neighbors(inb)) = inb
+            is_neighbor(neighbors(inb)) = .TRUE.
+         END DO
+
+         ! Compute the RI inverse overlap matrix on the reduces RI basis that spans the excited
+         ! atom and its neighbors
+         CALL get_exat_ri_sinv(ri_sinv, neighbors, idx_to_nb, basis_set_ri, qs_env)
+
+         nthread = 1
+!$    nthread = omp_get_max_threads() 
+         CALL o3c_iterator_create(o3c, o3c_iterator, nthread=nthread) 
+
+!$OMP PARALLEL DEFAULT(NONE)&
+!$OMP SHARED (o3c_iterator,xas_atom_env,nsgf,nspins,factor,nnb,neighbors,ri_sinv,iex,idx_to_nb,is_neighbor)&
+!$OMP PRIVATE (mepos,katom,tvec,work,inb,ri_at,ic,sinv_block)
+
+         mepos = 0
+!$    mepos = omp_get_thread_num()
+
+         DO WHILE (o3c_iterate(o3c_iterator, mepos=mepos) == 0)
+            CALL get_o3c_iterator_info(o3c_iterator, mepos=mepos, katom=katom, tvec=tvec)
+
+            ! only if katom is in S_cd^-1
+            IF (.NOT. is_neighbor(katom)) CYCLE
+
+            ic = idx_to_nb(katom)
+
+            !Loop over the negihbors (incl. excited atom)
+            DO inb = 1, nnb
+               
+               ri_at = neighbors(inb)
+
+               !katom and ri_at interact => compute the ri_dcoeff for ri_at, coming from katom
+               ! The coefficients for katom/ri_at are tvec*S^-1
+               ALLOCATE(work(nsgf(ri_at), nspins))
+               IF (inb .GE. ic) THEN
+                  sinv_block => ri_sinv(ic,inb)%array
+                  CALL  dgemm('T', 'N', nsgf(ri_at), nspins, nsgf(katom), 1.0_dp, sinv_block, &
+                              nsgf(katom), tvec, nsgf(katom), 0.0_dp, work, nsgf(ri_at))
+               ELSE
+
+                  sinv_block => ri_sinv(inb,ic)%array
+                  CALL  dgemm('N', 'N', nsgf(ri_at), nspins, nsgf(katom), 1.0_dp, sinv_block, &
+                              nsgf(ri_at), tvec, nsgf(katom), 0.0_dp, work, nsgf(ri_at))
+               END IF
+
+!$OMP CRITICAL(spin1)
+               CALL daxpy(nsgf(ri_at), factor, work(:,1), 1, xas_atom_env%ri_dcoeff(ri_at,1,iex)%array(:), 1)
+!$OMP END CRITICAL(spin1)
+
+               IF (nspins == 2) THEN
+!$OMP CRITICAL(spin2)
+                  CALL daxpy(nsgf(ri_at), 1._dp, work(:,2), 1, xas_atom_env%ri_dcoeff(ri_at,2,iex)%array(:), 1) 
+!$OMP END CRITICAL(spin2)
+               END IF
+
+               DEALLOCATE(work)
+            END DO !inb
+         END DO !o3c_iterator
+!$OMP END PARALLEL
+         CALL o3c_iterator_release(o3c_iterator)
+
+         DO ic = 1, nnb
+            DO inb = 1, nnb
+               IF (ASSOCIATED(ri_sinv(ic,inb)%array)) DEALLOCATE(ri_sinv(ic,inb)%array)
+            END DO
+         END DO
+         DEALLOCATE(neighbors, ri_sinv, idx_to_nb, is_neighbor)
+
+      END DO !iex
+
+      !making sure all procs have the same info
+      DO iex = 1, nex
+         DO ispin = 1,nspins
+            DO iat = 1,natom
+               IF ((.NOT. ANY(xas_atom_env%exat_neighbors(iex)%array  == iat)) &
+                    .AND. (.NOT. xas_atom_env%excited_atoms(iex) == iat)) CYCLE 
+               CALL mp_sum(xas_atom_env%ri_dcoeff(iat, ispin, iex)%array, para_env%group)
+            END DO !iat
+         END DO !ispin
+      END DO !iex
+
+!  some clean-up
+      DO ilist = 1,SIZE(ac_list)
+         CALL deallocate_neighbor_list_set(ac_list(ilist)%neighbor_list_set)
+      END DO
+      CALL release_o3c_container(o3c)
+      DEALLOCATE(basis_set_ri, basis_set_orb, o3c, ac_list, all_ri_atoms)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE calculate_density_coeffs_part_ri
+
+! **************************************************************************************************
 !> \brief Compute the coefficients to project the density on the RI_XAS basis set
 !> \param xas_atom_env ...
 !> \param qs_env ...
@@ -642,15 +1042,15 @@ CONTAINS
 !>       the RI basis functions xi_c cover all atoms in the system, but that we only compute the
 !>       density expansion coefficients coeff_d for xi_d on the excited atoms and their neighbors
 ! **************************************************************************************************
-   SUBROUTINE calculate_density_coeffs(xas_atom_env, qs_env)
+   SUBROUTINE calculate_density_coeffs_full_ri(xas_atom_env, qs_env)
 
       TYPE(xas_atom_env_type), POINTER                :: xas_atom_env
       TYPE(qs_environment_type), POINTER              :: qs_env
 
-      CHARACTER(len=*), PARAMETER :: routineN = "calculate_density_coeffs", &
+      CHARACTER(len=*), PARAMETER :: routineN = "calculate_density_coeffs_full_ri", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: nkind, ilist, katom, kkind, ikind, natom, &
+      INTEGER                                         :: nkind, ilist, katom, ikind, natom, &
                                                          iat, mepos, nthread, handle, iblk, jblk, &
                                                          nspins, ispin, ri_at, iri, nri, blk, &
                                                          third_center
@@ -676,6 +1076,7 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
       TYPE(dbcsr_iterator_type)                       :: iter
+      LOGICAL, DIMENSION(:), ALLOCATABLE              :: is_ri_atom
 
       NULLIFY(qs_kind_set, basis_set_ri, basis_set_orb, ac_list, rho, rho_ao, work_mats)
       NULLIFY(o3c, tvec, particle_set, para_env, all_ri_atoms, ks_env, sab_orb, nonzero_risinv)
@@ -686,12 +1087,18 @@ CONTAINS
       CALL get_qs_env(qs_env, nkind=nkind, sab_orb=sab_orb, qs_kind_set=qs_kind_set, rho=rho, &
                       natom=natom, particle_set=particle_set, ks_env=ks_env, matrix_s=matrix_s, &
                       para_env=para_env, blacs_env=blacs_env)
-      nspins = SIZE(xas_atom_env%ri_dcoeff, 2)
+      nspins = xas_atom_env%nspins
 
 !  Get the neighbors of the excited atoms (= all the atoms where density coeffs are needed)
       CALL find_neighbors(xas_atom_env%excited_atoms, matrix_s(1)%matrix, qs_env, &
                           all_neighbors=all_ri_atoms, neighbor_set=xas_atom_env%exat_neighbors)
       nri = SIZE(all_ri_atoms)
+
+      ALLOCATE(is_ri_atom(natom))
+      is_ri_atom = .FALSE.
+      DO iri = 1, nri
+         is_ri_atom(all_ri_atoms(iri)) = .TRUE.
+      END DO
 
 !  Create the needed neighbor list and basis set lists.
       ALLOCATE(basis_set_ri(nkind))
@@ -717,7 +1124,7 @@ CONTAINS
          CALL dbcsr_iterator_next_block(iter, row=iblk, column=jblk, blk=blk)
          
          !If the block as nothing to do with the RI atoms, ignore it
-         IF (.NOT. (ANY(all_ri_atoms == iblk) .OR. ANY(all_ri_atoms == jblk))) CYCLE
+         IF (.NOT. (is_ri_atom(iblk) .OR. is_ri_atom(jblk))) CYCLE
 
          CALL dbcsr_get_block_p(work_mats(1)%matrix, iblk, jblk, pblock, found)
 
@@ -730,7 +1137,6 @@ CONTAINS
       CALL dbcsr_deallocate_matrix_set(work_mats)
 
       CALL dbcsr_finalize(ri_sinv)
-
 !  Get the ac neighbor list for the (abc) overlap, where c is based on the RI basis
       !we don't want to overcompute => only (abc) where S_cd^-1 is known to be non-zero
       CALL find_neighbors(base_atoms=all_ri_atoms, mat_s=ri_sinv, qs_env=qs_env, &
@@ -754,13 +1160,14 @@ CONTAINS
 !  Allocate space for the projected density coefficients. On all ri_atoms
       ALLOCATE(nsgf(natom))
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=nsgf, basis=basis_set_ri)
+      ALLOCATE(xas_atom_env%ri_dcoeff(natom,nspins,1))
       DO ispin = 1,nspins
          DO iat = 1,natom
-            NULLIFY(xas_atom_env%ri_dcoeff(iat,ispin)%array)
-            IF (.NOT. ANY(all_ri_atoms == iat)) CYCLE
+            NULLIFY(xas_atom_env%ri_dcoeff(iat,ispin,1)%array)
+            IF (.NOT. is_ri_atom(iat)) CYCLE
             ikind = particle_set(iat)%atomic_kind%kind_number
-            ALLOCATE(xas_atom_env%ri_dcoeff(iat,ispin)%array(nsgf(iat)))
-            xas_atom_env%ri_dcoeff(iat,ispin)%array = 0.0_dp
+            ALLOCATE(xas_atom_env%ri_dcoeff(iat,ispin,1)%array(nsgf(iat)))
+            xas_atom_env%ri_dcoeff(iat,ispin,1)%array = 0.0_dp
          END DO
       END DO
 
@@ -779,18 +1186,18 @@ CONTAINS
          CALL get_replicated_rowcol(rep_ri_sinv, ri_sinv, third_center)
 
          nthread = 1
-   !$    nthread = omp_get_max_threads() 
+!$    nthread = omp_get_max_threads() 
          CALL o3c_iterator_create(o3c, o3c_iterator, nthread=nthread) 
 
-   !$OMP PARALLEL DEFAULT(NONE)&
-   !$OMP SHARED (o3c_iterator,xas_atom_env,nsgf,nspins,factor,nri,all_ri_atoms,rep_ri_sinv,third_center)&
-   !$OMP PRIVATE (mepos,katom,kkind,tvec,work,iri,ri_at,found,foundt,pblock,pblockt)
+!$OMP PARALLEL DEFAULT(NONE)&
+!$OMP SHARED (o3c_iterator,xas_atom_env,nsgf,nspins,factor,nri,all_ri_atoms,rep_ri_sinv,third_center)&
+!$OMP PRIVATE (mepos,katom,tvec,work,iri,ri_at,found,foundt,pblock,pblockt)
 
          mepos = 0
-   !$    mepos = omp_get_thread_num()
+!$    mepos = omp_get_thread_num()
 
          DO WHILE (o3c_iterate(o3c_iterator, mepos=mepos) == 0)
-            CALL get_o3c_iterator_info(o3c_iterator, mepos=mepos, katom=katom, kkind=kkind, tvec=tvec)
+            CALL get_o3c_iterator_info(o3c_iterator, mepos=mepos, katom=katom, tvec=tvec)
 
             ! only ri_sinv blocks for katom == third_center are avaialble
             IF (third_center .NE. katom) CYCLE
@@ -815,20 +1222,20 @@ CONTAINS
                               tvec, nsgf(katom), 0.0_dp, work, nsgf(ri_at))
                END IF
 
-   !$OMP CRITICAL(spin1)
-               CALL daxpy(nsgf(ri_at), factor, work(:,1), 1, xas_atom_env%ri_dcoeff(ri_at,1)%array(:), 1)
-   !$OMP END CRITICAL(spin1)
+!$OMP CRITICAL(spin1)
+               CALL daxpy(nsgf(ri_at), factor, work(:,1), 1, xas_atom_env%ri_dcoeff(ri_at,1,1)%array(:), 1)
+!$OMP END CRITICAL(spin1)
 
                IF (nspins == 2) THEN
-   !$OMP CRITICAL(spin2)
-                  CALL daxpy(nsgf(ri_at), 1._dp, work(:,2), 1, xas_atom_env%ri_dcoeff(ri_at,2)%array(:), 1) 
-   !$OMP END CRITICAL(spin2)
+!$OMP CRITICAL(spin2)
+                  CALL daxpy(nsgf(ri_at), 1._dp, work(:,2), 1, xas_atom_env%ri_dcoeff(ri_at,2,1)%array(:), 1) 
+!$OMP END CRITICAL(spin2)
                END IF
 
                DEALLOCATE(work)
             END DO !iex
-         END DO !oec_iterator
-   !$OMP END PARALLEL
+         END DO !o3c_iterator
+!$OMP END PARALLEL
          CALL o3c_iterator_release(o3c_iterator)
 
          CALL dbcsr_release(rep_ri_sinv)
@@ -838,8 +1245,8 @@ CONTAINS
       !making sure all procs have the same info
       DO ispin = 1,nspins
          DO iat = 1,natom
-            IF (.NOT. ANY(all_ri_atoms == iat)) CYCLE
-            CALL mp_sum(xas_atom_env%ri_dcoeff(iat, ispin)%array, para_env%group)
+            IF (.NOT. is_ri_atom(iat)) CYCLE
+            CALL mp_sum(xas_atom_env%ri_dcoeff(iat, ispin, 1)%array, para_env%group)
          END DO !iat
       END DO !ispin
 
@@ -853,22 +1260,23 @@ CONTAINS
 
       CALL timestop(handle)
 
-   END SUBROUTINE calculate_density_coeffs
+   END SUBROUTINE calculate_density_coeffs_full_ri
 
 ! **************************************************************************************************
 !> \brief Evaluates the density on a given atomic grid
 !> \param rho_set where the densities are stored
-!> \param atom_index the index of the atom in question
+!> \param ri_dcoeff the arrays containing the RI density coefficients of this atom, for each spin
 !> \param atom_kind the kind of the atom in question
 !> \param xas_atom_env ...
 !> \param qs_env ...
 !> \note The density is expressed as n = sum_d coeff_d*xi_d. Knowing the coordinate of each grid
 !>       grid point, one can simply evaluate xi_d(r) 
 ! **************************************************************************************************
-   SUBROUTINE put_density_on_atomic_grid(rho_set, atom_index, atom_kind, xas_atom_env, qs_env)
+   SUBROUTINE put_density_on_atomic_grid(rho_set, ri_dcoeff, atom_kind, xas_atom_env, qs_env)
 
       TYPE(xc_rho_set_type), POINTER                  :: rho_set
-      INTEGER, INTENT(IN)                             :: atom_index, atom_kind
+      TYPE(cp_1d_r_p_type), DIMENSION(:)              :: ri_dcoeff
+      INTEGER, INTENT(IN)                             :: atom_kind
       TYPE(xas_atom_env_type), POINTER                :: xas_atom_env
       TYPE(qs_environment_type), POINTER              :: qs_env
 
@@ -909,7 +1317,7 @@ CONTAINS
       nr = grid_atom%nr
       na = grid_atom%ng_sphere
       n = na*nr
-      nspins = SIZE(xas_atom_env%ri_dcoeff,2)
+      nspins = xas_atom_env%nspins
 
 !  Point to the rho_set densities
       rhoa => rho_set%rhoa
@@ -954,11 +1362,11 @@ CONTAINS
             END DO !ipgf
 
             !put the sgf on the grid with the approriate coefficients and sum
-            CALL daxpy(n, xas_atom_env%ri_dcoeff(atom_index,1)%array(sgfi+isgf), sgf(:,:,isgf), &
+            CALL daxpy(n, ri_dcoeff(1)%array(sgfi+isgf), sgf(:,:,isgf), &
                        1, rhoa(:,:,1), 1)
 
             IF (nspins == 2) THEN
-               CALL daxpy(n, xas_atom_env%ri_dcoeff(atom_index,2)%array(sgfi+isgf), sgf(:,:,isgf), &
+               CALL daxpy(n, ri_dcoeff(2)%array(sgfi+isgf), sgf(:,:,isgf), &
                           1, rhob(:,:,1), 1)
             END IF
 
@@ -982,6 +1390,7 @@ CONTAINS
 !>        function first requires the evaluation of the x,y,z coordinates on each grid point of
 !>        target atom wrt to the position of source atom
 !> \param rho_set where the densities are stored
+!> \param ri_dcoeff the arrays containing the RI density coefficient of source_iat, for each spin
 !> \param source_iat the index of the source atom
 !> \param source_ikind the kind of the source atom
 !> \param target_iat the index of the target atom
@@ -989,10 +1398,11 @@ CONTAINS
 !> \param xas_atom_env ...
 !> \param qs_env ...
 ! **************************************************************************************************
-   SUBROUTINE put_density_on_other_grid(rho_set, source_iat, source_ikind, target_iat, &
+   SUBROUTINE put_density_on_other_grid(rho_set, ri_dcoeff, source_iat, source_ikind, target_iat, &
                                         target_ikind, xas_atom_env, qs_env)
 
       TYPE(xc_rho_set_type), POINTER                  :: rho_set
+      TYPE(cp_1d_r_p_type), DIMENSION(:)              :: ri_dcoeff
       INTEGER, INTENT(IN)                             :: source_iat, source_ikind, target_iat, &
                                                          target_ikind
       TYPE(xas_atom_env_type), POINTER                :: xas_atom_env
@@ -1039,7 +1449,7 @@ CONTAINS
       nr = grid_atom%nr
       na = grid_atom%ng_sphere
       n = na*nr
-      nspins = SIZE(xas_atom_env%ri_dcoeff,2)
+      nspins = xas_atom_env%nspins
 
    !  Point to the rho_set densities
       rhoa => rho_set%rhoa
@@ -1122,10 +1532,10 @@ CONTAINS
             END DO !ipgf
 
             !add the density to the grid
-            CALL daxpy(n, xas_atom_env%ri_dcoeff(source_iat,1)%array(sgfi+isgf), sgf(:,:,isgf), 1, rhoa(:,:,1), 1)
+            CALL daxpy(n, ri_dcoeff(1)%array(sgfi+isgf), sgf(:,:,isgf), 1, rhoa(:,:,1), 1)
 
             IF (nspins == 2) THEN
-               CALL daxpy(n, xas_atom_env%ri_dcoeff(source_iat,2)%array(sgfi+isgf), sgf(:,:,isgf), 1, rhob(:,:,1), 1)
+               CALL daxpy(n, ri_dcoeff(2)%array(sgfi+isgf), sgf(:,:,isgf), 1, rhob(:,:,1), 1)
             END IF
          END DO !isgf
          DEALLOCATE(co, sgf)
@@ -1173,7 +1583,8 @@ CONTAINS
       TYPE(xc_rho_cflags_type)                        :: needs
       TYPE(section_vals_type), POINTER                :: input, xc_functionals
       TYPE(cp_para_env_type), POINTER                 :: para_env
-      LOGICAL                                         :: do_sc, do_sf
+      LOGICAL                                         :: do_sc, do_sf, full_ri
+      TYPE(cp_1d_r_p_type), DIMENSION(:,:), POINTER   :: ri_dcoeff
 
       NULLIFY(particle_set, qs_kind_set, dft_control, deriv_set, para_env, exat_neighbors)
       NULLIFY(ri_basis, ri_sphi_so, rho_set, input, xc_functionals)
@@ -1193,6 +1604,7 @@ CONTAINS
       !spin conserving in the general sense here
       do_sc = xas_tdp_control%do_spin_cons .OR. xas_tdp_control%do_singlet .OR. xas_tdp_control%do_triplet
       do_sf = xas_tdp_control%do_spin_flip
+      full_ri = xas_tdp_control%ri_type == xas_tdp_full_ri
       
 !  Distribute the excited atoms over the processors
       num_pe = para_env%num_pe
@@ -1205,6 +1617,11 @@ CONTAINS
          iatom = xas_atom_env%excited_atoms(iex)
          ikind = particle_set(iatom)%atomic_kind%kind_number
          exat_neighbors => xas_atom_env%exat_neighbors(iex)%array
+         IF (full_ri) THEN
+            ri_dcoeff => xas_atom_env%ri_dcoeff(:,:,1)
+         ELSE
+            ri_dcoeff => xas_atom_env%ri_dcoeff(:,:,iex)
+         END IF
 
 !     General grid/basis info
          na = xas_atom_env%grid_atom_set(ikind)%grid_atom%ng_sphere
@@ -1227,14 +1644,16 @@ CONTAINS
          CALL xc_rho_set_atom_update(rho_set, needs, nspins=2, bo=bounds)
 
 !     Put the density on the grid (for this atom)
-         CALL put_density_on_atomic_grid(rho_set, iatom, ikind, xas_atom_env, qs_env)
+         CALL put_density_on_atomic_grid(rho_set, ri_dcoeff(iatom,:), ikind, &
+                                         xas_atom_env, qs_env)
 
 !     Take the neighboring atom contributions to the density
          DO inb = 1, SIZE(exat_neighbors)
 
             nb = exat_neighbors(inb)
             nbk = particle_set(nb)%atomic_kind%kind_number
-            CALL put_density_on_other_grid(rho_set, nb, nbk, iatom, ikind, xas_atom_env, qs_env)
+            CALL put_density_on_other_grid(rho_set, ri_dcoeff(nb,:), nb, nbk, iatom, &
+                                           ikind, xas_atom_env, qs_env)
 
          END DO
 
