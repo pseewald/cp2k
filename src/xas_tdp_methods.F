@@ -1,4 +1,4 @@
-!------------------------------------------------------------------------------------------------!
+!, unique------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
 !   Copyright (C) 2000 - 2017  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
@@ -57,8 +57,8 @@ MODULE xas_tdp_methods
                                               section_vals_get_subs_vals,&
                                               section_vals_val_set
    USE kinds,                           ONLY: dp
+   USE machine,                         ONLY: m_flush
    USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_sync
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE periodic_table,                  ONLY: ptable
@@ -89,7 +89,7 @@ MODULE xas_tdp_methods
    USE qs_scf_methods,                  ONLY: combine_ks_matrices
    USE qs_scf_types,                    ONLY: ot_method_nr
    USE scf_control_types,               ONLY: scf_control_type
-   USE util,                            ONLY: locate
+   USE util,                            ONLY: locate, sort_unique
    USE xas_methods,                     ONLY: calc_stogto_overlap
    USE xas_tdp_atom,                    ONLY: init_xas_atom_env, &
                                               integrate_fxc_atoms, &
@@ -151,13 +151,12 @@ CONTAINS
       TYPE(section_vals_type), POINTER                   :: dft_section, xas_tdp_section
       TYPE(xas_atom_env_type), POINTER                   :: xas_atom_env
       TYPE(dft_control_type), POINTER                    :: dft_control
-      TYPE(cp_para_env_type), POINTER                    :: para_env
       LOGICAL                                            :: do_os
       REAL(dp)                                           :: rc(3)
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
 
       NULLIFY(xas_tdp_env, xas_tdp_control, atomic_kind_set, atoms_of_kind, current_state)
-      NULLIFY(xas_atom_env, dft_control, para_env, particle_set)
+      NULLIFY(xas_atom_env, dft_control, particle_set)
 
       CALL timeset(routineN, handle)
 
@@ -176,7 +175,7 @@ CONTAINS
             "!    Starting TDDFPT driven X-rays absorption spectroscopy calculations     !", &
             "!===========================================================================!"
       END IF
-      
+
 !  Initialization
       IF (output_unit > 0) THEN
          WRITE(UNIT=output_unit, FMT="(/,T3,A)") &
@@ -241,6 +240,7 @@ CONTAINS
          IF (output_unit > 0) THEN
             WRITE(UNIT=output_unit, FMT="(/,T3,A,I4,A)") &
                "# Integrating the xc kernel on the atomic grids ..."
+            CALL m_flush(output_unit)
          END IF
       
          CALL xas_atom_env_create(xas_atom_env)
@@ -258,25 +258,15 @@ CONTAINS
          CALL xas_atom_env_release(xas_atom_env)
       END IF
 
-!  Compute the 3-center Coulomb and exchange integrals
+!  Compute the 3-center Coulomb integrals for the whole system
       IF (.NOT. xas_tdp_control%check_only) THEN
-         CALL get_qs_env(qs_env, para_env=para_env)
          IF (output_unit > 0) THEN
             WRITE(UNIT=output_unit, FMT="(/,T3,A,I4,A)") &
                "# Computing the RI 3-center Coulomb integrals ..."
+            CALL m_flush(output_unit)
          END IF
          CALL compute_ri_o3c_coulomb(xas_tdp_env, qs_env)
-
-         IF (xas_tdp_control%do_hfx) THEN
-            IF (output_unit > 0) THEN
-               WRITE(UNIT=output_unit, FMT="(/,T3,A,I4,A)") &
-                  "# Computing the RI 3-center Exchange integrals ..."
-            END IF   
-            CALL compute_ri_o3c_exchange(xas_tdp_env, xas_tdp_control, qs_env)
-         END IF
-         !not strictly necessary, but avoid casting any load unbalance coming from the integrals
-         !to other subroutine and screwing the timings
-         CALL mp_sync(para_env%group)
+ 
       END IF
 
 !  Loop over donor states for calculation
@@ -293,7 +283,7 @@ CONTAINS
 
          IF (.NOT. ANY(xas_tdp_env%ex_kind_indices == ikind)) CYCLE
          ! compute the RI coulomb2 inverse for this kind
-         CALL compute_ri_coulomb2_int(ikind, xas_tdp_env, qs_env)
+         CALL compute_ri_coulomb2_int(ikind, xas_tdp_env, xas_tdp_control, qs_env)
 
 !        Loop over atoms of kind
          DO iat = 1,SIZE(atoms_of_kind)
@@ -312,6 +302,16 @@ CONTAINS
                CALL rRc_xyz_ao(xas_tdp_env%dipmat, qs_env, rc, order=1)
             END IF
 
+            !compute the three center RI exchange integrals if so required
+            IF (xas_tdp_control%do_hfx) THEN
+               IF (output_unit > 0) THEN
+                  WRITE(UNIT=output_unit, FMT="(/,T3,A,I4,A)") &
+                     "# Computing the RI 3-center Exchange integrals for this atom ..."
+                  CALL m_flush(output_unit)
+               END IF
+               CALL compute_ri_o3c_exchange(iatom, xas_tdp_env, xas_tdp_control, qs_env)
+            END IF
+
 !           Loop over states of excited atom of kind
             DO istate = 1,SIZE(xas_tdp_env%state_types,1)
 
@@ -328,7 +328,7 @@ CONTAINS
                      "# Start of calculations for donor state of type ", &
                      xas_tdp_env%state_type_char(current_state%state_type), " for atom",&
                      current_state%at_index, " of kind ", current_state%at_symbol
-                           
+                  CALL m_flush(output_unit)
                END IF
 
 !              Assign best fitting MO(s) to current core donnor state
@@ -437,12 +437,13 @@ CONTAINS
       TYPE(scf_control_type), POINTER                    :: scf_control
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct
       REAL(dp)                                           :: fact
-      LOGICAL                                            :: do_uks, do_os
+      LOGICAL                                            :: do_uks, do_os, unique
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
+      TYPE(cell_type), POINTER                           :: cell
 
       NULLIFY(dft_section, xas_tdp_section, at_kind_set, ind_of_kind, qs_kind_set, dft_control)
-      NULLIFY(qs_loc_env, loc_section, mos, particle_set, rho, rho_ao, mo_evals)
+      NULLIFY(qs_loc_env, loc_section, mos, particle_set, rho, rho_ao, mo_evals, cell)
       NULLIFY(mo_coeff, scf_control, matrix_ks, fm_struct, para_env, blacs_env)
 
 !  XAS TDP control type initialization
@@ -548,6 +549,22 @@ CONTAINS
             CPABORT("Invalid kind(s) for the KIND_LIST keyword.")
          END IF
 
+      END IF
+
+!  Sort the excited atoms indices (for convinience and use of locate function)
+      CALL sort_unique(xas_tdp_env%ex_atom_indices, unique)
+      IF (.NOT. unique) THEN
+         CPABORT("Excited atoms not uniquely defined.")
+      END IF
+
+!  Check for periodicity
+      CALL get_qs_env(qs_env, cell=cell)
+      IF (ALL(cell%perd == 0)) THEN
+         xas_tdp_control%is_periodic = .FALSE.
+      ELSE IF (ALL(cell%perd == 1)) THEN
+         xas_tdp_control%is_periodic = .TRUE.
+      ELSE
+         CPABORT("XAS TDP only implemented for full PBCs or non-PBCs")
       END IF
 
 !  Allocating memory for the array of donor states
@@ -671,31 +688,22 @@ CONTAINS
       END IF
 
 !  Check that everything is allowed
-      CALL safety_check(xas_tdp_control, qs_env)
+      CALL safety_check(xas_tdp_control)
 
    END SUBROUTINE xas_tdp_init
 
 !> *************************************************************************************************
 !> \brief Checks for forbidden keywords combinations
-!> \param xas_tdp_env ...
 !> \param xas_tdp_control ...
-!> \param qs_env ...
 !> *************************************************************************************************
-   SUBROUTINE safety_check(xas_tdp_control, qs_env)
+   SUBROUTINE safety_check(xas_tdp_control)
 
       TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
-      TYPE(qs_environment_type), POINTER              :: qs_env
 
       CHARACTER(len=*), PARAMETER :: routineN = "safety_check", routineP = moduleN//":"//routineN
 
-      TYPE(cell_type), POINTER                           :: cell
-
-      NULLIFY(cell)
-
-      CALL get_qs_env(qs_env, cell=cell)
-
-      !PBC only available without exact exchange
-      IF ((.NOT. ALL(cell%perd .EQ. 0)) .AND. xas_tdp_control%do_hfx &
+      !PB only available without exact exchange
+      IF (xas_tdp_control%is_periodic .AND. xas_tdp_control%do_hfx &
           .AND. xas_tdp_control%x_op == do_hfx_potential_coulomb) THEN
          CPABORT("XAS TDP with Coulomb operator for exact exchange only supports non-periodic BCs")
       END IF

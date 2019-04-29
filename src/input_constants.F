@@ -636,8 +636,10 @@ MODULE input_constants
    ! Time-dependent XAS
    INTEGER, PARAMETER, PUBLIC               :: xas_tdp_by_index = 1, &
                                                xas_tdp_by_kind = 2, &
-                                               xas_tdp_roks = 3, &
-                                               xas_tdp_uks = 4
+                                               xas_tdp_roks = 1, &
+                                               xas_tdp_uks = 2, &
+                                               xas_tdp_full_ri = 1, &
+                                               xas_tdp_part_ri = 2
 
    ! Form of dipole operator for TDDFPT oscillator strength calculation
    INTEGER, PARAMETER, PUBLIC               :: tddfpt_dipole_berry = 1, &

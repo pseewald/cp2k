@@ -23,7 +23,8 @@ MODULE xas_tdp_types
                                               tddfpt_spin_cons, &
                                               tddfpt_spin_flip, &
                                               do_hfx_potential_coulomb, &
-                                              xas_dip_vel
+                                              xas_dip_vel, &
+                                              xas_tdp_full_ri
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_val_get,&
                                               section_vals_get_subs_vals
@@ -52,6 +53,7 @@ MODULE xas_tdp_types
 !> \param do_hfx whether exact exchange is included
 !> \param do_xc wheter xc functional(s) is(are) included
 !> \param sx the scaling applied to exact exchange
+!> \param ri_type the type of RI projection for the density
 !> \param x_op the operator used for exact exchange (Coulomb, TC, Sk)
 !> \param x_range the range for exact exchane operator (truncated coulomb or SR)
 !> \param tamm_dancoff whether the calculations should be done in the Tamm-Dancoff approximation
@@ -73,6 +75,7 @@ MODULE xas_tdp_types
 !> \param ot_settings the settings for the OT diagonalization if so required
 !> \param max_iter the maximum allowed number of iteration for OT diagonalization
 !> \param eps_iter the required accuracy for OT diagonalization
+!> \param is_periodic self-explanatory
 ! **************************************************************************************************
    TYPE xas_tdp_control_type
       INTEGER                                 :: define_excited   
@@ -80,6 +83,7 @@ MODULE xas_tdp_types
       INTEGER                                 :: n_search
       INTEGER                                 :: n_excited
       INTEGER                                 :: max_iter
+      INTEGER                                 :: ri_type
       REAL(dp)                                :: sx
       REAL(dp)                                :: x_range
       INTEGER                                 :: x_op
@@ -97,6 +101,7 @@ MODULE xas_tdp_types
       LOGICAL                                 :: do_spin_cons
       LOGICAL                                 :: do_spin_flip
       LOGICAL                                 :: full_diag
+      LOGICAL                                 :: is_periodic
       INTEGER, DIMENSION(:), POINTER          :: list_ex_atoms
       CHARACTER(len=default_string_length),&
                      DIMENSION(:), POINTER    :: list_ex_kinds
@@ -124,7 +129,7 @@ MODULE xas_tdp_types
 !>        excited kinds, based on basis functions of the RI auxiliary basis used for Coulomb and
 !>        exchange kernels. 
 !> \param q_projector the projector on the unperturbed, unoccupied ground state as a dbcsr matrix, 
-!>        fpr each spin
+!>        for each spin
 !> \param dipmat the dbcsr matrices containing the dipole in x,y,z directions evaluated on the 
 !>        contracted spherical gaussians. It can either be in the length or the velocity 
 !>        representation. For length representation, it has to be computed once with the origin on 
@@ -243,6 +248,7 @@ MODULE xas_tdp_types
 
 ! **************************************************************************************************
 !> \brief a environment type that contains all the info needed for XAS_TDP atomic grid calculations
+!> \param nspins ...
 !> \param excited_atoms the atoms for which RI xc-kernel calculations must be done 
 !> \param excited_kinds the kinds for which RI xc-kernel calculations must be done 
 !> \param grid_atom_set the set of atomic grid for each kind
@@ -252,13 +258,14 @@ MODULE xas_tdp_types
 !> \param orb_sphi_so contains the coefficient for direct contraction from so to sgf, for the orb basis
 !> *************************************************************************************************
    TYPE xas_atom_env_type
+      INTEGER                                         :: nspins
       INTEGER, DIMENSION(:), POINTER                  :: excited_atoms
       INTEGER, DIMENSION(:), POINTER                  :: excited_kinds
       INTEGER, DIMENSION(:), POINTER                  :: proc_of_exat
       TYPE(grid_atom_p_type), DIMENSION(:), POINTER   :: grid_atom_set
       TYPE(harmonics_atom_p_type), DIMENSION(:), & 
                                              POINTER  :: harmonics_atom_set
-      TYPE(cp_1d_r_p_type), DIMENSION(:,:), POINTER   :: ri_dcoeff
+      TYPE(cp_1d_r_p_type), DIMENSION(:,:,:), POINTER :: ri_dcoeff
       TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: ri_sphi_so
       TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: orb_sphi_so
       TYPE(cp_1d_i_p_type), DIMENSION(:), POINTER     :: exat_neighbors
@@ -294,6 +301,7 @@ CONTAINS
       xas_tdp_control%define_excited = xas_tdp_by_index
       xas_tdp_control%n_search = -1
       xas_tdp_control%dipole_form = xas_dip_vel
+      xas_tdp_control%ri_type = xas_tdp_full_ri
       xas_tdp_control%do_hfx = .TRUE.
       xas_tdp_control%do_xc = .FALSE.
       xas_tdp_control%sx = 1.0_dp
@@ -310,6 +318,7 @@ CONTAINS
       xas_tdp_control%do_spin_cons = .FALSE.
       xas_tdp_control%do_spin_flip = .FALSE.
       xas_tdp_control%full_diag = .TRUE.
+      xas_tdp_control%is_periodic = .FALSE.
       xas_tdp_control%n_excited = -1
       xas_tdp_control%eps_iter = 1.0E-6_dp
       xas_tdp_control%max_iter = 1000
@@ -474,6 +483,8 @@ CONTAINS
                                 l_val=xas_tdp_control%do_loc)
 
 !  Deal with the KERNEL subsection
+      CALL section_vals_val_get(xas_tdp_section, "KERNEL%DENSITY_PROJECTION", i_val=xas_tdp_control%ri_type)
+
       CALL section_vals_val_get(xas_tdp_section, "KERNEL%XC_FUNCTIONAL%_SECTION_PARAMETERS_", &
                                 l_val=xas_tdp_control%do_xc) 
       CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%_SECTION_PARAMETERS_", &
@@ -601,7 +612,9 @@ CONTAINS
          END IF
          IF (ASSOCIATED(xas_tdp_env%lumo_evals)) THEN
             DO i = 1,SIZE(xas_tdp_env%lumo_evals)
-               DEALLOCATE(xas_tdp_env%lumo_evals(i)%array)
+               IF (ASSOCIATED(xas_tdp_env%lumo_evals(i)%array)) THEN
+                  DEALLOCATE(xas_tdp_env%lumo_evals(i)%array)
+               END IF
             END DO
             DEALLOCATE(xas_tdp_env%lumo_evals)
          END IF
@@ -969,6 +982,7 @@ CONTAINS
 
       ALLOCATE(xas_atom_env)
       
+      xas_atom_env%nspins = 1
       NULLIFY(xas_atom_env%excited_atoms)
       NULLIFY(xas_atom_env%excited_kinds)
       NULLIFY(xas_atom_env%grid_atom_set)
@@ -991,7 +1005,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "xas_atom_env_release", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                            :: i, j
+      INTEGER                                            :: i, j, k
 
       IF (ASSOCIATED(xas_atom_env%grid_atom_set)) THEN 
          DO i = 1,SIZE(xas_atom_env%grid_atom_set)
@@ -1017,9 +1031,11 @@ CONTAINS
       IF (ASSOCIATED(xas_atom_env%ri_dcoeff)) THEN
          DO i = 1,SIZE(xas_atom_env%ri_dcoeff,1)
             DO j = 1,SIZE(xas_atom_env%ri_dcoeff,2)
-               IF (ASSOCIATED(xas_atom_env%ri_dcoeff(i,j)%array)) THEN
-                  DEALLOCATE(xas_atom_env%ri_dcoeff(i,j)%array)
-               END IF
+               DO k =1, SIZE(xas_atom_env%ri_dcoeff,3)
+                  IF (ASSOCIATED(xas_atom_env%ri_dcoeff(i,j,k)%array)) THEN
+                     DEALLOCATE(xas_atom_env%ri_dcoeff(i,j,k)%array)
+                  END IF
+               END DO
             END DO
          END DO
          DEALLOCATE(xas_atom_env%ri_dcoeff)
@@ -1070,6 +1086,11 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "free_exat_memory", routineP = moduleN//":"//routineN
 
       INTEGER                                         :: i
+
+      IF (ASSOCIATED(xas_tdp_env%ri_o3c_ex)) THEN
+         CALL release_o3c_container(xas_tdp_env%ri_o3c_ex)
+         DEALLOCATE(xas_tdp_env%ri_o3c_ex)
+      END IF
 
       IF (ASSOCIATED(xas_tdp_env%ri_fxc)) THEN
          DO i = 1, SIZE(xas_tdp_env%ri_fxc,2)
