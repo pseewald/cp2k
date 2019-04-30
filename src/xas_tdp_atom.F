@@ -311,7 +311,7 @@ CONTAINS
                   IF (stat .NE. 0) CPABORT("The 'na' value for the GRID keyword must be an integer")
                   READ(grid_info(igrid,3), *, iostat=stat) nr
                   IF (stat .NE. 0) CPABORT("The 'nr' value for the GRID keyword must be an integer")
-                  CYCLE
+                  EXIT
                END IF
             END DO
          END IF

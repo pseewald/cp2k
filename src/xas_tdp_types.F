@@ -491,7 +491,7 @@ CONTAINS
                                 l_val=xas_tdp_control%do_hfx)
 
       IF (xas_tdp_control%do_hfx) THEN
-         CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%SCALE_X", &
+         CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%SCALE", &
                                    r_val=xas_tdp_control%sx)
          CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%RANGE", &
                                    r_val=xas_tdp_control%x_range)
