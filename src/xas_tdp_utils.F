@@ -1626,6 +1626,7 @@ CONTAINS
       CALL timeset(routineN, handle)
 
       !TODO: give the choice to the user to compute all integrals at once ?!?
+      !      maybe do that if it turns out that load imbalance gets really bad
       
 !  Take what we need from the qs_env
       CALL get_qs_env(qs_env, nkind=nkind, sab_orb=sab_orb, qs_kind_set=qs_kind_set, para_env=para_env)

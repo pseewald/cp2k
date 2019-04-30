@@ -8207,7 +8207,7 @@ CONTAINS
       CALL section_add_keyword(subsubsection, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, name="SCALE_X", &
+      CALL keyword_create(keyword, name="SCALE", &
                           description="Scaling of the exact exchange contribution.", &
                           default_r_val=1.0_dp)
       CALL section_add_keyword(subsubsection, keyword)

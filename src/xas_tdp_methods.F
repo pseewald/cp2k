@@ -52,11 +52,16 @@ MODULE xas_tdp_methods
                                               tddfpt_triplet, xas_tdp_uks, xas_tdp_roks, &
                                               general_roks, high_spin_roks, state_loc_list, &
                                               tddfpt_spin_flip, do_hfx_potential_coulomb, &
-                                              xas_dip_vel, xas_dip_len
+                                              xas_dip_vel, xas_dip_len, do_hfx_potential_truncated
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_get_subs_vals,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: dp
+                                              section_vals_val_set, &
+                                              section_vals_duplicate, &
+                                              section_vals_release, &
+                                              section_vals_get, &
+                                              section_vals_val_get, &
+                                              section_vals_get_subs_vals2
+   USE kinds,                           ONLY: dp, default_string_length
    USE machine,                         ONLY: m_flush
    USE memory_utilities,                ONLY: reallocate
    USE particle_methods,                ONLY: get_particle_set
@@ -116,6 +121,9 @@ MODULE xas_tdp_methods
                                               include_os_soc, &
                                               compute_ri_o3c_coulomb, &
                                               compute_ri_o3c_exchange
+   USE xc_derivatives,                  ONLY: xc_functional_get_info
+   USE xc_libxc,                        ONLY: libxc_version_info
+
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -183,6 +191,7 @@ CONTAINS
       END IF 
       CALL get_qs_env(qs_env, dft_control=dft_control)
       CALL xas_tdp_init(xas_tdp_env, xas_tdp_control, qs_env)
+      CALL print_info(output_unit, xas_tdp_control, qs_env)
 
       IF (output_unit > 0) THEN 
          IF (xas_tdp_control%check_only) THEN
@@ -747,6 +756,112 @@ CONTAINS
       END IF
 
    END SUBROUTINE safety_check
+
+!> *************************************************************************************************
+!> \brief Prints some basic info about the chosen parameters
+!> \param ou the output unis
+!> \param xas_tdp_control ...
+!> \param qs_env ...
+!> *************************************************************************************************
+   SUBROUTINE print_info(ou, xas_tdp_control, qs_env)
+
+      INTEGER, INTENT(IN)                             :: ou
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "print_info", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: i, irep, nrep, il
+      TYPE(section_vals_type), POINTER                :: input, xc_functionals, libxc_fun, xc_fun
+      CHARACTER(LEN=20)                               :: tmpStr
+      CHARACTER(LEN=10*default_string_length)         :: reference
+      CHARACTER(LEN=2*default_string_length)          :: shortform
+
+      NULLIFY(input, xc_functionals, libxc_fun, xc_fun)
+
+      IF (ou .LE. 0) RETURN
+
+      CALL get_qs_env(qs_env, input=input)
+
+      !Reference calculation
+      IF (xas_tdp_control%do_uks) THEN
+          WRITE (UNIT=ou, FMT="(/,T3,A)") &
+             "XAS_TDP| Reference calculation: Unrestricted Kohn-Sham"
+      ELSE IF (xas_tdp_control%do_roks) THEN
+         WRITE (UNIT=ou, FMT="(/,T3,A)") &
+             "XAS_TDP| Reference calculation: Restricted Open-Shell Kohn-Sham"
+      ELSE
+         WRITE (UNIT=ou, FMT="(/,T3,A)") &
+             "XAS_TDP| Reference calculation: Restricted Closed-Shell Kohn-Sham"
+      END IF
+
+      !TDA
+      IF (xas_tdp_control%tamm_dancoff) THEN
+         WRITE (UNIT=ou, FMT="(T3,A)") &
+            "XAS_TDP| Tamm-Dancoff Approximation (TDA): On"
+      ELSE
+         WRITE (UNIT=ou, FMT="(T3,A)") &
+            "XAS_TDP| Tamm-Dancoff Approximation (TDA): Off"
+      END IF
+
+      !Dipole form
+      IF (xas_tdp_control%dipole_form == xas_dip_vel) THEN
+         WRITE(UNIT=ou, FMT="(T3,A)") &
+            "XAS_TDP| Transition Dipole Representation: VELOCITY"
+      ELSE
+         WRITE(UNIT=ou, FMT="(T3,A)") &
+            "XAS_TDP| Transition Dipole Representation: LENGTH"
+      END IF
+
+      !Grid info
+      IF (xas_tdp_control%do_soc .OR. xas_tdp_control%do_xc) THEN
+         WRITE(UNIT=ou, FMT="(T3,A)") &
+            "XAS_TDP| Radial Grid(s) Info: Symbol,  na,  nr" 
+         DO i = 1, SIZE(xas_tdp_control%grid_info,1)
+            WRITE(UNIT=ou, FMT="(T3,A,A6,A,A,A,A)") &
+               "                              ", TRIM(xas_tdp_control%grid_info(i,1)), ", ", &
+               TRIM(xas_tdp_control%grid_info(i,2)), ", ", TRIM(xas_tdp_control%grid_info(i,3))
+         END DO
+      END IF
+
+      !XC kernel
+      IF (xas_tdp_control%do_xc) THEN
+         CALL libxc_version_info(tmpStr)
+         WRITE(UNIT=ou, FMT="(/,T3,A,A,/,T3,A,/)") &
+            "XAS_TDP| XC Kernel Functional(s) from LIBXC Vers. ", TRIM(tmpStr(1:5)), &
+            "         (Marques, Oliveira, Burnus, CPC 183, 2272 (2012)):"
+         xc_functionals => section_vals_get_subs_vals(input, "DFT%XAS_TDP%KERNEL%XC_FUNCTIONAL")
+         xc_fun => section_vals_get_subs_vals2(xc_functionals, i_section=1)
+         CALL section_vals_get(xc_fun, n_repetition=nrep)
+         DO irep = 1, nrep
+            NULLIFY (libxc_fun)
+            CALL section_vals_duplicate(xc_fun, libxc_fun, i_rep_start=irep, i_rep_end=irep)
+            IF (.NOT. ASSOCIATED(libxc_fun)) EXIT
+            CALL xc_functional_get_info(libxc_fun, lsd=.TRUE., reference=reference, shortform=shortform)
+            CALL section_vals_release(libxc_fun)
+            WRITE (ou, FMT="('  FUNCTIONAL| ',A,':')") TRIM(shortform)
+            DO il = 1, LEN_TRIM(reference), 67
+               WRITE (ou, FMT="('  FUNCTIONAL| ',a67)") reference(il:)
+            END DO
+         END DO
+      END IF
+
+      !HFX kernel
+      IF (xas_tdp_control%do_hfx) THEN
+         WRITE(UNIT=ou, FMT="(/,T3,A,/,/,T3,A,F5.3)") &
+            "XAS_TDP| Exat Exchange Kernel: On ", &
+            "EXACT_EXCHANGE| Scale: ", xas_tdp_control%sx
+         IF (xas_tdp_control%x_op == do_hfx_potential_coulomb) THEN
+            WRITE(UNIT=ou, FMT="(T3,A)") &
+               "EXACT_EXCHANGE| Operator : Coulomb"
+         ELSE IF (xas_tdp_control%x_op == do_hfx_potential_truncated) THEN
+            WRITE(UNIT=ou, FMT="(T3,A,/,T3,A,F5.2,A)") &
+               "EXACT_EXCHANGE| Operator: Truncated Coulomb", &
+               "EXACT_EXCHANGE| Range: ", xas_tdp_control%x_range*angstrom, ", (Ang)"
+         END IF
+      END IF
+
+   END SUBROUTINE print_info
 
 !> *************************************************************************************************
 !> \brief Computed the first N_EXCITED LUMOs for the OT eigensolver guesses
