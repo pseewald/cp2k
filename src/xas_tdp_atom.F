@@ -1611,6 +1611,11 @@ CONTAINS
       mepos = para_env%mepos
       bo = get_limit(nex_atom, num_pe, mepos)
 
+!  TODO: in the case where there is only a few excited atom in a big system and large grid, it is
+!        then there might be quite some work but only one proc doing it... If this turns out to
+!        be a problem, might want to give more porcs to each excited atoms and parallelize the
+!        put_density_on_pther grid part
+
 !  Looping over the excited atoms
       DO iex = bo(1), bo(2)
 
