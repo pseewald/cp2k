@@ -26,10 +26,7 @@ MODULE xas_tdp_methods
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply, copy_dbcsr_to_fm, &
                                               copy_fm_to_dbcsr
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_symm, cp_fm_triangular_multiply, &
-                                              cp_fm_triangular_invert
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver, cp_fm_syevr
+   USE cp_fm_diag,                      ONLY: choose_eigv_solver, cp_fm_geeig
    USE cp_fm_struct,                    ONLY: cp_fm_struct_type, cp_fm_struct_create,&
                                               cp_fm_struct_release
    USE cp_fm_types,                     ONLY: cp_fm_type, cp_fm_get_submatrix, cp_fm_create,&
@@ -868,8 +865,7 @@ CONTAINS
 !> \param xas_tdp_env ...
 !> \param xas_tdp_control ...
 !> \param qs_env ...
-!> \note Shift the occupied MOs away and use syevr to only compute the lowest eigenvalues, such 
-!>       that it is as cheap as possible. Do not use the stendard make_homo subroutine as it uses
+!> \note Uses stendard diagonalization. Do not use the stendard make_lumo subroutine as it uses
 !>       the OT eigensolver and there is no guarantee that it will converge fast
 !> *************************************************************************************************
    SUBROUTINE make_lumo_guess(xas_tdp_env, xas_tdp_control, qs_env)
@@ -881,122 +877,85 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "make_lumo_guess", routineP = moduleN//":"//routineN
 
       INTEGER                                            :: handle, nspins, ispin, nevals(2), &
-                                                            nelec_spin(2), nao, minel
+                                                            nelec_spin(2), nao, minel, nocc(2)
       LOGICAL                                            :: do_os
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_ks, matrix_s, rho_ao, matrices
-      TYPE(dbcsr_type), POINTER                          :: m_ks
-      TYPE(qs_rho_type), POINTER                         :: rho
-      TYPE(dbcsr_type)                                   :: work, sps
-      REAL(dp)                                           :: factor, max_ev
-      TYPE(arnoldi_data_type)                            :: my_arnoldi
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_ks, matrix_s 
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_fm_struct_type), POINTER                   :: lumo_struct, fm_struct
-      TYPE(cp_fm_type), POINTER                          :: amatrix, bmatrix, work_fm
-      TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
-      REAL(dp), DIMENSION(:), POINTER                    :: mo_evals
+      TYPE(cp_fm_type), POINTER                          :: amatrix, bmatrix, work_fm, evecs
+      REAL(dp), DIMENSION(:), ALLOCATABLE                :: evals
 
-      NULLIFY(matrix_ks, m_ks, matrix_s, rho_ao, rho, para_env, blacs_env, mos)
-      NULLIFY(lumo_struct, amatrix, bmatrix, work_fm, fm_struct, mo_evals)
+      NULLIFY(matrix_ks, matrix_s, para_env, blacs_env)
+      NULLIFY(lumo_struct, amatrix, bmatrix, work_fm, fm_struct, evecs)
 
       CALL timeset(routineN, handle)
 
       do_os = xas_tdp_control%do_uks .OR. xas_tdp_control%do_roks
       nspins = 1; IF (do_os) nspins = 2 
       ALLOCATE(xas_tdp_env%lumo_guess(nspins))
-      ALLOCATE(xas_tdp_env%lumo_evals(nspins))
-      ALLOCATE(m_ks) 
+      IF (xas_tdp_control%check_only) ALLOCATE(xas_tdp_env%lumo_evals(nspins))
       CALL get_qs_env(qs_env, matrix_ks=matrix_ks, matrix_s=matrix_s, nelectron_spin=nelec_spin, &
-                      rho=rho, para_env=para_env, blacs_env=blacs_env, mos=mos)
+                      para_env=para_env, blacs_env=blacs_env)
       CALL dbcsr_get_info(matrix_s(1)%matrix, nfullrows_total=nao)
       IF (do_os) THEN
          nevals = nao - nelec_spin
+         nocc = nelec_spin
       ELSE
          nevals = nao -nelec_spin(1)/2
+         nocc = nelec_spin(1)/2
       END IF
       IF (xas_tdp_control%n_excited > 0 .AND. ANY(xas_tdp_control%n_excited < nevals)) THEN
          nevals = xas_tdp_control%n_excited/nspins !total # of evals is n_excited
-      END IF
-      !Add some padding to make sure we have enough on both spins
-      !Less electron for a given spin => more evals
-      IF (do_os) THEN
-         minel = MINLOC(nelec_spin, 1)
-         nevals(minel) = nevals(minel) + ABS(nelec_spin(2)-nelec_spin(1))
+
+         !Add some padding to make sure we have enough on both spins
+         !Less electron for a given spin => more evals
+         IF (do_os) THEN
+            minel = MINLOC(nelec_spin, 1)
+            nevals(minel) = nevals(minel) + ABS(nelec_spin(2)-nelec_spin(1))
+         END IF
       END IF
 
       DO ispin = 1,nspins
-
-      ! creating the projector SPS to shift the occupied levels. 
-         factor = 0.5_dp; IF (do_os) factor = 1.0_dp
-         CALL qs_rho_get(rho, rho_ao=rho_ao)
-         CALL dbcsr_copy(sps, matrix_s(1)%matrix, name="SPS")
-         CALL dbcsr_create(work, template=matrix_s(1)%matrix, matrix_type="N")
-
-         CALL dbcsr_multiply('N', 'N', 1.0_dp, sps, rho_ao(ispin)%matrix, 0.0_dp, work) 
-         CALL dbcsr_multiply('N', 'N', factor, work, matrix_s(1)%matrix, 0.0_dp, sps)
-         CALL dbcsr_release(work)
-
-      ! Copy the KS matrix, shift the occupied levels and diagonalize
-         CALL dbcsr_copy(m_ks, matrix_ks(ispin)%matrix)
-
-         !estimate largest eigenvalue for the shift
-         ALLOCATE(matrices(2))
-         matrices(1)%matrix => m_ks
-         matrices(2)%matrix => matrix_s(1)%matrix
-         CALL setup_arnoldi_data(my_arnoldi, matrices, max_iter=20, threshold=1.0E-3_dp, selection_crit=2, &
-                                 nval_request=1, nrestarts=8, generalized_ev=.TRUE., iram=.FALSE.)
-         CALL arnoldi_ev(matrices, my_arnoldi)
-         max_ev = REAL(get_selected_ritz_val(my_arnoldi, 1), dp)
-         CALL deallocate_arnoldi_data(my_arnoldi)
-         DEALLOCATE(matrices)
-
-         !Apply the shift. +10 for safety
-         CALL get_mo_set(mos(ispin)%mo_set, eigenvalues=mo_evals)
-         CALL dbcsr_add(m_ks, sps, 1.0_dp, max_ev+10.0_dp-mo_evals(1))
-
-         !Allocating space for solutions
-         CALL cp_fm_struct_create(lumo_struct, para_env=para_env, context=blacs_env, &
-                                  nrow_global=nao, ncol_global=nevals(ispin))
-         CALL cp_fm_create(xas_tdp_env%lumo_guess(ispin)%matrix, lumo_struct)
-         ALLOCATE(xas_tdp_env%lumo_evals(ispin)%array(nevals(ispin)))
 
          !Going through fm to diagonalize
          CALL cp_fm_struct_create(fm_struct, para_env=para_env, context=blacs_env, &
                                   nrow_global=nao, ncol_global=nao)
          CALL cp_fm_create(amatrix, fm_struct)
          CALL cp_fm_create(bmatrix, fm_struct)
+         CALL cp_fm_create(evecs, fm_struct)
          CALL cp_fm_create(work_fm, fm_struct)
+         ALLOCATE(evals(nocc(ispin)+nevals(ispin)))
 
-         CALL copy_dbcsr_to_fm(m_ks, amatrix)
+         CALL copy_dbcsr_to_fm(matrix_ks(ispin)%matrix, amatrix)
          CALL copy_dbcsr_to_fm(matrix_s(1)%matrix, bmatrix)
 
          !The actual diagonalization through Cholesky decomposition
-         CALL cp_fm_cholesky_decompose(bmatrix)
-         CALL cp_fm_triangular_invert(bmatrix)
-         CALL cp_fm_triangular_multiply(bmatrix, amatrix, side="R")
-         CALL cp_fm_triangular_multiply(bmatrix, amatrix, transpose_tr=.TRUE.)
-         CALL cp_fm_syevr(amatrix, work_fm, xas_tdp_env%lumo_evals(ispin)%array, 1, nevals(ispin))
-         CALL cp_fm_triangular_multiply(bmatrix, work_fm)
-         CALL cp_fm_to_fm(work_fm, xas_tdp_env%lumo_guess(ispin)%matrix, nevals(ispin))
+         CALL cp_fm_geeig(amatrix, bmatrix, evecs, evals, work_fm)
+
+         !Storing results
+         IF (xas_tdp_control%check_only) THEN
+            ALLOCATE(xas_tdp_env%lumo_evals(ispin)%array(nevals(ispin)))
+            xas_tdp_env%lumo_evals(ispin)%array(:) = evals(nocc(ispin)+1:nocc(ispin)+nevals(ispin))
+         END IF
+
+         CALL cp_fm_struct_create(lumo_struct, para_env=para_env, context=blacs_env, &
+                                  nrow_global=nao, ncol_global=nevals(ispin))
+         CALL cp_fm_create(xas_tdp_env%lumo_guess(ispin)%matrix, lumo_struct)
+
+         CALL cp_fm_to_fm_submat(evecs, xas_tdp_env%lumo_guess(ispin)%matrix, nrow=nao, &
+                                 ncol=nevals(ispin), s_firstrow=1, s_firstcol=nocc(ispin)+1, &
+                                 t_firstrow=1, t_firstcol=1)
 
          !clean-up
-         CALL dbcsr_release(m_ks)
-         CALL dbcsr_release(sps)
          CALL cp_fm_release(amatrix)
          CALL cp_fm_release(bmatrix)
+         CALL cp_fm_release(evecs)
          CALL cp_fm_release(work_fm)
          CALL cp_fm_struct_release(fm_struct)
          CALL cp_fm_struct_release(lumo_struct)
+         DEALLOCATE(evals)
       END DO
-
-      !clean-up
-      DEALLOCATE(m_ks)
-      IF (.NOT. xas_tdp_control%check_only) THEN
-         DO ispin = 1,nspins
-            DEALLOCATE(xas_tdp_env%lumo_evals(ispin)%array)
-         END DO
-         DEALLOCATE(xas_tdp_env%lumo_evals)
-      END IF
 
       CALL timestop(handle)
 
@@ -1914,7 +1873,7 @@ CONTAINS
          END DO !imo
          IF (output_unit > 0) THEN
             WRITE(output_unit, "(/,T5,A,/,T5,A)") &
-               "Use one of the above value as N_EXCITED for optimal OT convergence.", &
+               "Use one of the above value as N_EXCITED (or -1) for optimal OT convergence.", &
                "Increase current N_EXCITED and restart a CHECK_ONLY run for more options."
          END IF
       END IF
