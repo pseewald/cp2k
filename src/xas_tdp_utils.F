@@ -99,7 +99,7 @@ MODULE xas_tdp_utils
 
    PUBLIC :: setup_xas_tdp_prob, solve_xas_tdp_prob, build_xas_tdp_3c_nl, &
              compute_ri_coulomb2_int, include_rcs_soc, include_os_soc, &
-             compute_ri_o3c_coulomb, compute_ri_o3c_exchange
+             compute_ri_o3c_coulomb, compute_ri_o3c_exchange, build_xas_tdp_ovlp_nl
 
 CONTAINS
 
@@ -1422,14 +1422,14 @@ CONTAINS
       ALLOCATE(xas_tdp_env%ri_inv_coul(nsgf, nsgf))
       xas_tdp_env%ri_inv_coul = 0.0_dp
 
-      IF (.NOT. xas_tdp_control%is_periodic) THEN
+      !IF (.NOT. xas_tdp_control%is_periodic) THEN
          CALL int_operators_r12_ab_os(r12_operator=operator_coulomb, vab=xas_tdp_env%ri_inv_coul, &
                                       rab=(/0.0_dp,0.0_dp,0.0_dp/), fba=ri_basis, fbb=ri_basis, &
                                       calculate_forces=.FALSE.)
          CPASSERT(ASSOCIATED(xas_tdp_control))
-      ELSE
-         CALL periodic_ri_coulomb2(xas_tdp_env%ri_inv_coul, ri_basis, qs_env)
-      END IF
+      !ELSE
+         !CALL periodic_ri_coulomb2(xas_tdp_env%ri_inv_coul, ri_basis, qs_env)
+      !END IF
 
 !  Inverting 
       CALL invmat_symm(xas_tdp_env%ri_inv_coul)  
@@ -1561,7 +1561,7 @@ CONTAINS
 !  non-zero for b centered on the same atom as c => build overlap nl, but only keeping b if centered
 !  on an excited atom
       CALL build_xas_tdp_ovlp_nl(ab_list, basis_set_orb, basis_set_orb, &
-                                 xas_tdp_env%ex_atom_indices, qs_env)
+                                 qs_env, excited_atoms=xas_tdp_env%ex_atom_indices)
 
 !  Build a neighbor list for the ac centers. Since we later contract as (aI|c) and we assume I is 
 !  very localized on the same atom as c, we take a,c as neighbors if they overlap
@@ -1680,20 +1680,21 @@ CONTAINS
 !> \param excited_atoms the indices of the excited atoms on which b is centered
 !> \param qs_env ...
 ! **************************************************************************************************
-   SUBROUTINE build_xas_tdp_ovlp_nl(ab_list, basis_a, basis_b, excited_atoms, qs_env)
+   SUBROUTINE build_xas_tdp_ovlp_nl(ab_list, basis_a, basis_b, qs_env, excited_atoms)
 
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
                                              POINTER  :: ab_list
       TYPE(gto_basis_set_p_type), DIMENSION(:), &
                                              POINTER  :: basis_a, basis_b
-      INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: excited_atoms
       TYPE(qs_environment_type), POINTER              :: qs_env
+      INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: excited_atoms
 
       CHARACTER(len=*), PARAMETER :: routineN = "build_xas_tdp_ovlp_nl", &
                                      routineP = moduleN//":"//routineN
 
       INTEGER                                         :: nkind, ikind
       REAL(dp)                                        :: subcells
+      LOGICAL                                         :: my_restrictb
       LOGICAL, DIMENSION(:), ALLOCATABLE              :: a_present, b_present
       REAL(dp), DIMENSION(:), ALLOCATABLE             :: a_radius, b_radius
       REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: pair_radius
@@ -1711,6 +1712,11 @@ CONTAINS
 !  Initialization
       CALL get_qs_env(qs_env, nkind=nkind)
       CALL section_vals_val_get(qs_env%input, "DFT%SUBCELLS", r_val=subcells)
+
+      my_restrictb = .FALSE.
+      IF (PRESENT(excited_atoms)) THEN
+         my_restrictb = .TRUE.
+      END IF
 
       ALLOCATE(a_present(nkind), b_present(nkind))
       a_present = .FALSE.
@@ -1745,8 +1751,17 @@ CONTAINS
       CALL atom2d_build(atom2d, distribution_1d, distribution_2d, atomic_kind_set, &
                         molecule_set, .FALSE., particle_set)
 
-      CALL build_neighbor_lists(ab_list, particle_set, atom2d, cell, pair_radius, subcells, &
-                                atomb_to_keep=excited_atoms, nlname="XAS_TDP_ovlp_nl")
+      IF (my_restrictb) THEN
+
+         CALL build_neighbor_lists(ab_list, particle_set, atom2d, cell, pair_radius, subcells, &
+                                   atomb_to_keep=excited_atoms, nlname="XAS_TDP_ovlp_nl")
+
+      ELSE
+
+         CALL build_neighbor_lists(ab_list, particle_set, atom2d, cell, pair_radius, subcells, &
+                                   nlname="XAS_TDP_ovlp_nl")
+
+      END IF
 !  Clean-up
       CALL atom2d_cleanup(atom2d)
 

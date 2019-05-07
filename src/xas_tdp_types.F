@@ -23,8 +23,7 @@ MODULE xas_tdp_types
                                               tddfpt_spin_cons, &
                                               tddfpt_spin_flip, &
                                               do_hfx_potential_coulomb, &
-                                              xas_dip_vel, &
-                                              xas_tdp_full_ri
+                                              xas_dip_vel
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_val_get,&
                                               section_vals_get_subs_vals
@@ -53,9 +52,9 @@ MODULE xas_tdp_types
 !> \param do_hfx whether exact exchange is included
 !> \param do_xc wheter xc functional(s) is(are) included
 !> \param sx the scaling applied to exact exchange
-!> \param ri_type the type of RI projection for the density
 !> \param x_op the operator used for exact exchange (Coulomb, TC, Sk)
 !> \param x_range the range for exact exchane operator (truncated coulomb or SR)
+!> \param ri_radius the radius of the sphere defining the neighbors in the RI projection of the dens
 !> \param tamm_dancoff whether the calculations should be done in the Tamm-Dancoff approximation
 !> \param list_ex_atoms list of excited atom indices, kept empty if define_excited=by_kind
 !> \param list_ex_kinds list of excited atom kinds, kept empty if define_excited=by_index
@@ -83,9 +82,9 @@ MODULE xas_tdp_types
       INTEGER                                 :: n_search
       INTEGER                                 :: n_excited
       INTEGER                                 :: max_iter
-      INTEGER                                 :: ri_type
       REAL(dp)                                :: sx
       REAL(dp)                                :: x_range
+      REAL(dp)                                :: ri_radius
       INTEGER                                 :: x_op
       REAL(dp)                                :: eps_iter
       LOGICAL                                 :: do_hfx
@@ -248,6 +247,7 @@ MODULE xas_tdp_types
 
 ! **************************************************************************************************
 !> \brief a environment type that contains all the info needed for XAS_TDP atomic grid calculations
+!> \param ri_radius defines the neighbors in the RI projection of the density
 !> \param nspins ...
 !> \param excited_atoms the atoms for which RI xc-kernel calculations must be done 
 !> \param excited_kinds the kinds for which RI xc-kernel calculations must be done 
@@ -259,6 +259,7 @@ MODULE xas_tdp_types
 !> *************************************************************************************************
    TYPE xas_atom_env_type
       INTEGER                                         :: nspins
+      REAL(dp)                                        :: ri_radius
       INTEGER, DIMENSION(:), POINTER                  :: excited_atoms
       INTEGER, DIMENSION(:), POINTER                  :: excited_kinds
       INTEGER, DIMENSION(:), POINTER                  :: proc_of_exat
@@ -301,11 +302,11 @@ CONTAINS
       xas_tdp_control%define_excited = xas_tdp_by_index
       xas_tdp_control%n_search = -1
       xas_tdp_control%dipole_form = xas_dip_vel
-      xas_tdp_control%ri_type = xas_tdp_full_ri
       xas_tdp_control%do_hfx = .TRUE.
       xas_tdp_control%do_xc = .FALSE.
       xas_tdp_control%sx = 1.0_dp
       xas_tdp_control%x_range = 0.0_dp
+      xas_tdp_control%ri_radius = 0.0_dp
       xas_tdp_control%x_op = do_hfx_potential_coulomb
       xas_tdp_control%check_only = .FALSE.
       xas_tdp_control%tamm_dancoff = .FALSE.
@@ -483,12 +484,13 @@ CONTAINS
                                 l_val=xas_tdp_control%do_loc)
 
 !  Deal with the KERNEL subsection
-      CALL section_vals_val_get(xas_tdp_section, "KERNEL%DENSITY_PROJECTION", i_val=xas_tdp_control%ri_type)
-
       CALL section_vals_val_get(xas_tdp_section, "KERNEL%XC_FUNCTIONAL%_SECTION_PARAMETERS_", &
                                 l_val=xas_tdp_control%do_xc) 
       CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%_SECTION_PARAMETERS_", &
                                 l_val=xas_tdp_control%do_hfx)
+
+      CALL section_vals_val_get(xas_tdp_section, "KERNEL%RI_REGION", r_val=xas_tdp_control%ri_radius)
+      xas_tdp_control%ri_radius = bohr*xas_tdp_control%ri_radius
 
       IF (xas_tdp_control%do_hfx) THEN
          CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%SCALE", &
@@ -983,6 +985,7 @@ CONTAINS
       ALLOCATE(xas_atom_env)
       
       xas_atom_env%nspins = 1
+      xas_atom_env%ri_radius = 0.0_dp
       NULLIFY(xas_atom_env%excited_atoms)
       NULLIFY(xas_atom_env%excited_kinds)
       NULLIFY(xas_atom_env%grid_atom_set)
