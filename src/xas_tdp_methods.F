@@ -823,8 +823,12 @@ CONTAINS
 
       !XC kernel
       IF (xas_tdp_control%do_xc) THEN
+
+         WRITE(UNIT=ou, FMT="(/,T3,A,F5.2,A)") &
+            "XAS_TDP| RI Region's Radius: ", xas_tdp_control%ri_radius, " Ang"
+
          CALL libxc_version_info(tmpStr)
-         WRITE(UNIT=ou, FMT="(/,T3,A,A,/,T3,A,/)") &
+         WRITE(UNIT=ou, FMT="(T3,A,A,/,T3,A,/)") &
             "XAS_TDP| XC Kernel Functional(s) from LIBXC Vers. ", TRIM(tmpStr(1:5)), &
             "         (Marques, Oliveira, Burnus, CPC 183, 2272 (2012)):"
          xc_functionals => section_vals_get_subs_vals(input, "DFT%XAS_TDP%KERNEL%XC_FUNCTIONAL")

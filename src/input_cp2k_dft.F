@@ -94,8 +94,7 @@ MODULE input_cp2k_dft
         xas_3p_type, xas_3s_type, xas_4d_type, xas_4f_type, xas_4p_type, xas_4s_type, xas_dip_len, &
         xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, xas_tp_hh, xas_tp_xfh, &
         xas_tp_xhh, xes_tp_val, xas_not_excited, xas_tdp_by_kind, xas_tdp_by_index, &
-        tddfpt_spin_cons, tddfpt_spin_flip, do_hfx_potential_coulomb, do_hfx_potential_truncated, &
-        xas_tdp_full_ri, xas_tdp_part_ri
+        tddfpt_spin_cons, tddfpt_spin_flip, do_hfx_potential_coulomb, do_hfx_potential_truncated
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
    USE input_cp2k_distribution,         ONLY: create_distribution_section
    USE input_cp2k_field,                ONLY: create_efield_section,&
@@ -8116,33 +8115,25 @@ CONTAINS
                           n_subsections=1, &
                           repeats=.FALSE.)
 
-      CALL keyword_create(keyword, name="DENSITY_PROJECTION", &
-                          variants=s2a("RI_SCHEME", "RI_DENSITY", "DENS_PROJ"), &
-                          description="Whether the density should be projected on the whole RI_XAS"//&
-                                      "basis or only on a subset of the latter spaning the excited"//&
-                                      "atoms and their neighbors. Note: in the end the density is"//&
-                                      "evaluated in the vicinity of the excited atoms in both "//&
-                                      "cases such that the cost difference only comes from the "//&
-                                      "choice of projection scheme.", &
-                          usage="DENSITY_PROJECTION {string}", &
-                          default_i_val=xas_tdp_full_ri, &
-                          enum_c_vals=s2a("FULL_RI", "PARTIAL_RI"), &
-                          enum_desc=s2a("FULL_RI: the density is projected on the whole RI_XAS"//&
-                                        "basis. Best accuracy but requires the inversion of the"//&
-                                        "RI_XAS overlap matrix and a lot of 3-center overlap "//&
-                                        "integrals. Best suited for smaller systems or if a large"//&
-                                        "portion of all atoms are treated as being excited.", &
-                                        "PARTIAL_RI: the density is only projected on a subset of"//&
-                                        "the RI_XAS basis spanning an excited atom and its neighbors."//&
-                                        "Possibly less accurate but requires the inversion of a much"//&
-                                        "smaller overlap matrix and less 3-center overlap integrals."//&
-                                        "The procedure needs to be repeated for each excited atom "//&
-                                        "though and it might become more expensive than FULL_RI if "//&
-                                        "mroe than a few atoms are treated as being excited"), &
-                           enum_i_vals=(/xas_tdp_full_ri, xas_tdp_part_ri/))
+      CALL keyword_create(keyword, name="RI_REGION", &
+                          variants=(/"RI_RADIUS"/), &
+                          description="The region defined by a sphere of the given radius around"//&
+                                      "the excited atom defining which RI_XAS basis elements are"//&
+                                      "considered for the RI projection of the density. Each basis"//&
+                                      "element which center is in this region is taken. The density"//&
+                                      "for a given excited atom is expressed as :"//&
+                                      "sum_ijkl P_ij (ijk) S_kl^-1 xi_l, where P_ij is the density"//&
+                                      "matrix, i,j span the orbital basis and k,l the RI_XAS basis"//&
+                                      "in the region. The larger the radius, the more basis "//&
+                                      "functions to expand the density. However, it is assumed"//&
+                                      "that it is a small number and the code does not scale well "//&
+                                      "as the number of RI basis elements gets large."//&
+                                      "Expressed in Angstrom. If the radius is set to 0.0, only "//&
+                                      "the RI basis elements centered on the excited atom are used.", &
+                           usage="RI_REGION {real}", &
+                           default_r_val=0.0_dp)
       CALL section_add_keyword(subsection, keyword)
       CALL keyword_release(keyword)
-
 
 !  The XC_FUNCTIONAL subsubsection
       CALL section_create(subsubsection, name="XC_FUNCTIONAL", &
