@@ -1005,7 +1005,7 @@ CONTAINS
 
 !$OMP PARALLEL DEFAULT(NONE)&
 !$OMP SHARED (o3c_iterator,xas_atom_env,nsgf,nspins,factor,nnb,neighbors,rep_ri_sinv,iex,idx_to_nb)&
-!$OMP SHARDE (inb,is_neighbor)&
+!$OMP SHARED (inb,is_neighbor)&
 !$OMP PRIVATE (mepos,katom,tvec,work,jnb,ri_at,found,foundt,pblock,pblockt)
 
             mepos = 0

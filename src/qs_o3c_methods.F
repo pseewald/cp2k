@@ -14,16 +14,26 @@ MODULE qs_o3c_methods
    USE ai_overlap3,                     ONLY: overlap3
    USE ai_coulomb,                      ONLY: coulomb3
    USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
+                                              gto_basis_set_type, &
+                                              get_gto_basis_set
+   USE cp_files,                        ONLY: close_file,&
+                                              open_file
+   USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
                                               dbcsr_p_type,&
                                               dbcsr_type
+   USE gamma,                           ONLY: init_md_ftable
+   USE hfx_libint_wrapper,              ONLY: cp_libint_t, cp_libint_cleanup_3eri, &
+                                              cp_libint_init_3eri, cp_libint_set_contrdepth
    USE kinds,                           ONLY: dp
+   USE libint_3center,                  ONLY: eri_3center, operator_coulomb, operator_trunc_coul, &
+                                              operator_sr_erfc
    USE orbital_pointers,                ONLY: ncoset
    USE qs_o3c_types,                    ONLY: &
         get_o3c_container, get_o3c_iterator_info, get_o3c_vec, o3c_container_type, o3c_iterate, &
         o3c_iterator_create, o3c_iterator_release, o3c_iterator_type, o3c_vec_type, &
         set_o3c_container
+   USE t_c_g0,                          ONLY: init
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"
@@ -35,7 +45,7 @@ MODULE qs_o3c_methods
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_o3c_methods'
 
    PUBLIC :: calculate_o3c_integrals, contract12_o3c, contract3_o3c, &
-             calculate_o3c_coulomb_integrals
+             calculate_o3c_coulomb_integrals, calculate_o3c_libint_integrals
 
 CONTAINS
 
@@ -483,7 +493,8 @@ CONTAINS
                      END DO
 
                      ALLOCATE (sabc_contr(nsgfa(iset), nsgfb(jset), nsgfc(kset)))
-
+                                        
+      f = 0.0_dp; v = 0.0_dp; gccc = 0.0_dp; vabc = 0.0_dp   
                      CALL abc_contract(sabc_contr, sabc, &
                                        sphi_a(:, sgfa:), sphi_b(:, sgfb:), sphi_c(:, sgfc:), &
                                        ncoa, ncob, ncoc, nsgfa(iset), nsgfb(jset), nsgfc(kset))
@@ -505,6 +516,239 @@ CONTAINS
       CALL timestop(handle)
 
    END SUBROUTINE calculate_o3c_coulomb_integrals   
+
+! **************************************************************************************************
+!> \brief Computes the 3-center integrals of the o3c container based on libint for the given operator
+!> \param o3c the 3-center integrals container
+!> \param op the operator for the integrals
+!> \param maxla the maximal value of l for basis_set_list_a
+!> \param maxlb the maximal value of l for basis_set_list_b
+!> \param maxlc the maximal value of l for basis_set_list_c
+!> \param init_t_c_g0_lmax the lmax value used to initialize the truncated Coulomb gamma function
+!>        in the past. Used to determine whther the potential file needs to be read again
+!> \param t_c_filename the name of the file with the truncated Coulomb data
+!> \note The static initialization of the libint library needs to be done before hand
+!>       In case the truncated coulomb operator is used, the potential parameter file must be read
+!>       in advance too
+! **************************************************************************************************
+   SUBROUTINE calculate_o3c_libint_integrals(o3c, op, maxla, maxlb, maxlc, init_t_c_g0_lmax, &
+                                             t_c_filename, para_env)
+
+      TYPE(o3c_container_type), POINTER                  :: o3c
+      INTEGER, INTENT(IN)                                :: op
+      INTEGER, INTENT(IN), OPTIONAL                      :: maxla, maxlb, maxlc
+      INTEGER, INTENT(INOUT), OPTIONAL                   :: init_t_c_g0_lmax
+      CHARACTER(len=*), INTENT(IN), OPTIONAL             :: t_c_filename
+      TYPE(cp_para_env_type), POINTER, OPTIONAL          :: para_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "calculate_o3c_libint_integrals", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                            :: handle, nspin, nthread, mepos, ikind, &
+                                                            jkind, kkind, nseta, nsetb, nsetc, &
+                                                            iset, jset, kset, ni, nj, nk, ncoa, &
+                                                            ncob, ncoc, sgfa, sgfb, sgfc, egfa, &
+                                                            egfb, egfc, maxli, maxlj, maxlk, imax, &
+                                                            ibasis, unit_id, m_max
+      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_list_a, basis_set_list_b, & 
+                                                            basis_set_list_c
+      TYPE(gto_basis_set_type), POINTER                  :: basis_set_a, basis_set_b, basis_set_c
+      TYPE(o3c_iterator_type)                            :: o3c_iterator
+      REAL(dp), DIMENSION(3)                             :: rij, rik, ri, rj, rk
+      REAL(dp), DIMENSION(:,:), POINTER                  :: tvec, sphi_a, sphi_b, sphi_c, &
+                                                            zeta, zetb, zetc
+      REAL(dp), DIMENSION(:,:,:), POINTER                :: iabc
+      REAL(dp), DIMENSION(:,:,:), ALLOCATABLE            :: sabc, sabc_contr
+      INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, lb_min, lc_max, &
+                                                            lc_min, npgfa, npgfb, npgfc, nsgfa, &
+                                                            nsgfb, nsgfc
+      INTEGER, DIMENSION(:,:), POINTER                   :: first_sgfa, first_sgfb, first_sgfc
+      TYPE(cp_libint_t)                                  :: lib
+
+      NULLIFY(basis_set_list_a, basis_set_list_b, basis_set_list_c, basis_set_a, basis_set_b)
+      NULLIFY(basis_set_c, iabc, tvec, first_sgfa, first_sgfb, first_sgfc, la_max, la_min, lb_max)
+      NULLIFY(lb_min, lc_max, lc_min, npgfa, npgfb, npgfc, nsgfa, nsgfb, nsgfc)
+
+      CALL timeset(routineN, handle)
+
+      CALL get_o3c_container(o3c, nspin=nspin, basis_set_list_a=basis_set_list_a, &
+                             basis_set_list_b=basis_set_list_b, basis_set_list_c=basis_set_list_c)
+
+      !Need the max l for each basis for libint
+      IF (PRESENT(maxla)) THEN
+         maxli = maxla
+      ELSE
+         maxli = 0
+         DO ibasis = 1, SIZE(basis_set_list_a)
+            CALL get_gto_basis_set(gto_basis_set=basis_set_list_a(ibasis)%gto_basis_set, maxl=imax)
+            maxli = MAX(maxli, imax)
+         END DO
+      END IF
+      IF (PRESENT(maxlb)) THEN
+         maxlj = maxlb
+      ELSE
+         maxlj = 0
+         DO ibasis = 1, SIZE(basis_set_list_b)
+            CALL get_gto_basis_set(gto_basis_set=basis_set_list_b(ibasis)%gto_basis_set, maxl=imax)
+            maxlj = MAX(maxlj, imax)
+         END DO
+      END IF
+      IF (PRESENT(maxlc)) THEN
+         maxlk = maxlc
+      ELSE
+         maxlk = 0
+         DO ibasis = 1, SIZE(basis_set_list_c)
+            CALL get_gto_basis_set(gto_basis_set=basis_set_list_c(ibasis)%gto_basis_set, maxl=imax)
+            maxlk = MAX(maxlk, imax)
+         END DO
+      END IF
+      m_max = maxli+maxlj+maxlk
+
+      !Init the truncated Coulomb operator
+      IF (op == operator_trunc_coul) THEN
+         CPASSERT(PRESENT(t_c_filename))
+         CPASSERT(PRESENT(init_t_c_g0_lmax))
+         CPASSERT(PRESENT(para_env))
+
+         !open the file only if necessary
+         IF (m_max > init_t_c_g0_lmax) THEN
+            IF (para_env%mepos == 0) THEN
+               CALL open_file(unit_number=unit_id, file_name=t_c_filename)       
+            END IF
+            CALL init(m_max, unit_id, para_env%mepos, para_env%group)
+            IF (para_env%mepos == 0) THEN
+               CALL close_file(unit_id)
+            END IF
+            init_t_c_g0_lmax = m_max
+         END IF
+      END IF
+
+      !Inint the initial gamma function before the OMP region as it is not thread safe
+      CALL init_md_ftable(nmax=m_max)
+
+      nthread = 1
+!$    nthread = omp_get_max_threads()
+      CALL o3c_iterator_create(o3c, o3c_iterator, nthread=nthread)
+
+!$OMP PARALLEL DEFAULT(NONE) &
+!$OMP SHARED (nthread,o3c_iterator,nspin,basis_set_list_a, basis_set_list_b,basis_set_list_c,ncoset) &
+!$OMP PRIVATE (basis_set_a,basis_set_b,basis_set_c,mepos,ikind,jkind,kkind,iabc,tvec,rij,rik,op, &
+!$OMP          first_sgfa,la_max,la_min,npgfa,nseta,nsgfa,zeta,iset,ni,ri,ncoa,sgfa,egfa,sphi_a,&
+!$OMP          first_sgfb,lb_max,lb_min,npgfb,nsetb,nsgfb,zetb,jset,nj,rj,ncob,sgfb,egfb,sphi_b,&
+!$OMP          first_sgfc,lc_max,lc_min,npgfc,nsetc,nsgfc,zetc,kset,nk,rk,ncoc,sgfc,egfc,sphi_c,&
+!$OMP          sabc,sabc_contr,lib)
+
+      mepos = 0
+!$    mepos = omp_get_thread_num()
+
+      !each thread needs its own lib because internal parameters could change at different rates
+      CALL cp_libint_init_3eri(lib, MAX(maxli, maxlj, maxlk))
+      CALL cp_libint_set_contrdepth(lib, 1)
+
+      DO WHILE(o3c_iterate(o3c_iterator, mepos=mepos) == 0)
+
+         CALL get_o3c_iterator_info(o3c_iterator, mepos=mepos, ikind=ikind, jkind=jkind, &
+                                    kkind=kkind, rij=rij, rik=rik, integral=iabc, tvec=tvec)
+
+            CPASSERT(.NOT. ASSOCIATED(iabc))
+            CPASSERT(.NOT. ASSOCIATED(tvec))
+
+            !basis
+            basis_set_a => basis_set_list_a(ikind)%gto_basis_set
+            basis_set_b => basis_set_list_b(jkind)%gto_basis_set
+            basis_set_c => basis_set_list_c(kkind)%gto_basis_set
+            ! center A
+            first_sgfa => basis_set_a%first_sgf
+            la_max => basis_set_a%lmax
+            la_min => basis_set_a%lmin
+            npgfa => basis_set_a%npgf
+            nseta = basis_set_a%nset
+            nsgfa => basis_set_a%nsgf_set
+            sphi_a => basis_set_a%sphi
+            zeta => basis_set_a%zet
+            ! center B
+            first_sgfb => basis_set_b%first_sgf
+            lb_max => basis_set_b%lmax
+            lb_min => basis_set_b%lmin
+            npgfb => basis_set_b%npgf
+            nsetb = basis_set_b%nset
+            nsgfb => basis_set_b%nsgf_set
+            sphi_b => basis_set_b%sphi
+            zetb => basis_set_b%zet
+            ! center C
+            first_sgfc => basis_set_c%first_sgf
+            lc_max => basis_set_c%lmax
+            lc_min => basis_set_c%lmin
+            npgfc => basis_set_c%npgf
+            nsetc = basis_set_c%nset
+            nsgfc => basis_set_c%nsgf_set
+            sphi_c => basis_set_c%sphi
+            zetc => basis_set_c%zet
+
+            ni = SUM(nsgfa)
+            nj = SUM(nsgfb)
+            nk = SUM(nsgfc)
+
+            ALLOCATE(iabc(ni, nj, nk))
+            iabc(:,:,:) = 0.0_dp
+
+            ALLOCATE(tvec(nk, nspin))
+            tvec(:,:) = 0.0_dp
+
+            !need positions for libint. Only relative positions are needed => set ri to 0.0
+            ri = 0.0_dp
+            rj = rij ! ri + rij
+            rk = rik ! ri + rik
+
+            DO iset = 1, nseta
+               DO jset = 1, nsetb
+                  DO kset = 1, nsetc
+
+                     ncoa = npgfa(iset)*ncoset(la_max(iset))
+                     ncob = npgfb(jset)*ncoset(lb_max(jset))
+                     ncoc = npgfc(kset)*ncoset(lc_max(kset))
+
+                     sgfa = first_sgfa(1, iset)
+                     sgfb = first_sgfb(1, jset)
+                     sgfc = first_sgfc(1, kset)
+
+                     egfa = sgfa+nsgfa(iset)-1
+                     egfb = sgfb+nsgfb(jset)-1
+                     egfc = sgfc+nsgfc(kset)-1
+
+                     ALLOCATE(sabc(ncoa, ncob, ncoc))
+                     sabc = 0.0_dp
+
+                     CALL eri_3center(sabc, la_min(iset), la_max(iset), npgfa(iset), zeta(:,iset), &
+                                      ri, lb_min(jset), lb_max(jset), npgfb(jset), zetb(:,jset), &
+                                      rj, lc_min(kset), lc_max(kset), npgfc(kset), zetc(:,kset), &
+                                      rk, lib, op)
+
+                     ALLOCATE(sabc_contr(nsgfa(iset), nsgfb(jset), nsgfc(kset)))
+
+                     CALL abc_contract(sabc_contr, sabc, &
+                                       sphi_a(:, sgfa:), sphi_b(:, sgfb:), sphi_c(:, sgfc:), &
+                                       ncoa, ncob, ncoc, nsgfa(iset), nsgfb(jset), nsgfc(kset))
+
+                     CALL dcopy(nsgfa(iset)*nsgfb(jset)*nsgfc(kset), sabc_contr(:,:,:), 1, &
+                                iabc(sgfa:egfa, sgfb:egfb, sgfc:egfc), 1)
+
+                     DEALLOCATE(sabc, sabc_contr)
+
+                  END DO !kset
+               END DO !jset
+            END DO !iset
+
+            CALL set_o3c_container(o3c_iterator, mepos=mepos, integral=iabc, tvec=tvec)
+
+      END DO !o3c_iterator
+      CALL cp_libint_cleanup_3eri(lib)
+!$OMP END PARALLEL
+      CALL o3c_iterator_release(o3c_iterator)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE calculate_o3c_libint_integrals
 
 ! **************************************************************************************************
 !> \brief Contraction of 3-tensor over indices 1 and 2 (assuming symmetry)

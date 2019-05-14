@@ -311,8 +311,9 @@ CONTAINS
             !compute the three center RI exchange integrals if so required
             IF (xas_tdp_control%do_hfx) THEN
                IF (output_unit > 0) THEN
-                  WRITE(UNIT=output_unit, FMT="(/,T3,A,I4,A)") &
-                     "# Computing the RI 3-center Exchange integrals for this atom ..."
+                  WRITE(UNIT=output_unit, FMT="(/,T3,A,I4,A1,A2)") &
+                     "# Computing the RI 3-center Exchange integrals for excited atom (idx/kind): ", &
+                     iatom, "/", symbol_of_kind
                   CALL m_flush(output_unit)
                END IF
                CALL compute_ri_o3c_exchange(iatom, xas_tdp_env, xas_tdp_control, qs_env)
@@ -441,16 +442,13 @@ CONTAINS
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(scf_control_type), POINTER                    :: scf_control
-      TYPE(cp_fm_struct_type), POINTER                   :: fm_struct
       REAL(dp)                                           :: fact
       LOGICAL                                            :: do_uks, do_os, unique
-      TYPE(cp_para_env_type), POINTER                    :: para_env
-      TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cell_type), POINTER                           :: cell
 
       NULLIFY(dft_section, xas_tdp_section, at_kind_set, ind_of_kind, qs_kind_set, dft_control)
       NULLIFY(qs_loc_env, loc_section, mos, particle_set, rho, rho_ao, mo_evals, cell)
-      NULLIFY(mo_coeff, scf_control, matrix_ks, fm_struct, para_env, blacs_env)
+      NULLIFY(mo_coeff, scf_control, matrix_ks)
 
 !  XAS TDP control type initialization
       dft_section => section_vals_get_subs_vals(qs_env%input, "DFT")                     
