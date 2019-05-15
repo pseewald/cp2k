@@ -11,9 +11,11 @@
 MODULE xas_tdp_types
    USE cp_array_utils,                  ONLY: cp_2d_r_p_type, cp_1d_r_p_type , cp_1d_i_p_type, &
                                               cp_3d_r_p_type
+   USE cp_files,                        ONLY: file_exists
    USE cp_fm_types,                     ONLY: cp_fm_type, cp_fm_release, cp_fm_p_type
    USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_release, dbcsr_p_type, &
                                               dbcsr_release_p
+   USE hfx_libint_wrapper,              ONLY: cp_libint_static_cleanup
    USE input_constants,                 ONLY: xas_tdp_by_index,&
                                               xas_tdp_by_kind, &
                                               tddfpt_singlet, &
@@ -23,11 +25,14 @@ MODULE xas_tdp_types
                                               tddfpt_spin_cons, &
                                               tddfpt_spin_flip, &
                                               do_hfx_potential_coulomb, &
+                                              do_hfx_potential_truncated, &
+                                              do_hfx_potential_short, &
                                               xas_dip_vel
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_val_get,&
                                               section_vals_get_subs_vals
    USE kinds,                           ONLY: dp ,default_string_length
+   USE mathlib,                         ONLY: erfc_cutoff
    USE memory_utilities,                ONLY: reallocate
    USE physcon,                         ONLY: bohr
    USE qs_grid_atom,                    ONLY: grid_atom_type, deallocate_grid_atom
@@ -54,6 +59,9 @@ MODULE xas_tdp_types
 !> \param sx the scaling applied to exact exchange
 !> \param x_op the operator used for exact exchange (Coulomb, TC, Sk)
 !> \param x_range the range for exact exchane operator (truncated coulomb or SR)
+!> \param x_t_c_filename the file where the parameters for the TC operator should be read
+!> \param x_omega the range parameter in the short range interation erfc(omega*r)/r
+!> \param eps_range the threshold to determine the effective range of the short range operator
 !> \param ri_radius the radius of the sphere defining the neighbors in the RI projection of the dens
 !> \param tamm_dancoff whether the calculations should be done in the Tamm-Dancoff approximation
 !> \param list_ex_atoms list of excited atom indices, kept empty if define_excited=by_kind
@@ -84,8 +92,11 @@ MODULE xas_tdp_types
       INTEGER                                 :: max_iter
       REAL(dp)                                :: sx
       REAL(dp)                                :: x_range
-      REAL(dp)                                :: ri_radius
+      REAL(dp)                                :: x_omega
+      REAL(dp)                                :: eps_range
       INTEGER                                 :: x_op
+      CHARACTER(len=default_string_length)    :: x_t_c_filename
+      REAL(dp)                                :: ri_radius
       REAL(dp)                                :: eps_iter
       LOGICAL                                 :: do_hfx
       LOGICAL                                 :: do_xc
@@ -125,8 +136,9 @@ MODULE xas_tdp_types
 !> \param mos_of_ex_atoms links lowest energy MOs to excited atoms. Elements of value 1 mark the
 !>        association between the MO irow and the excited atom icolumn. The third index is for spin
 !> \param ri_inv_coul the inverse coulomb RI integral (P|Q)^-1, updated for each excited kind
-!>        excited kinds, based on basis functions of the RI auxiliary basis used for Coulomb and
-!>        exchange kernels. 
+!>        based on basis functions of the RI_XAS basis for that kind 
+!> \param ri_inv_ex the inverse exchange RI integral (P|Q)^-1, updated for each excited kind
+!>        based on basis functions of the RI_XAS basis for that kind, and with the exchange operator
 !> \param q_projector the projector on the unperturbed, unoccupied ground state as a dbcsr matrix, 
 !>        for each spin
 !> \param dipmat the dbcsr matrices containing the dipole in x,y,z directions evaluated on the 
@@ -159,6 +171,7 @@ MODULE xas_tdp_types
       INTEGER, DIMENSION(:,:,:), POINTER      :: mos_of_ex_atoms
       TYPE(qs_loc_env_new_type), POINTER      :: qs_loc_env
       REAL(dp), DIMENSION(:,:), POINTER       :: ri_inv_coul
+      REAL(dp), DIMENSION(:,:), POINTER       :: ri_inv_ex
       TYPE(dbcsr_p_type), DIMENSION(:), &
                                     POINTER   :: q_projector
       TYPE(dbcsr_p_type), DIMENSION(:), &
@@ -306,8 +319,11 @@ CONTAINS
       xas_tdp_control%do_xc = .FALSE.
       xas_tdp_control%sx = 1.0_dp
       xas_tdp_control%x_range = 0.0_dp
+      xas_tdp_control%x_omega = 0.0_dp
+      xas_tdp_control%eps_range = 1.0E-6_dp
       xas_tdp_control%ri_radius = 0.0_dp
       xas_tdp_control%x_op = do_hfx_potential_coulomb
+      xas_tdp_control%x_t_c_filename = " "
       xas_tdp_control%check_only = .FALSE.
       xas_tdp_control%tamm_dancoff = .FALSE.
       xas_tdp_control%do_loc = .FALSE.
@@ -494,13 +510,32 @@ CONTAINS
 
       IF (xas_tdp_control%do_hfx) THEN
          CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%SCALE", &
-                                   r_val=xas_tdp_control%sx)
-         CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%RANGE", &
-                                   r_val=xas_tdp_control%x_range)
-         !store the range in bohrs
-         xas_tdp_control%x_range = bohr*xas_tdp_control%x_range
+                                   r_val=xas_tdp_control%sx) 
          CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%OPERATOR", &
                                    i_val=xas_tdp_control%x_op)
+         !truncated Coulomb
+         IF (xas_tdp_control%x_op == do_hfx_potential_truncated) THEN
+            CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%T_C_G_DATA", &
+                                      c_val=xas_tdp_control%x_t_c_filename)
+            IF (.NOT. file_exists(xas_tdp_control%x_t_c_filename)) THEN
+               CPABORT("Could not find provided T_C_G_DATA file.")
+            END IF
+            CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%CUTOFF_RADIUS", &
+                                      r_val=xas_tdp_control%x_range)
+            !store the range in bohrs
+            xas_tdp_control%x_range = bohr*xas_tdp_control%x_range
+         END IF
+
+         !short range erfc
+         IF (xas_tdp_control%x_op == do_hfx_potential_short) THEN
+            CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%OMEGA", & 
+                                      r_val=xas_tdp_control%x_omega)
+            CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%EPS_RANGE", &
+                                      r_val=xas_tdp_control%eps_range)
+            !get the effective range (omega in 1/a0, range in a0)
+            CALL erfc_cutoff(xas_tdp_control%eps_range, xas_tdp_control%x_omega, xas_tdp_control%x_range)
+
+         END IF
       END IF
 
       IF ((.NOT. xas_tdp_control%do_xc) .AND. (.NOT. xas_tdp_control%do_hfx)) THEN
@@ -554,6 +589,7 @@ CONTAINS
       NULLIFY (xas_tdp_env%qs_loc_env)
       NULLIFY (xas_tdp_env%mos_of_ex_atoms)
       NULLIFY (xas_tdp_env%ri_inv_coul)
+      NULLIFY (xas_tdp_env%ri_inv_ex)
       NULLIFY (xas_tdp_env%lumo_guess)
       NULLIFY (xas_tdp_env%lumo_evals)
       NULLIFY (xas_tdp_env%q_projector)
@@ -605,6 +641,9 @@ CONTAINS
          END IF
          IF (ASSOCIATED(xas_tdp_env%ri_inv_coul)) THEN
             DEALLOCATE(xas_tdp_env%ri_inv_coul)
+         END IF
+         IF (ASSOCIATED(xas_tdp_env%ri_inv_ex)) THEN
+            DEALLOCATE(xas_tdp_env%ri_inv_ex)
          END IF
          IF (ASSOCIATED(xas_tdp_env%lumo_guess)) THEN
             DO i = 1,SIZE(xas_tdp_env%lumo_guess)
@@ -1070,6 +1109,9 @@ CONTAINS
          END DO
          DEALLOCATE(xas_atom_env%orb_sphi_so)
       END IF
+
+      !Clean-up libint
+      CALL cp_libint_static_cleanup()
 
       DEALLOCATE(xas_atom_env)
 

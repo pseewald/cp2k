@@ -21,15 +21,14 @@ MODULE hfx_libint_wrapper
 
    USE ISO_C_BINDING,                   ONLY: C_F_POINTER,&
                                               C_F_PROCPOINTER,&
-                                              C_NULL_PTR, &
-                                              C_FUNPTR !temporary fix
+                                              C_NULL_PTR
    USE kinds,                           ONLY: dp
 #if(__LIBINT)
    USE libint_f,                        ONLY: &
         libint2_build, libint2_build_eri, libint2_build_eri1, libint2_cleanup_eri, &
         libint2_cleanup_eri1, libint2_init_eri, libint2_init_eri1, libint2_static_cleanup, &
-        libint2_static_init, libint_t, libint2_max_am_eri, libint2_init_3eri, libint2_cleanup_3eri!,&
-        !libint2_build_3eri
+        libint2_static_init, libint_t, libint2_max_am_eri, libint2_init_3eri, libint2_cleanup_3eri,&
+        libint2_build_3eri
 #endif
    USE orbital_pointers,                ONLY: nco
 #include "./base/base_uses.f90"
@@ -67,12 +66,6 @@ MODULE hfx_libint_wrapper
       INTEGER :: unused = -1
 #endif
    END TYPE
-
-! Temporary fix for 3-center integrals
-   TYPE(C_FUNPTR), DIMENSION(0:4,0:4,0:5), &
-    BIND(C) :: libint2_build_3eri
-   TYPE(C_FUNPTR), DIMENSION(0:4,0:4,0:4), &
-    BIND(C) :: libint2_build_3eri1
 
 CONTAINS
 
