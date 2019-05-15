@@ -33,6 +33,7 @@ MODULE xas_tdp_atom
                                               dbcsr_type, dbcsr_distribution_get, dbcsr_get_info, &
                                               dbcsr_get_stored_coordinates, dbcsr_replicate_all, &
                                               dbcsr_distribution_new, dbcsr_distribution_release
+   USE input_constants,                 ONLY: do_hfx_potential_id
    USE input_section_types,             ONLY: section_vals_type, &
                                               section_vals_get_subs_vals
    USE kinds,                           ONLY: dp, default_string_length
@@ -990,8 +991,8 @@ CONTAINS
             CALL get_replicated_rowcol(rep_ri_sinv, ri_sinv, center(1))
 
             !Get the neighbor list for the current neighbor
-            CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "OVERLAP", qs_env, &
-                                     excited_atoms=center)
+            CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, do_hfx_potential_id, &
+                                     qs_env, excited_atoms=center)
 
             !Get the 3-center overlap integrals and contract with the density
             ALLOCATE(o3c)

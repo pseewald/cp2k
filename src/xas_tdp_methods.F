@@ -43,13 +43,15 @@ MODULE xas_tdp_methods
                                               dbcsr_create, dbcsr_multiply, dbcsr_add_on_diag, &
                                               dbcsr_finalize, dbcsr_copy, dbcsr_set, dbcsr_add, &
                                               dbcsr_get_info
+   USE hfx_libint_wrapper,              ONLY: cp_libint_static_init
    USE input_constants,                 ONLY: xas_tdp_by_index, xas_tdp_by_kind, xas_not_excited,&
                                               do_loc_none, xas_1s_type, xas_2s_type, xas_2p_type,&
                                               op_loc_berry, tddfpt_singlet, tddfpt_spin_cons, &
                                               tddfpt_triplet, xas_tdp_uks, xas_tdp_roks, &
                                               general_roks, high_spin_roks, state_loc_list, &
                                               tddfpt_spin_flip, do_hfx_potential_coulomb, &
-                                              xas_dip_vel, xas_dip_len, do_hfx_potential_truncated
+                                              xas_dip_vel, xas_dip_len, do_hfx_potential_truncated,&
+                                              do_hfX_potential_short
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_get_subs_vals,&
                                               section_vals_val_set, &
@@ -114,6 +116,7 @@ MODULE xas_tdp_methods
    USE xas_tdp_utils,                   ONLY: setup_xas_tdp_prob, &
                                               solve_xas_tdp_prob, &
                                               compute_ri_coulomb2_int, &
+                                              compute_ri_exchange2_int, &
                                               include_rcs_soc, &
                                               include_os_soc, &
                                               compute_ri_o3c_coulomb, &
@@ -288,8 +291,11 @@ CONTAINS
                               atom_list=atoms_of_kind)
 
          IF (.NOT. ANY(xas_tdp_env%ex_kind_indices == ikind)) CYCLE
-         ! compute the RI coulomb2 inverse for this kind
+         ! compute the RI coulomb2 inverse for this kind, and RI exchange2 if needed
          CALL compute_ri_coulomb2_int(ikind, xas_tdp_env, xas_tdp_control, qs_env)
+         IF (xas_tdp_control%do_hfx) THEN
+            CALL compute_ri_exchange2_int(ikind, xas_tdp_env, xas_tdp_control, qs_env)
+         END IF
 
 !        Loop over atoms of kind
          DO iat = 1,SIZE(atoms_of_kind)
@@ -694,6 +700,10 @@ CONTAINS
 !  Check that everything is allowed
       CALL safety_check(xas_tdp_control)
 
+!  Initialize libint for the 3-center integrals
+      !TODO: check what happens if libint already init bt hfx
+      CALL cp_libint_static_init()
+
    END SUBROUTINE xas_tdp_init
 
 !> *************************************************************************************************
@@ -854,9 +864,16 @@ CONTAINS
             WRITE(UNIT=ou, FMT="(T3,A)") &
                "EXACT_EXCHANGE| Operator : Coulomb"
          ELSE IF (xas_tdp_control%x_op == do_hfx_potential_truncated) THEN
-            WRITE(UNIT=ou, FMT="(T3,A,/,T3,A,F5.2,A)") &
+            WRITE(UNIT=ou, FMT="(T3,A,/,T3,A,F5.2,A,/,T3,A,A)") &
                "EXACT_EXCHANGE| Operator: Truncated Coulomb", &
-               "EXACT_EXCHANGE| Range: ", xas_tdp_control%x_range*angstrom, ", (Ang)"
+               "EXACT_EXCHANGE| Range: ", xas_tdp_control%x_range*angstrom, ", (Ang)", &
+               "EXACT_EXCHANGE| T_C_G_DATA: ", xas_tdp_control%x_t_c_filename
+         ELSE IF (xas_tdp_control%x_op == do_hfx_potential_short) THEN
+            WRITE(UNIT=ou, FMT="(T3,A,/,T3,A,F5.2,A,/,T3,A,F5.2,A,/,T3,A,ES7.1)") &
+               "EXACT_EXCHANGE| Operator: Short Range", &
+               "EXACT_EXCHANGE| Omega: ", xas_tdp_control%x_omega, ", (1/a0)", &
+               "EXACT_EXCHANGE| Effective Range: ", xas_tdp_control%x_range*angstrom, ", (Ang)", &
+               "EXACT_EXCHANGE| EPS_RANGE: ", xas_tdp_control%eps_range
          END IF
       END IF
 

@@ -14,7 +14,7 @@ MODULE xas_tdp_utils
    USE basis_set_types,                 ONLY: gto_basis_set_type, get_gto_basis_set, &
                                               gto_basis_set_p_type
    USE cell_types,                      ONLY: cell_type
-   USE constants_operator,              ONLY: operator_coulomb
+   USE constants_operator,              ONLY: operator_coulomb, operator_verfc, operator_truncated
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose, cp_dbcsr_cholesky_invert
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm, cp_dbcsr_sm_fm_multiply, &
@@ -26,6 +26,7 @@ MODULE xas_tdp_utils
                                               cp_cfm_create, cp_cfm_release, cp_cfm_get_submatrix, &
                                               cp_cfm_get_element
    USE cp_eri_mme_interface,            ONLY: cp_eri_mme_param, cp_eri_mme_set_params
+   USE cp_files,                        ONLY: close_file, open_file
    USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale, cp_fm_trace, cp_fm_upper_to_full
    USE cp_fm_diag,                      ONLY: choose_eigv_solver, cp_fm_geeig, cp_fm_power
    USE cp_fm_struct,                    ONLY: cp_fm_struct_create, cp_fm_struct_release, &     
@@ -58,12 +59,16 @@ MODULE xas_tdp_utils
    USE eri_mme_integrate,               ONLY: eri_mme_2c_integrate
    USE eri_mme_types,                   ONLY: eri_mme_init, eri_mme_release
    USE generic_os_integrals,            ONLY: int_operators_r12_ab_os
+   USE hfx_libint_wrapper,              ONLY: cp_libint_t, cp_libint_cleanup_3eri, & 
+                                              cp_libint_init_3eri, cp_libint_set_contrdepth
    USE input_constants,                 ONLY: tddfpt_singlet, tddfpt_triplet, xas_tdp_uks, &
                                               xas_tdp_roks, tddfpt_spin_cons, tddfpt_spin_flip, &
                                               do_hfx_potential_coulomb, do_hfx_potential_truncated,&
-                                              xas_dip_len, xas_dip_vel, do_eri_mme
+                                              xas_dip_len, xas_dip_vel, do_eri_mme, &
+                                              do_hfx_potential_short, do_hfx_potential_id
    USE input_section_types,             ONLY: section_vals_val_get
    USE kinds,                           ONLY: dp
+   USE libint_3center,                  ONLY: eri_3center
    USE mathlib,                         ONLY: invmat_symm, get_diag
    USE message_passing,                 ONLY: mp_min, mp_max, mp_sync
    USE molecule_types,                  ONLY: molecule_type
@@ -78,12 +83,13 @@ MODULE xas_tdp_utils
                                               deallocate_neighbor_list_set
    USE qs_neighbor_lists,               ONLY: build_neighbor_lists, local_atoms_type, &
                                               pair_radius_setup, atom2d_cleanup, atom2d_build
-   USE qs_o3c_methods,                  ONLY: calculate_o3c_coulomb_integrals, contract3_o3c
+   USE qs_o3c_methods,                  ONLY: calculate_o3c_libint_integrals, contract3_o3c
    USE qs_o3c_types,                    ONLY: init_o3c_container, get_o3c_container, &
                                               o3c_container_type, o3c_iterate, &
                                               o3c_iterator_create, o3c_iterator_release, &
                                               o3c_iterator_type, get_o3c_iterator_info
    USE qs_ot_eigensolver,               ONLY: ot_eigensolver
+   USE t_c_g0,                          ONLY: init, get_lmax_init
    USE util,                            ONLY: locate
    USE xas_tdp_kernel,                  ONLY: kernel_coulomb_xc, kernel_exchange
    USE xas_tdp_types,                   ONLY: donor_state_type, xas_tdp_env_type, &
@@ -99,7 +105,8 @@ MODULE xas_tdp_utils
 
    PUBLIC :: setup_xas_tdp_prob, solve_xas_tdp_prob, build_xas_tdp_3c_nl, &
              compute_ri_coulomb2_int, include_rcs_soc, include_os_soc, &
-             compute_ri_o3c_coulomb, compute_ri_o3c_exchange, build_xas_tdp_ovlp_nl
+             compute_ri_o3c_coulomb, compute_ri_o3c_exchange, build_xas_tdp_ovlp_nl, &
+             compute_ri_exchange2_int
 
 CONTAINS
 
@@ -1221,9 +1228,6 @@ CONTAINS
 
       NULLIFY(matrix_s, row_blk_size, work_block, para_env, blacs_env)
 
-!  TODO: this operation of taking a normal size matrix and replicating it on all blocks is quite
-!        common, maybe shoudl refactor it ?!?
-
 !  Initilization
       nspins = 1; IF (do_os) nspins = 2
       ndo_mo = donor_state%ndo_mo
@@ -1385,6 +1389,83 @@ CONTAINS
       CALL dbcsr_release(tmp_mat)
 
    END SUBROUTINE build_aux_matrix
+
+! **************************************************************************************************
+!> \brief Computes the two-center Exchange integral needed for the RI in kernel calculation. Stores
+!>        the integrals (P|Q)^-1 in the xas_tdp_env as global (small) arrays. Does that for a given
+!>        excited kind
+!> \param ex_kind ...
+!> \param xas_tdp_env ...
+!> \param qs_env ...
+!> \note Computes all these integrals in non-PBCs as we assume that the range is short enough that
+!>       atoms do not exchange with their periodic images
+! **************************************************************************************************
+   SUBROUTINE compute_ri_exchange2_int(ex_kind, xas_tdp_env, xas_tdp_control, qs_env)
+
+      INTEGER, INTENT(IN)                             :: ex_kind
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(xas_tdp_control_type), POINTER             :: xas_tdp_control
+      TYPE(qs_environment_type), POINTER              :: qs_env 
+
+      CHARACTER(len=*), PARAMETER :: routineN = "compute_ri_exchange2_int", &
+                                     routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: nsgf, maxl, unit_id
+      TYPE(gto_basis_set_type), POINTER               :: ri_basis
+      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set        
+      TYPE(cp_para_env_type), POINTER                 :: para_env
+      REAL(dp), DIMENSION(3)                          :: r
+
+      NULLIFY(ri_basis, qs_kind_set, para_env)
+
+!  TODO: test that this works by lookinf at the limits -> coulomb
+
+!  Initialization
+      CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, para_env=para_env)
+      IF (ASSOCIATED(xas_tdp_env%ri_inv_ex)) THEN
+         DEALLOCATE(xas_tdp_env%ri_inv_ex)
+      END IF
+
+!  Get the RI basis of interest and its quantum numbers
+      CALL get_qs_kind(qs_kind_set(ex_kind), basis_set=ri_basis, basis_type="RI_XAS")
+      CALL get_gto_basis_set(ri_basis, nsgf=nsgf, maxl=maxl)
+      ALLOCATE(xas_tdp_env%ri_inv_ex(nsgf, nsgf))
+      xas_tdp_env%ri_inv_ex = 0.0_dp
+
+      r = 0.0_dp
+
+      SELECT CASE (xas_tdp_control%x_op)
+      CASE (do_hfx_potential_coulomb)
+         CALL int_operators_r12_ab_os(r12_operator=operator_coulomb, vab=xas_tdp_env%ri_inv_ex, &
+                                      rab=r, fba=ri_basis, fbb=ri_basis, &
+                                      calculate_forces=.FALSE.)
+      CASE (do_hfx_potential_truncated)
+
+         !Make sure the operator is up to date
+         IF (2*maxl+1 > get_lmax_init()) THEN
+            IF (para_env%mepos == 0) THEN
+               CALL open_file(unit_number=unit_id, file_name=xas_tdp_control%x_t_c_filename)
+            END IF
+            CALL init(2*maxl+1, unit_id, para_env%mepos, para_env%group)
+            IF (para_env%mepos == 0) THEN
+               CALL close_file(unit_id)
+            END IF
+         END IF
+
+         CALL int_operators_r12_ab_os(r12_operator=operator_truncated, vab=xas_tdp_env%ri_inv_ex, & 
+                                      rab=r, fba=ri_basis, fbb=ri_basis, &
+                                      r_cutoff=xas_tdp_control%x_range, calculate_forces=.FALSE.)
+
+      CASE (do_hfx_potential_short)
+         CALL int_operators_r12_ab_os(r12_operator=operator_verfc, vab=xas_tdp_env%ri_inv_ex, &
+                                      rab=r, fba=ri_basis, fbb=ri_basis, &
+                                      omega=xas_tdp_control%x_omega, calculate_forces=.FALSE.)
+      END SELECT
+
+!  Inverting 
+      CALL invmat_symm(xas_tdp_env%ri_inv_ex)  
+
+   END SUBROUTINE compute_ri_exchange2_int
 
 ! **************************************************************************************************
 !> \brief Computes the two-center Coulomb integral needed for the RI in kernel calculation. Stores
@@ -1565,7 +1646,7 @@ CONTAINS
 
 !  Build a neighbor list for the ac centers. Since we later contract as (aI|c) and we assume I is 
 !  very localized on the same atom as c, we take a,c as neighbors if they overlap
-      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "OVERLAP", &
+      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, do_hfx_potential_id, &
                                qs_env, excited_atoms=xas_tdp_env%ex_atom_indices)
 
 !  Allocate, init and compute the integrals
@@ -1573,7 +1654,7 @@ CONTAINS
       !only one spin needed for copulomb integrals
       CALL init_o3c_container(xas_tdp_env%ri_o3c_coul, 1, basis_set_orb, basis_set_orb, &
                               basis_set_ri, ab_list, ac_list, only_bc_same_center=.TRUE.)
-      CALL calculate_o3c_coulomb_integrals(xas_tdp_env%ri_o3c_coul)
+      CALL calculate_o3c_libint_integrals(xas_tdp_env%ri_o3c_coul, op=do_hfx_potential_coulomb)
 
 ! Clean-up
       DO ilist = 1,SIZE(ab_list)
@@ -1625,9 +1706,6 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      !TODO: give the choice to the user to compute all integrals at once ?!?
-      !      maybe do that if it turns out that load imbalance gets really bad
-      
 !  Take what we need from the qs_env
       CALL get_qs_env(qs_env, nkind=nkind, sab_orb=sab_orb, qs_kind_set=qs_kind_set, para_env=para_env)
 
@@ -1637,24 +1715,25 @@ CONTAINS
       CALL basis_set_list_setup(basis_set_ri, "RI_XAS", qs_kind_set)
       CALL basis_set_list_setup(basis_set_orb, "ORB", qs_kind_set)
 
-!  Build a neighbor list for the ac centers.
+   !TODO: should we intriduce schwarz screening ? Test first in some systems by printing the
+   !      integrals maxvals and see if many neighbors would be discarded
+
+!  Build a neighbor list for the ac centers
       ALLOCATE(exat(1))
       exat(1) = ex_atom
-      !test on the exchange operator
-      IF (xas_tdp_control%x_op == do_hfx_potential_coulomb) THEN
-         CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "COULOMB", &
-                                  qs_env, excited_atoms=exat)
-      ELSE IF (xas_tdp_control%x_op == do_hfx_potential_truncated) THEN
-         CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, "TRUNCATED COULOMB", &
-                                  qs_env, excited_atoms=exat, x_range=xas_tdp_control%x_range)
-      END IF
+      !note: if operator is Coulomb, then x_range argument will simply be ignored
+      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, xas_tdp_control%x_op, &
+                               qs_env, excited_atoms=exat, x_range=xas_tdp_control%x_range)
 
 !  Allocate, init and compute the integrals. Use stendard sab_orb because in (ab|IJ), the only
 !  restriction is that a and b overlap
       ALLOCATE(xas_tdp_env%ri_o3c_ex)
       CALL init_o3c_container(xas_tdp_env%ri_o3c_ex, 1, basis_set_orb, basis_set_orb, &
                               basis_set_ri, sab_orb, ac_list)
-      CALL calculate_o3c_coulomb_integrals(xas_tdp_env%ri_o3c_ex)
+      CALL calculate_o3c_libint_integrals(xas_tdp_env%ri_o3c_ex, op=xas_tdp_control%x_op, &
+                                          para_env=para_env, r_cutoff=xas_tdp_control%x_range, &
+                                          omega=xas_tdp_control%x_omega, &
+                                          t_c_filename=xas_tdp_control%x_t_c_filename)
 
 ! Clean-up
       DO ilist = 1,SIZE(ac_list)
@@ -1785,7 +1864,7 @@ CONTAINS
                                              POINTER  :: ac_list
       TYPE(gto_basis_set_p_type), DIMENSION(:), &
                                              POINTER  :: basis_a, basis_c
-      CHARACTER(len=*), INTENT(IN)                    :: op_type
+      INTEGER, INTENT(IN)                             :: op_type
       TYPE(qs_environment_type), POINTER              :: qs_env
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: excited_atoms
       REAL(dp), INTENT(IN), OPTIONAL                  :: x_range
@@ -1807,17 +1886,8 @@ CONTAINS
                                           ALLOCATABLE :: atom2d
       TYPE(molecule_type), DIMENSION(:), POINTER      :: molecule_set
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
-      CHARACTER(2)                                    :: my_op
 
       NULLIFY(atomic_kind_set, distribution_1d, distribution_2d, molecule_set, particle_set, cell)
-      
-!  By default, take overlap operator
-      my_op = "O "
-      IF (op_type == "COULOMB") my_op = "C "
-      IF (op_type == "TRUNCATED COULOMB") THEN
-         my_op = "TC"
-         IF (.NOT. PRESENT(x_range)) CPABORT("Need a range for the truncated Coulomb operator")
-      END IF
 
 !  Initialization
       CALL get_qs_env(qs_env, nkind=nkind)
@@ -1833,7 +1903,8 @@ CONTAINS
       c_radius = 0.0_dp
 
 !  Set up the radii, depending on the operator type
-      IF (my_op == "O ") THEN
+      IF (op_type == do_hfx_potential_id) THEN
+
          !overlap => use the kind radius for both a and c
          DO ikind = 1,nkind
             !orbital basis set
@@ -1848,7 +1919,8 @@ CONTAINS
             END IF
          END DO !ikind
 
-      ELSE IF (my_op == "C ") THEN
+      ELSE IF (op_type == do_hfx_potential_coulomb) THEN
+
          !Coulomb operator, virtually infinite range => set c_radius to arbitrarily large number
          DO ikind = 1,nkind
             IF (ASSOCIATED(basis_c(ikind)%gto_basis_set)) THEN
@@ -1858,15 +1930,23 @@ CONTAINS
             IF (ASSOCIATED(basis_a(ikind)%gto_basis_set)) a_present(ikind) = .TRUE.
          END DO !ikind
 
-      ELSE
-         !Truncated coulomb: set c_radius to x_range and leave a_radius at 0
+      ELSE IF (op_type == do_hfx_potential_truncated .OR. op_type == do_hfx_potential_short) THEN
+
+         !Truncated coulomb/short range: set c_radius to x_range + the kind_radii
          DO ikind = 1, nkind
+            IF (ASSOCIATED(basis_a(ikind)%gto_basis_set)) THEN
+               a_present(ikind) = .TRUE.
+               CALL get_gto_basis_set(basis_a(ikind)%gto_basis_set, kind_radius=a_radius(ikind))
+            END IF
             IF (ASSOCIATED(basis_c(ikind)%gto_basis_set)) THEN
                c_present(ikind) = .TRUE.
-               c_radius(ikind) = x_range
+               CALL get_gto_basis_set(basis_c(ikind)%gto_basis_set, kind_radius=c_radius(ikind))
+               c_radius(ikind) = c_radius(ikind) + x_range
             END IF
-            IF (ASSOCIATED(basis_a(ikind)%gto_basis_set)) a_present(ikind) = .TRUE.
          END DO !ikind
+
+      ELSE
+         CPABORT("Operator not known")
       END IF
 
       ALLOCATE(pair_radius(nkind, nkind))
@@ -2214,7 +2294,6 @@ CONTAINS
             CALL cp_gemm('T', 'N', ndo_so, ndo_so, nao, 1.0_dp, sc_coeffs(isc)%matrix, vec_soc_x, 0.0_dp, prod_work)
             CALL cp_fm_get_submatrix(prod_work, SOC_ex)
 
-            !TODO: since inly use diag of soc_ex, no need to get the submatrix
             diag(:) = get_diag(SOC_ex)
             soc = SUM(diag)
 

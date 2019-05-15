@@ -692,7 +692,7 @@ CONTAINS
       do_roks = xas_tdp_control%do_roks
       do_uks = xas_tdp_control%do_uks
       ndo_so = ndo_mo; IF (do_uks) ndo_so = 2*ndo_mo !if not UKS, same donor MOs for both spins
-      PQ => xas_tdp_env%ri_inv_coul
+      PQ => xas_tdp_env%ri_inv_ex
       
       CALL get_qs_env(qs_env, para_env=para_env, matrix_s=matrix_s)
       CALL dbcsr_get_info(contr1_int(1)%matrix, col_blk_size=ri_blk_size)
@@ -828,7 +828,7 @@ CONTAINS
       ndo_mo = donor_state%ndo_mo
       do_roks = xas_tdp_control%do_roks
       do_uks = xas_tdp_control%do_uks
-      PQ => xas_tdp_env%ri_inv_coul
+      PQ => xas_tdp_env%ri_inv_ex
 
       rhs_int => contr1_int
       ALLOCATE(lhs_int(SIZE(contr1_int)))

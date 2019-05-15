@@ -6,8 +6,8 @@
 !> \brief Methods used with 3-center overlap type integrals containers
 !> \par History
 !>      - none
-!>      - 11.2018 Added calculate_o3c_coulomb_integrals for XAS_TDP [A.Bussy]
-!>                + fixed OMP race condition in contract3_o3c routine
+!>      - 11.2018 fixed OMP race condition in contract3_o3c routine (A.Bussy)
+!>      - 05.2019 Added a routine to compute 3-center integrals with libint (A.Bussy)
 ! **************************************************************************************************
 MODULE qs_o3c_methods
    USE ai_contraction_sphi,             ONLY: abc_contract
@@ -25,15 +25,15 @@ MODULE qs_o3c_methods
    USE gamma,                           ONLY: init_md_ftable
    USE hfx_libint_wrapper,              ONLY: cp_libint_t, cp_libint_cleanup_3eri, &
                                               cp_libint_init_3eri, cp_libint_set_contrdepth
+   USE input_constants,                 ONLY: do_hfx_potential_truncated
    USE kinds,                           ONLY: dp
-   USE libint_3center,                  ONLY: eri_3center, operator_coulomb, operator_trunc_coul, &
-                                              operator_sr_erfc
+   USE libint_3center,                  ONLY: eri_3center
    USE orbital_pointers,                ONLY: ncoset
    USE qs_o3c_types,                    ONLY: &
         get_o3c_container, get_o3c_iterator_info, get_o3c_vec, o3c_container_type, o3c_iterate, &
         o3c_iterator_create, o3c_iterator_release, o3c_iterator_type, o3c_vec_type, &
         set_o3c_container
-   USE t_c_g0,                          ONLY: init
+   USE t_c_g0,                          ONLY: init, get_lmax_init
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"
@@ -45,7 +45,7 @@ MODULE qs_o3c_methods
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_o3c_methods'
 
    PUBLIC :: calculate_o3c_integrals, contract12_o3c, contract3_o3c, &
-             calculate_o3c_coulomb_integrals, calculate_o3c_libint_integrals
+             calculate_o3c_libint_integrals
 
 CONTAINS
 
@@ -521,25 +521,20 @@ CONTAINS
 !> \brief Computes the 3-center integrals of the o3c container based on libint for the given operator
 !> \param o3c the 3-center integrals container
 !> \param op the operator for the integrals
-!> \param maxla the maximal value of l for basis_set_list_a
-!> \param maxlb the maximal value of l for basis_set_list_b
-!> \param maxlc the maximal value of l for basis_set_list_c
-!> \param init_t_c_g0_lmax the lmax value used to initialize the truncated Coulomb gamma function
-!>        in the past. Used to determine whther the potential file needs to be read again
 !> \param t_c_filename the name of the file with the truncated Coulomb data
+!> \param r_cutoff the cutoff radius for the truncated coulomb operator
+!> \param omega the range parameter for the erfc short range operator
 !> \note The static initialization of the libint library needs to be done before hand
 !>       In case the truncated coulomb operator is used, the potential parameter file must be read
 !>       in advance too
 ! **************************************************************************************************
-   SUBROUTINE calculate_o3c_libint_integrals(o3c, op, maxla, maxlb, maxlc, init_t_c_g0_lmax, &
-                                             t_c_filename, para_env)
+   SUBROUTINE calculate_o3c_libint_integrals(o3c, op, t_c_filename, para_env, r_cutoff, omega)
 
       TYPE(o3c_container_type), POINTER                  :: o3c
       INTEGER, INTENT(IN)                                :: op
-      INTEGER, INTENT(IN), OPTIONAL                      :: maxla, maxlb, maxlc
-      INTEGER, INTENT(INOUT), OPTIONAL                   :: init_t_c_g0_lmax
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: t_c_filename
       TYPE(cp_para_env_type), POINTER, OPTIONAL          :: para_env
+      REAL(dp), INTENT(IN), OPTIONAL                     :: r_cutoff, omega
 
       CHARACTER(len=*), PARAMETER :: routineN = "calculate_o3c_libint_integrals", &
                                      routineP = moduleN//":"//routineN
@@ -564,6 +559,7 @@ CONTAINS
                                                             nsgfb, nsgfc
       INTEGER, DIMENSION(:,:), POINTER                   :: first_sgfa, first_sgfb, first_sgfc
       TYPE(cp_libint_t)                                  :: lib
+      REAL(dp)                                           :: my_omega, my_r_cutoff
 
       NULLIFY(basis_set_list_a, basis_set_list_b, basis_set_list_c, basis_set_a, basis_set_b)
       NULLIFY(basis_set_c, iabc, tvec, first_sgfa, first_sgfb, first_sgfc, la_max, la_min, lb_max)
@@ -575,43 +571,36 @@ CONTAINS
                              basis_set_list_b=basis_set_list_b, basis_set_list_c=basis_set_list_c)
 
       !Need the max l for each basis for libint
-      IF (PRESENT(maxla)) THEN
-         maxli = maxla
-      ELSE
-         maxli = 0
-         DO ibasis = 1, SIZE(basis_set_list_a)
-            CALL get_gto_basis_set(gto_basis_set=basis_set_list_a(ibasis)%gto_basis_set, maxl=imax)
-            maxli = MAX(maxli, imax)
-         END DO
-      END IF
-      IF (PRESENT(maxlb)) THEN
-         maxlj = maxlb
-      ELSE
-         maxlj = 0
-         DO ibasis = 1, SIZE(basis_set_list_b)
-            CALL get_gto_basis_set(gto_basis_set=basis_set_list_b(ibasis)%gto_basis_set, maxl=imax)
-            maxlj = MAX(maxlj, imax)
-         END DO
-      END IF
-      IF (PRESENT(maxlc)) THEN
-         maxlk = maxlc
-      ELSE
-         maxlk = 0
-         DO ibasis = 1, SIZE(basis_set_list_c)
-            CALL get_gto_basis_set(gto_basis_set=basis_set_list_c(ibasis)%gto_basis_set, maxl=imax)
-            maxlk = MAX(maxlk, imax)
-         END DO
-      END IF
+      maxli = 0
+      DO ibasis = 1, SIZE(basis_set_list_a)
+         CALL get_gto_basis_set(gto_basis_set=basis_set_list_a(ibasis)%gto_basis_set, maxl=imax)
+         maxli = MAX(maxli, imax)
+      END DO
+      maxlj = 0
+      DO ibasis = 1, SIZE(basis_set_list_b)
+         CALL get_gto_basis_set(gto_basis_set=basis_set_list_b(ibasis)%gto_basis_set, maxl=imax)
+         maxlj = MAX(maxlj, imax)
+      END DO
+      maxlk = 0
+      DO ibasis = 1, SIZE(basis_set_list_c)
+         CALL get_gto_basis_set(gto_basis_set=basis_set_list_c(ibasis)%gto_basis_set, maxl=imax)
+         maxlk = MAX(maxlk, imax)
+      END DO
       m_max = maxli+maxlj+maxlk
 
+      !Short range parameters
+      my_omega = 0.0_dp
+      IF (PRESENT(omega)) my_omega = omega
+      my_r_cutoff = 0.0_dp
+      IF (PRESENT(r_cutoff)) my_r_cutoff = r_cutoff
+
       !Init the truncated Coulomb operator
-      IF (op == operator_trunc_coul) THEN
+      IF (op == do_hfx_potential_truncated) THEN
          CPASSERT(PRESENT(t_c_filename))
-         CPASSERT(PRESENT(init_t_c_g0_lmax))
          CPASSERT(PRESENT(para_env))
 
          !open the file only if necessary
-         IF (m_max > init_t_c_g0_lmax) THEN
+         IF (m_max > get_lmax_init()) THEN
             IF (para_env%mepos == 0) THEN
                CALL open_file(unit_number=unit_id, file_name=t_c_filename)       
             END IF
@@ -619,7 +608,6 @@ CONTAINS
             IF (para_env%mepos == 0) THEN
                CALL close_file(unit_id)
             END IF
-            init_t_c_g0_lmax = m_max
          END IF
       END IF
 
@@ -704,6 +692,7 @@ CONTAINS
                DO jset = 1, nsetb
                   DO kset = 1, nsetc
 
+                     !TODO: save any time by coimputing those just after the DO ?
                      ncoa = npgfa(iset)*ncoset(la_max(iset))
                      ncob = npgfb(jset)*ncoset(lb_max(jset))
                      ncoc = npgfc(kset)*ncoset(lc_max(kset))
@@ -722,10 +711,11 @@ CONTAINS
                      CALL eri_3center(sabc, la_min(iset), la_max(iset), npgfa(iset), zeta(:,iset), &
                                       ri, lb_min(jset), lb_max(jset), npgfb(jset), zetb(:,jset), &
                                       rj, lc_min(kset), lc_max(kset), npgfc(kset), zetc(:,kset), &
-                                      rk, lib, op)
+                                      rk, lib, op, omega=my_omega, r_cutoff=my_r_cutoff)
 
                      ALLOCATE(sabc_contr(nsgfa(iset), nsgfb(jset), nsgfc(kset)))
 
+                     !TODO: directly contract into iabc instead of intermediate sabc_contr ?
                      CALL abc_contract(sabc_contr, sabc, &
                                        sphi_a(:, sgfa:), sphi_b(:, sgfb:), sphi_c(:, sgfc:), &
                                        ncoa, ncob, ncoc, nsgfa(iset), nsgfb(jset), nsgfc(kset))

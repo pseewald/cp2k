@@ -12,10 +12,12 @@ MODULE libint_3center
    USE gamma,                           ONLY: fgamma => fgamma_0 
    USE hfx_libint_wrapper,              ONLY: cp_libint_set_params_eri, cp_libint_get_3eris, &
                                               cp_libint_t, prim_data_f_size
+   USE input_constants,                 ONLY: do_hfx_potential_coulomb, do_hfx_potential_short, &
+                                              do_hfx_potential_truncated
    USE kinds,                           ONLY: dp
    USE mathconstants,                   ONLY: pi
    USE orbital_pointers,                ONLY: nco, ncoset
-   USE t_c_g0,                          ONLY: t_c_g0_n
+   USE t_c_g0,                          ONLY: t_c_g0_n, get_lmax_init
 
 #include "./base/base_uses.f90"
 
@@ -25,12 +27,6 @@ MODULE libint_3center
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = "libint_3center"
 
    PUBLIC :: eri_3center
-
-   PUBLIC :: operator_coulomb, operator_trunc_coul, operator_sr_erfc
-   
-   INTEGER , PARAMETER :: operator_coulomb = 1, &
-                          operator_trunc_coul = 2, &
-                          operator_sr_erfc = 3
 
    TYPE :: params_3c
       INTEGER                               :: m_max
@@ -255,7 +251,7 @@ CONTAINS
          params%Rho = zetk*gammaq/(zetk+gammaq)
 
          SELECT CASE(op)
-         CASE (operator_coulomb)
+         CASE (do_hfx_potential_coulomb)
             T = params%Rho*SUM((params%Q-rk)**2)
             S1234 = EXP(-zeti*zetj*params%EtaInv*SUM((rj-ri)**2))
             prefac = 2._dp*pi/params%Rho * SQRT((pi*params%ZetapEtaInv)**3)*S1234
@@ -263,16 +259,17 @@ CONTAINS
             params%Fm = 0.0_dp
             CALL fgamma(params%m_max, T, params%Fm)
             params%Fm = prefac*params%Fm
-         CASE (operator_trunc_coul)
+         CASE (do_hfx_potential_truncated)
             R = r_cutoff*SQRT(params%Rho)
             T = params%Rho*SUM((params%Q-rk)**2)
             S1234 = EXP(-zeti*zetj*params%EtaInv*SUM((rj-ri)**2))
             prefac = 2._dp*pi/params%Rho * SQRT((pi*params%ZetapEtaInv)**3)*S1234
 
+            CPASSERT(get_lmax_init() .GE. params%m_max) !check if truncated coulomb init correctly
             CALL t_c_g0_n(params%Fm, use_gamma, R, T, params%m_max)
             IF (use_gamma) CALL fgamma(params%m_max, T, params%Fm)
             params%Fm = prefac*params%Fm
-         CASE (operator_sr_erfc)
+         CASE (do_hfx_potential_short)
             T = params%Rho*SUM((params%Q-rk)**2)
             S1234 = EXP(-zeti*zetj*params%EtaInv*SUM((rj-ri)**2))
             prefac = 2._dp*pi/params%Rho * SQRT((pi*params%ZetapEtaInv)**3)*S1234
