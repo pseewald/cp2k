@@ -5,6 +5,7 @@
 
 ! **************************************************************************************************
 !> \brief 3-center electron repulsion integral routines based on libint2
+!>        Currently available operators: Coulomb, Truncated Coulomb, Short Range (erfc)
 !> \author A. Bussy (05.2019)
 ! **************************************************************************************************
 

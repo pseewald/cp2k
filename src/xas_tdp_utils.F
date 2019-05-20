@@ -1418,8 +1418,6 @@ CONTAINS
 
       NULLIFY(ri_basis, qs_kind_set, para_env)
 
-!  TODO: test that this works by lookinf at the limits -> coulomb
-
 !  Initialization
       CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, para_env=para_env)
       IF (ASSOCIATED(xas_tdp_env%ri_inv_ex)) THEN
@@ -1715,8 +1713,8 @@ CONTAINS
       CALL basis_set_list_setup(basis_set_ri, "RI_XAS", qs_kind_set)
       CALL basis_set_list_setup(basis_set_orb, "ORB", qs_kind_set)
 
-   !TODO: should we intriduce schwarz screening ? Test first in some systems by printing the
-   !      integrals maxvals and see if many neighbors would be discarded
+      !TODO: If load balance gets really bad, might want to use our own distribution for the o3c 
+      !      calculation (and subsequent kernel matrices, that we would redistribute later)
 
 !  Build a neighbor list for the ac centers
       ALLOCATE(exat(1))

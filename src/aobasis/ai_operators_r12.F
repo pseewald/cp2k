@@ -697,7 +697,7 @@ CONTAINS
 
       MARK_USED(omega)
 
-      ALLOCATE (f(nmax)) !t_c_g0 needs to start at index 1
+      ALLOCATE (f(nmax+1)) !t_c_g0 needs to start at index 1
 
       r = r_cutoff*SQRT(rho)
       t = rho*rac2
