@@ -553,7 +553,7 @@ CONTAINS
       REAL(dp), DIMENSION(:,:), POINTER                  :: tvec, sphi_a, sphi_b, sphi_c, &
                                                             zeta, zetb, zetc
       REAL(dp), DIMENSION(:,:,:), POINTER                :: iabc
-      REAL(dp), DIMENSION(:,:,:), ALLOCATABLE            :: sabc, sabc_contr
+      REAL(dp), DIMENSION(:,:,:), ALLOCATABLE            :: sabc
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, lb_min, lc_max, &
                                                             lc_min, npgfa, npgfb, npgfc, nsgfa, &
                                                             nsgfb, nsgfc
@@ -564,6 +564,7 @@ CONTAINS
       NULLIFY(basis_set_list_a, basis_set_list_b, basis_set_list_c, basis_set_a, basis_set_b)
       NULLIFY(basis_set_c, iabc, tvec, first_sgfa, first_sgfb, first_sgfc, la_max, la_min, lb_max)
       NULLIFY(lb_min, lc_max, lc_min, npgfa, npgfb, npgfc, nsgfa, nsgfb, nsgfc)
+
 
       CALL timeset(routineN, handle)
 
@@ -624,7 +625,7 @@ CONTAINS
 !$OMP          first_sgfa,la_max,la_min,npgfa,nseta,nsgfa,zeta,iset,ni,ri,ncoa,sgfa,egfa,sphi_a,&
 !$OMP          first_sgfb,lb_max,lb_min,npgfb,nsetb,nsgfb,zetb,jset,nj,rj,ncob,sgfb,egfb,sphi_b,&
 !$OMP          first_sgfc,lc_max,lc_min,npgfc,nsetc,nsgfc,zetc,kset,nk,rk,ncoc,sgfc,egfc,sphi_c,&
-!$OMP          sabc,sabc_contr,lib)
+!$OMP          sabc,lib)
 
       mepos = 0
 !$    mepos = omp_get_thread_num()
@@ -689,20 +690,18 @@ CONTAINS
             rk = rik ! ri + rik
 
             DO iset = 1, nseta
+               ncoa = npgfa(iset)*ncoset(la_max(iset))
+               sgfa = first_sgfa(1, iset)
+               egfa = sgfa+nsgfa(iset)-1
+
                DO jset = 1, nsetb
+                  ncob = npgfb(jset)*ncoset(lb_max(jset))
+                  sgfb = first_sgfb(1, jset)
+                  egfb = sgfb+nsgfb(jset)-1
+
                   DO kset = 1, nsetc
-
-                     !TODO: save any time by coimputing those just after the DO ?
-                     ncoa = npgfa(iset)*ncoset(la_max(iset))
-                     ncob = npgfb(jset)*ncoset(lb_max(jset))
                      ncoc = npgfc(kset)*ncoset(lc_max(kset))
-
-                     sgfa = first_sgfa(1, iset)
-                     sgfb = first_sgfb(1, jset)
                      sgfc = first_sgfc(1, kset)
-
-                     egfa = sgfa+nsgfa(iset)-1
-                     egfb = sgfb+nsgfb(jset)-1
                      egfc = sgfc+nsgfc(kset)-1
 
                      ALLOCATE(sabc(ncoa, ncob, ncoc))
@@ -713,17 +712,11 @@ CONTAINS
                                       rj, lc_min(kset), lc_max(kset), npgfc(kset), zetc(:,kset), &
                                       rk, lib, op, omega=my_omega, r_cutoff=my_r_cutoff)
 
-                     ALLOCATE(sabc_contr(nsgfa(iset), nsgfb(jset), nsgfc(kset)))
-
-                     !TODO: directly contract into iabc instead of intermediate sabc_contr ?
-                     CALL abc_contract(sabc_contr, sabc, &
+                     CALL abc_contract(iabc(sgfa:egfa, sgfb:egfb, sgfc:egfc), sabc, &
                                        sphi_a(:, sgfa:), sphi_b(:, sgfb:), sphi_c(:, sgfc:), &
                                        ncoa, ncob, ncoc, nsgfa(iset), nsgfb(jset), nsgfc(kset))
 
-                     CALL dcopy(nsgfa(iset)*nsgfb(jset)*nsgfc(kset), sabc_contr(:,:,:), 1, &
-                                iabc(sgfa:egfa, sgfb:egfb, sgfc:egfc), 1)
-
-                     DEALLOCATE(sabc, sabc_contr)
+                     DEALLOCATE(sabc)
 
                   END DO !kset
                END DO !jset
