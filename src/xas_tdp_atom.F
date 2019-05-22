@@ -950,7 +950,7 @@ CONTAINS
       output_unit = cp_logger_get_default_io_unit()
       IF (output_unit > 0) THEN
          WRITE(output_unit, FMT="(/,T7,A,/,T7,A)") &
-           "Excited atom, atoms in RI_REGION:", &
+           "Excited atom, natoms in RI_REGION:", &
            "---------------------------------"
       END IF
 
@@ -966,7 +966,7 @@ CONTAINS
          CALL sort_unique(neighbors, unique)
 
          IF (output_unit > 0) THEN
-            WRITE(output_unit, FMT="(T7,I12,I20)") &
+            WRITE(output_unit, FMT="(T7,I12,I21)") &
                exat, nnb
          END IF
 

@@ -120,7 +120,8 @@ MODULE xas_tdp_methods
                                               include_rcs_soc, &
                                               include_os_soc, &
                                               compute_ri_o3c_coulomb, &
-                                              compute_ri_o3c_exchange
+                                              compute_ri_o3c_exchange, &
+                                              get_opt_3c_dist2d
    USE xc_derivatives,                  ONLY: xc_functional_get_info
    USE xc_libxc,                        ONLY: libxc_version_info
 
@@ -658,7 +659,6 @@ CONTAINS
                            template=matrix_s(1)%matrix, matrix_type="N")
       END IF
 
-!     TODO: Add a filter_eps in the multiplication ? Cuz possible many almost zero blocks
 !     In the case of spin-restricted calculations, rho_ao includes double occupency => 0.5 prefactor
       fact = -0.5_dp; IF (do_os) fact = -1.0_dp
       CALL dbcsr_multiply('N', 'N', fact, matrix_s(1)%matrix, rho_ao(1)%matrix, 0.0_dp, &
@@ -703,6 +703,9 @@ CONTAINS
 !  Initialize libint for the 3-center integrals
       !TODO: check what happens if libint already init bt hfx
       CALL cp_libint_static_init()
+
+!  Compute the optimized distribution_2d for the 3-center inegrals
+      CALL get_opt_3c_dist2d(xas_tdp_env, qs_env)
 
    END SUBROUTINE xas_tdp_init
 

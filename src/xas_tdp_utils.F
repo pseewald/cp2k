@@ -13,8 +13,9 @@ MODULE xas_tdp_utils
    USE atomic_kind_types,               ONLY: atomic_kind_type
    USE basis_set_types,                 ONLY: gto_basis_set_type, get_gto_basis_set, &
                                               gto_basis_set_p_type
-   USE cell_types,                      ONLY: cell_type
+   USE cell_types,                      ONLY: cell_type, real_to_scaled, pbc
    USE constants_operator,              ONLY: operator_coulomb, operator_verfc, operator_truncated
+   USE cp_array_utils,                  ONLY: cp_1d_i_p_type
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose, cp_dbcsr_cholesky_invert
    USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm, cp_dbcsr_sm_fm_multiply, &
@@ -55,7 +56,9 @@ MODULE xas_tdp_utils
                                               dbcsr_transposed, dbcsr_get_diag, dbcsr_set_diag, &
                                               dbcsr_type_symmetric
    USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE distribution_2d_types,           ONLY: distribution_2d_type
+   USE distribution_2d_types,           ONLY: distribution_2d_type, distribution_2d_create, &
+                                              distribution_2d_release
+   USE distribution_methods,            ONLY: make_basic_spatial_distribution
    USE eri_mme_integrate,               ONLY: eri_mme_2c_integrate
    USE eri_mme_types,                   ONLY: eri_mme_init, eri_mme_release
    USE generic_os_integrals,            ONLY: int_operators_r12_ab_os
@@ -106,7 +109,7 @@ MODULE xas_tdp_utils
    PUBLIC :: setup_xas_tdp_prob, solve_xas_tdp_prob, build_xas_tdp_3c_nl, &
              compute_ri_coulomb2_int, include_rcs_soc, include_os_soc, &
              compute_ri_o3c_coulomb, compute_ri_o3c_exchange, build_xas_tdp_ovlp_nl, &
-             compute_ri_exchange2_int
+             compute_ri_exchange2_int, get_opt_3c_dist2d
 
 CONTAINS
 
@@ -906,10 +909,10 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \breif This subroutine computes the row/column block structure as well as the dbcsr ditrinution
-!>        for the submatrices making up the generalized XAS TDP eigenvalue problem. They all share 
-!>        the smae properties, which are based on the replication of the KS matrix
+!>        for the submatrices making up the generalized XAS TDP eigenvalue problem. They all share
+!>        the same properties, which are based on the replication of the KS matrix
 !> \param submat_dist the dbcsr distribution of the submatrices
-!> \param submat_blk_size the row/col block sizes for the submatrices 
+!> \param submat_blk_size the row/col block sizes for the submatrices
 !> \param do_os whther this is a open-shell calculation
 !> \param donor_state ...
 !> \param qs_env ...
@@ -925,10 +928,9 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'compute_submat_dist_and_blk_size', &
                                      routineP = moduleN//":"//routineN
-
       INTEGER                                         :: ndo_mo, group, nao, srow_dist, scol_dist, &
                                                          nblk_row, i, nspins
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_ks 
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: matrix_ks
       TYPE(dbcsr_distribution_type), POINTER          :: dbcsr_dist
       INTEGER, DIMENSION(:), POINTER                  :: row_blk_size, row_dist, col_dist, &
                                                          row_dist_sub, col_dist_sub
@@ -937,16 +939,16 @@ CONTAINS
       NULLIFY(matrix_ks, dbcsr_dist, row_blk_size, row_dist, col_dist, pgrid, col_dist_sub)
       NULLIFY(row_dist_sub)
 
-!  The submatrices are indexed by M_{pi sig,qj tau}, where p,q label basis functions and i,j donor 
+!  The submatrices are indexed by M_{pi sig,qj tau}, where p,q label basis functions and i,j donor
 !  MOs and sig,tau the spins. For each spin and donor MOs combination, one has a submatrix of the
 !  size of the KS matrix (nao x nao) with the same dbcsr block structure
 
 !  Initialization
       ndo_mo = donor_state%ndo_mo
-      CALL get_qs_env(qs_env=qs_env, matrix_ks=matrix_ks, dbcsr_dist=dbcsr_dist) 
+      CALL get_qs_env(qs_env=qs_env, matrix_ks=matrix_ks, dbcsr_dist=dbcsr_dist)
       CALL dbcsr_get_info(matrix_ks(1)%matrix, row_blk_size=row_blk_size)
-      CALL dbcsr_distribution_get(dbcsr_dist, row_dist=row_dist, col_dist=col_dist, group=group,& 
-                                  pgrid=pgrid) 
+      CALL dbcsr_distribution_get(dbcsr_dist, row_dist=row_dist, col_dist=col_dist, group=group,&
+                                  pgrid=pgrid)
       nao = SUM(row_blk_size)
       nblk_row = SIZE(row_blk_size)
       srow_dist = SIZE(row_dist)
@@ -960,14 +962,14 @@ CONTAINS
 
       DO i = 1,ndo_mo*nspins
          submat_blk_size((i-1)*nblk_row+1:i*nblk_row) = row_blk_size
-         row_dist_sub((i-1)*srow_dist+1:i*srow_dist) = row_dist         
-         col_dist_sub((i-1)*scol_dist+1:i*scol_dist) = col_dist            
+         row_dist_sub((i-1)*srow_dist+1:i*srow_dist) = row_dist
+         col_dist_sub((i-1)*scol_dist+1:i*scol_dist) = col_dist
       END DO
-      
+
 !  Create the submatrix dbcsr distribution
       ALLOCATE(submat_dist)
       CALL dbcsr_distribution_new(submat_dist, group=group, pgrid=pgrid, row_dist=row_dist_sub, &
-                                  col_dist=col_dist_sub)            
+                                  col_dist=col_dist_sub)
 
 !  Clean-up
       DEALLOCATE(col_dist_sub, row_dist_sub)
@@ -1639,13 +1641,15 @@ CONTAINS
 !  Build a neighbor list for the ab centers. Assume (aI|c) = sum_b c_bI (ab|c), with c_bI only
 !  non-zero for b centered on the same atom as c => build overlap nl, but only keeping b if centered
 !  on an excited atom
-      CALL build_xas_tdp_ovlp_nl(ab_list, basis_set_orb, basis_set_orb, &
-                                 qs_env, excited_atoms=xas_tdp_env%ex_atom_indices)
+      CALL build_xas_tdp_ovlp_nl(ab_list, basis_set_orb, basis_set_orb, qs_env, &
+                                 excited_atoms=xas_tdp_env%ex_atom_indices, &
+                                 ext_dist2d=xas_tdp_env%opt_3c_dist2d)
 
 !  Build a neighbor list for the ac centers. Since we later contract as (aI|c) and we assume I is 
 !  very localized on the same atom as c, we take a,c as neighbors if they overlap
       CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, do_hfx_potential_id, &
-                               qs_env, excited_atoms=xas_tdp_env%ex_atom_indices)
+                               qs_env, excited_atoms=xas_tdp_env%ex_atom_indices, &
+                               ext_dist2d=xas_tdp_env%opt_3c_dist2d)
 
 !  Allocate, init and compute the integrals
       ALLOCATE(xas_tdp_env%ri_o3c_coul)
@@ -1696,16 +1700,16 @@ CONTAINS
       TYPE(gto_basis_set_p_type), DIMENSION(:), &
                                              POINTER  :: basis_set_ri, basis_set_orb
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
-                                             POINTER  :: ac_list, sab_orb
+                                             POINTER  :: ac_list, ab_list
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(cp_para_env_type), POINTER                 :: para_env
 
-      NULLIFY(basis_set_ri, basis_set_orb, ac_list, sab_orb, qs_kind_set, para_env)
+      NULLIFY(basis_set_ri, basis_set_orb, ac_list, ab_list, qs_kind_set, para_env)
 
       CALL timeset(routineN, handle)
 
 !  Take what we need from the qs_env
-      CALL get_qs_env(qs_env, nkind=nkind, sab_orb=sab_orb, qs_kind_set=qs_kind_set, para_env=para_env)
+      CALL get_qs_env(qs_env, nkind=nkind, qs_kind_set=qs_kind_set, para_env=para_env)
 
 !  Build the basis set lists
       ALLOCATE(basis_set_ri(nkind))
@@ -1713,21 +1717,22 @@ CONTAINS
       CALL basis_set_list_setup(basis_set_ri, "RI_XAS", qs_kind_set)
       CALL basis_set_list_setup(basis_set_orb, "ORB", qs_kind_set)
 
-      !TODO: If load balance gets really bad, might want to use our own distribution for the o3c 
-      !      calculation (and subsequent kernel matrices, that we would redistribute later)
+!  Build a neighbor list for the ab centers. Not the stendard sab_orb because different dist2d
+      CALL build_xas_tdp_ovlp_nl(ab_list, basis_set_orb, basis_set_orb, qs_env, &
+                                 ext_dist2d=xas_tdp_env%opt_3c_dist2d)
 
 !  Build a neighbor list for the ac centers
       ALLOCATE(exat(1))
       exat(1) = ex_atom
       !note: if operator is Coulomb, then x_range argument will simply be ignored
       CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, xas_tdp_control%x_op, &
-                               qs_env, excited_atoms=exat, x_range=xas_tdp_control%x_range)
+                               qs_env, excited_atoms=exat, x_range=xas_tdp_control%x_range, &
+                               ext_dist2d=xas_tdp_env%opt_3c_dist2d)
 
-!  Allocate, init and compute the integrals. Use stendard sab_orb because in (ab|IJ), the only
-!  restriction is that a and b overlap
+!  Allocate, init and compute the integrals.
       ALLOCATE(xas_tdp_env%ri_o3c_ex)
       CALL init_o3c_container(xas_tdp_env%ri_o3c_ex, 1, basis_set_orb, basis_set_orb, &
-                              basis_set_ri, sab_orb, ac_list)
+                              basis_set_ri, ab_list, ac_list)
       CALL calculate_o3c_libint_integrals(xas_tdp_env%ri_o3c_ex, op=xas_tdp_control%x_op, &
                                           para_env=para_env, r_cutoff=xas_tdp_control%x_range, &
                                           omega=xas_tdp_control%x_omega, &
@@ -1737,7 +1742,10 @@ CONTAINS
       DO ilist = 1,SIZE(ac_list)
          CALL deallocate_neighbor_list_set(ac_list(ilist)%neighbor_list_set)
       END DO
-      DEALLOCATE(basis_set_ri, basis_set_orb, ac_list)
+      DO ilist = 1,SIZE(ab_list)
+         CALL deallocate_neighbor_list_set(ab_list(ilist)%neighbor_list_set)
+      END DO
+      DEALLOCATE(basis_set_ri, basis_set_orb, ab_list, ac_list)
 
       !not strictly necessary but avoid having any load unbalance here being reported in the 
       !timings for other routines
@@ -1748,6 +1756,105 @@ CONTAINS
    END SUBROUTINE compute_ri_o3c_exchange
 
 ! **************************************************************************************************
+!> \brief Creates a distribution_2d which is such that atoms pairs of neighboring atoms are put
+!>        on different procs in order to optimize the load balance of the o3c_methods (which are
+!>        bad with the usual dist since most integrals are local end they end up on the same proc)
+!> \param xas_tdp_env ...
+!> \param qs_env ...
+!> \note Adapted from distribution_methods.F
+! **************************************************************************************************
+   SUBROUTINE get_opt_3c_dist2d(xas_tdp_env, qs_env)
+
+      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(qs_environment_type), POINTER              :: qs_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = "get_opt_3c_dist2d", routineP = moduleN//":"//routineN
+
+      INTEGER                                         :: nprow, npcol, myprow, mypcol, natom, &
+                                                         iatom, ikind, nkind, n, handle
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: pbc_scaled_coords
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: costs, nparticle_local_row, &
+                                                         nparticle_local_col
+      INTEGER, DIMENSION(:,:), POINTER                :: row_dist, col_dist
+      TYPE(cp_blacs_env_type), POINTER                :: blacs_env
+      TYPE(cell_type), POINTER                        :: cell
+      TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
+      TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
+      TYPE(cp_1d_i_p_type), DIMENSION(:), POINTER     :: local_particle_col, local_particle_row
+
+      NULLIFY(blacs_env, row_dist, col_dist, cell, qs_kind_set, particle_set, local_particle_col, &
+              local_particle_row)
+
+      CALL timeset(routineN, handle)
+
+      CALL get_qs_env(qs_env, blacs_env=blacs_env, cell=cell, natom=natom, qs_kind_set=qs_kind_set,&
+                      particle_set=particle_set)
+      myprow = blacs_env%mepos(1)+1
+      mypcol = blacs_env%mepos(2)+1
+      nprow = blacs_env%num_pe(1)
+      npcol = blacs_env%num_pe(2)
+
+      ALLOCATE(pbc_scaled_coords(3, natom))
+      ALLOCATE(costs(natom))
+      ALLOCATE(row_dist(natom, 2), col_dist(natom, 2))
+
+      DO iatom = 1, natom
+         ikind = particle_set(iatom)%atomic_kind%kind_number
+         CALL get_qs_kind(qs_kind_set(ikind), nsgf=costs(iatom))
+
+         CALL real_to_scaled(pbc_scaled_coords(:, iatom), pbc(particle_set(iatom)%r(:), cell), cell)
+
+      END DO
+
+      CALL make_basic_spatial_distribution(pbc_scaled_coords, costs, nprow, row_dist(:,1), npcol, &
+                                           col_dist(:,1), maximize_spread=.TRUE.)
+
+      nkind = SIZE(qs_kind_set)
+      ALLOCATE(local_particle_col(nkind), local_particle_row(nkind))
+      ALLOCATE(nparticle_local_row(nkind), nparticle_local_col(nkind))
+      nparticle_local_row = 0; nparticle_local_col = 0
+
+      DO iatom = 1, natom
+         ikind = particle_set(iatom)%atomic_kind%kind_number
+
+         IF (row_dist(iatom,1) == myprow) nparticle_local_row(ikind) = nparticle_local_row(ikind)+1
+         IF (col_dist(iatom,1) == mypcol) nparticle_local_col(ikind) = nparticle_local_col(ikind)+1
+      END DO
+
+      DO ikind = 1, nkind
+         n = nparticle_local_row(ikind)
+         ALLOCATE (local_particle_row(ikind)%array(n))
+
+         n = nparticle_local_col(ikind)
+         ALLOCATE (local_particle_col(ikind)%array(n))
+      END DO
+
+      nparticle_local_row = 0; nparticle_local_col = 0
+      DO iatom = 1, natom
+         ikind = particle_set(iatom)%atomic_kind%kind_number
+
+         IF (row_dist(iatom,1) == myprow) THEN
+            nparticle_local_row(ikind) = nparticle_local_row(ikind)+1
+            local_particle_row(ikind)%array(nparticle_local_row(ikind)) = iatom
+         END IF
+         IF (col_dist(iatom,1) == mypcol) THEN
+            nparticle_local_col(ikind) = nparticle_local_col(ikind)+1
+            local_particle_col(ikind)%array(nparticle_local_col(ikind)) = iatom
+         END IF
+      END DO
+
+      !Finally create the dist_2d
+      row_dist(:, 1) = row_dist(:, 1)-1
+      col_dist(:, 1) = col_dist(:, 1)-1
+      CALL distribution_2d_create(xas_tdp_env%opt_3c_dist2d, row_distribution_ptr=row_dist, &
+                                  col_distribution_ptr=col_dist, local_rows_ptr=local_particle_row,&
+                                  local_cols_ptr=local_particle_col, blacs_env=blacs_env)
+
+      CALL timestop(handle)
+
+   END SUBROUTINE get_opt_3c_dist2d
+
+! **************************************************************************************************
 !> \brief Builds a neighbor lists set for overlaping 2-center S_ab, where b is restricted on a 
 !>        a given list of atoms. Used for Coulomb RI where (aI|P) = sum_b C_bI (ab|P), where 
 !>        contraction coeff C_bI is assumed to be non-zero only on excited atoms
@@ -1756,8 +1863,9 @@ CONTAINS
 !> \param basis_b basis set list for atom b
 !> \param excited_atoms the indices of the excited atoms on which b is centered
 !> \param qs_env ...
+!> \param ext_dist2d use an external distribution2d
 ! **************************************************************************************************
-   SUBROUTINE build_xas_tdp_ovlp_nl(ab_list, basis_a, basis_b, qs_env, excited_atoms)
+   SUBROUTINE build_xas_tdp_ovlp_nl(ab_list, basis_a, basis_b, qs_env, excited_atoms, ext_dist2d)
 
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
                                              POINTER  :: ab_list
@@ -1765,6 +1873,7 @@ CONTAINS
                                              POINTER  :: basis_a, basis_b
       TYPE(qs_environment_type), POINTER              :: qs_env
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: excited_atoms
+      TYPE(distribution_2d_type), POINTER, OPTIONAL   :: ext_dist2d
 
       CHARACTER(len=*), PARAMETER :: routineN = "build_xas_tdp_ovlp_nl", &
                                      routineP = moduleN//":"//routineN
@@ -1824,6 +1933,9 @@ CONTAINS
                       distribution_2d=distribution_2d, local_particles=distribution_1d, &
                       particle_set=particle_set, molecule_set=molecule_set)
 
+      !use an external distribution_2d if required
+      IF (PRESENT(ext_dist2d)) distribution_2d => ext_dist2d
+
       ALLOCATE(atom2d(nkind))
       CALL atom2d_build(atom2d, distribution_1d, distribution_2d, atomic_kind_set, &
                         molecule_set, .FALSE., particle_set)
@@ -1853,10 +1965,12 @@ CONTAINS
 !> \param op_type to indicate whther the list should be built with overlap or Coulomb in mind
 !> \param excited_atoms the indices of the excited atoms to consider (if not given, all atoms are taken)
 !> \param x_range in case some truncated/screened operator is used, gives its range
+!> \param ext_dist2d external distribution_2d to be used
 !> \param qs_env ...
 !> \note Based on setup_neighbor_list with added features
 ! **************************************************************************************************
-   SUBROUTINE build_xas_tdp_3c_nl(ac_list, basis_a, basis_c, op_type, qs_env, excited_atoms, x_range)
+   SUBROUTINE build_xas_tdp_3c_nl(ac_list, basis_a, basis_c, op_type, qs_env, excited_atoms, &
+                                  x_range, ext_dist2d)
 
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &                                                
                                              POINTER  :: ac_list
@@ -1866,6 +1980,7 @@ CONTAINS
       TYPE(qs_environment_type), POINTER              :: qs_env
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL     :: excited_atoms
       REAL(dp), INTENT(IN), OPTIONAL                  :: x_range
+      TYPE(distribution_2d_type), POINTER, OPTIONAL   :: ext_dist2d
 
       CHARACTER(len=*), PARAMETER :: routineN =  "build_xas_tdp_3c_nl", &
                                      routineP = moduleN//":"//routineN
@@ -1955,6 +2070,9 @@ CONTAINS
       CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, cell=cell, &
                       distribution_2d=distribution_2d, local_particles=distribution_1d, &
                       particle_set=particle_set, molecule_set=molecule_set)
+
+      !use an external distribution_2d if required
+      IF (PRESENT(ext_dist2d)) distribution_2d => ext_dist2d
 
       ALLOCATE(atom2d(nkind))
       CALL atom2d_build(atom2d, distribution_1d, distribution_2d, atomic_kind_set, &
