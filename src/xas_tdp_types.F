@@ -15,6 +15,7 @@ MODULE xas_tdp_types
    USE cp_fm_types,                     ONLY: cp_fm_type, cp_fm_release, cp_fm_p_type
    USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_release, dbcsr_p_type, &
                                               dbcsr_release_p
+   USE distribution_2d_types,           ONLY: distribution_2d_type, distribution_2d_release
    USE hfx_libint_wrapper,              ONLY: cp_libint_static_cleanup
    USE input_constants,                 ONLY: xas_tdp_by_index,&
                                               xas_tdp_by_kind, &
@@ -145,8 +146,9 @@ MODULE xas_tdp_types
 !>        contracted spherical gaussians. It can either be in the length or the velocity 
 !>        representation. For length representation, it has to be computed once with the origin on 
 !>        each excited atom
-!> \param ri_o3c_coul the container for the RI 3-center Coulomb integrals (updated for each ex atom)
+!> \param ri_o3c_coul the container for the RI 3-center Coulomb integrals (computed once)
 !> \param ri_o3c_ex the container for the RI 3-center exchange integrals (updated for each ex atom)
+!> \param opt_3c_dist2 an optimized distribution_2d for localized 3-center integrals
 !> \param ri_fxc the array of xc integrals of type (P|fxc|Q), for alpha-alpha, alpha-beta and beta-beta
 !> \param fxc_avail a boolean telling whwther fxc is availavle on all procs
 !> \param orb_soc the matrix where the SOC is evaluated wrt the orbital basis set, for x,y,z
@@ -172,6 +174,7 @@ MODULE xas_tdp_types
       TYPE(qs_loc_env_new_type), POINTER      :: qs_loc_env
       REAL(dp), DIMENSION(:,:), POINTER       :: ri_inv_coul
       REAL(dp), DIMENSION(:,:), POINTER       :: ri_inv_ex
+      TYPE(distribution_2d_type), POINTER     :: opt_3c_dist2d
       TYPE(dbcsr_p_type), DIMENSION(:), &
                                     POINTER   :: q_projector
       TYPE(dbcsr_p_type), DIMENSION(:), &
@@ -590,6 +593,7 @@ CONTAINS
       NULLIFY (xas_tdp_env%mos_of_ex_atoms)
       NULLIFY (xas_tdp_env%ri_inv_coul)
       NULLIFY (xas_tdp_env%ri_inv_ex)
+      NULLIFY (xas_tdp_env%opt_3c_dist2d)
       NULLIFY (xas_tdp_env%lumo_guess)
       NULLIFY (xas_tdp_env%lumo_evals)
       NULLIFY (xas_tdp_env%q_projector)
@@ -644,6 +648,9 @@ CONTAINS
          END IF
          IF (ASSOCIATED(xas_tdp_env%ri_inv_ex)) THEN
             DEALLOCATE(xas_tdp_env%ri_inv_ex)
+         END IF
+         IF (ASSOCIATED(xas_tdp_env%opt_3c_dist2d)) THEN
+            CALL distribution_2d_release(xas_tdp_env%opt_3c_dist2d)
          END IF
          IF (ASSOCIATED(xas_tdp_env%lumo_guess)) THEN
             DO i = 1,SIZE(xas_tdp_env%lumo_guess)
@@ -1068,7 +1075,7 @@ CONTAINS
       END IF
 
       ! Note that excited_atoms and excited_kinds are not deallocated because they point to other 
-      ! ressources, namely xas_tdp_env
+      ! ressources, namely xas_tdp_env.
 
       IF (ASSOCIATED(xas_atom_env%ri_dcoeff)) THEN
          DO i = 1,SIZE(xas_atom_env%ri_dcoeff,1)
