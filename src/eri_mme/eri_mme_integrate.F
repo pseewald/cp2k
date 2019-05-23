@@ -95,6 +95,7 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(3)                        :: G_bounds, R_bounds
       REAL(KIND=dp), DIMENSION(3, 3)                     :: h_inv, hmat
       REAL(KIND=dp), DIMENSION(:), POINTER               :: aw
+      LOGICAL                                            :: subtract_g0
 
       CPASSERT(param%is_valid)
 
@@ -125,6 +126,9 @@ CONTAINS
          exact = .FALSE.
       ENDIF
 
+      subtract_g0 = param%subtract_g0
+      IF(exact) subtract_g0 = .FALSE.
+
       IF (exact) THEN
          is_ortho = .FALSE.
       ELSE
@@ -153,7 +157,8 @@ CONTAINS
 
          G_rad = exp_radius(l_max, alpha_G, 0.01*param%sum_precision, 1.0_dp, epsin=G_res)
          G_bounds(:) = ellipsoid_bounds(G_rad, TRANSPOSE(hmat)/(2.0_dp*pi))
-         CALL pgf_sum_2c_gspace_3d(S_G_no, l_max, -rab, alpha_G, h_inv, G_bounds, G_rad, vol, potential, pot_par)
+         CALL pgf_sum_2c_gspace_3d(S_G_no, l_max, -rab, alpha_G, h_inv, G_bounds, G_rad, vol, &
+                                   potential, pot_par, subtract_g0=param%subtract_g0)
       ELSE
 
          DO i_aw = 1, n_aw
@@ -230,7 +235,7 @@ CONTAINS
             ELSE
                Imm = S_G_no(coset(ax+bx, ay+by, az+bz))*prefac**3
             ENDIF
-            IF (la+lb .EQ. 0 .AND. .NOT. exact) THEN
+            IF (la+lb .EQ. 0 .AND. subtract_g0) THEN
                Imm = Imm-SUM(aw(n_aw+1:2*n_aw))*prefac**3/vol ! subtracting G = 0 term
             ENDIF
             IF (.NOT. norm) THEN
@@ -375,7 +380,7 @@ CONTAINS
       ALLOCATE (S_G(n_aw, 3, 0:la_max, 0:lb_max, 0:lc_max))
 
       ! G= 0 components
-      IF (lc_min == 0) THEN
+      IF (lc_min == 0 .AND. param%subtract_g0) THEN
          ALLOCATE (S_G_0(0:la_max+lb_max, 3))
 
          alpha_R_0 = zeta*zetb/(zeta+zetb)
@@ -518,7 +523,7 @@ CONTAINS
       ALLOCATE (S_G_no_H(ncoset(la_max), ncoset(lb_max), ncoset(lc_max)))
 
       ! G= 0 components
-      IF (lc_min == 0) THEN
+      IF (lc_min == 0 .AND. param%subtract_g0) THEN
          ALLOCATE (S_G_0_no(ncoset(la_max+lb_max)))
          alpha_G_0 = 0.25_dp/zetb+0.25_dp/zeta
          alpha_R_0 = 0.25_dp/alpha_G_0
@@ -721,7 +726,7 @@ CONTAINS
 
                IF (la_prev < la) resc_a = resc_a*(2.0_dp*zeta)
                Ixyz_0 = 0.0_dp
-               IF (lc == 0) THEN
+               IF (lc == 0 .AND. ALLOCATED(S_G_0)) THEN
                   Ixyz_0 = S_G_0(ax+bx, 1)* &
                            S_G_0(ay+by, 2)* &
                            S_G_0(az+bz, 3) &
@@ -815,7 +820,8 @@ CONTAINS
                   Imm = S_G(ico, jco, kco)
                ELSE
                   ijco = coset(ax+bx, ay+by, az+bz)
-                  Imm = S_G(ico, jco, kco)-SUM(aw(n_aw+1:2*n_aw))*S_G_0(ijco)/vol*mone_lb
+                  Imm = S_G(ico, jco, kco)
+                  IF(ALLOCATED(S_G_0)) Imm = Imm - SUM(aw(n_aw+1:2*n_aw))*S_G_0(ijco)/vol*mone_lb
                ENDIF
 
                ! rescaling needed due to Hermite Gaussians

@@ -416,7 +416,7 @@ CONTAINS
 !> \param coulomb ...
 !> \note  MMME Method is not very efficient for non-orthorhombic cells
 ! **************************************************************************************************
-   PURE SUBROUTINE pgf_sum_2c_gspace_3d(S_G, l_max, R, alpha, h_inv, G_c, G_rad, vol, potential, pot_par)
+   SUBROUTINE pgf_sum_2c_gspace_3d(S_G, l_max, R, alpha, h_inv, G_c, G_rad, vol, potential, pot_par, subtract_g0)
       REAL(KIND=dp), DIMENSION(:), INTENT(OUT)           :: S_G
       INTEGER, INTENT(IN)                                :: l_max
       REAL(KIND=dp), DIMENSION(3), INTENT(IN)            :: R
@@ -426,6 +426,7 @@ CONTAINS
       REAL(KIND=dp), INTENT(IN)                          :: G_rad, vol
       INTEGER, INTENT(IN), OPTIONAL                      :: potential
       REAL(KIND=dp), INTENT(IN), OPTIONAL                :: pot_par
+      LOGICAL, INTENT(IN), OPTIONAL                      :: subtract_g0
 
       COMPLEX(KIND=dp)                                   :: exp_tot
       INTEGER, DIMENSION(3)                              :: l_xyz
@@ -454,7 +455,9 @@ CONTAINS
                IF (G_sq .GT. G_rads_sq) CYCLE
 
                IF (PRESENT(potential)) THEN
-                  IF (gx .EQ. 0 .AND. gy .EQ. 0 .AND. gz .EQ. 0) CYCLE
+                  IF (subtract_g0 .AND. gx .EQ. 0 .AND. gy .EQ. 0 .AND. gz .EQ. 0) THEN
+                     CYCLE
+                  ENDIF
                ENDIF
 
                exp_tot = EXP(-alpha*G_sq)*EXP(gaussi*DOT_PRODUCT(G, R)) ! cost: 2 exp_w flops
@@ -464,7 +467,6 @@ CONTAINS
                      exp_tot = exp_tot/G_sq
                   CASE (eri_mme_yukawa)
                      exp_tot = exp_tot/(G_sq + pot_par**2)
-                     !exp_tot = exp_tot/G_sq
                   CASE (eri_mme_longrange)
                      exp_tot = exp_tot/G_sq*EXP(-G_sq/pot_par**2)
                   END SELECT

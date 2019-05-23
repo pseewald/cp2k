@@ -86,6 +86,7 @@ MODULE eri_mme_types
       INTEGER                          :: l_max, l_mm, l_max_zet
       INTEGER                          :: potential
       REAL(KIND=dp)                    :: pot_par
+      LOGICAL                          :: subtract_g0
    END TYPE eri_mme_param
 
 CONTAINS
@@ -278,6 +279,14 @@ CONTAINS
          param%pot_par = pot_par
       ELSE
          param%pot_par = 0.0_dp
+      ENDIF
+
+      param%subtract_g0 = .TRUE.
+      IF(param%potential == eri_mme_yukawa) THEN
+         ! no singularity at G=0 if yukawa potential is used
+         IF(param%pot_par**2 > 1.0E-12_dp) THEN
+            param%subtract_g0 = .FALSE.
+         ENDIF
       ENDIF
 
       ALLOCATE (minimax_aw(2*param%n_minimax))
