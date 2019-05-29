@@ -701,7 +701,6 @@ CONTAINS
       CALL safety_check(xas_tdp_control)
 
 !  Initialize libint for the 3-center integrals
-      !TODO: check what happens if libint already init bt hfx
       CALL cp_libint_static_init()
 
 !  Compute the optimized distribution_2d for the 3-center inegrals
