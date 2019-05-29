@@ -291,6 +291,8 @@ CONTAINS
                tmp = tmp*omega_corr2
             END DO
             params%Fm = prefac*params%Fm
+         CASE DEFAULT
+            CPABORT("Requested operator NYI")
          END SELECT
 
       END IF

@@ -12,7 +12,6 @@
 MODULE qs_o3c_methods
    USE ai_contraction_sphi,             ONLY: abc_contract
    USE ai_overlap3,                     ONLY: overlap3
-   USE ai_coulomb,                      ONLY: coulomb3
    USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
                                               gto_basis_set_type, &
                                               get_gto_basis_set
@@ -318,206 +317,6 @@ CONTAINS
    END SUBROUTINE calculate_o3c_integrals
 
 ! **************************************************************************************************
-!> \brief Routine to compute the 3-center Coulomb integrals
-!> \param o3c ...
-!> \notes This is a temporary solution. In the future, as LIBINT2 will be used and different
-!>        operators (also with forces) will be available, the main routine calculate_o3c_integrals 
-!>        will be modified with additional arguments
-!>        It's the user responsibility to provide smart neighbor lists in the first place to avoid
-!>        over calculations
-! **************************************************************************************************
-   SUBROUTINE calculate_o3c_coulomb_integrals(o3c)
-      TYPE(o3c_container_type), POINTER                  :: o3c
-
-      CHARACTER(LEN=*), PARAMETER :: routineN = 'calculate_o3c_coulomb_integrals', &
-                                     routineP = moduleN//':'//routineN
-
-      INTEGER :: egfa, egfb, egfc, handle, ikind, iset, ipgfc, startc, endc, &
-         jkind, jset, kkind, kset, mepos, ncoa, ncob, ncoc, ni, nj, nk, nseta, nsetb, &
-         nsetc, nspin, nthread, sgfa, sgfb, sgfc
-      INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, lb_min, lc_max, &
-                                                            lc_min, npgfa, npgfb, npgfc, nsgfa, &
-                                                            nsgfb, nsgfc
-      INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, first_sgfb, first_sgfc
-      REAL(KIND=dp)                                      :: dij2, dik2, djk2, rpgfc
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: sabc, sabc_contr
-      REAL(KIND=dp), DIMENSION(3)                        :: rij, rik, rjk
-      REAL(KIND=dp), DIMENSION(:), POINTER               :: set_radius_a, set_radius_b, set_radius_c
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: sphi_a, sphi_b, sphi_c, tvec, zeta, &
-                                                            zetb, zetc
-      REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: iabc
-      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_list_a, basis_set_list_b, &
-                                                            basis_set_list_c
-      TYPE(gto_basis_set_type), POINTER                  :: basis_set_a, basis_set_b, basis_set_c
-      TYPE(o3c_iterator_type)                            :: o3c_iterator
-      REAL(dp), DIMENSION(:), ALLOCATABLE                :: rpgfa, rpgfb, f, gccc
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE              :: vabc
-      REAL(dp), DIMENSION(:,:,:,:), ALLOCATABLE          :: v
-      
-
-      CALL timeset(routineN, handle)
-
-      CALL get_o3c_container(o3c, nspin=nspin)
-
-      ! basis sets
-      CALL get_o3c_container(o3c, basis_set_list_a=basis_set_list_a, &
-                             basis_set_list_b=basis_set_list_b, basis_set_list_c=basis_set_list_c)
-
-      nthread = 1
-!$    nthread = omp_get_max_threads()
-      CALL o3c_iterator_create(o3c, o3c_iterator, nthread=nthread)
-
-!$OMP PARALLEL DEFAULT(NONE) &
-!$OMP SHARED (nthread,o3c_iterator,ncoset,nspin,basis_set_list_a,basis_set_list_b,&
-!$OMP         basis_set_list_c)&
-!$OMP PRIVATE (mepos,ikind,jkind,kkind,basis_set_a,basis_set_b,basis_set_c,rij,rik,rjk,&
-!$OMP          first_sgfa,la_max,la_min,npgfa,nseta,nsgfa,rpgfa,set_radius_a,sphi_a,zeta,&
-!$OMP          first_sgfb,lb_max,lb_min,npgfb,nsetb,nsgfb,rpgfb,set_radius_b,sphi_b,zetb,&
-!$OMP          first_sgfc,lc_max,lc_min,npgfc,nsetc,nsgfc,rpgfc,set_radius_c,sphi_c,zetc,&
-!$OMP          iset,jset,kset,dij2,dik2,djk2,ni,nj,nk,iabc,tvec,ncoa,ipgfc,startc,endc,&
-!$OMP          ncob,ncoc,sabc,sabc_contr,sgfa,sgfb,sgfc,egfa,egfb,egfc,f,gccc,vabc,v)
-
-      mepos = 0
-!$    mepos = omp_get_thread_num()
-
-      DO WHILE (o3c_iterate(o3c_iterator, mepos=mepos) == 0)
-         CALL get_o3c_iterator_info(o3c_iterator, mepos=mepos, &
-                                    ikind=ikind, jkind=jkind, kkind=kkind, rij=rij, rik=rik, &
-                                    integral=iabc, tvec=tvec)
-         CPASSERT(.NOT. ASSOCIATED(iabc))
-         CPASSERT(.NOT. ASSOCIATED(tvec))
-
-         ! basis
-         basis_set_a => basis_set_list_a(ikind)%gto_basis_set
-         basis_set_b => basis_set_list_b(jkind)%gto_basis_set
-         basis_set_c => basis_set_list_c(kkind)%gto_basis_set
-         ! center A
-         first_sgfa => basis_set_a%first_sgf
-         la_max => basis_set_a%lmax
-         la_min => basis_set_a%lmin
-         npgfa => basis_set_a%npgf
-         nseta = basis_set_a%nset
-         nsgfa => basis_set_a%nsgf_set
-         set_radius_a => basis_set_a%set_radius
-         sphi_a => basis_set_a%sphi
-         zeta => basis_set_a%zet
-         ! center B
-         first_sgfb => basis_set_b%first_sgf
-         lb_max => basis_set_b%lmax
-         lb_min => basis_set_b%lmin
-         npgfb => basis_set_b%npgf
-         nsetb = basis_set_b%nset
-         nsgfb => basis_set_b%nsgf_set
-         set_radius_b => basis_set_b%set_radius
-         sphi_b => basis_set_b%sphi
-         zetb => basis_set_b%zet
-         ! center C (RI)
-         first_sgfc => basis_set_c%first_sgf
-         lc_max => basis_set_c%lmax
-         lc_min => basis_set_c%lmin
-         npgfc => basis_set_c%npgf
-         nsetc = basis_set_c%nset
-         nsgfc => basis_set_c%nsgf_set
-         set_radius_c => basis_set_c%set_radius
-         sphi_c => basis_set_c%sphi
-         zetc => basis_set_c%zet
-
-         ni = SUM(nsgfa)
-         nj = SUM(nsgfb)
-         nk = SUM(nsgfc)
-
-         ALLOCATE (iabc(ni, nj, nk))
-         iabc(:, :, :) = 0.0_dp
-         
-         ALLOCATE (tvec(nk, nspin))
-         tvec(:, :) = 0.0_dp
-
-         rjk(1:3) = rik(1:3)-rij(1:3)
-         dij2 = SUM(rij**2)
-         dik2 = SUM(rik**2)
-         djk2 = SUM(rjk**2)
-
-         DO iset = 1, nseta
-            DO jset = 1, nsetb
-               DO kset = 1, nsetc
-
-                  ncoa = npgfa(iset)*ncoset(la_max(iset))
-                  ncob = npgfb(jset)*ncoset(lb_max(jset))
-                  ncoc = npgfc(kset)*ncoset(lc_max(kset))
-
-                  sgfa = first_sgfa(1, iset)
-                  sgfb = first_sgfb(1, jset)
-                  sgfc = first_sgfc(1, kset)
-
-                  egfa = sgfa+nsgfa(iset)-1
-                  egfb = sgfb+nsgfb(jset)-1
-                  egfc = sgfc+nsgfc(kset)-1
-
-
-                  IF (ncoa*ncob*ncoc > 0) THEN
-
-                  ! Allocate all the weird work arrays required for coulomb3
-                     ALLOCATE(f(0:la_max(iset)+lb_max(jset)+lc_max(kset)+2))
-                     ALLOCATE(v(ncoa, ncob, ncoc, la_max(iset)+lb_max(jset)+lc_max(kset)+1))
-                     ALLOCATE(gccc(ncoc))
-                     ALLOCATE(vabc(ncoa, ncob))
-                     f = 0.0_dp
-                     v = 0.0_dp
-                     gccc = 0.0_dp
-                     vabc = 0.0_dp
-
-                  ! Hack the radii to make sure coulomb3 does not screen anything out (it's the nl task)
-                     ALLOCATE(rpgfa(npgfa(iset)))
-                     ALLOCATE(rpgfb(npgfb(jset)))
-                     rpgfa = 1.0E10_dp
-                     rpgfb = 1.0E10_dp
-                     rpgfc = 1.0E10_dp
-
-                     ALLOCATE (sabc(ncoa, ncob, ncoc))
-                     sabc = 0.0_dp
-
-                  ! Because coulomb3 only takes one pgf at a time, need to loop over pgf of c
-                     endc = 0
-                     DO ipgfc = 1, npgfc(kset)
-                        startc = endc + ncoset(lc_min(kset)-1) + 1
-                        endc = endc + ncoset(lc_max(kset))
-                        !TODO: be careful, not thread safe, need LIBINT asap
-!$OMP CRITICAL
-                        CALL coulomb3(la_max(iset), npgfa(iset), zeta(:,iset), rpgfa, la_min(iset), &
-                                      lb_max(jset), npgfb(jset), zetb(:,jset), rpgfb, lb_min(jset), &
-                                      lc_max(kset), zetc(ipgfc,kset), rpgfc, lc_min(kset), gccc, &
-                                      rij, dij2, rik, dik2, djk2, vabc, &
-                                      sabc(:,:,startc:endc), v, f)
-!$OMP END CRITICAL
-
-                     END DO
-
-                     ALLOCATE (sabc_contr(nsgfa(iset), nsgfb(jset), nsgfc(kset)))
-                                        
-      f = 0.0_dp; v = 0.0_dp; gccc = 0.0_dp; vabc = 0.0_dp   
-                     CALL abc_contract(sabc_contr, sabc, &
-                                       sphi_a(:, sgfa:), sphi_b(:, sgfb:), sphi_c(:, sgfc:), &
-                                       ncoa, ncob, ncoc, nsgfa(iset), nsgfb(jset), nsgfc(kset))
-                     iabc(sgfa:egfa, sgfb:egfb, sgfc:egfc) = &
-                        sabc_contr(1:nsgfa(iset), 1:nsgfb(jset), 1:nsgfc(kset))
-
-                     DEALLOCATE (sabc, sabc_contr, f, v, gccc, vabc, rpgfa, rpgfb)
-                  END IF
-               END DO !kset
-            END DO !jset
-         END DO !iset
-         
-         CALL set_o3c_container(o3c_iterator, mepos=mepos, integral=iabc, tvec=tvec)
-
-      END DO !o3c_iterator
-!$OMP END PARALLEL
-      CALL o3c_iterator_release(o3c_iterator)
-
-      CALL timestop(handle)
-
-   END SUBROUTINE calculate_o3c_coulomb_integrals   
-
-! **************************************************************************************************
 !> \brief Computes the 3-center integrals of the o3c container based on libint for the given operator
 !> \param o3c the 3-center integrals container
 !> \param op the operator for the integrals
@@ -620,8 +419,9 @@ CONTAINS
       CALL o3c_iterator_create(o3c, o3c_iterator, nthread=nthread)
 
 !$OMP PARALLEL DEFAULT(NONE) &
-!$OMP SHARED (nthread,o3c_iterator,nspin,basis_set_list_a, basis_set_list_b,basis_set_list_c,ncoset) &
-!$OMP PRIVATE (basis_set_a,basis_set_b,basis_set_c,mepos,ikind,jkind,kkind,iabc,tvec,rij,rik,op, &
+!$OMP SHARED (nthread,o3c_iterator,nspin,basis_set_list_a, basis_set_list_b,basis_set_list_c, &
+!$OMP         maxli,maxlj,maxlk,my_r_cutoff,my_omega,ncoset,op) &
+!$OMP PRIVATE (basis_set_a,basis_set_b,basis_set_c,mepos,ikind,jkind,kkind,iabc,tvec,rij,rik, &
 !$OMP          first_sgfa,la_max,la_min,npgfa,nseta,nsgfa,zeta,iset,ni,ri,ncoa,sgfa,egfa,sphi_a,&
 !$OMP          first_sgfb,lb_max,lb_min,npgfb,nsetb,nsgfb,zetb,jset,nj,rj,ncob,sgfb,egfb,sphi_b,&
 !$OMP          first_sgfc,lc_max,lc_min,npgfc,nsetc,nsgfc,zetc,kset,nk,rk,ncoc,sgfc,egfc,sphi_c,&

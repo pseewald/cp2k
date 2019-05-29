@@ -272,6 +272,12 @@ MODULE xas_tdp_types
 !> \param exat_neighbors the neighbors of each excited atom
 !> \param ri_sphi_so contains the coefficient for direct contraction from so to sgf, for the ri basis
 !> \param orb_sphi_so contains the coefficient for direct contraction from so to sgf, for the orb basis
+!> \param ga the angular part of the spherical gaussians on the grid of excited kinds
+!> \param gr the radial part of the spherical gaussians on the grid of excited kinds
+!> \param dgr1 first radial part of the gradient of the RI spherical gaussians
+!> \param dgr2 second radial part of the gradient of the RI spherical gaussians
+!> \param dga1 first angular part of the gradient of the RI spherical gaussians
+!> \param dga2 second angular part of the gradient of the RI spherical gaussians
 !> *************************************************************************************************
    TYPE xas_atom_env_type
       INTEGER                                         :: nspins
@@ -286,6 +292,8 @@ MODULE xas_tdp_types
       TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: ri_sphi_so
       TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: orb_sphi_so
       TYPE(cp_1d_i_p_type), DIMENSION(:), POINTER     :: exat_neighbors
+      TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: ga, gr, dgr1, dgr2
+      TYPE(cp_3d_r_p_type), DIMENSION(:), POINTER     :: dga1, dga2
    END TYPE xas_atom_env_type
 
    CHARACTER(len=*), PARAMETER, PRIVATE  :: moduleN = 'xas_tdp_types'
@@ -1040,6 +1048,12 @@ CONTAINS
       NULLIFY(xas_atom_env%ri_sphi_so)
       NULLIFY(xas_atom_env%orb_sphi_so)
       NULLIFY(xas_atom_env%exat_neighbors)
+      NULLIFY(xas_atom_env%gr)
+      NULLIFY(xas_atom_env%ga)
+      NULLIFY(xas_atom_env%dgr1)
+      NULLIFY(xas_atom_env%dgr2)
+      NULLIFY(xas_atom_env%dga1)
+      NULLIFY(xas_atom_env%dga2)
 
    END SUBROUTINE xas_atom_env_create
 
@@ -1106,6 +1120,60 @@ CONTAINS
             END IF
          END DO
          DEALLOCATE(xas_atom_env%exat_neighbors)
+      END IF
+
+      IF (ASSOCIATED(xas_atom_env%gr)) THEN
+         DO i = 1,SIZE(xas_atom_env%gr)
+            IF (ASSOCIATED(xas_atom_env%gr(i)%array)) THEN 
+               DEALLOCATE(xas_atom_env%gr(i)%array)
+            END IF
+         END DO
+         DEALLOCATE(xas_atom_env%gr)
+      END IF
+
+      IF (ASSOCIATED(xas_atom_env%ga)) THEN
+         DO i = 1,SIZE(xas_atom_env%ga)
+            IF (ASSOCIATED(xas_atom_env%ga(i)%array)) THEN 
+               DEALLOCATE(xas_atom_env%ga(i)%array)
+            END IF
+         END DO
+         DEALLOCATE(xas_atom_env%ga)
+      END IF
+
+      IF (ASSOCIATED(xas_atom_env%dgr1)) THEN
+         DO i = 1,SIZE(xas_atom_env%dgr1)
+            IF (ASSOCIATED(xas_atom_env%dgr1(i)%array)) THEN 
+               DEALLOCATE(xas_atom_env%dgr1(i)%array)
+            END IF
+         END DO
+         DEALLOCATE(xas_atom_env%dgr1)
+      END IF
+
+      IF (ASSOCIATED(xas_atom_env%dgr2)) THEN
+         DO i = 1,SIZE(xas_atom_env%dgr2)
+            IF (ASSOCIATED(xas_atom_env%dgr2(i)%array)) THEN 
+               DEALLOCATE(xas_atom_env%dgr2(i)%array)
+            END IF
+         END DO
+         DEALLOCATE(xas_atom_env%dgr2)
+      END IF
+
+      IF (ASSOCIATED(xas_atom_env%dga1)) THEN
+         DO i = 1,SIZE(xas_atom_env%dga1)
+            IF (ASSOCIATED(xas_atom_env%dga1(i)%array)) THEN 
+               DEALLOCATE(xas_atom_env%dga1(i)%array)
+            END IF
+         END DO
+         DEALLOCATE(xas_atom_env%dga1)
+      END IF
+
+      IF (ASSOCIATED(xas_atom_env%dga2)) THEN
+         DO i = 1,SIZE(xas_atom_env%dga2)
+            IF (ASSOCIATED(xas_atom_env%dga2(i)%array)) THEN 
+               DEALLOCATE(xas_atom_env%dga2(i)%array)
+            END IF
+         END DO
+         DEALLOCATE(xas_atom_env%dga2)
       END IF
 
       IF (ASSOCIATED(xas_atom_env%orb_sphi_so)) THEN
