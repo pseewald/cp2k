@@ -169,6 +169,9 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
+!  TODO: look everywhere to see if built-in functions such as DOT_PRODUCT or NORM2 can be used
+!        as they are better than hand-made stuff
+
 !  Logger initialization and XAS TDP banner printing
       NULLIFY (logger, dft_section, xas_tdp_section)                
       logger => cp_get_default_logger()
@@ -781,7 +784,7 @@ CONTAINS
       INTEGER                                         :: i, irep, nrep, il
       TYPE(section_vals_type), POINTER                :: input, xc_functionals, libxc_fun, xc_fun
       CHARACTER(LEN=20)                               :: tmpStr
-      CHARACTER(LEN=10*default_string_length)         :: reference
+      CHARACTER(LEN=20*default_string_length)         :: reference
       CHARACTER(LEN=2*default_string_length)          :: shortform
 
       NULLIFY(input, xc_functionals, libxc_fun, xc_fun)
@@ -835,7 +838,7 @@ CONTAINS
       IF (xas_tdp_control%do_xc) THEN
 
          WRITE(UNIT=ou, FMT="(/,T3,A,F5.2,A)") &
-            "XAS_TDP| RI Region's Radius: ", xas_tdp_control%ri_radius, " Ang"
+            "XAS_TDP| RI Region's Radius: ", xas_tdp_control%ri_radius*angstrom, " Ang"
 
          CALL libxc_version_info(tmpStr)
          WRITE(UNIT=ou, FMT="(T3,A,A,/,T3,A,/)") &

@@ -28,7 +28,8 @@ MODULE xas_tdp_types
                                               do_hfx_potential_coulomb, &
                                               do_hfx_potential_truncated, &
                                               do_hfx_potential_short, &
-                                              xas_dip_vel
+                                              xas_dip_vel, &
+                                              xas_tdp_para_atom
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_val_get,&
                                               section_vals_get_subs_vals
@@ -84,6 +85,7 @@ MODULE xas_tdp_types
 !> \param max_iter the maximum allowed number of iteration for OT diagonalization
 !> \param eps_iter the required accuracy for OT diagonalization
 !> \param is_periodic self-explanatory
+!> \param para whether the f_xc parallelization is by atom or by grid
 ! **************************************************************************************************
    TYPE xas_tdp_control_type
       INTEGER                                 :: define_excited   
@@ -91,6 +93,7 @@ MODULE xas_tdp_types
       INTEGER                                 :: n_search
       INTEGER                                 :: n_excited
       INTEGER                                 :: max_iter
+      INTEGER                                 :: para
       REAL(dp)                                :: sx
       REAL(dp)                                :: x_range
       REAL(dp)                                :: x_omega
@@ -350,6 +353,7 @@ CONTAINS
       xas_tdp_control%n_excited = -1
       xas_tdp_control%eps_iter = 1.0E-6_dp
       xas_tdp_control%max_iter = 1000
+      xas_tdp_control%para = xas_tdp_para_atom
       NULLIFY (xas_tdp_control%state_types)
       NULLIFY (xas_tdp_control%list_ex_atoms)
       NULLIFY (xas_tdp_control%list_ex_kinds)
@@ -426,6 +430,8 @@ CONTAINS
       CALL section_vals_val_get(xas_tdp_section, "DIPOLE_FORM", i_val=xas_tdp_control%dipole_form)
 
       CALL section_vals_val_get(xas_tdp_section, "GRID", n_rep_val=nrep)
+
+      CALL section_vals_val_get(xas_tdp_section, "PARALLELIZATION", i_val=xas_tdp_control%para)
 
       IF (.NOT. ASSOCIATED(xas_tdp_control%grid_info)) THEN
          ALLOCATE(xas_tdp_control%grid_info(nrep,3))
