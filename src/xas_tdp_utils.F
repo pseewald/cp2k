@@ -1503,14 +1503,14 @@ CONTAINS
       ALLOCATE(xas_tdp_env%ri_inv_coul(nsgf, nsgf))
       xas_tdp_env%ri_inv_coul = 0.0_dp
 
-      !IF (.NOT. xas_tdp_control%is_periodic) THEN
+      IF (.NOT. xas_tdp_control%is_periodic) THEN
          CALL int_operators_r12_ab_os(r12_operator=operator_coulomb, vab=xas_tdp_env%ri_inv_coul, &
                                       rab=(/0.0_dp,0.0_dp,0.0_dp/), fba=ri_basis, fbb=ri_basis, &
                                       calculate_forces=.FALSE.)
          CPASSERT(ASSOCIATED(xas_tdp_control))
-      !ELSE
-         !CALL periodic_ri_coulomb2(xas_tdp_env%ri_inv_coul, ri_basis, qs_env)
-      !END IF
+      ELSE
+         CALL periodic_ri_coulomb2(xas_tdp_env%ri_inv_coul, ri_basis, qs_env)
+      END IF
 
 !  Inverting 
       CALL invmat_symm(xas_tdp_env%ri_inv_coul)  
@@ -1554,7 +1554,8 @@ CONTAINS
       CALL eri_mme_init(mme_param%par, n_minimax=20, cutoff=300.0_dp, do_calib_cutoff=.TRUE., &
                         cutoff_min=10.0_dp, cutoff_max=10000.0_dp, cutoff_eps=0.01_dp, &
                         cutoff_delta=0.9_dp, sum_precision=1.0E-12_dp, debug=.FALSE., &
-                        debug_delta=1.0E-6_dp, debug_nsum=1000000, unit_nr=0, print_calib=.FALSE.)
+                        debug_delta=1.0E-6_dp, debug_nsum=1000000, unit_nr=0, print_calib=.FALSE., &
+                        do_error_est=.FALSE.)
 
       CALL cp_eri_mme_set_params(mme_param, cell, qs_kind_set, basis_type_1="RI_XAS", para_env=para_env)
 
