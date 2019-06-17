@@ -95,7 +95,7 @@ MODULE input_cp2k_dft
         xas_dip_vel, xas_dscf, xas_none, xas_tp_fh, xas_tp_flex, xas_tp_hh, xas_tp_xfh, &
         xas_tp_xhh, xes_tp_val, xas_not_excited, xas_tdp_by_kind, xas_tdp_by_index, &
         tddfpt_spin_cons, tddfpt_spin_flip, do_hfx_potential_coulomb, do_hfx_potential_truncated, &
-        do_hfx_potential_short
+        do_hfx_potential_short, xas_tdp_para_atom, xas_tdp_para_grid
    USE input_cp2k_almo,                 ONLY: create_almo_scf_section
    USE input_cp2k_distribution,         ONLY: create_distribution_section
    USE input_cp2k_field,                ONLY: create_efield_section,&
@@ -7828,7 +7828,7 @@ CONTAINS
                           description="XAS simulations using TDDFPT. Excitation from specified "//&
                           "core orbitals are considered one at a time. In case of high symmetry "//&
                           "structures, donor core orbitals should be localized.", &
-                          n_keywords=8, n_subsections=5, repeats=.FALSE.)
+                          n_keywords=9, n_subsections=5, repeats=.FALSE.)
 
       NULLIFY (keyword, subsection, print_key)
 
@@ -7880,6 +7880,23 @@ CONTAINS
                           enum_desc=s2a("Length form &lang; 0 | e r | n &rang;", &
                                         "Velocity form &lang; 0 | d/dr | n &rang;"), &
                           enum_i_vals=(/xas_dip_len, xas_dip_vel/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, name="PARALLELIZATION", &
+                          variants=s2a("PARA", "PARALLEL"), &
+                          description="How the parallelization of xc kernel is treated.", &
+                          usage="PARALLELIZATION {string}", &
+                          default_i_val=xas_dip_vel, &
+                          enum_c_vals=s2a("BY_ATOM", "BY_GRID"), &
+                          enum_desc=s2a("The excited atoms are distributed over the processors " //&
+                                        "and treated independently. Better performance if there" //&
+                                        "are many excited atoms with smaller grids.", &
+                                        "The excited atoms are treated in a serial manner, but " //&
+                                        "all grid operations (mapping the density, integrating, ...)" //&
+                                        "are distributed over the processors. Better performance "//&
+                                        "is there are fewer excited atoms and finer grids."), & 
+                          enum_i_vals=(/xas_tdp_para_atom, xas_tdp_para_grid/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -8085,7 +8102,7 @@ CONTAINS
 !  The XC_FUNCTIONAL subsubsection
       CALL section_create(subsubsection, name="XC_FUNCTIONAL", &
                           description="The exchange correlation functional(s) to use for the xc " //&
-                                     "part of the kernel. Built from any combination of LDA "// &
+                                     "part of the kernel. Built from any combination of LDA and GGA"// &
                                      "functional from LIBXC.", &
                           n_keywords=0, &
                           n_subsections=1, &
