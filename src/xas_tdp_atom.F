@@ -1919,7 +1919,7 @@ CONTAINS
          END IF
 
          !Gradient correction (note: spin-flip only keeps the lda part, aka ALDA0)
-         IF (do_gga) THEN
+         IF (do_gga .AND. do_sc) THEN
             CALL integrate_gga_fxc(int_fxc, iatom, ikind, rho_set, deriv_set, bounds, xas_atom_env, qs_env)
          END IF
 
