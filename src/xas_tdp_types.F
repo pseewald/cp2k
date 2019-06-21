@@ -66,6 +66,7 @@ MODULE xas_tdp_types
 !> \param eps_range the threshold to determine the effective range of the short range operator
 !> \param ri_radius the radius of the sphere defining the neighbors in the RI projection of the dens
 !> \param tamm_dancoff whether the calculations should be done in the Tamm-Dancoff approximation
+!> \param do_quad whther the electric quadrupole transition moments should be computed
 !> \param list_ex_atoms list of excited atom indices, kept empty if define_excited=by_kind
 !> \param list_ex_kinds list of excited atom kinds, kept empty if define_excited=by_index
 !> \param do_loc whether the core MOs should be localized
@@ -106,6 +107,7 @@ MODULE xas_tdp_types
       LOGICAL                                 :: do_xc
       LOGICAL                                 :: check_only
       LOGICAL                                 :: tamm_dancoff
+      LOGICAL                                 :: do_quad
       LOGICAL                                 :: do_loc
       LOGICAL                                 :: do_uks
       LOGICAL                                 :: do_roks
@@ -149,6 +151,9 @@ MODULE xas_tdp_types
 !>        contracted spherical gaussians. It can either be in the length or the velocity 
 !>        representation. For length representation, it has to be computed once with the origin on 
 !>        each excited atom
+!> \param quadmat the dbcsr matrices containing the electric quadrupole in x2, xy, xz, y2, yz and z2
+!>        directions in the AO basis. It is always in the lenght representation with the origin
+!>        set to the current excited atom
 !> \param ri_o3c_coul the container for the RI 3-center Coulomb integrals (computed once)
 !> \param ri_o3c_ex the container for the RI 3-center exchange integrals (updated for each ex atom)
 !> \param opt_3c_dist2 an optimized distribution_2d for localized 3-center integrals
@@ -182,6 +187,8 @@ MODULE xas_tdp_types
                                     POINTER   :: q_projector
       TYPE(dbcsr_p_type), DIMENSION(:), &
                                     POINTER   :: dipmat
+      TYPE(dbcsr_p_type), DIMENSION(:), &
+                                    POINTER   :: quadmat
       TYPE(cp_2d_r_p_type), DIMENSION(:,:), &
                                     POINTER   :: ri_fxc
       LOGICAL                                 :: fxc_avail
@@ -209,9 +216,10 @@ MODULE xas_tdp_types
 !> \param sg_evals singlet excitation energies => the eigenvalues of the linear response equation
 !> \param tp_evals triplet excitation energies => the eigenvalues of the linear response equation
 !> \param soc_evals excitation energies after inclusion of SOC
-!> \param sc_osc_str oscilaltor strenghts for open-shell spin-conserving excitations
-!> \param sg_osc_str oscillator strengths for the different excitation energies of singlets
-!> \param soc_osc_str oscillator strengths after the inclusion of SOC
+!> \param osc_str dipole oscilaltor strengths
+!> \param soc_osc_str dipole oscillator strengths after the inclusion of SOC
+!> \param quad_osc_str quadrupole oscilaltor strengths
+!> \param soc_quad_osc_str quadrupole oscillator strengths after the inclusion of SOC
 !> \param sc_matrix_tdp the dbcsr matrix to be diagonalized for open-shell spin-conserving calculations
 !> \param sf_matrix_tdp the dbcsr matrix to be diagonalized for open-shell spin-flip calculations
 !> \param sg_matrix_tdp the dbcsr matrix to be diagonalized to solve the problem for singlets
@@ -242,9 +250,10 @@ MODULE xas_tdp_types
       REAL(dp), DIMENSION(:), POINTER         :: sg_evals
       REAL(dp), DIMENSION(:), POINTER         :: tp_evals
       REAL(dp), DIMENSION(:), POINTER         :: soc_evals
-      REAL(dp), DIMENSION(:), POINTER         :: sc_osc_str
-      REAL(dp), DIMENSION(:), POINTER         :: sg_osc_str
+      REAL(dp), DIMENSION(:), POINTER         :: osc_str
       REAL(dp), DIMENSION(:), POINTER         :: soc_osc_str
+      REAL(dp), DIMENSION(:), POINTER         :: quad_osc_str
+      REAL(dp), DIMENSION(:), POINTER         :: soc_quad_osc_str
       TYPE(dbcsr_type), POINTER               :: sc_matrix_tdp
       TYPE(dbcsr_type), POINTER               :: sf_matrix_tdp
       TYPE(dbcsr_type), POINTER               :: sg_matrix_tdp
@@ -340,6 +349,7 @@ CONTAINS
       xas_tdp_control%x_t_c_filename = " "
       xas_tdp_control%check_only = .FALSE.
       xas_tdp_control%tamm_dancoff = .FALSE.
+      xas_tdp_control%do_quad = .FALSE.
       xas_tdp_control%do_loc = .FALSE.
       xas_tdp_control%do_uks = .FALSE.
       xas_tdp_control%do_roks = .FALSE.
@@ -428,6 +438,8 @@ CONTAINS
                                 l_val=xas_tdp_control%do_soc)
 
       CALL section_vals_val_get(xas_tdp_section, "DIPOLE_FORM", i_val=xas_tdp_control%dipole_form)
+
+      CALL section_vals_val_get(xas_tdp_section, "QUADRUPOLE", l_val=xas_tdp_control%do_quad)
 
       CALL section_vals_val_get(xas_tdp_section, "GRID", n_rep_val=nrep)
 
@@ -612,6 +624,7 @@ CONTAINS
       NULLIFY (xas_tdp_env%lumo_evals)
       NULLIFY (xas_tdp_env%q_projector)
       NULLIFY (xas_tdp_env%dipmat)
+      NULLIFY (xas_tdp_env%quadmat)
       NULLIFY (xas_tdp_env%ri_o3c_coul)
       NULLIFY (xas_tdp_env%ri_o3c_ex)
       NULLIFY (xas_tdp_env%ri_fxc)
@@ -692,6 +705,12 @@ CONTAINS
             END DO
             DEALLOCATE(xas_tdp_env%dipmat)
          END IF
+         IF (ASSOCIATED(xas_tdp_env%quadmat)) THEN
+            DO i = 1,SIZE(xas_tdp_env%quadmat)
+               CALL dbcsr_release_p(xas_tdp_env%quadmat(i)%matrix)
+            END DO
+            DEALLOCATE(xas_tdp_env%quadmat)
+         END IF
          IF (ASSOCIATED(xas_tdp_env%ri_o3c_coul)) THEN
             CALL release_o3c_container(xas_tdp_env%ri_o3c_coul)
             DEALLOCATE(xas_tdp_env%ri_o3c_coul)
@@ -766,8 +785,9 @@ CONTAINS
       NULLIFY (donor_state%tp_evals)
       NULLIFY (donor_state%soc_evals)
       NULLIFY (donor_state%soc_osc_str)
-      NULLIFY (donor_state%sc_osc_str)
-      NULLIFY (donor_state%sg_osc_str)
+      NULLIFY (donor_state%osc_str)
+      NULLIFY (donor_state%soc_quad_osc_str)
+      NULLIFY (donor_state%quad_osc_str)
       NULLIFY (donor_state%sc_matrix_tdp)
       NULLIFY (donor_state%sf_matrix_tdp)
       NULLIFY (donor_state%sg_matrix_tdp)
@@ -881,16 +901,20 @@ CONTAINS
                DEALLOCATE(donor_state_set(i)%soc_evals)
             END IF
 
-            IF (ASSOCIATED(donor_state_set(i)%sc_osc_str)) THEN
-               DEALLOCATE(donor_state_set(i)%sc_osc_str)
+            IF (ASSOCIATED(donor_state_set(i)%osc_str)) THEN
+               DEALLOCATE(donor_state_set(i)%osc_str)
             END IF
             
-            IF (ASSOCIATED(donor_state_set(i)%sg_osc_str)) THEN
-               DEALLOCATE(donor_state_set(i)%sg_osc_str)
-            END IF
-
             IF (ASSOCIATED(donor_state_set(i)%soc_osc_str)) THEN
                DEALLOCATE(donor_state_set(i)%soc_osc_str)
+            END IF
+
+            IF (ASSOCIATED(donor_state_set(i)%quad_osc_str)) THEN
+               DEALLOCATE(donor_state_set(i)%quad_osc_str)
+            END IF
+
+            IF (ASSOCIATED(donor_state_set(i)%soc_quad_osc_str)) THEN
+               DEALLOCATE(donor_state_set(i)%soc_quad_osc_str)
             END IF
 
             If (ASSOCIATED(donor_state_set(i)%energy_evals)) THEN
@@ -960,9 +984,10 @@ CONTAINS
       IF (ASSOCIATED(donor_state%sg_evals)) DEALLOCATE(donor_state%sg_evals)
       IF (ASSOCIATED(donor_state%tp_evals)) DEALLOCATE(donor_state%tp_evals)
       IF (ASSOCIATED(donor_state%soc_evals)) DEALLOCATE(donor_state%soc_evals)
-      IF (ASSOCIATED(donor_state%sc_osc_str)) DEALLOCATE(donor_state%sc_osc_str)
-      IF (ASSOCIATED(donor_state%sg_osc_str)) DEALLOCATE(donor_state%sg_osc_str)
+      IF (ASSOCIATED(donor_state%osc_str)) DEALLOCATE(donor_state%osc_str)
       IF (ASSOCIATED(donor_state%soc_osc_str)) DEALLOCATE(donor_state%soc_osc_str)
+      IF (ASSOCIATED(donor_state%quad_osc_str)) DEALLOCATE(donor_state%quad_osc_str)
+      IF (ASSOCIATED(donor_state%soc_quad_osc_str)) DEALLOCATE(donor_state%soc_quad_osc_str)
       IF (ASSOCIATED(donor_state%gs_coeffs)) CALL cp_fm_release(donor_state%gs_coeffs)
 
       IF (ASSOCIATED(donor_state%sc_coeffs)) THEN

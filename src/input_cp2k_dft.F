@@ -7882,7 +7882,7 @@ CONTAINS
                           description="XAS simulations using TDDFPT. Excitation from specified "//&
                           "core orbitals are considered one at a time. In case of high symmetry "//&
                           "structures, donor core orbitals should be localized.", &
-                          n_keywords=9, n_subsections=5, repeats=.FALSE.)
+                          n_keywords=10, n_subsections=5, repeats=.FALSE.)
 
       NULLIFY (keyword, subsection, print_key)
 
@@ -7934,6 +7934,16 @@ CONTAINS
                           enum_desc=s2a("Length form &lang; 0 | e r | n &rang;", &
                                         "Velocity form &lang; 0 | d/dr | n &rang;"), &
                           enum_i_vals=(/xas_dip_len, xas_dip_vel/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, name="QUADRUPOLE", &
+                          variants=s2a("DO_QUADRUPOLE", "DO_QUAD", "QUAD"), &
+                          description="Compute the electric quadrupole contribution to the "// &
+                                      "oscillator strenghts (in the length representation with "// &
+                                      "the origin set on the relevant excited atom)", &
+                          usage="QUADRUPOLE {logical}", &
+                          default_l_val=.FALSE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
