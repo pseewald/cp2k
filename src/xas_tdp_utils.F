@@ -13,7 +13,7 @@ MODULE xas_tdp_utils
    USE atomic_kind_types,               ONLY: atomic_kind_type
    USE basis_set_types,                 ONLY: gto_basis_set_type, get_gto_basis_set, &
                                               gto_basis_set_p_type
-   USE cell_types,                      ONLY: cell_type, real_to_scaled, pbc
+   USE cell_types,                      ONLY: cell_type
    USE constants_operator,              ONLY: operator_coulomb, operator_verfc, operator_truncated
    USE cp_array_utils,                  ONLY: cp_1d_i_p_type
    USE cp_control_types,                ONLY: dft_control_type
@@ -58,7 +58,6 @@ MODULE xas_tdp_utils
    USE distribution_1d_types,           ONLY: distribution_1d_type
    USE distribution_2d_types,           ONLY: distribution_2d_type, distribution_2d_create, &
                                               distribution_2d_release
-   USE distribution_methods,            ONLY: make_basic_spatial_distribution
    USE eri_mme_integrate,               ONLY: eri_mme_2c_integrate
    USE eri_mme_types,                   ONLY: eri_mme_init, eri_mme_release
    USE generic_os_integrals,            ONLY: int_operators_r12_ab_os
@@ -73,25 +72,26 @@ MODULE xas_tdp_utils
    USE kinds,                           ONLY: dp
    USE libint_3center,                  ONLY: eri_3center
    USE mathlib,                         ONLY: invmat_symm, get_diag
-   USE message_passing,                 ONLY: mp_min, mp_max, mp_sync
+   USE message_passing,                 ONLY: mp_min, mp_max, mp_sync, mp_sum
    USE molecule_types,                  ONLY: molecule_type
    USE orbital_pointers,                ONLY: ncoset
    USE particle_types,                  ONLY: particle_type
    USE physcon,                         ONLY: a_fine
    USE qs_environment_types,            ONLY: qs_environment_type, get_qs_env
    USE qs_kind_types,                   ONLY: get_qs_kind, qs_kind_type
+   USE qs_ks_types,                     ONLY: release_sab
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_mo_methods,                   ONLY: calculate_subspace_eigenvalues
    USE qs_mo_types,                     ONLY: get_mo_set, mo_set_p_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type, &
-                                              deallocate_neighbor_list_set
+   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
    USE qs_neighbor_lists,               ONLY: build_neighbor_lists, local_atoms_type, &
                                               pair_radius_setup, atom2d_cleanup, atom2d_build
    USE qs_o3c_methods,                  ONLY: calculate_o3c_libint_integrals, contract3_o3c
    USE qs_o3c_types,                    ONLY: init_o3c_container, get_o3c_container, &
                                               o3c_container_type, o3c_iterate, &
                                               o3c_iterator_create, o3c_iterator_release, &
-                                              o3c_iterator_type, get_o3c_iterator_info
+                                              o3c_iterator_type, get_o3c_iterator_info, &
+                                              release_o3c_container
    USE qs_ot_eigensolver,               ONLY: ot_eigensolver
    USE t_c_g0,                          ONLY: init, get_lmax_init
    USE util,                            ONLY: locate
@@ -1615,7 +1615,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "compute_ri_o3c_coulomb", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: handle, nkind, ilist
+      INTEGER                                         :: handle, nkind
       TYPE(gto_basis_set_p_type), DIMENSION(:), &
                                              POINTER  :: basis_set_ri, basis_set_orb
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
@@ -1636,34 +1636,40 @@ CONTAINS
       CALL basis_set_list_setup(basis_set_ri, "RI_XAS", qs_kind_set)
       CALL basis_set_list_setup(basis_set_orb, "ORB", qs_kind_set)
 
+!  Get the optimized distribution 2d for these integrals (and store it in xas_tdp_env)
+      CALL build_xas_tdp_ovlp_nl(ab_list, basis_set_orb, basis_set_orb, qs_env, &
+                                 excited_atoms=xas_tdp_env%ex_atom_indices)
+      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, do_hfx_potential_id, &
+                               qs_env, excited_atoms=xas_tdp_env%ex_atom_indices)
+      CALL get_opt_3c_dist2d(xas_tdp_env%opt_dist2d_coul, ab_list, ac_list, basis_set_orb, &
+                             basis_set_orb, basis_set_ri, qs_env)
+      CALL release_sab(ab_list)
+      CALL release_sab(ac_list)
+
 !  Build a neighbor list for the ab centers. Assume (aI|c) = sum_b c_bI (ab|c), with c_bI only
 !  non-zero for b centered on the same atom as c => build overlap nl, but only keeping b if centered
 !  on an excited atom
       CALL build_xas_tdp_ovlp_nl(ab_list, basis_set_orb, basis_set_orb, qs_env, &
                                  excited_atoms=xas_tdp_env%ex_atom_indices, &
-                                 ext_dist2d=xas_tdp_env%opt_3c_dist2d)
+                                 ext_dist2d=xas_tdp_env%opt_dist2d_coul)
 
 !  Build a neighbor list for the ac centers. Since we later contract as (aI|c) and we assume I is 
 !  very localized on the same atom as c, we take a,c as neighbors if they overlap
       CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, do_hfx_potential_id, &
                                qs_env, excited_atoms=xas_tdp_env%ex_atom_indices, &
-                               ext_dist2d=xas_tdp_env%opt_3c_dist2d)
+                               ext_dist2d=xas_tdp_env%opt_dist2d_coul)
 
 !  Allocate, init and compute the integrals
       ALLOCATE(xas_tdp_env%ri_o3c_coul)
-      !only one spin needed for copulomb integrals
+      !only one spin needed for coulomb integrals
       CALL init_o3c_container(xas_tdp_env%ri_o3c_coul, 1, basis_set_orb, basis_set_orb, &
                               basis_set_ri, ab_list, ac_list, only_bc_same_center=.TRUE.)
       CALL calculate_o3c_libint_integrals(xas_tdp_env%ri_o3c_coul, op=do_hfx_potential_coulomb)
 
 ! Clean-up
-      DO ilist = 1,SIZE(ab_list)
-         CALL deallocate_neighbor_list_set(ab_list(ilist)%neighbor_list_set)
-      END DO
-      DO ilist = 1,SIZE(ac_list)
-         CALL deallocate_neighbor_list_set(ac_list(ilist)%neighbor_list_set)
-      END DO
-      DEALLOCATE(basis_set_ri, basis_set_orb, ab_list, ac_list)
+      CALL release_sab(ab_list)
+      CALL release_sab(ac_list)
+      DEALLOCATE(basis_set_ri, basis_set_orb)
 
       !not strictly necessary but avoid having any load unbalance here being reported in the 
       !timings for other routines
@@ -1693,21 +1699,21 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "compute_ri_o3c_exchange", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: handle, nkind, ilist
+      INTEGER                                         :: handle, nkind
       INTEGER, DIMENSION(:), ALLOCATABLE              :: exat
       TYPE(gto_basis_set_p_type), DIMENSION(:), &
                                              POINTER  :: basis_set_ri, basis_set_orb
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
-                                             POINTER  :: ac_list, ab_list
+                                             POINTER  :: ac_list, ab_list, sab_orb
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(cp_para_env_type), POINTER                 :: para_env
 
-      NULLIFY(basis_set_ri, basis_set_orb, ac_list, ab_list, qs_kind_set, para_env)
+      NULLIFY(basis_set_ri, basis_set_orb, ac_list, ab_list, qs_kind_set, para_env, sab_orb)
 
       CALL timeset(routineN, handle)
 
 !  Take what we need from the qs_env
-      CALL get_qs_env(qs_env, nkind=nkind, qs_kind_set=qs_kind_set, para_env=para_env)
+      CALL get_qs_env(qs_env, nkind=nkind, qs_kind_set=qs_kind_set, para_env=para_env, sab_orb=sab_orb)
 
 !  Build the basis set lists
       ALLOCATE(basis_set_ri(nkind))
@@ -1715,17 +1721,21 @@ CONTAINS
       CALL basis_set_list_setup(basis_set_ri, "RI_XAS", qs_kind_set)
       CALL basis_set_list_setup(basis_set_orb, "ORB", qs_kind_set)
 
-!  Build a neighbor list for the ab centers. Not the stendard sab_orb because different dist2d
-      CALL build_xas_tdp_ovlp_nl(ab_list, basis_set_orb, basis_set_orb, qs_env, &
-                                 ext_dist2d=xas_tdp_env%opt_3c_dist2d)
-
-!  Build a neighbor list for the ac centers
+!  Get the optimized distribution 2d for theses integrals (and store it in xas_tdp_env)
       ALLOCATE(exat(1))
       exat(1) = ex_atom
-      !note: if operator is Coulomb, then x_range argument will simply be ignored
+      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, xas_tdp_control%x_op, &
+                               qs_env, excited_atoms=exat, x_range=xas_tdp_control%x_range)
+      CALL get_opt_3c_dist2d(xas_tdp_env%opt_dist2d_ex, sab_orb, ac_list, basis_set_orb, &
+                             basis_set_orb, basis_set_ri, qs_env) 
+      CALL release_sab(ac_list)
+
+!  Build the ab and ac centers neighbor lists based on the optimize distribution
+      CALL build_xas_tdp_ovlp_nl(ab_list, basis_set_orb, basis_set_orb, qs_env, &
+                                 ext_dist2d=xas_tdp_env%opt_dist2d_ex)
       CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, xas_tdp_control%x_op, &
                                qs_env, excited_atoms=exat, x_range=xas_tdp_control%x_range, &
-                               ext_dist2d=xas_tdp_env%opt_3c_dist2d)
+                               ext_dist2d=xas_tdp_env%opt_dist2d_ex)
 
 !  Allocate, init and compute the integrals.
       ALLOCATE(xas_tdp_env%ri_o3c_ex)
@@ -1734,16 +1744,13 @@ CONTAINS
       CALL calculate_o3c_libint_integrals(xas_tdp_env%ri_o3c_ex, op=xas_tdp_control%x_op, &
                                           para_env=para_env, r_cutoff=xas_tdp_control%x_range, &
                                           omega=xas_tdp_control%x_omega, &
-                                          t_c_filename=xas_tdp_control%x_t_c_filename)
+                                          t_c_filename=xas_tdp_control%x_t_c_filename, &
+                                          eps_screen=xas_tdp_control%eps_screen)
 
 ! Clean-up
-      DO ilist = 1,SIZE(ac_list)
-         CALL deallocate_neighbor_list_set(ac_list(ilist)%neighbor_list_set)
-      END DO
-      DO ilist = 1,SIZE(ab_list)
-         CALL deallocate_neighbor_list_set(ab_list(ilist)%neighbor_list_set)
-      END DO
-      DEALLOCATE(basis_set_ri, basis_set_orb, ab_list, ac_list)
+      CALL release_sab(ab_list)
+      CALL release_sab(ac_list)
+      DEALLOCATE(basis_set_ri, basis_set_orb)
 
       !not strictly necessary but avoid having any load unbalance here being reported in the 
       !timings for other routines
@@ -1754,59 +1761,128 @@ CONTAINS
    END SUBROUTINE compute_ri_o3c_exchange
 
 ! **************************************************************************************************
-!> \brief Creates a distribution_2d which is such that atoms pairs of neighboring atoms are put
-!>        on different procs in order to optimize the load balance of the o3c_methods (which are
-!>        bad with the usual dist since most integrals are local end they end up on the same proc)
-!> \param xas_tdp_env ...
+!> \brief Returns an optimized distribution_2d for the given neighbor lists based on an evaluation 
+!>        of the cost of the corresponding 3-center integrals 
+!> \param opt_3c_dist2 the optimized distribution_2d
+!> \param ab_list ...
+!> \param ac_lsit ...
+!> \param basis_set_a ...
+!> \param basis_set_b ...
+!> \param basis_set_c ...
 !> \param qs_env ...
-!> \note Adapted from distribution_methods.F
 ! **************************************************************************************************
-   SUBROUTINE get_opt_3c_dist2d(xas_tdp_env, qs_env)
+   SUBROUTINE get_opt_3c_dist2d(opt_3c_dist2d, ab_list, ac_list, basis_set_a, basis_set_b, &
+                                basis_set_c, qs_env)
 
-      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
+      TYPE(distribution_2d_type), POINTER             :: opt_3c_dist2d
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), &
+                                             POINTER  :: ab_list, ac_list
+      TYPE(gto_basis_set_p_type), DIMENSION(:), &
+                                             POINTER  :: basis_set_a, basis_set_b, basis_set_c
       TYPE(qs_environment_type), POINTER              :: qs_env
 
-      CHARACTER(len=*), PARAMETER :: routineN = "get_opt_3c_dist2d", routineP = moduleN//":"//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = "get_opt_3c_dist2d", &
+                                     routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: nprow, npcol, myprow, mypcol, natom, &
-                                                         iatom, ikind, nkind, n, handle
-      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: pbc_scaled_coords
-      INTEGER, DIMENSION(:), ALLOCATABLE              :: costs, nparticle_local_row, &
+      INTEGER                                         :: handle, mepos, iatom, jatom, myprow, &
+                                                         mypcol, nprow, npcol, natom, ip, i, &
+                                                         nkind, ikind, n, jkind, kkind, &
+                                                         nsgfa, nsgfb, nsgfc, nthread
+      REAL(dp)                                        :: cost
+      INTEGER, DIMENSION(:), ALLOCATABLE              :: nparticle_local_row, &
                                                          nparticle_local_col
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: col_cost, row_cost, col_proc_cost, &
+                                                         row_proc_cost
       INTEGER, DIMENSION(:,:), POINTER                :: row_dist, col_dist
+      TYPE(o3c_container_type), POINTER               :: o3c
+      TYPE(o3c_iterator_type)                         :: o3c_iterator
+      TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
-      TYPE(cell_type), POINTER                        :: cell
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(particle_type), DIMENSION(:), POINTER      :: particle_set
       TYPE(cp_1d_i_p_type), DIMENSION(:), POINTER     :: local_particle_col, local_particle_row
 
-      NULLIFY(blacs_env, row_dist, col_dist, cell, qs_kind_set, particle_set, local_particle_col, &
-              local_particle_row)
+      NULLIFY(o3c, para_env, col_dist, row_dist, blacs_env, qs_kind_set, particle_set)
+      NULLIFY(local_particle_col, local_particle_row)
 
       CALL timeset(routineN, handle)
 
-      CALL get_qs_env(qs_env, blacs_env=blacs_env, cell=cell, natom=natom, qs_kind_set=qs_kind_set,&
-                      particle_set=particle_set)
+      !Idea: create an o3c container in the original distribution, loop over it and compute the 
+      !      cost of each ab pairs and project on the col/row. Then distribute the atom col/row to
+      !      the proc col/row in order to spread out the cost as much as possible
+
+      CALL get_qs_env(qs_env, natom=natom, para_env=para_env, blacs_env=blacs_env, &
+                      qs_kind_set=qs_kind_set, particle_set=particle_set)
+
       myprow = blacs_env%mepos(1)+1
       mypcol = blacs_env%mepos(2)+1
       nprow = blacs_env%num_pe(1)
       npcol = blacs_env%num_pe(2)
 
-      ALLOCATE(pbc_scaled_coords(3, natom))
-      ALLOCATE(costs(natom))
+      ALLOCATE(col_cost(natom), row_cost(natom))
+      col_cost = 0.0_dp; row_cost = 0.0_dp
+
       ALLOCATE(row_dist(natom, 2), col_dist(natom, 2))
+      row_dist = 1; col_dist = 1
 
-      DO iatom = 1, natom
-         ikind = particle_set(iatom)%atomic_kind%kind_number
-         CALL get_qs_kind(qs_kind_set(ikind), nsgf=costs(iatom))
+      ALLOCATE(o3c)
+      CALL init_o3c_container(o3c, 1, basis_set_a, basis_set_b, basis_set_c, ab_list, ac_list)
 
-         CALL real_to_scaled(pbc_scaled_coords(:, iatom), pbc(particle_set(iatom)%r(:), cell), cell)
+      nthread = 1
+!$    nthread = omp_get_max_threads()
+      CALL o3c_iterator_create(o3c, o3c_iterator, nthread=nthread)
+
+!$OMP PARALLEL DEFAULT(NONE) &
+!$OMP SHARED (nthread,o3c_iterator,basis_set_a,basis_set_b,basis_set_c,row_cost,col_cost) &
+!$OMP PRIVATE(mepos,iatom,jatom,ikind,jkind,kkind,cost,nsgfa,nsgfb,nsgfc)
+
+      mepos = 0
+!$    mepos = omp_get_thread_num()
+
+      DO WHILE (o3c_iterate(o3c_iterator, mepos=mepos) == 0)
+         CALL get_o3c_iterator_info(o3c_iterator, mepos=mepos, iatom=iatom, jatom=jatom, &
+                                    ikind=ikind, jkind=jkind, kkind=kkind)
+
+         nsgfa = basis_set_a(ikind)%gto_basis_set%nsgf
+         nsgfb = basis_set_b(jkind)%gto_basis_set%nsgf
+         nsgfc = basis_set_c(kkind)%gto_basis_set%nsgf
+
+         !use the size of the integral in terms of sgf as a measure (because contraction dominates
+         ! over the actual integral most of the time)
+         cost = REAL(nsgfa*nsgfb*nsgfc, dp)
+
+!$OMP ATOMIC
+         row_cost(iatom) = row_cost(iatom) + cost
+!$OMP ATOMIC
+         col_cost(jatom) = col_cost(jatom) + cost
 
       END DO
+!$OMP END PARALLEL
+      CALL o3c_iterator_release(o3c_iterator)
+      CALL release_o3c_container(o3c)
+      DEALLOCATE(o3c)
 
-      CALL make_basic_spatial_distribution(pbc_scaled_coords, costs, nprow, row_dist(:,1), npcol, &
-                                           col_dist(:,1), maximize_spread=.TRUE.)
+      CALL mp_sum(row_cost, para_env%group)
+      CALL mp_sum(col_cost, para_env%group)
 
+      !Distribute the cost as evenly as possible
+      ALLOCATE(col_proc_cost(npcol), row_proc_cost(nprow))
+      col_proc_cost = 0.0_dp; row_proc_cost = 0.0_dp
+      DO i = 1, natom
+         iatom = MAXLOC(row_cost, 1)
+         ip = MINLOC(row_proc_cost, 1)
+         row_proc_cost(ip) = row_proc_cost(ip) + row_cost(iatom)
+         row_dist(iatom, 1) = ip
+         row_cost(iatom) = 0.0_dp
+
+         iatom = MAXLOC(col_cost, 1)
+         ip = MINLOC(col_proc_cost, 1)
+         col_proc_cost(ip) = col_proc_cost(ip) + col_cost(iatom)
+         col_dist(iatom, 1) = ip
+         col_cost(iatom) = 0.0_dp
+      END DO
+
+      !the usual stuff
       nkind = SIZE(qs_kind_set)
       ALLOCATE(local_particle_col(nkind), local_particle_row(nkind))
       ALLOCATE(nparticle_local_row(nkind), nparticle_local_col(nkind))
@@ -1844,7 +1920,7 @@ CONTAINS
       !Finally create the dist_2d
       row_dist(:, 1) = row_dist(:, 1)-1
       col_dist(:, 1) = col_dist(:, 1)-1
-      CALL distribution_2d_create(xas_tdp_env%opt_3c_dist2d, row_distribution_ptr=row_dist, &
+      CALL distribution_2d_create(opt_3c_dist2d, row_distribution_ptr=row_dist, &
                                   col_distribution_ptr=col_dist, local_rows_ptr=local_particle_row,&
                                   local_cols_ptr=local_particle_col, blacs_env=blacs_env)
 

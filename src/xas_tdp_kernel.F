@@ -30,6 +30,7 @@ MODULE xas_tdp_kernel
                                               dbcsr_add, dbcsr_reserve_block2d, dbcsr_filter, &
                                               dbcsr_transposed, dbcsr_get_stored_coordinates, &
                                               dbcsr_type_symmetric, dbcsr_distribution_release
+   USE distribution_2d_types,           ONLY: distribution_2d_type
    USE kinds,                           ONLY: dp
    USE input_constants,                 ONLY: xas_tdp_para_grid
    USE message_passing,                 ONLY: mp_bcast, mp_isend, mp_irecv, mp_waitall
@@ -681,7 +682,7 @@ CONTAINS
       REAL(dp), DIMENSION(:), POINTER                 :: v
       REAL(dp), DIMENSION(:,:), POINTER               :: pblock, PQ, aIQ
       TYPE(dbcsr_iterator_type)                       :: iter
-      TYPE(dbcsr_distribution_type)                   :: opt_3c_dist
+      TYPE(dbcsr_distribution_type)                   :: opt_dbcsr_dist
 
       NULLIFY(para_env, matrix_s, ri_blk_size, o3c_vec, v)
       NULLIFY(vec_blk_size, pblock, abIJ, PQ, aIQ)
@@ -711,10 +712,10 @@ CONTAINS
 
       ! a and b need to overlap for non-zero (ab|IJ) => same block structure as overlap S
       ! goes into an o3c routine => need compatible distribution_2d
-      CALL cp_dbcsr_dist2d_to_dist(xas_tdp_env%opt_3c_dist2d, opt_3c_dist)
+      CALL cp_dbcsr_dist2d_to_dist(xas_tdp_env%opt_dist2d_ex, opt_dbcsr_dist)
 
       ALLOCATE(abIJ)
-      CALL dbcsr_create(abIJ, template=matrix_s(1)%matrix, name="(ab|IJ)", dist=opt_3c_dist)
+      CALL dbcsr_create(abIJ, template=matrix_s(1)%matrix, name="(ab|IJ)", dist=opt_dbcsr_dist)
       CALL dbcsr_complete_redistribute(matrix_s(1)%matrix, abIJ)
 
       CALL dbcsr_create(abIJ_desymm_std_dist, template=matrix_s(1)%matrix, matrix_type="N")
@@ -798,7 +799,7 @@ CONTAINS
       CALL dbcsr_release(work_mat)
       CALL dbcsr_release(abIJ)
       CALL o3c_vec_release(o3c_vec)
-      CALL dbcsr_distribution_release(opt_3c_dist)
+      CALL dbcsr_distribution_release(opt_dbcsr_dist)
       CALL dbcsr_release(abIJ_desymm_std_dist)
       DEALLOCATE(o3c_vec, vec_blk_size, abIJ)
 
@@ -924,16 +925,17 @@ CONTAINS
       TYPE(dbcsr_type), POINTER                       :: aI_P, P_Ib, work1, work2, work3
       CHARACTER                                       :: my_op
       INTEGER, DIMENSION(:), POINTER                  :: std_blk_size, ri_blk_size
-      TYPE(dbcsr_distribution_type)                   :: opt_3c_dist
+      TYPE(dbcsr_distribution_type)                   :: opt_dbcsr_dist
       TYPE(qs_kind_type), DIMENSION(:), POINTER       :: qs_kind_set
       TYPE(gto_basis_set_type), POINTER               :: ri_basis
       REAL(dp), DIMENSION(:,:), POINTER               :: coeffs
       TYPE(o3c_container_type), POINTER               :: o3c_coul, o3c_ex
       LOGICAL                                         :: do_uks
       TYPE(cp_para_env_type), POINTER                 :: para_env
+      TYPE(distribution_2d_type), POINTER             :: opt_dist2d
 
       NULLIFY(matrix_s, std_blk_size, ri_blk_size, qs_kind_set, ri_basis)
-      NULLIFY(aI_P, P_Ib, work1, work2, matrices, coeffs)
+      NULLIFY(aI_P, P_Ib, work1, work2, matrices, coeffs, opt_dist2d)
 
       CALL timeset(routineN, handle)
 
@@ -945,10 +947,12 @@ CONTAINS
       !by default contract for Coulomb
       my_op = "C"
       o3c_coul => xas_tdp_env%ri_o3c_coul
+      opt_dist2d => xas_tdp_env%opt_dist2d_coul
       IF (op_type == "EXCHANGE") THEN
          my_op = "E"
          CPASSERT(ASSOCIATED(xas_tdp_env%ri_o3c_ex))
          o3c_ex => xas_tdp_env%ri_o3c_ex
+         opt_dist2d => xas_tdp_env%opt_dist2d_ex
       END IF
       do_uks = xas_tdp_control%do_uks
       nspins = 1; IF (do_uks) nspins = 2
@@ -965,18 +969,18 @@ CONTAINS
 !  Create  work matrices. They must have the block distribution of a symmetric matric to enter the 
 !  o3c routines. HACK => create a symmetric matrix with non-symmetric block size (aI_P, P_Ib)
 !  Also create their normal matrix conterparts (work1, work2)
-!  Everything that goes into a o3c routine must be compatible with xas_tdp_env%opt_3c_dist2d
-      CALL cp_dbcsr_dist2d_to_dist(xas_tdp_env%opt_3c_dist2d, opt_3c_dist)
+!  Everything that goes into a o3c routine must be compatible with the optimal dist_2d
+      CALL cp_dbcsr_dist2d_to_dist(opt_dist2d, opt_dbcsr_dist)
 
       ALLOCATE(aI_P, P_Ib, work1, work2, work3, matrices(2))
-      CALL dbcsr_create(aI_P, dist=opt_3c_dist, matrix_type="S", name="(aI|P)", &
+      CALL dbcsr_create(aI_P, dist=opt_dbcsr_dist, matrix_type="S", name="(aI|P)", &
                         row_blk_size=std_blk_size, col_blk_size=ri_blk_size)
-      CALL dbcsr_create(work1, dist=opt_3c_dist, matrix_type="N", name="WORK 1", &
+      CALL dbcsr_create(work1, dist=opt_dbcsr_dist, matrix_type="N", name="WORK 1", &
                         row_blk_size=std_blk_size, col_blk_size=ri_blk_size)
 
-      CALL dbcsr_create(P_Ib, dist=opt_3c_dist, matrix_type="S", name="(P|Ib)", &
+      CALL dbcsr_create(P_Ib, dist=opt_dbcsr_dist, matrix_type="S", name="(P|Ib)", &
                         row_blk_size=ri_blk_size, col_blk_size=std_blk_size)
-      CALL dbcsr_create(work2, dist=opt_3c_dist, matrix_type="N", name="WORK 2", &
+      CALL dbcsr_create(work2, dist=opt_dbcsr_dist, matrix_type="N", name="WORK 2", &
                         row_blk_size=ri_blk_size, col_blk_size=std_blk_size)
 
       !reserve the blocks (needed for o3c routines)
@@ -1028,7 +1032,7 @@ CONTAINS
       CALL dbcsr_release(P_Ib)
       CALL dbcsr_release(work1)
       CALL dbcsr_release(work2)
-      CALL dbcsr_distribution_release(opt_3c_dist)
+      CALL dbcsr_distribution_release(opt_dbcsr_dist)
       DEALLOCATE(ri_blk_size, aI_P, P_Ib, work1, work2, work3)
 
       CALL timestop(handle)

@@ -120,8 +120,7 @@ MODULE xas_tdp_methods
                                               include_rcs_soc, &
                                               include_os_soc, &
                                               compute_ri_o3c_coulomb, &
-                                              compute_ri_o3c_exchange, &
-                                              get_opt_3c_dist2d
+                                              compute_ri_o3c_exchange
    USE xc_derivatives,                  ONLY: xc_functional_get_info
    USE xc_libxc,                        ONLY: libxc_version_info
 
@@ -715,9 +714,6 @@ CONTAINS
 
 !  Initialize libint for the 3-center integrals
       CALL cp_libint_static_init()
-
-!  Compute the optimized distribution_2d for the 3-center inegrals
-      CALL get_opt_3c_dist2d(xas_tdp_env, qs_env)
 
    END SUBROUTINE xas_tdp_init
 

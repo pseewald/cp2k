@@ -99,6 +99,7 @@ MODULE xas_tdp_types
       REAL(dp)                                :: x_range
       REAL(dp)                                :: x_omega
       REAL(dp)                                :: eps_range
+      REAL(dp)                                :: eps_screen
       INTEGER                                 :: x_op
       CHARACTER(len=default_string_length)    :: x_t_c_filename
       REAL(dp)                                :: ri_radius
@@ -156,7 +157,8 @@ MODULE xas_tdp_types
 !>        set to the current excited atom
 !> \param ri_o3c_coul the container for the RI 3-center Coulomb integrals (computed once)
 !> \param ri_o3c_ex the container for the RI 3-center exchange integrals (updated for each ex atom)
-!> \param opt_3c_dist2 an optimized distribution_2d for localized 3-center integrals
+!> \param opt_dist2d_coul an optimized distribution_2d for localized Coulomb 3-center integrals
+!> \param opt_dist2d_ex an optimized distribution_2d for localized exchange 3-center integrals
 !> \param ri_fxc the array of xc integrals of type (P|fxc|Q), for alpha-alpha, alpha-beta and beta-beta
 !> \param fxc_avail a boolean telling whwther fxc is availavle on all procs
 !> \param orb_soc the matrix where the SOC is evaluated wrt the orbital basis set, for x,y,z
@@ -182,7 +184,8 @@ MODULE xas_tdp_types
       TYPE(qs_loc_env_new_type), POINTER      :: qs_loc_env
       REAL(dp), DIMENSION(:,:), POINTER       :: ri_inv_coul
       REAL(dp), DIMENSION(:,:), POINTER       :: ri_inv_ex
-      TYPE(distribution_2d_type), POINTER     :: opt_3c_dist2d
+      TYPE(distribution_2d_type), POINTER     :: opt_dist2d_coul
+      TYPE(distribution_2d_type), POINTER     :: opt_dist2d_ex
       TYPE(dbcsr_p_type), DIMENSION(:), &
                                     POINTER   :: q_projector
       TYPE(dbcsr_p_type), DIMENSION(:), &
@@ -344,6 +347,7 @@ CONTAINS
       xas_tdp_control%x_range = 0.0_dp
       xas_tdp_control%x_omega = 0.0_dp
       xas_tdp_control%eps_range = 1.0E-6_dp
+      xas_tdp_control%eps_screen = 1.0E-10_dp
       xas_tdp_control%ri_radius = 0.0_dp
       xas_tdp_control%x_op = do_hfx_potential_coulomb
       xas_tdp_control%x_t_c_filename = " "
@@ -565,6 +569,9 @@ CONTAINS
             CALL erfc_cutoff(xas_tdp_control%eps_range, xas_tdp_control%x_omega, xas_tdp_control%x_range)
 
          END IF
+
+         CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%EPS_SCREENING", &
+                                   r_val=xas_tdp_control%eps_screen)
       END IF
 
       IF ((.NOT. xas_tdp_control%do_xc) .AND. (.NOT. xas_tdp_control%do_hfx)) THEN
@@ -619,7 +626,8 @@ CONTAINS
       NULLIFY (xas_tdp_env%mos_of_ex_atoms)
       NULLIFY (xas_tdp_env%ri_inv_coul)
       NULLIFY (xas_tdp_env%ri_inv_ex)
-      NULLIFY (xas_tdp_env%opt_3c_dist2d)
+      NULLIFY (xas_tdp_env%opt_dist2d_coul)
+      NULLIFY (xas_tdp_env%opt_dist2d_ex)
       NULLIFY (xas_tdp_env%lumo_guess)
       NULLIFY (xas_tdp_env%lumo_evals)
       NULLIFY (xas_tdp_env%q_projector)
@@ -676,8 +684,11 @@ CONTAINS
          IF (ASSOCIATED(xas_tdp_env%ri_inv_ex)) THEN
             DEALLOCATE(xas_tdp_env%ri_inv_ex)
          END IF
-         IF (ASSOCIATED(xas_tdp_env%opt_3c_dist2d)) THEN
-            CALL distribution_2d_release(xas_tdp_env%opt_3c_dist2d)
+         IF (ASSOCIATED(xas_tdp_env%opt_dist2d_coul)) THEN
+            CALL distribution_2d_release(xas_tdp_env%opt_dist2d_coul)
+         END IF
+         IF (ASSOCIATED(xas_tdp_env%opt_dist2d_ex)) THEN
+            CALL distribution_2d_release(xas_tdp_env%opt_dist2d_ex)
          END IF
          IF (ASSOCIATED(xas_tdp_env%lumo_guess)) THEN
             DO i = 1,SIZE(xas_tdp_env%lumo_guess)
@@ -1249,6 +1260,11 @@ CONTAINS
                DEALLOCATE(xas_tdp_env%ri_fxc(atom,i)%array) 
             END IF
          END DO
+      END IF
+
+      !because we compute the exchange integrals for each excited atom
+      IF (ASSOCIATED(xas_tdp_env%opt_dist2d_ex)) THEN
+         CALL distribution_2d_release(xas_tdp_env%opt_dist2d_ex)
       END IF
 
       xas_tdp_env%fxc_avail = .FALSE.
