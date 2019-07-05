@@ -238,14 +238,10 @@ MODULE xas_tdp_types
       INTEGER                                 :: state_type
       REAL(dp), DIMENSION(:,:), POINTER       :: energy_evals
       INTEGER, DIMENSION(:,:), POINTER        :: mo_indices
-      TYPE(cp_fm_p_type), DIMENSION(:), &
-                                    POINTER   :: sc_coeffs
-      TYPE(cp_fm_p_type), DIMENSION(:), &
-                                    POINTER   :: sf_coeffs
-      TYPE(cp_fm_p_type), DIMENSION(:), &
-                                    POINTER   :: sg_coeffs
-      TYPE(cp_fm_p_type), DIMENSION(:), &
-                                    POINTER   :: tp_coeffs
+      TYPE(cp_fm_type), POINTER               :: sc_coeffs
+      TYPE(cp_fm_type), POINTER               :: sf_coeffs
+      TYPE(cp_fm_type), POINTER               :: sg_coeffs
+      TYPE(cp_fm_type), POINTER               :: tp_coeffs
       TYPE(cp_fm_type), POINTER               :: gs_coeffs
       REAL(dp), DIMENSION(:,:), POINTER       :: contract_coeffs
       REAL(dp), DIMENSION(:), POINTER         :: sc_evals
@@ -849,39 +845,19 @@ CONTAINS
          DO i = 1,SIZE(donor_state_set)
 
             IF (ASSOCIATED(donor_state_set(i)%sc_coeffs)) THEN
-               DO j = 1,SIZE(donor_state_set(i)%sc_coeffs)
-                  IF(ASSOCIATED(donor_state_set(i)%sc_coeffs(j)%matrix)) THEN
-                     CALL cp_fm_release(donor_state_set(i)%sc_coeffs(j)%matrix)
-                  END IF
-               END DO
-               DEALLOCATE(donor_state_set(i)%sc_coeffs)
+               CALL cp_fm_release(donor_state_set(i)%sc_coeffs)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%sf_coeffs)) THEN
-               DO j = 1,SIZE(donor_state_set(i)%sf_coeffs)
-                  IF(ASSOCIATED(donor_state_set(i)%sf_coeffs(j)%matrix)) THEN
-                     CALL cp_fm_release(donor_state_set(i)%sf_coeffs(j)%matrix)
-                  END IF
-               END DO
-               DEALLOCATE(donor_state_set(i)%sf_coeffs)
+               CALL cp_fm_release(donor_state_set(i)%sf_coeffs)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%sg_coeffs)) THEN
-               DO j = 1,SIZE(donor_state_set(i)%sg_coeffs)
-                  IF(ASSOCIATED(donor_state_set(i)%sg_coeffs(j)%matrix)) THEN
-                     CALL cp_fm_release(donor_state_set(i)%sg_coeffs(j)%matrix)
-                  END IF
-               END DO
-               DEALLOCATE(donor_state_set(i)%sg_coeffs)
+               CALL cp_fm_release(donor_state_set(i)%sg_coeffs)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%tp_coeffs)) THEN
-               DO j = 1,SIZE(donor_state_set(i)%tp_coeffs)
-                  IF(ASSOCIATED(donor_state_set(i)%tp_coeffs(j)%matrix)) THEN
-                     CALL cp_fm_release(donor_state_set(i)%tp_coeffs(j)%matrix)
-                  END IF
-               END DO
-               DEALLOCATE(donor_state_set(i)%tp_coeffs)
+               CALL cp_fm_release(donor_state_set(i)%tp_coeffs)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%gs_coeffs)) THEN
@@ -1002,31 +978,19 @@ CONTAINS
       IF (ASSOCIATED(donor_state%gs_coeffs)) CALL cp_fm_release(donor_state%gs_coeffs)
 
       IF (ASSOCIATED(donor_state%sc_coeffs)) THEN
-         DO i = 1,SIZE(donor_state%sc_coeffs)
-            CALL cp_fm_release(donor_state%sc_coeffs(i)%matrix)
-         END DO
-         DEALLOCATE(donor_state%sc_coeffs)
+         CALL cp_fm_release(donor_state%sc_coeffs)
       END IF
 
       IF (ASSOCIATED(donor_state%sf_coeffs)) THEN
-         DO i = 1,SIZE(donor_state%sf_coeffs)
-            CALL cp_fm_release(donor_state%sf_coeffs(i)%matrix)
-         END DO
-         DEALLOCATE(donor_state%sf_coeffs)
+         CALL cp_fm_release(donor_state%sf_coeffs)
       END IF
 
       IF (ASSOCIATED(donor_state%sg_coeffs)) THEN
-         DO i = 1,SIZE(donor_state%sg_coeffs)
-            CALL cp_fm_release(donor_state%sg_coeffs(i)%matrix)
-         END DO
-         DEALLOCATE(donor_state%sg_coeffs)
+         CALL cp_fm_release(donor_state%sg_coeffs)
       END IF   
 
       IF (ASSOCIATED(donor_state%tp_coeffs)) THEN
-         DO i = 1,SIZE(donor_state%tp_coeffs)
-            CALL cp_fm_release(donor_state%tp_coeffs(i)%matrix)
-         END DO
-         DEALLOCATE(donor_state%tp_coeffs)
+         CALL cp_fm_release(donor_state%tp_coeffs)
       END IF
 
       IF (ASSOCIATED(donor_state%sc_matrix_tdp)) THEN

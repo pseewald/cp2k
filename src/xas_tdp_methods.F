@@ -1,4 +1,4 @@
-!, unique------------------------------------------------------------------------------------------------!
+!--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
 !   Copyright (C) 2000 - 2017  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
@@ -26,7 +26,7 @@ MODULE xas_tdp_methods
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply, copy_dbcsr_to_fm, &
                                               copy_fm_to_dbcsr
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver, cp_fm_geeig
+   USE cp_fm_diag,                      ONLY: cp_fm_geeig, cp_fm_syevd
    USE cp_fm_struct,                    ONLY: cp_fm_struct_type, cp_fm_struct_create,&
                                               cp_fm_struct_release
    USE cp_fm_types,                     ONLY: cp_fm_type, cp_fm_get_submatrix, cp_fm_create,&
@@ -62,6 +62,7 @@ MODULE xas_tdp_methods
                                               section_vals_get_subs_vals2
    USE kinds,                           ONLY: dp, default_string_length
    USE machine,                         ONLY: m_flush
+   USE mathlib,                         ONLY: get_diag
    USE memory_utilities,                ONLY: reallocate
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
@@ -246,7 +247,7 @@ CONTAINS
 !  Also needed if SOC is included. Done before looping on atoms as it's all done at once
       IF ((xas_tdp_control%do_xc .OR. xas_tdp_control%do_soc) .AND. .NOT. xas_tdp_control%check_only) THEN
 
-         IF (output_unit > 0) THEN
+         IF (output_unit > 0 .AND. xas_tdp_control%do_xc) THEN
             WRITE(UNIT=output_unit, FMT="(/,T3,A,I4,A)") &
                "# Integrating the xc kernel on the atomic grids ..."
             CALL m_flush(output_unit)
@@ -1200,7 +1201,7 @@ CONTAINS
          
          ! Diagonalizing the KS matrix in the subset of MOs
             ALLOCATE(evals(nlmo))
-            CALL choose_eigv_solver(ks_fm, evecs, evals)
+            CALL cp_fm_syevd(ks_fm, evecs, evals)
             DEALLOCATE(evals)
 
          ! Express the MOs in the basis that diagonalizes KS
@@ -1982,18 +1983,18 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = "compute_dipole_fosc", &
                                      routineP = moduleN//":"//routineN
 
-      INTEGER                                         :: nosc, iosc, ndo_mo, j, nao, nspins, ispin,&
-                                                         ndo_so, is, handle
+      INTEGER                                         :: nosc, iosc, ndo_mo, j, nao, nspins,&
+                                                         ndo_so, handle, ngs
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: dipmat
-      TYPE(cp_fm_type), POINTER                       :: mat_work, lr_coeffs
-      TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: col_work
+      TYPE(cp_fm_type), POINTER                       :: mat_work, lr_coeffs, col_work
       TYPE(cp_fm_struct_type), POINTER                :: col_struct, mat_struct
-      REAL(dp), DIMENSION(:), ALLOCATABLE             :: diag, tot_contr
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: tot_contr
       REAL(dp), DIMENSION(:), POINTER                 :: lr_evals, osc_str
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
-      REAL(dp)                                        :: dip_mom, pref
+      REAL(dp)                                        :: pref
       LOGICAL                                         :: do_sg, do_sc
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: dip_block
 
       NULLIFY(dipmat, col_work, mat_work, col_struct, mat_struct, para_env, blacs_env, lr_coeffs)
       NULLIFY(lr_evals, osc_str)
@@ -2006,89 +2007,75 @@ CONTAINS
       IF (do_sc) THEN
          nspins = 2
          lr_evals => donor_state%sc_evals
+         lr_coeffs => donor_state%sc_coeffs
       ELSE IF (do_sg) THEN
          nspins = 1
          lr_evals => donor_state%sg_evals
+         lr_coeffs => donor_state%sg_coeffs
       ELSE
          CPABORT("Dipole oscilaltor strength only for singlets and spin-conserving excitations.")
       END IF
       ndo_mo = donor_state%ndo_mo
       ndo_so = ndo_mo*nspins
+      ngs = ndo_so; IF (xas_tdp_control%do_roks) ngs = ndo_mo !in ROKS, same gs coeffs 
       nosc = SIZE(lr_evals)
       ALLOCATE(donor_state%osc_str(nosc))
       osc_str => donor_state%osc_str
-
+      osc_str = 0.0_dp
       dipmat => xas_tdp_env%dipmat
-      !compute the prefactor
-      IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
-         osc_str(:) = 2.0_dp/3.0_dp*lr_evals(:)
-      ELSE
-         osc_str(:) = 2.0_dp/3.0_dp/lr_evals(:)
-      END IF
-
+ 
       ! do some work matrix initialization
       CALL cp_fm_get_info(donor_state%gs_coeffs, matrix_struct=col_struct, para_env=para_env, &
                           context=blacs_env, nrow_global=nao)
       CALL cp_fm_struct_create(mat_struct, para_env=para_env, context=blacs_env, &
-                               nrow_global=ndo_mo, ncol_global=ndo_mo)
+                               nrow_global=ndo_so*nosc, ncol_global=ngs)
       CALL cp_fm_create(mat_work, mat_struct)
-      ALLOCATE(col_work(3))
-      DO j = 1,3
-         CALL cp_fm_create(col_work(j)%matrix, col_struct)
-         ! get the product dipmat * c^0 for both spins (first columns for alpha)
-         CALL cp_dbcsr_sm_fm_multiply(dipmat(j)%matrix, donor_state%gs_coeffs, col_work(j)%matrix, &
-                                      ncol=ndo_so)
-      END DO
+      CALL cp_fm_create(col_work, col_struct)
 
-      ALLOCATE(diag(ndo_mo), tot_contr(ndo_mo))
-      tot_contr = 0.0_dp
+      ALLOCATE(tot_contr(ndo_mo), dip_block(ndo_so, ngs))
       pref = 2.0_dp; IF (do_sc) pref = 1.0_dp !because of singlet definition u = 1/sqrt(2)(c_a+c_b)
-    
-!  Looping over the excited singlets
-      DO iosc = 1,nosc
-            
-         dip_mom = 0.0_dp
-         IF (do_sc) THEN
-            lr_coeffs => donor_state%sc_coeffs(iosc)%matrix
-         ELSE
-            lr_coeffs => donor_state%sg_coeffs(iosc)%matrix
-         END IF
 
-         !looping over the cartesian coordinates
-         DO j = 1,3
+!  Looping over cartesian coord
+      DO j = 1, 3
+
+         !Compute dip*gs_coeffs
+         CALL cp_dbcsr_sm_fm_multiply(dipmat(j)%matrix, donor_state%gs_coeffs, col_work, ncol=ngs)
+         !compute lr_coeffs*dip*gs_coeffs
+         CALL cp_gemm('T', 'N', ndo_so*nosc, ngs, nao, 1.0_dp, lr_coeffs, col_work, 0.0_dp, mat_work)
+
+         !Loop over the excited states
+         DO iosc = 1, nosc
 
             tot_contr = 0.0_dp
-            DO ispin = 1,nspins
-               is = ispin
-               IF (.NOT. xas_tdp_control%do_roks) is = 1 !only have alpha MOs
+            CALL cp_fm_get_submatrix(fm=mat_work, target_m=dip_block, start_row=(iosc-1)*ndo_so+1, &
+                                  start_col=1, n_rows=ndo_so, n_cols=ngs)
+            IF (do_sg) THEN
+               tot_contr(:) = get_diag(dip_block) 
+            ELSE IF (do_sc .AND. xas_tdp_control%do_uks) THEN
+               tot_contr(:) = get_diag(dip_block(1:ndo_mo,1:ndo_mo))  !alpha
+               tot_contr(:) = tot_contr(:) + get_diag(dip_block(ndo_mo+1:ndo_so, ndo_mo+1:ndo_so)) !beta
+            ELSE 
+               !roks
+               tot_contr(:) = get_diag(dip_block(1:ndo_mo,:))  !alpha
+               tot_contr(:) = tot_contr(:) + get_diag(dip_block(ndo_mo+1:ndo_so,:)) !beta
+            END IF
 
-               !computing c^i * dipmat(j) * c^0
-               CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, lr_coeffs, col_work(j)%matrix, &
-                            0.0_dp, mat_work, a_first_col=(ispin-1)*ndo_mo+1, & 
-                            b_first_col=(is-1)*ndo_mo+1)
+            osc_str(iosc) = osc_str(iosc) + SUM(tot_contr)**2
 
-               CALL cp_fm_get_diag(mat_work, diag)
-               tot_contr(:) = tot_contr(:) + diag(:)
+         END DO!iosc
+      END DO !j
 
-            END DO !ispin
-
-            !get the sum of the dipole moments. 
-            dip_mom = dip_mom + pref*SUM(tot_contr)**2
-
-         END DO !j
-            
-         !Taking the excitation energy into account
-         osc_str(iosc) = osc_str(iosc)*dip_mom
-
-      END DO !iosc
+      !compute the prefactor
+      IF (xas_tdp_control%dipole_form == xas_dip_len) THEN
+         osc_str(:) = pref*2.0_dp/3.0_dp*lr_evals(:)*osc_str(:)
+      ELSE
+         osc_str(:) = pref*2.0_dp/3.0_dp/lr_evals(:)*osc_str(:)
+      END IF
 
       !clean-up
       CALL cp_fm_release(mat_work)
+      CALL cp_fm_release(col_work)
       CALL cp_fm_struct_release(mat_struct)
-      DO j = 1,3
-         CALL cp_fm_release(col_work(j)%matrix)
-      END DO
-      DEALLOCATE(diag, col_work)
 
       CALL timestop(handle)
 
@@ -2112,17 +2099,17 @@ CONTAINS
                                      routineP = moduleN//":"//routineN
 
       INTEGER                                         :: handle, nspins, ndo_mo, ndo_so, nosc, &
-                                                         nao, j, iosc, ispin, is
+                                                         nao, j, iosc, ngs
       LOGICAL                                         :: do_sc, do_sg
       REAL(dp), DIMENSION(:), POINTER                 :: lr_evals, osc_str
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER       :: quadmat
-      TYPE(cp_fm_type), POINTER                       :: mat_work, lr_coeffs
-      TYPE(cp_fm_p_type), DIMENSION(:), POINTER       :: col_work
+      TYPE(cp_fm_type), POINTER                       :: mat_work, lr_coeffs, col_work
       TYPE(cp_fm_struct_type), POINTER                :: col_struct, mat_struct
       TYPE(cp_para_env_type), POINTER                 :: para_env
       TYPE(cp_blacs_env_type), POINTER                :: blacs_env
-      REAL(dp)                                        :: moment, trace, pref
-      REAL(dp), DIMENSION(:), ALLOCATABLE             :: diag, tot_contr
+      REAL(dp)                                        :: pref
+      REAL(dp), DIMENSION(:), ALLOCATABLE             :: tot_contr, trace
+      REAL(dp), DIMENSION(:,:), ALLOCATABLE           :: quad_block
 
       NULLIFY(lr_evals, osc_str, mat_work, lr_coeffs, col_work, col_struct, mat_struct, para_env)
       NULLIFY(blacs_env)
@@ -2135,92 +2122,82 @@ CONTAINS
       IF (do_sc) THEN
          nspins = 2
          lr_evals => donor_state%sc_evals
+         lr_coeffs => donor_state%sc_coeffs
       ELSE IF (do_sg) THEN
          nspins = 1
          lr_evals => donor_state%sg_evals
+         lr_coeffs => donor_state%sg_coeffs
       ELSE
          CPABORT("Quadrupole oscillator strengths only for singlet and spin-conserving excitations")
       END IF
       ndo_mo = donor_state%ndo_mo
       ndo_so = ndo_mo*nspins
+      ngs = ndo_so; IF (xas_tdp_control%do_roks) ngs = ndo_mo !only alpha do_mo in ROKS
       nosc = SIZE(lr_evals)
       ALLOCATE(donor_state%quad_osc_str(nosc))
       osc_str => donor_state%quad_osc_str
-      quadmat => xas_tdp_env%quadmat
-
-      !compute the prefactor
-      osc_str(:) = 1.0_dp/20.0_dp * a_fine**2 * lr_evals(:)**3
+      osc_str = 0.0_dp
+      quadmat => xas_tdp_env%quadmat 
 
       !work matrices init
       CALL cp_fm_get_info(donor_state%gs_coeffs, matrix_struct=col_struct, para_env=para_env, &
                           context=blacs_env, nrow_global=nao)
       CALL cp_fm_struct_create(mat_struct, para_env=para_env, context=blacs_env, &
-                               nrow_global=ndo_mo, ncol_global=ndo_mo)
+                               nrow_global=ndo_so*nosc, ncol_global=ngs)
       CALL cp_fm_create(mat_work, mat_struct)
-      ALLOCATE(col_work(6))
-      DO j = 1, 6
-         CALL cp_fm_create(col_work(j)%matrix, col_struct)
-         !precompute the product quadmat* c^0 for both spins
-         CALL cp_dbcsr_sm_fm_multiply(quadmat(j)%matrix, donor_state%gs_coeffs, col_work(j)%matrix, &
-                                      ncol=ndo_so)
-      END DO
+      CALL cp_fm_create(col_work, col_struct)
 
-      ALLOCATE(diag(ndo_mo), tot_contr(ndo_mo))
-      tot_contr = 0.0_dp
+      ALLOCATE(quad_block(ndo_so, ngs), tot_contr(ndo_mo))
       pref = 2.0_dp; IF(do_sc) pref = 1.0_dp !because of singlet definition u = 1/sqrt(2)*...
+      ALLOCATE(trace(nosc))
+      trace = 0.0_dp
 
-      !Loop over the excited states and compute
-      DO iosc = 1, nosc
+      !Loop over the cartesioan coord :x2, xy, xz, y2, yz, z2
+      DO j = 1, 6
 
-         IF (do_sc) THEN
-            lr_coeffs => donor_state%sc_coeffs(iosc)%matrix
-         ELSE
-            lr_coeffs => donor_state%sg_coeffs(iosc)%matrix
-         END IF
-         moment = 0.0_dp
-         trace = 0.0_dp
+         !Compute quad*gs_coeffs
+         CALL cp_dbcsr_sm_fm_multiply(quadmat(j)%matrix, donor_state%gs_coeffs, col_work, ncol=ngs)
+         !compute lr_coeffs*quadmat*gs_coeffs
+         CALL cp_gemm('T', 'N', ndo_so*nosc, ngs, nao, 1.0_dp, lr_coeffs, col_work, 0.0_dp, mat_work)
 
-         !loop over the coordinates. In order: x2, xy, xz, y2, yz, z2
-         DO j = 1, 6
+         !Loop over the excited states
+         DO iosc = 1, nosc
 
             tot_contr = 0.0_dp
-            DO ispin = 1, nspins
-               is = ispin
-               IF (xas_tdp_control%do_roks) is = 1 !only alpha MOs
+            CALL cp_fm_get_submatrix(fm=mat_work, target_m=quad_block, start_row=(iosc-1)*ndo_so+1, &
+                                     start_col=1, n_rows=ndo_so, n_cols=ngs)
 
-               !computing c^i * quadmat(j) * c^0
-               CALL cp_gemm('T', 'N', ndo_mo, ndo_mo, nao, 1.0_dp, lr_coeffs, col_work(j)%matrix, &
-                            0.0_dp, mat_work, a_first_col=(ispin-1)*ndo_mo+1, &
-                            b_first_col=(is-1)*ndo_mo+1)
-
-               CALL cp_fm_get_diag(mat_work, diag)
-               tot_contr(:) = tot_contr(:) + diag(:)
-
-            END DO !ispin
+            IF (do_sg) THEN
+               tot_contr(:) = get_diag(quad_block) 
+            ELSE IF (do_sc .AND. xas_tdp_control%do_uks) THEN
+               tot_contr(:) = get_diag(quad_block(1:ndo_mo,1:ndo_mo))  !alpha
+               tot_contr(:) = tot_contr(:) + get_diag(quad_block(ndo_mo+1:ndo_so, ndo_mo+1:ndo_so)) !beta
+            ELSE 
+               !roks
+               tot_contr(:) = get_diag(quad_block(1:ndo_mo,:))  !alpha
+               tot_contr(:) = tot_contr(:) + get_diag(quad_block(ndo_mo+1:ndo_so,:)) !beta
+            END IF
 
             !if x2, y2, or z2 direction, need to update the trace (for later)
             IF (j==1 .OR. j==4 .OR. j==6) THEN
-               moment = moment + SUM(tot_contr)**2
-               trace = trace + SUM(tot_contr)
+               osc_str(iosc) = osc_str(iosc) + SUM(tot_contr)**2
+               trace(iosc) = trace(iosc) + SUM(tot_contr)
 
             !if xy, xz or yz, need to count twice the contribution (for yx, zx and zy)
             ELSE
-               moment = moment + 2.0_dp*SUM(tot_contr)**2
+               osc_str(iosc) = osc_str(iosc) + 2.0_dp*SUM(tot_contr)**2
             END IF
-         END DO !j
 
-         !remove a third of the trace and store
-         moment = moment - 1.0_dp/3.0_dp * trace**2
-         osc_str(iosc) = pref*osc_str(iosc)*moment
-      END DO !iosc
+         END DO !iosc
+      END DO !j
+
+      !compute the prefactor, and remove 1/3*trace^2
+      osc_str(:) = pref*1._dp/20._dp * a_fine**2 * lr_evals(:)**3 * (osc_str(:)-1._dp/3._dp*trace(:)**2)
 
       !clean-up
       CALL cp_fm_release(mat_work)
+      CALL cp_fm_release(col_work)
       CALL cp_fm_struct_release(mat_struct)
-      DO j = 1, 6
-         CALL cp_fm_release(col_work(j)%matrix)
-      END DO
-      DEALLOCATE(diag, col_work)
 
       CALL timestop(handle)
 
