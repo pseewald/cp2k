@@ -58,6 +58,7 @@ MODULE xas_tdp_types
 !> \param check_only whether a check run for donor MOs and LUMOs guesses is conducted
 !> \param do_hfx whether exact exchange is included
 !> \param do_xc wheter xc functional(s) is(are) included
+!> \param do_coulomb whether the coulomb kernel is computed, .FLASE. if no xc nor hfx => normal dft
 !> \param sx the scaling applied to exact exchange
 !> \param x_op the operator used for exact exchange (Coulomb, TC, Sk)
 !> \param x_range the range for exact exchane operator (truncated coulomb or SR)
@@ -106,6 +107,7 @@ MODULE xas_tdp_types
       REAL(dp)                                :: eps_iter
       LOGICAL                                 :: do_hfx
       LOGICAL                                 :: do_xc
+      LOGICAL                                 :: do_coulomb
       LOGICAL                                 :: check_only
       LOGICAL                                 :: tamm_dancoff
       LOGICAL                                 :: do_quad
@@ -337,8 +339,9 @@ CONTAINS
       xas_tdp_control%define_excited = xas_tdp_by_index
       xas_tdp_control%n_search = -1
       xas_tdp_control%dipole_form = xas_dip_vel
-      xas_tdp_control%do_hfx = .TRUE.
+      xas_tdp_control%do_hfx = .FALSE.
       xas_tdp_control%do_xc = .FALSE.
+      xas_tdp_control%do_coulomb = .TRUE.
       xas_tdp_control%sx = 1.0_dp
       xas_tdp_control%x_range = 0.0_dp
       xas_tdp_control%x_omega = 0.0_dp
@@ -571,7 +574,8 @@ CONTAINS
       END IF
 
       IF ((.NOT. xas_tdp_control%do_xc) .AND. (.NOT. xas_tdp_control%do_hfx)) THEN
-         CPABORT("You must at least define a XC functional OR exact exchange.")
+         !then no coulomb either and go full DFT
+         xas_tdp_control%do_coulomb = .FALSE.
       END IF
 
 !  Deal with the diagonalization subsection

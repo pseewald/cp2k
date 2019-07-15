@@ -201,7 +201,7 @@ CONTAINS
       INTEGER                                         :: handle
       REAL(dp)                                        :: sx
       LOGICAL                                         :: do_xc, do_hfx, do_sg, do_tp, do_tda, &
-                                                         do_os, do_sc, do_sf
+                                                         do_os, do_sc, do_sf, do_coul
       TYPE(dbcsr_type), POINTER                       :: sg_matrix_tdp, tp_matrix_tdp, &
                                                          matrix_d, matrix_e_sc, matrix_c_sf,&
                                                          matrix_c_sg, matrix_c_tp, & 
@@ -226,6 +226,7 @@ CONTAINS
       do_tp = xas_tdp_control%do_triplet
       do_xc = xas_tdp_control%do_xc
       do_hfx = xas_tdp_control%do_hfx
+      do_coul = xas_tdp_control%do_coulomb
       do_tda = xas_tdp_control%tamm_dancoff
       sx = xas_tdp_control%sx
       IF (do_sc) THEN
@@ -304,7 +305,7 @@ CONTAINS
 
             ! The final matrix is M = A + B + C - D
             CALL dbcsr_copy(sc_matrix_tdp, matrix_a, name="OS MATRIX TDP")
-            CALL dbcsr_add(sc_matrix_tdp, matrix_b, 1.0_dp, 1.0_dp)
+            IF (do_coul) CALL dbcsr_add(sc_matrix_tdp, matrix_b, 1.0_dp, 1.0_dp)
 
             IF (do_xc) CALL dbcsr_add(sc_matrix_tdp, matrix_c_sc, 1.0_dp, 1.0_dp) !xc kernel
             IF (do_hfx) CALL dbcsr_add(sc_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx) !scaled hfx
@@ -333,7 +334,7 @@ CONTAINS
 
             ! The final matrix is M = A + 2B + (C_aa + C_ab) - D
             CALL dbcsr_copy(sg_matrix_tdp, matrix_a, name="SINGLET MATRIX TDP")
-            CALL dbcsr_add(sg_matrix_tdp, matrix_b, 1.0_dp, 2.0_dp)
+            IF (do_coul) CALL dbcsr_add(sg_matrix_tdp, matrix_b, 1.0_dp, 2.0_dp)
 
             IF (do_xc) CALL dbcsr_add(sg_matrix_tdp, matrix_c_sg, 1.0_dp, 1.0_dp)   ! xc kernel
             IF (do_hfx) CALL dbcsr_add(sg_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx) ! scaled hfx 
@@ -370,7 +371,7 @@ CONTAINS
             ! The final matrix is the sum of the on- and off-diagonal elements as in the description
             ! M = A + 2B + 2C - D - E
             CALL dbcsr_copy(sc_matrix_tdp, matrix_a, name="OS MATRIX TDP")
-            CALL dbcsr_add(sc_matrix_tdp, matrix_b, 1.0_dp, 2.0_dp)
+            IF (do_coul) CALL dbcsr_add(sc_matrix_tdp, matrix_b, 1.0_dp, 2.0_dp)
 
             IF (do_hfx) THEN !scaled hfx
                CALL dbcsr_add(sc_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx)
@@ -396,7 +397,7 @@ CONTAINS
             ! The final matrix is the sum of the on- and off-diagonal elements as in the description
             ! M = A + 4B + 2(C_aa + C_ab) - D - E 
             CALL dbcsr_copy(sg_matrix_tdp, matrix_a, name="SINGLET MATRIX TDP")
-            CALL dbcsr_add(sg_matrix_tdp, matrix_b, 1.0_dp, 4.0_dp)
+            IF (do_coul) CALL dbcsr_add(sg_matrix_tdp, matrix_b, 1.0_dp, 4.0_dp)
 
             IF (do_hfx) THEN !scaled hfx
                CALL dbcsr_add(sg_matrix_tdp, matrix_d, 1.0_dp, -1.0_dp*sx)

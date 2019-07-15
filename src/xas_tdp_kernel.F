@@ -106,8 +106,6 @@ CONTAINS
 
       NULLIFY(contr1_int, PQ, dbcsr_dist, para_env)
 
-      CALL timeset(routineN, handle)
-
 !  Initialization
       ndo_mo = donor_state%ndo_mo
       do_xc = xas_tdp_control%do_xc
@@ -118,10 +116,13 @@ CONTAINS
       ndo_so = ndo_mo; IF (xas_tdp_control%do_uks) ndo_so = 2*ndo_mo
       ri_atom = donor_state%at_index
       CALL get_qs_env(qs_env, natom=natom, dbcsr_dist=dbcsr_dist, para_env=para_env)
-      !we always need the coulomb kernel, except for triplets only or spin-flip only
-      do_coulomb = .TRUE.
-      IF ((do_tp .AND. .NOT. do_sg) .OR. (do_sf .AND. .NOT. do_sc)) do_coulomb = .FALSE.
+      do_coulomb = xas_tdp_control%do_coulomb
       IF (xas_tdp_control%para == xas_tdp_para_grid) xas_tdp_env%fxc_avail = .TRUE.
+
+!  If no Coulomb nor xc, simply exit
+      IF ((.NOT. do_coulomb) .AND. (.NOT. do_xc))  RETURN
+
+      CALL timeset(routineN, handle)
 
 !  Contract the RI 3-center integrals once to get (aI|P)
       CALL contract_o3c_int(contr1_int, "COULOMB", donor_state, xas_tdp_env, xas_tdp_control, qs_env)      

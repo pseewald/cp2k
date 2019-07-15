@@ -51,7 +51,7 @@ MODULE xas_tdp_methods
                                               general_roks, high_spin_roks, state_loc_list, &
                                               tddfpt_spin_flip, do_hfx_potential_coulomb, &
                                               xas_dip_vel, xas_dip_len, do_hfx_potential_truncated,&
-                                              do_hfX_potential_short
+                                              do_hfX_potential_short, xas_tdp_para_atom
    USE input_section_types,             ONLY: section_vals_type,&
                                               section_vals_get_subs_vals,&
                                               section_vals_val_set, &
@@ -269,7 +269,8 @@ CONTAINS
       END IF
 
 !  Compute the 3-center Coulomb integrals for the whole system
-      IF (.NOT. xas_tdp_control%check_only) THEN
+      IF ((.NOT. xas_tdp_control%check_only) .AND. &
+          (xas_tdp_control%do_xc .OR. xas_tdp_control%do_coulomb)) THEN
          IF (output_unit > 0) THEN
             WRITE(UNIT=output_unit, FMT="(/,T3,A,I4,A)") &
                "# Computing the RI 3-center Coulomb integrals ..."
@@ -737,6 +738,10 @@ CONTAINS
       !open-shell/closed-shell tests
       IF (xas_tdp_control%do_roks .OR. xas_tdp_control%do_uks) THEN
 
+         IF (.NOT. ( xas_tdp_control%do_spin_cons .OR. xas_tdp_control%do_spin_flip)) THEN
+            CPABORT("Need spin-conserving and/or spin-flip excitations for open-shell systems") 
+         END IF
+
          IF (xas_tdp_control%do_singlet .OR. xas_tdp_control%do_triplet) THEN
             CPABORT("Singlet/triplet excitations only for restricted closed-shell systems")
          END IF
@@ -747,6 +752,10 @@ CONTAINS
             CPABORT("Both spin-conserving and spin-flip excitations are required for SOC")
          END IF
       ELSE
+
+         IF (.NOT. (xas_tdp_control%do_singlet .OR. xas_tdp_control%do_triplet)) THEN
+            CPABORT("Need singlet and/or triplet excitations for closed-shell systems")
+         END IF
 
          IF (xas_tdp_control%do_spin_cons .OR. xas_tdp_control%do_spin_flip) THEN
             CPABORT("Spin-conserving/spin-flip excitations only for open-shell systems")
@@ -830,6 +839,12 @@ CONTAINS
             "XAS_TDP| Transition Dipole Representation: LENGTH"
       END IF
 
+      !Quadrupole
+      IF (xas_tdp_control%do_quad) THEN
+         WRITE(UNIT=ou, FMT="(T3,A)") &
+            "XAS_TDP| Transition Quadrupole: On"
+      END IF
+
       !Grid info
       IF (xas_tdp_control%do_soc .OR. xas_tdp_control%do_xc) THEN
          WRITE(UNIT=ou, FMT="(T3,A)") &
@@ -841,11 +856,26 @@ CONTAINS
          END DO
       END IF
 
+      !No kernel
+      IF (.NOT. xas_tdp_control%do_coulomb) THEN
+         WRITE(UNIT=ou, FMT="(/,T3,A)") &
+            "XAS_TDP| No kernel (standard DFT)"
+      END IF
+
       !XC kernel
       IF (xas_tdp_control%do_xc) THEN
 
          WRITE(UNIT=ou, FMT="(/,T3,A,F5.2,A)") &
             "XAS_TDP| RI Region's Radius: ", xas_tdp_control%ri_radius*angstrom, " Ang"
+
+         !parallelization scheme
+         IF (xas_tdp_control%para == xas_tdp_para_atom) THEN
+            WRITE(UNIT=ou, FMT="(T3,A)") &
+               "XAS_TDP| Parallelization scheme for XC kernel: BY_ATOM"
+         ELSE
+            WRITE(UNIT=ou, FMT="(T3,A)") &
+               "XAS_TDP| Parallelization scheme for XC kernel: BY_GRID"
+         END IF
 
          CALL libxc_version_info(tmpStr)
          WRITE(UNIT=ou, FMT="(T3,A,A,/,T3,A,/)") &
