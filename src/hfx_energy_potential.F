@@ -106,6 +106,16 @@ MODULE hfx_energy_potential
 
 CONTAINS
 
+   !SUBROUTINE integrate_RI(qs_env, hfx_ri_data, ks_matrix, ehfx, hfx_ri_section, para_env, geometry_did_change, ispin)
+   !   TYPE(qs_environment_type), POINTER                 :: qs_env
+   !   TYPE(dbcsr_p_type)                                 :: ks_matrix
+   !   REAL(KIND=dp), INTENT(OUT)                         :: ehfx
+   !   TYPE(section_vals_type), POINTER                   :: hfx_ri_section
+   !   TYPE(cp_para_env_type), POINTER                    :: para_env
+   !   LOGICAL                                            :: geometry_did_change
+   !   INTEGER, INTENT(IN)                                :: ispin
+   !END SUBROUTINE
+
 ! **************************************************************************************************
 !> \brief computes four center integrals for a full basis set and updates the
 !>      Kohn-Sham-Matrix and energy. Uses all 8 eri symmetries

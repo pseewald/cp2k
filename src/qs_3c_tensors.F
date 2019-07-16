@@ -7,21 +7,28 @@
 !> \brief Utility methods to build 3-center integral tensors of various types.
 ! **************************************************************************************************
 MODULE qs_3c_tensors
+   USE ai_contraction,                  ONLY: contraction
    USE ai_contraction_sphi,             ONLY: abc_contract
+   USE ai_overlap,                      ONLY: overlap_ab
    USE ai_overlap3,                     ONLY: overlap3
    USE atomic_kind_types,               ONLY: atomic_kind_type,&
                                               get_atomic_kind_set
    USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_p_type
+                                              gto_basis_set_p_type,&
+                                              gto_basis_set_type
+   USE block_p_types,                   ONLY: block_p_type
    USE cell_types,                      ONLY: cell_type
    USE cp_array_utils,                  ONLY: cp_1d_i_p_type
    USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
                                               cp_blacs_env_release,&
                                               cp_blacs_env_type
    USE cp_control_types,                ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
    USE cp_para_env,                     ONLY: cp_para_env_create,&
                                               cp_para_env_release
    USE cp_para_types,                   ONLY: cp_para_env_type
+   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
+                                              dbcsr_type
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_blk_sizes, dbcsr_t_copy, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
         dbcsr_t_get_block, dbcsr_t_get_stored_coordinates, dbcsr_t_put_block, &
@@ -964,6 +971,7 @@ CONTAINS
       DO WHILE (neighbor_list_3c_iterate(nl_3c_iter) == 0)
          CALL get_3c_iterator_info(nl_3c_iter, iatom=iatom, jatom=jatom, katom=katom, &
                                    rij=rij, rjk=rjk, rik=rik, cell_j=cell_j, cell_k=cell_k)
+         ! todo: get kind from iterator!
 
          IF (do_kpoints_prv) THEN
 
@@ -1001,6 +1009,9 @@ CONTAINS
          IF (kind_radius_k+kind_radius_i < dik) CYCLE
 
          CALL dbcsr_t_blk_sizes(t3c(jcell, kcell), [iatom, jatom, katom], blk_size)
+
+         ! todo: 'CYCLE' does not work with general operators
+
          ALLOCATE (block_t(blk_size(1), blk_size(2), blk_size(3)))
          block_t = 0.0_dp
 
@@ -1203,5 +1214,180 @@ CONTAINS
       ENDDO
 
    END SUBROUTINE cyclic_tensor_dist
+
+! **************************************************************************************************
+!> \brief ...
+!> \param t2c ...
+!> \param filter_eps ...
+!> \param qs_env ...
+!> \param basis_set_list_a ...
+!> \param basis_set_list_b ...
+!> \param nl_2c ...
+!> \param op ...
+!> \param do_kpoints ...
+! **************************************************************************************************
+   SUBROUTINE build_2c_integrals(t2c, filter_eps, qs_env, basis_set_list_a, basis_set_list_b, &
+                                 nl_2c, op, do_kpoints)
+      TYPE(dbcsr_type), DIMENSION(:), INTENT(INOUT)      :: t2c
+      REAL(KIND=dp), INTENT(IN)                          :: filter_eps
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_list_a, basis_set_list_b
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), &
+         POINTER                                         :: nl_2c
+      INTEGER, INTENT(IN), OPTIONAL                      :: op
+      LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'build_2c_integrals', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: col, handle, iatom, ikind, img, iset, &
+                                                            jatom, jkind, jset, n1, n2, natom, &
+                                                            ncoa, ncob, nimg, nseta, nsetb, &
+                                                            op_prv, row, sgfa, sgfb
+      INTEGER, DIMENSION(3)                              :: cell
+      INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, lb_min, npgfa, &
+                                                            npgfb, nsgfa, nsgfb
+      INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, first_sgfb
+      INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
+      LOGICAL                                            :: do_kpoints_prv, found
+      REAL(KIND=dp)                                      :: dab
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: owork, sab
+      REAL(KIND=dp), DIMENSION(3)                        :: rab
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: set_radius_a, set_radius_b
+      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: rpgfa, rpgfb, scon_a, scon_b, zeta, zetb
+      TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      TYPE(block_p_type)                                 :: block_t
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(gto_basis_set_type), POINTER                  :: basis_set_a, basis_set_b
+      TYPE(kpoint_type), POINTER                         :: kpoints
+      TYPE(neighbor_list_iterator_p_type), &
+         DIMENSION(:), POINTER                           :: nl_iterator
+      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
+
+      CALL timeset(routineN, handle)
+
+      IF (PRESENT(do_kpoints)) THEN
+         do_kpoints_prv = do_kpoints
+      ELSE
+         do_kpoints_prv = .FALSE.
+      ENDIF
+
+      IF (PRESENT(op)) THEN
+         op_prv = op
+      ELSE
+         op_prv = do_potential_id
+      ENDIF
+
+      NULLIFY (qs_kind_set, atomic_kind_set, basis_set_a, basis_set_b, block_t%block)
+
+      DO img = 1, SIZE(t2c)
+         CALL cp_dbcsr_alloc_block_from_nbl(t2c(img), nl_2c, desymmetrize=.TRUE.)
+      ENDDO
+
+      ! get stuff
+      CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, qs_kind_set=qs_kind_set, &
+                      natom=natom, kpoints=kpoints, dft_control=dft_control)
+
+      IF (do_kpoints_prv) THEN
+         ! No MAOs kpoints
+         nimg = dft_control%nimages
+         CALL get_kpoint_info(kpoints, cell_to_index=cell_to_index)
+      ELSE
+         nimg = 1
+      END IF
+
+      CALL neighbor_list_iterator_create(nl_iterator, nl_2c)
+      DO WHILE (neighbor_list_iterate(nl_iterator) == 0)
+
+         CALL get_iterator_info(nl_iterator, ikind=ikind, jkind=jkind, &
+                                iatom=iatom, jatom=jatom, r=rab, cell=cell)
+         IF (do_kpoints_prv) THEN
+            img = cell_to_index(cell(1), cell(2), cell(3))
+            IF (img > nimg) CYCLE
+         ELSE
+            img = 1
+         END IF
+
+         basis_set_a => basis_set_list_a(ikind)%gto_basis_set
+         IF (.NOT. ASSOCIATED(basis_set_a)) CYCLE
+         basis_set_b => basis_set_list_b(jkind)%gto_basis_set
+         IF (.NOT. ASSOCIATED(basis_set_b)) CYCLE
+         ! basis ikind
+         first_sgfa => basis_set_a%first_sgf
+         la_max => basis_set_a%lmax
+         la_min => basis_set_a%lmin
+         npgfa => basis_set_a%npgf
+         nseta = basis_set_a%nset
+         nsgfa => basis_set_a%nsgf_set
+         rpgfa => basis_set_a%pgf_radius
+         set_radius_a => basis_set_a%set_radius
+         scon_a => basis_set_a%scon
+         zeta => basis_set_a%zet
+         ! basis jkind
+         first_sgfb => basis_set_b%first_sgf
+         lb_max => basis_set_b%lmax
+         lb_min => basis_set_b%lmin
+         npgfb => basis_set_b%npgf
+         nsetb = basis_set_b%nset
+         nsgfb => basis_set_b%nsgf_set
+         rpgfb => basis_set_b%pgf_radius
+         set_radius_b => basis_set_b%set_radius
+         scon_b => basis_set_b%scon
+         zetb => basis_set_b%zet
+
+         row = iatom; col = jatom
+
+         dab = SQRT(SUM(rab**2))
+
+         !CALL dbcsr_get_info(t2c, nblkrows_total=blk_size(1), blkcols_total=blk_size(2))
+         !ALLOCATE(block_t(blk_size(1), blk_size(2))
+
+         CALL dbcsr_get_block_p(matrix=t2c(img), &
+                                row=row, col=col, BLOCK=block_t%block, found=found)
+         CPASSERT(found)
+
+         DO iset = 1, nseta
+
+            ncoa = npgfa(iset)*ncoset(la_max(iset))
+            n1 = npgfa(iset)*(ncoset(la_max(iset))-ncoset(la_min(iset)-1))
+            sgfa = first_sgfa(1, iset)
+
+            DO jset = 1, nsetb
+
+               ncob = npgfb(jset)*ncoset(lb_max(jset))
+               n2 = npgfb(jset)*(ncoset(lb_max(jset))-ncoset(lb_min(jset)-1))
+               sgfb = first_sgfb(1, jset)
+
+               IF (ncoa*ncob > 0) THEN
+                  ALLOCATE (sab(ncoa, ncob))
+
+                  ! calculate integrals and derivatives
+                  CALL overlap_ab(la_max(iset), la_min(iset), npgfa(iset), rpgfa(:, iset), zeta(:, iset), &
+                                  lb_max(jset), lb_min(jset), npgfb(jset), rpgfb(:, jset), zetb(:, jset), &
+                                  rab, sab=sab)
+                  ! Contraction
+                  ALLOCATE (owork(nsgfa(iset), nsgfb(jset)))
+                  CALL contraction(sab, owork, ca=scon_a(:, sgfa:), na=n1, ma=nsgfa(iset), &
+                                   cb=scon_b(:, sgfb:), nb=n2, mb=nsgfb(jset), fscale=1.0_dp) !trans=trans)
+
+                  CALL block_add("IN", owork, nsgfa(iset), nsgfb(jset), block_t%block, &
+                                 sgfa, sgfb) !trans=trans)
+
+                  DEALLOCATE (owork)
+                  DEALLOCATE (sab)
+               ENDIF
+            END DO
+         END DO
+
+      ENDDO
+      CALL neighbor_list_iterator_release(nl_iterator)
+      DO img = 1, SIZE(t2c)
+         CALL dbcsr_finalize(t2c(img))
+         CALL dbcsr_filter(t2c(img), filter_eps)
+      ENDDO
+
+      CALL timestop(handle)
+
+   END SUBROUTINE
 
 END MODULE
