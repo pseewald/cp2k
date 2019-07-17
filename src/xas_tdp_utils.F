@@ -70,9 +70,8 @@ MODULE xas_tdp_utils
                                               eri_mme_release
    USE generic_os_integrals,            ONLY: int_operators_r12_ab_os
    USE input_constants,                 ONLY: &
-        do_potential_coulomb, do_potential_id, do_potential_short, &
-        do_potential_truncated, tddfpt_singlet, tddfpt_spin_cons, tddfpt_spin_flip, &
-        tddfpt_triplet, xas_dip_len
+        do_potential_coulomb, do_potential_id, do_potential_short, do_potential_truncated, &
+        tddfpt_singlet, tddfpt_spin_cons, tddfpt_spin_flip, tddfpt_triplet, xas_dip_len
    USE input_section_types,             ONLY: section_vals_val_get
    USE kinds,                           ONLY: dp
    USE mathlib,                         ONLY: get_diag,&

@@ -25,6 +25,8 @@ MODULE qs_3c_tensors
                                               cp_blacs_env_type
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_files,                        ONLY: close_file,&
+                                              open_file
    USE cp_para_env,                     ONLY: cp_para_env_create,&
                                               cp_para_env_release
    USE cp_para_types,                   ONLY: cp_para_env_type
@@ -38,6 +40,11 @@ MODULE qs_3c_tensors
    USE distribution_2d_types,           ONLY: distribution_2d_create_prv => distribution_2d_create,&
                                               distribution_2d_release,&
                                               distribution_2d_type
+   USE gamma,                           ONLY: init_md_ftable
+   USE hfx_libint_wrapper,              ONLY: cp_libint_cleanup_3eri,&
+                                              cp_libint_init_3eri,&
+                                              cp_libint_set_contrdepth,&
+                                              cp_libint_t
    USE input_constants,                 ONLY: do_potential_coulomb,&
                                               do_potential_id,&
                                               do_potential_short,&
@@ -46,6 +53,7 @@ MODULE qs_3c_tensors
    USE kinds,                           ONLY: dp
    USE kpoint_types,                    ONLY: get_kpoint_info,&
                                               kpoint_type
+   USE libint_3center,                  ONLY: eri_3center
    USE message_passing,                 ONLY: mp_cart_sub,&
                                               mp_comm_free,&
                                               mp_environ
@@ -75,6 +83,8 @@ MODULE qs_3c_tensors
                                               build_neighbor_lists,&
                                               local_atoms_type,&
                                               pair_radius_setup
+   USE t_c_g0,                          ONLY: get_lmax_init,&
+                                              init
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -893,10 +903,14 @@ CONTAINS
 !> \param basis_j ...
 !> \param basis_k ...
 !> \param op operator, overlap integrals by default, other operators NYI
+!> \param t_c_filename ...
+!> \param r_cutoff ...
+!> \param omega ...
 !> \param do_kpoints ...
 ! **************************************************************************************************
    SUBROUTINE build_3c_integrals(t3c, filter_eps, qs_env, &
-                                 nl_3c, basis_i, basis_j, basis_k, op, t_c_filename, do_kpoints)
+                                 nl_3c, basis_i, basis_j, basis_k, &
+                                 op, t_c_filename, r_cutoff, omega, do_kpoints)
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t3c
       REAL(KIND=dp), INTENT(IN)                          :: filter_eps
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -904,15 +918,16 @@ CONTAINS
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j, basis_k
       INTEGER, INTENT(IN), OPTIONAL                      :: op
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: t_c_filename
+      REAL(KIND=dp), INTENT(IN), OPTIONAL                :: r_cutoff, omega
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'build_3c_integrals', &
          routineP = moduleN//':'//routineN
 
       INTEGER :: block_end_i, block_end_j, block_end_k, block_start_i, block_start_j, &
-         block_start_k, handle, handle2, iatom, ikind, iset, jatom, jcell, jkind, jset, katom, &
-         kcell, kkind, kset, natom, ncoi, ncoj, ncok, nimg, nseti, nsetj, nsetk, op_prv, sgfi, &
-         sgfj, sgfk
+         block_start_k, handle, handle2, iatom, ibasis, ikind, imax, iset, jatom, jcell, jkind, &
+         jset, katom, kcell, kkind, kset, m_max, maxli, maxlj, maxlk, natom, ncoi, ncoj, ncok, &
+         nimg, nseti, nsetj, nsetk, op_prv, sgfi, sgfj, sgfk, unit_id
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of
       INTEGER, DIMENSION(3)                              :: blk_size, cell_j, cell_k
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmax_k, lmin_i, lmin_j, &
@@ -924,11 +939,13 @@ CONTAINS
       REAL(KIND=dp)                                      :: dij, dik, djk, kind_radius_i, &
                                                             kind_radius_j, kind_radius_k, prefac
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: block_t, dummy_block_t, sijk, sijk_contr
-      REAL(KIND=dp), DIMENSION(3)                        :: rij, rik, rjk
+      REAL(KIND=dp), DIMENSION(3)                        :: ri, rij, rik, rj, rjk, rk
       REAL(KIND=dp), DIMENSION(:), POINTER               :: set_radius_i, set_radius_j, set_radius_k
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: rpgf_i, rpgf_j, rpgf_k, sphi_i, sphi_j, &
                                                             sphi_k, zeti, zetj, zetk
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      TYPE(cp_libint_t)                                  :: lib
+      TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_t_type)                                 :: t_3c_tmp
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(kpoint_type), POINTER                         :: kpoints
@@ -955,7 +972,7 @@ CONTAINS
 
       ! get stuff
       CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, qs_kind_set=qs_kind_set, &
-                      natom=natom, kpoints=kpoints, dft_control=dft_control)
+                      natom=natom, kpoints=kpoints, dft_control=dft_control, para_env=para_env)
 
       IF (do_kpoints_prv) THEN
          nimg = dft_control%nimages
@@ -968,13 +985,28 @@ CONTAINS
 
       CALL get_atomic_kind_set(atomic_kind_set, kind_of=kind_of)
 
+      !Need the max l for each basis for libint
+      maxli = 0
+      DO ibasis = 1, SIZE(basis_i)
+         CALL get_gto_basis_set(gto_basis_set=basis_i(ibasis)%gto_basis_set, maxl=imax)
+         maxli = MAX(maxli, imax)
+      END DO
+      maxlj = 0
+      DO ibasis = 1, SIZE(basis_j)
+         CALL get_gto_basis_set(gto_basis_set=basis_j(ibasis)%gto_basis_set, maxl=imax)
+         maxlj = MAX(maxlj, imax)
+      END DO
+      maxlk = 0
+      DO ibasis = 1, SIZE(basis_k)
+         CALL get_gto_basis_set(gto_basis_set=basis_k(ibasis)%gto_basis_set, maxl=imax)
+         maxlk = MAX(maxlk, imax)
+      END DO
+      m_max = maxli+maxlj+maxlk
 
       !Init the truncated Coulomb operator
       IF (op_prv == do_potential_truncated) THEN
          CPASSERT(PRESENT(t_c_filename))
-         CPASSERT(PRESENT(para_env))
 
-         !open the file only if necessary
          IF (m_max > get_lmax_init()) THEN
             IF (para_env%mepos == 0) THEN
                CALL open_file(unit_number=unit_id, file_name=t_c_filename)
@@ -986,9 +1018,12 @@ CONTAINS
          END IF
       END IF
 
-      !Inint the initial gamma function before the OMP region as it is not thread safe
       CALL init_md_ftable(nmax=m_max)
 
+      IF (op_prv /= do_potential_id) THEN
+         CALL cp_libint_init_3eri(lib, MAX(maxli, maxlj, maxlk))
+         CALL cp_libint_set_contrdepth(lib, 1)
+      ENDIF
 
       CALL neighbor_list_3c_iterator_create(nl_3c_iter, nl_3c)
       DO WHILE (neighbor_list_3c_iterate(nl_3c_iter) == 0)
@@ -1062,19 +1097,26 @@ CONTAINS
                      ALLOCATE (sijk(ncoi, ncoj, ncok))
                      sijk(:, :, :) = 0.0_dp
 
-                     SELECT CASE (op_prv)
-                     CASE (do_potential_id)
+                     IF (op_prv == do_potential_id) THEN ! cp2k overlap integrals
                         CALL overlap3(lmax_i(iset), npgfi(iset), zeti(:, iset), rpgf_i(:, iset), &
                                       lmin_i(iset), &
                                       lmax_j(jset), npgfj(jset), zetj(:, jset), rpgf_j(:, jset), lmin_j(jset), &
                                       lmax_k(kset), npgfk(kset), zetk(:, kset), rpgf_k(:, kset), lmin_k(kset), &
                                       rij, dij, rik, dik, rjk, djk, sijk)
-                     CASE DEFAULT
-                        CPABORT("Operators other than identity not implemented")
-                     END SELECT
+                     ELSE ! for everything else use libint
+                        !need positions for libint. Only relative positions are needed => set ri to 0.0
+                        ri = 0.0_dp
+                        rj = rij ! ri + rij
+                        rk = rik ! ri + rik
+                        CALL eri_3center(sijk, lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), &
+                                         ri, lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), &
+                                         rj, lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), &
+                                         rk, lib, op, omega=omega, r_cutoff=r_cutoff)
+                     ENDIF
 
                      ALLOCATE (sijk_contr(nsgfi(iset), nsgfj(jset), nsgfk(kset)))
 
+                     ! todo: if necessary apply screening
                      CALL abc_contract(sijk_contr, sijk, &
                                        sphi_i(:, sgfi:), sphi_j(:, sgfj:), sphi_k(:, sgfk:), &
                                        ncoi, ncoj, ncok, nsgfi(iset), nsgfj(jset), nsgfk(kset))
@@ -1129,7 +1171,7 @@ CONTAINS
          DEALLOCATE (block_t)
 
       END DO
-
+      CALL cp_libint_cleanup_3eri(lib)
       CALL neighbor_list_3c_iterator_destroy(nl_3c_iter)
 
       DO jcell = 1, nimg

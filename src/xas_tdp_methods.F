@@ -53,7 +53,7 @@ MODULE xas_tdp_methods
                                               dbcsr_set
    USE hfx_libint_wrapper,              ONLY: cp_libint_static_init
    USE input_constants,                 ONLY: &
-        do_potential_short, do_potential_coulomb, do_potential_truncated, do_loc_none, &
+        do_loc_none, do_potential_coulomb, do_potential_short, do_potential_truncated, &
         op_loc_berry, state_loc_list, tddfpt_singlet, tddfpt_spin_cons, tddfpt_spin_flip, &
         tddfpt_triplet, xas_1s_type, xas_2p_type, xas_2s_type, xas_dip_len, xas_dip_vel, &
         xas_not_excited, xas_tdp_by_index, xas_tdp_by_kind, xas_tdp_para_atom
