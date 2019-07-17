@@ -896,14 +896,14 @@ CONTAINS
 !> \param do_kpoints ...
 ! **************************************************************************************************
    SUBROUTINE build_3c_integrals(t3c, filter_eps, qs_env, &
-                                 nl_3c, basis_i, basis_j, basis_k, op, do_kpoints)
-
+                                 nl_3c, basis_i, basis_j, basis_k, op, t_c_filename, do_kpoints)
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t3c
       REAL(KIND=dp), INTENT(IN)                          :: filter_eps
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(neighbor_list_3c_type), INTENT(INOUT)         :: nl_3c
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j, basis_k
       INTEGER, INTENT(IN), OPTIONAL                      :: op
+      CHARACTER(len=*), INTENT(IN), OPTIONAL             :: t_c_filename
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'build_3c_integrals', &
@@ -967,6 +967,28 @@ CONTAINS
       ALLOCATE (kind_of(natom))
 
       CALL get_atomic_kind_set(atomic_kind_set, kind_of=kind_of)
+
+
+      !Init the truncated Coulomb operator
+      IF (op_prv == do_potential_truncated) THEN
+         CPASSERT(PRESENT(t_c_filename))
+         CPASSERT(PRESENT(para_env))
+
+         !open the file only if necessary
+         IF (m_max > get_lmax_init()) THEN
+            IF (para_env%mepos == 0) THEN
+               CALL open_file(unit_number=unit_id, file_name=t_c_filename)
+            END IF
+            CALL init(m_max, unit_id, para_env%mepos, para_env%group)
+            IF (para_env%mepos == 0) THEN
+               CALL close_file(unit_id)
+            END IF
+         END IF
+      END IF
+
+      !Inint the initial gamma function before the OMP region as it is not thread safe
+      CALL init_md_ftable(nmax=m_max)
+
 
       CALL neighbor_list_3c_iterator_create(nl_3c_iter, nl_3c)
       DO WHILE (neighbor_list_3c_iterate(nl_3c_iter) == 0)
