@@ -294,7 +294,7 @@ CONTAINS
 
       IF (dft_control%do_xas_tdp_calculation) THEN
          CALL xas_tdp(qs_env)
-      END IF  
+      END IF
 
       ! Compute Linear Response properties as post-scf
       IF (.NOT. qs_env%linres_run) THEN

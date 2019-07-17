@@ -756,6 +756,7 @@ CONTAINS
 
       INTEGER                                            :: handle, homo, ispin, n, nao, nmo, &
                                                             output_unit
+      LOGICAL                                            :: my_silent
       TYPE(admm_type), POINTER                           :: admm_env
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_tmp
@@ -767,12 +768,11 @@ CONTAINS
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
       TYPE(preconditioner_type), POINTER                 :: local_preconditioner
       TYPE(scf_control_type), POINTER                    :: scf_control
-      LOGICAL                                            :: my_silent
 
       CALL timeset(routineN, handle)
 
       my_silent = .FALSE.
-      IF (PRESENT(silent)) my_silent=silent
+      IF (PRESENT(silent)) my_silent = silent
 
       NULLIFY (mos, ks_rmpv, scf_control, dft_control, admm_env, para_env, blacs_env)
       CALL get_qs_env(qs_env, &

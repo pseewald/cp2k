@@ -1,6 +1,6 @@
-!--------------------------------------------------------------------------------------------------! 
-!   CP2K: A general program to perform molecular dynamics simulations                              ! 
-!   Copyright (C) 2000 - 2017  CP2K developers group                                               ! 
+!--------------------------------------------------------------------------------------------------!
+!   CP2K: A general program to perform molecular dynamics simulations                              !
+!   Copyright (C) 2000 - 2017  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 !> *************************************************************************************************
@@ -9,41 +9,43 @@
 !> \author AB (11.2017)
 !> *************************************************************************************************
 MODULE xas_tdp_types
-   USE cp_array_utils,                  ONLY: cp_2d_r_p_type, cp_1d_r_p_type , cp_1d_i_p_type, &
+   USE cp_array_utils,                  ONLY: cp_1d_i_p_type,&
+                                              cp_1d_r_p_type,&
+                                              cp_2d_r_p_type,&
                                               cp_3d_r_p_type
    USE cp_files,                        ONLY: file_exists
-   USE cp_fm_types,                     ONLY: cp_fm_type, cp_fm_release, cp_fm_p_type
-   USE dbcsr_api,                       ONLY: dbcsr_type, dbcsr_release, dbcsr_p_type, &
-                                              dbcsr_release_p
-   USE distribution_2d_types,           ONLY: distribution_2d_type, distribution_2d_release
+   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
+                                              cp_fm_release,&
+                                              cp_fm_type
+   USE dbcsr_api,                       ONLY: dbcsr_p_type,&
+                                              dbcsr_release,&
+                                              dbcsr_release_p,&
+                                              dbcsr_type
+   USE distribution_2d_types,           ONLY: distribution_2d_release,&
+                                              distribution_2d_type
    USE hfx_libint_wrapper,              ONLY: cp_libint_static_cleanup
-   USE input_constants,                 ONLY: xas_tdp_by_index,&
-                                              xas_tdp_by_kind, &
-                                              tddfpt_singlet, &
-                                              tddfpt_triplet, &
-                                              ot_mini_cg, &
-                                              ot_mini_diis, &
-                                              tddfpt_spin_cons, &
-                                              tddfpt_spin_flip, &
-                                              do_hfx_potential_coulomb, &
-                                              do_hfx_potential_truncated, &
-                                              do_hfx_potential_short, &
-                                              xas_dip_vel, &
-                                              xas_tdp_para_atom
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_get_subs_vals
-   USE kinds,                           ONLY: dp ,default_string_length
+   USE input_constants,                 ONLY: &
+        do_hfx_potential_coulomb, do_hfx_potential_short, do_hfx_potential_truncated, ot_mini_cg, &
+        ot_mini_diis, tddfpt_singlet, tddfpt_spin_cons, tddfpt_spin_flip, tddfpt_triplet, &
+        xas_dip_vel, xas_tdp_by_index, xas_tdp_by_kind, xas_tdp_para_atom
+   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
+                                              section_vals_type,&
+                                              section_vals_val_get
+   USE kinds,                           ONLY: default_string_length,&
+                                              dp
    USE mathlib,                         ONLY: erfc_cutoff
    USE memory_utilities,                ONLY: reallocate
    USE physcon,                         ONLY: bohr
-   USE qs_grid_atom,                    ONLY: grid_atom_type, deallocate_grid_atom
-   USE qs_harmonics_atom,               ONLY: harmonics_atom_type, deallocate_harmonics_atom
+   USE qs_grid_atom,                    ONLY: deallocate_grid_atom,&
+                                              grid_atom_type
+   USE qs_harmonics_atom,               ONLY: deallocate_harmonics_atom,&
+                                              harmonics_atom_type
    USE qs_loc_types,                    ONLY: qs_loc_env_new_type,&
                                               qs_loc_env_release
-   USE qs_o3c_types,                    ONLY: o3c_container_type, release_o3c_container
-   USE qs_ot_types,                     ONLY: qs_ot_settings_type, qs_ot_settings_init
-                                     
+   USE qs_o3c_types,                    ONLY: o3c_container_type,&
+                                              release_o3c_container
+   USE qs_ot_types,                     ONLY: qs_ot_settings_init,&
+                                              qs_ot_settings_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -90,7 +92,7 @@ MODULE xas_tdp_types
 !> \param para whether the f_xc parallelization is by atom or by grid
 ! **************************************************************************************************
    TYPE xas_tdp_control_type
-      INTEGER                                 :: define_excited   
+      INTEGER                                 :: define_excited
       INTEGER                                 :: dipole_form
       INTEGER                                 :: n_search
       INTEGER                                 :: n_excited
@@ -122,17 +124,17 @@ MODULE xas_tdp_types
       LOGICAL                                 :: full_diag
       LOGICAL                                 :: is_periodic
       INTEGER, DIMENSION(:), POINTER          :: list_ex_atoms
-      CHARACTER(len=default_string_length),&
-                     DIMENSION(:), POINTER    :: list_ex_kinds
-      INTEGER, DIMENSION(:,:), POINTER        :: state_types 
+      CHARACTER(len=default_string_length), &
+         DIMENSION(:), POINTER    :: list_ex_kinds
+      INTEGER, DIMENSION(:, :), POINTER        :: state_types
       TYPE(section_vals_type), POINTER        :: loc_subsection
       TYPE(section_vals_type), POINTER        :: print_loc_subsection
-      CHARACTER(len=default_string_length),&
-                     DIMENSION(:,:), POINTER  :: grid_info
+      CHARACTER(len=default_string_length), &
+         DIMENSION(:, :), POINTER  :: grid_info
       TYPE(qs_ot_settings_type), POINTER      :: ot_settings
 
    END TYPE xas_tdp_control_type
-   
+
 !> *************************************************************************************************
 !> \brief Type containing informations such as inputs and results for TDP XAS calculations
 !> \param state_type_char an array containing the general donor state types as char (1s, 2s, 2p, ...)
@@ -145,14 +147,14 @@ MODULE xas_tdp_types
 !> \param mos_of_ex_atoms links lowest energy MOs to excited atoms. Elements of value 1 mark the
 !>        association between the MO irow and the excited atom icolumn. The third index is for spin
 !> \param ri_inv_coul the inverse coulomb RI integral (P|Q)^-1, updated for each excited kind
-!>        based on basis functions of the RI_XAS basis for that kind 
+!>        based on basis functions of the RI_XAS basis for that kind
 !> \param ri_inv_ex the inverse exchange RI integral (P|Q)^-1, updated for each excited kind
 !>        based on basis functions of the RI_XAS basis for that kind, and with the exchange operator
-!> \param q_projector the projector on the unperturbed, unoccupied ground state as a dbcsr matrix, 
+!> \param q_projector the projector on the unperturbed, unoccupied ground state as a dbcsr matrix,
 !>        for each spin
-!> \param dipmat the dbcsr matrices containing the dipole in x,y,z directions evaluated on the 
-!>        contracted spherical gaussians. It can either be in the length or the velocity 
-!>        representation. For length representation, it has to be computed once with the origin on 
+!> \param dipmat the dbcsr matrices containing the dipole in x,y,z directions evaluated on the
+!>        contracted spherical gaussians. It can either be in the length or the velocity
+!>        representation. For length representation, it has to be computed once with the origin on
 !>        each excited atom
 !> \param quadmat the dbcsr matrices containing the electric quadrupole in x2, xy, xz, y2, yz and z2
 !>        directions in the AO basis. It is always in the lenght representation with the origin
@@ -173,32 +175,32 @@ MODULE xas_tdp_types
       INTEGER                                 :: nex_kinds
       INTEGER, DIMENSION(:), POINTER          :: ex_atom_indices
       INTEGER, DIMENSION(:), POINTER          :: ex_kind_indices
-      INTEGER, DIMENSION(:,:), POINTER        :: state_types
+      INTEGER, DIMENSION(:, :), POINTER        :: state_types
       TYPE(o3c_container_type), POINTER       :: ri_o3c_coul
       TYPE(o3c_container_type), POINTER       :: ri_o3c_ex
       TYPE(cp_fm_p_type), DIMENSION(:), &
-                                    POINTER   :: lumo_guess
+         POINTER   :: lumo_guess
       TYPE(cp_1d_r_p_type), DIMENSION(:), &
-                                    POINTER   :: lumo_evals
-      TYPE(donor_state_type), DIMENSION(:),&
-                                    POINTER   :: donor_states
-      INTEGER, DIMENSION(:,:,:), POINTER      :: mos_of_ex_atoms
+         POINTER   :: lumo_evals
+      TYPE(donor_state_type), DIMENSION(:), &
+         POINTER   :: donor_states
+      INTEGER, DIMENSION(:, :, :), POINTER      :: mos_of_ex_atoms
       TYPE(qs_loc_env_new_type), POINTER      :: qs_loc_env
-      REAL(dp), DIMENSION(:,:), POINTER       :: ri_inv_coul
-      REAL(dp), DIMENSION(:,:), POINTER       :: ri_inv_ex
+      REAL(dp), DIMENSION(:, :), POINTER       :: ri_inv_coul
+      REAL(dp), DIMENSION(:, :), POINTER       :: ri_inv_ex
       TYPE(distribution_2d_type), POINTER     :: opt_dist2d_coul
       TYPE(distribution_2d_type), POINTER     :: opt_dist2d_ex
       TYPE(dbcsr_p_type), DIMENSION(:), &
-                                    POINTER   :: q_projector
+         POINTER   :: q_projector
       TYPE(dbcsr_p_type), DIMENSION(:), &
-                                    POINTER   :: dipmat
+         POINTER   :: dipmat
       TYPE(dbcsr_p_type), DIMENSION(:), &
-                                    POINTER   :: quadmat
-      TYPE(cp_2d_r_p_type), DIMENSION(:,:), &
-                                    POINTER   :: ri_fxc
+         POINTER   :: quadmat
+      TYPE(cp_2d_r_p_type), DIMENSION(:, :), &
+         POINTER   :: ri_fxc
       LOGICAL                                 :: fxc_avail
       TYPE(dbcsr_p_type), DIMENSION(:), &
-                                    POINTER   :: orb_soc
+         POINTER   :: orb_soc
    END TYPE xas_tdp_env_type
 
 !> *************************************************************************************************
@@ -214,7 +216,7 @@ MODULE xas_tdp_types
 !> \param sf_coeffs solutions of the linear-response TDDFT equation for spin-flip open-shell
 !> \param sg_coeffs solutions of the linear-response TDDFT singlet equations
 !> \param tp_coeffs solutions of the linear-response TDDFT triplet equations
-!> \param gs_coeffs the ground state MO coefficients 
+!> \param gs_coeffs the ground state MO coefficients
 !> \param contract_coeffs the subset of gs_coeffs centered on excited atom, used for RI contraction
 !> \param sc_evals open-shell spin-conserving excitation energies
 !> \param sf_evals open-shell spin-flip excitation energies
@@ -238,14 +240,14 @@ MODULE xas_tdp_types
       INTEGER                                 :: ndo_mo
       CHARACTER(len=2)                        :: at_symbol
       INTEGER                                 :: state_type
-      REAL(dp), DIMENSION(:,:), POINTER       :: energy_evals
-      INTEGER, DIMENSION(:,:), POINTER        :: mo_indices
+      REAL(dp), DIMENSION(:, :), POINTER       :: energy_evals
+      INTEGER, DIMENSION(:, :), POINTER        :: mo_indices
       TYPE(cp_fm_type), POINTER               :: sc_coeffs
       TYPE(cp_fm_type), POINTER               :: sf_coeffs
       TYPE(cp_fm_type), POINTER               :: sg_coeffs
       TYPE(cp_fm_type), POINTER               :: tp_coeffs
       TYPE(cp_fm_type), POINTER               :: gs_coeffs
-      REAL(dp), DIMENSION(:,:), POINTER       :: contract_coeffs
+      REAL(dp), DIMENSION(:, :), POINTER       :: contract_coeffs
       REAL(dp), DIMENSION(:), POINTER         :: sc_evals
       REAL(dp), DIMENSION(:), POINTER         :: sf_evals
       REAL(dp), DIMENSION(:), POINTER         :: sg_evals
@@ -260,7 +262,7 @@ MODULE xas_tdp_types
       TYPE(dbcsr_type), POINTER               :: sg_matrix_tdp
       TYPE(dbcsr_type), POINTER               :: tp_matrix_tdp
       TYPE(dbcsr_p_type), DIMENSION(:), &
-                                    POINTER   :: metric
+         POINTER   :: metric
       TYPE(dbcsr_type), POINTER               :: matrix_aux
 
    END TYPE donor_state_type
@@ -269,7 +271,7 @@ MODULE xas_tdp_types
    TYPE grid_atom_p_type
       TYPE(grid_atom_type), POINTER                   :: grid_atom
    END TYPE grid_atom_p_type
-   
+
    TYPE harmonics_atom_p_type
       TYPE(harmonics_atom_type), POINTER              :: harmonics_atom
    END TYPE harmonics_atom_p_type
@@ -278,8 +280,8 @@ MODULE xas_tdp_types
 !> \brief a environment type that contains all the info needed for XAS_TDP atomic grid calculations
 !> \param ri_radius defines the neighbors in the RI projection of the density
 !> \param nspins ...
-!> \param excited_atoms the atoms for which RI xc-kernel calculations must be done 
-!> \param excited_kinds the kinds for which RI xc-kernel calculations must be done 
+!> \param excited_atoms the atoms for which RI xc-kernel calculations must be done
+!> \param excited_kinds the kinds for which RI xc-kernel calculations must be done
 !> \param grid_atom_set the set of atomic grid for each kind
 !> \param ri_dcoeff the expansion coefficients to express the density in the RI basis for each atom
 !> \param exat_neighbors the neighbors of each excited atom
@@ -299,9 +301,9 @@ MODULE xas_tdp_types
       INTEGER, DIMENSION(:), POINTER                  :: excited_kinds
       INTEGER, DIMENSION(:), POINTER                  :: proc_of_exat
       TYPE(grid_atom_p_type), DIMENSION(:), POINTER   :: grid_atom_set
-      TYPE(harmonics_atom_p_type), DIMENSION(:), & 
-                                             POINTER  :: harmonics_atom_set
-      TYPE(cp_1d_r_p_type), DIMENSION(:,:,:), POINTER :: ri_dcoeff
+      TYPE(harmonics_atom_p_type), DIMENSION(:), &
+         POINTER  :: harmonics_atom_set
+      TYPE(cp_1d_r_p_type), DIMENSION(:, :, :), POINTER :: ri_dcoeff
       TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: ri_sphi_so
       TYPE(cp_2d_r_p_type), DIMENSION(:), POINTER     :: orb_sphi_so
       TYPE(cp_1d_i_p_type), DIMENSION(:), POINTER     :: exat_neighbors
@@ -309,7 +311,7 @@ MODULE xas_tdp_types
       TYPE(cp_3d_r_p_type), DIMENSION(:), POINTER     :: dga1, dga2
    END TYPE xas_atom_env_type
 
-   CHARACTER(len=*), PARAMETER, PRIVATE  :: moduleN = 'xas_tdp_types'
+   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'xas_tdp_types'
 
 ! *** Public data types ***
    PUBLIC :: xas_tdp_env_type, donor_state_type, xas_tdp_control_type, xas_atom_env_type
@@ -327,15 +329,15 @@ CONTAINS
 !> \param xas_tdp_control the type to initialize
 ! **************************************************************************************************
    SUBROUTINE xas_tdp_control_create(xas_tdp_control)
-      
+
       TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control
 
-      CHARACTER(len=*), PARAMETER                        :: routineN = 'xas_tdp_control_create', &
-                                                            routineP = moduleN//':'//routineN
-      
+      CHARACTER(len=*), PARAMETER :: routineN = 'xas_tdp_control_create', &
+         routineP = moduleN//':'//routineN
+
       CPASSERT(.NOT. ASSOCIATED(xas_tdp_control))
       ALLOCATE (xas_tdp_control)
-      
+
       xas_tdp_control%define_excited = xas_tdp_by_index
       xas_tdp_control%n_search = -1
       xas_tdp_control%dipole_form = xas_dip_vel
@@ -382,12 +384,12 @@ CONTAINS
 !> \param xas_tdp_control the type to release
 ! **************************************************************************************************
    SUBROUTINE xas_tdp_control_release(xas_tdp_control)
-      
+
       TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control
 
-      CHARACTER(len=*), PARAMETER                        :: routineN = 'xas_tdp_control_release', &
-                                                            routineP = moduleN//':'//routineN
-      
+      CHARACTER(len=*), PARAMETER :: routineN = 'xas_tdp_control_release', &
+         routineP = moduleN//':'//routineN
+
       IF (ASSOCIATED(xas_tdp_control)) THEN
          IF (ASSOCIATED(xas_tdp_control%list_ex_atoms)) THEN
             DEALLOCATE (xas_tdp_control%list_ex_atoms)
@@ -396,13 +398,13 @@ CONTAINS
             DEALLOCATE (xas_tdp_control%list_ex_kinds)
          END IF
          IF (ASSOCIATED(xas_tdp_control%state_types)) THEN
-            DEALLOCATE(xas_tdp_control%state_types)
+            DEALLOCATE (xas_tdp_control%state_types)
          END IF
          IF (ASSOCIATED(xas_tdp_control%grid_info)) THEN
-            DEALLOCATE(xas_tdp_control%grid_info)
+            DEALLOCATE (xas_tdp_control%grid_info)
          END IF
          IF (ASSOCIATED(xas_tdp_control%ot_settings)) THEN
-            DEALLOCATE(xas_tdp_control%ot_settings)
+            DEALLOCATE (xas_tdp_control%ot_settings)
          END IF
          DEALLOCATE (xas_tdp_control)
       END IF
@@ -418,17 +420,17 @@ CONTAINS
 
       TYPE(xas_tdp_control_type), POINTER                :: xas_tdp_control
       TYPE(section_vals_type), POINTER                   :: xas_tdp_section
-      
-      CHARACTER(len=*), PARAMETER                        :: routineN = 'read_xas_tdp_control', &
-                                                            routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: irep, nrep, nexc, excitation, ot_method
-      CHARACTER(len=default_string_length),&
-                     DIMENSION(:), POINTER               :: k_list
+      CHARACTER(len=*), PARAMETER :: routineN = 'read_xas_tdp_control', &
+         routineP = moduleN//':'//routineN
+
+      CHARACTER(len=default_string_length), &
+         DIMENSION(:), POINTER                           :: k_list
+      INTEGER                                            :: excitation, irep, nexc, nrep, ot_method
       INTEGER, DIMENSION(:), POINTER                     :: a_list, t_list
 
       NULLIFY (k_list, a_list, t_list)
-      
+
 !  Deal with the lone keywords
 
       CALL section_vals_val_get(xas_tdp_section, "CHECK_ONLY", &
@@ -436,7 +438,7 @@ CONTAINS
 
       CALL section_vals_val_get(xas_tdp_section, "TAMM_DANCOFF", &
                                 l_val=xas_tdp_control%tamm_dancoff)
-                           
+
       CALL section_vals_val_get(xas_tdp_section, "SPIN_ORBIT_COUPLING", &
                                 l_val=xas_tdp_control%do_soc)
 
@@ -449,15 +451,15 @@ CONTAINS
       CALL section_vals_val_get(xas_tdp_section, "PARALLELIZATION", i_val=xas_tdp_control%para)
 
       IF (.NOT. ASSOCIATED(xas_tdp_control%grid_info)) THEN
-         ALLOCATE(xas_tdp_control%grid_info(nrep,3))
+         ALLOCATE (xas_tdp_control%grid_info(nrep, 3))
          DO irep = 1, nrep
             CALL section_vals_val_get(xas_tdp_section, "GRID", i_rep_val=irep, c_vals=k_list)
             IF (SIZE(k_list) .NE. 3) CPABORT("The GRID keyword needs three values")
-            xas_tdp_control%grid_info(irep,:) = k_list
+            xas_tdp_control%grid_info(irep, :) = k_list
          END DO
       END IF
 
-      CALL section_vals_val_get(xas_tdp_section, "EXCITATIONS", n_rep_val=nrep) 
+      CALL section_vals_val_get(xas_tdp_section, "EXCITATIONS", n_rep_val=nrep)
       DO irep = 1, nrep
          CALL section_vals_val_get(xas_tdp_section, "EXCITATIONS", i_rep_val=irep, i_val=excitation)
          IF (excitation == tddfpt_singlet) xas_tdp_control%do_singlet = .TRUE.
@@ -476,10 +478,10 @@ CONTAINS
 
             ALLOCATE (xas_tdp_control%list_ex_kinds(0))
 
-         ELSE IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_kind) THEN                   
+         ELSE IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_kind) THEN
 
             CALL section_vals_val_get(xas_tdp_section, "DONOR_STATES%KIND_LIST", c_vals=k_list)
-         
+
             IF (ASSOCIATED(k_list)) THEN
                nexc = SIZE(k_list)
                ALLOCATE (xas_tdp_control%list_ex_kinds(nexc))
@@ -491,7 +493,7 @@ CONTAINS
 
       IF (.NOT. ASSOCIATED(xas_tdp_control%list_ex_atoms)) THEN
          IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_kind) THEN
-            
+
             ALLOCATE (xas_tdp_control%list_ex_atoms(0))
 
          ELSE IF (xas_tdp_control%define_excited .EQ. xas_tdp_by_index) THEN
@@ -509,23 +511,23 @@ CONTAINS
 
       CALL section_vals_val_get(xas_tdp_section, "DONOR_STATES%STATE_TYPES", n_rep_val=nrep)
 
-      IF(.NOT. ASSOCIATED(xas_tdp_control%state_types)) THEN
-         ALLOCATE (xas_tdp_control%state_types(nrep,nexc))
-         DO irep = 1,nrep
+      IF (.NOT. ASSOCIATED(xas_tdp_control%state_types)) THEN
+         ALLOCATE (xas_tdp_control%state_types(nrep, nexc))
+         DO irep = 1, nrep
             CALL section_vals_val_get(xas_tdp_section, "DONOR_STATES%STATE_TYPES", i_rep_val=irep, i_vals=t_list)
             IF (SIZE(t_list) .NE. nexc) THEN
                CPABORT("The STATE_TYPES keywords do not have the correct number of entries.")
             END IF
-            xas_tdp_control%state_types(irep,:) = t_list
+            xas_tdp_control%state_types(irep, :) = t_list
          END DO
       END IF
-      
+
       CALL section_vals_val_get(xas_tdp_section, "DONOR_STATES%N_SEARCH", i_val=xas_tdp_control%n_search)
 
 !  Deal with the LOCALIZE subsection
-      xas_tdp_control%loc_subsection => section_vals_get_subs_vals(xas_tdp_section, "LOCALIZE")       
-      xas_tdp_control%print_loc_subsection => section_vals_get_subs_vals(&
-                                                         xas_tdp_control%loc_subsection, "PRINT")                      
+      xas_tdp_control%loc_subsection => section_vals_get_subs_vals(xas_tdp_section, "LOCALIZE")
+      xas_tdp_control%print_loc_subsection => section_vals_get_subs_vals( &
+                                              xas_tdp_control%loc_subsection, "PRINT")
 
 !  Deal with the PRINT subsection
       CALL section_vals_val_get(xas_tdp_control%loc_subsection, "_SECTION_PARAMETERS_", &
@@ -533,7 +535,7 @@ CONTAINS
 
 !  Deal with the KERNEL subsection
       CALL section_vals_val_get(xas_tdp_section, "KERNEL%XC_FUNCTIONAL%_SECTION_PARAMETERS_", &
-                                l_val=xas_tdp_control%do_xc) 
+                                l_val=xas_tdp_control%do_xc)
       CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%_SECTION_PARAMETERS_", &
                                 l_val=xas_tdp_control%do_hfx)
 
@@ -542,7 +544,7 @@ CONTAINS
 
       IF (xas_tdp_control%do_hfx) THEN
          CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%SCALE", &
-                                   r_val=xas_tdp_control%sx) 
+                                   r_val=xas_tdp_control%sx)
          CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%OPERATOR", &
                                    i_val=xas_tdp_control%x_op)
          !truncated Coulomb
@@ -560,7 +562,7 @@ CONTAINS
 
          !short range erfc
          IF (xas_tdp_control%x_op == do_hfx_potential_short) THEN
-            CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%OMEGA", & 
+            CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%OMEGA", &
                                       r_val=xas_tdp_control%x_omega)
             CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%EPS_RANGE", &
                                       r_val=xas_tdp_control%eps_range)
@@ -584,7 +586,7 @@ CONTAINS
       CALL section_vals_val_get(xas_tdp_section, "DIAGONALIZATION%FULL_DIAG", &
                                 l_val=xas_tdp_control%full_diag)
 
-      ALLOCATE(xas_tdp_control%ot_settings)
+      ALLOCATE (xas_tdp_control%ot_settings)
       CALL qs_ot_settings_init(xas_tdp_control%ot_settings)
       CALL section_vals_val_get(xas_tdp_section, "DIAGONALIZATION%OT_DIAG%MINIMIZER", i_val=ot_method)
       SELECT CASE (ot_method)
@@ -598,19 +600,19 @@ CONTAINS
                                 i_val=xas_tdp_control%max_iter)
       CALL section_vals_val_get(xas_tdp_section, "DIAGONALIZATION%OT_DIAG%EPS_ITER", &
                                 r_val=xas_tdp_control%eps_iter)
-      
+
    END SUBROUTINE read_xas_tdp_control
 
-!> *************************************************************************************************
-!> \brief Creates a TDP XAS environment type
-!> \param xas_tdp_env the type to create
-!> *************************************************************************************************
+! **************************************************************************************************
+!> \brief ...
+!> \param xas_tdp_env ...
+! **************************************************************************************************
    SUBROUTINE xas_tdp_env_create(xas_tdp_env)
 
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
 
-      CHARACTER(len=*), PARAMETER                        :: routineN = 'xas_tdp_env_create', &
-                                                            routineP = moduleN//':'//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = 'xas_tdp_env_create', &
+         routineP = moduleN//':'//routineN
 
       ALLOCATE (xas_tdp_env)
 
@@ -645,29 +647,29 @@ CONTAINS
 
    END SUBROUTINE xas_tdp_env_create
 
-!> *************************************************************************************************
-!> \brief Releases the TDP XAS environment type
-!> \param xas_tdp_env the type to release
-!> *************************************************************************************************
+! **************************************************************************************************
+!> \brief ...
+!> \param xas_tdp_env ...
+! **************************************************************************************************
    SUBROUTINE xas_tdp_env_release(xas_tdp_env)
 
-      TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env                              
-                                                                                                           
-      CHARACTER(len=*), PARAMETER                        :: routineN = 'xas_tdp_env_release', &         
-                                                            routineP = moduleN//':'//routineN
+      TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'xas_tdp_env_release', &
+         routineP = moduleN//':'//routineN
 
       INTEGER                                            :: i, j
 
       IF (ASSOCIATED(xas_tdp_env)) THEN
          IF (ASSOCIATED(xas_tdp_env%ex_atom_indices)) THEN
-            DEALLOCATE(xas_tdp_env%ex_atom_indices)
+            DEALLOCATE (xas_tdp_env%ex_atom_indices)
          END IF
          IF (ASSOCIATED(xas_tdp_env%ex_kind_indices)) THEN
-            DEALLOCATE(xas_tdp_env%ex_kind_indices)
+            DEALLOCATE (xas_tdp_env%ex_kind_indices)
          END IF
 
          IF (ASSOCIATED(xas_tdp_env%state_types)) THEN
-            DEALLOCATE(xas_tdp_env%state_types)
+            DEALLOCATE (xas_tdp_env%state_types)
          END IF
          IF (ASSOCIATED(xas_tdp_env%donor_states)) THEN
             CALL deallocate_donor_state_set(xas_tdp_env%donor_states)
@@ -676,13 +678,13 @@ CONTAINS
             CALL qs_loc_env_release(xas_tdp_env%qs_loc_env)
          END IF
          IF (ASSOCIATED(xas_tdp_env%mos_of_ex_atoms)) THEN
-            DEALLOCATE(xas_tdp_env%mos_of_ex_atoms)
+            DEALLOCATE (xas_tdp_env%mos_of_ex_atoms)
          END IF
          IF (ASSOCIATED(xas_tdp_env%ri_inv_coul)) THEN
-            DEALLOCATE(xas_tdp_env%ri_inv_coul)
+            DEALLOCATE (xas_tdp_env%ri_inv_coul)
          END IF
          IF (ASSOCIATED(xas_tdp_env%ri_inv_ex)) THEN
-            DEALLOCATE(xas_tdp_env%ri_inv_ex)
+            DEALLOCATE (xas_tdp_env%ri_inv_ex)
          END IF
          IF (ASSOCIATED(xas_tdp_env%opt_dist2d_coul)) THEN
             CALL distribution_2d_release(xas_tdp_env%opt_dist2d_coul)
@@ -691,96 +693,97 @@ CONTAINS
             CALL distribution_2d_release(xas_tdp_env%opt_dist2d_ex)
          END IF
          IF (ASSOCIATED(xas_tdp_env%lumo_guess)) THEN
-            DO i = 1,SIZE(xas_tdp_env%lumo_guess)
+            DO i = 1, SIZE(xas_tdp_env%lumo_guess)
                CALL cp_fm_release(xas_tdp_env%lumo_guess(i)%matrix)
             END DO
-            DEALLOCATE(xas_tdp_env%lumo_guess)
+            DEALLOCATE (xas_tdp_env%lumo_guess)
          END IF
          IF (ASSOCIATED(xas_tdp_env%lumo_evals)) THEN
-            DO i = 1,SIZE(xas_tdp_env%lumo_evals)
+            DO i = 1, SIZE(xas_tdp_env%lumo_evals)
                IF (ASSOCIATED(xas_tdp_env%lumo_evals(i)%array)) THEN
-                  DEALLOCATE(xas_tdp_env%lumo_evals(i)%array)
+                  DEALLOCATE (xas_tdp_env%lumo_evals(i)%array)
                END IF
             END DO
-            DEALLOCATE(xas_tdp_env%lumo_evals)
+            DEALLOCATE (xas_tdp_env%lumo_evals)
          END IF
          IF (ASSOCIATED(xas_tdp_env%q_projector)) THEN
-            DO i=1,SIZE(xas_tdp_env%q_projector)
+            DO i = 1, SIZE(xas_tdp_env%q_projector)
                CALL dbcsr_release_p(xas_tdp_env%q_projector(i)%matrix)
             END DO
-            DEALLOCATE(xas_tdp_env%q_projector)
+            DEALLOCATE (xas_tdp_env%q_projector)
          END IF
          IF (ASSOCIATED(xas_tdp_env%dipmat)) THEN
-            DO i = 1,SIZE(xas_tdp_env%dipmat)
+            DO i = 1, SIZE(xas_tdp_env%dipmat)
                CALL dbcsr_release_p(xas_tdp_env%dipmat(i)%matrix)
             END DO
-            DEALLOCATE(xas_tdp_env%dipmat)
+            DEALLOCATE (xas_tdp_env%dipmat)
          END IF
          IF (ASSOCIATED(xas_tdp_env%quadmat)) THEN
-            DO i = 1,SIZE(xas_tdp_env%quadmat)
+            DO i = 1, SIZE(xas_tdp_env%quadmat)
                CALL dbcsr_release_p(xas_tdp_env%quadmat(i)%matrix)
             END DO
-            DEALLOCATE(xas_tdp_env%quadmat)
+            DEALLOCATE (xas_tdp_env%quadmat)
          END IF
          IF (ASSOCIATED(xas_tdp_env%ri_o3c_coul)) THEN
             CALL release_o3c_container(xas_tdp_env%ri_o3c_coul)
-            DEALLOCATE(xas_tdp_env%ri_o3c_coul)
+            DEALLOCATE (xas_tdp_env%ri_o3c_coul)
          END IF
          IF (ASSOCIATED(xas_tdp_env%ri_o3c_ex)) THEN
             CALL release_o3c_container(xas_tdp_env%ri_o3c_ex)
-            DEALLOCATE(xas_tdp_env%ri_o3c_ex)
+            DEALLOCATE (xas_tdp_env%ri_o3c_ex)
          END IF
          IF (ASSOCIATED(xas_tdp_env%ri_fxc)) THEN
-            DO i =1,SIZE(xas_tdp_env%ri_fxc, 1)
-               DO j = 1,SIZE(xas_tdp_env%ri_fxc, 2)
-                  IF (ASSOCIATED(xas_tdp_env%ri_fxc(i,j)%array)) THEN
-                     DEALLOCATE(xas_tdp_env%ri_fxc(i,j)%array)
+            DO i = 1, SIZE(xas_tdp_env%ri_fxc, 1)
+               DO j = 1, SIZE(xas_tdp_env%ri_fxc, 2)
+                  IF (ASSOCIATED(xas_tdp_env%ri_fxc(i, j)%array)) THEN
+                     DEALLOCATE (xas_tdp_env%ri_fxc(i, j)%array)
                   END IF
                END DO
             END DO
-            DEALLOCATE(xas_tdp_env%ri_fxc)
+            DEALLOCATE (xas_tdp_env%ri_fxc)
          END IF
          IF (ASSOCIATED(xas_tdp_env%orb_soc)) THEN
-            DO i = 1,SIZE(xas_tdp_env%orb_soc)
+            DO i = 1, SIZE(xas_tdp_env%orb_soc)
                CALL dbcsr_release(xas_tdp_env%orb_soc(i)%matrix)
-               DEALLOCATE(xas_tdp_env%orb_soc(i)%matrix)
+               DEALLOCATE (xas_tdp_env%orb_soc(i)%matrix)
             END DO
-            DEALLOCATE(xas_tdp_env%orb_soc)
+            DEALLOCATE (xas_tdp_env%orb_soc)
          END IF
          DEALLOCATE (xas_tdp_env)
       END IF
    END SUBROUTINE xas_tdp_env_release
 
-!> *************************************************************************************************
-!> \brief Sets values of selected variables within the TDP XAS environment type
-!> *************************************************************************************************
+! **************************************************************************************************
+!> \brief ...
+!> \param xas_tdp_env ...
+!> \param nex_atoms ...
+!> \param nex_kinds ...
+! **************************************************************************************************
    SUBROUTINE set_xas_tdp_env(xas_tdp_env, nex_atoms, nex_kinds)
 
       TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
+      INTEGER, INTENT(IN), OPTIONAL                      :: nex_atoms, nex_kinds
 
-      CHARACTER(len=*), PARAMETER                        :: routineN = 'set_xas_tdp_env',&
-                                                            routineP = moduleN//':'//routineN
-                              
-      INTEGER, INTENT(IN), OPTIONAL                      :: nex_atoms
-      INTEGER, INTENT(IN), OPTIONAL                      :: nex_kinds
+      CHARACTER(len=*), PARAMETER :: routineN = 'set_xas_tdp_env', &
+         routineP = moduleN//':'//routineN
 
       CPASSERT(ASSOCIATED(xas_tdp_env))
 
       IF (PRESENT(nex_atoms)) xas_tdp_env%nex_atoms = nex_atoms
       IF (PRESENT(nex_kinds)) xas_tdp_env%nex_kinds = nex_kinds
-      
+
    END SUBROUTINE set_xas_tdp_env
 
-!> *************************************************************************************************
-!> \brief Creates a donor_state
+! **************************************************************************************************
+!> \brief ...
 !> \param donor_state ...
-!> *************************************************************************************************
+! **************************************************************************************************
    SUBROUTINE donor_state_create(donor_state)
 
       TYPE(donor_state_type), INTENT(INOUT)              :: donor_state
 
-      CHARACTER(len=*), PARAMETER                        :: routineN = 'donor_state_create',&
-                                                            routineP = moduleN//':'//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = 'donor_state_create', &
+         routineP = moduleN//':'//routineN
 
       NULLIFY (donor_state%energy_evals)
       NULLIFY (donor_state%mo_indices)
@@ -808,23 +811,24 @@ CONTAINS
 
    END SUBROUTINE donor_state_create
 
-!> *************************************************************************************************
-!> \brief sets specified values of the donor state type
-!> \param donor_state the type which values should be set
+! **************************************************************************************************
+!> \brief ...
+!> \param donor_state ...
 !> \param at_index ...
 !> \param at_symbol ...
-!> \param state_type ...   
-!> *************************************************************************************************
+!> \param kind_index ...
+!> \param state_type ...
+! **************************************************************************************************
    SUBROUTINE set_donor_state(donor_state, at_index, at_symbol, kind_index, state_type)
 
-      TYPE(donor_state_type), POINTER                      :: donor_state
+      TYPE(donor_state_type), POINTER                    :: donor_state
+      INTEGER, INTENT(IN), OPTIONAL                      :: at_index
+      CHARACTER(len=2), INTENT(IN), OPTIONAL             :: at_symbol
+      INTEGER, INTENT(IN), OPTIONAL                      :: kind_index, state_type
 
-      CHARACTER(len=*), PARAMETER                          :: routineN = 'set_donor_state',&
-                                                              routineP = moduleN//':'//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = 'set_donor_state', &
+         routineP = moduleN//':'//routineN
 
-      INTEGER, INTENT(IN), OPTIONAL                        :: at_index, state_type, kind_index
-      CHARACTER(len=2), INTENT(IN), OPTIONAL               :: at_symbol
-      
       CPASSERT(ASSOCIATED(donor_state))
 
       IF (PRESENT(at_index)) donor_state%at_index = at_index
@@ -832,21 +836,22 @@ CONTAINS
       IF (PRESENT(state_type)) donor_state%state_type = state_type
       IF (PRESENT(at_symbol)) donor_state%at_symbol = at_symbol
 
-   END SUBROUTINE set_donor_state   
+   END SUBROUTINE set_donor_state
 
-!> *************************************************************************************************
-!> \brief Deallocate a set of donor states
-!> \param donor_state_set the set of donor states to deallocate
-!> *************************************************************************************************
+! **************************************************************************************************
+!> \brief ...
+!> \param donor_state_set ...
+! **************************************************************************************************
    SUBROUTINE deallocate_donor_state_set(donor_state_set)
-      TYPE(donor_state_type), DIMENSION(:) , POINTER     :: donor_state_set
+      TYPE(donor_state_type), DIMENSION(:), POINTER      :: donor_state_set
 
-      CHARACTER(len=*), PARAMETER                        :: routineN = 'deallocate_donor_state_set',&
-                                                           routineP = moduleN//':'//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = 'deallocate_donor_state_set', &
+         routineP = moduleN//':'//routineN
+
       INTEGER                                            :: i, j
 
       IF (ASSOCIATED(donor_state_set)) THEN
-         DO i = 1,SIZE(donor_state_set)
+         DO i = 1, SIZE(donor_state_set)
 
             IF (ASSOCIATED(donor_state_set(i)%sc_coeffs)) THEN
                CALL cp_fm_release(donor_state_set(i)%sc_coeffs)
@@ -869,116 +874,116 @@ CONTAINS
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%contract_coeffs)) THEN
-               DEALLOCATE(donor_state_set(i)%contract_coeffs)
+               DEALLOCATE (donor_state_set(i)%contract_coeffs)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%sc_evals)) THEN
-               DEALLOCATE(donor_state_set(i)%sc_evals)
+               DEALLOCATE (donor_state_set(i)%sc_evals)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%sf_evals)) THEN
-               DEALLOCATE(donor_state_set(i)%sf_evals)
+               DEALLOCATE (donor_state_set(i)%sf_evals)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%sg_evals)) THEN
-               DEALLOCATE(donor_state_set(i)%sg_evals)
+               DEALLOCATE (donor_state_set(i)%sg_evals)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%tp_evals)) THEN
-               DEALLOCATE(donor_state_set(i)%tp_evals)
+               DEALLOCATE (donor_state_set(i)%tp_evals)
             END IF
 
-             IF (ASSOCIATED(donor_state_set(i)%soc_evals)) THEN
-               DEALLOCATE(donor_state_set(i)%soc_evals)
+            IF (ASSOCIATED(donor_state_set(i)%soc_evals)) THEN
+               DEALLOCATE (donor_state_set(i)%soc_evals)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%osc_str)) THEN
-               DEALLOCATE(donor_state_set(i)%osc_str)
+               DEALLOCATE (donor_state_set(i)%osc_str)
             END IF
-            
+
             IF (ASSOCIATED(donor_state_set(i)%soc_osc_str)) THEN
-               DEALLOCATE(donor_state_set(i)%soc_osc_str)
+               DEALLOCATE (donor_state_set(i)%soc_osc_str)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%quad_osc_str)) THEN
-               DEALLOCATE(donor_state_set(i)%quad_osc_str)
+               DEALLOCATE (donor_state_set(i)%quad_osc_str)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%soc_quad_osc_str)) THEN
-               DEALLOCATE(donor_state_set(i)%soc_quad_osc_str)
+               DEALLOCATE (donor_state_set(i)%soc_quad_osc_str)
             END IF
 
-            If (ASSOCIATED(donor_state_set(i)%energy_evals)) THEN
-               DEALLOCATE(donor_state_set(i)%energy_evals)
+            IF (ASSOCIATED(donor_state_set(i)%energy_evals)) THEN
+               DEALLOCATE (donor_state_set(i)%energy_evals)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%mo_indices)) THEN
-               DEALLOCATE(donor_state_set(i)%mo_indices)
+               DEALLOCATE (donor_state_set(i)%mo_indices)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%sc_matrix_tdp)) THEN
                CALL dbcsr_release(donor_state_set(i)%sc_matrix_tdp)
-               DEALLOCATE(donor_state_set(i)%sc_matrix_tdp)
+               DEALLOCATE (donor_state_set(i)%sc_matrix_tdp)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%sf_matrix_tdp)) THEN
                CALL dbcsr_release(donor_state_set(i)%sf_matrix_tdp)
-               DEALLOCATE(donor_state_set(i)%sf_matrix_tdp)
+               DEALLOCATE (donor_state_set(i)%sf_matrix_tdp)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%sg_matrix_tdp)) THEN
                CALL dbcsr_release(donor_state_set(i)%sg_matrix_tdp)
-               DEALLOCATE(donor_state_set(i)%sg_matrix_tdp)
+               DEALLOCATE (donor_state_set(i)%sg_matrix_tdp)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%tp_matrix_tdp)) THEN
                CALL dbcsr_release(donor_state_set(i)%tp_matrix_tdp)
-               DEALLOCATE(donor_state_set(i)%tp_matrix_tdp)
+               DEALLOCATE (donor_state_set(i)%tp_matrix_tdp)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%metric)) THEN
-               DO j = 1,SIZE(donor_state_set(i)%metric)
-                  IF (ASSOCIATED(donor_state_set(i)%metric(j)%matrix)) THEN  
-                     CALL dbcsr_release(donor_state_set(i)%metric(j)%matrix)      
-                     DEALLOCATE(donor_state_set(i)%metric(j)%matrix)           
+               DO j = 1, SIZE(donor_state_set(i)%metric)
+                  IF (ASSOCIATED(donor_state_set(i)%metric(j)%matrix)) THEN
+                     CALL dbcsr_release(donor_state_set(i)%metric(j)%matrix)
+                     DEALLOCATE (donor_state_set(i)%metric(j)%matrix)
                   END IF
                END DO
-               DEALLOCATE(donor_state_set(i)%metric)
+               DEALLOCATE (donor_state_set(i)%metric)
             END IF
 
             IF (ASSOCIATED(donor_state_set(i)%matrix_aux)) THEN
-               CALL dbcsr_release(donor_state_set(i)%matrix_aux)      
-               DEALLOCATE(donor_state_set(i)%matrix_aux)
+               CALL dbcsr_release(donor_state_set(i)%matrix_aux)
+               DEALLOCATE (donor_state_set(i)%matrix_aux)
             END IF
 
          END DO
-         DEALLOCATE(donor_state_set)
+         DEALLOCATE (donor_state_set)
       END IF
 
    END SUBROUTINE deallocate_donor_state_set
 
-!> *************************************************************************************************
-!> \brief Deallocate a donor_state's heavy attributes
+! **************************************************************************************************
+!> \brief ...
 !> \param donor_state ...
-!> *************************************************************************************************
+! **************************************************************************************************
    SUBROUTINE free_ds_memory(donor_state)
-      
+
       TYPE(donor_state_type), POINTER                    :: donor_state
 
-      CHARACTER(len=*), PARAMETER :: routineN = "free_ds_memory", routineP = moduleN//":"//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = 'free_ds_memory', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: i
 
-      IF (ASSOCIATED(donor_state%sc_evals)) DEALLOCATE(donor_state%sc_evals)
-      IF (ASSOCIATED(donor_state%contract_coeffs)) DEALLOCATE(donor_state%contract_coeffs)
-      IF (ASSOCIATED(donor_state%sf_evals)) DEALLOCATE(donor_state%sf_evals)
-      IF (ASSOCIATED(donor_state%sg_evals)) DEALLOCATE(donor_state%sg_evals)
-      IF (ASSOCIATED(donor_state%tp_evals)) DEALLOCATE(donor_state%tp_evals)
-      IF (ASSOCIATED(donor_state%soc_evals)) DEALLOCATE(donor_state%soc_evals)
-      IF (ASSOCIATED(donor_state%osc_str)) DEALLOCATE(donor_state%osc_str)
-      IF (ASSOCIATED(donor_state%soc_osc_str)) DEALLOCATE(donor_state%soc_osc_str)
-      IF (ASSOCIATED(donor_state%quad_osc_str)) DEALLOCATE(donor_state%quad_osc_str)
-      IF (ASSOCIATED(donor_state%soc_quad_osc_str)) DEALLOCATE(donor_state%soc_quad_osc_str)
+      IF (ASSOCIATED(donor_state%sc_evals)) DEALLOCATE (donor_state%sc_evals)
+      IF (ASSOCIATED(donor_state%contract_coeffs)) DEALLOCATE (donor_state%contract_coeffs)
+      IF (ASSOCIATED(donor_state%sf_evals)) DEALLOCATE (donor_state%sf_evals)
+      IF (ASSOCIATED(donor_state%sg_evals)) DEALLOCATE (donor_state%sg_evals)
+      IF (ASSOCIATED(donor_state%tp_evals)) DEALLOCATE (donor_state%tp_evals)
+      IF (ASSOCIATED(donor_state%soc_evals)) DEALLOCATE (donor_state%soc_evals)
+      IF (ASSOCIATED(donor_state%osc_str)) DEALLOCATE (donor_state%osc_str)
+      IF (ASSOCIATED(donor_state%soc_osc_str)) DEALLOCATE (donor_state%soc_osc_str)
+      IF (ASSOCIATED(donor_state%quad_osc_str)) DEALLOCATE (donor_state%quad_osc_str)
+      IF (ASSOCIATED(donor_state%soc_quad_osc_str)) DEALLOCATE (donor_state%soc_quad_osc_str)
       IF (ASSOCIATED(donor_state%gs_coeffs)) CALL cp_fm_release(donor_state%gs_coeffs)
 
       IF (ASSOCIATED(donor_state%sc_coeffs)) THEN
@@ -991,7 +996,7 @@ CONTAINS
 
       IF (ASSOCIATED(donor_state%sg_coeffs)) THEN
          CALL cp_fm_release(donor_state%sg_coeffs)
-      END IF   
+      END IF
 
       IF (ASSOCIATED(donor_state%tp_coeffs)) THEN
          CALL cp_fm_release(donor_state%tp_coeffs)
@@ -999,206 +1004,205 @@ CONTAINS
 
       IF (ASSOCIATED(donor_state%sc_matrix_tdp)) THEN
          CALL dbcsr_release(donor_state%sc_matrix_tdp)
-         DEALLOCATE(donor_state%sc_matrix_tdp)
+         DEALLOCATE (donor_state%sc_matrix_tdp)
       END IF
 
       IF (ASSOCIATED(donor_state%sf_matrix_tdp)) THEN
          CALL dbcsr_release(donor_state%sf_matrix_tdp)
-         DEALLOCATE(donor_state%sf_matrix_tdp)
+         DEALLOCATE (donor_state%sf_matrix_tdp)
       END IF
 
       IF (ASSOCIATED(donor_state%sg_matrix_tdp)) THEN
          CALL dbcsr_release(donor_state%sg_matrix_tdp)
-         DEALLOCATE(donor_state%sg_matrix_tdp)
+         DEALLOCATE (donor_state%sg_matrix_tdp)
       END IF
 
       IF (ASSOCIATED(donor_state%tp_matrix_tdp)) THEN
          CALL dbcsr_release(donor_state%tp_matrix_tdp)
-         DEALLOCATE(donor_state%tp_matrix_tdp)
+         DEALLOCATE (donor_state%tp_matrix_tdp)
       END IF
 
       IF (ASSOCIATED(donor_state%metric)) THEN
-         DO i = 1,SIZE(donor_state%metric)
-            IF (ASSOCIATED(donor_state%metric(i)%matrix)) THEN   
-               CALL dbcsr_release(donor_state%metric(i)%matrix) 
-               DEALLOCATE(donor_state%metric(i)%matrix)  
+         DO i = 1, SIZE(donor_state%metric)
+            IF (ASSOCIATED(donor_state%metric(i)%matrix)) THEN
+               CALL dbcsr_release(donor_state%metric(i)%matrix)
+               DEALLOCATE (donor_state%metric(i)%matrix)
             END IF
          END DO
-         DEALLOCATE(donor_state%metric)
+         DEALLOCATE (donor_state%metric)
       END IF
 
       IF (ASSOCIATED(donor_state%matrix_aux)) THEN
-         CALL dbcsr_release(donor_state%matrix_aux) 
-         DEALLOCATE(donor_state%matrix_aux)
+         CALL dbcsr_release(donor_state%matrix_aux)
+         DEALLOCATE (donor_state%matrix_aux)
       END IF
 
    END SUBROUTINE free_ds_memory
 
-
-!> *************************************************************************************************
-!> \brief Creates a xas_atom_env type 
+! **************************************************************************************************
+!> \brief ...
 !> \param xas_atom_env ...
-!> *************************************************************************************************
+! **************************************************************************************************
    SUBROUTINE xas_atom_env_create(xas_atom_env)
 
       TYPE(xas_atom_env_type), POINTER                   :: xas_atom_env
 
-      CHARACTER(len=*), PARAMETER :: routineN = "xas_atom_env_create", &
-                                     routineP = moduleN//":"//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = 'xas_atom_env_create', &
+         routineP = moduleN//':'//routineN
 
-      ALLOCATE(xas_atom_env)
-      
+      ALLOCATE (xas_atom_env)
+
       xas_atom_env%nspins = 1
       xas_atom_env%ri_radius = 0.0_dp
-      NULLIFY(xas_atom_env%excited_atoms)
-      NULLIFY(xas_atom_env%excited_kinds)
-      NULLIFY(xas_atom_env%grid_atom_set)
-      NULLIFY(xas_atom_env%harmonics_atom_set)
-      NULLIFY(xas_atom_env%ri_dcoeff)
-      NULLIFY(xas_atom_env%ri_sphi_so)
-      NULLIFY(xas_atom_env%orb_sphi_so)
-      NULLIFY(xas_atom_env%exat_neighbors)
-      NULLIFY(xas_atom_env%gr)
-      NULLIFY(xas_atom_env%ga)
-      NULLIFY(xas_atom_env%dgr1)
-      NULLIFY(xas_atom_env%dgr2)
-      NULLIFY(xas_atom_env%dga1)
-      NULLIFY(xas_atom_env%dga2)
+      NULLIFY (xas_atom_env%excited_atoms)
+      NULLIFY (xas_atom_env%excited_kinds)
+      NULLIFY (xas_atom_env%grid_atom_set)
+      NULLIFY (xas_atom_env%harmonics_atom_set)
+      NULLIFY (xas_atom_env%ri_dcoeff)
+      NULLIFY (xas_atom_env%ri_sphi_so)
+      NULLIFY (xas_atom_env%orb_sphi_so)
+      NULLIFY (xas_atom_env%exat_neighbors)
+      NULLIFY (xas_atom_env%gr)
+      NULLIFY (xas_atom_env%ga)
+      NULLIFY (xas_atom_env%dgr1)
+      NULLIFY (xas_atom_env%dgr2)
+      NULLIFY (xas_atom_env%dga1)
+      NULLIFY (xas_atom_env%dga2)
 
    END SUBROUTINE xas_atom_env_create
 
 ! **************************************************************************************************
-!> \brief Releases the xas_atom_env type 
+!> \brief Releases the xas_atom_env type
 !> \param xas_atom_env the type to release
 ! **************************************************************************************************
    SUBROUTINE xas_atom_env_release(xas_atom_env)
 
       TYPE(xas_atom_env_type), POINTER                   :: xas_atom_env
 
-      CHARACTER(len=*), PARAMETER :: routineN = "xas_atom_env_release", &
-                                     routineP = moduleN//":"//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = 'xas_atom_env_release', &
+         routineP = moduleN//':'//routineN
 
       INTEGER                                            :: i, j, k
 
-      IF (ASSOCIATED(xas_atom_env%grid_atom_set)) THEN 
-         DO i = 1,SIZE(xas_atom_env%grid_atom_set)
+      IF (ASSOCIATED(xas_atom_env%grid_atom_set)) THEN
+         DO i = 1, SIZE(xas_atom_env%grid_atom_set)
             IF (ASSOCIATED(xas_atom_env%grid_atom_set(i)%grid_atom)) THEN
                CALL deallocate_grid_atom(xas_atom_env%grid_atom_set(i)%grid_atom)
             END IF
          END DO
-         DEALLOCATE(xas_atom_env%grid_atom_set)
+         DEALLOCATE (xas_atom_env%grid_atom_set)
       END IF
 
       IF (ASSOCIATED(xas_atom_env%harmonics_atom_set)) THEN
-         DO i = 1,SIZE(xas_atom_env%harmonics_atom_set)
-            IF (ASSOCIATED(xas_atom_env%harmonics_atom_set(i)%harmonics_atom)) THEN 
+         DO i = 1, SIZE(xas_atom_env%harmonics_atom_set)
+            IF (ASSOCIATED(xas_atom_env%harmonics_atom_set(i)%harmonics_atom)) THEN
                CALL deallocate_harmonics_atom(xas_atom_env%harmonics_atom_set(i)%harmonics_atom)
             END IF
          END DO
-         DEALLOCATE(xas_atom_env%harmonics_atom_set)
+         DEALLOCATE (xas_atom_env%harmonics_atom_set)
       END IF
 
-      ! Note that excited_atoms and excited_kinds are not deallocated because they point to other 
+      ! Note that excited_atoms and excited_kinds are not deallocated because they point to other
       ! ressources, namely xas_tdp_env.
 
       IF (ASSOCIATED(xas_atom_env%ri_dcoeff)) THEN
-         DO i = 1,SIZE(xas_atom_env%ri_dcoeff,1)
-            DO j = 1,SIZE(xas_atom_env%ri_dcoeff,2)
-               DO k =1, SIZE(xas_atom_env%ri_dcoeff,3)
-                  IF (ASSOCIATED(xas_atom_env%ri_dcoeff(i,j,k)%array)) THEN
-                     DEALLOCATE(xas_atom_env%ri_dcoeff(i,j,k)%array)
+         DO i = 1, SIZE(xas_atom_env%ri_dcoeff, 1)
+            DO j = 1, SIZE(xas_atom_env%ri_dcoeff, 2)
+               DO k = 1, SIZE(xas_atom_env%ri_dcoeff, 3)
+                  IF (ASSOCIATED(xas_atom_env%ri_dcoeff(i, j, k)%array)) THEN
+                     DEALLOCATE (xas_atom_env%ri_dcoeff(i, j, k)%array)
                   END IF
                END DO
             END DO
          END DO
-         DEALLOCATE(xas_atom_env%ri_dcoeff)
+         DEALLOCATE (xas_atom_env%ri_dcoeff)
       END IF
 
       IF (ASSOCIATED(xas_atom_env%ri_sphi_so)) THEN
-         DO i = 1,SIZE(xas_atom_env%ri_sphi_so)
-            IF (ASSOCIATED(xas_atom_env%ri_sphi_so(i)%array)) THEN 
-               DEALLOCATE(xas_atom_env%ri_sphi_so(i)%array)
+         DO i = 1, SIZE(xas_atom_env%ri_sphi_so)
+            IF (ASSOCIATED(xas_atom_env%ri_sphi_so(i)%array)) THEN
+               DEALLOCATE (xas_atom_env%ri_sphi_so(i)%array)
             END IF
          END DO
-         DEALLOCATE(xas_atom_env%ri_sphi_so)
+         DEALLOCATE (xas_atom_env%ri_sphi_so)
       END IF
 
       IF (ASSOCIATED(xas_atom_env%exat_neighbors)) THEN
-         DO i = 1,SIZE(xas_atom_env%exat_neighbors)
-            IF (ASSOCIATED(xas_atom_env%exat_neighbors(i)%array)) THEN 
-               DEALLOCATE(xas_atom_env%exat_neighbors(i)%array)
+         DO i = 1, SIZE(xas_atom_env%exat_neighbors)
+            IF (ASSOCIATED(xas_atom_env%exat_neighbors(i)%array)) THEN
+               DEALLOCATE (xas_atom_env%exat_neighbors(i)%array)
             END IF
          END DO
-         DEALLOCATE(xas_atom_env%exat_neighbors)
+         DEALLOCATE (xas_atom_env%exat_neighbors)
       END IF
 
       IF (ASSOCIATED(xas_atom_env%gr)) THEN
-         DO i = 1,SIZE(xas_atom_env%gr)
-            IF (ASSOCIATED(xas_atom_env%gr(i)%array)) THEN 
-               DEALLOCATE(xas_atom_env%gr(i)%array)
+         DO i = 1, SIZE(xas_atom_env%gr)
+            IF (ASSOCIATED(xas_atom_env%gr(i)%array)) THEN
+               DEALLOCATE (xas_atom_env%gr(i)%array)
             END IF
          END DO
-         DEALLOCATE(xas_atom_env%gr)
+         DEALLOCATE (xas_atom_env%gr)
       END IF
 
       IF (ASSOCIATED(xas_atom_env%ga)) THEN
-         DO i = 1,SIZE(xas_atom_env%ga)
-            IF (ASSOCIATED(xas_atom_env%ga(i)%array)) THEN 
-               DEALLOCATE(xas_atom_env%ga(i)%array)
+         DO i = 1, SIZE(xas_atom_env%ga)
+            IF (ASSOCIATED(xas_atom_env%ga(i)%array)) THEN
+               DEALLOCATE (xas_atom_env%ga(i)%array)
             END IF
          END DO
-         DEALLOCATE(xas_atom_env%ga)
+         DEALLOCATE (xas_atom_env%ga)
       END IF
 
       IF (ASSOCIATED(xas_atom_env%dgr1)) THEN
-         DO i = 1,SIZE(xas_atom_env%dgr1)
-            IF (ASSOCIATED(xas_atom_env%dgr1(i)%array)) THEN 
-               DEALLOCATE(xas_atom_env%dgr1(i)%array)
+         DO i = 1, SIZE(xas_atom_env%dgr1)
+            IF (ASSOCIATED(xas_atom_env%dgr1(i)%array)) THEN
+               DEALLOCATE (xas_atom_env%dgr1(i)%array)
             END IF
          END DO
-         DEALLOCATE(xas_atom_env%dgr1)
+         DEALLOCATE (xas_atom_env%dgr1)
       END IF
 
       IF (ASSOCIATED(xas_atom_env%dgr2)) THEN
-         DO i = 1,SIZE(xas_atom_env%dgr2)
-            IF (ASSOCIATED(xas_atom_env%dgr2(i)%array)) THEN 
-               DEALLOCATE(xas_atom_env%dgr2(i)%array)
+         DO i = 1, SIZE(xas_atom_env%dgr2)
+            IF (ASSOCIATED(xas_atom_env%dgr2(i)%array)) THEN
+               DEALLOCATE (xas_atom_env%dgr2(i)%array)
             END IF
          END DO
-         DEALLOCATE(xas_atom_env%dgr2)
+         DEALLOCATE (xas_atom_env%dgr2)
       END IF
 
       IF (ASSOCIATED(xas_atom_env%dga1)) THEN
-         DO i = 1,SIZE(xas_atom_env%dga1)
-            IF (ASSOCIATED(xas_atom_env%dga1(i)%array)) THEN 
-               DEALLOCATE(xas_atom_env%dga1(i)%array)
+         DO i = 1, SIZE(xas_atom_env%dga1)
+            IF (ASSOCIATED(xas_atom_env%dga1(i)%array)) THEN
+               DEALLOCATE (xas_atom_env%dga1(i)%array)
             END IF
          END DO
-         DEALLOCATE(xas_atom_env%dga1)
+         DEALLOCATE (xas_atom_env%dga1)
       END IF
 
       IF (ASSOCIATED(xas_atom_env%dga2)) THEN
-         DO i = 1,SIZE(xas_atom_env%dga2)
-            IF (ASSOCIATED(xas_atom_env%dga2(i)%array)) THEN 
-               DEALLOCATE(xas_atom_env%dga2(i)%array)
+         DO i = 1, SIZE(xas_atom_env%dga2)
+            IF (ASSOCIATED(xas_atom_env%dga2(i)%array)) THEN
+               DEALLOCATE (xas_atom_env%dga2(i)%array)
             END IF
          END DO
-         DEALLOCATE(xas_atom_env%dga2)
+         DEALLOCATE (xas_atom_env%dga2)
       END IF
 
       IF (ASSOCIATED(xas_atom_env%orb_sphi_so)) THEN
-         DO i = 1,SIZE(xas_atom_env%orb_sphi_so)
-            IF (ASSOCIATED(xas_atom_env%orb_sphi_so(i)%array)) THEN 
-               DEALLOCATE(xas_atom_env%orb_sphi_so(i)%array)
+         DO i = 1, SIZE(xas_atom_env%orb_sphi_so)
+            IF (ASSOCIATED(xas_atom_env%orb_sphi_so(i)%array)) THEN
+               DEALLOCATE (xas_atom_env%orb_sphi_so(i)%array)
             END IF
          END DO
-         DEALLOCATE(xas_atom_env%orb_sphi_so)
+         DEALLOCATE (xas_atom_env%orb_sphi_so)
       END IF
 
       !Clean-up libint
       CALL cp_libint_static_cleanup()
 
-      DEALLOCATE(xas_atom_env)
+      DEALLOCATE (xas_atom_env)
 
    END SUBROUTINE xas_atom_env_release
 
@@ -1210,22 +1214,23 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE free_exat_memory(xas_tdp_env, atom)
 
-      TYPE(xas_tdp_env_type), POINTER                 :: xas_tdp_env
-      INTEGER, INTENT(IN)                             :: atom
+      TYPE(xas_tdp_env_type), POINTER                    :: xas_tdp_env
+      INTEGER, INTENT(IN)                                :: atom
 
-      CHARACTER(len=*), PARAMETER :: routineN = "free_exat_memory", routineP = moduleN//":"//routineN
+      CHARACTER(len=*), PARAMETER :: routineN = 'free_exat_memory', &
+         routineP = moduleN//':'//routineN
 
-      INTEGER                                         :: i
+      INTEGER                                            :: i
 
       IF (ASSOCIATED(xas_tdp_env%ri_o3c_ex)) THEN
          CALL release_o3c_container(xas_tdp_env%ri_o3c_ex)
-         DEALLOCATE(xas_tdp_env%ri_o3c_ex)
+         DEALLOCATE (xas_tdp_env%ri_o3c_ex)
       END IF
 
       IF (ASSOCIATED(xas_tdp_env%ri_fxc)) THEN
-         DO i = 1, SIZE(xas_tdp_env%ri_fxc,2)
-            IF (ASSOCIATED(xas_tdp_env%ri_fxc(atom,i)%array)) THEN
-               DEALLOCATE(xas_tdp_env%ri_fxc(atom,i)%array) 
+         DO i = 1, SIZE(xas_tdp_env%ri_fxc, 2)
+            IF (ASSOCIATED(xas_tdp_env%ri_fxc(atom, i)%array)) THEN
+               DEALLOCATE (xas_tdp_env%ri_fxc(atom, i)%array)
             END IF
          END DO
       END IF
