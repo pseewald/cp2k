@@ -1285,18 +1285,18 @@ CONTAINS
 !> \param t2c ...
 !> \param filter_eps ...
 !> \param qs_env ...
-!> \param basis_set_list_a ...
-!> \param basis_set_list_b ...
+!> \param basis_i ...
+!> \param basis_j ...
 !> \param nl_2c ...
 !> \param op ...
 !> \param do_kpoints ...
 ! **************************************************************************************************
-   SUBROUTINE build_2c_integrals(t2c, filter_eps, qs_env, basis_set_list_a, basis_set_list_b, &
+   SUBROUTINE build_2c_integrals(t2c, filter_eps, qs_env, basis_i, basis_j, &
                                  nl_2c, op, do_kpoints)
       TYPE(dbcsr_type), DIMENSION(:), INTENT(INOUT)      :: t2c
       REAL(KIND=dp), INTENT(IN)                          :: filter_eps
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_list_a, basis_set_list_b
+      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: nl_2c
       INTEGER, INTENT(IN), OPTIONAL                      :: op
@@ -1305,25 +1305,25 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'build_2c_integrals', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: col, handle, iatom, ikind, img, iset, &
-                                                            jatom, jkind, jset, n1, n2, natom, &
-                                                            ncoa, ncob, nimg, nseta, nsetb, &
-                                                            op_prv, row, sgfa, sgfb
+      INTEGER                                            :: handle, iatom, ikind, img, iset, jatom, &
+                                                            jkind, jset, n1, n2, natom, ncob, &
+                                                            ncoi, nimg, nseti, nsetj, op_prv, &
+                                                            sgfi, sgfj
       INTEGER, DIMENSION(3)                              :: cell
-      INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, lb_min, npgfa, &
-                                                            npgfb, nsgfa, nsgfb
-      INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, first_sgfb
+      INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmin_i, lmin_j, npgfi, &
+                                                            npgfj, nsgfi, nsgfj
+      INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfi, first_sgfj
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL                                            :: do_kpoints_prv, found
       REAL(KIND=dp)                                      :: dab
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: owork, sab
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: owork, sij
       REAL(KIND=dp), DIMENSION(3)                        :: rab
-      REAL(KIND=dp), DIMENSION(:), POINTER               :: set_radius_a, set_radius_b
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: rpgfa, rpgfb, scon_a, scon_b, zeta, zetb
+      REAL(KIND=dp), DIMENSION(:), POINTER               :: set_radius_i, set_radius_j
+      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: rpgfi, rpgfj, scon_i, scon_j, zeti, zetj
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(block_p_type)                                 :: block_t
       TYPE(dft_control_type), POINTER                    :: dft_control
-      TYPE(gto_basis_set_type), POINTER                  :: basis_set_a, basis_set_b
+      TYPE(gto_basis_set_type), POINTER                  :: basis_set_i, basis_set_j
       TYPE(kpoint_type), POINTER                         :: kpoints
       TYPE(neighbor_list_iterator_p_type), &
          DIMENSION(:), POINTER                           :: nl_iterator
@@ -1343,7 +1343,7 @@ CONTAINS
          op_prv = do_potential_id
       ENDIF
 
-      NULLIFY (qs_kind_set, atomic_kind_set, basis_set_a, basis_set_b, block_t%block)
+      NULLIFY (qs_kind_set, atomic_kind_set, basis_set_i, basis_set_j, block_t%block)
 
       DO img = 1, SIZE(t2c)
          CALL cp_dbcsr_alloc_block_from_nbl(t2c(img), nl_2c, desymmetrize=.TRUE.)
@@ -1373,34 +1373,32 @@ CONTAINS
             img = 1
          END IF
 
-         basis_set_a => basis_set_list_a(ikind)%gto_basis_set
-         IF (.NOT. ASSOCIATED(basis_set_a)) CYCLE
-         basis_set_b => basis_set_list_b(jkind)%gto_basis_set
-         IF (.NOT. ASSOCIATED(basis_set_b)) CYCLE
+         basis_set_i => basis_i(ikind)%gto_basis_set
+         IF (.NOT. ASSOCIATED(basis_set_i)) CYCLE
+         basis_set_j => basis_j(jkind)%gto_basis_set
+         IF (.NOT. ASSOCIATED(basis_set_j)) CYCLE
          ! basis ikind
-         first_sgfa => basis_set_a%first_sgf
-         la_max => basis_set_a%lmax
-         la_min => basis_set_a%lmin
-         npgfa => basis_set_a%npgf
-         nseta = basis_set_a%nset
-         nsgfa => basis_set_a%nsgf_set
-         rpgfa => basis_set_a%pgf_radius
-         set_radius_a => basis_set_a%set_radius
-         scon_a => basis_set_a%scon
-         zeta => basis_set_a%zet
+         first_sgfi => basis_set_i%first_sgf
+         lmax_i => basis_set_i%lmax
+         lmin_i => basis_set_i%lmin
+         npgfi => basis_set_i%npgf
+         nseti = basis_set_i%nset
+         nsgfi => basis_set_i%nsgf_set
+         rpgfi => basis_set_i%pgf_radius
+         set_radius_i => basis_set_i%set_radius
+         scon_i => basis_set_i%scon
+         zeti => basis_set_i%zet
          ! basis jkind
-         first_sgfb => basis_set_b%first_sgf
-         lb_max => basis_set_b%lmax
-         lb_min => basis_set_b%lmin
-         npgfb => basis_set_b%npgf
-         nsetb = basis_set_b%nset
-         nsgfb => basis_set_b%nsgf_set
-         rpgfb => basis_set_b%pgf_radius
-         set_radius_b => basis_set_b%set_radius
-         scon_b => basis_set_b%scon
-         zetb => basis_set_b%zet
-
-         row = iatom; col = jatom
+         first_sgfj => basis_set_j%first_sgf
+         lmax_j => basis_set_j%lmax
+         lmin_j => basis_set_j%lmin
+         npgfj => basis_set_j%npgf
+         nsetj = basis_set_j%nset
+         nsgfj => basis_set_j%nsgf_set
+         rpgfj => basis_set_j%pgf_radius
+         set_radius_j => basis_set_j%set_radius
+         scon_j => basis_set_j%scon
+         zetj => basis_set_j%zet
 
          dab = SQRT(SUM(rab**2))
 
@@ -1408,38 +1406,38 @@ CONTAINS
          !ALLOCATE(block_t(blk_size(1), blk_size(2))
 
          CALL dbcsr_get_block_p(matrix=t2c(img), &
-                                row=row, col=col, BLOCK=block_t%block, found=found)
+                                row=iatom, col=jatom, BLOCK=block_t%block, found=found)
          CPASSERT(found)
 
-         DO iset = 1, nseta
+         DO iset = 1, nseti
 
-            ncoa = npgfa(iset)*ncoset(la_max(iset))
-            n1 = npgfa(iset)*(ncoset(la_max(iset))-ncoset(la_min(iset)-1))
-            sgfa = first_sgfa(1, iset)
+            ncoi = npgfi(iset)*ncoset(lmax_i(iset))
+            n1 = npgfi(iset)*(ncoset(lmax_i(iset))-ncoset(lmin_i(iset)-1))
+            sgfi = first_sgfi(1, iset)
 
-            DO jset = 1, nsetb
+            DO jset = 1, nsetj
 
-               ncob = npgfb(jset)*ncoset(lb_max(jset))
-               n2 = npgfb(jset)*(ncoset(lb_max(jset))-ncoset(lb_min(jset)-1))
-               sgfb = first_sgfb(1, jset)
+               ncob = npgfj(jset)*ncoset(lmax_j(jset))
+               n2 = npgfj(jset)*(ncoset(lmax_j(jset))-ncoset(lmin_j(jset)-1))
+               sgfj = first_sgfj(1, jset)
 
-               IF (ncoa*ncob > 0) THEN
-                  ALLOCATE (sab(ncoa, ncob))
+               IF (ncoi*ncob > 0) THEN
+                  ALLOCATE (sij(ncoi, ncob))
 
                   ! calculate integrals and derivatives
-                  CALL overlap_ab(la_max(iset), la_min(iset), npgfa(iset), rpgfa(:, iset), zeta(:, iset), &
-                                  lb_max(jset), lb_min(jset), npgfb(jset), rpgfb(:, jset), zetb(:, jset), &
-                                  rab, sab=sab)
+                  CALL overlap_ab(lmax_i(iset), lmin_i(iset), npgfi(iset), rpgfi(:, iset), zeti(:, iset), &
+                                  lmax_j(jset), lmin_j(jset), npgfj(jset), rpgfj(:, jset), zetj(:, jset), &
+                                  rab, sab=sij)
                   ! Contraction
-                  ALLOCATE (owork(nsgfa(iset), nsgfb(jset)))
-                  CALL contraction(sab, owork, ca=scon_a(:, sgfa:), na=n1, ma=nsgfa(iset), &
-                                   cb=scon_b(:, sgfb:), nb=n2, mb=nsgfb(jset), fscale=1.0_dp) !trans=trans)
+                  ALLOCATE (owork(nsgfi(iset), nsgfj(jset)))
+                  CALL contraction(sij, owork, ca=scon_i(:, sgfi:), na=n1, ma=nsgfi(iset), &
+                                   cb=scon_j(:, sgfj:), nb=n2, mb=nsgfj(jset), fscale=1.0_dp) !trans=trans)
 
-                  CALL block_add("IN", owork, nsgfa(iset), nsgfb(jset), block_t%block, &
-                                 sgfa, sgfb) !trans=trans)
+                  CALL block_add("IN", owork, nsgfi(iset), nsgfj(jset), block_t%block, &
+                                 sgfi, sgfj) !trans=trans)
 
                   DEALLOCATE (owork)
-                  DEALLOCATE (sab)
+                  DEALLOCATE (sij)
                ENDIF
             END DO
          END DO
