@@ -25,7 +25,7 @@ MODULE xas_tdp_types
                                               distribution_2d_type
    USE hfx_libint_wrapper,              ONLY: cp_libint_static_cleanup
    USE input_constants,                 ONLY: &
-        do_hfx_potential_coulomb, do_hfx_potential_short, do_hfx_potential_truncated, ot_mini_cg, &
+        do_potential_coulomb, do_potential_short, do_potential_truncated, ot_mini_cg, &
         ot_mini_diis, tddfpt_singlet, tddfpt_spin_cons, tddfpt_spin_flip, tddfpt_triplet, &
         xas_dip_vel, xas_tdp_by_index, xas_tdp_by_kind, xas_tdp_para_atom
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
@@ -350,7 +350,7 @@ CONTAINS
       xas_tdp_control%eps_range = 1.0E-6_dp
       xas_tdp_control%eps_screen = 1.0E-10_dp
       xas_tdp_control%ri_radius = 0.0_dp
-      xas_tdp_control%x_op = do_hfx_potential_coulomb
+      xas_tdp_control%x_op = do_potential_coulomb
       xas_tdp_control%x_t_c_filename = " "
       xas_tdp_control%check_only = .FALSE.
       xas_tdp_control%tamm_dancoff = .FALSE.
@@ -548,7 +548,7 @@ CONTAINS
          CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%OPERATOR", &
                                    i_val=xas_tdp_control%x_op)
          !truncated Coulomb
-         IF (xas_tdp_control%x_op == do_hfx_potential_truncated) THEN
+         IF (xas_tdp_control%x_op == do_potential_truncated) THEN
             CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%T_C_G_DATA", &
                                       c_val=xas_tdp_control%x_t_c_filename)
             IF (.NOT. file_exists(xas_tdp_control%x_t_c_filename)) THEN
@@ -561,7 +561,7 @@ CONTAINS
          END IF
 
          !short range erfc
-         IF (xas_tdp_control%x_op == do_hfx_potential_short) THEN
+         IF (xas_tdp_control%x_op == do_potential_short) THEN
             CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%OMEGA", &
                                       r_val=xas_tdp_control%x_omega)
             CALL section_vals_val_get(xas_tdp_section, "KERNEL%EXACT_EXCHANGE%EPS_RANGE", &

@@ -5,6 +5,7 @@
 
 ! **************************************************************************************************
 !> \brief Utility methods to build 3-center integral tensors of various types.
+!> \todo support symmetry
 ! **************************************************************************************************
 MODULE qs_3c_tensors
    USE ai_contraction,                  ONLY: contraction

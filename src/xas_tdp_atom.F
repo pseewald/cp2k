@@ -39,7 +39,7 @@ MODULE xas_tdp_atom
         dbcsr_p_type, dbcsr_put_block, dbcsr_release, dbcsr_replicate_all, dbcsr_type
    USE distribution_2d_types,           ONLY: distribution_2d_release,&
                                               distribution_2d_type
-   USE input_constants,                 ONLY: do_hfx_potential_id,&
+   USE input_constants,                 ONLY: do_potential_id,&
                                               xas_tdp_para_grid
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
@@ -951,7 +951,7 @@ CONTAINS
 
       !Get the optimal distribution_2d for the overlap integrals (abc), centers c on excited atoms
       !and their neighbors defined by RI_RADIUS
-      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, do_hfx_potential_id, &
+      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, do_potential_id, &
                                qs_env, excited_atoms=all_ri_atoms)
       CALL get_opt_3c_dist2d(opt_dist2d, sab_orb, ac_list, basis_set_orb, basis_set_orb, &
                              basis_set_ri, qs_env)
@@ -959,7 +959,7 @@ CONTAINS
 
       !get the ab and ac neighbor lists based on the optimized distribution
       CALL build_xas_tdp_ovlp_nl(ab_list, basis_set_orb, basis_set_orb, qs_env, ext_dist2d=opt_dist2d)
-      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, do_hfx_potential_id, &
+      CALL build_xas_tdp_3c_nl(ac_list, basis_set_orb, basis_set_ri, do_potential_id, &
                                qs_env, excited_atoms=all_ri_atoms, ext_dist2d=opt_dist2d)
 
       !get the AO density matrix in the optimized distribution for compatibility
@@ -1158,7 +1158,7 @@ CONTAINS
 !  Point to the rho_set densities
       rhoa => rho_set%rhoa
       rhob => rho_set%rhob
-      rhoa = 0.0_dp; rhob = 0.0_dp; 
+      rhoa = 0.0_dp; rhob = 0.0_dp;
       IF (do_gga) THEN
          DO dir = 1, 3
             rho_set%drhoa(dir)%array = 0.0_dp

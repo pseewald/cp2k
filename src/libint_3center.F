@@ -15,9 +15,9 @@ MODULE libint_3center
                                               cp_libint_set_params_eri,&
                                               cp_libint_t,&
                                               prim_data_f_size
-   USE input_constants,                 ONLY: do_hfx_potential_coulomb,&
-                                              do_hfx_potential_short,&
-                                              do_hfx_potential_truncated
+   USE input_constants,                 ONLY: do_potential_coulomb,&
+                                              do_potential_short,&
+                                              do_potential_truncated
    USE kinds,                           ONLY: dp
    USE mathconstants,                   ONLY: pi
    USE orbital_pointers,                ONLY: nco,&
@@ -264,7 +264,7 @@ CONTAINS
          params%Rho = zetk*gammaq/(zetk+gammaq)
 
          SELECT CASE (op)
-         CASE (do_hfx_potential_coulomb)
+         CASE (do_potential_coulomb)
             T = params%Rho*SUM((params%Q-rk)**2)
             S1234 = EXP(-zeti*zetj*params%EtaInv*SUM((rj-ri)**2))
             prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)*S1234
@@ -272,7 +272,7 @@ CONTAINS
             params%Fm = 0.0_dp
             CALL fgamma(params%m_max, T, params%Fm)
             params%Fm = prefac*params%Fm
-         CASE (do_hfx_potential_truncated)
+         CASE (do_potential_truncated)
             R = r_cutoff*SQRT(params%Rho)
             T = params%Rho*SUM((params%Q-rk)**2)
             S1234 = EXP(-zeti*zetj*params%EtaInv*SUM((rj-ri)**2))
@@ -282,7 +282,7 @@ CONTAINS
             CALL t_c_g0_n(params%Fm, use_gamma, R, T, params%m_max)
             IF (use_gamma) CALL fgamma(params%m_max, T, params%Fm)
             params%Fm = prefac*params%Fm
-         CASE (do_hfx_potential_short)
+         CASE (do_potential_short)
             T = params%Rho*SUM((params%Q-rk)**2)
             S1234 = EXP(-zeti*zetj*params%EtaInv*SUM((rj-ri)**2))
             prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)*S1234

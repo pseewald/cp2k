@@ -42,8 +42,8 @@ MODULE input_cp2k_dft
         do_admm_purify_cauchy_subspace, do_admm_purify_mcweeny, do_admm_purify_mo_diag, &
         do_admm_purify_mo_no_diag, do_admm_purify_none, do_admm_purify_none_dm, do_arnoldi, &
         do_bch, do_cn, do_ddapc_constraint, do_ddapc_restraint, do_em, do_etrs, do_full_density, &
-        do_gapw_gcs, do_gapw_gct, do_gapw_log, do_hfx_potential_coulomb, do_hfx_potential_short, &
-        do_hfx_potential_truncated, do_loc_both, do_loc_crazy, do_loc_direct, do_loc_homo, &
+        do_gapw_gcs, do_gapw_gct, do_gapw_log, do_potential_coulomb, do_potential_short, &
+        do_potential_truncated, do_loc_both, do_loc_crazy, do_loc_direct, do_loc_homo, &
         do_loc_jacobi, do_loc_l1_norm_sd, do_loc_lumo, do_loc_max, do_loc_min, do_loc_none, &
         do_loc_scdm, do_lri_inv, do_lri_inv_auto, do_lri_opt_all, do_lri_opt_coeff, &
         do_lri_opt_exps, do_lri_pseudoinv_diag, do_lri_pseudoinv_svd, do_method_am1, &
@@ -8208,13 +8208,13 @@ CONTAINS
                           "Coulomb operator cannot be used in periodic systems.", &
                           usage="OPERATOR {string}", &
                           repeats=.FALSE., &
-                          default_i_val=do_hfx_potential_coulomb, &
+                          default_i_val=do_potential_coulomb, &
                           enum_c_vals=s2a("COULOMB", "TRUNCATED", "SHORTRANGE"), &
                           enum_desc=s2a("Stendard Coulomb operator: 1/r", &
                                         "Truncated Coulomb operator: 1/r if (r<R_c), 0 otherwise ", &
                                         "Short range: erfc(omega*r)/r"), &
-                          enum_i_vals=(/do_hfx_potential_coulomb, do_hfx_potential_truncated, &
-                                        do_hfx_potential_short/))
+                          enum_i_vals=(/do_potential_coulomb, do_potential_truncated, &
+                                        do_potential_short/))
       CALL section_add_keyword(subsubsection, keyword)
       CALL keyword_release(keyword)
 

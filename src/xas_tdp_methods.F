@@ -53,7 +53,7 @@ MODULE xas_tdp_methods
                                               dbcsr_set
    USE hfx_libint_wrapper,              ONLY: cp_libint_static_init
    USE input_constants,                 ONLY: &
-        do_hfX_potential_short, do_hfx_potential_coulomb, do_hfx_potential_truncated, do_loc_none, &
+        do_potential_short, do_potential_coulomb, do_potential_truncated, do_loc_none, &
         op_loc_berry, state_loc_list, tddfpt_singlet, tddfpt_spin_cons, tddfpt_spin_flip, &
         tddfpt_triplet, xas_1s_type, xas_2p_type, xas_2s_type, xas_dip_len, xas_dip_vel, &
         xas_not_excited, xas_tdp_by_index, xas_tdp_by_kind, xas_tdp_para_atom
@@ -723,7 +723,7 @@ CONTAINS
 
       !PB only available without exact exchange
       IF (xas_tdp_control%is_periodic .AND. xas_tdp_control%do_hfx &
-          .AND. xas_tdp_control%x_op == do_hfx_potential_coulomb) THEN
+          .AND. xas_tdp_control%x_op == do_potential_coulomb) THEN
          CPABORT("XAS TDP with Coulomb operator for exact exchange only supports non-periodic BCs")
       END IF
 
@@ -894,15 +894,15 @@ CONTAINS
          WRITE (UNIT=ou, FMT="(/,T3,A,/,/,T3,A,F5.3)") &
             "XAS_TDP| Exat Exchange Kernel: On ", &
             "EXACT_EXCHANGE| Scale: ", xas_tdp_control%sx
-         IF (xas_tdp_control%x_op == do_hfx_potential_coulomb) THEN
+         IF (xas_tdp_control%x_op == do_potential_coulomb) THEN
             WRITE (UNIT=ou, FMT="(T3,A)") &
                "EXACT_EXCHANGE| Operator : Coulomb"
-         ELSE IF (xas_tdp_control%x_op == do_hfx_potential_truncated) THEN
+         ELSE IF (xas_tdp_control%x_op == do_potential_truncated) THEN
             WRITE (UNIT=ou, FMT="(T3,A,/,T3,A,F5.2,A,/,T3,A,A)") &
                "EXACT_EXCHANGE| Operator: Truncated Coulomb", &
                "EXACT_EXCHANGE| Range: ", xas_tdp_control%x_range*angstrom, ", (Ang)", &
                "EXACT_EXCHANGE| T_C_G_DATA: ", xas_tdp_control%x_t_c_filename
-         ELSE IF (xas_tdp_control%x_op == do_hfx_potential_short) THEN
+         ELSE IF (xas_tdp_control%x_op == do_potential_short) THEN
             WRITE (UNIT=ou, FMT="(T3,A,/,T3,A,F5.2,A,/,T3,A,F5.2,A,/,T3,A,ES7.1)") &
                "EXACT_EXCHANGE| Operator: Short Range", &
                "EXACT_EXCHANGE| Omega: ", xas_tdp_control%x_omega, ", (1/a0)", &
