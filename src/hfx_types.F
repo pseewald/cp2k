@@ -330,6 +330,10 @@ MODULE hfx_types
       INTEGER(int_8)                           :: cost
    END TYPE
 
+   TYPE hfx_ri_type
+      REAL(KIND=dp) :: filter_eps
+   END TYPE
+
 ! **************************************************************************************************
 !> \brief stores some data used in construction of Kohn-Sham matrix
 !> \param potential_parameter stores information on the potential (1/r, erfc(wr)/r
@@ -436,6 +440,7 @@ MODULE hfx_types
       REAL(dp), DIMENSION(:, :), POINTER        :: pmax_block
       LOGICAL, DIMENSION(:, :), POINTER         :: atomic_pair_list
       LOGICAL, DIMENSION(:, :), POINTER         :: atomic_pair_list_forces
+      TYPE(hfx_ri_type)                         :: ri_data
    END TYPE hfx_type
 
 CONTAINS
