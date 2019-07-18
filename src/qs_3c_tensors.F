@@ -8,15 +8,14 @@
 !> \todo support symmetry
 ! **************************************************************************************************
 MODULE qs_3c_tensors
-   USE ai_contraction,                  ONLY: contraction
-   USE ai_contraction_sphi,             ONLY: abc_contract
+   USE ai_contraction_sphi,             ONLY: ab_contract,&
+                                              abc_contract
    USE ai_overlap,                      ONLY: overlap_ab
    USE ai_overlap3,                     ONLY: overlap3
    USE atomic_kind_types,               ONLY: atomic_kind_type,&
                                               get_atomic_kind_set
    USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_p_type,&
-                                              gto_basis_set_type
+                                              gto_basis_set_p_type
    USE block_p_types,                   ONLY: block_p_type
    USE cell_types,                      ONLY: cell_type
    USE cp_array_utils,                  ONLY: cp_1d_i_p_type
@@ -53,6 +52,7 @@ MODULE qs_3c_tensors
    USE kinds,                           ONLY: dp
    USE kpoint_types,                    ONLY: get_kpoint_info,&
                                               kpoint_type
+   USE libint_2center,                  ONLY: eri_2center
    USE libint_3center,                  ONLY: eri_3center
    USE message_passing,                 ONLY: mp_cart_sub,&
                                               mp_comm_free,&
@@ -1285,45 +1285,52 @@ CONTAINS
 !> \param t2c ...
 !> \param filter_eps ...
 !> \param qs_env ...
+!> \param nl_2c ...
 !> \param basis_i ...
 !> \param basis_j ...
-!> \param nl_2c ...
 !> \param op ...
+!> \param t_c_filename ...
+!> \param r_cutoff ...
+!> \param omega ...
 !> \param do_kpoints ...
 ! **************************************************************************************************
-   SUBROUTINE build_2c_integrals(t2c, filter_eps, qs_env, basis_i, basis_j, &
-                                 nl_2c, op, do_kpoints)
+   SUBROUTINE build_2c_integrals(t2c, filter_eps, qs_env, &
+                                 nl_2c, basis_i, basis_j, &
+                                 op, t_c_filename, r_cutoff, omega, do_kpoints)
       TYPE(dbcsr_type), DIMENSION(:), INTENT(INOUT)      :: t2c
       REAL(KIND=dp), INTENT(IN)                          :: filter_eps
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: nl_2c
+      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j
       INTEGER, INTENT(IN), OPTIONAL                      :: op
+      CHARACTER(len=*), INTENT(IN), OPTIONAL             :: t_c_filename
+      REAL(KIND=dp), INTENT(IN), OPTIONAL                :: r_cutoff, omega
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints
 
       CHARACTER(len=*), PARAMETER :: routineN = 'build_2c_integrals', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, iatom, ikind, img, iset, jatom, &
-                                                            jkind, jset, n1, n2, natom, ncob, &
-                                                            ncoi, nimg, nseti, nsetj, op_prv, &
-                                                            sgfi, sgfj
+      INTEGER :: handle, iatom, ibasis, ikind, imax, img, iset, jatom, jkind, jset, m_max, maxli, &
+         maxlj, maxlk, n1, n2, natom, ncob, ncoi, ncoj, nimg, nseti, nsetj, op_prv, sgfi, sgfj, &
+         unit_id
       INTEGER, DIMENSION(3)                              :: cell
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmin_i, lmin_j, npgfi, &
                                                             npgfj, nsgfi, nsgfj
-      INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfi, first_sgfj
+      INTEGER, DIMENSION(:, :), POINTER                  :: first_sgf_i, first_sgf_j
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL                                            :: do_kpoints_prv, found
       REAL(KIND=dp)                                      :: dab
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: owork, sij
-      REAL(KIND=dp), DIMENSION(3)                        :: rab
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: sij, sij_contr
+      REAL(KIND=dp), DIMENSION(3)                        :: ri, rij, rj
       REAL(KIND=dp), DIMENSION(:), POINTER               :: set_radius_i, set_radius_j
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: rpgfi, rpgfj, scon_i, scon_j, zeti, zetj
+      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: rpgf_i, rpgf_j, sphi_i, sphi_j, zeti, &
+                                                            zetj
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(block_p_type)                                 :: block_t
+      TYPE(cp_libint_t)                                  :: lib
+      TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dft_control_type), POINTER                    :: dft_control
-      TYPE(gto_basis_set_type), POINTER                  :: basis_set_i, basis_set_j
       TYPE(kpoint_type), POINTER                         :: kpoints
       TYPE(neighbor_list_iterator_p_type), &
          DIMENSION(:), POINTER                           :: nl_iterator
@@ -1343,7 +1350,7 @@ CONTAINS
          op_prv = do_potential_id
       ENDIF
 
-      NULLIFY (qs_kind_set, atomic_kind_set, basis_set_i, basis_set_j, block_t%block)
+      NULLIFY (qs_kind_set, atomic_kind_set, block_t%block)
 
       DO img = 1, SIZE(t2c)
          CALL cp_dbcsr_alloc_block_from_nbl(t2c(img), nl_2c, desymmetrize=.TRUE.)
@@ -1351,7 +1358,7 @@ CONTAINS
 
       ! get stuff
       CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, qs_kind_set=qs_kind_set, &
-                      natom=natom, kpoints=kpoints, dft_control=dft_control)
+                      natom=natom, kpoints=kpoints, dft_control=dft_control, para_env=para_env)
 
       IF (do_kpoints_prv) THEN
          ! No MAOs kpoints
@@ -1361,11 +1368,46 @@ CONTAINS
          nimg = 1
       END IF
 
+      maxli = 0
+      DO ibasis = 1, SIZE(basis_i)
+         CALL get_gto_basis_set(gto_basis_set=basis_i(ibasis)%gto_basis_set, maxl=imax)
+         maxli = MAX(maxli, imax)
+      END DO
+      maxlj = 0
+      DO ibasis = 1, SIZE(basis_j)
+         CALL get_gto_basis_set(gto_basis_set=basis_j(ibasis)%gto_basis_set, maxl=imax)
+         maxlj = MAX(maxlj, imax)
+      END DO
+
+      m_max = maxli+maxlj
+
+      !Init the truncated Coulomb operator
+      IF (op_prv == do_potential_truncated) THEN
+         CPASSERT(PRESENT(t_c_filename))
+
+         IF (m_max > get_lmax_init()) THEN
+            IF (para_env%mepos == 0) THEN
+               CALL open_file(unit_number=unit_id, file_name=t_c_filename)
+            END IF
+            CALL init(m_max, unit_id, para_env%mepos, para_env%group)
+            IF (para_env%mepos == 0) THEN
+               CALL close_file(unit_id)
+            END IF
+         END IF
+      END IF
+
+      CALL init_md_ftable(nmax=m_max)
+
+      IF (op_prv /= do_potential_id) THEN
+         CALL cp_libint_init_2eri(lib, MAX(maxli, maxlj, maxlk))
+         CALL cp_libint_set_contrdepth(lib, 1)
+      ENDIF
+
       CALL neighbor_list_iterator_create(nl_iterator, nl_2c)
       DO WHILE (neighbor_list_iterate(nl_iterator) == 0)
 
          CALL get_iterator_info(nl_iterator, ikind=ikind, jkind=jkind, &
-                                iatom=iatom, jatom=jatom, r=rab, cell=cell)
+                                iatom=iatom, jatom=jatom, r=rij, cell=cell)
          IF (do_kpoints_prv) THEN
             img = cell_to_index(cell(1), cell(2), cell(3))
             IF (img > nimg) CYCLE
@@ -1373,37 +1415,15 @@ CONTAINS
             img = 1
          END IF
 
-         basis_set_i => basis_i(ikind)%gto_basis_set
-         IF (.NOT. ASSOCIATED(basis_set_i)) CYCLE
-         basis_set_j => basis_j(jkind)%gto_basis_set
-         IF (.NOT. ASSOCIATED(basis_set_j)) CYCLE
-         ! basis ikind
-         first_sgfi => basis_set_i%first_sgf
-         lmax_i => basis_set_i%lmax
-         lmin_i => basis_set_i%lmin
-         npgfi => basis_set_i%npgf
-         nseti = basis_set_i%nset
-         nsgfi => basis_set_i%nsgf_set
-         rpgfi => basis_set_i%pgf_radius
-         set_radius_i => basis_set_i%set_radius
-         scon_i => basis_set_i%scon
-         zeti => basis_set_i%zet
-         ! basis jkind
-         first_sgfj => basis_set_j%first_sgf
-         lmax_j => basis_set_j%lmax
-         lmin_j => basis_set_j%lmin
-         npgfj => basis_set_j%npgf
-         nsetj = basis_set_j%nset
-         nsgfj => basis_set_j%nsgf_set
-         rpgfj => basis_set_j%pgf_radius
-         set_radius_j => basis_set_j%set_radius
-         scon_j => basis_set_j%scon
-         zetj => basis_set_j%zet
+         CALL get_gto_basis_set(basis_i(ikind)%gto_basis_set, first_sgf=first_sgf_i, lmax=lmax_i, lmin=lmin_i, &
+                                npgf=npgfi, nset=nseti, nsgf_set=nsgfi, pgf_radius=rpgf_i, set_radius=set_radius_i, &
+                                sphi=sphi_i, zet=zeti)
 
-         dab = SQRT(SUM(rab**2))
+         CALL get_gto_basis_set(basis_j(jkind)%gto_basis_set, first_sgf=first_sgf_j, lmax=lmax_j, lmin=lmin_j, &
+                                npgf=npgfj, nset=nsetj, nsgf_set=nsgfj, pgf_radius=rpgf_j, set_radius=set_radius_j, &
+                                sphi=sphi_j, zet=zetj)
 
-         !CALL dbcsr_get_info(t2c, nblkrows_total=blk_size(1), blkcols_total=blk_size(2))
-         !ALLOCATE(block_t(blk_size(1), blk_size(2))
+         dab = SQRT(SUM(rij**2))
 
          CALL dbcsr_get_block_p(matrix=t2c(img), &
                                 row=iatom, col=jatom, BLOCK=block_t%block, found=found)
@@ -1413,36 +1433,51 @@ CONTAINS
 
             ncoi = npgfi(iset)*ncoset(lmax_i(iset))
             n1 = npgfi(iset)*(ncoset(lmax_i(iset))-ncoset(lmin_i(iset)-1))
-            sgfi = first_sgfi(1, iset)
+            sgfi = first_sgf_i(1, iset)
 
             DO jset = 1, nsetj
 
                ncob = npgfj(jset)*ncoset(lmax_j(jset))
                n2 = npgfj(jset)*(ncoset(lmax_j(jset))-ncoset(lmin_j(jset)-1))
-               sgfj = first_sgfj(1, jset)
+               sgfj = first_sgf_j(1, jset)
 
                IF (ncoi*ncob > 0) THEN
                   ALLOCATE (sij(ncoi, ncob))
+                  sij(:, :) = 0.0_dp
 
                   ! calculate integrals and derivatives
-                  CALL overlap_ab(lmax_i(iset), lmin_i(iset), npgfi(iset), rpgfi(:, iset), zeti(:, iset), &
-                                  lmax_j(jset), lmin_j(jset), npgfj(jset), rpgfj(:, jset), zetj(:, jset), &
-                                  rab, sab=sij)
-                  ! Contraction
-                  ALLOCATE (owork(nsgfi(iset), nsgfj(jset)))
-                  CALL contraction(sij, owork, ca=scon_i(:, sgfi:), na=n1, ma=nsgfi(iset), &
-                                   cb=scon_j(:, sgfj:), nb=n2, mb=nsgfj(jset), fscale=1.0_dp) !trans=trans)
+                  IF (op_prv == do_potential_id) THEN ! cp2k overlap integrals
+                     CALL overlap_ab(lmax_i(iset), lmin_i(iset), npgfi(iset), rpgf_i(:, iset), zeti(:, iset), &
+                                     lmax_j(jset), lmin_j(jset), npgfj(jset), rpgf_j(:, jset), zetj(:, jset), &
+                                     rij, sab=sij)
+                  ELSE
+                     ri = 0.0_dp
+                     rj = rij
 
-                  CALL block_add("IN", owork, nsgfi(iset), nsgfj(jset), block_t%block, &
+                     CALL eri_2center(sij, lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), &
+                                      ri, lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), &
+                                      rj, lib, op, omega=omega, r_cutoff=r_cutoff)
+
+                  ENDIF
+
+                  ALLOCATE (sij_contr(nsgfi(iset), nsgfj(jset)))
+
+                  CALL ab_contract(sij_contr, sij, &
+                                   sphi_i(:, sgfi:), sphi_j(:, sgfj:), &
+                                   ncoi, ncoj, nsgfi(iset), nsgfj(jset))
+
+                  CALL block_add("IN", sij_contr, nsgfi(iset), nsgfj(jset), block_t%block, &
                                  sgfi, sgfj) !trans=trans)
 
-                  DEALLOCATE (owork)
+                  DEALLOCATE (sij_contr)
                   DEALLOCATE (sij)
                ENDIF
             END DO
          END DO
 
       ENDDO
+
+      CALL cp_libint_cleanup_2eri(lib)
       CALL neighbor_list_iterator_release(nl_iterator)
       DO img = 1, SIZE(t2c)
          CALL dbcsr_finalize(t2c(img))
