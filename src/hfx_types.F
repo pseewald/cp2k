@@ -33,6 +33,7 @@ MODULE hfx_types
                                               cp_print_key_unit_nr
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_units,                        ONLY: cp_unit_from_cp2k
+   USE dbcsr_tensor_api,                ONLY: dbcsr_t_pgrid_type
    USE hfx_helpers,                     ONLY: count_cells_perd,&
                                               next_image_cell_perd
    USE hfx_libint_wrapper,              ONLY: &
@@ -48,6 +49,7 @@ MODULE hfx_types
                                               section_vals_type,&
                                               section_vals_val_get
    USE kinds,                           ONLY: default_path_length,&
+                                              default_string_length,&
                                               dp,&
                                               int_8
    USE machine,                         ONLY: m_chdir,&
@@ -56,6 +58,7 @@ MODULE hfx_types
    USE orbital_pointers,                ONLY: nco,&
                                               ncoset,&
                                               nso
+   USE qs_3c_tensors,                   ONLY: distribution_3d_type
    USE qs_kind_types,                   ONLY: get_qs_kind,&
                                               get_qs_kind_set,&
                                               qs_kind_type
