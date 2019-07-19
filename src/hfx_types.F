@@ -332,6 +332,17 @@ MODULE hfx_types
 
    TYPE hfx_ri_type
       REAL(KIND=dp) :: filter_eps
+      REAL(KIND=dp) :: eps_range
+      REAL(KIND=dp) :: omega_ri, omega_pot
+      REAL(KIND=dp) :: r_cutoff_ri, r_cutoff_pot
+      TYPE(dbcsr_t_pgrid_type) :: pgrid
+      INTEGER, DIMENSION(:), ALLOCATABLE :: dist1_AO_1, dist1_AO_2, &
+                                            dist2_AO_1, dist2_AO_2
+      INTEGER, DIMENSION(:), ALLOCATABLE :: dist1_RI, dist2_RI
+      TYPE(distribution_3d_type) :: dist1_3d, dist2_3d
+      INTEGER :: op_pot, op_ri
+      CHARACTER(len=default_string_length)    :: t_c_filename
+      LOGICAL :: check_2c_inv
    END TYPE
 
 ! **************************************************************************************************

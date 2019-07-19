@@ -902,7 +902,8 @@ CONTAINS
 !> \param basis_i ...
 !> \param basis_j ...
 !> \param basis_k ...
-!> \param op operator, overlap integrals by default, other operators NYI
+!> \param op_ij operator between i & j
+!> \param op_jk operator between j & k
 !> \param t_c_filename ...
 !> \param r_cutoff ...
 !> \param omega ...
@@ -910,13 +911,13 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE build_3c_integrals(t3c, filter_eps, qs_env, &
                                  nl_3c, basis_i, basis_j, basis_k, &
-                                 op, t_c_filename, r_cutoff, omega, do_kpoints)
+                                 op_ij, op_jk, t_c_filename, r_cutoff, omega, do_kpoints)
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t3c
       REAL(KIND=dp), INTENT(IN)                          :: filter_eps
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(neighbor_list_3c_type), INTENT(INOUT)         :: nl_3c
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j, basis_k
-      INTEGER, INTENT(IN), OPTIONAL                      :: op
+      INTEGER, INTENT(IN), OPTIONAL                      :: op_ij, op_jk
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: t_c_filename
       REAL(KIND=dp), INTENT(IN), OPTIONAL                :: r_cutoff, omega
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints
@@ -927,7 +928,7 @@ CONTAINS
       INTEGER :: block_end_i, block_end_j, block_end_k, block_start_i, block_start_j, &
          block_start_k, handle, handle2, iatom, ibasis, ikind, imax, iset, jatom, jcell, jkind, &
          jset, katom, kcell, kkind, kset, m_max, maxli, maxlj, maxlk, natom, ncoi, ncoj, ncok, &
-         nimg, nseti, nsetj, nsetk, op_prv, sgfi, sgfj, sgfk, unit_id
+         nimg, nseti, nsetj, nsetk, op_ij_prv, op_jk_prv, sgfi, sgfj, sgfk, unit_id
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of
       INTEGER, DIMENSION(3)                              :: blk_size, cell_j, cell_k
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmax_k, lmin_i, lmin_j, &
@@ -938,7 +939,8 @@ CONTAINS
       LOGICAL                                            :: do_kpoints_prv, found
       REAL(KIND=dp)                                      :: dij, dik, djk, kind_radius_i, &
                                                             kind_radius_j, kind_radius_k, prefac
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: block_t, dummy_block_t, sijk, sijk_contr
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: block_t, dummy_block_t, sijk, &
+                                                            sijk_contr, sijk_rs
       REAL(KIND=dp), DIMENSION(3)                        :: ri, rij, rik, rj, rjk, rk
       REAL(KIND=dp), DIMENSION(:), POINTER               :: set_radius_i, set_radius_j, set_radius_k
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: rpgf_i, rpgf_j, rpgf_k, sphi_i, sphi_j, &
@@ -960,10 +962,18 @@ CONTAINS
          do_kpoints_prv = .FALSE.
       ENDIF
 
-      IF (PRESENT(op)) THEN
-         op_prv = op
+      CPASSERT(.NOT. PRESENT(op_ij) .AND. PRESENT(op_jk))
+
+      IF (PRESENT(op_ij)) THEN
+         op_ij_prv = op_ij
       ELSE
-         op_prv = do_potential_id
+         op_ij_prv = do_potential_id
+      ENDIF
+
+      IF (PRESENT(op_jk)) THEN
+         op_jk_prv = op_jk
+      ELSE
+         op_jk_prv = do_potential_id
       ENDIF
 
       NULLIFY (qs_kind_set, atomic_kind_set)
@@ -980,6 +990,8 @@ CONTAINS
       ELSE
          nimg = 1
       END IF
+
+      CPASSERT(ALL(SHAPE(t3c) == [nimg, nimg]))
 
       ALLOCATE (kind_of(natom))
 
@@ -1004,7 +1016,7 @@ CONTAINS
       m_max = maxli+maxlj+maxlk
 
       !Init the truncated Coulomb operator
-      IF (op_prv == do_potential_truncated) THEN
+      IF (op_ij_prv == do_potential_truncated .OR. op_jk_prv == do_potential_truncated) THEN
          CPASSERT(PRESENT(t_c_filename))
 
          IF (m_max > get_lmax_init()) THEN
@@ -1020,7 +1032,7 @@ CONTAINS
 
       CALL init_md_ftable(nmax=m_max)
 
-      IF (op_prv /= do_potential_id) THEN
+      IF (op_ij_prv /= do_potential_id .OR. op_jk_prv /= do_potential_id) THEN
          CALL cp_libint_init_3eri(lib, MAX(maxli, maxlj, maxlk))
          CALL cp_libint_set_contrdepth(lib, 1)
       ENDIF
@@ -1097,13 +1109,13 @@ CONTAINS
                      ALLOCATE (sijk(ncoi, ncoj, ncok))
                      sijk(:, :, :) = 0.0_dp
 
-                     IF (op_prv == do_potential_id) THEN ! cp2k overlap integrals
+                     IF (op_ij_prv == do_potential_id .AND. op_jk_prv == do_potential_id) THEN ! cp2k overlap integrals
                         CALL overlap3(lmax_i(iset), npgfi(iset), zeti(:, iset), rpgf_i(:, iset), &
                                       lmin_i(iset), &
                                       lmax_j(jset), npgfj(jset), zetj(:, jset), rpgf_j(:, jset), lmin_j(jset), &
                                       lmax_k(kset), npgfk(kset), zetk(:, kset), rpgf_k(:, kset), lmin_k(kset), &
                                       rij, dij, rik, dik, rjk, djk, sijk)
-                     ELSE ! for everything else use libint
+                     ELSEIF (op_jk_prv\=do_potential_id) THEN ! for everything else use libint
                         !need positions for libint. Only relative positions are needed => set ri to 0.0
                         ri = 0.0_dp
                         rj = rij ! ri + rij
@@ -1111,7 +1123,18 @@ CONTAINS
                         CALL eri_3center(sijk, lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), &
                                          ri, lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), &
                                          rj, lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), &
-                                         rk, lib, op, omega=omega, r_cutoff=r_cutoff)
+                                         rk, lib, op_jk_prv, omega=omega, r_cutoff=r_cutoff)
+                     ELSEIF (op_ij_prv\=do_potential_id) THEN
+                        ri = 0.0_dp
+                        rj = rij ! ri + rij
+                        rk = rik ! ri + rik
+                        ALLOCATE (sijk_rs(ncoj, ncok, ncoi))
+                        sijk_rs(:, :, :) = 0.0_dp
+                        CALL eri_3center(sijk_rs, lmin_j(iset), lmax_j(jset), npgfj(jset), zetj(:, jset), &
+                                         rj, lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), &
+                                         rk, lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), &
+                                         ri, lib, op_ij_prv, omega=omega, r_cutoff=r_cutoff)
+                        sijk = RESHAPE(sijk_rs, SHAPE(sijk), ORDER=[3, 1, 2])
                      ENDIF
 
                      ALLOCATE (sijk_contr(nsgfi(iset), nsgfj(jset), nsgfk(kset)))
@@ -1288,7 +1311,7 @@ CONTAINS
 !> \param nl_2c ...
 !> \param basis_i ...
 !> \param basis_j ...
-!> \param op ...
+!> \param op_ij ...
 !> \param t_c_filename ...
 !> \param r_cutoff ...
 !> \param omega ...
@@ -1296,14 +1319,14 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE build_2c_integrals(t2c, filter_eps, qs_env, &
                                  nl_2c, basis_i, basis_j, &
-                                 op, t_c_filename, r_cutoff, omega, do_kpoints)
+                                 op_ij, t_c_filename, r_cutoff, omega, do_kpoints)
       TYPE(dbcsr_type), DIMENSION(:), INTENT(INOUT)      :: t2c
       REAL(KIND=dp), INTENT(IN)                          :: filter_eps
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: nl_2c
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j
-      INTEGER, INTENT(IN), OPTIONAL                      :: op
+      INTEGER, INTENT(IN), OPTIONAL                      :: op_ij
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: t_c_filename
       REAL(KIND=dp), INTENT(IN), OPTIONAL                :: r_cutoff, omega
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints
@@ -1344,8 +1367,8 @@ CONTAINS
          do_kpoints_prv = .FALSE.
       ENDIF
 
-      IF (PRESENT(op)) THEN
-         op_prv = op
+      IF (PRESENT(op_ij)) THEN
+         op_prv = op_ij
       ELSE
          op_prv = do_potential_id
       ENDIF
@@ -1367,6 +1390,8 @@ CONTAINS
       ELSE
          nimg = 1
       END IF
+
+      CPASSERT(ALL(SHAPE(t2c) == [nimg]))
 
       maxli = 0
       DO ibasis = 1, SIZE(basis_i)
@@ -1456,7 +1481,7 @@ CONTAINS
 
                      CALL eri_2center(sij, lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), &
                                       ri, lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), &
-                                      rj, lib, op, omega=omega, r_cutoff=r_cutoff)
+                                      rj, lib, op_ij, omega=omega, r_cutoff=r_cutoff)
 
                   ENDIF
 
