@@ -58,7 +58,7 @@ MODULE hfx_types
    USE orbital_pointers,                ONLY: nco,&
                                               ncoset,&
                                               nso
-   USE qs_3c_tensors,                   ONLY: distribution_3d_type
+   USE qs_3c_tensors_types,             ONLY: distribution_3d_type
    USE qs_kind_types,                   ONLY: get_qs_kind,&
                                               get_qs_kind_set,&
                                               qs_kind_type
@@ -85,7 +85,8 @@ MODULE hfx_types
              pair_set_list_type, hfx_p_kind, hfx_2D_map, hfx_pgf_list, &
              hfx_pgf_product_list, hfx_block_range_type, &
              alloc_containers, dealloc_containers, hfx_task_list_type, init_t_c_g0_lmax, &
-             hfx_create_neighbor_cells, hfx_create_basis_types, hfx_release_basis_types
+             hfx_create_neighbor_cells, hfx_create_basis_types, hfx_release_basis_types, &
+             hfx_ri_type
 
 #define CACHE_SIZE 1024
 #define BITS_MAX_VAL 6
@@ -346,6 +347,9 @@ MODULE hfx_types
       INTEGER :: op_pot, op_ri
       CHARACTER(len=default_string_length)    :: t_c_filename
       LOGICAL :: check_2c_inv
+      INTEGER :: s_sqrt_order
+      REAL(KIND=dp) :: eps_lanczos
+      INTEGER :: max_iter_lanczos
    END TYPE
 
 ! **************************************************************************************************

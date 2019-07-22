@@ -8,6 +8,7 @@
 !> \todo support symmetry
 ! **************************************************************************************************
 MODULE qs_3c_tensors
+   USE ai_contraction,                  ONLY: block_add
    USE ai_contraction_sphi,             ONLY: ab_contract,&
                                               abc_contract
    USE ai_overlap,                      ONLY: overlap_ab
@@ -29,7 +30,9 @@ MODULE qs_3c_tensors
    USE cp_para_env,                     ONLY: cp_para_env_create,&
                                               cp_para_env_release
    USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
+   USE dbcsr_api,                       ONLY: dbcsr_filter,&
+                                              dbcsr_finalize,&
+                                              dbcsr_get_block_p,&
                                               dbcsr_type
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_blk_sizes, dbcsr_t_copy, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
@@ -40,7 +43,9 @@ MODULE qs_3c_tensors
                                               distribution_2d_release,&
                                               distribution_2d_type
    USE gamma,                           ONLY: init_md_ftable
-   USE hfx_libint_wrapper,              ONLY: cp_libint_cleanup_3eri,&
+   USE hfx_libint_wrapper,              ONLY: cp_libint_cleanup_2eri,&
+                                              cp_libint_cleanup_3eri,&
+                                              cp_libint_init_2eri,&
                                               cp_libint_init_3eri,&
                                               cp_libint_set_contrdepth,&
                                               cp_libint_t
@@ -75,6 +80,7 @@ MODULE qs_3c_tensors
                                               get_iterator_info,&
                                               neighbor_list_iterate,&
                                               neighbor_list_iterator_create,&
+                                              neighbor_list_iterator_p_type,&
                                               neighbor_list_iterator_release,&
                                               neighbor_list_set_p_type,&
                                               nl_sub_iterate
@@ -96,7 +102,8 @@ MODULE qs_3c_tensors
    PUBLIC :: distribution_3d_create, distribution_3d_destroy, build_3c_neighbor_lists, &
              neighbor_list_3c_destroy, neighbor_list_3c_iterate, neighbor_list_3c_iterator_create, &
              neighbor_list_3c_iterator_destroy, get_3c_iterator_info, build_3c_integrals, &
-             contiguous_tensor_dist, cyclic_tensor_dist
+             contiguous_tensor_dist, cyclic_tensor_dist, &
+             build_2c_neighbor_lists, build_2c_integrals
 
    TYPE one_dim_int_array
       INTEGER, DIMENSION(:), ALLOCATABLE    :: array
@@ -1115,7 +1122,7 @@ CONTAINS
                                       lmax_j(jset), npgfj(jset), zetj(:, jset), rpgf_j(:, jset), lmin_j(jset), &
                                       lmax_k(kset), npgfk(kset), zetk(:, kset), rpgf_k(:, kset), lmin_k(kset), &
                                       rij, dij, rik, dik, rjk, djk, sijk)
-                     ELSEIF (op_jk_prv\=do_potential_id) THEN ! for everything else use libint
+                     ELSEIF (op_jk_prv /= do_potential_id) THEN ! for everything else use libint
                         !need positions for libint. Only relative positions are needed => set ri to 0.0
                         ri = 0.0_dp
                         rj = rij ! ri + rij
@@ -1124,7 +1131,7 @@ CONTAINS
                                          ri, lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), &
                                          rj, lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), &
                                          rk, lib, op_jk_prv, omega=omega, r_cutoff=r_cutoff)
-                     ELSEIF (op_ij_prv\=do_potential_id) THEN
+                     ELSEIF (op_ij_prv /= do_potential_id) THEN
                         ri = 0.0_dp
                         rj = rij ! ri + rij
                         rk = rik ! ri + rik
@@ -1134,7 +1141,7 @@ CONTAINS
                                          rj, lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), &
                                          rk, lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), &
                                          ri, lib, op_ij_prv, omega=omega, r_cutoff=r_cutoff)
-                        sijk = RESHAPE(sijk_rs, SHAPE(sijk), ORDER=[3, 1, 2])
+                        sijk(:, :, :) = RESHAPE(sijk_rs, SHAPE(sijk), ORDER=[3, 1, 2])
                      ENDIF
 
                      ALLOCATE (sijk_contr(nsgfi(iset), nsgfj(jset), nsgfk(kset)))

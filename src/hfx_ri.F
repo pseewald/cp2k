@@ -16,47 +16,52 @@ MODULE hfx_ri
                                               init_orb_basis_set
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
+                                              cp_logger_get_default_unit_nr,&
                                               cp_logger_type
    USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_create,&
-                                              dbcsr_frobenius_norm,&
-                                              dbcsr_multiply,&
-                                              dbcsr_p_type,&
-                                              dbcsr_release,&
-                                              dbcsr_type_no_symmetry,&
-                                              dbcsr_type_real_8
+   USE dbcsr_api,                       ONLY: &
+        dbcsr_create, dbcsr_frobenius_norm, dbcsr_get_info, dbcsr_multiply, dbcsr_p_type, &
+        dbcsr_release, dbcsr_scalar, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_real_8
    USE dbcsr_tensor_api,                ONLY: &
-        build_2c_integrals, build_2c_neighbor_lists, dbcsr_t_copy, dbcsr_t_create, &
-        dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_mp_environ_pgrid, &
-        dbcsr_t_pgrid_type, dbcsr_t_type
-   USE hfx_type,                        ONLY: hfx_ri_type
+        dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
+        dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_distribution_destroy, &
+        dbcsr_t_distribution_new, dbcsr_t_distribution_type, dbcsr_t_get_info, &
+        dbcsr_t_mp_environ_pgrid, dbcsr_t_pgrid_create, dbcsr_t_pgrid_type, dbcsr_t_type
    USE hfx_types,                       ONLY: hfx_ri_type
    USE iterate_matrix,                  ONLY: invert_hotelling,&
                                               matrix_sqrt_newton_schulz
+   USE kinds,                           ONLY: dp
    USE mathlib,                         ONLY: erfc_cutoff
    USE particle_methods,                ONLY: get_particle_set
-   USE qs_3c_tensors,                   ONLY: build_3c_integrals,&
+   USE particle_types,                  ONLY: particle_type
+   USE qs_3c_tensors,                   ONLY: build_2c_integrals,&
+                                              build_2c_neighbor_lists,&
+                                              build_3c_integrals,&
                                               build_3c_neighbor_lists,&
-                                              distribution_3d_type,&
+                                              distribution_3d_create
+   USE qs_3c_tensors_types,             ONLY: distribution_3d_type,&
                                               neighbor_list_3c_type
-   USE qs_integrals_utils,              ONLY: basis_set_list_setup
+   USE qs_environment_types,            ONLY: get_qs_env,&
+                                              qs_environment_type
+   USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_interactions,                 ONLY: init_interaction_radii_orb_basis
    USE qs_kind_types,                   ONLY: get_qs_kind,&
                                               qs_kind_type
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
+#include "./base/base_uses.f90"
 
 CONTAINS
 
 ! **************************************************************************************************
 !> \brief ...
-!> \param ri_data ...
+!> \param hfx_ri_data ...
 !> \param qs_env ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_init(ri_data, qs_env)
-      TYPE(hfx_ri_type), INTENT(OUT)                     :: ri_data
+   SUBROUTINE hfx_ri_init(hfx_ri_data, qs_env)
+      TYPE(hfx_ri_type), INTENT(OUT)                     :: hfx_ri_data
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
-      INTEGER                                            :: ikind, ikind, mp_comm_3d, nkind, nkind
+      INTEGER                                            :: ikind, mp_comm_3d, natom, nkind
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_AO_1, dist_AO_2, dist_RI, sizes_AO, &
                                                             sizes_RI
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
@@ -66,15 +71,15 @@ CONTAINS
       TYPE(distribution_3d_type)                         :: dist_3d
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
-      TYPE(qs_kind_type), DIMENSION(:), OPTIONAL, &
-         POINTER                                         :: qs_kind_set
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(qs_kind_type), POINTER                        :: qs_kind
 
       CALL get_qs_env(qs_env, &
                       nkind=nkind, &
                       qs_kind_set=qs_kind_set, &
-                      dft_control=dft_control)
+                      dft_control=dft_control, &
+                      para_env=para_env)
 
       ! initialise RI basis
       DO ikind = 1, nkind
@@ -105,9 +110,9 @@ CONTAINS
       CALL basis_set_list_setup(basis_set_AO, "ORB", qs_kind_set)
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_AO, basis=basis_set_AO)
 
-      ALLOCATE (dist_AO_1(sizes_AO))
-      ALLOCATE (dist_AO_2(sizes_AO))
-      ALLOCATE (dist_RI(size_RI))
+      ALLOCATE (dist_AO_1(natom))
+      ALLOCATE (dist_AO_2(natom))
+      ALLOCATE (dist_RI(natom))
       CALL cyclic_dist(natom, pdims(1), sizes_AO, dist_AO_1)
       CALL cyclic_dist(natom, pdims(2), sizes_AO, dist_AO_2)
       CALL cyclic_dist(natom, pdims(3), sizes_RI, dist_RI)
@@ -116,18 +121,18 @@ CONTAINS
       CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid, map1_2d=[1, 2], map2_2d=[3])
       hfx_ri_data%pgrid = pgrid
 
-      hfx_ri_data%dist1_ao_1 = dist_ao_1
-      hfx_ri_data%dist1_ao_2 = dist_ao_2
-      hfx_ri_data%dist1_ri = dist_RI
+      hfx_ri_data%dist1_ao_1(:) = dist_ao_1
+      hfx_ri_data%dist1_ao_2(:) = dist_ao_2
+      hfx_ri_data%dist1_ri(:) = dist_RI
       hfx_ri_data%dist1_3d = dist_3d
 
       CALL cyclic_dist(natom, pdims(1), sizes_AO, dist_AO_1)
       CALL cyclic_dist(natom, pdims(3), sizes_AO, dist_AO_2)
       CALL cyclic_dist(natom, pdims(2), sizes_RI, dist_RI)
 
-      hfx_ri_data%dist2_ao_1 = dist_ao_1
-      hfx_ri_data%dist2_ao_2 = dist_ao_2
-      hfx_ri_data%dist2_ri = dist_RI
+      hfx_ri_data%dist2_ao_1(:) = dist_ao_1
+      hfx_ri_data%dist2_ao_2(:) = dist_ao_2
+      hfx_ri_data%dist2_ri(:) = dist_RI
 
    END SUBROUTINE
 
@@ -156,6 +161,7 @@ CONTAINS
       TYPE(neighbor_list_3c_type)                        :: nl_3c
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: nl_2c_pot, nl_2c_RI
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
 
       ! get a useful output_unit
@@ -208,11 +214,11 @@ CONTAINS
                                    op_ij=op_ri, x_range=hfx_ri_data%r_cutoff_pot)
 
       CALL build_2c_integrals(t_2c_op_pot, hfx_ri_data%filter_eps, qs_env, nl_2c_pot, basis_set_RI, basis_set_RI, &
-                              op=hfx_ri_data%op_pot, t_c_filename=hfx_ri_data%t_c_filename, &
+                              op_ij=hfx_ri_data%op_pot, t_c_filename=hfx_ri_data%t_c_filename, &
                               r_cutoff=hfx_ri_data%r_cutoff_pot, omega=hfx_ri_data%omega_pot)
 
       CALL build_2c_integrals(t_2c_op_RI, hfx_ri_data%filter_eps, qs_env, nl_2c_RI, basis_set_RI, basis_set_RI, &
-                              op=hfx_ri_data%op_ri, t_c_filename=hfx_ri_data%t_c_filename, &
+                              op_ij=hfx_ri_data%op_ri, t_c_filename=hfx_ri_data%t_c_filename, &
                               r_cutoff=hfx_ri_data%r_cutoff_ri, omega=hfx_ri_data%omega_ri)
 
       ! todo: if problems, try other methods for matrix functions
@@ -235,7 +241,7 @@ CONTAINS
       CALL dbcsr_create(t_2c_op_pot_sqrt(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
       CALL dbcsr_create(t_2c_op_pot_sqrt_inv(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
       CALL matrix_sqrt_newton_schulz(t_2c_op_pot_sqrt(1), t_2c_op_pot_sqrt_inv(1), t_2c_op_pot(1), &
-                                     hfx_ri_data%eps_filter, hfx_ri_data%s_sqrt_order, hfx_ri_data%eps_lanczos, &
+                                     hfx_ri_data%filter_eps, hfx_ri_data%s_sqrt_order, hfx_ri_data%eps_lanczos, &
                                      hfx_ri_data%max_iter_lanczos)
       CALL dbcsr_release(t_2c_op_pot_sqrt_inv(1))
       IF (hfx_ri_data%check_2c_inv) THEN
@@ -267,7 +273,7 @@ CONTAINS
       CALL dbcsr_release(t_2c_int_mat(1))
 
       CALL dbcsr_t_create(t_3c_int_2(1, 1), t_3c_int_1(1, 1), name="(munu|R)")
-      CALL dbcsr_t_contract(1.0_dp, t_3c_int_1(1, 1), t_2c_int(1), 0.0_dp, t_3c_int_2(1, 1), &
+      CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_3c_int_1(1, 1), t_2c_int(1), dbcsr_scalar(0.0_dp), t_3c_int_2(1, 1), &
                             contract_1=[3], notcontract_1=[1, 2], &
                             contract_2=[1], notcontract_2=[2], &
                             map_1=[1, 2], map_2=[3], filter_eps=hfx_ri_data%filter_eps, move_data=.TRUE., &
@@ -284,20 +290,18 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief ...
-!> \param qs_env ...
 !> \param hfx_ri_data ...
 !> \param ks_matrix ...
 !> \param mo_coeff ...
 !> \param t_3c_int ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_update_ks(qs_env, hfx_ri_data, ks_matrix, mo_coeff, t_3c_int)
-      TYPE(qs_environment_type), POINTER                 :: qs_env
+   SUBROUTINE hfx_ri_update_ks(hfx_ri_data, ks_matrix, mo_coeff, t_3c_int)
       TYPE(hfx_ri_type), INTENT(IN)                      :: hfx_ri_data
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: ks_matrix
       TYPE(dbcsr_type), DIMENSION(:), INTENT(IN)         :: mo_coeff
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int
 
-      INTEGER                                            :: n_mo_blocks, nspins
+      INTEGER                                            :: ispin, n_mo_blocks, nspins
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsize_1, bsize_2, dist_MO
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       INTEGER, DIMENSION(:), POINTER                     :: mo_bsize
@@ -334,16 +338,17 @@ CONTAINS
       CALL dbcsr_t_create(mo_coeff(1), mo_coeff_t)
 
       DO ispin = 1, nspins
-         CALL dbcsr_t_copy(mo_coeff(ispin), mo_coeff_t)
-         CALL dbcsr_t_contract(1.0_dp, t_3c_int(1, 1), mo_coeff_t, 0.0_dp, t_3c_int_ctr(1, 1), &
+         ! todo: dbcsr_t_copy interface
+         CALL dbcsr_t_copy_matrix_to_tensor(mo_coeff(ispin), mo_coeff_t)
+         CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_3c_int(1, 1), mo_coeff_t, dbcsr_scalar(0.0_dp), t_3c_int_ctr(1, 1), &
                                contract_1=[3], notcontract_1=[1, 2], &
                                contract_2=[1], notcontract_2=[2], &
                                map_1=[1, 2], map_2=[3], filter_eps=hfx_ri_data%filter_eps)
 
          CALL dbcsr_t_copy(t_3c_int_ctr(1, 1), t_3c_int_ctr_opt(1, 1), move_data=.TRUE.)
          CALL dbcsr_t_copy(t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1))
-         CALL dbcsr_t_contract(1.0_dp, t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1), &
-                               0.0_dp, ks_t, &
+         CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1), &
+                               dbcsr_scalar(0.0_dp), ks_t, &
                                contract_1=[2, 3], notcontract_1=[1], &
                                contract_2=[2, 3], notcontract_2=[1], &
                                map_1=[1], map_2=[2], filter_eps=hfx_ri_data%filter_eps)
