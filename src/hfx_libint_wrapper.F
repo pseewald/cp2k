@@ -71,7 +71,8 @@ MODULE hfx_libint_wrapper
    END TYPE
 
    !This is a hack because 3-center ERIs are bugged on libint 2.5
-   TYPE(C_FUNPTR), DIMENSION(0:5,0:5,0:7), BIND(C) :: libint2_build_3eri
+   TYPE(C_FUNPTR), DIMENSION(0:LIBINT2_MAX_AM, 0:LIBINT2_MAX_AM, 0:LIBINT2_MAX_AM_3eri), &
+      BIND(C) :: libint2_build_3eri
 
 CONTAINS
 

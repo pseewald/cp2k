@@ -458,7 +458,8 @@ MODULE hfx_types
       REAL(dp), DIMENSION(:, :), POINTER        :: pmax_block
       LOGICAL, DIMENSION(:, :), POINTER         :: atomic_pair_list
       LOGICAL, DIMENSION(:, :), POINTER         :: atomic_pair_list_forces
-      TYPE(hfx_ri_type)                         :: ri_data
+      LOGICAL                                   :: do_RI
+      TYPE(hfx_ri_type), POINTER                :: ri_data
    END TYPE hfx_type
 
 CONTAINS

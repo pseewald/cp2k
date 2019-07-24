@@ -20,8 +20,9 @@ MODULE hfx_ri
                                               cp_logger_type
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: &
-        dbcsr_create, dbcsr_frobenius_norm, dbcsr_get_info, dbcsr_multiply, dbcsr_p_type, &
-        dbcsr_release, dbcsr_scalar, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_real_8
+        dbcsr_copy, dbcsr_create, dbcsr_frobenius_norm, dbcsr_get_info, dbcsr_multiply, &
+        dbcsr_p_type, dbcsr_release, dbcsr_scalar, dbcsr_type, dbcsr_type_no_symmetry, &
+        dbcsr_type_real_8
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_distribution_destroy, &
@@ -292,28 +293,41 @@ CONTAINS
 !> \brief ...
 !> \param hfx_ri_data ...
 !> \param ks_matrix ...
+!> \param ehfx ...
+!> \param ks_matrix_aux_fit_hfx ...
 !> \param mo_coeff ...
+!> \param rho_ao ...
 !> \param t_3c_int ...
+!> \param do_admm ...
+!> \param nspins ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_update_ks(hfx_ri_data, ks_matrix, mo_coeff, t_3c_int)
+   SUBROUTINE hfx_ri_update_ks(hfx_ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, mo_coeff, rho_ao, &
+                               t_3c_int, do_admm, nspins)
       TYPE(hfx_ri_type), INTENT(IN)                      :: hfx_ri_data
-      TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: ks_matrix
+      TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix
+      REAL(KIND=dp), INTENT(OUT)                         :: ehfx
+      TYPE(dbcsr_p_type), DIMENSION(:)                   :: ks_matrix_aux_fit_hfx
       TYPE(dbcsr_type), DIMENSION(:), INTENT(IN)         :: mo_coeff
+      TYPE(dbcsr_p_type), DIMENSION(:, :)                :: rho_ao
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int
+      LOGICAL, INTENT(IN)                                :: do_admm
+      INTEGER, INTENT(IN)                                :: nspins
 
-      INTEGER                                            :: ispin, n_mo_blocks, nspins
+      INTEGER                                            :: ispin, n_mo_blocks
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsize_1, bsize_2, dist_MO
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       INTEGER, DIMENSION(:), POINTER                     :: mo_bsize
+      REAL(KIND=dp)                                      :: etmp
       TYPE(dbcsr_t_distribution_type)                    :: dist1, dist2
       TYPE(dbcsr_t_type)                                 :: ks_t, mo_coeff_t
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_ctr, t_3c_int_ctr_opt, &
                                                             t_3c_int_ctr_opt_copy
 
-      nspins = SIZE(ks_matrix, 1)
       CPASSERT(SIZE(ks_matrix, 2) == 1)
 
       ! todo: mo localization
+
+      ! assuming TREAT_LSD_IN_CORE is .FALSE.
 
       CALL dbcsr_t_mp_environ_pgrid(hfx_ri_data%pgrid, pdims, pcoord)
 
@@ -361,6 +375,19 @@ CONTAINS
       CALL dbcsr_t_destroy(t_3c_int_ctr_opt_copy(1, 1))
       CALL dbcsr_t_destroy(ks_t)
       CALL dbcsr_t_destroy(mo_coeff_t)
+
+      !! ** Calculate the exchange energy, copied from integrate_four_center
+      ehfx = 0.0_dp
+      DO ispin = 1, nspins
+         CALL dbcsr_dot(ks_matrix(ispin, 1)%matrix, rho_ao(ispin, 1)%matrix, &
+                        etmp)
+         ehfx = ehfx+0.5_dp*etmp
+         IF (do_admm) THEN
+            !for ADMMS, we need the exchange matrix k(d) for both spins
+            CALL dbcsr_copy(ks_matrix_aux_fit_hfx(ispin)%matrix, ks_matrix(ispin, 1)%matrix, &
+                            name="HF exch. part of matrix_ks_aux_fit for ADMMS")
+         END IF
+      ENDDO
 
    END SUBROUTINE
 

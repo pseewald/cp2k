@@ -239,6 +239,7 @@ CONTAINS
       TYPE(section_vals_type), POINTER                   :: adiabatic_rescaling_section, &
                                                             hfx_sections, input
       TYPE(virial_type), POINTER                         :: virial
+      TYPE(hfx_ri_type), POINTER                         :: ri_data
 
       CALL timeset(routineN, handle)
 
@@ -319,12 +320,18 @@ CONTAINS
          CALL qs_rho_get(rho_struct=rho_orb, rho_ao_kp=rho_ao_orb)
          ! Finally the real hfx calulation
          ehfx = 0.0_dp
-         DO ispin = 1, mspin
-            CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
-                                       para_env, s_mstruct_changed, irep, distribute_fock_matrix, &
-                                       ispin=ispin)
-            ehfx = ehfx+eh1
-         END DO
+
+         IF (do_RI) THEN
+            CALL hfx_ri_update_ks(hfx_ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, mo_coeff, rho_ao, &
+                                  t_3c_int, do_admm, nspins)
+         ELSE
+            DO ispin = 1, mspin
+               CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
+                                          para_env, s_mstruct_changed, irep, distribute_fock_matrix, &
+                                          ispin=ispin)
+               ehfx = ehfx + eh1
+            END DO
+         ENDIF
 
          IF (calculate_forces .AND. .NOT. do_adiabatic_rescaling) THEN
             !Scale auxiliary density matrix for ADMMP (see Merlot2014) with gsi(ispin) to scale force
