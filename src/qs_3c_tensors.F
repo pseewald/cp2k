@@ -85,7 +85,7 @@ MODULE qs_3c_tensors
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_3c_tensors'
 
    PUBLIC :: build_3c_neighbor_lists, &
-             neighbor_list_3c_destroy, neighbor_list_3c_iterate, neighbor_list_3c_iterator_create, &
+             neighbor_list_3c_destroy, neighbor_list_2c_destroy, neighbor_list_3c_iterate, neighbor_list_3c_iterator_create, &
              neighbor_list_3c_iterator_destroy, get_3c_iterator_info, build_3c_integrals, &
              contiguous_tensor_dist, cyclic_tensor_dist, &
              build_2c_neighbor_lists, build_2c_integrals
@@ -229,6 +229,24 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
+!> \brief ...
+!> \param ij_list ...
+! **************************************************************************************************
+   SUBROUTINE neighbor_list_2c_destroy(ij_list)
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), &
+         POINTER                                         :: ij_list
+
+      INTEGER                                            :: i
+
+      DO i = 1, SIZE(ij_list)
+         CALL deallocate_neighbor_list_set(ij_list(i)%neighbor_list_set)
+      END DO
+
+      DEALLOCATE (ij_list)
+
+   END SUBROUTINE
+
+! **************************************************************************************************
 !> \brief Build a 3-center neighbor list
 !> \param ijk_list 3c neighbor list for atom triples i, j, k
 !> \param basis_i basis object for atoms i
@@ -337,25 +355,13 @@ CONTAINS
    SUBROUTINE neighbor_list_3c_destroy(ijk_list)
       TYPE(neighbor_list_3c_type), INTENT(INOUT)         :: ijk_list
 
-      CHARACTER(len=*), PARAMETER :: routineN = 'neighbor_list_3c_destroy', &
-         routineP = moduleN//':'//routineN
-
-      INTEGER                                            :: handle, i
-
-      CALL timeset(routineN, handle)
-      DO i = 1, SIZE(ijk_list%ij_list)
-         CALL deallocate_neighbor_list_set(ijk_list%ij_list(i)%neighbor_list_set)
-      END DO
-      DO i = 1, SIZE(ijk_list%jk_list)
-         CALL deallocate_neighbor_list_set(ijk_list%jk_list(i)%neighbor_list_set)
-      END DO
-      DEALLOCATE (ijk_list%ij_list, ijk_list%jk_list)
+      CALL neighbor_list_2c_destroy(ijk_list%ij_list)
+      CALL neighbor_list_2c_destroy(ijk_list%jk_list)
 
       IF (ijk_list%owns_dist) THEN
          CALL distribution_3d_destroy(ijk_list%dist_3d)
       ENDIF
 
-      CALL timestop(handle)
    END SUBROUTINE
 
 ! **************************************************************************************************

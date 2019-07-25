@@ -33,7 +33,9 @@ MODULE hfx_ri
    USE qs_3c_tensors,                   ONLY: build_2c_integrals,&
                                               build_2c_neighbor_lists,&
                                               build_3c_integrals,&
-                                              build_3c_neighbor_lists
+                                              build_3c_neighbor_lists,&
+                                              neighbor_list_2c_destroy,&
+                                              neighbor_list_3c_destroy
    USE qs_3c_tensors_types,             ONLY: neighbor_list_3c_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
@@ -114,6 +116,7 @@ CONTAINS
                               basis_set_RI, op_jk=op_ri, t_c_filename=hfx_ri_data%t_c_filename, &
                               r_cutoff=hfx_ri_data%r_cutoff_ri, omega=hfx_ri_data%omega_ri)
 
+      CALL neighbor_list_3c_destroy(nl_3c)
       CALL dbcsr_t_distribution_destroy(dist_1)
 
       CALL build_2c_neighbor_lists(nl_2c_pot, basis_set_RI, basis_set_RI, "HFX_2c_nl_pot", qs_env, sym_ij=.FALSE., &
@@ -128,6 +131,9 @@ CONTAINS
       CALL build_2c_integrals(t_2c_op_RI, hfx_ri_data%filter_eps, qs_env, nl_2c_RI, basis_set_RI, basis_set_RI, &
                               op_ij=hfx_ri_data%op_ri, t_c_filename=hfx_ri_data%t_c_filename, &
                               r_cutoff=hfx_ri_data%r_cutoff_ri, omega=hfx_ri_data%omega_ri)
+
+      CALL neighbor_list_2c_destroy(nl_2c_pot)
+      CALL neighbor_list_2c_destroy(nl_2c_RI)
 
       ! todo: if problems, try other methods for matrix functions
       CALL dbcsr_create(t_2c_op_RI_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
@@ -195,6 +201,8 @@ CONTAINS
       CALL dbcsr_t_create(t_3c_int(1, 1), "(muR|nu)", dist_2, [1, 2], [3], dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
       CALL dbcsr_t_copy(t_3c_int_2(1, 1), t_3c_int(1, 1), order=[1, 3, 2], move_data=.TRUE.)
       CALL dbcsr_t_destroy(t_3c_int_2(1, 1))
+
+      DEALLOCATE (basis_set_RI, basis_set_AO)
    END SUBROUTINE
 
 ! **************************************************************************************************
