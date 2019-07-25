@@ -28,7 +28,9 @@ MODULE hfx_ri
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_distribution_destroy, &
         dbcsr_t_distribution_new, dbcsr_t_distribution_type, dbcsr_t_get_info, &
         dbcsr_t_mp_environ_pgrid, dbcsr_t_pgrid_create, dbcsr_t_pgrid_type, dbcsr_t_type
-   USE hfx_types,                       ONLY: hfx_ri_type
+   USE hfx_types,                       ONLY: hfx_ri_type,&
+                                              hfx_type
+   USE input_section_types,             ONLY: section_vals_type
    USE iterate_matrix,                  ONLY: invert_hotelling,&
                                               matrix_sqrt_newton_schulz
    USE kinds,                           ONLY: dp
@@ -55,32 +57,51 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief ...
-!> \param hfx_ri_data ...
-!> \param qs_env ...
+!> \param x_data ...
+!> \param ri_section ...
+!> \param qs_kind_set ...
+!> \param dft_control ...
+!> \param para_env ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_init(hfx_ri_data, qs_env)
-      TYPE(hfx_ri_type), INTENT(OUT)                     :: hfx_ri_data
-      TYPE(qs_environment_type), POINTER                 :: qs_env
+   SUBROUTINE hfx_ri_init(x_data, ri_section, qs_kind_set, dft_control, para_env)
+      !TYPE(hfx_ri_type), INTENT(OUT)                     :: hfx_ri_data
+      TYPE(hfx_type), INTENT(INOUT)                      :: x_data
+      TYPE(section_vals_type), POINTER                   :: ri_section
+      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(cp_para_env_type), POINTER                    :: para_env
 
       INTEGER                                            :: ikind, mp_comm_3d, natom, nkind
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_AO_1, dist_AO_2, dist_RI, sizes_AO, &
                                                             sizes_RI
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
-      TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_t_pgrid_type)                           :: pgrid
-      TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(distribution_3d_type)                         :: dist_3d
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
+      TYPE(hfx_ri_type), POINTER                         :: ri_data
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
-      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(qs_kind_type), POINTER                        :: qs_kind
 
-      CALL get_qs_env(qs_env, &
-                      nkind=nkind, &
-                      qs_kind_set=qs_kind_set, &
-                      dft_control=dft_control, &
-                      para_env=para_env)
+      ! todo : natom uninitialised
+
+      nkind = SIZE(qs_kind_set, 1)
+      ri_data => x_data%ri_data
+
+      ri_data%op_pot = x_data%potential_parameter%potential_type
+      ri_data%omega_pot = x_data%potential_parameter%omega
+      ri_data%r_cutoff_pot = x_data%potential_parameter%cutoff_radius
+      ri_data%t_c_filename = x_data%potential_parameter%filename
+
+      CALL section_vals_val_get(ri_section, "FILTER_EPS", r_val=ri_data%filter_eps)
+      CALL section_vals_val_get(ri_section, "EPS_RANGE", r_val=ri_data%eps_range)
+      CALL section_vals_val_get(ri_section, "OMEGA", r_val=ri_data%omega_ri)
+      CALL section_vals_val_get(ri_section, "CUTOFF_RADIUS", r_val=ri_data%r_cutoff_ri)
+      CALL section_vals_val_get(ri_section, "RI_METRIC", i_val=ri_data%op_ri)
+      CALL section_vals_val_get(ri_section, "CHECK_2C_INV", l_val=ri_data%check_2c_inv)
+      CALL section_vals_val_get(ri_section, "SQRT_ORDER", i_val=ri_data%t2c_sqrt_order)
+      CALL section_vals_val_get(ri_section, "EPS_LANCZOS", r_val=ri_data%eps_lanczos)
+      CALL section_vals_val_get(ri_section, "MAX_ITER_LANCZOS", i_val=ri_data%max_iter_lanczos)
 
       ! initialise RI basis
       DO ikind = 1, nkind
@@ -97,9 +118,8 @@ CONTAINS
          END IF
       END DO
 
-      ! todo: read from ri section
-      CALL erfc_cutoff(hfx_ri_data%eps_range, hfx_ri_data%omega_ri, hfx_ri_data%r_cutoff_ri)
-      CALL erfc_cutoff(hfx_ri_data%eps_range, hfx_ri_data%omega_pot, hfx_ri_data%r_cutoff_pot)
+      CALL erfc_cutoff(ri_data%eps_range, ri_data%omega_ri, ri_data%r_cutoff_ri)
+      CALL erfc_cutoff(ri_data%eps_range, ri_data%omega_pot, ri_data%r_cutoff_pot)
 
       pdims = 0
       CALL mp_cart_create(para_env%group, 3, pdims, pcoord, mp_comm_3d)
@@ -120,20 +140,20 @@ CONTAINS
       CALL distribution_3d_create(qs_env, dist_3d, dist_ao_1, dist_ao_2, dist_RI, mp_comm_3d, own_comm=.TRUE.)
 
       CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid, map1_2d=[1, 2], map2_2d=[3])
-      hfx_ri_data%pgrid = pgrid
+      ri_data%pgrid = pgrid
 
-      hfx_ri_data%dist1_ao_1(:) = dist_ao_1
-      hfx_ri_data%dist1_ao_2(:) = dist_ao_2
-      hfx_ri_data%dist1_ri(:) = dist_RI
-      hfx_ri_data%dist1_3d = dist_3d
+      ri_data%dist1_ao_1(:) = dist_ao_1
+      ri_data%dist1_ao_2(:) = dist_ao_2
+      ri_data%dist1_ri(:) = dist_RI
+      ri_data%dist1_3d = dist_3d
 
       CALL cyclic_dist(natom, pdims(1), sizes_AO, dist_AO_1)
       CALL cyclic_dist(natom, pdims(3), sizes_AO, dist_AO_2)
       CALL cyclic_dist(natom, pdims(2), sizes_RI, dist_RI)
 
-      hfx_ri_data%dist2_ao_1(:) = dist_ao_1
-      hfx_ri_data%dist2_ao_2(:) = dist_ao_2
-      hfx_ri_data%dist2_ri(:) = dist_RI
+      ri_data%dist2_ao_1(:) = dist_ao_1
+      ri_data%dist2_ao_2(:) = dist_ao_2
+      ri_data%dist2_ri(:) = dist_RI
 
    END SUBROUTINE
 
@@ -242,7 +262,7 @@ CONTAINS
       CALL dbcsr_create(t_2c_op_pot_sqrt(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
       CALL dbcsr_create(t_2c_op_pot_sqrt_inv(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
       CALL matrix_sqrt_newton_schulz(t_2c_op_pot_sqrt(1), t_2c_op_pot_sqrt_inv(1), t_2c_op_pot(1), &
-                                     hfx_ri_data%filter_eps, hfx_ri_data%s_sqrt_order, hfx_ri_data%eps_lanczos, &
+                                     hfx_ri_data%filter_eps, hfx_ri_data%t2c_sqrt_order, hfx_ri_data%eps_lanczos, &
                                      hfx_ri_data%max_iter_lanczos)
       CALL dbcsr_release(t_2c_op_pot_sqrt_inv(1))
       IF (hfx_ri_data%check_2c_inv) THEN
@@ -284,6 +304,7 @@ CONTAINS
 
       CALL dbcsr_t_distribution_new(dist_2, hfx_ri_data%pgrid, [1, 2], [3], &
                                     hfx_ri_data%dist2_ao_1, hfx_ri_data%dist2_ri, hfx_ri_data%dist2_ao_2, dimsplit=1)
+      IF (t_3c_int(1, 1)%valid) CALL dbcsr_t_destroy(t_3c_int(1, 1))
       CALL dbcsr_t_create(t_3c_int(1, 1), "(muR|nu)", dist_2, [1, 2], [3], dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
       CALL dbcsr_t_copy(t_3c_int_2(1, 1), t_3c_int(1, 1), order=[1, 3, 2], move_data=.TRUE.)
       CALL dbcsr_t_destroy(t_3c_int_2(1, 1))
@@ -291,6 +312,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief ...
+!> \param qs_env ...
 !> \param hfx_ri_data ...
 !> \param ks_matrix ...
 !> \param ehfx ...
@@ -299,10 +321,12 @@ CONTAINS
 !> \param rho_ao ...
 !> \param t_3c_int ...
 !> \param do_admm ...
+!> \param geometry_did_change ...
 !> \param nspins ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_update_ks(hfx_ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, mo_coeff, rho_ao, &
-                               t_3c_int, do_admm, nspins)
+   SUBROUTINE hfx_ri_update_ks(qs_env, hfx_ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, mo_coeff, rho_ao, &
+                               t_3c_int, do_admm, geometry_did_change, nspins)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(IN)                      :: hfx_ri_data
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix
       REAL(KIND=dp), INTENT(OUT)                         :: ehfx
@@ -310,13 +334,14 @@ CONTAINS
       TYPE(dbcsr_type), DIMENSION(:), INTENT(IN)         :: mo_coeff
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: rho_ao
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int
-      LOGICAL, INTENT(IN)                                :: do_admm
+      LOGICAL, INTENT(IN)                                :: do_admm, geometry_did_change
       INTEGER, INTENT(IN)                                :: nspins
 
       INTEGER                                            :: ispin, n_mo_blocks
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsize_1, bsize_2, dist_MO
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       INTEGER, DIMENSION(:), POINTER                     :: mo_bsize
+      LOGICAL                                            :: my_geo_change
       REAL(KIND=dp)                                      :: etmp
       TYPE(dbcsr_t_distribution_type)                    :: dist1, dist2
       TYPE(dbcsr_t_type)                                 :: ks_t, mo_coeff_t
@@ -328,6 +353,9 @@ CONTAINS
       ! todo: mo localization
 
       ! assuming TREAT_LSD_IN_CORE is .FALSE.
+      my_geo_change = geometry_did_change
+      IF (ispin == 2) my_geo_change = .FALSE.
+      IF (my_geo_change) CALL hfx_ri_pre_scf(qs_env, hfx_ri_data, hfx_ri_data%t_3c_int)
 
       CALL dbcsr_t_mp_environ_pgrid(hfx_ri_data%pgrid, pdims, pcoord)
 
@@ -421,15 +449,5 @@ CONTAINS
       ENDDO
 
    END SUBROUTINE cyclic_dist
-
-   !SUBROUTINE integrate_RI(qs_env, hfx_ri_data, ks_matrix, ehfx, hfx_ri_section, para_env, geometry_did_change, ispin)
-   !   TYPE(qs_environment_type), POINTER                 :: qs_env
-   !   TYPE(dbcsr_p_type)                                 :: ks_matrix
-   !   REAL(KIND=dp), INTENT(OUT)                         :: ehfx
-   !   TYPE(section_vals_type), POINTER                   :: hfx_ri_section
-   !   TYPE(cp_para_env_type), POINTER                    :: para_env
-   !   LOGICAL                                            :: geometry_did_change
-   !   INTEGER, INTENT(IN)                                :: ispin
-   !END SUBROUTINE
 
 END MODULE

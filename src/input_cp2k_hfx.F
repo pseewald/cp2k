@@ -95,6 +95,12 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, __LOCATION__, name="DO_RI", &
+                          description="Enable Resolution of the Identity", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       NULLIFY (print_key)
       CALL cp_print_key_section_create(print_key, __LOCATION__, "HF_INFO", &
                                        description="Controls the printing basic info about hf method", &
@@ -119,6 +125,10 @@ CONTAINS
       CALL section_release(subsection)
 
       CALL create_hf_memory_section(subsection)
+      CALL section_add_subsection(section, subsection)
+      CALL section_release(subsection)
+
+      CALL create_hf_ri_section(subsection)
       CALL section_add_subsection(section, subsection)
       CALL section_release(subsection)
 
@@ -477,5 +487,130 @@ CONTAINS
       CALL keyword_release(keyword)
 
    END SUBROUTINE create_hf_memory_section
+
+! **************************************************************************************************
+!> \brief ...
+!> \param section ...
+! **************************************************************************************************
+   SUBROUTINE create_hf_ri_section(section)
+      TYPE(section_type), POINTER                        :: section
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'create_hf_ri_section', &
+         routineP = moduleN//':'//routineN
+
+      TYPE(keyword_type), POINTER                        :: keyword
+
+      NULLIFY (keyword)
+
+      CPASSERT(.NOT. ASSOCIATED(section))
+      CALL section_create(section, __LOCATION__, name="RI", &
+                          description="Parameters for RI method in HFX")
+
+      CALL keyword_create(keyword, __LOCATION__, name="FILTER_EPS", &
+                          description="Filter threshold for DBCSR tensors", &
+                          default_r_val=1.0E-8_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, name="EPS_RANGE", &
+                          description="The threshold to determine the effective range of the short range "// &
+                          "operator: erfc(omega*eff_range)/eff_range = EPS_RANGE", &
+                          default_r_val=1.0E-6_dp, &
+                          repeats=.FALSE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, name="OMEGA", &
+                          description="The range parameter for the short range operator (in 1/a0).", &
+                          default_r_val=0.0_dp, &
+                          repeats=.FALSE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      !CALL keyword_create(keyword, __LOCATION__, name="OMEGA_POT", &
+      !                    description="The range parameter for the short range operator (in 1/a0).", &
+      !                    default_r_val=0.0_dp, &
+      !                    repeats=.FALSE.)
+      !CALL section_add_keyword(section, keyword)
+      !CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, name="CUTOFF_RADIUS", &
+                          description="The cutoff radius (in Angstrom) for the truncated Coulomb operator.", &
+                          default_r_val=6.0_dp, &
+                          repeats=.FALSE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      !CALL keyword_create(keyword, __LOCATION__, name="CUTOFF_RADIUS_POT", &
+      !                    description="The cutoff radius (in Angstrom) for the truncated Coulomb operator.", &
+      !                    default_r_val=0.0_dp, &
+      !                    repeats=.FALSE.)
+      !CALL section_add_keyword(section, keyword)
+      !CALL keyword_release(keyword)
+
+      !CALL keyword_create(keyword, __LOCATION__, name="OPERATOR_POT", &
+      !                    description="The type of operator used for exact exchange. The standard"// &
+      !                    "Coulomb operator cannot be used in periodic systems.", &
+      !                    usage="OPERATOR {string}", &
+      !                    repeats=.FALSE., &
+      !                    default_i_val=do_potential_coulomb, &
+      !                    enum_c_vals=s2a("COULOMB", "TRUNCATED", "SHORTRANGE"), &
+      !                    enum_desc=s2a("Stendard Coulomb operator: 1/r", &
+      !                                  "Truncated Coulomb operator: 1/r if (r<R_c), 0 otherwise ", &
+      !                                  "Short range: erfc(omega*r)/r"), &
+      !                    enum_i_vals=(/do_potential_coulomb, do_potential_truncated, &
+      !                                  do_potential_short/))
+      !CALL section_add_keyword(section, keyword)
+      !CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, name="RI_METRIC", &
+                          description="The type of operator used for exact exchange. The standard"// &
+                          "Coulomb operator cannot be used in periodic systems.", &
+                          usage="OPERATOR {string}", &
+                          repeats=.FALSE., &
+                          default_i_val=do_potential_truncated, &
+                          enum_c_vals=s2a("COULOMB", "IDENTITY", "TRUNCATED", "SHORTRANGE"), &
+                          enum_desc=s2a("Stendard Coulomb operator: 1/r", &
+                                        "Overlap", &
+                                        "Truncated Coulomb operator: 1/r if (r<R_c), 0 otherwise ", &
+                                        "Short range: erfc(omega*r)/r"), &
+                          enum_i_vals=(/do_potential_coulomb, do_potential_id, do_potential_truncated, &
+                                        do_potential_short/))
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      !CALL keyword_create(keyword, __LOCATION__, name="T_C_G_DATA", &
+      !                    description="Location of the file t_c_g.dat that contains the data for the "// &
+      !                    "evaluation of the truncated gamma function ", &
+      !                    default_c_val="t_c_g.dat")
+      !CALL section_add_keyword(section, keyword)
+      !CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, name="CHECK_2C_INV", &
+                          description="Perform an accuracy check on the inverse/sqrt of the 2-center integral matrix.", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, name="SQRT_ORDER", &
+                          description="Order of the iteration method for the calculation of "// &
+                          "the sqrt of 2-center integral matrix.", &
+                          default_i_val=3)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, name="EPS_LANCZOS", &
+                          description="Threshold used for lanczos estimates.", &
+                          default_r_val=1.0E-3_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, name="MAX_ITER_LANCZOS", &
+                          description="Maximum number of lanczos iterations.", &
+                          usage="MAX_ITER_LANCZOS ", default_i_val=128)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+   END SUBROUTINE
 
 END MODULE input_cp2k_hfx

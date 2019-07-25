@@ -228,8 +228,10 @@ CONTAINS
                                                             matrix_ks_aux_fit_im, matrix_ks_im, &
                                                             rho_ao_1d
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: matrix_h, matrix_ks_orb, rho_ao_orb
+      TYPE(dbcsr_type), DIMENSION(:), POINTER            :: mo_coeff_b
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(hfx_type), DIMENSION(:, :), POINTER           :: x_data
+      TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mo_array
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_poisson_type), POINTER                     :: poisson_env
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
@@ -239,7 +241,6 @@ CONTAINS
       TYPE(section_vals_type), POINTER                   :: adiabatic_rescaling_section, &
                                                             hfx_sections, input
       TYPE(virial_type), POINTER                         :: virial
-      TYPE(hfx_ri_type), POINTER                         :: ri_data
 
       CALL timeset(routineN, handle)
 
@@ -251,6 +252,7 @@ CONTAINS
       CALL get_qs_env(qs_env=qs_env, &
                       dft_control=dft_control, &
                       input=input, &
+                      mos=mo_array, &
                       matrix_h_kp=matrix_h, &
                       para_env=para_env, &
                       pw_env=pw_env, &
@@ -261,6 +263,11 @@ CONTAINS
                       matrix_ks_aux_fit_hfx=matrix_ks_aux_fit_hfx, &
                       s_mstruct_changed=s_mstruct_changed, &
                       x_data=x_data)
+
+      ALLOCATE (mo_coeff_b(nspins))
+      DO ispin = 1, nspins
+         CALL get_mo_set(mo_set=mo_array(1)%mo_set, mo_coeff_b=mo_coeff_b(ispin))
+      ENDDO
 
       nspins = dft_control%nspins
       nimages = dft_control%nimages
@@ -322,14 +329,14 @@ CONTAINS
          ehfx = 0.0_dp
 
          IF (do_RI) THEN
-            CALL hfx_ri_update_ks(hfx_ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, mo_coeff, rho_ao, &
-                                  t_3c_int, do_admm, nspins)
+            CALL hfx_ri_update_ks(x_data(irep, 1)%ri_data, matrix_ks, ehfx, matrix_ks_aux_fit_hfx, mo_coeff_b, rho_ao_orb, &
+                                  t_3c_int, dft_control%do_admm, nspins)
          ELSE
             DO ispin = 1, mspin
                CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
                                           para_env, s_mstruct_changed, irep, distribute_fock_matrix, &
                                           ispin=ispin)
-               ehfx = ehfx + eh1
+               ehfx = ehfx+eh1
             END DO
          ENDIF
 
@@ -375,12 +382,18 @@ CONTAINS
             rho_ao_orb(1:ns, 1:1) => rho_ao_1d(1:ns)
 
             ehfxrt = 0.0_dp
-            DO ispin = 1, mspin
-               CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
-                                          para_env, .FALSE., irep, distribute_fock_matrix, &
-                                          ispin=ispin)
-               ehfxrt = ehfxrt+eh1
-            END DO
+
+            IF (do_RI) THEN
+               CALL hfx_ri_update_ks(x_data(irep, 1)%ri_data, matrix_ks, ehfx, matrix_ks_aux_fit_hfx, mo_coeff_b, rho_ao_orb, &
+                                     t_3c_int, dft_control%do_admm, nspins)
+            ELSE
+               DO ispin = 1, mspin
+                  CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
+                                             para_env, .FALSE., irep, distribute_fock_matrix, &
+                                             ispin=ispin)
+                  ehfx = ehfx+eh1
+               END DO
+            ENDIF
 
             IF (calculate_forces .AND. .NOT. do_adiabatic_rescaling) THEN
                CALL derivatives_four_center(qs_env, rho_ao_orb, hfx_sections, &
@@ -455,7 +468,6 @@ CONTAINS
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_fm_type), POINTER                          :: mo_coeff
       TYPE(cp_logger_type), POINTER                      :: logger
-      TYPE(dbcsr_type), POINTER                          :: mo_coeff_b
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mo_array
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set

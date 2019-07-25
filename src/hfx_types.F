@@ -33,7 +33,8 @@ MODULE hfx_types
                                               cp_print_key_unit_nr
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE dbcsr_tensor_api,                ONLY: dbcsr_t_pgrid_type
+   USE dbcsr_tensor_api,                ONLY: dbcsr_t_pgrid_type,&
+                                              dbcsr_t_type
    USE hfx_helpers,                     ONLY: count_cells_perd,&
                                               next_image_cell_perd
    USE hfx_libint_wrapper,              ONLY: &
@@ -339,17 +340,21 @@ MODULE hfx_types
       REAL(KIND=dp) :: eps_range
       REAL(KIND=dp) :: omega_ri, omega_pot
       REAL(KIND=dp) :: r_cutoff_ri, r_cutoff_pot
+      INTEGER :: op_pot, op_ri
+      CHARACTER(len=default_string_length)    :: t_c_filename
+      LOGICAL :: check_2c_inv
+      INTEGER :: t2c_sqrt_order
+      REAL(KIND=dp) :: eps_lanczos
+      INTEGER :: max_iter_lanczos
+
       TYPE(dbcsr_t_pgrid_type) :: pgrid
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist1_AO_1, dist1_AO_2, &
                                             dist2_AO_1, dist2_AO_2
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist1_RI, dist2_RI
       TYPE(distribution_3d_type) :: dist1_3d, dist2_3d
-      INTEGER :: op_pot, op_ri
-      CHARACTER(len=default_string_length)    :: t_c_filename
-      LOGICAL :: check_2c_inv
-      INTEGER :: s_sqrt_order
-      REAL(KIND=dp) :: eps_lanczos
-      INTEGER :: max_iter_lanczos
+
+      ! tensors to be stored
+      TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int
    END TYPE
 
 ! **************************************************************************************************
@@ -529,6 +534,9 @@ CONTAINS
 
             CALL section_vals_val_get(hfx_section, "TREAT_LSD_IN_CORE", l_val=logic_val, i_rep_section=irep)
             actual_x_data%general_parameter%treat_lsd_in_core = logic_val
+
+            CALL section_vals_val_get(hfx_section, "DO_RI", l_val=logic_val, i_rep_section=irep)
+            actual_x_data%do_ri = logic_val
 
             !! MEMORY section
             hf_sub_section => section_vals_get_subs_vals(hfx_section, "MEMORY", i_rep_section=irep)
@@ -857,6 +865,9 @@ CONTAINS
 
             actual_x_data%b_first_load_balance_energy = .TRUE.
             actual_x_data%b_first_load_balance_forces = .TRUE.
+
+            hf_sub_section => section_vals_get_subs_vals(hfx_section, "RI", i_rep_section=irep)
+            CALL hfx_ri_init(actual_x_data, hf_sub_section, qs_kind_set, dft_control, para_env)
          END DO
       END DO
 
