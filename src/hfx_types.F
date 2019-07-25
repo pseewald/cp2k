@@ -65,6 +65,7 @@ MODULE hfx_types
                                               qs_kind_type
    USE string_utilities,                ONLY: compress
    USE t_c_g0,                          ONLY: free_C0
+   USE particle_types,                          ONLY: particle_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
 
@@ -487,14 +488,14 @@ CONTAINS
 !>      - All POINTERS and ALLOCATABLES are allocated, even if their size is
 !>        unknown at invocation time
 ! **************************************************************************************************
-   SUBROUTINE hfx_create(x_data, para_env, hfx_section, natom, atomic_kind_set, qs_kind_set, &
-                         dft_control, cell, do_exx)
+   SUBROUTINE hfx_create(x_data, para_env, hfx_section, atomic_kind_set, qs_kind_set, &
+                         particle_set, dft_control, cell, do_exx)
       TYPE(hfx_type), DIMENSION(:, :), POINTER           :: x_data
       TYPE(cp_para_env_type)                             :: para_env
       TYPE(section_vals_type), POINTER                   :: hfx_section
-      INTEGER, INTENT(IN)                                :: natom
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(cell_type), POINTER                           :: cell
       LOGICAL, OPTIONAL                                  :: do_exx
@@ -510,11 +511,15 @@ CONTAINS
       REAL(dp)                                           :: real_val
       TYPE(hfx_type), POINTER                            :: actual_x_data
       TYPE(section_vals_type), POINTER                   :: hf_pbc_section, hf_sub_section
+      INTEGER :: natom
 
       CALL timeset(routineN, handle)
 
       CALL cite_reference(Guidon2008)
       CALL cite_reference(Guidon2009)
+
+      natom = SIZE(particle_set)
+
       !! There might be 2 hf sections
       CALL section_vals_get(hfx_section, n_repetition=n_rep_hf)
       n_threads = 1
@@ -867,7 +872,7 @@ CONTAINS
             actual_x_data%b_first_load_balance_forces = .TRUE.
 
             hf_sub_section => section_vals_get_subs_vals(hfx_section, "RI", i_rep_section=irep)
-            CALL hfx_ri_init(actual_x_data, hf_sub_section, qs_kind_set, dft_control, para_env)
+            CALL hfx_ri_init(actual_x_data, hf_sub_section, qs_kind_set, particle_set, dft_control, para_env)
          END DO
       END DO
 

@@ -51,6 +51,7 @@ MODULE hfx_ri
    USE qs_kind_types,                   ONLY: get_qs_kind,&
                                               qs_kind_type
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
+   USE input_section_types,             ONLY: section_vals_val_get
 #include "./base/base_uses.f90"
 
 CONTAINS
@@ -63,13 +64,14 @@ CONTAINS
 !> \param dft_control ...
 !> \param para_env ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_init(x_data, ri_section, qs_kind_set, dft_control, para_env)
+   SUBROUTINE hfx_ri_init(x_data, ri_section, qs_kind_set, particle_set, dft_control, para_env)
       !TYPE(hfx_ri_type), INTENT(OUT)                     :: hfx_ri_data
       TYPE(hfx_type), INTENT(INOUT)                      :: x_data
       TYPE(section_vals_type), POINTER                   :: ri_section
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(cp_para_env_type), POINTER                    :: para_env
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
 
       INTEGER                                            :: ikind, mp_comm_3d, natom, nkind
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_AO_1, dist_AO_2, dist_RI, sizes_AO, &
@@ -80,11 +82,10 @@ CONTAINS
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
       TYPE(hfx_ri_type), POINTER                         :: ri_data
-      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(qs_kind_type), POINTER                        :: qs_kind
 
       ! todo : natom uninitialised
-
+      natom = SIZE(particle_set)
       nkind = SIZE(qs_kind_set, 1)
       ri_data => x_data%ri_data
 
@@ -137,7 +138,8 @@ CONTAINS
       CALL cyclic_dist(natom, pdims(1), sizes_AO, dist_AO_1)
       CALL cyclic_dist(natom, pdims(2), sizes_AO, dist_AO_2)
       CALL cyclic_dist(natom, pdims(3), sizes_RI, dist_RI)
-      CALL distribution_3d_create(qs_env, dist_3d, dist_ao_1, dist_ao_2, dist_RI, mp_comm_3d, own_comm=.TRUE.)
+      CALL distribution_3d_create(dist_3d, dist_ao_1, dist_ao_2, dist_RI, nkind, particle_set, &
+                                  mp_comm_3d, own_comm=.TRUE.)
 
       CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid, map1_2d=[1, 2], map2_2d=[3])
       ri_data%pgrid = pgrid
@@ -327,7 +329,7 @@ CONTAINS
    SUBROUTINE hfx_ri_update_ks(qs_env, hfx_ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, mo_coeff, rho_ao, &
                                t_3c_int, do_admm, geometry_did_change, nspins)
       TYPE(qs_environment_type), POINTER                 :: qs_env
-      TYPE(hfx_ri_type), INTENT(IN)                      :: hfx_ri_data
+      TYPE(hfx_ri_type), INTENT(INOUT)                      :: hfx_ri_data
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix
       REAL(KIND=dp), INTENT(OUT)                         :: ehfx
       TYPE(dbcsr_p_type), DIMENSION(:)                   :: ks_matrix_aux_fit_hfx
@@ -341,7 +343,6 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsize_1, bsize_2, dist_MO
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       INTEGER, DIMENSION(:), POINTER                     :: mo_bsize
-      LOGICAL                                            :: my_geo_change
       REAL(KIND=dp)                                      :: etmp
       TYPE(dbcsr_t_distribution_type)                    :: dist1, dist2
       TYPE(dbcsr_t_type)                                 :: ks_t, mo_coeff_t
@@ -353,9 +354,7 @@ CONTAINS
       ! todo: mo localization
 
       ! assuming TREAT_LSD_IN_CORE is .FALSE.
-      my_geo_change = geometry_did_change
-      IF (ispin == 2) my_geo_change = .FALSE.
-      IF (my_geo_change) CALL hfx_ri_pre_scf(qs_env, hfx_ri_data, hfx_ri_data%t_3c_int)
+      IF (geometry_did_change) CALL hfx_ri_pre_scf(qs_env, hfx_ri_data, hfx_ri_data%t_3c_int)
 
       CALL dbcsr_t_mp_environ_pgrid(hfx_ri_data%pgrid, pdims, pcoord)
 
