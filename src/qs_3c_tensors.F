@@ -19,16 +19,10 @@ MODULE qs_3c_tensors
                                               gto_basis_set_p_type
    USE block_p_types,                   ONLY: block_p_type
    USE cell_types,                      ONLY: cell_type
-   USE cp_array_utils,                  ONLY: cp_1d_i_p_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_type
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
    USE cp_files,                        ONLY: close_file,&
                                               open_file
-   USE cp_para_env,                     ONLY: cp_para_env_create,&
-                                              cp_para_env_release
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: dbcsr_filter,&
                                               dbcsr_finalize,&
@@ -39,9 +33,7 @@ MODULE qs_3c_tensors
         dbcsr_t_get_block, dbcsr_t_get_stored_coordinates, dbcsr_t_put_block, &
         dbcsr_t_reserve_blocks, dbcsr_t_type
    USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE distribution_2d_types,           ONLY: distribution_2d_create_prv => distribution_2d_create,&
-                                              distribution_2d_release,&
-                                              distribution_2d_type
+   USE distribution_2d_types,           ONLY: distribution_2d_type
    USE gamma,                           ONLY: init_md_ftable
    USE hfx_libint_wrapper,              ONLY: cp_libint_cleanup_2eri,&
                                               cp_libint_cleanup_3eri,&
@@ -59,20 +51,13 @@ MODULE qs_3c_tensors
                                               kpoint_type
    USE libint_2center,                  ONLY: eri_2center
    USE libint_3center,                  ONLY: eri_3center
-   USE message_passing,                 ONLY: mp_cart_sub,&
-                                              mp_comm_free,&
-                                              mp_environ
    USE molecule_types,                  ONLY: molecule_type
    USE orbital_pointers,                ONLY: ncoset
    USE particle_types,                  ONLY: particle_type
-   USE qs_3c_tensors_types,             ONLY: distribution_3d_type,&
-                                              neighbor_list_3c_iterator_type,&
-                                              neighbor_list_3c_type,&
-                                              symmetric_ij,&
-                                              symmetric_ijk,&
-                                              symmetric_jk,&
-                                              symmetric_none,&
-                                              symmetrik_ik
+   USE qs_3c_tensors_types,             ONLY: &
+        distribution_3d_destroy, distribution_3d_type, neighbor_list_3c_iterator_type, &
+        neighbor_list_3c_type, symmetric_ij, symmetric_ijk, symmetric_jk, symmetric_none, &
+        symmetrik_ik
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
    USE qs_kind_types,                   ONLY: qs_kind_type
@@ -99,7 +84,7 @@ MODULE qs_3c_tensors
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_3c_tensors'
 
-   PUBLIC :: distribution_3d_create, distribution_3d_destroy, build_3c_neighbor_lists, &
+   PUBLIC :: build_3c_neighbor_lists, &
              neighbor_list_3c_destroy, neighbor_list_3c_iterate, neighbor_list_3c_iterator_create, &
              neighbor_list_3c_iterator_destroy, get_3c_iterator_info, build_3c_integrals, &
              contiguous_tensor_dist, cyclic_tensor_dist, &
@@ -110,164 +95,6 @@ MODULE qs_3c_tensors
    END TYPE
 
 CONTAINS
-! **************************************************************************************************
-!> \brief Create a 2d distribution. This mainly wraps distribution_2d_create
-!>        for consistency with distribution_3d_create.
-!> \param dist_2d 2d distribution object
-!> \param dist1 distribution vector along 1st process grid dimension
-!> \param dist2 distribution vector along 2nd process grid dimension
-!> \param nkind ...
-!> \param particle_set ...
-!> \param mp_comm_2d MPI communicator with a 3d cartesian topology
-! **************************************************************************************************
-   SUBROUTINE distribution_2d_create(dist_2d, dist1, dist2, nkind, particle_set, mp_comm_2d)
-      TYPE(distribution_2d_type), POINTER                :: dist_2d
-      INTEGER, DIMENSION(:), INTENT(IN)                  :: dist1, dist2
-      INTEGER, INTENT(IN)                                :: nkind
-      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
-      INTEGER, INTENT(IN)                                :: mp_comm_2d
-
-      INTEGER                                            :: iatom, ikind, n, natom, nproc
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: nparticle_local_col, nparticle_local_row
-      INTEGER, DIMENSION(2)                              :: mp_coor, mp_dims
-      INTEGER, DIMENSION(:, :), POINTER                  :: dist1_prv, dist2_prv
-      TYPE(cp_1d_i_p_type), DIMENSION(:), POINTER        :: local_particle_col, local_particle_row
-      TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
-      TYPE(cp_para_env_type), POINTER                    :: para_env
-
-      NULLIFY (blacs_env, local_particle_col, local_particle_row, para_env)
-
-      CALL mp_environ(nproc, mp_dims, mp_coor, mp_comm_2d)
-      CALL cp_para_env_create(para_env, mp_comm_2d, owns_group=.FALSE.)
-      CALL cp_blacs_env_create(blacs_env, para_env, &
-                               grid_2d=mp_dims)
-
-      CPASSERT(blacs_env%mepos(1) == mp_coor(1))
-      CPASSERT(blacs_env%mepos(2) == mp_coor(2))
-
-      CALL cp_para_env_release(para_env)
-
-      natom = SIZE(particle_set)
-      ALLOCATE (dist1_prv(natom, 2), dist2_prv(natom, 2))
-      dist1_prv(:, 1) = dist1
-      dist2_prv(:, 1) = dist2
-
-      ALLOCATE (local_particle_col(nkind), local_particle_row(nkind))
-      ALLOCATE (nparticle_local_row(nkind), nparticle_local_col(nkind))
-      nparticle_local_row = 0; nparticle_local_col = 0
-
-      DO iatom = 1, natom
-         ikind = particle_set(iatom)%atomic_kind%kind_number
-
-         IF (dist1_prv(iatom, 1) == mp_coor(1)) nparticle_local_row(ikind) = nparticle_local_row(ikind)+1
-         IF (dist2_prv(iatom, 1) == mp_coor(2)) nparticle_local_col(ikind) = nparticle_local_col(ikind)+1
-      END DO
-
-      DO ikind = 1, nkind
-         n = nparticle_local_row(ikind)
-         ALLOCATE (local_particle_row(ikind)%array(n))
-
-         n = nparticle_local_col(ikind)
-         ALLOCATE (local_particle_col(ikind)%array(n))
-      END DO
-
-      nparticle_local_row = 0; nparticle_local_col = 0
-      DO iatom = 1, natom
-         ikind = particle_set(iatom)%atomic_kind%kind_number
-
-         IF (dist1_prv(iatom, 1) == mp_coor(1)) THEN
-            nparticle_local_row(ikind) = nparticle_local_row(ikind)+1
-            local_particle_row(ikind)%array(nparticle_local_row(ikind)) = iatom
-         END IF
-         IF (dist2_prv(iatom, 1) == mp_coor(2)) THEN
-            nparticle_local_col(ikind) = nparticle_local_col(ikind)+1
-            local_particle_col(ikind)%array(nparticle_local_col(ikind)) = iatom
-         END IF
-      END DO
-
-      CALL distribution_2d_create_prv(dist_2d, row_distribution_ptr=dist1_prv, &
-                                      col_distribution_ptr=dist2_prv, local_rows_ptr=local_particle_row, &
-                                      local_cols_ptr=local_particle_col, blacs_env=blacs_env)
-
-      CALL cp_blacs_env_release(blacs_env)
-   END SUBROUTINE
-
-! **************************************************************************************************
-!> \brief Create a 3d distribution
-!> \param dist_3d 3d distribution object
-!> \param dist1 distribution vector along 1st process grid dimension
-!> \param dist2 distribution vector along 2nd process grid dimension
-!> \param dist3 distribution vector along 3rd process grid dimension
-!> \param nkind ...
-!> \param particle_set ...
-!> \param mp_comm_3d MPI communicator with a 3d cartesian topology
-!> \param own_comm Whether mp_comm_3d should be owned by dist_3d (default false)
-! **************************************************************************************************
-   SUBROUTINE distribution_3d_create(dist_3d, dist1, dist2, dist3, nkind, particle_set, mp_comm_3d, own_comm)
-      TYPE(distribution_3d_type)                         :: dist_3d
-      INTEGER, DIMENSION(:), INTENT(IN)                  :: dist1, dist2, dist3
-      INTEGER, INTENT(IN)                                :: nkind
-      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
-      INTEGER, INTENT(IN)                                :: mp_comm_3d
-      LOGICAL, INTENT(IN), OPTIONAL                      :: own_comm
-
-      CHARACTER(len=*), PARAMETER :: routineN = 'distribution_3d_create', &
-         routineP = moduleN//':'//routineN
-
-      INTEGER                                            :: comm_2d_1, comm_2d_2, handle, nproc_1, &
-                                                            nproc_2
-      INTEGER, DIMENSION(2)                              :: mp_coor_1, mp_coor_2, mp_dims_1, &
-                                                            mp_dims_2
-
-      CALL timeset(routineN, handle)
-
-      IF (PRESENT(own_comm)) THEN
-         IF (own_comm) dist_3d%comm_3d = mp_comm_3d
-         dist_3d%owns_comm = own_comm
-      ELSE
-         dist_3d%owns_comm = .FALSE.
-      ENDIF
-
-      CALL mp_cart_sub(mp_comm_3d, [.TRUE., .TRUE., .FALSE.], comm_2d_1)
-      CALL mp_cart_sub(mp_comm_3d, [.FALSE., .TRUE., .TRUE.], comm_2d_2)
-
-      CALL mp_environ(nproc_1, mp_dims_1, mp_coor_1, comm_2d_1)
-      CALL mp_environ(nproc_2, mp_dims_2, mp_coor_2, comm_2d_2)
-
-      CPASSERT(mp_coor_1(2) == mp_coor_2(1))
-
-      CALL distribution_2d_create(dist_3d%dist_2d_1, dist1, dist2, nkind, particle_set, comm_2d_1)
-      CALL distribution_2d_create(dist_3d%dist_2d_2, dist2, dist3, nkind, particle_set, comm_2d_2)
-
-      dist_3d%comm_2d_1 = comm_2d_1
-      dist_3d%comm_2d_2 = comm_2d_2
-
-      CALL timestop(handle)
-   END SUBROUTINE
-
-! **************************************************************************************************
-!> \brief Destroy a 3d distribution
-!> \param dist ...
-! **************************************************************************************************
-   SUBROUTINE distribution_3d_destroy(dist)
-      TYPE(distribution_3d_type)                         :: dist
-
-      CHARACTER(len=*), PARAMETER :: routineN = 'distribution_3d_destroy', &
-         routineP = moduleN//':'//routineN
-
-      INTEGER                                            :: handle
-
-      CALL timeset(routineN, handle)
-      CALL distribution_2d_release(dist%dist_2d_1)
-      CALL distribution_2d_release(dist%dist_2d_2)
-      CALL mp_comm_free(dist%comm_2d_1)
-      CALL mp_comm_free(dist%comm_2d_2)
-      IF (dist%owns_comm) CALL mp_comm_free(dist%comm_3d)
-
-      NULLIFY (dist%dist_2d_1, dist%dist_2d_2)
-
-      CALL timestop(handle)
-   END SUBROUTINE
 
 ! **************************************************************************************************
 !> \brief Build 2-center neighborlists adapted to different operators

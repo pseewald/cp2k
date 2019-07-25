@@ -34,6 +34,7 @@ MODULE hfx_admm_utils
                                               dbcsr_type
    USE hfx_derivatives,                 ONLY: derivatives_four_center
    USE hfx_energy_potential,            ONLY: integrate_four_center
+   USE hfx_ri,                          ONLY: hfx_ri_update_ks
    USE hfx_types,                       ONLY: hfx_type
    USE input_constants,                 ONLY: &
         do_admm_aux_exch_func_bee, do_admm_aux_exch_func_default, do_admm_aux_exch_func_none, &
@@ -228,7 +229,8 @@ CONTAINS
                                                             matrix_ks_aux_fit_im, matrix_ks_im, &
                                                             rho_ao_1d
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: matrix_h, matrix_ks_orb, rho_ao_orb
-      TYPE(dbcsr_type), DIMENSION(:), POINTER            :: mo_coeff_b
+      TYPE(dbcsr_type), DIMENSION(2)                     :: mo_coeff_b
+      TYPE(dbcsr_type), POINTER                          :: mo_coeff_b_tmp
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(hfx_type), DIMENSION(:, :), POINTER           :: x_data
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mo_array
@@ -264,9 +266,10 @@ CONTAINS
                       s_mstruct_changed=s_mstruct_changed, &
                       x_data=x_data)
 
-      ALLOCATE (mo_coeff_b(nspins))
       DO ispin = 1, nspins
-         CALL get_mo_set(mo_set=mo_array(1)%mo_set, mo_coeff_b=mo_coeff_b(ispin))
+         NULLIFY (mo_coeff_b_tmp)
+         CALL get_mo_set(mo_set=mo_array(ispin)%mo_set, mo_coeff_b=mo_coeff_b_tmp)
+         mo_coeff_b(ispin) = mo_coeff_b_tmp
       ENDDO
 
       nspins = dft_control%nspins
@@ -328,9 +331,9 @@ CONTAINS
          ! Finally the real hfx calulation
          ehfx = 0.0_dp
 
-         IF (do_RI) THEN
-            CALL hfx_ri_update_ks(x_data(irep, 1)%ri_data, matrix_ks, ehfx, matrix_ks_aux_fit_hfx, mo_coeff_b, rho_ao_orb, &
-                                  t_3c_int, dft_control%do_admm, nspins)
+         IF (x_data(irep, 1)%do_RI) THEN
+            CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks, ehfx, matrix_ks_aux_fit_hfx, mo_coeff_b, rho_ao_orb, &
+                                  x_data(irep, 1)%ri_data%t_3c_int, dft_control%do_admm, s_mstruct_changed, nspins)
          ELSE
             DO ispin = 1, mspin
                CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
@@ -383,9 +386,10 @@ CONTAINS
 
             ehfxrt = 0.0_dp
 
-            IF (do_RI) THEN
-               CALL hfx_ri_update_ks(x_data(irep, 1)%ri_data, matrix_ks, ehfx, matrix_ks_aux_fit_hfx, mo_coeff_b, rho_ao_orb, &
-                                     t_3c_int, dft_control%do_admm, nspins)
+            IF (x_data(irep, 1)%do_RI) THEN
+               CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks, ehfx, matrix_ks_aux_fit_hfx, &
+                                     mo_coeff_b, rho_ao_orb, &
+                                     x_data(irep, 1)%ri_data%t_3c_int, dft_control%do_admm, .FALSE., nspins)
             ELSE
                DO ispin = 1, mspin
                   CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
@@ -468,6 +472,7 @@ CONTAINS
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_fm_type), POINTER                          :: mo_coeff
       TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(dbcsr_type), POINTER                          :: mo_coeff_b
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mo_array
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set

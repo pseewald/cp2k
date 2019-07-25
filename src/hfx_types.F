@@ -14,8 +14,12 @@ MODULE hfx_types
    USE atomic_kind_types,               ONLY: atomic_kind_type,&
                                               get_atomic_kind,&
                                               get_atomic_kind_set
+   USE auto_basis,                      ONLY: create_ri_aux_basis_set
+   USE basis_set_container_types,       ONLY: add_basis_set_to_container
    USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
+                                              gto_basis_set_p_type,&
+                                              gto_basis_set_type,&
+                                              init_orb_basis_set
    USE bibliography,                    ONLY: cite_reference,&
                                               guidon2008,&
                                               guidon2009
@@ -33,7 +37,8 @@ MODULE hfx_types
                                               cp_print_key_unit_nr
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE dbcsr_tensor_api,                ONLY: dbcsr_t_pgrid_type,&
+   USE dbcsr_tensor_api,                ONLY: dbcsr_t_pgrid_create,&
+                                              dbcsr_t_pgrid_type,&
                                               dbcsr_t_type
    USE hfx_helpers,                     ONLY: count_cells_perd,&
                                               next_image_cell_perd
@@ -56,16 +61,21 @@ MODULE hfx_types
    USE machine,                         ONLY: m_chdir,&
                                               m_getcwd
    USE mathlib,                         ONLY: erfc_cutoff
+   USE message_passing,                 ONLY: mp_cart_create
    USE orbital_pointers,                ONLY: nco,&
                                               ncoset,&
                                               nso
-   USE qs_3c_tensors_types,             ONLY: distribution_3d_type
+   USE particle_methods,                ONLY: get_particle_set
+   USE particle_types,                  ONLY: particle_type
+   USE qs_3c_tensors_types,             ONLY: distribution_3d_create,&
+                                              distribution_3d_type
+   USE qs_integral_utils,               ONLY: basis_set_list_setup
+   USE qs_interactions,                 ONLY: init_interaction_radii_orb_basis
    USE qs_kind_types,                   ONLY: get_qs_kind,&
                                               get_qs_kind_set,&
                                               qs_kind_type
    USE string_utilities,                ONLY: compress
    USE t_c_g0,                          ONLY: free_C0
-   USE particle_types,                          ONLY: particle_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
 
@@ -88,7 +98,7 @@ MODULE hfx_types
              hfx_pgf_product_list, hfx_block_range_type, &
              alloc_containers, dealloc_containers, hfx_task_list_type, init_t_c_g0_lmax, &
              hfx_create_neighbor_cells, hfx_create_basis_types, hfx_release_basis_types, &
-             hfx_ri_type
+             hfx_ri_type, hfx_cyclic_dist
 
 #define CACHE_SIZE 1024
 #define BITS_MAX_VAL 6
@@ -475,9 +485,9 @@ CONTAINS
 !> \param x_data contains all relevant data structures for hfx runs
 !> \param para_env ...
 !> \param hfx_section input section
-!> \param natom , max_set: quantities that define some array sizes
 !> \param atomic_kind_set ...
 !> \param qs_kind_set ...
+!> \param particle_set ...
 !> \param dft_control ...
 !> \param cell ...
 !> \param do_exx ...
@@ -505,13 +515,12 @@ CONTAINS
       CHARACTER(LEN=512)                                 :: error_msg
       CHARACTER(LEN=default_path_length)                 :: char_val
       INTEGER :: handle, i, i_thread, iatom, ikind, int_val, irep, jkind, max_set, n_rep_hf, &
-         n_threads, natom_a, natom_b, nkind, nseta, nsetb, pbc_shells, storage_id
+         n_threads, natom, natom_a, natom_b, nkind, nseta, nsetb, pbc_shells, storage_id
       INTEGER, DIMENSION(:), POINTER                     :: atom2kind, kind_of
       LOGICAL                                            :: logic_val, my_do_exx
       REAL(dp)                                           :: real_val
       TYPE(hfx_type), POINTER                            :: actual_x_data
       TYPE(section_vals_type), POINTER                   :: hf_pbc_section, hf_sub_section
-      INTEGER :: natom
 
       CALL timeset(routineN, handle)
 
@@ -882,6 +891,110 @@ CONTAINS
       END DO
       CALL timestop(handle)
    END SUBROUTINE hfx_create
+
+! **************************************************************************************************
+!> \brief ...
+!> \param x_data ...
+!> \param ri_section ...
+!> \param qs_kind_set ...
+!> \param particle_set ...
+!> \param dft_control ...
+!> \param para_env ...
+! **************************************************************************************************
+   SUBROUTINE hfx_ri_init(x_data, ri_section, qs_kind_set, particle_set, dft_control, para_env)
+      !TYPE(hfx_ri_type), INTENT(OUT)                     :: hfx_ri_data
+      TYPE(hfx_type), INTENT(INOUT)                      :: x_data
+      TYPE(section_vals_type), POINTER                   :: ri_section
+      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
+      TYPE(dft_control_type), POINTER                    :: dft_control
+      TYPE(cp_para_env_type)                             :: para_env
+
+      INTEGER                                            :: ikind, mp_comm_3d, natom, nkind
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_AO_1, dist_AO_2, dist_RI, sizes_AO, &
+                                                            sizes_RI
+      INTEGER, DIMENSION(3)                              :: pcoord, pdims
+      TYPE(dbcsr_t_pgrid_type)                           :: pgrid
+      TYPE(distribution_3d_type)                         :: dist_3d
+      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
+      TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
+      TYPE(hfx_ri_type), POINTER                         :: ri_data
+      TYPE(qs_kind_type), POINTER                        :: qs_kind
+
+      ! todo : natom uninitialised
+      natom = SIZE(particle_set)
+      nkind = SIZE(qs_kind_set, 1)
+      ri_data => x_data%ri_data
+
+      ri_data%op_pot = x_data%potential_parameter%potential_type
+      ri_data%omega_pot = x_data%potential_parameter%omega
+      ri_data%r_cutoff_pot = x_data%potential_parameter%cutoff_radius
+      ri_data%t_c_filename = x_data%potential_parameter%filename
+
+      CALL section_vals_val_get(ri_section, "FILTER_EPS", r_val=ri_data%filter_eps)
+      CALL section_vals_val_get(ri_section, "EPS_RANGE", r_val=ri_data%eps_range)
+      CALL section_vals_val_get(ri_section, "OMEGA", r_val=ri_data%omega_ri)
+      CALL section_vals_val_get(ri_section, "CUTOFF_RADIUS", r_val=ri_data%r_cutoff_ri)
+      CALL section_vals_val_get(ri_section, "RI_METRIC", i_val=ri_data%op_ri)
+      CALL section_vals_val_get(ri_section, "CHECK_2C_INV", l_val=ri_data%check_2c_inv)
+      CALL section_vals_val_get(ri_section, "SQRT_ORDER", i_val=ri_data%t2c_sqrt_order)
+      CALL section_vals_val_get(ri_section, "EPS_LANCZOS", r_val=ri_data%eps_lanczos)
+      CALL section_vals_val_get(ri_section, "MAX_ITER_LANCZOS", i_val=ri_data%max_iter_lanczos)
+
+      ! initialise RI basis
+      DO ikind = 1, nkind
+         NULLIFY (ri_aux_basis_set)
+         qs_kind => qs_kind_set(ikind)
+         CALL get_qs_kind(qs_kind=qs_kind, basis_set=ri_aux_basis_set, &
+                          basis_type="RI_HFX")
+         IF (.NOT. (ASSOCIATED(ri_aux_basis_set))) THEN
+            ! Generate a default basis
+            CALL create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, dft_control%auto_basis_ri_aux)
+            CALL init_orb_basis_set(ri_aux_basis_set)
+            CALL init_interaction_radii_orb_basis(ri_aux_basis_set, dft_control%qs_control%eps_pgf_orb)
+            CALL add_basis_set_to_container(qs_kind%basis_sets, ri_aux_basis_set, "RI_HFX")
+         END IF
+      END DO
+
+      CALL erfc_cutoff(ri_data%eps_range, ri_data%omega_ri, ri_data%r_cutoff_ri)
+      CALL erfc_cutoff(ri_data%eps_range, ri_data%omega_pot, ri_data%r_cutoff_pot)
+
+      pdims = 0
+      CALL mp_cart_create(para_env%group, 3, pdims, pcoord, mp_comm_3d)
+
+      ALLOCATE (sizes_RI(natom), sizes_AO(natom))
+      ALLOCATE (basis_set_RI(nkind), basis_set_AO(nkind))
+      CALL basis_set_list_setup(basis_set_RI, "RI_HFX", qs_kind_set)
+      CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_RI, basis=basis_set_RI)
+      CALL basis_set_list_setup(basis_set_AO, "ORB", qs_kind_set)
+      CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_AO, basis=basis_set_AO)
+
+      ALLOCATE (dist_AO_1(natom))
+      ALLOCATE (dist_AO_2(natom))
+      ALLOCATE (dist_RI(natom))
+      CALL hfx_cyclic_dist(natom, pdims(1), sizes_AO, dist_AO_1)
+      CALL hfx_cyclic_dist(natom, pdims(2), sizes_AO, dist_AO_2)
+      CALL hfx_cyclic_dist(natom, pdims(3), sizes_RI, dist_RI)
+      CALL distribution_3d_create(dist_3d, dist_ao_1, dist_ao_2, dist_RI, nkind, particle_set, &
+                                  mp_comm_3d, own_comm=.TRUE.)
+
+      CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid, map1_2d=[1, 2], map2_2d=[3])
+      ri_data%pgrid = pgrid
+
+      ri_data%dist1_ao_1(:) = dist_ao_1
+      ri_data%dist1_ao_2(:) = dist_ao_2
+      ri_data%dist1_ri(:) = dist_RI
+      ri_data%dist1_3d = dist_3d
+
+      CALL hfx_cyclic_dist(natom, pdims(1), sizes_AO, dist_AO_1)
+      CALL hfx_cyclic_dist(natom, pdims(3), sizes_AO, dist_AO_2)
+      CALL hfx_cyclic_dist(natom, pdims(2), sizes_RI, dist_RI)
+
+      ri_data%dist2_ao_1(:) = dist_ao_1
+      ri_data%dist2_ao_2(:) = dist_ao_2
+      ri_data%dist2_ri(:) = dist_RI
+
+   END SUBROUTINE
 
 ! **************************************************************************************************
 !> \brief - This routine allocates and initializes the basis_info and basis_parameter types
@@ -2112,6 +2225,37 @@ CONTAINS
       END SELECT
 
    END SUBROUTINE alloc_containers
+
+! **************************************************************************************************
+!> \brief cyclic distribution of weighted elements todo: move this to somewhere else
+!> \param nel ...
+!> \param nbin ...
+!> \param weights ...
+!> \param dist ...
+! **************************************************************************************************
+   SUBROUTINE hfx_cyclic_dist(nel, nbin, weights, dist)
+      INTEGER, INTENT(IN)                                :: nel, nbin
+      INTEGER, DIMENSION(nel), INTENT(IN)                :: weights
+      INTEGER, DIMENSION(nel), INTENT(OUT)               :: dist
+
+      INTEGER                                            :: ibin, iel, niter
+      INTEGER, DIMENSION(nbin)                           :: occup
+
+      occup(:) = 0
+      ibin = 0
+      DO iel = 1, nel
+         niter = 0
+         ibin = MOD(ibin+1, nbin)
+         DO WHILE (occup(ibin+1)+weights(iel) .GE. MAXVAL(occup))
+            IF (MINLOC(occup, DIM=1) == ibin+1) EXIT
+            ibin = MOD(ibin+1, nbin)
+            niter = niter+1
+         ENDDO
+         dist(iel) = ibin
+         occup(ibin+1) = occup(ibin+1)+weights(iel)
+      ENDDO
+
+   END SUBROUTINE hfx_cyclic_dist
 
 END MODULE hfx_types
 

@@ -247,7 +247,7 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'qs_init', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: ikind, method_id, natom, nkind
+      INTEGER                                            :: ikind, method_id, nkind
       LOGICAL                                            :: do_admm_rpa, do_et, do_exx, do_hfx, &
                                                             do_kpoints, is_semi, mp2_present, &
                                                             my_qmmm, qmmm_decoupl, silent, &
@@ -391,9 +391,8 @@ CONTAINS
       CALL get_qs_env(qs_env, dft_control=dft_control)
       IF (do_hfx) THEN
          ! Retrieve particle_set and atomic_kind_set (needed for both kinds of initialization)
-         natom = SIZE(particle_set)
-         CALL hfx_create(qs_env%x_data, para_env, hfx_section, natom, atomic_kind_set, &
-                         qs_kind_set, dft_control, my_cell)
+         CALL hfx_create(qs_env%x_data, para_env, hfx_section, atomic_kind_set, &
+                         qs_kind_set, particle_set, dft_control, my_cell)
       END IF
 
       mp2_section => section_vals_get_subs_vals(qs_env%input, "DFT%XC%WF_CORRELATION")
@@ -407,14 +406,13 @@ CONTAINS
          CALL section_vals_get(hfx_section, explicit=do_exx)
          IF (do_exx) THEN
             ! Retrieve particle_set and atomic_kind_set (needed for both kinds of initialization)
-            natom = SIZE(particle_set)
 
             ! do_exx in call of hfx_create decides whether to go without ADMM (do_exx=.TRUE.) or with
             ! ADMM (do_exx=.FALSE.)
             CALL section_vals_val_get(mp2_section, "RI_RPA%ADMM", l_val=do_admm_rpa)
 
-            CALL hfx_create(qs_env%mp2_env%ri_rpa%x_data, para_env, hfx_section, natom, atomic_kind_set, &
-                            qs_kind_set, dft_control, my_cell, do_exx=(.NOT. do_admm_rpa))
+            CALL hfx_create(qs_env%mp2_env%ri_rpa%x_data, para_env, hfx_section, atomic_kind_set, &
+                            qs_kind_set, particle_set, dft_control, my_cell, do_exx=(.NOT. do_admm_rpa))
 
          END IF
       END IF
