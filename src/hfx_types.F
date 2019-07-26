@@ -37,9 +37,11 @@ MODULE hfx_types
                                               cp_print_key_unit_nr
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE dbcsr_tensor_api,                ONLY: dbcsr_t_pgrid_create,&
-                                              dbcsr_t_pgrid_type,&
-                                              dbcsr_t_type
+   USE dbcsr_api,                       ONLY: dbcsr_type_real_8
+   USE dbcsr_tensor_api,                ONLY: &
+        dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, &
+        dbcsr_t_distribution_type, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, &
+        dbcsr_t_pgrid_type, dbcsr_t_type
    USE hfx_helpers,                     ONLY: count_cells_perd,&
                                               next_image_cell_perd
    USE hfx_libint_wrapper,              ONLY: &
@@ -68,6 +70,7 @@ MODULE hfx_types
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE qs_3c_tensors_types,             ONLY: distribution_3d_create,&
+                                              distribution_3d_destroy,&
                                               distribution_3d_type
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_interactions,                 ONLY: init_interaction_radii_orb_basis
@@ -362,7 +365,9 @@ MODULE hfx_types
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist1_AO_1, dist1_AO_2, &
                                             dist2_AO_1, dist2_AO_2
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist1_RI, dist2_RI
-      TYPE(distribution_3d_type) :: dist1_3d, dist2_3d
+
+      TYPE(distribution_3d_type) :: dist1_3d
+      TYPE(dbcsr_t_distribution_type)                    :: dist1, dist2
 
       ! tensors to be stored
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int
@@ -881,7 +886,7 @@ CONTAINS
             actual_x_data%b_first_load_balance_forces = .TRUE.
 
             hf_sub_section => section_vals_get_subs_vals(hfx_section, "RI", i_rep_section=irep)
-            CALL hfx_ri_init(actual_x_data, hf_sub_section, qs_kind_set, particle_set, dft_control, para_env)
+            CALL hfx_ri_init(actual_x_data%ri_data, actual_x_data, hf_sub_section, qs_kind_set, particle_set, dft_control, para_env)
          END DO
       END DO
 
@@ -894,6 +899,7 @@ CONTAINS
 
 ! **************************************************************************************************
 !> \brief ...
+!> \param ri_data ...
 !> \param x_data ...
 !> \param ri_section ...
 !> \param qs_kind_set ...
@@ -901,8 +907,8 @@ CONTAINS
 !> \param dft_control ...
 !> \param para_env ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_init(x_data, ri_section, qs_kind_set, particle_set, dft_control, para_env)
-      !TYPE(hfx_ri_type), INTENT(OUT)                     :: hfx_ri_data
+   SUBROUTINE hfx_ri_init(ri_data, x_data, ri_section, qs_kind_set, particle_set, dft_control, para_env)
+      TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
       TYPE(hfx_type), INTENT(INOUT)                      :: x_data
       TYPE(section_vals_type), POINTER                   :: ri_section
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
@@ -914,17 +920,13 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_AO_1, dist_AO_2, dist_RI, sizes_AO, &
                                                             sizes_RI
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
-      TYPE(dbcsr_t_pgrid_type)                           :: pgrid
       TYPE(distribution_3d_type)                         :: dist_3d
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
-      TYPE(hfx_ri_type), POINTER                         :: ri_data
       TYPE(qs_kind_type), POINTER                        :: qs_kind
 
-      ! todo : natom uninitialised
       natom = SIZE(particle_set)
       nkind = SIZE(qs_kind_set, 1)
-      ri_data => x_data%ri_data
 
       ri_data%op_pot = x_data%potential_parameter%potential_type
       ri_data%omega_pot = x_data%potential_parameter%omega
@@ -978,8 +980,7 @@ CONTAINS
       CALL distribution_3d_create(dist_3d, dist_ao_1, dist_ao_2, dist_RI, nkind, particle_set, &
                                   mp_comm_3d, own_comm=.TRUE.)
 
-      CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid, map1_2d=[1, 2], map2_2d=[3])
-      ri_data%pgrid = pgrid
+      CALL dbcsr_t_pgrid_create(para_env%group, pdims, ri_data%pgrid, map1_2d=[1, 2], map2_2d=[3])
 
       ri_data%dist1_ao_1(:) = dist_ao_1
       ri_data%dist1_ao_2(:) = dist_ao_2
@@ -994,6 +995,30 @@ CONTAINS
       ri_data%dist2_ao_2(:) = dist_ao_2
       ri_data%dist2_ri(:) = dist_RI
 
+      CALL dbcsr_t_distribution_new(ri_data%dist1, ri_data%pgrid, [1, 2], [3], &
+                                    ri_data%dist1_ao_1, ri_data%dist1_ao_2, ri_data%dist1_RI, dimsplit=1)
+
+      CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1, 2], [3], &
+                                    ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2, dimsplit=1)
+      CALL dbcsr_t_create(ri_data%t_3c_int(1, 1), "(muR|nu)", ri_data%dist2, [1, 2], [3], &
+                          dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
+
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param ri_data ...
+! **************************************************************************************************
+   SUBROUTINE hfx_ri_release(ri_data)
+      TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
+
+      CALL dbcsr_t_pgrid_destroy(ri_data%pgrid)
+      DEALLOCATE (ri_data%dist1_AO_1, ri_data%dist1_AO_2, ri_data%dist2_AO_1, ri_data%dist2_AO_2, &
+                  ri_data%dist1_RI, ri_data%dist2_RI)
+      CALL distribution_3d_destroy(ri_data%dist1_3d)
+      CALL dbcsr_t_distribution_destroy(ri_data%dist1)
+      CALL dbcsr_t_distribution_destroy(ri_data%dist2)
+      CALL dbcsr_t_destroy(ri_data%t_3c_int(1, 1))
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -1382,9 +1407,12 @@ CONTAINS
                END DO
                DEALLOCATE (actual_x_data%map_atoms_to_cpus)
             END IF
+
+            CALL hfx_ri_release(actual_x_data%ri_data)
          END DO
 
       END DO
+
       DEALLOCATE (x_data)
    END SUBROUTINE hfx_release
 
