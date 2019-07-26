@@ -748,6 +748,7 @@ CONTAINS
 !> \param r_cutoff ...
 !> \param omega ...
 !> \param do_kpoints ...
+!> this routine requires that libint has been static initialised somewhere else
 ! **************************************************************************************************
    SUBROUTINE build_3c_integrals(t3c, filter_eps, qs_env, &
                                  nl_3c, basis_i, basis_j, basis_k, &
@@ -1168,6 +1169,7 @@ CONTAINS
 !> \param r_cutoff ...
 !> \param omega ...
 !> \param do_kpoints ...
+!> this routine requires that libint has been static initialised somewhere else
 ! **************************************************************************************************
    SUBROUTINE build_2c_integrals(t2c, filter_eps, qs_env, &
                                  nl_2c, basis_i, basis_j, &
@@ -1187,8 +1189,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER :: handle, iatom, ibasis, ikind, imax, img, iset, jatom, jkind, jset, m_max, maxli, &
-         maxlj, maxlk, n1, n2, natom, ncoi, ncoj, nimg, nseti, nsetj, op_prv, sgfi, sgfj, &
-         unit_id
+         maxlj, maxlk, n1, n2, natom, ncoi, ncoj, nimg, nseti, nsetj, op_prv, sgfi, sgfj, unit_id
       INTEGER, DIMENSION(3)                              :: cell
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmin_i, lmin_j, npgfi, &
                                                             npgfj, nsgfi, nsgfj
@@ -1354,7 +1355,10 @@ CONTAINS
 
       ENDDO
 
-      CALL cp_libint_cleanup_2eri(lib)
+      IF (op_prv /= do_potential_id) THEN
+         CALL cp_libint_cleanup_2eri(lib)
+      ENDIF
+
       CALL neighbor_list_iterator_release(nl_iterator)
       DO img = 1, SIZE(t2c)
          CALL dbcsr_finalize(t2c(img))

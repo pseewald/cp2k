@@ -77,8 +77,8 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
 
-      NULLIFY(col_bsize, row_bsize, logger, para_env, dist_2d, basis_set_AO, basis_set_RI, &
-              nl_2c_pot, nl_2c_RI, particle_set, qs_kind_set)
+      NULLIFY (col_bsize, row_bsize, logger, para_env, dist_2d, basis_set_AO, basis_set_RI, &
+               nl_2c_pot, nl_2c_RI, particle_set, qs_kind_set)
 
       ! get a useful output_unit
       logger => cp_get_default_logger()
@@ -140,8 +140,11 @@ CONTAINS
       CALL dbcsr_distribution_release(dbcsr_dist)
 
       CALL build_2c_integrals(t_2c_op_pot, ri_data%filter_eps, qs_env, nl_2c_pot, basis_set_RI, basis_set_RI, &
-                              op_ij=ri_data%op_pot, t_c_filename=ri_data%t_c_filename, &
+                              op_ij=ri_data%op_pot, &
+                              t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_pot, omega=ri_data%omega_pot)
+
+      CPABORT("stop")
 
       CALL neighbor_list_2c_destroy(nl_2c_pot)
 
@@ -253,7 +256,8 @@ CONTAINS
       TYPE(dbcsr_t_type)                                 :: ks_t, mo_coeff_t
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_ctr, t_3c_int_ctr_opt, &
                                                             t_3c_int_ctr_opt_copy
-      NULLIFY(mo_bsize)
+
+      NULLIFY (mo_bsize)
 
       CPASSERT(SIZE(ks_matrix, 2) == 1)
 

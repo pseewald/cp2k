@@ -23,7 +23,7 @@ MODULE hfx_libint_wrapper
    USE ISO_C_BINDING,                   ONLY: C_F_POINTER,&
                                               C_F_PROCPOINTER,&
                                               C_NULL_PTR,&
-                                              C_FUNPTR
+                                              C_FUNPTR,C_ASSOCIATED
    USE kinds,                           ONLY: dp
 #if(__LIBINT)
    USE libint_f,                        ONLY: &
@@ -329,6 +329,7 @@ CONTAINS
 #if(__LIBINT)
       PROCEDURE(libint2_build), POINTER                  :: pbuild
 
+      CPASSERT(C_ASSOCIATED(libint2_build_eri(n_d, n_c, n_b, n_a)))
       CALL C_F_PROCPOINTER(libint2_build_eri(n_d, n_c, n_b, n_a), pbuild)
       CALL pbuild(lib%prv)
 
@@ -364,6 +365,7 @@ CONTAINS
 #if(__LIBINT)
       PROCEDURE(libint2_build), POINTER                  :: pbuild
 
+      CPASSERT(C_ASSOCIATED(libint2_build_3eri(n_c, n_b, n_a)))
       CALL C_F_PROCPOINTER(libint2_build_3eri(n_c, n_b, n_a), pbuild)
       CALL pbuild(lib%prv)
 
@@ -398,6 +400,7 @@ CONTAINS
 #if(__LIBINT)
       PROCEDURE(libint2_build), POINTER                  :: pbuild
 
+      CPASSERT(C_ASSOCIATED(libint2_build_2eri(n_b, n_a)))
       CALL C_F_PROCPOINTER(libint2_build_2eri(n_b, n_a), pbuild)
       CALL pbuild(lib%prv)
 

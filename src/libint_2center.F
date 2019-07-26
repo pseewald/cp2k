@@ -43,7 +43,7 @@ MODULE libint_2center
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief Computes the 3-center electron repulsion integrals (ab|c) for a given set of cartesian
+!> \brief Computes the 3-center electron repulsion integrals (a|b) for a given set of cartesian
 !>        gaussian orbitals
 !> \param int_ab the integrals as array of cartesian orbitals (allocated before hand)
 !> \param la_min ...
@@ -91,10 +91,6 @@ CONTAINS
       NULLIFY (params, p_work)
       ALLOCATE (params)
 
-      !Note: we want to compute all possible integrals based on the 3-centers (ab|c) before
-      !      having to switch to (ba|c) (or the other way around) due to angular momenta in libint
-      !      For a triplet of centers (k|ji), we can only compute integrals for which lj >= li
-
       my_r_cutoff = 0.0_dp
       IF (PRESENT(r_cutoff)) my_r_cutoff = r_cutoff
 
@@ -110,14 +106,13 @@ CONTAINS
             zetj = zetb(jpgf)
             b_start = (jpgf-1)*ncoset(lb_max)
 
-            !start with all the (c|ba) integrals (stendard order) and keep to lb >= la
             CALL set_params(lib, ra, rb, la_max, lb_max, zeti, zetj, op, &
                             params_out=params, r_cutoff=my_r_cutoff, omega=my_omega)
 
             DO li = la_min, la_max
                a_offset = a_start+ncoset(li-1)
                ncoa = nco(li)
-               DO lj = MAX(li, lb_min), lb_max
+               DO lj = lb_min, lb_max
                   b_offset = b_start+ncoset(lj-1)
                   ncob = nco(lj)
 
@@ -132,35 +127,34 @@ CONTAINS
                      END DO
                   END DO
 
-               END DO !lj
-            END DO !li
+               END DO
+            END DO
 
-            !swap centers 3 and 4 to compute (c|ab) with lb < la
-            CALL set_params(lib, rb, ra, params_in=params)
+            !CALL set_params(lib, rb, ra, params_in=params)
 
-            DO lj = lb_min, lb_max
-               b_offset = b_start+ncoset(lj-1)
-               ncob = nco(lj)
-               DO li = MAX(lj+1, la_min), la_max
-                  a_offset = a_start+ncoset(li-1)
-                  ncoa = nco(li)
+            !DO lj = lb_min, lb_max
+            !   b_offset = b_start+ncoset(lj-1)
+            !   ncob = nco(lj)
+            !   DO li = MAX(lj+1, la_min), la_max
+            !      a_offset = a_start+ncoset(li-1)
+            !      ncoa = nco(li)
 
-                  a_mysize(1) = ncoa*ncob
-                  CALL cp_libint_get_2eris(lj, li, lib, p_work, a_mysize)
+            !      a_mysize(1) = ncoa*ncob
+            !      CALL cp_libint_get_2eris(lj, li, lib, p_work, a_mysize)
 
-                  DO i = 1, ncoa
-                     p1 = (i-1)*ncob
-                     DO j = 1, ncob
-                        p2 = p1+j
-                        int_ab(a_offset+i, b_offset+j) = p_work(p2)
-                     END DO
-                  END DO
+            !      DO i = 1, ncoa
+            !         p1 = (i-1)*ncob
+            !         DO j = 1, ncob
+            !            p2 = p1+j
+            !            int_ab(a_offset+i, b_offset+j) = p_work(p2)
+            !         END DO
+            !      END DO
 
-               END DO !li
-            END DO !lj
+            !   END DO
+            !END DO
 
-         END DO !jpgf
-      END DO !ipgf
+         END DO
+      END DO
 
       DEALLOCATE (params)
 
