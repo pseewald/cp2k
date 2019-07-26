@@ -361,15 +361,19 @@ MODULE hfx_types
       REAL(KIND=dp) :: eps_lanczos
       INTEGER :: max_iter_lanczos
 
+      ! process grid used for any 3c tensors
       TYPE(dbcsr_t_pgrid_type) :: pgrid
-      INTEGER, DIMENSION(:), ALLOCATABLE :: dist1_AO_1, dist1_AO_2, &
-                                            dist2_AO_1, dist2_AO_2
-      INTEGER, DIMENSION(:), ALLOCATABLE :: dist1_RI, dist2_RI
 
-      TYPE(distribution_3d_type) :: dist1_3d
-      TYPE(dbcsr_t_distribution_type)                    :: dist1, dist2
+      ! distributions for (RI | AO AO) 3c integral tensor
+      INTEGER, DIMENSION(:), ALLOCATABLE :: dist1_AO_1, dist1_AO_2, dist1_RI
+      TYPE(distribution_3d_type)                         :: dist1_3d
+      TYPE(dbcsr_t_distribution_type)                    :: dist1
 
-      ! tensors to be stored
+      ! distribution for (AO | RI AO) 3c integral tensor
+      INTEGER, DIMENSION(:), ALLOCATABLE :: dist2_AO_1, dist2_AO_2, dist2_RI
+      TYPE(dbcsr_t_distribution_type)                    :: dist2
+
+      ! 3c integral tensor in ( AO | RI AO) format
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int
    END TYPE
 
@@ -962,8 +966,9 @@ CONTAINS
          END IF
       END DO
 
-      CALL erfc_cutoff(ri_data%eps_range, ri_data%omega_ri, ri_data%r_cutoff_ri)
-      CALL erfc_cutoff(ri_data%eps_range, ri_data%omega_pot, ri_data%r_cutoff_pot)
+      IF (ri_data%op_ri == do_potential_short) THEN
+         CALL erfc_cutoff(ri_data%eps_range, ri_data%omega_ri, ri_data%r_cutoff_ri)
+      ENDIF
 
       pdims = 0
       CALL mp_cart_create(para_env%group, 3, pdims, pcoord, mp_comm_3d)
@@ -975,36 +980,36 @@ CONTAINS
       CALL basis_set_list_setup(basis_set_AO, "ORB", qs_kind_set)
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_AO, basis=basis_set_AO)
 
+      ALLOCATE (dist_RI(natom))
       ALLOCATE (dist_AO_1(natom))
       ALLOCATE (dist_AO_2(natom))
-      ALLOCATE (dist_RI(natom))
-      CALL hfx_cyclic_dist(natom, pdims(1), sizes_AO, dist_AO_1)
-      CALL hfx_cyclic_dist(natom, pdims(2), sizes_AO, dist_AO_2)
-      CALL hfx_cyclic_dist(natom, pdims(3), sizes_RI, dist_RI)
-      CALL distribution_3d_create(dist_3d, dist_ao_1, dist_ao_2, dist_RI, nkind, particle_set, &
+      CALL hfx_cyclic_dist(natom, pdims(1), sizes_RI, dist_RI)
+      CALL hfx_cyclic_dist(natom, pdims(2), sizes_AO, dist_AO_1)
+      CALL hfx_cyclic_dist(natom, pdims(3), sizes_AO, dist_AO_2)
+      CALL distribution_3d_create(dist_3d, dist_RI, dist_ao_1, dist_ao_2, nkind, particle_set, &
                                   mp_comm_3d, own_comm=.TRUE.)
 
-      CALL dbcsr_t_pgrid_create(para_env%group, pdims, ri_data%pgrid, map1_2d=[1, 2], map2_2d=[3])
+      CALL dbcsr_t_pgrid_create(para_env%group, pdims, ri_data%pgrid)
 
-      ri_data%dist1_ao_1(:) = dist_ao_1
-      ri_data%dist1_ao_2(:) = dist_ao_2
-      ri_data%dist1_ri(:) = dist_RI
+      ALLOCATE (ri_data%dist1_ri, SOURCE=dist_RI)
+      ALLOCATE (ri_data%dist1_ao_1, SOURCE=dist_ao_1)
+      ALLOCATE (ri_data%dist1_ao_2, SOURCE=dist_ao_2)
       ri_data%dist1_3d = dist_3d
 
       CALL hfx_cyclic_dist(natom, pdims(1), sizes_AO, dist_AO_1)
-      CALL hfx_cyclic_dist(natom, pdims(3), sizes_AO, dist_AO_2)
       CALL hfx_cyclic_dist(natom, pdims(2), sizes_RI, dist_RI)
+      CALL hfx_cyclic_dist(natom, pdims(3), sizes_AO, dist_AO_2)
 
-      ri_data%dist2_ao_1(:) = dist_ao_1
-      ri_data%dist2_ao_2(:) = dist_ao_2
-      ri_data%dist2_ri(:) = dist_RI
+      ALLOCATE (ri_data%dist2_ao_1, SOURCE=dist_ao_1)
+      ALLOCATE (ri_data%dist2_ao_2, SOURCE=dist_ao_2)
+      ALLOCATE (ri_data%dist2_ri, SOURCE=dist_RI)
 
-      CALL dbcsr_t_distribution_new(ri_data%dist1, ri_data%pgrid, [1, 2], [3], &
-                                    ri_data%dist1_ao_1, ri_data%dist1_ao_2, ri_data%dist1_RI, dimsplit=1)
+      CALL dbcsr_t_distribution_new(ri_data%dist1, ri_data%pgrid, [1], [2, 3], &
+                                    ri_data%dist1_RI, ri_data%dist1_ao_1, ri_data%dist1_ao_2, dimsplit=2)
 
-      CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1, 2], [3], &
-                                    ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2, dimsplit=1)
-      CALL dbcsr_t_create(ri_data%t_3c_int(1, 1), "(muR|nu)", ri_data%dist2, [1, 2], [3], &
+      CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1], [2, 3], &
+                                    ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2, dimsplit=2)
+      CALL dbcsr_t_create(ri_data%t_3c_int(1, 1), "(AO | RI AO)", ri_data%dist2, [1], [2, 3], &
                           dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
 
    END SUBROUTINE

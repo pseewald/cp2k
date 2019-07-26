@@ -266,8 +266,6 @@ CONTAINS
                       s_mstruct_changed=s_mstruct_changed, &
                       x_data=x_data)
 
-
-
       nspins = dft_control%nspins
       nimages = dft_control%nimages
 
@@ -341,7 +339,7 @@ CONTAINS
                CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
                                           para_env, s_mstruct_changed, irep, distribute_fock_matrix, &
                                           ispin=ispin)
-               ehfx = ehfx + eh1
+               ehfx = ehfx+eh1
             END DO
          ENDIF
 

@@ -109,13 +109,13 @@ CONTAINS
 
       !dft_control=dft_control)
 
-      CALL dbcsr_t_create(t_3c_int_1(1, 1), "(munu|P)", ri_data%dist1, [1, 2], [3], &
-                          dbcsr_type_real_8, sizes_AO, sizes_AO, sizes_RI)
+      CALL dbcsr_t_create(t_3c_int_1(1, 1), "(RI | AO AO)", ri_data%dist1, [1], [2, 3], &
+                          dbcsr_type_real_8, sizes_RI, sizes_AO, sizes_AO)
 
-      CALL build_3c_neighbor_lists(nl_3c, basis_set_AO, basis_set_AO, basis_set_RI, ri_data%dist1_3d, "HFX_3c_nl", &
-                                   qs_env, op_jk=ri_data%op_ri, x_range=ri_data%r_cutoff_ri)
-      CALL build_3c_integrals(t_3c_int_1, ri_data%filter_eps, qs_env, nl_3c, basis_set_AO, basis_set_AO, &
-                              basis_set_RI, op_jk=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
+      CALL build_3c_neighbor_lists(nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, ri_data%dist1_3d, "HFX_3c_nl", &
+                                   qs_env, op_ij=ri_data%op_ri, x_range=ri_data%r_cutoff_ri)
+      CALL build_3c_integrals(t_3c_int_1, ri_data%filter_eps, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
+                              op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
 
       CALL neighbor_list_3c_destroy(nl_3c)
@@ -196,21 +196,21 @@ CONTAINS
       CALL dbcsr_release(t_2c_op_RI_inv(1))
       CALL dbcsr_release(t_2c_op_pot_sqrt(1))
 
-      CALL dbcsr_t_create(t_2c_int_mat(1), t_2c_int(1), name="(P|R)")
+      CALL dbcsr_t_create(t_2c_int_mat(1), t_2c_int(1), name="(RI|RI)")
       CALL dbcsr_t_copy_matrix_to_tensor(t_2c_int_mat(1), t_2c_int(1))
       CALL dbcsr_release(t_2c_int_mat(1))
 
-      CALL dbcsr_t_create(t_3c_int_1(1, 1), t_3c_int_2(1, 1), name="(munu|R)")
-      CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_3c_int_1(1, 1), t_2c_int(1), &
+      CALL dbcsr_t_create(t_3c_int_1(1, 1), t_3c_int_2(1, 1), name="(RI | AO AO)")
+      CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_2c_int(1), t_3c_int_1(1, 1), &
                             dbcsr_scalar(0.0_dp), t_3c_int_2(1, 1), &
-                            contract_1=[3], notcontract_1=[1, 2], &
-                            contract_2=[1], notcontract_2=[2], &
-                            map_1=[1, 2], map_2=[3], filter_eps=ri_data%filter_eps, move_data=.TRUE., &
+                            contract_1=[2], notcontract_1=[1], &
+                            contract_2=[1], notcontract_2=[2, 3], &
+                            map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, move_data=.TRUE., &
                             unit_nr=unit_nr)
       CALL dbcsr_t_destroy(t_2c_int(1))
       CALL dbcsr_t_destroy(t_3c_int_1(1, 1))
 
-      CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int(1, 1), order=[1, 3, 2], move_data=.TRUE.)
+      CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int(1, 1), order=[2, 1, 3], move_data=.TRUE.)
       CALL dbcsr_t_destroy(t_3c_int_2(1, 1))
 
       DEALLOCATE (basis_set_RI, basis_set_AO)
@@ -242,7 +242,7 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: nspins
 
       INTEGER                                            :: ispin, n_mo_blocks
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsize_1, bsize_2, dist_MO
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsize_2, bsize_3, dist_MO
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       INTEGER, DIMENSION(:), POINTER                     :: mo_bsize
       REAL(KIND=dp)                                      :: etmp
@@ -262,17 +262,17 @@ CONTAINS
 
       CALL dbcsr_get_info(mo_coeff(1), nblkcols_total=n_mo_blocks, col_blk_size=mo_bsize)
       ALLOCATE (dist_MO(n_mo_blocks))
-      CALL hfx_cyclic_dist(n_mo_blocks, pdims(3), mo_bsize, dist_MO)
-      CALL dbcsr_t_distribution_new(dist1, ri_data%pgrid, [1, 2], [3], &
-                                    ri_data%dist2_ao_1, ri_data%dist2_RI, dist_MO, dimsplit=1)
-      CALL dbcsr_t_get_info(ri_data%t_3c_int(1, 1), blk_size_1=bsize_1, blk_size_2=bsize_2)
-      CALL dbcsr_t_create(t_3c_int_ctr(1, 1), "(muR|i)", dist1, [1, 2], [3], dbcsr_type_real_8, &
-                          bsize_1, bsize_2, mo_bsize)
+      CALL hfx_cyclic_dist(n_mo_blocks, pdims(1), mo_bsize, dist_MO)
+      CALL dbcsr_t_distribution_new(dist1, ri_data%pgrid, [1], [2, 3], &
+                                    dist_MO, ri_data%dist2_RI, ri_data%dist2_ao_2, dimsplit=2)
+      CALL dbcsr_t_get_info(ri_data%t_3c_int(1, 1), blk_size_2=bsize_2, blk_size_3=bsize_3)
+      CALL dbcsr_t_create(t_3c_int_ctr(1, 1), "(MO | RI AO)", dist1, [1], [2, 3], dbcsr_type_real_8, &
+                          mo_bsize, bsize_2, bsize_3)
       CALL dbcsr_t_distribution_destroy(dist1)
-      CALL dbcsr_t_distribution_new(dist2, ri_data%pgrid, [1], [2, 3], &
-                                    ri_data%dist2_ao_1, ri_data%dist2_RI, dist_MO, dimsplit=2)
-      CALL dbcsr_t_create(t_3c_int_ctr_opt(1, 1), "(mu|Ri)", dist2, [1], [2, 3], dbcsr_type_real_8, &
-                          bsize_1, bsize_2, mo_bsize)
+      CALL dbcsr_t_distribution_new(dist2, ri_data%pgrid, [1, 2], [3], &
+                                    dist_MO, ri_data%dist2_RI, ri_data%dist2_ao_2, dimsplit=1)
+      CALL dbcsr_t_create(t_3c_int_ctr_opt(1, 1), "(MO RI | AO)", dist2, [1, 2], [3], dbcsr_type_real_8, &
+                          mo_bsize, bsize_2, bsize_3)
 
       CALL dbcsr_t_create(t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1))
       CALL dbcsr_t_distribution_destroy(dist2)
@@ -283,17 +283,17 @@ CONTAINS
       DO ispin = 1, nspins
          ! todo: dbcsr_t_copy interface
          CALL dbcsr_t_copy_matrix_to_tensor(mo_coeff(ispin), mo_coeff_t)
-         CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), ri_data%t_3c_int(1, 1), mo_coeff_t, dbcsr_scalar(0.0_dp), t_3c_int_ctr(1, 1), &
-                               contract_1=[3], notcontract_1=[1, 2], &
-                               contract_2=[1], notcontract_2=[2], &
-                               map_1=[1, 2], map_2=[3], filter_eps=ri_data%filter_eps)
+         CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t, ri_data%t_3c_int(1, 1), dbcsr_scalar(0.0_dp), t_3c_int_ctr(1, 1), &
+                               contract_1=[1], notcontract_1=[2], &
+                               contract_2=[1], notcontract_2=[2, 3], &
+                               map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps)
 
          CALL dbcsr_t_copy(t_3c_int_ctr(1, 1), t_3c_int_ctr_opt(1, 1), move_data=.TRUE.)
          CALL dbcsr_t_copy(t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1))
          CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1), &
                                dbcsr_scalar(0.0_dp), ks_t, &
-                               contract_1=[2, 3], notcontract_1=[1], &
-                               contract_2=[2, 3], notcontract_2=[1], &
+                               contract_1=[1, 2], notcontract_1=[3], &
+                               contract_2=[1, 2], notcontract_2=[3], &
                                map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps)
          CALL dbcsr_t_copy_tensor_to_matrix(ks_t, ks_matrix(ispin, 1)%matrix, summation=.TRUE.)
 

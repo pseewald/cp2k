@@ -802,7 +802,7 @@ CONTAINS
          do_kpoints_prv = .FALSE.
       ENDIF
 
-      CPASSERT(.NOT. PRESENT(op_ij) .AND. PRESENT(op_jk))
+      !CPASSERT(.NOT. PRESENT(op_ij) .AND. PRESENT(op_jk))
 
       IF (PRESENT(op_ij)) THEN
          op_ij_prv = op_ij
@@ -975,6 +975,7 @@ CONTAINS
                                          rk, lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), &
                                          ri, lib, op_ij_prv, omega=omega, r_cutoff=r_cutoff)
                         sijk(:, :, :) = RESHAPE(sijk_rs, SHAPE(sijk), ORDER=[3, 1, 2])
+                        DEALLOCATE (sijk_rs)
                      ENDIF
 
                      ALLOCATE (sijk_contr(nsgfi(iset), nsgfj(jset), nsgfk(kset)))
@@ -1037,30 +1038,41 @@ CONTAINS
       CALL cp_libint_cleanup_3eri(lib)
       CALL neighbor_list_3c_iterator_destroy(nl_3c_iter)
 
-      DO jcell = 1, nimg
-         DO kcell = 1, nimg
-            ! need half of filter eps because afterwards we add transposed tensor
-            CALL dbcsr_t_filter(t3c(jcell, kcell), filter_eps/2)
+      IF (nl_3c%sym == symmetric_jk) THEN
+         DO jcell = 1, nimg
+            DO kcell = 1, nimg
+               ! need half of filter eps because afterwards we add transposed tensor
+               CALL dbcsr_t_filter(t3c(jcell, kcell), filter_eps/2)
+            ENDDO
          ENDDO
-      ENDDO
 
-      ! add transposed of overlap integrals
-      CALL dbcsr_t_create(t3c(1, 1), t_3c_tmp)
-      DO jcell = 1, nimg
-         DO kcell = 1, jcell
-            CALL dbcsr_t_copy(t3c(jcell, kcell), t_3c_tmp)
-            CALL dbcsr_t_copy(t_3c_tmp, t3c(kcell, jcell), order=[1, 3, 2], summation=.TRUE., move_data=.TRUE.)
-            CALL dbcsr_t_filter(t3c(kcell, jcell), filter_eps)
+         ! add transposed of overlap integrals
+         CALL dbcsr_t_create(t3c(1, 1), t_3c_tmp)
+         DO jcell = 1, nimg
+            DO kcell = 1, jcell
+               CALL dbcsr_t_copy(t3c(jcell, kcell), t_3c_tmp)
+               CALL dbcsr_t_copy(t_3c_tmp, t3c(kcell, jcell), order=[1, 3, 2], summation=.TRUE., move_data=.TRUE.)
+               CALL dbcsr_t_filter(t3c(kcell, jcell), filter_eps)
+            ENDDO
          ENDDO
-      ENDDO
-      DO jcell = 1, nimg
-         DO kcell = jcell+1, nimg
-            CALL dbcsr_t_copy(t3c(jcell, kcell), t_3c_tmp)
-            CALL dbcsr_t_copy(t_3c_tmp, t3c(kcell, jcell), order=[1, 3, 2], summation=.FALSE., move_data=.TRUE.)
-            CALL dbcsr_t_filter(t3c(kcell, jcell), filter_eps)
+         DO jcell = 1, nimg
+            DO kcell = jcell+1, nimg
+               CALL dbcsr_t_copy(t3c(jcell, kcell), t_3c_tmp)
+               CALL dbcsr_t_copy(t_3c_tmp, t3c(kcell, jcell), order=[1, 3, 2], summation=.FALSE., move_data=.TRUE.)
+               CALL dbcsr_t_filter(t3c(kcell, jcell), filter_eps)
+            ENDDO
          ENDDO
-      ENDDO
-      CALL dbcsr_t_destroy(t_3c_tmp)
+         CALL dbcsr_t_destroy(t_3c_tmp)
+      ELSEIF (nl_3c%sym == symmetric_none) THEN
+         DO jcell = 1, nimg
+            DO kcell = 1, nimg
+               ! need half of filter eps because afterwards we add transposed tensor
+               CALL dbcsr_t_filter(t3c(jcell, kcell), filter_eps)
+            ENDDO
+         ENDDO
+      ELSE
+         CPABORT("requested symmetric case not implemented")
+      ENDIF
 
       CALL timestop(handle)
    END SUBROUTINE
