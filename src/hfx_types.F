@@ -933,6 +933,8 @@ CONTAINS
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
       TYPE(qs_kind_type), POINTER                        :: qs_kind
 
+      NULLIFY(basis_set_AO, basis_set_RI, ri_aux_basis_set, qs_kind)
+
       natom = SIZE(particle_set)
       nkind = SIZE(qs_kind_set, 1)
 

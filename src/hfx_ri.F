@@ -77,6 +77,9 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
 
+      NULLIFY(col_bsize, row_bsize, logger, para_env, dist_2d, basis_set_AO, basis_set_RI, &
+              nl_2c_pot, nl_2c_RI, particle_set, qs_kind_set)
+
       ! get a useful output_unit
       logger => cp_get_default_logger()
       IF (logger%para_env%ionode) THEN
@@ -250,6 +253,7 @@ CONTAINS
       TYPE(dbcsr_t_type)                                 :: ks_t, mo_coeff_t
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_ctr, t_3c_int_ctr_opt, &
                                                             t_3c_int_ctr_opt_copy
+      NULLIFY(mo_bsize)
 
       CPASSERT(SIZE(ks_matrix, 2) == 1)
 

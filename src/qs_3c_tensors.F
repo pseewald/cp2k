@@ -1187,7 +1187,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER :: handle, iatom, ibasis, ikind, imax, img, iset, jatom, jkind, jset, m_max, maxli, &
-         maxlj, maxlk, n1, n2, natom, ncob, ncoi, ncoj, nimg, nseti, nsetj, op_prv, sgfi, sgfj, &
+         maxlj, maxlk, n1, n2, natom, ncoi, ncoj, nimg, nseti, nsetj, op_prv, sgfi, sgfj, &
          unit_id
       INTEGER, DIMENSION(3)                              :: cell
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmin_i, lmin_j, npgfi, &
@@ -1314,12 +1314,12 @@ CONTAINS
 
             DO jset = 1, nsetj
 
-               ncob = npgfj(jset)*ncoset(lmax_j(jset))
+               ncoj = npgfj(jset)*ncoset(lmax_j(jset))
                n2 = npgfj(jset)*(ncoset(lmax_j(jset))-ncoset(lmin_j(jset)-1))
                sgfj = first_sgf_j(1, jset)
 
-               IF (ncoi*ncob > 0) THEN
-                  ALLOCATE (sij(ncoi, ncob))
+               IF (ncoi*ncoj > 0) THEN
+                  ALLOCATE (sij(ncoi, ncoj))
                   sij(:, :) = 0.0_dp
 
                   ! calculate integrals and derivatives
@@ -1334,7 +1334,7 @@ CONTAINS
                      CALL eri_2center(sij, lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), &
                                       ri, lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), &
                                       rj, lib, op_ij, omega=omega, r_cutoff=r_cutoff)
-
+                     !print *, sij ! todo: uninitialised values in sij
                   ENDIF
 
                   ALLOCATE (sij_contr(nsgfi(iset), nsgfj(jset)))
