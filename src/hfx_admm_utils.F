@@ -266,11 +266,7 @@ CONTAINS
                       s_mstruct_changed=s_mstruct_changed, &
                       x_data=x_data)
 
-      DO ispin = 1, nspins
-         NULLIFY (mo_coeff_b_tmp)
-         CALL get_mo_set(mo_set=mo_array(ispin)%mo_set, mo_coeff_b=mo_coeff_b_tmp)
-         mo_coeff_b(ispin) = mo_coeff_b_tmp
-      ENDDO
+
 
       nspins = dft_control%nspins
       nimages = dft_control%nimages
@@ -332,6 +328,11 @@ CONTAINS
          ehfx = 0.0_dp
 
          IF (x_data(irep, 1)%do_RI) THEN
+            DO ispin = 1, nspins
+               NULLIFY (mo_coeff_b_tmp)
+               CALL get_mo_set(mo_set=mo_array(ispin)%mo_set, mo_coeff_b=mo_coeff_b_tmp)
+               mo_coeff_b(ispin) = mo_coeff_b_tmp
+            ENDDO
             CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks, ehfx, &
                                   matrix_ks_aux_fit_hfx, mo_coeff_b, rho_ao_orb, &
                                   dft_control%do_admm, s_mstruct_changed, nspins)
@@ -340,7 +341,7 @@ CONTAINS
                CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
                                           para_env, s_mstruct_changed, irep, distribute_fock_matrix, &
                                           ispin=ispin)
-               ehfx = ehfx+eh1
+               ehfx = ehfx + eh1
             END DO
          ENDIF
 

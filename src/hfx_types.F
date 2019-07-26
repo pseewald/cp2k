@@ -886,7 +886,11 @@ CONTAINS
             actual_x_data%b_first_load_balance_forces = .TRUE.
 
             hf_sub_section => section_vals_get_subs_vals(hfx_section, "RI", i_rep_section=irep)
-            CALL hfx_ri_init(actual_x_data%ri_data, actual_x_data, hf_sub_section, qs_kind_set, particle_set, dft_control, para_env)
+            IF (actual_x_data%do_ri) THEN
+               ALLOCATE (actual_x_data%ri_data)
+               CALL hfx_ri_init(actual_x_data%ri_data, actual_x_data, hf_sub_section, qs_kind_set, &
+                                particle_set, dft_control, para_env)
+            ENDIF
          END DO
       END DO
 
@@ -1408,7 +1412,10 @@ CONTAINS
                DEALLOCATE (actual_x_data%map_atoms_to_cpus)
             END IF
 
-            CALL hfx_ri_release(actual_x_data%ri_data)
+            IF (actual_x_data%do_ri) THEN
+               CALL hfx_ri_release(actual_x_data%ri_data)
+               DEALLOCATE (actual_x_data%ri_data)
+            ENDIF
          END DO
 
       END DO
