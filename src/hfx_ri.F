@@ -5,6 +5,7 @@
 
 ! **************************************************************************************************
 !> \brief RI-methods for HFX
+!> todo: check that MOs are built from initial guess for all intial guess cases
 ! **************************************************************************************************
 
 MODULE hfx_ri
@@ -19,12 +20,12 @@ MODULE hfx_ri
         dbcsr_add, dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_distribution_release, &
         dbcsr_distribution_type, dbcsr_dot, dbcsr_frobenius_norm, dbcsr_get_info, dbcsr_multiply, &
         dbcsr_p_type, dbcsr_release, dbcsr_scalar, dbcsr_type, dbcsr_type_no_symmetry, &
-        dbcsr_type_real_8
+        dbcsr_type_real_8, dbcsr_checksum
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, &
         dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
-        dbcsr_t_get_info, dbcsr_t_mp_environ_pgrid, dbcsr_t_type
+        dbcsr_t_get_info, dbcsr_t_mp_environ_pgrid, dbcsr_t_type, dbcsr_t_checksum
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE hfx_types,                       ONLY: hfx_cyclic_dist,&
                                               hfx_ri_type
@@ -291,7 +292,7 @@ CONTAINS
       DO ispin = 1, nspins
          ! todo: dbcsr_t_copy interface
          CALL dbcsr_t_copy_matrix_to_tensor(mo_coeff(ispin), mo_coeff_t)
-         !PRINT *, "checksum mo coeff matrix", dbcsr_checksum(mo_coeff(ispin))
+         PRINT *, "checksum mo coeff matrix", dbcsr_checksum(mo_coeff(ispin))
          !PRINT *, "checksum mo coeff tensor", dbcsr_t_checksum(mo_coeff_t)
          CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t, ri_data%t_3c_int(1, 1), dbcsr_scalar(0.0_dp), t_3c_int_ctr(1, 1), &
                                contract_1=[1], notcontract_1=[2], &

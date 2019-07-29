@@ -93,6 +93,7 @@ MODULE qs_initial_guess
    USE util,                            ONLY: sort
    USE xtb_types,                       ONLY: get_xtb_atom_param,&
                                               xtb_atom_type
+   USE hfx_types,                       ONLY: hfx_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -172,6 +173,7 @@ CONTAINS
       TYPE(qs_rho_type), POINTER                         :: rho
       TYPE(scf_control_type), POINTER                    :: scf_control
       TYPE(section_vals_type), POINTER                   :: dft_section, input, subsys_section
+      TYPE(hfx_type), DIMENSION(:, :), POINTER           :: x_data
 
       logger => cp_get_default_logger()
       NULLIFY (atomic_kind, qs_kind, mo_coeff, sv, orb_basis_set, atomic_kind_set, &
@@ -203,7 +205,8 @@ CONTAINS
                       kpoints=kpoints, &
                       rho=rho, &
                       nelectron_spin=nelectron_spin, &
-                      para_env=para_env)
+                      para_env=para_env,&
+                      x_data=x_data)
 
       CALL qs_rho_get(rho, rho_ao_kp=rho_ao_kp)
 
@@ -585,7 +588,9 @@ CONTAINS
                IF (ASSOCIATED(scf_env%krylov_space)) do_std_diag = (scf_env%krylov_space%eps_std_diag > 0.0_dp)
                IF (scf_control%use_ot .OR. scf_env%method == ot_diag_method_nr .OR. &
                    (scf_env%method == block_krylov_diag_method_nr .AND. .NOT. do_std_diag) &
-                   .OR. dft_control%do_admm .OR. scf_env%method == block_davidson_diag_method_nr) THEN
+                   .OR. dft_control%do_admm .OR. scf_env%method == block_davidson_diag_method_nr &
+                   .OR. x_data(1,1)%do_RI) THEN
+
                   IF (dft_control%restricted .AND. (ispin == 2)) THEN
                      CALL mo_set_restrict(mo_array)
                   ELSE
