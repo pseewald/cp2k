@@ -30,7 +30,7 @@ MODULE hfx_libint_wrapper
         libint2_build, libint2_build_eri, libint2_build_eri1, libint2_cleanup_eri, &
         libint2_cleanup_eri1, libint2_init_eri, libint2_init_eri1, libint2_static_cleanup, &
         libint2_static_init, libint_t, libint2_max_am_eri, libint2_init_3eri, libint2_cleanup_3eri, &
-        libint2_init_2eri, libint2_cleanup_2eri, libint2_build_2eri
+        libint2_init_2eri, libint2_cleanup_2eri
 #endif
    USE orbital_pointers,                ONLY: nco
 #include "./base/base_uses.f90"
@@ -70,9 +70,11 @@ MODULE hfx_libint_wrapper
 #endif
    END TYPE
 
-   !This is a hack because 3-center ERIs are bugged on libint 2.5
+   !This is a hack because 2- and 3-center ERIs are bugged on libint 2.5
    TYPE(C_FUNPTR), DIMENSION(0:LIBINT2_MAX_AM, 0:LIBINT2_MAX_AM, 0:LIBINT2_MAX_AM_3eri), &
       BIND(C) :: libint2_build_3eri
+   TYPE(C_FUNPTR), DIMENSION(0:LIBINT2_MAX_AM_2eri, 0:LIBINT2_MAX_AM_2eri), &
+      BIND(C) :: libint2_build_2eri
 
 CONTAINS
 

@@ -127,7 +127,7 @@ CONTAINS
                                    op_ij=ri_data%op_pot, x_range=ri_data%r_cutoff_pot, &
                                    dist_2d=dist_2d)
       CALL build_2c_neighbor_lists(nl_2c_RI, basis_set_RI, basis_set_RI, "HFX_2c_nl_RI", qs_env, sym_ij=.FALSE., &
-                                   op_ij=ri_data%op_ri, x_range=ri_data%r_cutoff_pot, &
+                                   op_ij=ri_data%op_ri, x_range=ri_data%r_cutoff_ri, &
                                    dist_2d=dist_2d)
 
       CALL cp_dbcsr_dist2d_to_dist(dist_2d, dbcsr_dist)
