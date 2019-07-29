@@ -144,8 +144,6 @@ CONTAINS
                               t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_pot, omega=ri_data%omega_pot)
 
-      CPABORT("stop")
-
       CALL neighbor_list_2c_destroy(nl_2c_pot)
 
       CALL build_2c_integrals(t_2c_op_RI, ri_data%filter_eps, qs_env, nl_2c_RI, basis_set_RI, basis_set_RI, &
@@ -266,6 +264,8 @@ CONTAINS
       ! assuming TREAT_LSD_IN_CORE is .FALSE.
       IF (geometry_did_change) CALL hfx_ri_pre_scf(qs_env, ri_data)
 
+      !PRINT *, "checksum t3c tensor", dbcsr_t_checksum(ri_data%t_3c_int(1, 1))
+
       CALL dbcsr_t_mp_environ_pgrid(ri_data%pgrid, pdims, pcoord)
 
       CALL dbcsr_get_info(mo_coeff(1), nblkcols_total=n_mo_blocks, col_blk_size=mo_bsize)
@@ -291,18 +291,24 @@ CONTAINS
       DO ispin = 1, nspins
          ! todo: dbcsr_t_copy interface
          CALL dbcsr_t_copy_matrix_to_tensor(mo_coeff(ispin), mo_coeff_t)
+         !PRINT *, "checksum mo coeff matrix", dbcsr_checksum(mo_coeff(ispin))
+         !PRINT *, "checksum mo coeff tensor", dbcsr_t_checksum(mo_coeff_t)
          CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t, ri_data%t_3c_int(1, 1), dbcsr_scalar(0.0_dp), t_3c_int_ctr(1, 1), &
                                contract_1=[1], notcontract_1=[2], &
                                contract_2=[1], notcontract_2=[2, 3], &
                                map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps)
 
+         !PRINT *, "checksum contraction 1 out", dbcsr_t_checksum(t_3c_int_ctr(1,1))
          CALL dbcsr_t_copy(t_3c_int_ctr(1, 1), t_3c_int_ctr_opt(1, 1), move_data=.TRUE.)
+         !PRINT *, "checksum opt", dbcsr_t_checksum(t_3c_int_ctr_opt(1,1))
          CALL dbcsr_t_copy(t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1))
+         !PRINT *, "checksum opt copy", dbcsr_t_checksum(t_3c_int_ctr_opt_copy(1,1))
          CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1), &
                                dbcsr_scalar(0.0_dp), ks_t, &
                                contract_1=[1, 2], notcontract_1=[3], &
                                contract_2=[1, 2], notcontract_2=[3], &
                                map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps)
+         !PRINT *, "checksum ks tensor", ispin, dbcsr_t_checksum(ks_t)
          CALL dbcsr_t_copy_tensor_to_matrix(ks_t, ks_matrix(ispin, 1)%matrix, summation=.TRUE.)
 
       ENDDO
@@ -325,6 +331,8 @@ CONTAINS
                             name="HF exch. part of matrix_ks_aux_fit for ADMMS")
          END IF
       ENDDO
+
+      PRINT *, "RI HFX Energy", ehfx
 
    END SUBROUTINE
 
