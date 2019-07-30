@@ -15,7 +15,6 @@ MODULE hfx_ri
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
                                               cp_logger_get_default_unit_nr,&
                                               cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: &
         dbcsr_add, dbcsr_add_on_diag, dbcsr_checksum, dbcsr_copy, dbcsr_create, &
         dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_dot, dbcsr_frobenius_norm, &
@@ -29,8 +28,6 @@ MODULE hfx_ri
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE hfx_types,                       ONLY: hfx_cyclic_dist,&
                                               hfx_ri_type
-   USE input_constants,                 ONLY: do_potential_short,&
-                                              do_potential_truncated
    USE iterate_matrix,                  ONLY: invert_hotelling,&
                                               matrix_sqrt_newton_schulz
    USE kinds,                           ONLY: dp
@@ -57,32 +54,19 @@ CONTAINS
 !> \param qs_env ...
 !> \param ri_data ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_pre_scf(qs_env, ri_data)
+   SUBROUTINE hfx_ri_pre_scf_mo(qs_env, ri_data)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
 
-      INTEGER                                            :: natom, nkind, unit_nr
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: sizes_AO, sizes_RI
-      INTEGER, DIMENSION(:), POINTER                     :: col_bsize, row_bsize
-      LOGICAL                                            :: same_op
+      INTEGER                                            :: unit_nr
       REAL(KIND=dp)                                      :: frob_matrix, frob_matrix_base
       TYPE(cp_logger_type), POINTER                      :: logger
-      TYPE(cp_para_env_type), POINTER                    :: para_env
-      TYPE(dbcsr_distribution_type)                      :: dbcsr_dist
       TYPE(dbcsr_t_type), DIMENSION(1)                   :: t_2c_int
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_1, t_3c_int_2
       TYPE(dbcsr_type), DIMENSION(1) :: matrix_tmp1, t_2c_int_mat, t_2c_op_pot, t_2c_op_pot_sqrt, &
          t_2c_op_pot_sqrt2, t_2c_op_pot_sqrt_inv, t_2c_op_RI, t_2c_op_RI_inv
-      TYPE(distribution_2d_type), POINTER                :: dist_2d
-      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
-      TYPE(neighbor_list_3c_type)                        :: nl_3c
-      TYPE(neighbor_list_set_p_type), DIMENSION(:), &
-         POINTER                                         :: nl_2c_pot, nl_2c_RI
-      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
-      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
 
-      NULLIFY (col_bsize, row_bsize, logger, para_env, dist_2d, basis_set_AO, basis_set_RI, &
-               nl_2c_pot, nl_2c_RI, particle_set, qs_kind_set)
+      NULLIFY (logger)
 
       ! get a useful output_unit
       logger => cp_get_default_logger()
@@ -92,77 +76,10 @@ CONTAINS
          unit_nr = -1
       ENDIF
 
-      CALL get_qs_env(qs_env, natom=natom, nkind=nkind, qs_kind_set=qs_kind_set, particle_set=particle_set, &
-                      distribution_2d=dist_2d, para_env=para_env)
-
-      ! determine whether RI metric is same operator as used in HFX
-      same_op = ri_data%op_ri == ri_data%op_pot
-
-      IF (same_op .AND. ri_data%op_pot == do_potential_truncated) THEN
-         same_op = ABS(ri_data%r_cutoff_ri-ri_data%r_cutoff_pot) < 1.0E-16_dp
-      ENDIF
-
-      IF (same_op .AND. ri_data%op_pot == do_potential_short) THEN
-         same_op = ABS(ri_data%omega_ri-ri_data%omega_pot) < 1.0E-16_dp
-      ENDIF
-
-      ALLOCATE (sizes_RI(natom), sizes_AO(natom))
-      ALLOCATE (basis_set_RI(nkind), basis_set_AO(nkind))
-      CALL basis_set_list_setup(basis_set_RI, "RI_HFX", qs_kind_set)
-      CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_RI, basis=basis_set_RI)
-      CALL basis_set_list_setup(basis_set_AO, "ORB", qs_kind_set)
-      CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_AO, basis=basis_set_AO)
-
-      !dft_control=dft_control)
-
-      CALL dbcsr_t_create(t_3c_int_1(1, 1), "(RI | AO AO)", ri_data%dist1, [1], [2, 3], &
-                          dbcsr_type_real_8, sizes_RI, sizes_AO, sizes_AO)
-
-      CALL build_3c_neighbor_lists(nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, ri_data%dist1_3d, "HFX_3c_nl", &
-                                   qs_env, op_ij=ri_data%op_ri, x_range=ri_data%r_cutoff_ri)
-      CALL build_3c_integrals(t_3c_int_1, ri_data%filter_eps, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
-                              op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
-                              r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
-
-      CALL neighbor_list_3c_destroy(nl_3c)
-
-      CALL build_2c_neighbor_lists(nl_2c_pot, basis_set_RI, basis_set_RI, "HFX_2c_nl_pot", qs_env, sym_ij=.FALSE., &
-                                   op_ij=ri_data%op_pot, x_range=ri_data%r_cutoff_pot, &
-                                   dist_2d=dist_2d)
-      IF (.NOT. same_op) THEN
-         CALL build_2c_neighbor_lists(nl_2c_RI, basis_set_RI, basis_set_RI, "HFX_2c_nl_RI", qs_env, sym_ij=.FALSE., &
-                                      op_ij=ri_data%op_ri, x_range=ri_data%r_cutoff_ri, &
-                                      dist_2d=dist_2d)
-      ENDIF
-
-      CALL cp_dbcsr_dist2d_to_dist(dist_2d, dbcsr_dist)
-      ALLOCATE (row_bsize(SIZE(sizes_RI)))
-      ALLOCATE (col_bsize(SIZE(sizes_RI)))
-      row_bsize(:) = sizes_RI
-      col_bsize(:) = sizes_RI
-      CALL dbcsr_create(t_2c_op_pot(1), "(R|P)", dbcsr_dist, dbcsr_type_no_symmetry, row_bsize, col_bsize)
-      IF (.NOT. same_op) THEN
-         CALL dbcsr_create(t_2c_op_RI(1), template=t_2c_op_pot(1))
-      ENDIF
-      CALL dbcsr_distribution_release(dbcsr_dist)
-
-      CALL build_2c_integrals(t_2c_op_pot, ri_data%filter_eps, qs_env, nl_2c_pot, basis_set_RI, basis_set_RI, &
-                              op_ij=ri_data%op_pot, &
-                              t_c_filename=ri_data%t_c_filename, &
-                              r_cutoff=ri_data%r_cutoff_pot, omega=ri_data%omega_pot)
-
-      CALL neighbor_list_2c_destroy(nl_2c_pot)
-
-      IF (.NOT. same_op) THEN
-         CALL build_2c_integrals(t_2c_op_RI, ri_data%filter_eps, qs_env, nl_2c_RI, basis_set_RI, basis_set_RI, &
-                                 op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
-                                 r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
-
-         CALL neighbor_list_2c_destroy(nl_2c_RI)
-      ENDIF
+      CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_op_RI, t_2c_op_pot, t_3c_int_1)
 
       ! todo: if problems, try other methods for matrix functions
-      IF (.NOT. same_op) THEN
+      IF (.NOT. ri_data%same_op) THEN
          CALL dbcsr_create(t_2c_op_RI_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
          CALL invert_hotelling(t_2c_op_RI_inv(1), t_2c_op_RI(1), ri_data%filter_eps)
          IF (ri_data%check_2c_inv) THEN
@@ -238,8 +155,97 @@ CONTAINS
       CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int(1, 1), order=[2, 1, 3], move_data=.TRUE.)
       CALL dbcsr_t_destroy(t_3c_int_2(1, 1))
 
-      DEALLOCATE (basis_set_RI, basis_set_AO)
    END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param qs_env ...
+!> \param ri_data ...
+!> \param t_2c_int_RI ...
+!> \param t_2c_int_pot ...
+!> \param t_3c_int ...
+! **************************************************************************************************
+   SUBROUTINE hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_int_RI, t_2c_int_pot, t_3c_int)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
+      TYPE(dbcsr_type), DIMENSION(1), INTENT(OUT)        :: t_2c_int_RI, t_2c_int_pot
+      TYPE(dbcsr_t_type), DIMENSION(1, 1), INTENT(OUT)   :: t_3c_int
+
+      INTEGER                                            :: natom, nkind
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: sizes_AO, sizes_RI
+      INTEGER, DIMENSION(:), POINTER                     :: col_bsize, row_bsize
+      TYPE(dbcsr_distribution_type)                      :: dbcsr_dist
+      TYPE(distribution_2d_type), POINTER                :: dist_2d
+      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
+      TYPE(neighbor_list_3c_type)                        :: nl_3c
+      TYPE(neighbor_list_set_p_type), DIMENSION(:), &
+         POINTER                                         :: nl_2c_pot, nl_2c_RI
+      TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
+      TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
+
+      NULLIFY (col_bsize, row_bsize, dist_2d, basis_set_AO, basis_set_RI, &
+               nl_2c_pot, nl_2c_RI, particle_set, qs_kind_set)
+
+      CALL get_qs_env(qs_env, natom=natom, nkind=nkind, qs_kind_set=qs_kind_set, particle_set=particle_set, &
+                      distribution_2d=dist_2d)
+
+      ALLOCATE (sizes_RI(natom), sizes_AO(natom))
+      ALLOCATE (basis_set_RI(nkind), basis_set_AO(nkind))
+      CALL basis_set_list_setup(basis_set_RI, "RI_HFX", qs_kind_set)
+      CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_RI, basis=basis_set_RI)
+      CALL basis_set_list_setup(basis_set_AO, "ORB", qs_kind_set)
+      CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_AO, basis=basis_set_AO)
+
+      CALL dbcsr_t_create(t_3c_int(1, 1), "(RI | AO AO)", ri_data%dist1, [1], [2, 3], &
+                          dbcsr_type_real_8, sizes_RI, sizes_AO, sizes_AO)
+
+      CALL build_3c_neighbor_lists(nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, ri_data%dist1_3d, "HFX_3c_nl", &
+                                   qs_env, op_ij=ri_data%op_ri, x_range=ri_data%r_cutoff_ri)
+      CALL build_3c_integrals(t_3c_int, ri_data%filter_eps, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
+                              op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
+                              r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
+
+      CALL neighbor_list_3c_destroy(nl_3c)
+
+      CALL build_2c_neighbor_lists(nl_2c_pot, basis_set_RI, basis_set_RI, "HFX_2c_nl_pot", qs_env, sym_ij=.FALSE., &
+                                   op_ij=ri_data%op_pot, x_range=ri_data%r_cutoff_pot, &
+                                   dist_2d=dist_2d)
+      IF (.NOT. ri_data%same_op) THEN
+         CALL build_2c_neighbor_lists(nl_2c_RI, basis_set_RI, basis_set_RI, "HFX_2c_nl_RI", qs_env, sym_ij=.FALSE., &
+                                      op_ij=ri_data%op_ri, x_range=ri_data%r_cutoff_ri, &
+                                      dist_2d=dist_2d)
+      ENDIF
+
+      CALL cp_dbcsr_dist2d_to_dist(dist_2d, dbcsr_dist)
+      ALLOCATE (row_bsize(SIZE(sizes_RI)))
+      ALLOCATE (col_bsize(SIZE(sizes_RI)))
+      row_bsize(:) = sizes_RI
+      col_bsize(:) = sizes_RI
+      CALL dbcsr_create(t_2c_int_pot(1), "(R|P)", dbcsr_dist, dbcsr_type_no_symmetry, row_bsize, col_bsize)
+      IF (.NOT. ri_data%same_op) THEN
+         CALL dbcsr_create(t_2c_int_RI(1), template=t_2c_int_pot(1))
+      ENDIF
+      CALL dbcsr_distribution_release(dbcsr_dist)
+
+      CALL build_2c_integrals(t_2c_int_pot, ri_data%filter_eps, qs_env, nl_2c_pot, basis_set_RI, basis_set_RI, &
+                              op_ij=ri_data%op_pot, &
+                              t_c_filename=ri_data%t_c_filename, &
+                              r_cutoff=ri_data%r_cutoff_pot, omega=ri_data%omega_pot)
+
+      CALL neighbor_list_2c_destroy(nl_2c_pot)
+
+      IF (.NOT. ri_data%same_op) THEN
+         CALL build_2c_integrals(t_2c_int_RI, ri_data%filter_eps, qs_env, nl_2c_RI, basis_set_RI, basis_set_RI, &
+                                 op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
+                                 r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
+
+         CALL neighbor_list_2c_destroy(nl_2c_RI)
+      ENDIF
+   END SUBROUTINE
+
+   !SUBROUTINE hfx_ri_pre_scf_Pmat()
+
+   !END SUBROUTINE
 
 ! **************************************************************************************************
 !> \brief ...
@@ -254,8 +260,8 @@ CONTAINS
 !> \param geometry_did_change ...
 !> \param nspins ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_update_ks(qs_env, ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, mo_coeff, rho_ao, &
-                               do_admm, geometry_did_change, nspins)
+   SUBROUTINE hfx_ri_update_ks_mo(qs_env, ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, mo_coeff, rho_ao, &
+                                  do_admm, geometry_did_change, nspins)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix
@@ -283,7 +289,7 @@ CONTAINS
       ! todo: mo localization
 
       ! assuming TREAT_LSD_IN_CORE is .FALSE.
-      IF (geometry_did_change) CALL hfx_ri_pre_scf(qs_env, ri_data)
+      IF (geometry_did_change) CALL hfx_ri_pre_scf_mo(qs_env, ri_data)
 
       !PRINT *, "checksum t3c tensor", dbcsr_t_checksum(ri_data%t_3c_int(1, 1))
 

@@ -355,6 +355,7 @@ MODULE hfx_types
       REAL(KIND=dp) :: omega_ri, omega_pot
       REAL(KIND=dp) :: r_cutoff_ri, r_cutoff_pot
       INTEGER :: op_pot, op_ri
+      LOGICAL :: same_op
       CHARACTER(len=default_string_length)    :: t_c_filename
       LOGICAL :: check_2c_inv
       INTEGER :: t2c_sqrt_order
@@ -928,6 +929,7 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_AO_1, dist_AO_2, dist_RI, sizes_AO, &
                                                             sizes_RI
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
+      LOGICAL                                            :: same_op
       TYPE(distribution_3d_type)                         :: dist_3d
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
@@ -971,6 +973,18 @@ CONTAINS
       IF (ri_data%op_ri == do_potential_short) THEN
          CALL erfc_cutoff(ri_data%eps_range, ri_data%omega_ri, ri_data%r_cutoff_ri)
       ENDIF
+
+      ! determine whether RI metric is same operator as used in HFX
+      same_op = ri_data%op_ri == ri_data%op_pot
+
+      IF (same_op .AND. ri_data%op_pot == do_potential_truncated) THEN
+         same_op = ABS(ri_data%r_cutoff_ri-ri_data%r_cutoff_pot) < 1.0E-16_dp
+      ENDIF
+
+      IF (same_op .AND. ri_data%op_pot == do_potential_short) THEN
+         same_op = ABS(ri_data%omega_ri-ri_data%omega_pot) < 1.0E-16_dp
+      ENDIF
+      ri_data%same_op = same_op
 
       pdims = 0
       CALL mp_cart_create(para_env%group, 3, pdims, pcoord, mp_comm_3d)
