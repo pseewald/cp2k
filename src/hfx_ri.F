@@ -29,6 +29,8 @@ MODULE hfx_ri
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE hfx_types,                       ONLY: hfx_cyclic_dist,&
                                               hfx_ri_type
+   USE input_constants,                 ONLY: do_potential_short,&
+                                              do_potential_truncated
    USE iterate_matrix,                  ONLY: invert_hotelling,&
                                               matrix_sqrt_newton_schulz
    USE kinds,                           ONLY: dp
@@ -62,6 +64,7 @@ CONTAINS
       INTEGER                                            :: natom, nkind, unit_nr
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: sizes_AO, sizes_RI
       INTEGER, DIMENSION(:), POINTER                     :: col_bsize, row_bsize
+      LOGICAL                                            :: same_op
       REAL(KIND=dp)                                      :: frob_matrix, frob_matrix_base
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
@@ -93,17 +96,16 @@ CONTAINS
                       distribution_2d=dist_2d, para_env=para_env)
 
       ! determine whether RI metric is same operator as used in HFX
-      !same_op = op_ri == op_pot
+      same_op = ri_data%op_ri == ri_data%op_pot
 
-      !IF(same_op .AND. op_pot == do_potential_truncated) THEN
-      !   same_op = ABS(ri_data%r_cutoff_ri - hfx_rid_data%r_cutoff_pot) < 1.0E-16_dp
-      !ENDIF
+      IF (same_op .AND. ri_data%op_pot == do_potential_truncated) THEN
+         same_op = ABS(ri_data%r_cutoff_ri-ri_data%r_cutoff_pot) < 1.0E-16_dp
+      ENDIF
 
-      !IF(same_op .AND. op_pot == do_potential_short) THEN
-      !   same_op = ABS(ri_data%omega_ri - ri_data%omega_pot) < 1.0E-16_dp
-      !ENDIF
+      IF (same_op .AND. ri_data%op_pot == do_potential_short) THEN
+         same_op = ABS(ri_data%omega_ri-ri_data%omega_pot) < 1.0E-16_dp
+      ENDIF
 
-      !CPASSERT(same_op)
       ALLOCATE (sizes_RI(natom), sizes_AO(natom))
       ALLOCATE (basis_set_RI(nkind), basis_set_AO(nkind))
       CALL basis_set_list_setup(basis_set_RI, "RI_HFX", qs_kind_set)
@@ -127,9 +129,11 @@ CONTAINS
       CALL build_2c_neighbor_lists(nl_2c_pot, basis_set_RI, basis_set_RI, "HFX_2c_nl_pot", qs_env, sym_ij=.FALSE., &
                                    op_ij=ri_data%op_pot, x_range=ri_data%r_cutoff_pot, &
                                    dist_2d=dist_2d)
-      CALL build_2c_neighbor_lists(nl_2c_RI, basis_set_RI, basis_set_RI, "HFX_2c_nl_RI", qs_env, sym_ij=.FALSE., &
-                                   op_ij=ri_data%op_ri, x_range=ri_data%r_cutoff_ri, &
-                                   dist_2d=dist_2d)
+      IF (.NOT. same_op) THEN
+         CALL build_2c_neighbor_lists(nl_2c_RI, basis_set_RI, basis_set_RI, "HFX_2c_nl_RI", qs_env, sym_ij=.FALSE., &
+                                      op_ij=ri_data%op_ri, x_range=ri_data%r_cutoff_ri, &
+                                      dist_2d=dist_2d)
+      ENDIF
 
       CALL cp_dbcsr_dist2d_to_dist(dist_2d, dbcsr_dist)
       ALLOCATE (row_bsize(SIZE(sizes_RI)))
@@ -137,7 +141,9 @@ CONTAINS
       row_bsize(:) = sizes_RI
       col_bsize(:) = sizes_RI
       CALL dbcsr_create(t_2c_op_pot(1), "(R|P)", dbcsr_dist, dbcsr_type_no_symmetry, row_bsize, col_bsize)
-      CALL dbcsr_create(t_2c_op_RI(1), template=t_2c_op_pot(1))
+      IF (.NOT. same_op) THEN
+         CALL dbcsr_create(t_2c_op_RI(1), template=t_2c_op_pot(1))
+      ENDIF
       CALL dbcsr_distribution_release(dbcsr_dist)
 
       CALL build_2c_integrals(t_2c_op_pot, ri_data%filter_eps, qs_env, nl_2c_pot, basis_set_RI, basis_set_RI, &
@@ -147,59 +153,73 @@ CONTAINS
 
       CALL neighbor_list_2c_destroy(nl_2c_pot)
 
-      CALL build_2c_integrals(t_2c_op_RI, ri_data%filter_eps, qs_env, nl_2c_RI, basis_set_RI, basis_set_RI, &
-                              op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
-                              r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
+      IF (.NOT. same_op) THEN
+         CALL build_2c_integrals(t_2c_op_RI, ri_data%filter_eps, qs_env, nl_2c_RI, basis_set_RI, basis_set_RI, &
+                                 op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
+                                 r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
 
-      CALL neighbor_list_2c_destroy(nl_2c_RI)
+         CALL neighbor_list_2c_destroy(nl_2c_RI)
+      ENDIF
 
       ! todo: if problems, try other methods for matrix functions
-      CALL dbcsr_create(t_2c_op_RI_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
-      CALL invert_hotelling(t_2c_op_RI_inv(1), t_2c_op_RI(1), ri_data%filter_eps)
-      IF (ri_data%check_2c_inv) THEN
-         CALL dbcsr_create(matrix_tmp1(1), template=t_2c_op_RI(1), &
-                           matrix_type=dbcsr_type_no_symmetry)
-         CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_RI_inv(1), t_2c_op_RI(1), &
-                             0.0_dp, matrix_tmp1(1), filter_eps=ri_data%filter_eps)
-         frob_matrix_base = dbcsr_frobenius_norm(matrix_tmp1(1))
-         CALL dbcsr_add_on_diag(matrix_tmp1(1), -1.0_dp)
-         frob_matrix = dbcsr_frobenius_norm(matrix_tmp1(1))
-         IF (unit_nr > 0) THEN
-            WRITE (unit_nr, *) "Error for (inv(K)*K-I)", frob_matrix/frob_matrix_base
+      IF (.NOT. same_op) THEN
+         CALL dbcsr_create(t_2c_op_RI_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
+         CALL invert_hotelling(t_2c_op_RI_inv(1), t_2c_op_RI(1), ri_data%filter_eps)
+         IF (ri_data%check_2c_inv) THEN
+            CALL dbcsr_create(matrix_tmp1(1), template=t_2c_op_RI(1), &
+                              matrix_type=dbcsr_type_no_symmetry)
+            CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_RI_inv(1), t_2c_op_RI(1), &
+                                0.0_dp, matrix_tmp1(1), filter_eps=ri_data%filter_eps)
+            frob_matrix_base = dbcsr_frobenius_norm(matrix_tmp1(1))
+            CALL dbcsr_add_on_diag(matrix_tmp1(1), -1.0_dp)
+            frob_matrix = dbcsr_frobenius_norm(matrix_tmp1(1))
+            IF (unit_nr > 0) THEN
+               WRITE (unit_nr, *) "Error for (inv(K)*K-I)", frob_matrix/frob_matrix_base
+            ENDIF
+            CALL dbcsr_release(matrix_tmp1(1))
          ENDIF
-         CALL dbcsr_release(matrix_tmp1(1))
-      ENDIF
-      CALL dbcsr_release(t_2c_op_RI(1))
+         CALL dbcsr_release(t_2c_op_RI(1))
 
-      CALL dbcsr_create(t_2c_op_pot_sqrt(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
-      CALL dbcsr_create(t_2c_op_pot_sqrt_inv(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
-      CALL matrix_sqrt_newton_schulz(t_2c_op_pot_sqrt(1), t_2c_op_pot_sqrt_inv(1), t_2c_op_pot(1), &
-                                     ri_data%filter_eps, ri_data%t2c_sqrt_order, ri_data%eps_lanczos, &
-                                     ri_data%max_iter_lanczos)
-      CALL dbcsr_release(t_2c_op_pot_sqrt_inv(1))
-      IF (ri_data%check_2c_inv) THEN
-         CALL dbcsr_create(matrix_tmp1(1), template=t_2c_op_pot(1), &
-                           matrix_type=dbcsr_type_no_symmetry)
-         CALL dbcsr_create(t_2c_op_pot_sqrt2(1), template=t_2c_op_pot_sqrt(1), &
-                           matrix_type=dbcsr_type_no_symmetry)
-         CALL dbcsr_copy(t_2c_op_pot_sqrt2(1), t_2c_op_pot_sqrt(1))
-         CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_pot_sqrt(1), t_2c_op_pot_sqrt2(1), &
-                             0.0_dp, matrix_tmp1(1), filter_eps=ri_data%filter_eps)
-         CALL dbcsr_add(matrix_tmp1(1), t_2c_op_pot(1), 1.0_dp, -1.0_dp)
-         frob_matrix = dbcsr_frobenius_norm(matrix_tmp1(1))
-         IF (unit_nr > 0) THEN
-            WRITE (unit_nr, *) "Error for (K^(1/2)*K^(1/2) - K)", frob_matrix
+         CALL dbcsr_create(t_2c_op_pot_sqrt(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
+         CALL dbcsr_create(t_2c_op_pot_sqrt_inv(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
+         CALL matrix_sqrt_newton_schulz(t_2c_op_pot_sqrt(1), t_2c_op_pot_sqrt_inv(1), t_2c_op_pot(1), &
+                                        ri_data%filter_eps, ri_data%t2c_sqrt_order, ri_data%eps_lanczos, &
+                                        ri_data%max_iter_lanczos)
+         CALL dbcsr_release(t_2c_op_pot_sqrt_inv(1))
+         IF (ri_data%check_2c_inv) THEN
+            CALL dbcsr_create(matrix_tmp1(1), template=t_2c_op_pot(1), &
+                              matrix_type=dbcsr_type_no_symmetry)
+            CALL dbcsr_create(t_2c_op_pot_sqrt2(1), template=t_2c_op_pot_sqrt(1), &
+                              matrix_type=dbcsr_type_no_symmetry)
+            CALL dbcsr_copy(t_2c_op_pot_sqrt2(1), t_2c_op_pot_sqrt(1))
+            CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_pot_sqrt(1), t_2c_op_pot_sqrt2(1), &
+                                0.0_dp, matrix_tmp1(1), filter_eps=ri_data%filter_eps)
+            CALL dbcsr_add(matrix_tmp1(1), t_2c_op_pot(1), 1.0_dp, -1.0_dp)
+            frob_matrix = dbcsr_frobenius_norm(matrix_tmp1(1))
+            IF (unit_nr > 0) THEN
+               WRITE (unit_nr, *) "Error for (K^(1/2)*K^(1/2) - K)", frob_matrix
+            ENDIF
+            CALL dbcsr_release(matrix_tmp1(1))
+            CALL dbcsr_release(t_2c_op_pot_sqrt2(1))
          ENDIF
-         CALL dbcsr_release(matrix_tmp1(1))
-         CALL dbcsr_release(t_2c_op_pot_sqrt2(1))
+
+         CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
+         CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_RI_inv(1), t_2c_op_pot_sqrt(1), &
+                             0.0_dp, t_2c_int_mat(1), filter_eps=ri_data%filter_eps)
+         CALL dbcsr_release(t_2c_op_RI_inv(1))
+         CALL dbcsr_release(t_2c_op_pot_sqrt(1))
+      ELSE
+         CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
+         CALL dbcsr_create(t_2c_op_pot_sqrt(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
+         CALL matrix_sqrt_newton_schulz(t_2c_op_pot_sqrt(1), t_2c_int_mat(1), t_2c_op_pot(1), &
+                                        ri_data%filter_eps, ri_data%t2c_sqrt_order, ri_data%eps_lanczos, &
+                                        ri_data%max_iter_lanczos)
+         CALL dbcsr_release(t_2c_op_pot_sqrt(1))
       ENDIF
 
-      CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
-      CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_RI_inv(1), t_2c_op_pot_sqrt(1), &
-                          0.0_dp, t_2c_int_mat(1), filter_eps=ri_data%filter_eps)
+      !PRINT *, "checksum 2-center integral matrix", dbcsr_checksum(t_2c_int_mat(1))
+
       CALL dbcsr_release(t_2c_op_pot(1))
-      CALL dbcsr_release(t_2c_op_RI_inv(1))
-      CALL dbcsr_release(t_2c_op_pot_sqrt(1))
 
       CALL dbcsr_t_create(t_2c_int_mat(1), t_2c_int(1), name="(RI|RI)")
       CALL dbcsr_t_copy_matrix_to_tensor(t_2c_int_mat(1), t_2c_int(1))

@@ -537,7 +537,8 @@ CONTAINS
       CALL keyword_create(keyword, __LOCATION__, name="CUTOFF_RADIUS", &
                           description="The cutoff radius (in Angstrom) for the truncated Coulomb operator.", &
                           default_r_val=6.0_dp, &
-                          repeats=.FALSE.)
+                          repeats=.FALSE., &
+                          unit_str="angstrom")
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
