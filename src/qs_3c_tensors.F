@@ -1364,11 +1364,11 @@ CONTAINS
                            PRINT *, MAXVAL(ABS(sij_db-sij))
                            CPABORT("integrals wrong")
                         ENDIF
-                     ENDIF
-                     !PRINT *, "debug 2-center", MAXVAL(ABS(sij_db-sij))
+                        !PRINT *, "debug 2-center", MAXVAL(ABS(sij_db-sij))
 
-                     DEALLOCATE (ff)
-                     DEALLOCATE (vv)
+                        DEALLOCATE (ff)
+                        DEALLOCATE (vv)
+                     ENDIF
                   ENDIF
 
                   ALLOCATE (sij_contr(nsgfi(iset), nsgfj(jset)))
