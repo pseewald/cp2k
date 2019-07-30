@@ -375,7 +375,11 @@ MODULE hfx_types
       TYPE(dbcsr_t_distribution_type)                    :: dist2
 
       ! 3c integral tensor in ( AO | RI AO) format
-      TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int
+      TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_ctr, &
+                                                            t_3c_int
+
+      ! RI flavour, 1 uses MO coeffs, 2 uses P matrix
+      INTEGER :: flavour
    END TYPE
 
 ! **************************************************************************************************
@@ -935,6 +939,7 @@ CONTAINS
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
       TYPE(qs_kind_type), POINTER                        :: qs_kind
 
+      ri_data%flavour = 1
       NULLIFY (basis_set_AO, basis_set_RI, ri_aux_basis_set, qs_kind)
 
       natom = SIZE(particle_set)
@@ -1023,10 +1028,23 @@ CONTAINS
       CALL dbcsr_t_distribution_new(ri_data%dist1, ri_data%pgrid, [1], [2, 3], &
                                     ri_data%dist1_RI, ri_data%dist1_ao_1, ri_data%dist1_ao_2, dimsplit=2)
 
-      CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1], [2, 3], &
-                                    ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2, dimsplit=2)
-      CALL dbcsr_t_create(ri_data%t_3c_int(1, 1), "(AO | RI AO)", ri_data%dist2, [1], [2, 3], &
-                          dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
+      IF (ri_data%flavour == 1) THEN
+         CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1], [2, 3], &
+                                       ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2, dimsplit=2)
+         CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), "(AO | RI AO)", ri_data%dist2, [1], [2, 3], &
+                             dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
+      ELSEIF (ri_data%flavour == 2) THEN
+         CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1, 2], [3], &
+                                       ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2, dimsplit=1)
+         CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), "(AO RI | AO)", ri_data%dist2, [1, 2], [3], &
+                             dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
+         CALL dbcsr_t_distribution_destroy(ri_data%dist2)
+         CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1], [2, 3], &
+                                       ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2, dimsplit=2)
+         CALL dbcsr_t_create(ri_data%t_3c_int(1, 1), "(AO | RI AO)", ri_data%dist2, [1], [2, 3], &
+                             dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
+         ! todo: dist2 never needed, can be removed
+      ENDIF
 
    END SUBROUTINE
 
@@ -1043,7 +1061,10 @@ CONTAINS
       CALL distribution_3d_destroy(ri_data%dist1_3d)
       CALL dbcsr_t_distribution_destroy(ri_data%dist1)
       CALL dbcsr_t_distribution_destroy(ri_data%dist2)
-      CALL dbcsr_t_destroy(ri_data%t_3c_int(1, 1))
+      CALL dbcsr_t_destroy(ri_data%t_3c_int_ctr(1, 1))
+      IF (ri_data%flavour == 2) THEN
+         CALL dbcsr_t_destroy(ri_data%t_3c_int(1, 1))
+      ENDIF
    END SUBROUTINE
 
 ! **************************************************************************************************

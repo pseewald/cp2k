@@ -152,7 +152,7 @@ CONTAINS
       CALL dbcsr_t_destroy(t_2c_int(1))
       CALL dbcsr_t_destroy(t_3c_int_1(1, 1))
 
-      CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int(1, 1), order=[2, 1, 3], move_data=.TRUE.)
+      CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int_ctr(1, 1), order=[2, 1, 3], move_data=.TRUE.)
       CALL dbcsr_t_destroy(t_3c_int_2(1, 1))
 
    END SUBROUTINE
@@ -243,9 +243,57 @@ CONTAINS
       ENDIF
    END SUBROUTINE
 
-   !SUBROUTINE hfx_ri_pre_scf_Pmat()
+! **************************************************************************************************
+!> \brief ...
+!> \param qs_env ...
+!> \param ri_data ...
+! **************************************************************************************************
+   SUBROUTINE hfx_ri_pre_scf_Pmat(qs_env, ri_data)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
 
-   !END SUBROUTINE
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(dbcsr_t_type), DIMENSION(1)                   :: t_2c_int
+      TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_1, t_3c_int_2
+      TYPE(dbcsr_type), DIMENSION(1)                     :: t_2c_int_mat, t_2c_op_pot, t_2c_op_RI
+
+      NULLIFY (logger)
+
+      ! get a useful output_unit
+      logger => cp_get_default_logger()
+      IF (logger%para_env%ionode) THEN
+         unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
+      ELSE
+         unit_nr = -1
+      ENDIF
+
+      CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_op_RI, t_2c_op_pot, t_3c_int_1)
+
+      CALL dbcsr_t_copy(t_3c_int_1, ri_data%t_3c_int(1, 1), order=[2, 1, 3])
+
+      IF (ri_data%same_op) THEN
+         CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
+         CALL invert_hotelling(t_2c_int_mat(1), t_2c_op_pot(1), ri_data%filter_eps)
+      ELSE
+         CPABORT("NYI")
+      ENDIF
+
+      CALL dbcsr_t_create(t_2c_int_mat(1), t_2c_int(1), name="(RI|RI)")
+      CALL dbcsr_t_copy_matrix_to_tensor(t_2c_int_mat(1), t_2c_int(1))
+      CALL dbcsr_release(t_2c_int_mat(1))
+
+      CALL dbcsr_t_create(t_3c_int_1(1, 1), t_3c_int_2(1, 1), name="(RI | AO AO)")
+      CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_2c_int(1), t_3c_int_1(1, 1), &
+                            dbcsr_scalar(0.0_dp), t_3c_int_2(1, 1), &
+                            contract_1=[2], notcontract_1=[1], &
+                            contract_2=[1], notcontract_2=[2, 3], &
+                            map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, move_data=.TRUE., &
+                            unit_nr=unit_nr)
+      CALL dbcsr_t_destroy(t_2c_int(1))
+
+      CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int_ctr(1, 1), order=[2, 1, 3], move_data=.TRUE.)
+
+   END SUBROUTINE
 
 ! **************************************************************************************************
 !> \brief ...
@@ -291,7 +339,7 @@ CONTAINS
       ! assuming TREAT_LSD_IN_CORE is .FALSE.
       IF (geometry_did_change) CALL hfx_ri_pre_scf_mo(qs_env, ri_data)
 
-      !PRINT *, "checksum t3c tensor", dbcsr_t_checksum(ri_data%t_3c_int(1, 1))
+      !PRINT *, "checksum t3c tensor", dbcsr_t_checksum(ri_data%t_3c_int_ctr(1, 1))
 
       CALL dbcsr_t_mp_environ_pgrid(ri_data%pgrid, pdims, pcoord)
 
@@ -300,7 +348,7 @@ CONTAINS
       CALL hfx_cyclic_dist(n_mo_blocks, pdims(1), mo_bsize, dist_MO)
       CALL dbcsr_t_distribution_new(dist1, ri_data%pgrid, [1], [2, 3], &
                                     dist_MO, ri_data%dist2_RI, ri_data%dist2_ao_2, dimsplit=2)
-      CALL dbcsr_t_get_info(ri_data%t_3c_int(1, 1), blk_size_2=bsize_2, blk_size_3=bsize_3)
+      CALL dbcsr_t_get_info(ri_data%t_3c_int_ctr(1, 1), blk_size_2=bsize_2, blk_size_3=bsize_3)
       CALL dbcsr_t_create(t_3c_int_ctr(1, 1), "(MO | RI AO)", dist1, [1], [2, 3], dbcsr_type_real_8, &
                           mo_bsize, bsize_2, bsize_3)
       CALL dbcsr_t_distribution_destroy(dist1)
@@ -320,7 +368,7 @@ CONTAINS
          CALL dbcsr_t_copy_matrix_to_tensor(mo_coeff(ispin), mo_coeff_t)
          PRINT *, "checksum mo coeff matrix", dbcsr_checksum(mo_coeff(ispin))
          !PRINT *, "checksum mo coeff tensor", dbcsr_t_checksum(mo_coeff_t)
-         CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t, ri_data%t_3c_int(1, 1), dbcsr_scalar(0.0_dp), t_3c_int_ctr(1, 1), &
+     CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t, ri_data%t_3c_int_ctr(1, 1), dbcsr_scalar(0.0_dp), t_3c_int_ctr(1, 1), &
                                contract_1=[1], notcontract_1=[2], &
                                contract_2=[1], notcontract_2=[2, 3], &
                                map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps)
@@ -360,6 +408,74 @@ CONTAINS
       ENDDO
 
       PRINT *, "RI HFX Energy", ehfx
+
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param qs_env ...
+!> \param ri_data ...
+!> \param ks_matrix ...
+!> \param ehfx ...
+!> \param ks_matrix_aux_fit_hfx ...
+!> \param rho_ao ...
+!> \param do_admm ...
+!> \param geometry_did_change ...
+!> \param nspins ...
+! **************************************************************************************************
+   SUBROUTINE hfx_ri_update_ks_Pmat(qs_env, ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, rho_ao, &
+                                    do_admm, geometry_did_change, nspins)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
+      TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix
+      REAL(KIND=dp), INTENT(OUT)                         :: ehfx
+      TYPE(dbcsr_p_type), DIMENSION(:)                   :: ks_matrix_aux_fit_hfx
+      TYPE(dbcsr_p_type), DIMENSION(:, :)                :: rho_ao
+      LOGICAL, INTENT(IN)                                :: do_admm, geometry_did_change
+      INTEGER, INTENT(IN)                                :: nspins
+
+      TYPE(dbcsr_t_type)                                 :: ks_t
+      TYPE(dbcsr_t_type), DIMENSION                      :: rho_ao_t
+      TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_1, t_3c_2
+
+      CPASSERT(SIZE(ks_matrix, 2) == 1)
+
+      ! assuming TREAT_LSD_IN_CORE is .FALSE.
+      IF (geometry_did_change) CALL hfx_ri_pre_scf_mo(qs_env, ri_data)
+
+      CALL dbcsr_t_create(ri_data%t_3c_int(1, 1), t_3c_1(1, 1))
+
+      CALL dbcsr_t_create(ks_matrix(1, 1)%matrix, ks_t)
+      CALL dbcsr_t_create(rho_ao(1, 1)%matrix, rho_ao_t)
+
+      DO ispin = 1, nspins
+         CALL dbcsr_t_copy_matrix_to_tensor(rho_ao(ispin, 1)%matrix, rho_ao_t)
+         CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), rho_ao_t, ri_data%t_3c_int(1, 1), &
+                               dbcsr_scalar(0.0_dp), t_3c_1(1, 1), &
+                               contract_1=[2], notcontract_1=[1], &
+                               contract_2=[1], notcontract_2=[2, 3], &
+                               map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, &
+                               move_data=.TRUE., &
+                               unit_nr=unit_nr)
+
+         CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), t_3c_2(1, 1))
+         CALL dbcsr_t_copy(t_3c_1(1, 1), t_3c_2(1, 1), move_data=.TRUE.)
+
+         CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), ri_data%t_3c_int_ctr(1, 1), t_3c_2(1, 1), &
+                               dbcsr_scalar(0.0_dp), ks_t, &
+                               contract_1=[1, 2], notcontract_1=[3], &
+                               contract_2=[1, 2], notcontract_2=[3], &
+                               map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps)
+
+         CALL dbcsr_t_destroy(t_3c_2(1, 1))
+
+         CALL dbcsr_t_copy_tensor_to_matrix(ks_t, ks_matrix(ispin, 1)%matrix, summation=.TRUE.)
+
+      ENDDO
+
+      CALL dbcsr_t_destroy(t_3c_1(1, 1))
+      CALL dbcsr_t_destroy(rho_ao_t)
+      CALL dbcsr_t_destroy(ks_t)
 
    END SUBROUTINE
 
