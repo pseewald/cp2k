@@ -11,6 +11,7 @@ MODULE qs_3c_tensors
    USE ai_contraction,                  ONLY: block_add
    USE ai_contraction_sphi,             ONLY: ab_contract,&
                                               abc_contract
+   USE ai_coulomb,                      ONLY: coulomb2_new
    USE ai_overlap,                      ONLY: overlap_ab
    USE ai_overlap3,                     ONLY: overlap3
    USE atomic_kind_types,               ONLY: atomic_kind_type,&
@@ -1189,15 +1190,17 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER :: handle, iatom, ibasis, ikind, imax, img, iset, jatom, jkind, jset, m_max, maxli, &
-         maxlj, maxlk, n1, n2, natom, ncoi, ncoj, nimg, nseti, nsetj, op_prv, sgfi, sgfj, unit_id
+         maxlj, n1, n2, natom, ncoi, ncoj, nimg, nseti, nsetj, op_prv, sgfi, sgfj, unit_id
       INTEGER, DIMENSION(3)                              :: cell
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmin_i, lmin_j, npgfi, &
                                                             npgfj, nsgfi, nsgfj
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgf_i, first_sgf_j
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
-      LOGICAL                                            :: do_kpoints_prv, found
+      LOGICAL                                            :: debug = .FALSE., do_kpoints_prv, found
       REAL(KIND=dp)                                      :: dab
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: sij, sij_contr
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: ff
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: sij, sij_contr, sij_db
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: vv
       REAL(KIND=dp), DIMENSION(3)                        :: ri, rij, rj
       REAL(KIND=dp), DIMENSION(:), POINTER               :: set_radius_i, set_radius_j
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: rpgf_i, rpgf_j, sphi_i, sphi_j, zeti, &
@@ -1224,6 +1227,10 @@ CONTAINS
          op_prv = op_ij
       ELSE
          op_prv = do_potential_id
+      ENDIF
+
+      IF (debug) THEN
+         op_prv = do_potential_coulomb
       ENDIF
 
       NULLIFY (qs_kind_set, atomic_kind_set, block_t%block)
@@ -1277,7 +1284,7 @@ CONTAINS
       CALL init_md_ftable(nmax=m_max)
 
       IF (op_prv /= do_potential_id) THEN
-         CALL cp_libint_init_2eri(lib, MAX(maxli, maxlj, maxlk))
+         CALL cp_libint_init_2eri(lib, MAX(maxli, maxlj))
          CALL cp_libint_set_contrdepth(lib, 1)
       ENDIF
 
@@ -1321,6 +1328,10 @@ CONTAINS
 
                IF (ncoi*ncoj > 0) THEN
                   ALLOCATE (sij(ncoi, ncoj))
+                  IF (debug) THEN
+                     ALLOCATE (sij_db(ncoi, ncoj))
+                     sij_db(:, :) = 0.0_dp
+                  ENDIF
                   sij(:, :) = 0.0_dp
 
                   ! calculate integrals and derivatives
@@ -1334,8 +1345,30 @@ CONTAINS
 
                      CALL eri_2center(sij, lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), &
                                       ri, lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), &
-                                      rj, lib, op_ij, omega=omega, r_cutoff=r_cutoff)
-                     !print *, sij ! todo: uninitialised values in sij
+                                      rj, lib, op_prv, omega=omega, r_cutoff=r_cutoff)
+
+                     IF (debug) THEN
+                        ALLOCATE (vv(ncoi, ncoj, m_max+1))
+                        ALLOCATE (ff(0:m_max+2))
+
+                        CALL coulomb2_new(lmax_i(iset), npgfi(iset), zeti(:, iset), lmin_i(iset), &
+                                          lmax_j(jset), npgfj(jset), zetj(:, jset), lmin_j(jset), &
+                                          rij, dab**2, sij_db, vv, ff)
+
+                        !DO i=1,ncoi
+                        !   DO j=1,ncoj
+                        !      PRINT *, "db 2c", sij(i,j), sij_db(i,j)
+                        !   ENDDO
+                        !ENDDO
+                        IF (MAXVAL(ABS(sij_db-sij)) > 1.0E-10_dp) THEN
+                           PRINT *, MAXVAL(ABS(sij_db-sij))
+                           CPABORT("integrals wrong")
+                        ENDIF
+                     ENDIF
+                     !PRINT *, "debug 2-center", MAXVAL(ABS(sij_db-sij))
+
+                     DEALLOCATE (ff)
+                     DEALLOCATE (vv)
                   ENDIF
 
                   ALLOCATE (sij_contr(nsgfi(iset), nsgfj(jset)))
@@ -1349,6 +1382,7 @@ CONTAINS
 
                   DEALLOCATE (sij_contr)
                   DEALLOCATE (sij)
+                  IF (debug) DEALLOCATE (sij_db)
                ENDIF
             END DO
          END DO

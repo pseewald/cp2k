@@ -32,7 +32,7 @@ MODULE hfx_admm_utils
    USE dbcsr_api,                       ONLY: dbcsr_add,&
                                               dbcsr_p_type,&
                                               dbcsr_set,&
-                                              dbcsr_type,dbcsr_checksum
+                                              dbcsr_type
    USE hfx_derivatives,                 ONLY: derivatives_four_center
    USE hfx_energy_potential,            ONLY: integrate_four_center
    USE hfx_ri,                          ONLY: hfx_ri_update_ks

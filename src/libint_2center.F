@@ -19,6 +19,7 @@ MODULE libint_2center
                                               do_potential_short,&
                                               do_potential_truncated
    USE kinds,                           ONLY: dp
+   USE libint_3center,                  ONLY: eri_3center
    USE mathconstants,                   ONLY: pi
    USE orbital_pointers,                ONLY: nco,&
                                               ncoset
@@ -84,7 +85,10 @@ CONTAINS
       INTEGER                                            :: a_mysize(1), a_offset, a_start, &
                                                             b_offset, b_start, i, ipgf, j, jpgf, &
                                                             li, lj, ncoa, ncob, p1, p2
-      REAL(dp)                                           :: my_omega, my_r_cutoff, zeti, zetj
+      LOGICAL                                            :: debug = .FALSE.
+      REAL(dp)                                           :: maxdiff, my_omega, my_r_cutoff, zeti, &
+                                                            zetj
+      REAL(dp), ALLOCATABLE, DIMENSION(:, :, :)          :: int_abc
       REAL(dp), DIMENSION(:), POINTER                    :: p_work
       TYPE(params_2c), POINTER                           :: params
 
@@ -130,31 +134,31 @@ CONTAINS
                END DO
             END DO
 
-            !CALL set_params(lib, rb, ra, params_in=params)
-
-            !DO lj = lb_min, lb_max
-            !   b_offset = b_start+ncoset(lj-1)
-            !   ncob = nco(lj)
-            !   DO li = MAX(lj+1, la_min), la_max
-            !      a_offset = a_start+ncoset(li-1)
-            !      ncoa = nco(li)
-
-            !      a_mysize(1) = ncoa*ncob
-            !      CALL cp_libint_get_2eris(lj, li, lib, p_work, a_mysize)
-
-            !      DO i = 1, ncoa
-            !         p1 = (i-1)*ncob
-            !         DO j = 1, ncob
-            !            p2 = p1+j
-            !            int_ab(a_offset+i, b_offset+j) = p_work(p2)
-            !         END DO
-            !      END DO
-
-            !   END DO
-            !END DO
-
          END DO
       END DO
+
+      IF (debug) THEN
+         ALLOCATE (int_abc(1, SIZE(int_ab, 1), SIZE(int_ab, 2)))
+         int_abc(:, :, :) = 0.0_dp
+         ! consistency with eri 3-center
+         CALL eri_3center(int_abc, 0, 0, 1, [0.0_dp], ra, &
+                          la_min, la_max, npgfa, zeta, ra, &
+                          lb_min, lb_max, npgfb, zetb, rb, &
+                          lib, op, omega, r_cutoff)
+
+         !print *, int_ab
+         !print *, int_abc
+         maxdiff = MAXVAL(ABS(int_ab(:, :)-int_abc(1, :, :)))
+         IF (maxdiff > 1.0E-10) THEN
+            DO i = 1, SIZE(int_ab, 1)
+            DO j = 1, SIZE(int_ab, 2)
+               PRINT *, "lbint 2c-3c comp.", int_ab(i, j), int_abc(1, i, j)
+            ENDDO
+            ENDDO
+            PRINT *, "maxdiff", maxdiff
+            CPABORT("libint int failed")
+         ENDIF
+      ENDIF
 
       DEALLOCATE (params)
 
