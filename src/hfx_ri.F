@@ -252,6 +252,7 @@ CONTAINS
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
 
+      INTEGER                                            :: unit_nr
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(dbcsr_t_type), DIMENSION(1)                   :: t_2c_int
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_1, t_3c_int_2
@@ -269,7 +270,7 @@ CONTAINS
 
       CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_op_RI, t_2c_op_pot, t_3c_int_1)
 
-      CALL dbcsr_t_copy(t_3c_int_1, ri_data%t_3c_int(1, 1), order=[2, 1, 3])
+      CALL dbcsr_t_copy(t_3c_int_1(1, 1), ri_data%t_3c_int(1, 1), order=[2, 1, 3])
 
       IF (ri_data%same_op) THEN
          CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
@@ -434,9 +435,21 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: do_admm, geometry_did_change
       INTEGER, INTENT(IN)                                :: nspins
 
-      TYPE(dbcsr_t_type)                                 :: ks_t
-      TYPE(dbcsr_t_type), DIMENSION                      :: rho_ao_t
+      INTEGER                                            :: ispin, unit_nr
+      REAL(dp)                                           :: etmp
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(dbcsr_t_type)                                 :: ks_t, rho_ao_t
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_1, t_3c_2
+
+      NULLIFY (logger)
+
+      ! get a useful output_unit
+      logger => cp_get_default_logger()
+      IF (logger%para_env%ionode) THEN
+         unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
+      ELSE
+         unit_nr = -1
+      ENDIF
 
       CPASSERT(SIZE(ks_matrix, 2) == 1)
 
@@ -476,6 +489,21 @@ CONTAINS
       CALL dbcsr_t_destroy(t_3c_1(1, 1))
       CALL dbcsr_t_destroy(rho_ao_t)
       CALL dbcsr_t_destroy(ks_t)
+
+      !! ** Calculate the exchange energy, copied from integrate_four_center
+      ehfx = 0.0_dp
+      DO ispin = 1, nspins
+         CALL dbcsr_dot(ks_matrix(ispin, 1)%matrix, rho_ao(ispin, 1)%matrix, &
+                        etmp)
+         ehfx = ehfx+0.5_dp*etmp
+         IF (do_admm) THEN
+            !for ADMMS, we need the exchange matrix k(d) for both spins
+            CALL dbcsr_copy(ks_matrix_aux_fit_hfx(ispin)%matrix, ks_matrix(ispin, 1)%matrix, &
+                            name="HF exch. part of matrix_ks_aux_fit for ADMMS")
+         END IF
+      ENDDO
+
+      PRINT *, "RI HFX Energy", ehfx
 
    END SUBROUTINE
 
