@@ -615,7 +615,8 @@ CONTAINS
 
       CALL keyword_create(keyword, __LOCATION__, name="RI_FLAVOUR", &
                           description="Flavour of RI: how to contract 3-center integrals", &
-                          enum_c_vals=s2a("MO coefficients", "density matrix"), &
+                          enum_c_vals=s2a("MO", "RHO"), &
+                          enum_desc=s2a("MO coefficients", "density matrix"), &
                           enum_i_vals=(/ri_mo, ri_pmat/), &
                           default_i_val=ri_mo)
       CALL section_add_keyword(section, keyword)
