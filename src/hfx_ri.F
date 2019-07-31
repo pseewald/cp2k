@@ -28,6 +28,8 @@ MODULE hfx_ri
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE hfx_types,                       ONLY: hfx_cyclic_dist,&
                                               hfx_ri_type
+   USE input_cp2k_hfx,                  ONLY: ri_mo,&
+                                              ri_pmat
    USE iterate_matrix,                  ONLY: invert_hotelling,&
                                               matrix_sqrt_newton_schulz
    USE kinds,                           ONLY: dp
@@ -309,8 +311,8 @@ CONTAINS
 !> \param geometry_did_change ...
 !> \param nspins ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_update_ks_mo(qs_env, ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, mo_coeff, rho_ao, &
-                                  do_admm, geometry_did_change, nspins)
+   SUBROUTINE hfx_ri_update_ks(qs_env, ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, mo_coeff, rho_ao, &
+                               do_admm, geometry_did_change, nspins)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix
@@ -321,11 +323,57 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: do_admm, geometry_did_change
       INTEGER, INTENT(IN)                                :: nspins
 
+      INTEGER                                            :: ispin
+      REAL(KIND=dp)                                      :: etmp
+
+      SELECT CASE (ri_data%flavour)
+      CASE (ri_mo)
+         CALL hfx_ri_update_ks_mo(qs_env, ri_data, ks_matrix, mo_coeff, &
+                                  geometry_did_change, nspins)
+      CASE (ri_pmat)
+         CALL hfx_ri_update_ks_pmat(qs_env, ri_data, ks_matrix, rho_ao, &
+                                    geometry_did_change, nspins)
+      END SELECT
+
+      !! ** Calculate the exchange energy, copied from integrate_four_center
+      ehfx = 0.0_dp
+      DO ispin = 1, nspins
+         CALL dbcsr_dot(ks_matrix(ispin, 1)%matrix, rho_ao(ispin, 1)%matrix, &
+                        etmp)
+         ehfx = ehfx+0.5_dp*etmp
+         IF (do_admm) THEN
+            !for ADMMS, we need the exchange matrix k(d) for both spins
+            CALL dbcsr_copy(ks_matrix_aux_fit_hfx(ispin)%matrix, ks_matrix(ispin, 1)%matrix, &
+                            name="HF exch. part of matrix_ks_aux_fit for ADMMS")
+         END IF
+      ENDDO
+
+      PRINT *, "RI HFX Energy", ehfx
+
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param qs_env ...
+!> \param ri_data ...
+!> \param ks_matrix ...
+!> \param mo_coeff ...
+!> \param geometry_did_change ...
+!> \param nspins ...
+! **************************************************************************************************
+   SUBROUTINE hfx_ri_update_ks_mo(qs_env, ri_data, ks_matrix, mo_coeff, &
+                                  geometry_did_change, nspins)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
+      TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix
+      TYPE(dbcsr_type), DIMENSION(:), INTENT(IN)         :: mo_coeff
+      LOGICAL, INTENT(IN)                                :: geometry_did_change
+      INTEGER, INTENT(IN)                                :: nspins
+
       INTEGER                                            :: ispin, n_mo_blocks
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsize_2, bsize_3, dist_MO
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       INTEGER, DIMENSION(:), POINTER                     :: mo_bsize
-      REAL(KIND=dp)                                      :: etmp
       TYPE(dbcsr_t_distribution_type)                    :: dist1, dist2
       TYPE(dbcsr_t_type)                                 :: ks_t, mo_coeff_t
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_ctr, t_3c_int_ctr_opt, &
@@ -395,21 +443,6 @@ CONTAINS
       CALL dbcsr_t_destroy(ks_t)
       CALL dbcsr_t_destroy(mo_coeff_t)
 
-      !! ** Calculate the exchange energy, copied from integrate_four_center
-      ehfx = 0.0_dp
-      DO ispin = 1, nspins
-         CALL dbcsr_dot(ks_matrix(ispin, 1)%matrix, rho_ao(ispin, 1)%matrix, &
-                        etmp)
-         ehfx = ehfx+0.5_dp*etmp
-         IF (do_admm) THEN
-            !for ADMMS, we need the exchange matrix k(d) for both spins
-            CALL dbcsr_copy(ks_matrix_aux_fit_hfx(ispin)%matrix, ks_matrix(ispin, 1)%matrix, &
-                            name="HF exch. part of matrix_ks_aux_fit for ADMMS")
-         END IF
-      ENDDO
-
-      PRINT *, "RI HFX Energy", ehfx
-
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -417,26 +450,19 @@ CONTAINS
 !> \param qs_env ...
 !> \param ri_data ...
 !> \param ks_matrix ...
-!> \param ehfx ...
-!> \param ks_matrix_aux_fit_hfx ...
 !> \param rho_ao ...
-!> \param do_admm ...
 !> \param geometry_did_change ...
 !> \param nspins ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_update_ks_Pmat(qs_env, ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, rho_ao, &
-                                    do_admm, geometry_did_change, nspins)
+   SUBROUTINE hfx_ri_update_ks_Pmat(qs_env, ri_data, ks_matrix, rho_ao, &
+                                    geometry_did_change, nspins)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
-      TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix
-      REAL(KIND=dp), INTENT(OUT)                         :: ehfx
-      TYPE(dbcsr_p_type), DIMENSION(:)                   :: ks_matrix_aux_fit_hfx
-      TYPE(dbcsr_p_type), DIMENSION(:, :)                :: rho_ao
-      LOGICAL, INTENT(IN)                                :: do_admm, geometry_did_change
+      TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix, rho_ao
+      LOGICAL, INTENT(IN)                                :: geometry_did_change
       INTEGER, INTENT(IN)                                :: nspins
 
       INTEGER                                            :: ispin, unit_nr
-      REAL(dp)                                           :: etmp
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(dbcsr_t_type)                                 :: ks_t, rho_ao_t
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_1, t_3c_2
@@ -454,7 +480,7 @@ CONTAINS
       CPASSERT(SIZE(ks_matrix, 2) == 1)
 
       ! assuming TREAT_LSD_IN_CORE is .FALSE.
-      IF (geometry_did_change) CALL hfx_ri_pre_scf_mo(qs_env, ri_data)
+      IF (geometry_did_change) CALL hfx_ri_pre_scf_Pmat(qs_env, ri_data)
 
       CALL dbcsr_t_create(ri_data%t_3c_int(1, 1), t_3c_1(1, 1))
 
@@ -489,21 +515,6 @@ CONTAINS
       CALL dbcsr_t_destroy(t_3c_1(1, 1))
       CALL dbcsr_t_destroy(rho_ao_t)
       CALL dbcsr_t_destroy(ks_t)
-
-      !! ** Calculate the exchange energy, copied from integrate_four_center
-      ehfx = 0.0_dp
-      DO ispin = 1, nspins
-         CALL dbcsr_dot(ks_matrix(ispin, 1)%matrix, rho_ao(ispin, 1)%matrix, &
-                        etmp)
-         ehfx = ehfx+0.5_dp*etmp
-         IF (do_admm) THEN
-            !for ADMMS, we need the exchange matrix k(d) for both spins
-            CALL dbcsr_copy(ks_matrix_aux_fit_hfx(ispin)%matrix, ks_matrix(ispin, 1)%matrix, &
-                            name="HF exch. part of matrix_ks_aux_fit for ADMMS")
-         END IF
-      ENDDO
-
-      PRINT *, "RI HFX Energy", ehfx
 
    END SUBROUTINE
 

@@ -37,6 +37,7 @@ MODULE input_cp2k_hfx
 
    LOGICAL, PRIVATE, PARAMETER :: debug_this_module = .FALSE.
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'input_cp2k_hfx'
+   INTEGER, PARAMETER, PUBLIC                 :: ri_mo = 1, ri_pmat = 2
 
    PUBLIC :: create_hfx_section
 
@@ -609,6 +610,14 @@ CONTAINS
       CALL keyword_create(keyword, __LOCATION__, name="MAX_ITER_LANCZOS", &
                           description="Maximum number of lanczos iterations.", &
                           usage="MAX_ITER_LANCZOS ", default_i_val=128)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, name="RI_FLAVOUR", &
+                          description="Flavour of RI: how to contract 3-center integrals", &
+                          enum_c_vals=s2a("MO coefficients", "density matrix"), &
+                          enum_i_vals=(/ri_mo, ri_pmat/), &
+                          default_i_val=ri_mo)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 

@@ -52,6 +52,8 @@ MODULE hfx_types
         do_hfx_auto_shells, do_potential_coulomb, do_potential_gaussian, do_potential_id, &
         do_potential_long, do_potential_mix_cl, do_potential_mix_cl_trunc, do_potential_mix_lg, &
         do_potential_short, do_potential_truncated, hfx_do_eval_energy, hfx_do_eval_forces
+   USE input_cp2k_hfx,                  ONLY: ri_mo,&
+                                              ri_pmat
    USE input_section_types,             ONLY: section_vals_get,&
                                               section_vals_get_subs_vals,&
                                               section_vals_type,&
@@ -377,8 +379,6 @@ MODULE hfx_types
       ! 3c integral tensor in ( AO | RI AO) format
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_ctr, &
                                                             t_3c_int
-
-      ! RI flavour, 1 uses MO coeffs, 2 uses P matrix
       INTEGER :: flavour
    END TYPE
 
@@ -939,7 +939,6 @@ CONTAINS
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
       TYPE(qs_kind_type), POINTER                        :: qs_kind
 
-      ri_data%flavour = 1
       NULLIFY (basis_set_AO, basis_set_RI, ri_aux_basis_set, qs_kind)
 
       natom = SIZE(particle_set)
@@ -959,6 +958,7 @@ CONTAINS
       CALL section_vals_val_get(ri_section, "SQRT_ORDER", i_val=ri_data%t2c_sqrt_order)
       CALL section_vals_val_get(ri_section, "EPS_LANCZOS", r_val=ri_data%eps_lanczos)
       CALL section_vals_val_get(ri_section, "MAX_ITER_LANCZOS", i_val=ri_data%max_iter_lanczos)
+      CALL section_vals_val_get(ri_section, "RI_FLAVOUR", i_val=ri_data%flavour)
 
       ! initialise RI basis
       DO ikind = 1, nkind
@@ -1028,12 +1028,12 @@ CONTAINS
       CALL dbcsr_t_distribution_new(ri_data%dist1, ri_data%pgrid, [1], [2, 3], &
                                     ri_data%dist1_RI, ri_data%dist1_ao_1, ri_data%dist1_ao_2, dimsplit=2)
 
-      IF (ri_data%flavour == 1) THEN
+      IF (ri_data%flavour == ri_mo) THEN
          CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1], [2, 3], &
                                        ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2, dimsplit=2)
          CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), "(AO | RI AO)", ri_data%dist2, [1], [2, 3], &
                              dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
-      ELSEIF (ri_data%flavour == 2) THEN
+      ELSEIF (ri_data%flavour == ri_pmat) THEN
          CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1, 2], [3], &
                                        ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2, dimsplit=1)
          CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), "(AO RI | AO)", ri_data%dist2, [1, 2], [3], &
@@ -1062,7 +1062,7 @@ CONTAINS
       CALL dbcsr_t_distribution_destroy(ri_data%dist1)
       CALL dbcsr_t_distribution_destroy(ri_data%dist2)
       CALL dbcsr_t_destroy(ri_data%t_3c_int_ctr(1, 1))
-      IF (ri_data%flavour == 2) THEN
+      IF (ri_data%flavour == ri_pmat) THEN
          CALL dbcsr_t_destroy(ri_data%t_3c_int(1, 1))
       ENDIF
    END SUBROUTINE

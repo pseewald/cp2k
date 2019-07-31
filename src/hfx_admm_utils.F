@@ -35,7 +35,7 @@ MODULE hfx_admm_utils
                                               dbcsr_type
    USE hfx_derivatives,                 ONLY: derivatives_four_center
    USE hfx_energy_potential,            ONLY: integrate_four_center
-   USE hfx_ri,                          ONLY: hfx_ri_update_ks_mo
+   USE hfx_ri,                          ONLY: hfx_ri_update_ks
    USE hfx_types,                       ONLY: hfx_type
    USE input_constants,                 ONLY: &
         do_admm_aux_exch_func_bee, do_admm_aux_exch_func_default, do_admm_aux_exch_func_none, &
@@ -335,9 +335,9 @@ CONTAINS
                CALL copy_fm_to_dbcsr(mo_coeff, mo_coeff_b_tmp, keep_sparsity=.FALSE.)
                mo_coeff_b(ispin) = mo_coeff_b_tmp
             ENDDO
-            CALL hfx_ri_update_ks_mo(qs_env, x_data(irep, 1)%ri_data, matrix_ks, ehfx, &
-                                     matrix_ks_aux_fit_hfx, mo_coeff_b, rho_ao_orb, &
-                                     dft_control%do_admm, s_mstruct_changed, nspins)
+            CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks, ehfx, &
+                                  matrix_ks_aux_fit_hfx, mo_coeff_b, rho_ao_orb, &
+                                  dft_control%do_admm, s_mstruct_changed, nspins)
          ELSE
             DO ispin = 1, mspin
                CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
@@ -391,9 +391,9 @@ CONTAINS
             ehfxrt = 0.0_dp
 
             IF (x_data(irep, 1)%do_RI) THEN
-               CALL hfx_ri_update_ks_mo(qs_env, x_data(irep, 1)%ri_data, matrix_ks, ehfx, matrix_ks_aux_fit_hfx, &
-                                        mo_coeff_b, rho_ao_orb, &
-                                        dft_control%do_admm, .FALSE., nspins)
+               CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks, ehfx, matrix_ks_aux_fit_hfx, &
+                                     mo_coeff_b, rho_ao_orb, &
+                                     dft_control%do_admm, .FALSE., nspins)
             ELSE
                DO ispin = 1, mspin
                   CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
