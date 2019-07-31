@@ -49,6 +49,12 @@ MODULE hfx_ri
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
 #include "./base/base_uses.f90"
 
+   IMPLICIT NONE
+   PRIVATE
+
+   PUBLIC :: hfx_ri_update_ks
+
+   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'hfx_ri'
 CONTAINS
 
 ! **************************************************************************************************
@@ -60,13 +66,18 @@ CONTAINS
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
 
-      INTEGER                                            :: unit_nr
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_pre_scf_mo', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, unit_nr
       REAL(KIND=dp)                                      :: frob_matrix, frob_matrix_base
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(dbcsr_t_type), DIMENSION(1)                   :: t_2c_int
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_1, t_3c_int_2
       TYPE(dbcsr_type), DIMENSION(1) :: matrix_tmp1, t_2c_int_mat, t_2c_op_pot, t_2c_op_pot_sqrt, &
          t_2c_op_pot_sqrt2, t_2c_op_pot_sqrt_inv, t_2c_op_RI, t_2c_op_RI_inv
+
+      CALL timeset(routineN, handle)
 
       NULLIFY (logger)
 
@@ -157,6 +168,8 @@ CONTAINS
       CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int_ctr(1, 1), order=[2, 1, 3], move_data=.TRUE.)
       CALL dbcsr_t_destroy(t_3c_int_2(1, 1))
 
+      CALL timestop(handle)
+
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -173,7 +186,10 @@ CONTAINS
       TYPE(dbcsr_type), DIMENSION(1), INTENT(OUT)        :: t_2c_int_RI, t_2c_int_pot
       TYPE(dbcsr_t_type), DIMENSION(1, 1), INTENT(OUT)   :: t_3c_int
 
-      INTEGER                                            :: natom, nkind
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_pre_scf_calc_tensors', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, natom, nkind
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: sizes_AO, sizes_RI
       INTEGER, DIMENSION(:), POINTER                     :: col_bsize, row_bsize
       TYPE(dbcsr_distribution_type)                      :: dbcsr_dist
@@ -185,6 +201,7 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
 
+      CALL timeset(routineN, handle)
       NULLIFY (col_bsize, row_bsize, dist_2d, basis_set_AO, basis_set_RI, &
                nl_2c_pot, nl_2c_RI, particle_set, qs_kind_set)
 
@@ -243,6 +260,7 @@ CONTAINS
 
          CALL neighbor_list_2c_destroy(nl_2c_RI)
       ENDIF
+      CALL timestop(handle)
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -254,12 +272,16 @@ CONTAINS
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
 
-      INTEGER                                            :: unit_nr
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_pre_scf_Pmat', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, unit_nr
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(dbcsr_t_type), DIMENSION(1)                   :: t_2c_int
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_1, t_3c_int_2
       TYPE(dbcsr_type), DIMENSION(1)                     :: t_2c_int_mat, t_2c_op_pot, t_2c_op_RI
 
+      CALL timeset(routineN, handle)
       NULLIFY (logger)
 
       ! get a useful output_unit
@@ -296,6 +318,7 @@ CONTAINS
 
       CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int_ctr(1, 1), order=[2, 1, 3], move_data=.TRUE.)
 
+      CALL timestop(handle)
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -323,9 +346,13 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: do_admm, geometry_did_change
       INTEGER, INTENT(IN)                                :: nspins
 
-      INTEGER                                            :: ispin
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_update_ks', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, ispin
       REAL(KIND=dp)                                      :: etmp
 
+      CALL timeset(routineN, handle)
       SELECT CASE (ri_data%flavour)
       CASE (ri_mo)
          CALL hfx_ri_update_ks_mo(qs_env, ri_data, ks_matrix, mo_coeff, &
@@ -350,6 +377,7 @@ CONTAINS
 
       PRINT *, "RI HFX Energy", ehfx
 
+      CALL timestop(handle)
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -370,7 +398,10 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: geometry_did_change
       INTEGER, INTENT(IN)                                :: nspins
 
-      INTEGER                                            :: ispin, n_mo_blocks
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_update_ks_mo', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, ispin, n_mo_blocks
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsize_2, bsize_3, dist_MO
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       INTEGER, DIMENSION(:), POINTER                     :: mo_bsize
@@ -378,6 +409,8 @@ CONTAINS
       TYPE(dbcsr_t_type)                                 :: ks_t, mo_coeff_t
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_ctr, t_3c_int_ctr_opt, &
                                                             t_3c_int_ctr_opt_copy
+
+      CALL timeset(routineN, handle)
 
       NULLIFY (mo_bsize)
 
@@ -443,6 +476,7 @@ CONTAINS
       CALL dbcsr_t_destroy(ks_t)
       CALL dbcsr_t_destroy(mo_coeff_t)
 
+      CALL timestop(handle)
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -462,11 +496,15 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: geometry_did_change
       INTEGER, INTENT(IN)                                :: nspins
 
-      INTEGER                                            :: ispin, unit_nr
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_update_ks_Pmat', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, ispin, unit_nr
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(dbcsr_t_type)                                 :: ks_t, rho_ao_t
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_1, t_3c_2
 
+      CALL timeset(routineN, handle)
       NULLIFY (logger)
 
       ! get a useful output_unit
@@ -515,6 +553,8 @@ CONTAINS
       CALL dbcsr_t_destroy(t_3c_1(1, 1))
       CALL dbcsr_t_destroy(rho_ao_t)
       CALL dbcsr_t_destroy(ks_t)
+
+      CALL timestop(handle)
 
    END SUBROUTINE
 
