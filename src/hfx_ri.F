@@ -11,7 +11,9 @@
 MODULE hfx_ri
 
    USE basis_set_types,                 ONLY: gto_basis_set_p_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_dist2d_to_dist
+   USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr,&
+                                              cp_dbcsr_dist2d_to_dist
+   USE cp_fm_types,                     ONLY: cp_fm_type
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
                                               cp_logger_get_default_unit_nr,&
                                               cp_logger_type
@@ -46,6 +48,9 @@ MODULE hfx_ri
                                               qs_environment_type
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_kind_types,                   ONLY: qs_kind_type
+   USE qs_mo_types,                     ONLY: get_mo_set,&
+                                              mo_set_p_type,&
+                                              mo_set_type
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
 #include "./base/base_uses.f90"
 
@@ -328,20 +333,20 @@ CONTAINS
 !> \param ks_matrix ...
 !> \param ehfx ...
 !> \param ks_matrix_aux_fit_hfx ...
-!> \param mo_coeff ...
+!> \param mos ...
 !> \param rho_ao ...
 !> \param do_admm ...
 !> \param geometry_did_change ...
 !> \param nspins ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_update_ks(qs_env, ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, mo_coeff, rho_ao, &
+   SUBROUTINE hfx_ri_update_ks(qs_env, ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, mos, rho_ao, &
                                do_admm, geometry_did_change, nspins)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix
       REAL(KIND=dp), INTENT(OUT)                         :: ehfx
       TYPE(dbcsr_p_type), DIMENSION(:)                   :: ks_matrix_aux_fit_hfx
-      TYPE(dbcsr_type), DIMENSION(:), INTENT(IN)         :: mo_coeff
+      TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: rho_ao
       LOGICAL, INTENT(IN)                                :: do_admm, geometry_did_change
       INTEGER, INTENT(IN)                                :: nspins
@@ -350,17 +355,50 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, ispin
-      REAL(KIND=dp)                                      :: etmp
+      INTEGER, DIMENSION(2)                              :: homo
+      LOGICAL                                            :: debug
+      REAL(KIND=dp)                                      :: cs_1, cs_2, etmp
+      TYPE(cp_fm_type), POINTER                          :: mo_coeff
+      TYPE(dbcsr_p_type), DIMENSION(2, 1)                :: rho_check
+      TYPE(dbcsr_type), DIMENSION(2)                     :: mo_coeff_b
+      TYPE(dbcsr_type), POINTER                          :: mo_coeff_b_tmp
+      TYPE(mo_set_type), POINTER                         :: mo_set
 
       CALL timeset(routineN, handle)
+
+      debug = .TRUE.
+
+      DO ispin = 1, nspins
+         NULLIFY (mo_coeff_b_tmp)
+         CALL get_mo_set(mo_set=mos(ispin)%mo_set, mo_coeff=mo_coeff, mo_coeff_b=mo_coeff_b_tmp)
+         CALL copy_fm_to_dbcsr(mo_coeff, mo_coeff_b_tmp, keep_sparsity=.FALSE.)
+         mo_coeff_b(ispin) = mo_coeff_b_tmp
+         homo(ispin) = mos(ispin)%mo_set%homo
+      ENDDO
+
       SELECT CASE (ri_data%flavour)
       CASE (ri_mo)
-         CALL hfx_ri_update_ks_mo(qs_env, ri_data, ks_matrix, mo_coeff, &
+         CALL hfx_ri_update_ks_mo(qs_env, ri_data, ks_matrix, mo_coeff_b, homo, &
                                   geometry_did_change, nspins)
       CASE (ri_pmat)
          CALL hfx_ri_update_ks_pmat(qs_env, ri_data, ks_matrix, rho_ao, &
                                     geometry_did_change, nspins)
       END SELECT
+
+      IF (debug) THEN
+         DO ispin = 1, nspins
+            ALLOCATE (rho_check(ispin, 1)%matrix)
+            CALL dbcsr_create(rho_check(ispin, 1)%matrix, template=rho_ao(ispin, 1)%matrix)
+            !CALL dbcsr_copy(rho_check(ispin, 1)%matrix, rho_ao(ispin, 1)%matrix)
+            mo_set => mos(ispin)%mo_set
+            CALL dbcsr_multiply("N", "T", mo_set%maxocc, mo_coeff_b(ispin), mo_coeff_b(ispin), &
+                                0.0_dp, rho_check(ispin, 1)%matrix, retain_sparsity=.FALSE., &
+                                last_k=homo(ispin))
+            cs_1 = dbcsr_checksum(rho_check(ispin, 1)%matrix)
+            cs_2 = dbcsr_checksum(rho_ao(ispin, 1)%matrix)
+            PRINT *, "checksums rho", cs_1, cs_2
+         ENDDO
+      ENDIF
 
       !! ** Calculate the exchange energy, copied from integrate_four_center
       ehfx = 0.0_dp
@@ -386,15 +424,17 @@ CONTAINS
 !> \param ri_data ...
 !> \param ks_matrix ...
 !> \param mo_coeff ...
+!> \param homo ...
 !> \param geometry_did_change ...
 !> \param nspins ...
 ! **************************************************************************************************
    SUBROUTINE hfx_ri_update_ks_mo(qs_env, ri_data, ks_matrix, mo_coeff, &
-                                  geometry_did_change, nspins)
+                                  homo, geometry_did_change, nspins)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix
       TYPE(dbcsr_type), DIMENSION(:), INTENT(IN)         :: mo_coeff
+      INTEGER, DIMENSION(:)                              :: homo
       LOGICAL, INTENT(IN)                                :: geometry_did_change
       INTEGER, INTENT(IN)                                :: nspins
 
@@ -403,6 +443,7 @@ CONTAINS
 
       INTEGER                                            :: handle, ispin, n_mo_blocks
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsize_2, bsize_3, dist_MO
+      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       INTEGER, DIMENSION(:), POINTER                     :: mo_bsize
       TYPE(dbcsr_t_distribution_type)                    :: dist1, dist2
@@ -450,10 +491,17 @@ CONTAINS
          CALL dbcsr_t_copy_matrix_to_tensor(mo_coeff(ispin), mo_coeff_t)
          PRINT *, "checksum mo coeff matrix", dbcsr_checksum(mo_coeff(ispin))
          !PRINT *, "checksum mo coeff tensor", dbcsr_t_checksum(mo_coeff_t)
-     CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t, ri_data%t_3c_int_ctr(1, 1), dbcsr_scalar(0.0_dp), t_3c_int_ctr(1, 1), &
+         ALLOCATE (bounds(2, 1))
+         bounds(1, 1) = 1
+         bounds(2, 1) = homo(ispin)
+
+         CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t, ri_data%t_3c_int_ctr(1, 1), &
+                               dbcsr_scalar(0.0_dp), t_3c_int_ctr(1, 1), &
                                contract_1=[1], notcontract_1=[2], &
                                contract_2=[1], notcontract_2=[2, 3], &
-                               map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps)
+                               map_1=[1], map_2=[2, 3], &
+                               bounds_2=bounds, &
+                               filter_eps=ri_data%filter_eps)
 
          !PRINT *, "checksum contraction 1 out", dbcsr_t_checksum(t_3c_int_ctr(1,1))
          CALL dbcsr_t_copy(t_3c_int_ctr(1, 1), t_3c_int_ctr_opt(1, 1), move_data=.TRUE.)

@@ -20,8 +20,7 @@ MODULE hfx_admm_utils
    USE atomic_kind_types,               ONLY: atomic_kind_type
    USE cell_types,                      ONLY: cell_type
    USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr
+   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm
    USE cp_fm_types,                     ONLY: cp_fm_get_info,&
                                               cp_fm_type
    USE cp_log_handling,                 ONLY: cp_get_default_logger,&
@@ -224,15 +223,12 @@ CONTAINS
                                                             s_mstruct_changed, use_virial
       REAL(dp)                                           :: eh1, ehfx, ehfxrt
       REAL(dp), ALLOCATABLE, DIMENSION(:)                :: hf_energy
-      TYPE(cp_fm_type), POINTER                          :: mo_coeff
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_ks_1d, matrix_ks_aux_fit, &
                                                             matrix_ks_aux_fit_hfx, &
                                                             matrix_ks_aux_fit_im, matrix_ks_im, &
                                                             rho_ao_1d
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: matrix_h, matrix_ks_orb, rho_ao_orb
-      TYPE(dbcsr_type), DIMENSION(2)                     :: mo_coeff_b
-      TYPE(dbcsr_type), POINTER                          :: mo_coeff_b_tmp
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(hfx_type), DIMENSION(:, :), POINTER           :: x_data
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mo_array
@@ -249,10 +245,9 @@ CONTAINS
       CALL timeset(routineN, handle)
 
       NULLIFY (auxbas_pw_pool, dft_control, force, hfx_sections, input, &
-               para_env, poisson_env, pw_env, virial, &
-               matrix_ks_im, matrix_ks_orb, rho_ao_orb, &
-               matrix_h, matrix_ks_aux_fit, matrix_ks_aux_fit_im, matrix_ks_aux_fit_hfx, &
-               mo_coeff)
+               para_env, poisson_env, pw_env, virial, matrix_ks_im, &
+               matrix_ks_orb, rho_ao_orb, matrix_h, matrix_ks_aux_fit, &
+               matrix_ks_aux_fit_im, matrix_ks_aux_fit_hfx)
 
       CALL get_qs_env(qs_env=qs_env, &
                       dft_control=dft_control, &
@@ -329,14 +324,8 @@ CONTAINS
          ehfx = 0.0_dp
 
          IF (x_data(irep, 1)%do_RI) THEN
-            DO ispin = 1, nspins
-               NULLIFY (mo_coeff_b_tmp)
-               CALL get_mo_set(mo_set=mo_array(ispin)%mo_set, mo_coeff=mo_coeff, mo_coeff_b=mo_coeff_b_tmp)
-               CALL copy_fm_to_dbcsr(mo_coeff, mo_coeff_b_tmp, keep_sparsity=.FALSE.)
-               mo_coeff_b(ispin) = mo_coeff_b_tmp
-            ENDDO
             CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks, ehfx, &
-                                  matrix_ks_aux_fit_hfx, mo_coeff_b, rho_ao_orb, &
+                                  matrix_ks_aux_fit_hfx, mo_array, rho_ao_orb, &
                                   dft_control%do_admm, s_mstruct_changed, nspins)
          ELSE
             DO ispin = 1, mspin
@@ -392,7 +381,7 @@ CONTAINS
 
             IF (x_data(irep, 1)%do_RI) THEN
                CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks, ehfx, matrix_ks_aux_fit_hfx, &
-                                     mo_coeff_b, rho_ao_orb, &
+                                     mo_array, rho_ao_orb, &
                                      dft_control%do_admm, .FALSE., nspins)
             ELSE
                DO ispin = 1, mspin
