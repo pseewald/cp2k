@@ -347,6 +347,7 @@ CONTAINS
       TYPE(pw_p_type)                                    :: psi_L
       TYPE(two_dim_real_array), ALLOCATABLE, &
          DIMENSION(:)                                    :: mao_coeff_repl_occ, mao_coeff_repl_virt
+      INTEGER, DIMENSION(3)                              :: pdims_t3c
 
       CALL timeset(routineN, handle)
 
@@ -782,7 +783,8 @@ CONTAINS
 
             CALL get_qs_env(qs_env, natom=natom, nkind=nkind)
 
-            pgrid_t3c_overl = create_tensor_pgrid(para_env, ngroup_im_time, map1_2d=[1, 2], map2_2d=[3])
+            pdims_t3c = 0
+            CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, pgrid_t3c_overl, map1_2d=[1, 2], map2_2d=[3])
 
             ! set up basis
             ALLOCATE (sizes_RI(natom), sizes_AO(natom))
@@ -823,7 +825,8 @@ CONTAINS
             CALL split_block_sizes(sizes_AO, sizes_AO_split, sqrt_max_bsize)
             CALL split_block_sizes(sizes_RI, sizes_RI_split, sqrt_max_bsize)
 
-            pgrid_t3c_M = create_tensor_pgrid(para_env, ngroup_im_time_P, map1_2d=[1], map2_2d=[2, 3])
+            pdims_t3c = 0
+            CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, pgrid_t3c_M, map1_2d=[1], map2_2d=[2, 3])
 
             CALL create_tensor_M_3c(t_3c_M, pgrid_t3c_M, &
                                     cut_memory, ngroup_im_time_P, &
@@ -966,41 +969,6 @@ CONTAINS
 
    END SUBROUTINE mp2_ri_gpw_compute_in
 
-! **************************************************************************************************
-!> \brief heuristic to get a global 3d process grid that is consistent with a number of process subgroups
-!>        such that balanced (ideally square) 2d grids on subgroups are obtained
-!> \param para_env ...
-!> \param ngroup number of process groups
-!> \param map1_2d mapping of 3d grid to 2 dimensions (see dbcsr_t_pgrid_create)
-!> \param map2_2d mapping of 3d grid to 2 dimensions (see dbcsr_t_pgrid_create)
-!> \return process grid object compatible with DBCSR tensors
-! **************************************************************************************************
-   FUNCTION create_tensor_pgrid(para_env, ngroup, map1_2d, map2_2d) RESULT(pgrid)
-      TYPE(cp_para_env_type), INTENT(IN)                 :: para_env
-      INTEGER, INTENT(IN)                                :: ngroup
-      INTEGER, DIMENSION(:), INTENT(IN)                  :: map1_2d, map2_2d
-      TYPE(dbcsr_t_pgrid_type)                           :: pgrid
-
-      INTEGER                                            :: nproc_sub
-      INTEGER, DIMENSION(2)                              :: pdims_2_2d, pdims_sub_2d
-      INTEGER, DIMENSION(3)                              :: pdims_t3c
-
-      nproc_sub = para_env%num_pe/ngroup
-      pdims_sub_2d = 0
-      CALL mp_dims_create(nproc_sub, pdims_sub_2d)
-      pdims_2_2d = 0
-      CALL mp_dims_create(pdims_sub_2d(2)*ngroup, pdims_2_2d)
-      IF (SIZE(map1_2d) == 1) THEN
-         pdims_t3c(map1_2d(1)) = pdims_sub_2d(1)
-         pdims_t3c(map2_2d) = pdims_2_2d
-      ELSEIF (SIZE(map2_2d) == 1) THEN
-         pdims_t3c(map2_2d(1)) = pdims_sub_2d(1)
-         pdims_t3c(map1_2d) = pdims_2_2d
-      ELSE
-         CPABORT("map1_2d and map2_2d not compatible with a 3d grid")
-      ENDIF
-      CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, pgrid, map1_2d=map1_2d, map2_2d=map2_2d)
-   END FUNCTION
 
 ! **************************************************************************************************
 !> \brief ...
@@ -1063,6 +1031,8 @@ CONTAINS
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       TYPE(dbcsr_t_distribution_type)                    :: dist
 
+      MARK_USED(ngroup)
+
       CALL dbcsr_t_mp_environ_pgrid(pgrid_t3c_M, pdims, pcoord)
 
       size_RI = SIZE(sizes_RI)
@@ -1104,8 +1074,7 @@ CONTAINS
                           dist=dist_ao_2(starts_array_mc_block(imem):ends_array_mc_block(imem)))
       ENDDO
 
-      CALL dbcsr_t_distribution_new(dist, pgrid_t3c_M, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2, &
-                                    ngroup=ngroup, dimsplit=2)
+      CALL dbcsr_t_distribution_new(dist, pgrid_t3c_M, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2)
       CALL dbcsr_t_create(t_3c_M, "M (RI | AO AO)", dist, [1], [2, 3], dbcsr_type_real_8, sizes_RI, &
                           sizes_AO, sizes_AO)
       CALL dbcsr_t_distribution_destroy(dist)
@@ -1150,6 +1119,8 @@ CONTAINS
       TYPE(distribution_3d_type)                         :: dist_3d
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
 
+      MARK_USED(ngroup)
+
       IF (PRESENT(do_kpoints)) THEN
          kp = do_kpoints
       ELSE
@@ -1187,8 +1158,7 @@ CONTAINS
                                       sym_jk=.NOT. kp, own_dist=.TRUE.)
       ENDIF
 
-      CALL dbcsr_t_distribution_new(dist, mp_comm_t3c, [1, 2], [3], dist_RI, dist_ao_1, dist_ao_2, &
-                                    ngroup=ngroup, dimsplit=1)
+      CALL dbcsr_t_distribution_new(dist, mp_comm_t3c, [1, 2], [3], dist_RI, dist_ao_1, dist_ao_2)
       CALL dbcsr_t_create(t_3c_O, "O (RI AO | AO)", dist, [1, 2], [3], dbcsr_type_real_8, sizes_RI, &
                           ao_sizes_1, ao_sizes_2)
       CALL dbcsr_t_distribution_destroy(dist)
