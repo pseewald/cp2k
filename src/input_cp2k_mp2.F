@@ -1259,6 +1259,17 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, __LOCATION__, name="OPTIMIZE_PROC_GRIDS", &
+                          description="Decide whether to optimize DBCSR process grids s.t. they are as "// &
+                          "square as possible. This leads to faster "// &
+                          "DBCSR matrix-matrix multiplication at the cost of redistributing matrix data "// &
+                          "to new grids", &
+                          usage="OPTIMIZE_PROC_GRIDS", &
+                          default_l_val=.FALSE., &
+                          lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, __LOCATION__, name="POINTS_PER_MAGNITUDE", &
                           variants=(/"PPM"/), &
                           description="Number of evaluation points (x) of the function 2x/(x^2+omega^2) per order of  "// &

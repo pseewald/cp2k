@@ -153,6 +153,7 @@ MODULE mp2_types
       LOGICAL                  :: do_im_time_kpoints
       REAL(KIND=dp)            :: stabilize_exp
       LOGICAL  :: do_dbcsr_t
+      LOGICAL  :: optimize_pgrid
       INTEGER  :: max_bsize_sqrt
    END TYPE
 
