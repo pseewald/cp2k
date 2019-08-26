@@ -206,7 +206,6 @@ CONTAINS
                ENDDO
             ENDDO
             CALL tensor_change_pgrid(t_3c_M, pgrid_2_use, nodata=.TRUE.)
-            !CALL tensor_change_pgrid(t_3c_M_virt, pgrid_2_use, nodata=.TRUE.)
          ENDIF
 
          CALL compute_mat_dm_global(fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, tau_tj, num_integ_points, nmo, &
@@ -226,7 +225,7 @@ CONTAINS
          CALL timestop(handle4)
 
          ! loop over T for chi^T(it)
-         IF (memory_info .AND. first_cycle_im_time) THEN
+         IF (memory_info) THEN
             unit_nr_prv = unit_nr
          ELSE
             unit_nr_prv = 0
