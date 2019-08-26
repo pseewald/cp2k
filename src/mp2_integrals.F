@@ -88,9 +88,14 @@ MODULE mp2_integrals
    USE kpoint_types,                    ONLY: get_kpoint_info,&
                                               kpoint_type
    USE machine,                         ONLY: m_flush
-   USE message_passing,                 ONLY: &
-        mp_alltoall, mp_cart_create, mp_comm_split_direct, mp_dims_create, mp_environ, mp_max, &
-        mp_sendrecv, mp_sum, mp_sync
+   USE message_passing,                 ONLY: mp_alltoall,&
+                                              mp_cart_create,&
+                                              mp_comm_split_direct,&
+                                              mp_environ,&
+                                              mp_max,&
+                                              mp_sendrecv,&
+                                              mp_sum,&
+                                              mp_sync
    USE molecule_kind_types,             ONLY: molecule_kind_type
    USE molecule_types,                  ONLY: molecule_type
    USE mp2_eri,                         ONLY: mp2_eri_2c_integrate,&
@@ -116,7 +121,9 @@ MODULE mp2_integrals
    USE qs_3c_tensors,                   ONLY: build_3c_integrals,&
                                               build_3c_neighbor_lists,&
                                               distribution_3d_create,&
-                                              neighbor_list_3c_destroy
+                                              neighbor_list_3c_destroy,&
+                                              tensor_contiguous_dist,&
+                                              tensor_cyclic_dist
    USE qs_3c_tensors_types,             ONLY: distribution_3d_type,&
                                               neighbor_list_3c_type
    USE qs_collocate_density,            ONLY: calculate_wavefunction
@@ -326,7 +333,7 @@ CONTAINS
          sizes_RI_split, sub_proc_map
       INTEGER, ALLOCATABLE, DIMENSION(:, :) :: local_col_row_info, local_col_row_info_beta, &
          local_col_row_info_gw, local_col_row_info_occ_bse, local_col_row_info_virt_bse
-      INTEGER, DIMENSION(3)                              :: periodic
+      INTEGER, DIMENSION(3)                              :: pdims_t3c, periodic
       LOGICAL                                            :: do_alpha_beta, do_kpoints_from_Gamma, &
                                                             memory_info
       REAL(KIND=dp)                                      :: cond_num, mem_for_iaK, wfn_size
@@ -347,7 +354,6 @@ CONTAINS
       TYPE(pw_p_type)                                    :: psi_L
       TYPE(two_dim_real_array), ALLOCATABLE, &
          DIMENSION(:)                                    :: mao_coeff_repl_occ, mao_coeff_repl_virt
-      INTEGER, DIMENSION(3)                              :: pdims_t3c
 
       CALL timeset(routineN, handle)
 
@@ -969,7 +975,6 @@ CONTAINS
 
    END SUBROUTINE mp2_ri_gpw_compute_in
 
-
 ! **************************************************************************************************
 !> \brief ...
 !> \param blk_sizes ...
@@ -1039,7 +1044,7 @@ CONTAINS
       size_AO = SIZE(sizes_AO)
 
       ALLOCATE (dist_RI(size_RI))
-      CALL cyclic_dist(size_RI, pdims(1), sizes_RI, dist_RI)
+      CALL tensor_cyclic_dist(size_RI, pdims(1), sizes_RI, dist_RI)
 
       ALLOCATE (starts_array_mc(mem_cut))
       ALLOCATE (ends_array_mc(mem_cut))
@@ -1050,7 +1055,7 @@ CONTAINS
          CPABORT("Use smaller MEMORY_CUT")
       ENDIF
 
-      CALL contiguous_dist(size_AO, mem_cut, sizes_AO, limits_start=starts_array_mc_block, limits_end=ends_array_mc_block)
+      CALL tensor_contiguous_dist(size_AO, mem_cut, sizes_AO, limits_start=starts_array_mc_block, limits_end=ends_array_mc_block)
 
       bsum = 0
       DO imem = 1, mem_cut
@@ -1066,12 +1071,12 @@ CONTAINS
          size_AO_cut = ends_array_mc_block(imem)-starts_array_mc_block(imem)+1
 
          IF (size_AO_cut < MIN(pdims(2), pdims(3))) THEN
-            CPABORT("Increment GROUP_SIZE_P, use smaller MEMORY_CUT or use less MPI ranks")
+            CPABORT("use smaller MEMORY_CUT or use less MPI ranks")
          ENDIF
-         CALL cyclic_dist(size_AO_cut, pdims(2), sizes_AO(starts_array_mc_block(imem):ends_array_mc_block(imem)), &
-                          dist=dist_ao_1(starts_array_mc_block(imem):ends_array_mc_block(imem)))
-         CALL cyclic_dist(size_AO_cut, pdims(3), sizes_AO(starts_array_mc_block(imem):ends_array_mc_block(imem)), &
-                          dist=dist_ao_2(starts_array_mc_block(imem):ends_array_mc_block(imem)))
+         CALL tensor_cyclic_dist(size_AO_cut, pdims(2), sizes_AO(starts_array_mc_block(imem):ends_array_mc_block(imem)), &
+                                 dist=dist_ao_1(starts_array_mc_block(imem):ends_array_mc_block(imem)))
+         CALL tensor_cyclic_dist(size_AO_cut, pdims(3), sizes_AO(starts_array_mc_block(imem):ends_array_mc_block(imem)), &
+                                 dist=dist_ao_2(starts_array_mc_block(imem):ends_array_mc_block(imem)))
       ENDDO
 
       CALL dbcsr_t_distribution_new(dist, pgrid_t3c_M, [1], [2, 3], dist_RI, dist_ao_1, dist_ao_2)
@@ -1137,9 +1142,9 @@ CONTAINS
       ALLOCATE (dist_ao_1(size_AO_1))
       ALLOCATE (dist_ao_2(size_AO_2))
 
-      CALL cyclic_dist(size_RI, pdims(1), sizes_RI, dist_RI)
-      CALL cyclic_dist(size_AO_1, pdims(2), ao_sizes_1, dist_ao_1)
-      CALL cyclic_dist(size_AO_2, pdims(3), ao_sizes_2, dist_ao_2)
+      CALL tensor_cyclic_dist(size_RI, pdims(1), sizes_RI, dist_RI)
+      CALL tensor_cyclic_dist(size_AO_1, pdims(2), ao_sizes_1, dist_ao_1)
+      CALL tensor_cyclic_dist(size_AO_2, pdims(3), ao_sizes_2, dist_ao_2)
 
       IF (PRESENT(nl_3c)) THEN
          CPASSERT(PRESENT(qs_env))
@@ -1164,84 +1169,6 @@ CONTAINS
       CALL dbcsr_t_distribution_destroy(dist)
 
    END SUBROUTINE create_tensor_O_3c
-
-! **************************************************************************************************
-!> \brief contiguous distribution of weighted elements
-!> \param nel ...
-!> \param nbin ...
-!> \param weights ...
-!> \param limits_start ...
-!> \param limits_end ...
-!> \param dist ...
-! **************************************************************************************************
-   SUBROUTINE contiguous_dist(nel, nbin, weights, limits_start, limits_end, dist)
-      INTEGER, INTENT(IN)                                :: nel, nbin
-      INTEGER, DIMENSION(nel), INTENT(IN)                :: weights
-      INTEGER, DIMENSION(nbin), INTENT(OUT), OPTIONAL    :: limits_start, limits_end
-      INTEGER, DIMENSION(nel), INTENT(OUT), OPTIONAL     :: dist
-
-      INTEGER                                            :: el_end, el_start, end_weight, ibin, &
-                                                            nel_div, nel_rem, nel_split, nel_w, &
-                                                            w_partialsum
-
-      nel_w = SUM(weights)
-      nel_div = nel_w/nbin
-      nel_rem = MOD(nel_w, nbin)
-
-      w_partialsum = 0
-      el_end = 0
-      end_weight = 0
-      DO ibin = 1, nbin
-         nel_split = nel_div
-         IF (ibin <= nel_rem) THEN
-            nel_split = nel_split+1
-         ENDIF
-         el_start = el_end+1
-         el_end = el_start
-         w_partialsum = w_partialsum+weights(el_end)
-         end_weight = end_weight+nel_split
-         DO WHILE (w_partialsum < end_weight)
-            !IF (ABS(w_partialsum + weights(el_end) - end_weight) > ABS(w_partialsum - end_weight)) EXIT
-            el_end = el_end+1
-            w_partialsum = w_partialsum+weights(el_end)
-         ENDDO
-         IF (PRESENT(dist)) dist(el_start:el_end) = ibin-1
-         IF (PRESENT(limits_start)) limits_start(ibin) = el_start
-         IF (PRESENT(limits_end)) limits_end(ibin) = el_end
-      ENDDO
-
-   END SUBROUTINE contiguous_dist
-
-! **************************************************************************************************
-!> \brief cyclic distribution of weighted elements
-!> \param nel ...
-!> \param nbin ...
-!> \param weights ...
-!> \param dist ...
-! **************************************************************************************************
-   SUBROUTINE cyclic_dist(nel, nbin, weights, dist)
-      INTEGER, INTENT(IN)                                :: nel, nbin
-      INTEGER, DIMENSION(nel), INTENT(IN)                :: weights
-      INTEGER, DIMENSION(nel), INTENT(OUT)               :: dist
-
-      INTEGER                                            :: ibin, iel, niter
-      INTEGER, DIMENSION(nbin)                           :: occup
-
-      occup(:) = 0
-      ibin = 0
-      DO iel = 1, nel
-         niter = 0
-         ibin = MOD(ibin+1, nbin)
-         DO WHILE (occup(ibin+1)+weights(iel) .GE. MAXVAL(occup))
-            IF (MINLOC(occup, DIM=1) == ibin+1) EXIT
-            ibin = MOD(ibin+1, nbin)
-            niter = niter+1
-         ENDDO
-         dist(iel) = ibin
-         occup(ibin+1) = occup(ibin+1)+weights(iel)
-      ENDDO
-
-   END SUBROUTINE cyclic_dist
 
 ! **************************************************************************************************
 !> \brief Contract (P|ai) = (R|P) x (R|ai)
