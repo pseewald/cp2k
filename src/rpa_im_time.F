@@ -170,7 +170,7 @@ CONTAINS
       INTEGER, DIMENSION(3)                              :: bounds_3c
       INTEGER, DIMENSION(:, :), POINTER                  :: index_to_cell_dm
       LOGICAL :: do_Gamma_RPA, do_kpoints_cubic_RPA, first_cycle_im_time, first_cycle_omega_loop, &
-         memory_info, R_1_minus_S_needed, R_1_minus_T_needed, R_2_minus_S_minus_T_needed, optimize_pgrid
+         memory_info, R_1_minus_S_needed, R_1_minus_T_needed, R_2_minus_S_minus_T_needed
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: does_mat_P_T_tau_have_blocks
       REAL(KIND=dp)                                      :: omega, omega_old, tau, weight, weight_old
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: mat_dm_occ_global, mat_dm_virt_global
@@ -181,7 +181,6 @@ CONTAINS
       do_kpoints_cubic_RPA = qs_env%mp2_env%ri_rpa_im_time%do_im_time_kpoints
       do_Gamma_RPA = .NOT. do_kpoints_cubic_RPA
       num_3c_repl = MAXVAL(cell_to_index_3c)
-      optimize_pgrid = qs_env%mp2_env%ri_rpa_im_time%optimize_pgrid
 
       CALL timeset(routineN, handle)
 
@@ -294,8 +293,7 @@ CONTAINS
                                                     contract_2=[2], notcontract_2=[1], &
                                                     map_1=[1, 2], map_2=[3], &
                                                     bounds_2=jbounds_1, bounds_3=ibounds_2, &
-                                                    filter_eps=eps_filter, unit_nr=unit_nr_prv, &
-                                                    optimize_pgrid=optimize_pgrid)
+                                                    filter_eps=eps_filter, unit_nr=unit_nr_prv)
                               CALL timestop(handle5)
 
                            ENDIF
@@ -336,8 +334,7 @@ CONTAINS
                                                        contract_2=[2], notcontract_2=[1], &
                                                        map_1=[1, 2], map_2=[3], &
                                                        bounds_2=ibounds_1, bounds_3=jbounds_2, &
-                                                       filter_eps=eps_filter, unit_nr=unit_nr_prv, &
-                                                       optimize_pgrid=optimize_pgrid)
+                                                       filter_eps=eps_filter, unit_nr=unit_nr_prv)
                                  CALL timestop(handle5)
                               ENDIF
                            ENDIF
@@ -366,8 +363,7 @@ CONTAINS
                                                  filter_eps=eps_filter_im_time/REAL(cut_memory**2, KIND=dp), &
                                                  flop=num_flops_mat_P, &
                                                  move_data=.TRUE., &
-                                                 unit_nr=unit_nr_prv, &
-                                                 optimize_pgrid=optimize_pgrid)
+                                                 unit_nr=unit_nr_prv)
 
                            CALL dbcsr_t_copy_tensor_to_matrix(t_P, mat_P_global%matrix)
 

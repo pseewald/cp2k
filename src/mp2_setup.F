@@ -291,8 +291,6 @@ CONTAINS
                                 i_val=mp2_env%ri_rpa_im_time%group_size_3c)
       CALL section_vals_val_get(im_time_section, "GROUP_SIZE_P", &
                                 i_val=mp2_env%ri_rpa_im_time%group_size_P)
-      CALL section_vals_val_get(im_time_section, "OPTIMIZE_PROC_GRIDS", &
-                                l_val=mp2_env%ri_rpa_im_time%optimize_pgrid)
       CALL section_vals_val_get(im_time_section, "POINTS_PER_MAGNITUDE", &
                                 i_val=mp2_env%ri_rpa_im_time%num_points_per_magnitude)
       CALL section_vals_val_get(im_time_section, "EPS_FILTER_IM_TIME", &
