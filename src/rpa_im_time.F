@@ -194,10 +194,10 @@ CONTAINS
 
       first_cycle_im_time = .TRUE.
 
+      pgrid_1_init = .FALSE.; pgrid_2_init = .FALSE.
       DO jquad = 1, num_integ_points
 
          flops_1_max = 0; flops_2_max = 0
-         pgrid_1_init = .FALSE.; pgrid_2_init = .FALSE.
 
          IF (jquad .GT. 1) THEN
             DO i = 1, SIZE(t_3c_O, 1)
@@ -482,11 +482,9 @@ CONTAINS
 
          CALL timestop(handle6)
 
-         IF (pgrid_1_init) CALL dbcsr_t_pgrid_destroy(pgrid_1_use)
-         IF (pgrid_2_init) CALL dbcsr_t_pgrid_destroy(pgrid_2_use)
-
       END DO ! time points
-
+      IF (pgrid_1_init) CALL dbcsr_t_pgrid_destroy(pgrid_1_use)
+      IF (pgrid_2_init) CALL dbcsr_t_pgrid_destroy(pgrid_2_use)
 
       CALL clean_up(mat_dm_occ_global, mat_dm_virt_global, does_mat_P_T_tau_have_blocks)
 
