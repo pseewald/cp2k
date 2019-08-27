@@ -482,10 +482,11 @@ CONTAINS
 
          CALL timestop(handle6)
 
+         IF (pgrid_1_init) CALL dbcsr_t_pgrid_destroy(pgrid_1_use)
+         IF (pgrid_2_init) CALL dbcsr_t_pgrid_destroy(pgrid_2_use)
+
       END DO ! time points
 
-      IF (pgrid_1_init) CALL dbcsr_t_pgrid_destroy(pgrid_1_use)
-      IF (pgrid_2_init) CALL dbcsr_t_pgrid_destroy(pgrid_2_use)
 
       CALL clean_up(mat_dm_occ_global, mat_dm_virt_global, does_mat_P_T_tau_have_blocks)
 
