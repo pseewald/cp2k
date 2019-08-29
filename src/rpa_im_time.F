@@ -218,13 +218,17 @@ CONTAINS
 
          IF(memory_info .AND. jquad .GT. 1) THEN
             CALL dbcsr_t_get_info(t_3c_O(1,1), pdims=pdims)
-            WRITE(unit_nr_prv, "(T2,A)") "OPTIMIZED PGRID INFO M = O x D"
-            WRITE(unit_nr_prv, "(T4,3I6)") pdims
+            IF (unit_nr_prv > 0) THEN
+               WRITE (unit_nr_prv, "(T2,A)") "OPTIMIZED PGRID INFO M = O x D"
+               WRITE (unit_nr_prv, "(T4,3I6)") pdims
+            ENDIF
             CALL dbcsr_t_write_split_info(pgrid_1_use, unit_nr_prv)
 
             CALL dbcsr_t_get_info(t_3c_M, pdims=pdims)
-            WRITE(unit_nr_prv, "(T2,A)") "OPTIMIZED PGRID INFO P = M x M"
-            WRITE(unit_nr_prv, "(T4,3I6)") pdims
+            IF (unit_nr_prv > 0) THEN
+               WRITE (unit_nr_prv, "(T2,A)") "OPTIMIZED PGRID INFO P = M x M"
+               WRITE (unit_nr_prv, "(T4,3I6)") pdims
+            ENDIF
             CALL dbcsr_t_write_split_info(pgrid_2_use, unit_nr_prv)
          ENDIF
 
