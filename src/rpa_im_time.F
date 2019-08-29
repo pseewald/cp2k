@@ -216,22 +216,6 @@ CONTAINS
             unit_nr_prv = 0
          ENDIF
 
-         IF(memory_info .AND. jquad .GT. 1) THEN
-            CALL dbcsr_t_get_info(t_3c_O(1,1), pdims=pdims)
-            IF (unit_nr_prv > 0) THEN
-               WRITE (unit_nr_prv, "(T2,A)") "OPTIMIZED PGRID INFO M = O x D"
-               WRITE (unit_nr_prv, "(T4,3I6)") pdims
-            ENDIF
-            CALL dbcsr_t_write_split_info(pgrid_1_use, unit_nr_prv)
-
-            CALL dbcsr_t_get_info(t_3c_M, pdims=pdims)
-            IF (unit_nr_prv > 0) THEN
-               WRITE (unit_nr_prv, "(T2,A)") "OPTIMIZED PGRID INFO P = M x M"
-               WRITE (unit_nr_prv, "(T4,3I6)") pdims
-            ENDIF
-            CALL dbcsr_t_write_split_info(pgrid_2_use, unit_nr_prv)
-         ENDIF
-
          CALL compute_mat_dm_global(fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, tau_tj, num_integ_points, nmo, &
                                     fm_mo_coeff_occ, fm_mo_coeff_virt, fm_mo_coeff_occ_scaled, &
                                     fm_mo_coeff_virt_scaled, mat_dm_occ_global, mat_dm_virt_global, &
@@ -244,11 +228,25 @@ CONTAINS
 
          CALL timeset(routineN//"_im_time_repl_subgr", handle4)
 
+         IF(memory_info .AND. jquad .GT. 1) THEN
+            CALL dbcsr_t_get_info(t_3c_O(1,1), pdims=pdims)
+            IF (unit_nr_prv > 0) THEN
+               WRITE (unit_nr_prv, "(T2,A)") "OPTIMIZED PGRID INFO M = O x D"
+               WRITE (unit_nr_prv, "(T4,A,1X,3I6)") "process grid dimensions:", pdims
+            ENDIF
+            CALL dbcsr_t_write_split_info(pgrid_1_use, unit_nr_prv)
+
+            CALL dbcsr_t_get_info(t_3c_M, pdims=pdims)
+            IF (unit_nr_prv > 0) THEN
+               WRITE (unit_nr_prv, "(T2,A)") "OPTIMIZED PGRID INFO P = M x M"
+               WRITE (unit_nr_prv, "(T4,A,1X,3I6)") "process grid dimensions:", pdims
+            ENDIF
+            CALL dbcsr_t_write_split_info(pgrid_2_use, unit_nr_prv)
+         ENDIF
+
          CALL mp_sync(para_env%group)
 
          CALL timestop(handle4)
-
-
 
          CALL timeset(routineN//"_dbcsr_t", handle6)
          ALLOCATE (t_dm_virt(num_cells_dm))
