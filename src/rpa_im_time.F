@@ -38,7 +38,8 @@ MODULE rpa_im_time
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, &
         dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
         dbcsr_t_filter, dbcsr_t_get_info, dbcsr_t_get_mapping_info, dbcsr_t_mp_environ_pgrid, &
-        dbcsr_t_need_contract, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_type
+        dbcsr_t_need_contract, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_type, &
+        dbcsr_t_write_split_info
    USE kinds,                           ONLY: default_string_length,&
                                               dp,&
                                               int_8
@@ -172,7 +173,7 @@ CONTAINS
                                                             flops_2_max
       INTEGER, DIMENSION(2, 1)                           :: ibounds_2, jbounds_2
       INTEGER, DIMENSION(2, 2)                           :: ibounds_1, jbounds_1
-      INTEGER, DIMENSION(3)                              :: bounds_3c
+      INTEGER, DIMENSION(3)                              :: bounds_3c, pdims
       INTEGER, DIMENSION(:, :), POINTER                  :: index_to_cell_dm
       LOGICAL :: do_Gamma_RPA, do_kpoints_cubic_RPA, first_cycle_im_time, first_cycle_omega_loop, &
          memory_info, pgrid_1_init, pgrid_2_init, R_1_minus_S_needed, R_1_minus_T_needed, &
@@ -208,6 +209,25 @@ CONTAINS
             CALL tensor_change_pgrid(t_3c_M, pgrid_2_use, nodata=.TRUE.)
          ENDIF
 
+         ! loop over T for chi^T(it)
+         IF (memory_info) THEN
+            unit_nr_prv = unit_nr
+         ELSE
+            unit_nr_prv = 0
+         ENDIF
+
+         IF(memory_info .AND. jquad .GT. 1) THEN
+            CALL dbcsr_t_get_info(t_3c_O(1,1), pdims=pdims)
+            WRITE(unit_nr_prv, "(T2,A)") "OPTIMIZED PGRID INFO M = O x D"
+            WRITE(unit_nr_prv, "(T4,3I6)") pdims
+            CALL dbcsr_t_write_split_info(pgrid_1_use, unit_nr_prv)
+
+            CALL dbcsr_t_get_info(t_3c_M, pdims=pdims)
+            WRITE(unit_nr_prv, "(T2,A)") "OPTIMIZED PGRID INFO P = M x M"
+            WRITE(unit_nr_prv, "(T4,3I6)") pdims
+            CALL dbcsr_t_write_split_info(pgrid_2_use, unit_nr_prv)
+         ENDIF
+
          CALL compute_mat_dm_global(fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, tau_tj, num_integ_points, nmo, &
                                     fm_mo_coeff_occ, fm_mo_coeff_virt, fm_mo_coeff_occ_scaled, &
                                     fm_mo_coeff_virt_scaled, mat_dm_occ_global, mat_dm_virt_global, &
@@ -224,12 +244,7 @@ CONTAINS
 
          CALL timestop(handle4)
 
-         ! loop over T for chi^T(it)
-         IF (memory_info) THEN
-            unit_nr_prv = unit_nr
-         ELSE
-            unit_nr_prv = 0
-         ENDIF
+
 
          CALL timeset(routineN//"_dbcsr_t", handle6)
          ALLOCATE (t_dm_virt(num_cells_dm))
