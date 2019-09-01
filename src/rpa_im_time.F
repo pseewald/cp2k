@@ -246,7 +246,6 @@ CONTAINS
                                     num_cells_dm, index_to_cell_dm, &
                                     does_mat_P_T_tau_have_blocks)
 
-         CALL timeset(routineN//"_im_time_repl_subgr", handle4)
 
          IF (memory_info .AND. jquad .GT. 1) THEN
             CALL dbcsr_t_get_info(t_3c_O_occ(1, 1), pdims=pdims)
@@ -271,9 +270,6 @@ CONTAINS
             CALL dbcsr_t_write_split_info(pgrid_2_use, unit_nr_prv)
          ENDIF
 
-         CALL mp_sync(para_env%group)
-
-         CALL timestop(handle4)
 
          CALL timeset(routineN//"_dbcsr_t", handle6)
          ALLOCATE (t_dm_virt(num_cells_dm))
@@ -348,7 +344,7 @@ CONTAINS
                                                      contract_2=[2], notcontract_2=[1], &
                                                      bounds_2=jbounds_1, bounds_3=ibounds_2)) THEN
 
-                              CALL timeset(routineN//"_calc_M_t", handle5)
+                              CALL timeset(routineN//"_calc_M_occ_t", handle5)
 
                               CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), &
                                                     tensor_1=t_3c_O_occ(i_cell_R_1_minus_S, i_cell_R_2), &
@@ -400,7 +396,7 @@ CONTAINS
                                                         contract_2=[2], notcontract_2=[1], &
                                                         bounds_2=ibounds_1, bounds_3=jbounds_2)) THEN
 
-                                 CALL timeset(routineN//"_calc_M_t", handle5)
+                                 CALL timeset(routineN//"_calc_M_virt_t", handle5)
                                  CALL dbcsr_t_contract(alpha=dbcsr_scalar(alpha/2.0_dp), &
                                                        tensor_1=t_3c_O_virt( &
                                                        i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
