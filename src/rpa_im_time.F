@@ -46,6 +46,7 @@ MODULE rpa_im_time
    USE kpoint_types,                    ONLY: get_kpoint_info,&
                                               kpoint_env_type,&
                                               kpoint_type
+   USE machine,                         ONLY: m_walltime
    USE mathconstants,                   ONLY: twopi
    USE message_passing,                 ONLY: mp_alltoall,&
                                               mp_irecv,&
@@ -64,7 +65,6 @@ MODULE rpa_im_time
                                               mo_set_type
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
    USE rpa_communication,               ONLY: communicate_buffer
-   USE machine,                         ONLY: m_walltime
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -170,27 +170,28 @@ CONTAINS
       INTEGER :: handle, handle4, handle5, handle6, i, i_cell, i_cell_R_1, i_cell_R_1_minus_S, &
          i_cell_R_1_minus_T, i_cell_R_2, i_cell_R_2_minus_S_minus_T, i_cell_S, i_cell_T, i_mem, &
          iquad, j, j_mem, jquad, num_3c_repl, num_cells_dm, unit_nr_prv
-      INTEGER(KIND=int_8)                                :: flops_1_occ, flops_1_max_occ, &
-                                                            flops_1_virt, flops_1_max_virt, &
-                                                            flops_2, flops_2_max
+      INTEGER(KIND=int_8)                                :: flops_1_max_occ, flops_1_max_virt, &
+                                                            flops_1_occ, flops_1_virt, flops_2, &
+                                                            flops_2_max
       INTEGER, DIMENSION(2, 1)                           :: ibounds_2, jbounds_2
       INTEGER, DIMENSION(2, 2)                           :: ibounds_1, jbounds_1
       INTEGER, DIMENSION(3)                              :: bounds_3c, pdims
       INTEGER, DIMENSION(:, :), POINTER                  :: index_to_cell_dm
       LOGICAL :: do_Gamma_RPA, do_kpoints_cubic_RPA, first_cycle_im_time, first_cycle_omega_loop, &
-         memory_info, pgrid_1_init_occ, pgrid_1_init_virt, pgrid_2_init, R_1_minus_S_needed, R_1_minus_T_needed, &
-         R_2_minus_S_minus_T_needed
+         memory_info, pgrid_1_init_occ, pgrid_1_init_virt, pgrid_2_init, R_1_minus_S_needed, &
+         R_1_minus_T_needed, R_2_minus_S_minus_T_needed
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: does_mat_P_T_tau_have_blocks
-      REAL(KIND=dp)                                      :: omega, omega_old, tau, weight, weight_old, &
-                                                            t1, t2
+      REAL(KIND=dp)                                      :: omega, omega_old, t1, t2, tau, weight, &
+                                                            weight_old
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: mat_dm_occ_global, mat_dm_virt_global
       TYPE(dbcsr_t_pgrid_type)                           :: pgrid_1_opt_occ, pgrid_1_opt_virt, &
-                                                            pgrid_1_use_occ, pgrid_1_use_virt,&
+                                                            pgrid_1_use_occ, pgrid_1_use_virt, &
                                                             pgrid_2_opt, pgrid_2_use
-      TYPE(dbcsr_t_type)                                 :: t_3c_M_occ, t_3c_M_occ_tmp, t_3c_M_virt_tmp, &
-                                                            t_3c_M_virt, t_P
+      TYPE(dbcsr_t_type)                                 :: t_3c_M_occ, t_3c_M_occ_tmp, t_3c_M_virt, &
+                                                            t_3c_M_virt_tmp, t_P
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:)      :: t_dm_occ, t_dm_virt
-      TYPE(dbcsr_t_type), DIMENSION(SIZE(t_3c_O, 1), SIZE(t_3c_O, 2)) :: t_3c_O_virt, t_3c_O_occ
+      TYPE(dbcsr_t_type), &
+         DIMENSION(SIZE(t_3c_O, 1), SIZE(t_3c_O, 2))     :: t_3c_O_occ, t_3c_O_virt
 
       memory_info = mp2_env%ri_rpa_im_time%memory_info
       do_kpoints_cubic_RPA = qs_env%mp2_env%ri_rpa_im_time%do_im_time_kpoints
@@ -204,8 +205,6 @@ CONTAINS
          DO j = 1, SIZE(t_3c_O, 2)
             CALL dbcsr_t_create(t_3c_O(i, j), t_3c_O_occ(i, j))
             CALL dbcsr_t_copy(t_3c_O(i, j), t_3c_O_occ(i, j))
-            !t_3c_O_occ(i, j) = t_3c_O(i,j)
-            !t_3c_O_virt(i, j) = t_3c_O(i,j)
             CALL dbcsr_t_create(t_3c_O(i, j), t_3c_O_virt(i, j))
             CALL dbcsr_t_copy(t_3c_O(i, j), t_3c_O_virt(i, j))
             CALL dbcsr_t_clear(t_3c_O(i, j))
@@ -249,15 +248,15 @@ CONTAINS
 
          CALL timeset(routineN//"_im_time_repl_subgr", handle4)
 
-         IF(memory_info .AND. jquad .GT. 1) THEN
-            CALL dbcsr_t_get_info(t_3c_O_occ(1,1), pdims=pdims)
+         IF (memory_info .AND. jquad .GT. 1) THEN
+            CALL dbcsr_t_get_info(t_3c_O_occ(1, 1), pdims=pdims)
             IF (unit_nr_prv > 0) THEN
                WRITE (unit_nr_prv, "(T2,A)") "OPTIMIZED PGRID INFO M = O x D_occ"
                WRITE (unit_nr_prv, "(T4,A,1X,3I6)") "process grid dimensions:", pdims
             ENDIF
             CALL dbcsr_t_write_split_info(pgrid_1_use_occ, unit_nr_prv)
 
-            CALL dbcsr_t_get_info(t_3c_O_virt(1,1), pdims=pdims)
+            CALL dbcsr_t_get_info(t_3c_O_virt(1, 1), pdims=pdims)
             IF (unit_nr_prv > 0) THEN
                WRITE (unit_nr_prv, "(T2,A)") "OPTIMIZED PGRID INFO M = O x D_virt"
                WRITE (unit_nr_prv, "(T4,A,1X,3I6)") "process grid dimensions:", pdims
