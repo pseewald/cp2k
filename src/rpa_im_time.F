@@ -167,7 +167,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'compute_mat_P_omega_t', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: handle, handle4, handle5, handle6, i, i_cell, i_cell_R_1, i_cell_R_1_minus_S, &
+      INTEGER :: handle, handle5, handle6, i, i_cell, i_cell_R_1, i_cell_R_1_minus_S, &
          i_cell_R_1_minus_T, i_cell_R_2, i_cell_R_2_minus_S_minus_T, i_cell_S, i_cell_T, i_mem, &
          iquad, j, j_mem, jquad, num_3c_repl, num_cells_dm, unit_nr_prv
       INTEGER(KIND=int_8)                                :: flops_1_max_occ, flops_1_max_virt, &
