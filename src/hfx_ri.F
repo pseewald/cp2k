@@ -48,6 +48,7 @@ MODULE hfx_ri
                                               qs_environment_type
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_kind_types,                   ONLY: qs_kind_type
+   USE qs_mo_methods,                   ONLY: calculate_density_matrix
    USE qs_mo_types,                     ONLY: get_mo_set,&
                                               mo_set_p_type,&
                                               mo_set_type
@@ -359,6 +360,7 @@ CONTAINS
       LOGICAL                                            :: debug
       REAL(KIND=dp)                                      :: cs_1, cs_2, etmp
       TYPE(cp_fm_type), POINTER                          :: mo_coeff
+      TYPE(dbcsr_p_type), ALLOCATABLE, DIMENSION(:, :)   :: rho_ao_full
       TYPE(dbcsr_p_type), DIMENSION(2, 1)                :: rho_check
       TYPE(dbcsr_type), DIMENSION(2)                     :: mo_coeff_b
       TYPE(dbcsr_type), POINTER                          :: mo_coeff_b_tmp
@@ -381,8 +383,20 @@ CONTAINS
          CALL hfx_ri_update_ks_mo(qs_env, ri_data, ks_matrix, mo_coeff_b, homo, &
                                   geometry_did_change, nspins)
       CASE (ri_pmat)
-         CALL hfx_ri_update_ks_pmat(qs_env, ri_data, ks_matrix, rho_ao, &
+         ALLOCATE (rho_ao_full(nspins, 1))
+         DO ispin = 1, nspins
+            ALLOCATE (rho_ao_full(ispin, 1)%matrix)
+            CALL dbcsr_create(rho_ao_full(ispin, 1)%matrix, template=rho_ao(ispin, 1)%matrix)
+            CALL calculate_density_matrix(mos(ispin)%mo_set, rho_ao_full(ispin, 1)%matrix, use_dbcsr=.TRUE., &
+                                          retain_sparsity=.FALSE.)
+         ENDDO
+         CALL hfx_ri_update_ks_pmat(qs_env, ri_data, ks_matrix, rho_ao_full, &
                                     geometry_did_change, nspins)
+
+         DO ispin = 1, nspins
+            CALL dbcsr_release(rho_ao_full(ispin, 1)%matrix)
+            DEALLOCATE (rho_ao_full(ispin, 1)%matrix)
+         ENDDO
       END SELECT
 
       IF (debug) THEN
