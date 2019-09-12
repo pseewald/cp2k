@@ -1,4 +1,3 @@
-!TEMP COMMENT
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
 !   Copyright (C) 2000 - 2019  CP2K developers group                                               !
@@ -547,9 +546,7 @@ MODULE input_constants
    INTEGER, PARAMETER, PUBLIC               :: sic_list_all = 1, &
                                                sic_list_unpaired = 2
    INTEGER, PARAMETER, PUBLIC               :: tddfpt_singlet = 0, &
-                                               tddfpt_triplet = 1, &
-                                               tddfpt_spin_cons = 2, &
-                                               tddfpt_spin_flip = 3
+                                               tddfpt_triplet = 1
    INTEGER, PARAMETER, PUBLIC               :: tddfpt_lanczos = 0, &
                                                tddfpt_davidson = 1
    INTEGER, PARAMETER, PUBLIC               :: oe_none = 0, &
@@ -617,8 +614,7 @@ MODULE input_constants
                                                xas_tp_xfh = 5, &
                                                xas_dscf = 6, &
                                                xas_tp_flex = 7
-   INTEGER, PARAMETER, PUBLIC               :: xas_not_excited = 0, &
-                                               xas_1s_type = 1, &
+   INTEGER, PARAMETER, PUBLIC               :: xas_1s_type = 1, &
                                                xas_2s_type = 2, &
                                                xas_2p_type = 3, &
                                                xas_3s_type = 4, &
@@ -632,14 +628,6 @@ MODULE input_constants
                                                xas_dip_vel = 2
    INTEGER, PARAMETER, PUBLIC               :: xas_scf_default = 0, &
                                                xas_scf_general = 1
-
-   ! Time-dependent XAS
-   INTEGER, PARAMETER, PUBLIC               :: xas_tdp_by_index = 1, &
-                                               xas_tdp_by_kind = 2, &
-                                               xas_tdp_roks = 1, &
-                                               xas_tdp_uks = 2, &
-                                               xas_tdp_para_atom = 1, &
-                                               xas_tdp_para_grid = 2
 
    ! Form of dipole operator for TDDFPT oscillator strength calculation
    INTEGER, PARAMETER, PUBLIC               :: tddfpt_dipole_berry = 1, &

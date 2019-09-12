@@ -1054,12 +1054,11 @@ CONTAINS
 !>               calculated in terms of the contracted basis functions
 !> \param qs_env environment for the lists and the basis sets
 !> \param rc reference vector position
-!> \param order maximum order of the momentum, for the dipole order = 1, order = -2 for quad only
+!> \param order maximum order of the momentum, for the dipole order = 1
 !> \param minimum_image take into account only the first neighbors in the lists
 !> \param soft ...
 !> \par History
 !>      03.2006 created [MI]
-!>      06.2019 added quarupole only option (A.Bussy)
 !> \author MI
 ! **************************************************************************************************
 
@@ -1073,9 +1072,9 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'rRc_xyz_ao', routineP = moduleN//':'//routineN
 
-      INTEGER :: handle, iatom, icol, ikind, imom, inode, irow, iset, jatom, jkind, jset, &
-         last_jatom, ldab, ldsa, ldsb, ldwork, M_dim, maxl, ncoa, ncob, nkind, nseta, nsetb, sgfa, &
-         sgfb, smom
+      INTEGER :: handle, i, iatom, icol, ikind, imom, inode, irow, iset, jatom, jkind, jset, &
+         last_jatom, ldab, ldsa, ldsb, ldwork, M_dim, maxl, ncoa, ncob, nkind, nrow, nseta, nsetb, &
+         sgfa, sgfb
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, npgfa, npgfb, &
                                                             nsgfa, nsgfb
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, first_sgfb
@@ -1130,18 +1129,16 @@ CONTAINS
 
       ldab = ldwork
 
-      smom = 1
-      IF (order == -2) smom = 4
-      M_dim = ncoset(ABS(order))-1
+      M_dim = ncoset(order)-1
       CPASSERT(M_dim <= SIZE(op, 1))
 
-      ALLOCATE (mab(ldab, ldab, 1:M_dim))
+      ALLOCATE (mab(ldab, ldab, M_dim))
       mab(1:ldab, 1:ldab, 1:M_dim) = 0.0_dp
       ALLOCATE (work(ldwork, ldwork))
       work(1:ldwork, 1:ldwork) = 0.0_dp
-      ALLOCATE (op_dip(smom:M_dim))
+      ALLOCATE (op_dip(M_dim))
 
-      DO imom = smom, M_dim
+      DO imom = 1, M_dim
          NULLIFY (op_dip(imom)%block)
       END DO
 
@@ -1212,7 +1209,7 @@ CONTAINS
                icol = iatom
             END IF
 
-            DO imom = smom, M_dim
+            DO imom = 1, M_dim
                NULLIFY (op_dip(imom)%block)
                CALL dbcsr_get_block_p(matrix=op(imom)%matrix, &
                                       row=irow, col=icol, block=op_dip(imom)%block, found=found)
@@ -1223,6 +1220,7 @@ CONTAINS
          rab2 = rab(1)*rab(1)+rab(2)*rab(2)+rab(3)*rab(3)
          dab = SQRT(rab2)
 
+         nrow = 0
          DO iset = 1, nseta
 
             ncoa = npgfa(iset)*ncoset(la_max(iset))
@@ -1242,9 +1240,9 @@ CONTAINS
                   CALL moment(la_max(iset), npgfa(iset), zeta(:, iset), &
                               rpgfa(:, iset), la_min(iset), &
                               lb_max(jset), npgfb(jset), zetb(:, jset), rpgfb(:, jset), &
-                              ABS(order), rac, rbc, mab)
+                              order, rac, rbc, mab)
 
-                  DO imom = smom, M_dim
+                  DO imom = 1, M_dim
 !                 *** Contraction ***
                      CALL dgemm("N", "N", ncoa, nsgfb(jset), ncob, &
                                 1.0_dp, mab(1, 1, imom), ldab, sphi_b(1, sgfb), ldsb, &
@@ -1268,13 +1266,15 @@ CONTAINS
 
             END DO ! jset
 
+            nrow = nrow+ncoa
+
          END DO ! iset
 
       END DO
       CALL neighbor_list_iterator_release(nl_iterator)
 
-      DO imom = smom, M_dim
-         NULLIFY (op_dip(imom)%block)
+      DO i = 1, 3
+         NULLIFY (op_dip(i)%block)
       END DO
       DEALLOCATE (op_dip)
 
