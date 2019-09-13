@@ -143,7 +143,7 @@ CONTAINS
                                                             sort_kind
       LOGICAL                                            :: did_guess, do_kpoints, do_std_diag, &
                                                             exist, has_unit_metric, &
-                                                            natom_mismatch, need_wm, ofgpw
+                                                            natom_mismatch, need_wm, ofgpw, do_hfx_ri
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: buff, buff2
       REAL(dp), DIMENSION(:, :), POINTER                 :: pdata
       REAL(KIND=dp)                                      :: checksum, eps, length, maxocc, occ, &
@@ -207,6 +207,9 @@ CONTAINS
                       nelectron_spin=nelectron_spin, &
                       para_env=para_env, &
                       x_data=x_data)
+
+      do_hfx_ri = .FALSE.
+      IF(ASSOCIATED(x_data)) do_hfx_ri = x_data(1,1)%do_RI
 
       CALL qs_rho_get(rho, rho_ao_kp=rho_ao_kp)
 
@@ -589,7 +592,7 @@ CONTAINS
                IF (scf_control%use_ot .OR. scf_env%method == ot_diag_method_nr .OR. &
                    (scf_env%method == block_krylov_diag_method_nr .AND. .NOT. do_std_diag) &
                    .OR. dft_control%do_admm .OR. scf_env%method == block_davidson_diag_method_nr &
-                   .OR. x_data(1, 1)%do_RI) THEN
+                   .OR. do_hfx_ri) THEN
 
                   IF (dft_control%restricted .AND. (ispin == 2)) THEN
                      CALL mo_set_restrict(mo_array)

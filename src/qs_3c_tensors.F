@@ -1037,7 +1037,11 @@ CONTAINS
          DEALLOCATE (block_t)
 
       END DO
-      CALL cp_libint_cleanup_3eri(lib)
+
+      IF (op_ij_prv /= do_potential_id .OR. op_jk_prv /= do_potential_id) THEN
+         CALL cp_libint_cleanup_3eri(lib)
+      ENDIF
+
       CALL neighbor_list_3c_iterator_destroy(nl_3c_iter)
 
       IF (nl_3c%sym == symmetric_jk) THEN
