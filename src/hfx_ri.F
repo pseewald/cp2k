@@ -64,7 +64,11 @@ MODULE hfx_ri
 CONTAINS
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Pre-SCF steps in MO flavour of RI HFX
+!>
+!> Calculate 2-center & 3-center integrals (see hfx_ri_pre_scf_calc_tensors) and contract
+!> K(P, S) = sum_R K_2(P, R)^{-1} K_1(R, S)^{1/2}
+!> B(mu, lambda, R) = sum_P int_3c(mu, lambda, P) K(P, R)
 !> \param qs_env ...
 !> \param ri_data ...
 ! **************************************************************************************************
@@ -97,7 +101,6 @@ CONTAINS
 
       CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_op_RI, t_2c_op_pot, t_3c_int_1)
 
-      ! todo: if problems, try other methods for matrix functions
       IF (.NOT. ri_data%same_op) THEN
          CALL dbcsr_create(t_2c_op_RI_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
          CALL invert_hotelling(t_2c_op_RI_inv(1), t_2c_op_RI(1), ri_data%filter_eps)
@@ -179,12 +182,16 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Calculate 2-center and 3-center integrals
+!>
+!> 2c: K_1(P, R) = (P|v1|R) and K_2(P, R) = (P|v2|R)
+!> 3c: int_3c(mu, lambda, P) = (mu lambda |v2| P)
+!> v_1 is HF operator, v_2 is RI metric
 !> \param qs_env ...
 !> \param ri_data ...
-!> \param t_2c_int_RI ...
-!> \param t_2c_int_pot ...
-!> \param t_3c_int ...
+!> \param t_2c_int_RI K_2(P, R)
+!> \param t_2c_int_pot K_1(P, R)
+!> \param t_3c_int int_3c(mu, lambda, P)
 ! **************************************************************************************************
    SUBROUTINE hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_int_RI, t_2c_int_pot, t_3c_int)
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -270,7 +277,10 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Pre-SCF steps in rho flavor of RI HFX
+!>
+!> K(P, S) = sum_{R,Q} K_2(P, R)^{-1} K_1(R, Q) K_2(Q, S)^{-1}
+!> Calculate B(mu, lambda, R) = sum_P int_3c(mu, lambda, P) K(P, R)
 !> \param qs_env ...
 !> \param ri_data ...
 ! **************************************************************************************************
@@ -328,7 +338,8 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Calculate Fock (AKA Kohn-Sham) matrix and calculate HFX energy from B tensor and density matrix
+!>        or MO coefficients
 !> \param qs_env ...
 !> \param ri_data ...
 !> \param ks_matrix ...
@@ -433,11 +444,15 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Calculate Fock (AKA Kohn-Sham) matrix in MO flavour
+!>
+!> C(mu, i) (MO coefficients)
+!> M(mu, i, R) = sum_nu B(mu, nu, R) C(nu, i)
+!> KS(mu, lambda) = sum_{i,R} M(mu, i, R) M(lambda, i, R)
 !> \param qs_env ...
 !> \param ri_data ...
 !> \param ks_matrix ...
-!> \param mo_coeff ...
+!> \param mo_coeff C(mu, i)
 !> \param homo ...
 !> \param geometry_did_change ...
 !> \param nspins ...
@@ -542,7 +557,10 @@ CONTAINS
    END SUBROUTINE
 
 ! **************************************************************************************************
-!> \brief ...
+!> \brief Calculate Fock (AKA Kohn-Sham) matrix in rho flavour
+!>
+!> M(mu, lambda, R) = sum_{nu} int_3c(mu, nu, R) P(nu, lambda)
+!> KS(mu, lambda) = sum_{nu,R} B(mu, nu, R) M(lambda, nu, R)
 !> \param qs_env ...
 !> \param ri_data ...
 !> \param ks_matrix ...
