@@ -117,7 +117,6 @@ MODULE mp2_integrals
                                               build_3c_neighbor_lists,&
                                               contiguous_tensor_dist,&
                                               cyclic_tensor_dist,&
-                                              distribution_3d_create,&
                                               neighbor_list_3c_destroy
    USE qs_3c_tensors_types,             ONLY: distribution_3d_create,&
                                               distribution_3d_type,&
