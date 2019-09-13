@@ -1026,21 +1026,21 @@ CONTAINS
       ALLOCATE (ri_data%dist2_ri, SOURCE=dist_RI)
 
       CALL dbcsr_t_distribution_new(ri_data%dist1, ri_data%pgrid, [1], [2, 3], &
-                                    ri_data%dist1_RI, ri_data%dist1_ao_1, ri_data%dist1_ao_2, dimsplit=2)
+                                    ri_data%dist1_RI, ri_data%dist1_ao_1, ri_data%dist1_ao_2)
 
       IF (ri_data%flavour == ri_mo) THEN
          CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1], [2, 3], &
-                                       ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2, dimsplit=2)
+                                       ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2)
          CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), "(AO | RI AO)", ri_data%dist2, [1], [2, 3], &
                              dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
       ELSEIF (ri_data%flavour == ri_pmat) THEN
          CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1, 2], [3], &
-                                       ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2, dimsplit=1)
+                                       ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2)
          CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), "(AO RI | AO)", ri_data%dist2, [1, 2], [3], &
                              dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
          CALL dbcsr_t_distribution_destroy(ri_data%dist2)
          CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1], [2, 3], &
-                                       ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2, dimsplit=2)
+                                       ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2)
          CALL dbcsr_t_create(ri_data%t_3c_int(1, 1), "(AO | RI AO)", ri_data%dist2, [1], [2, 3], &
                              dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
          ! todo: dist2 never needed, can be removed

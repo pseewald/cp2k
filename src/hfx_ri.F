@@ -168,13 +168,13 @@ CONTAINS
       CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_2c_int(1), t_3c_int_1(1, 1), &
                             dbcsr_scalar(0.0_dp), t_3c_int_2(1, 1), &
                             contract_1=[2], notcontract_1=[1], &
-                            contract_2=[1], notcontract_2=[2, 3], &
-                            map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, move_data=.TRUE., &
+                            contract_2=[1], notcontract_2=[2, 3], & ! issue not symmetric
+                            map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, &!, move_data=.TRUE., &
                             unit_nr=unit_nr)
       CALL dbcsr_t_destroy(t_2c_int(1))
       CALL dbcsr_t_destroy(t_3c_int_1(1, 1))
 
-      CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int_ctr(1, 1), order=[2, 1, 3], move_data=.TRUE.)
+      CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int_ctr(1, 1), order=[2, 1, 3])!, move_data=.TRUE.)
       CALL dbcsr_t_destroy(t_3c_int_2(1, 1))
 
       CALL timestop(handle)
@@ -328,11 +328,11 @@ CONTAINS
                             dbcsr_scalar(0.0_dp), t_3c_int_2(1, 1), &
                             contract_1=[2], notcontract_1=[1], &
                             contract_2=[1], notcontract_2=[2, 3], &
-                            map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, move_data=.TRUE., &
+                            map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, &! move_data=.TRUE., &
                             unit_nr=unit_nr)
       CALL dbcsr_t_destroy(t_2c_int(1))
 
-      CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int_ctr(1, 1), order=[2, 1, 3], move_data=.TRUE.)
+      CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int_ctr(1, 1), order=[2, 1, 3]) !, move_data=.TRUE.)
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -470,7 +470,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_update_ks_mo', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, ispin, n_mo_blocks
+      INTEGER                                            :: handle, ispin, n_mo_blocks, &
+                                                            unit_nr
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsize_2, bsize_3, dist_MO
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
@@ -479,12 +480,20 @@ CONTAINS
       TYPE(dbcsr_t_type)                                 :: ks_t, mo_coeff_t
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_ctr, t_3c_int_ctr_opt, &
                                                             t_3c_int_ctr_opt_copy
+      TYPE(cp_logger_type), POINTER                      :: logger
 
       CALL timeset(routineN, handle)
 
       NULLIFY (mo_bsize)
 
       CPASSERT(SIZE(ks_matrix, 2) == 1)
+
+      logger => cp_get_default_logger()
+      IF (logger%para_env%ionode) THEN
+         unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
+      ELSE
+         unit_nr = -1
+      ENDIF
 
       ! todo: mo localization
 
@@ -499,13 +508,13 @@ CONTAINS
       ALLOCATE (dist_MO(n_mo_blocks))
       CALL hfx_cyclic_dist(n_mo_blocks, pdims(1), mo_bsize, dist_MO)
       CALL dbcsr_t_distribution_new(dist1, ri_data%pgrid, [1], [2, 3], &
-                                    dist_MO, ri_data%dist2_RI, ri_data%dist2_ao_2, dimsplit=2)
+                                    dist_MO, ri_data%dist2_RI, ri_data%dist2_ao_2)
       CALL dbcsr_t_get_info(ri_data%t_3c_int_ctr(1, 1), blk_size_2=bsize_2, blk_size_3=bsize_3)
       CALL dbcsr_t_create(t_3c_int_ctr(1, 1), "(MO | RI AO)", dist1, [1], [2, 3], dbcsr_type_real_8, &
                           mo_bsize, bsize_2, bsize_3)
       CALL dbcsr_t_distribution_destroy(dist1)
       CALL dbcsr_t_distribution_new(dist2, ri_data%pgrid, [1, 2], [3], &
-                                    dist_MO, ri_data%dist2_RI, ri_data%dist2_ao_2, dimsplit=1)
+                                    dist_MO, ri_data%dist2_RI, ri_data%dist2_ao_2)
       CALL dbcsr_t_create(t_3c_int_ctr_opt(1, 1), "(MO RI | AO)", dist2, [1, 2], [3], dbcsr_type_real_8, &
                           mo_bsize, bsize_2, bsize_3)
 
@@ -530,10 +539,11 @@ CONTAINS
                                contract_2=[1], notcontract_2=[2, 3], &
                                map_1=[1], map_2=[2, 3], &
                                bounds_2=bounds, &
-                               filter_eps=ri_data%filter_eps)
+                               filter_eps=ri_data%filter_eps, &
+                               unit_nr=unit_nr)
 
          !PRINT *, "checksum contraction 1 out", dbcsr_t_checksum(t_3c_int_ctr(1,1))
-         CALL dbcsr_t_copy(t_3c_int_ctr(1, 1), t_3c_int_ctr_opt(1, 1), move_data=.TRUE.)
+         CALL dbcsr_t_copy(t_3c_int_ctr(1, 1), t_3c_int_ctr_opt(1, 1))! move_data=.TRUE.)
          !PRINT *, "checksum opt", dbcsr_t_checksum(t_3c_int_ctr_opt(1,1))
          CALL dbcsr_t_copy(t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1))
          !PRINT *, "checksum opt copy", dbcsr_t_checksum(t_3c_int_ctr_opt_copy(1,1))
@@ -541,7 +551,8 @@ CONTAINS
                                dbcsr_scalar(0.0_dp), ks_t, &
                                contract_1=[1, 2], notcontract_1=[3], &
                                contract_2=[1, 2], notcontract_2=[3], &
-                               map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps)
+                               map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps, &
+                               unit_nr=unit_nr)
          !PRINT *, "checksum ks tensor", ispin, dbcsr_t_checksum(ks_t)
          CALL dbcsr_t_copy_tensor_to_matrix(ks_t, ks_matrix(ispin, 1)%matrix, summation=.TRUE.)
 
@@ -612,17 +623,18 @@ CONTAINS
                                contract_1=[2], notcontract_1=[1], &
                                contract_2=[1], notcontract_2=[2, 3], &
                                map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, &
-                               move_data=.TRUE., &
+                               !move_data=.TRUE., &
                                unit_nr=unit_nr)
 
          CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), t_3c_2(1, 1))
-         CALL dbcsr_t_copy(t_3c_1(1, 1), t_3c_2(1, 1), move_data=.TRUE.)
+         CALL dbcsr_t_copy(t_3c_1(1, 1), t_3c_2(1, 1)) !move_data=.TRUE.)
 
          CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), ri_data%t_3c_int_ctr(1, 1), t_3c_2(1, 1), &
                                dbcsr_scalar(0.0_dp), ks_t, &
                                contract_1=[1, 2], notcontract_1=[3], &
                                contract_2=[1, 2], notcontract_2=[3], &
-                               map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps)
+                               map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps, &
+                               unit_nr=unit_nr)
 
          CALL dbcsr_t_destroy(t_3c_2(1, 1))
 
