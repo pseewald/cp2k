@@ -141,9 +141,9 @@ CONTAINS
       INTEGER, DIMENSION(2)                              :: nelectron_spin
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, elec_conf, nelec_kind, &
                                                             sort_kind
-      LOGICAL                                            :: did_guess, do_kpoints, do_std_diag, &
-                                                            exist, has_unit_metric, &
-                                                            natom_mismatch, need_wm, ofgpw, do_hfx_ri
+      LOGICAL                                            :: did_guess, do_hfx_ri, do_kpoints, &
+                                                            do_std_diag, exist, has_unit_metric, &
+                                                            natom_mismatch, need_wm, ofgpw
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: buff, buff2
       REAL(dp), DIMENSION(:, :), POINTER                 :: pdata
       REAL(KIND=dp)                                      :: checksum, eps, length, maxocc, occ, &
@@ -209,7 +209,7 @@ CONTAINS
                       x_data=x_data)
 
       do_hfx_ri = .FALSE.
-      IF(ASSOCIATED(x_data)) do_hfx_ri = x_data(1,1)%do_RI
+      IF (ASSOCIATED(x_data)) do_hfx_ri = x_data(1, 1)%do_RI
 
       CALL qs_rho_get(rho, rho_ao_kp=rho_ao_kp)
 
