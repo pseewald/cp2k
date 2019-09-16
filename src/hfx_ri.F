@@ -21,12 +21,14 @@ MODULE hfx_ri
         dbcsr_add, dbcsr_add_on_diag, dbcsr_checksum, dbcsr_copy, dbcsr_create, &
         dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_dot, dbcsr_frobenius_norm, &
         dbcsr_get_info, dbcsr_multiply, dbcsr_p_type, dbcsr_release, dbcsr_scalar, dbcsr_type, &
-        dbcsr_type_no_symmetry, dbcsr_type_real_8
+        dbcsr_type_no_symmetry, dbcsr_type_symmetric, dbcsr_type_real_8, dbcsr_desymmetrize, dbcsr_add, &
+        dbcsr_transposed, dbcsr_reserve_all_blocks, dbcsr_set, dbcsr_filter, dbcsr_copy_into_existing, &
+        dbcsr_scale_by_vector, dbcsr_scale
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, &
         dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
-        dbcsr_t_get_info, dbcsr_t_mp_environ_pgrid, dbcsr_t_type
+        dbcsr_t_get_info, dbcsr_t_mp_environ_pgrid, dbcsr_t_type, dbcsr_t_checksum
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE hfx_types,                       ONLY: hfx_cyclic_dist,&
                                               hfx_ri_type
@@ -80,7 +82,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, unit_nr
-      REAL(KIND=dp)                                      :: frob_matrix, frob_matrix_base
+      REAL(KIND=dp)                                      :: frob_matrix, frob_matrix_base, threshold
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(dbcsr_t_type), DIMENSION(1)                   :: t_2c_int
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_1, t_3c_int_2
@@ -100,10 +102,14 @@ CONTAINS
       ENDIF
 
       CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_op_RI, t_2c_op_pot, t_3c_int_1)
+      IF(.NOT. ri_data%same_op) CALL check_symmetry(t_2c_op_RI(1)) ! ok
+      CALL check_symmetry(t_2c_op_pot(1)) ! ok
 
       IF (.NOT. ri_data%same_op) THEN
          CALL dbcsr_create(t_2c_op_RI_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
-         CALL invert_hotelling(t_2c_op_RI_inv(1), t_2c_op_RI(1), ri_data%filter_eps)
+         threshold = MAX(ri_data%filter_eps, 1.0e-12_dp) ! see admm_methods
+         CALL invert_hotelling(t_2c_op_RI_inv(1), t_2c_op_RI(1), threshold=threshold)
+         CALL check_symmetry(t_2c_op_RI_inv(1)) ! ok
          IF (ri_data%check_2c_inv) THEN
             CALL dbcsr_create(matrix_tmp1(1), template=t_2c_op_RI(1), &
                               matrix_type=dbcsr_type_no_symmetry)
@@ -168,9 +174,12 @@ CONTAINS
       CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_2c_int(1), t_3c_int_1(1, 1), &
                             dbcsr_scalar(0.0_dp), t_3c_int_2(1, 1), &
                             contract_1=[2], notcontract_1=[1], &
-                            contract_2=[1], notcontract_2=[2, 3], & ! issue not symmetric
+                            contract_2=[1], notcontract_2=[2, 3], &
                             map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, &!, move_data=.TRUE., &
                             unit_nr=unit_nr)
+
+      !PRINT *, "checksum t_3c_int", dbcsr_t_checksum(t_3c_int_1(1, 1))
+      !PRINT *, "checksum t_3c_int_ctr", dbcsr_t_checksum(t_3c_int_2(1, 1))
       CALL dbcsr_t_destroy(t_2c_int(1))
       CALL dbcsr_t_destroy(t_3c_int_1(1, 1))
 
@@ -179,6 +188,18 @@ CONTAINS
 
       CALL timestop(handle)
 
+   END SUBROUTINE
+
+   SUBROUTINE check_symmetry(matrix)
+      TYPE(dbcsr_type), INTENT(IN) :: matrix
+      TYPE(dbcsr_type) :: matrix_tr
+      REAL(dp)         :: cs, cs_old
+      CALL dbcsr_transposed(matrix_tr, matrix)
+      CALL dbcsr_add(matrix_tr, matrix, 0.5_dp, -0.5_dp)
+      cs = dbcsr_checksum(matrix_tr)
+      cs_old = dbcsr_checksum(matrix)
+      PRINT *, "checksum sym", cs_old, cs
+      CPASSERT(cs < 1.0E-12_dp)
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -232,7 +253,7 @@ CONTAINS
                           dbcsr_type_real_8, sizes_RI, sizes_AO, sizes_AO)
 
       CALL build_3c_neighbor_lists(nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, ri_data%dist1_3d, "HFX_3c_nl", &
-                                   qs_env, op_ij=ri_data%op_ri, x_range=ri_data%r_cutoff_ri)
+                                   qs_env, op_ij=ri_data%op_ri, sym_jk=.TRUE., x_range=ri_data%r_cutoff_ri)
       CALL build_3c_integrals(t_3c_int, ri_data%filter_eps, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
                               op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
@@ -255,7 +276,7 @@ CONTAINS
       col_bsize(:) = sizes_RI
       CALL dbcsr_create(t_2c_int_pot(1), "(R|P)", dbcsr_dist, dbcsr_type_no_symmetry, row_bsize, col_bsize)
       IF (.NOT. ri_data%same_op) THEN
-         CALL dbcsr_create(t_2c_int_RI(1), template=t_2c_int_pot(1))
+         CALL dbcsr_create(t_2c_int_RI(1), template=t_2c_int_pot(1), matrix_type=dbcsr_type_no_symmetry)
       ENDIF
       CALL dbcsr_distribution_release(dbcsr_dist)
 
@@ -296,6 +317,7 @@ CONTAINS
       TYPE(dbcsr_t_type), DIMENSION(1)                   :: t_2c_int
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_1, t_3c_int_2
       TYPE(dbcsr_type), DIMENSION(1)                     :: t_2c_int_mat, t_2c_op_pot, t_2c_op_RI
+      REAL(KIND=dp)                                      :: threshold
 
       CALL timeset(routineN, handle)
       NULLIFY (logger)
@@ -314,7 +336,10 @@ CONTAINS
 
       IF (ri_data%same_op) THEN
          CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
-         CALL invert_hotelling(t_2c_int_mat(1), t_2c_op_pot(1), ri_data%filter_eps)
+         threshold = MAX(ri_data%filter_eps, 1.0e-12_dp) ! see admm_methods
+         CALL invert_hotelling(t_2c_int_mat(1), t_2c_op_pot(1), &
+                               threshold=threshold)
+         CALL check_symmetry(t_2c_int_mat(1)) ! ok
       ELSE
          CPABORT("NYI")
       ENDIF
@@ -373,8 +398,11 @@ CONTAINS
       TYPE(cp_fm_type), POINTER                          :: mo_coeff
       TYPE(dbcsr_p_type), ALLOCATABLE, DIMENSION(:, :)   :: rho_ao_full
       TYPE(dbcsr_p_type), DIMENSION(2, 1)                :: rho_check
+      TYPE(dbcsr_p_type), &
+         DIMENSION(SIZE(ks_matrix,1), SIZE(ks_matrix,2)) :: ks_matrix_ns
       TYPE(dbcsr_type), DIMENSION(2)                     :: mo_coeff_b
       TYPE(dbcsr_type), POINTER                          :: mo_coeff_b_tmp
+      TYPE(dbcsr_type)                                   :: dbcsr_tmp
       TYPE(mo_set_type), POINTER                         :: mo_set
 
       CALL timeset(routineN, handle)
@@ -382,44 +410,54 @@ CONTAINS
       debug = .TRUE.
 
       DO ispin = 1, nspins
+         !CALL dbcsr_create(ks_matrix_ns, template=ks_matrix, matrix_type=dbcsr_type_no_symmetry)
+         ALLOCATE(ks_matrix_ns(ispin, 1)%matrix)
+         CALL dbcsr_desymmetrize(ks_matrix(ispin, 1)%matrix, ks_matrix_ns(ispin, 1)%matrix)
+      ENDDO
+
+      DO ispin = 1, nspins
          NULLIFY (mo_coeff_b_tmp)
-         CALL get_mo_set(mo_set=mos(ispin)%mo_set, mo_coeff=mo_coeff, mo_coeff_b=mo_coeff_b_tmp)
+         mo_set => mos(ispin)%mo_set
+         CPASSERT(mo_set%uniform_occupation)
+         CALL get_mo_set(mo_set=mo_set, mo_coeff=mo_coeff, mo_coeff_b=mo_coeff_b_tmp)
          CALL copy_fm_to_dbcsr(mo_coeff, mo_coeff_b_tmp, keep_sparsity=.FALSE.)
-         mo_coeff_b(ispin) = mo_coeff_b_tmp
-         homo(ispin) = mos(ispin)%mo_set%homo
+
+         CALL dbcsr_copy(dbcsr_tmp, mo_coeff_b_tmp)
+         CALL dbcsr_scale(dbcsr_tmp, sqrt(mo_set%maxocc))
+         mo_coeff_b(ispin) = dbcsr_tmp
+         homo(ispin) = mo_set%homo
+      ENDDO
+
+      ALLOCATE (rho_ao_full(nspins, 1))
+      DO ispin = 1, nspins
+         ALLOCATE (rho_ao_full(ispin, 1)%matrix)
+         CALL dbcsr_create(rho_ao_full(ispin, 1)%matrix, template=rho_ao(ispin, 1)%matrix, matrix_type=dbcsr_type_no_symmetry)
+         CALL calculate_density_matrix(mos(ispin)%mo_set, rho_ao_full(ispin, 1)%matrix, use_dbcsr=.TRUE., &
+                                       retain_sparsity=.FALSE.)
+         CALL check_symmetry(rho_ao_full(ispin, 1)%matrix)
       ENDDO
 
       SELECT CASE (ri_data%flavour)
       CASE (ri_mo)
-         CALL hfx_ri_update_ks_mo(qs_env, ri_data, ks_matrix, mo_coeff_b, homo, &
+         CALL hfx_ri_update_ks_mo(qs_env, ri_data, ks_matrix_ns, mo_coeff_b, homo, &
                                   geometry_did_change, nspins)
       CASE (ri_pmat)
-         ALLOCATE (rho_ao_full(nspins, 1))
-         DO ispin = 1, nspins
-            ALLOCATE (rho_ao_full(ispin, 1)%matrix)
-            CALL dbcsr_create(rho_ao_full(ispin, 1)%matrix, template=rho_ao(ispin, 1)%matrix)
-            CALL calculate_density_matrix(mos(ispin)%mo_set, rho_ao_full(ispin, 1)%matrix, use_dbcsr=.TRUE., &
-                                          retain_sparsity=.FALSE.)
-         ENDDO
-         CALL hfx_ri_update_ks_pmat(qs_env, ri_data, ks_matrix, rho_ao_full, &
+
+         CALL hfx_ri_update_ks_pmat(qs_env, ri_data, ks_matrix_ns, rho_ao_full, &
                                     geometry_did_change, nspins)
 
-         DO ispin = 1, nspins
-            CALL dbcsr_release(rho_ao_full(ispin, 1)%matrix)
-            DEALLOCATE (rho_ao_full(ispin, 1)%matrix)
-         ENDDO
       END SELECT
 
       IF (debug) THEN
          DO ispin = 1, nspins
             ALLOCATE (rho_check(ispin, 1)%matrix)
-            CALL dbcsr_create(rho_check(ispin, 1)%matrix, template=rho_ao(ispin, 1)%matrix)
+            !CALL dbcsr_create(rho_check(ispin, 1)%matrix, template=rho_ao_full(ispin, 1)%matrix, matrix_type=dbcsr_type_no_symmetry)
             !CALL dbcsr_copy(rho_check(ispin, 1)%matrix, rho_ao(ispin, 1)%matrix)
-            mo_set => mos(ispin)%mo_set
-            CALL dbcsr_multiply("N", "T", mo_set%maxocc, mo_coeff_b(ispin), mo_coeff_b(ispin), &
-                                0.0_dp, rho_check(ispin, 1)%matrix, retain_sparsity=.FALSE., &
-                                last_k=homo(ispin))
-            cs_1 = dbcsr_checksum(rho_check(ispin, 1)%matrix)
+            !mo_set => mos(ispin)%mo_set
+            !CALL dbcsr_multiply("N", "T", mo_set%maxocc, mo_coeff_b(ispin), mo_coeff_b(ispin), &
+            !                    0.0_dp, rho_check(ispin, 1)%matrix, retain_sparsity=.FALSE., &
+            !                    last_k=homo(ispin))
+            cs_1 = dbcsr_checksum(rho_ao_full(ispin, 1)%matrix)
             cs_2 = dbcsr_checksum(rho_ao(ispin, 1)%matrix)
             PRINT *, "checksums rho", cs_1, cs_2
          ENDDO
@@ -428,17 +466,30 @@ CONTAINS
       !! ** Calculate the exchange energy, copied from integrate_four_center
       ehfx = 0.0_dp
       DO ispin = 1, nspins
-         CALL dbcsr_dot(ks_matrix(ispin, 1)%matrix, rho_ao(ispin, 1)%matrix, &
+         !PRINT *, "checksum result ks", dbcsr_checksum(ks_matrix_ns(ispin, 1)%matrix)
+         !PRINT *, "checksum result rho ao", dbcsr_checksum(rho_ao_full(ispin, 1)%matrix)
+         CALL dbcsr_dot(ks_matrix_ns(ispin, 1)%matrix, rho_ao_full(ispin, 1)%matrix, &
                         etmp)
-         ehfx = ehfx+0.5_dp*etmp
+         ehfx = ehfx-0.5_dp*etmp
          IF (do_admm) THEN
             !for ADMMS, we need the exchange matrix k(d) for both spins
-            CALL dbcsr_copy(ks_matrix_aux_fit_hfx(ispin)%matrix, ks_matrix(ispin, 1)%matrix, &
+            CALL dbcsr_copy(ks_matrix_aux_fit_hfx(ispin)%matrix, ks_matrix_ns(ispin, 1)%matrix, &
                             name="HF exch. part of matrix_ks_aux_fit for ADMMS")
          END IF
       ENDDO
 
       PRINT *, "RI HFX Energy", ehfx
+
+      DO ispin = 1, nspins
+         CALL dbcsr_release(rho_ao_full(ispin, 1)%matrix)
+         CALL dbcsr_reserve_all_blocks(ks_matrix(ispin, 1)%matrix)
+         CALL dbcsr_set(ks_matrix(ispin, 1)%matrix, 0.0_dp)
+         CALL dbcsr_copy_into_existing(ks_matrix(ispin, 1)%matrix, ks_matrix_ns(ispin, 1)%matrix)
+         CALL dbcsr_filter(ks_matrix(ispin, 1)%matrix, ri_data%filter_eps)
+         CALL dbcsr_release(ks_matrix_ns(ispin, 1)%matrix)
+         CALL dbcsr_release(mo_coeff_b(ispin))
+         DEALLOCATE (rho_ao_full(ispin, 1)%matrix, ks_matrix_ns(ispin, 1)%matrix)
+      ENDDO
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -542,6 +593,9 @@ CONTAINS
                                filter_eps=ri_data%filter_eps, &
                                unit_nr=unit_nr)
 
+
+         !PRINT *, "checksum t_3c_int_moco", dbcsr_t_checksum(t_3c_int_ctr(1, 1))
+
          !PRINT *, "checksum contraction 1 out", dbcsr_t_checksum(t_3c_int_ctr(1,1))
          CALL dbcsr_t_copy(t_3c_int_ctr(1, 1), t_3c_int_ctr_opt(1, 1))! move_data=.TRUE.)
          !PRINT *, "checksum opt", dbcsr_t_checksum(t_3c_int_ctr_opt(1,1))
@@ -553,6 +607,9 @@ CONTAINS
                                contract_2=[1, 2], notcontract_2=[3], &
                                map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps, &
                                unit_nr=unit_nr)
+
+
+         !PRINT *, "checksum ks_t", dbcsr_t_checksum(ks_t)
          !PRINT *, "checksum ks tensor", ispin, dbcsr_t_checksum(ks_t)
          CALL dbcsr_t_copy_tensor_to_matrix(ks_t, ks_matrix(ispin, 1)%matrix, summation=.TRUE.)
 
