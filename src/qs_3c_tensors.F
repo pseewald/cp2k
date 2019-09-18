@@ -28,7 +28,10 @@ MODULE qs_3c_tensors
    USE dbcsr_api,                       ONLY: dbcsr_filter,&
                                               dbcsr_finalize,&
                                               dbcsr_get_block_p,&
-                                              dbcsr_type
+                                              dbcsr_type, &
+                                              dbcsr_add, &
+                                              dbcsr_transposed, &
+                                              dbcsr_release
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_blk_sizes, dbcsr_t_copy, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
         dbcsr_t_get_block, dbcsr_t_get_stored_coordinates, dbcsr_t_put_block, &
@@ -1218,6 +1221,7 @@ CONTAINS
       TYPE(neighbor_list_iterator_p_type), &
          DIMENSION(:), POINTER                           :: nl_iterator
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
+      TYPE(dbcsr_type)                                   :: t2c_tr
 
       CALL timeset(routineN, handle)
 
@@ -1400,6 +1404,9 @@ CONTAINS
       CALL neighbor_list_iterator_release(nl_iterator)
       DO img = 1, SIZE(t2c)
          CALL dbcsr_finalize(t2c(img))
+         CALL dbcsr_transposed(t2c_tr, t2c(img))
+         CALL dbcsr_add(t2c(img), t2c_tr, 0.5_dp, 0.5_dp)
+         CALL dbcsr_release(t2c_tr)
          CALL dbcsr_filter(t2c(img), filter_eps)
       ENDDO
 
