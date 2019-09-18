@@ -82,12 +82,12 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, unit_nr
-      REAL(KIND=dp)                                      :: frob_matrix, frob_matrix_base, threshold
+      REAL(KIND=dp)                                      :: threshold
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(dbcsr_t_type), DIMENSION(1)                   :: t_2c_int
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_1, t_3c_int_2
-      TYPE(dbcsr_type), DIMENSION(1) :: matrix_tmp1, t_2c_int_mat, t_2c_op_pot, t_2c_op_pot_sqrt, &
-         t_2c_op_pot_sqrt2, t_2c_op_pot_sqrt_inv, t_2c_op_RI, t_2c_op_RI_inv
+      TYPE(dbcsr_type), DIMENSION(1) :: t_2c_int_mat, t_2c_op_pot, t_2c_op_pot_sqrt, &
+         t_2c_op_pot_sqrt_inv, t_2c_op_RI, t_2c_op_RI_inv
 
       CALL timeset(routineN, handle)
 
@@ -102,8 +102,6 @@ CONTAINS
       ENDIF
 
       CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_op_RI, t_2c_op_pot, t_3c_int_1)
-      CALL check_symmetry(t_2c_op_pot(1)) ! ok
-      IF (.NOT. ri_data%same_op) CALL check_symmetry(t_2c_op_RI(1)) ! not ok
 
       IF (.NOT. ri_data%same_op) THEN
          CALL dbcsr_create(t_2c_op_RI_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
@@ -111,17 +109,7 @@ CONTAINS
          CALL invert_hotelling(t_2c_op_RI_inv(1), t_2c_op_RI(1), threshold=threshold)
          CALL check_symmetry(t_2c_op_RI_inv(1)) ! ok
          IF (ri_data%check_2c_inv) THEN
-            CALL dbcsr_create(matrix_tmp1(1), template=t_2c_op_RI(1), &
-                              matrix_type=dbcsr_type_no_symmetry)
-            CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_RI_inv(1), t_2c_op_RI(1), &
-                                0.0_dp, matrix_tmp1(1), filter_eps=ri_data%filter_eps)
-            frob_matrix_base = dbcsr_frobenius_norm(matrix_tmp1(1))
-            CALL dbcsr_add_on_diag(matrix_tmp1(1), -1.0_dp)
-            frob_matrix = dbcsr_frobenius_norm(matrix_tmp1(1))
-            IF (unit_nr > 0) THEN
-               WRITE (unit_nr, *) "Error for (inv(K)*K-I)", frob_matrix/frob_matrix_base
-            ENDIF
-            CALL dbcsr_release(matrix_tmp1(1))
+            CALL check_inverse(t_2c_op_RI_inv(1), t_2c_op_RI(1), unit_nr)
          ENDIF
          CALL dbcsr_release(t_2c_op_RI(1))
 
@@ -130,23 +118,10 @@ CONTAINS
          CALL matrix_sqrt_newton_schulz(t_2c_op_pot_sqrt(1), t_2c_op_pot_sqrt_inv(1), t_2c_op_pot(1), &
                                         ri_data%filter_eps, ri_data%t2c_sqrt_order, ri_data%eps_lanczos, &
                                         ri_data%max_iter_lanczos)
-         CALL dbcsr_release(t_2c_op_pot_sqrt_inv(1))
          IF (ri_data%check_2c_inv) THEN
-            CALL dbcsr_create(matrix_tmp1(1), template=t_2c_op_pot(1), &
-                              matrix_type=dbcsr_type_no_symmetry)
-            CALL dbcsr_create(t_2c_op_pot_sqrt2(1), template=t_2c_op_pot_sqrt(1), &
-                              matrix_type=dbcsr_type_no_symmetry)
-            CALL dbcsr_copy(t_2c_op_pot_sqrt2(1), t_2c_op_pot_sqrt(1))
-            CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_pot_sqrt(1), t_2c_op_pot_sqrt2(1), &
-                                0.0_dp, matrix_tmp1(1), filter_eps=ri_data%filter_eps)
-            CALL dbcsr_add(matrix_tmp1(1), t_2c_op_pot(1), 1.0_dp, -1.0_dp)
-            frob_matrix = dbcsr_frobenius_norm(matrix_tmp1(1))
-            IF (unit_nr > 0) THEN
-               WRITE (unit_nr, *) "Error for (K^(1/2)*K^(1/2) - K)", frob_matrix
-            ENDIF
-            CALL dbcsr_release(matrix_tmp1(1))
-            CALL dbcsr_release(t_2c_op_pot_sqrt2(1))
+            CALL check_sqrt(t_2c_op_pot(1), t_2c_op_pot_sqrt(1), t_2c_op_pot_sqrt_inv(1), unit_nr)
          ENDIF
+         CALL dbcsr_release(t_2c_op_pot_sqrt_inv(1))
 
          CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
          CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_RI_inv(1), t_2c_op_pot_sqrt(1), &
@@ -159,6 +134,9 @@ CONTAINS
          CALL matrix_sqrt_newton_schulz(t_2c_op_pot_sqrt(1), t_2c_int_mat(1), t_2c_op_pot(1), &
                                         ri_data%filter_eps, ri_data%t2c_sqrt_order, ri_data%eps_lanczos, &
                                         ri_data%max_iter_lanczos)
+         IF (ri_data%check_2c_inv) THEN
+            CALL check_sqrt(t_2c_op_pot(1), t_2c_op_pot_sqrt(1), t_2c_int_mat(1), unit_nr)
+         ENDIF
          CALL dbcsr_release(t_2c_op_pot_sqrt(1))
       ENDIF
 
@@ -213,6 +191,53 @@ CONTAINS
       CALL dbcsr_get_info(matrix, name=name)
       PRINT *, "checksum sym ", TRIM(name), cs_old, cs
       CPASSERT(cs < 1.0E-12_dp)
+   END SUBROUTINE
+
+   SUBROUTINE check_inverse(matrix_1, matrix_2, unit_nr) ! ok
+      TYPE(dbcsr_type), INTENT(INOUT) :: matrix_1, matrix_2
+      TYPE(dbcsr_type)                :: matrix_tmp
+      REAL(KIND=dp)                   :: frob_matrix_base, frob_matrix, error
+      INTEGER, INTENT(IN)             :: unit_nr
+
+      CALL dbcsr_create(matrix_tmp, template=matrix_1, &
+                        matrix_type=dbcsr_type_no_symmetry)
+      CALL dbcsr_multiply("N", "N", 1.0_dp, matrix_1, matrix_2, &
+                          0.0_dp, matrix_tmp)
+      frob_matrix_base = dbcsr_frobenius_norm(matrix_tmp)
+      CALL dbcsr_add_on_diag(matrix_tmp, -1.0_dp)
+      frob_matrix = dbcsr_frobenius_norm(matrix_tmp)
+      error = frob_matrix/frob_matrix_base
+      IF (unit_nr > 0) THEN
+         WRITE (unit_nr, *) "Error for (inv(K)*K-I)", error
+      ENDIF
+      CPASSERT(error < 1.0E-10_dp)
+      CALL dbcsr_release(matrix_tmp)
+   END SUBROUTINE
+
+   SUBROUTINE check_sqrt(matrix, matrix_sqrt, matrix_sqrt_inv, unit_nr)
+      TYPE(dbcsr_type), INTENT(INOUT) :: matrix, matrix_sqrt, matrix_sqrt_inv
+      INTEGER, INTENT(IN)             :: unit_nr
+      TYPE(dbcsr_type)                :: matrix_sqrt_2, matrix_tmp
+      REAL(KIND=dp)                   :: frob_matrix
+      CALL dbcsr_create(matrix_tmp, template=matrix_sqrt, &
+                        matrix_type=dbcsr_type_no_symmetry)
+      CALL dbcsr_create(matrix_sqrt_2, template=matrix_sqrt, &
+                        matrix_type=dbcsr_type_no_symmetry)
+      CALL dbcsr_copy(matrix_sqrt_2, matrix_sqrt)
+      CALL dbcsr_multiply("N", "N", 1.0_dp, matrix_sqrt, matrix_sqrt_2, &
+                          0.0_dp, matrix_tmp)
+      CALL dbcsr_add(matrix_tmp, matrix, 1.0_dp, -1.0_dp)
+      frob_matrix = dbcsr_frobenius_norm(matrix_tmp)
+      IF (unit_nr > 0) THEN
+         WRITE (unit_nr, *) "Error for (K^(1/2)*K^(1/2) - K)", frob_matrix
+      ENDIF
+
+      CPASSERT(frob_matrix < 1.0E-10_dp)
+      CALL dbcsr_release(matrix_tmp)
+      CALL dbcsr_release(matrix_sqrt_2)
+
+      CALL check_inverse(matrix_sqrt_inv, matrix_sqrt, unit_nr)
+
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -301,6 +326,7 @@ CONTAINS
 
 
       PRINT *, "checksum t_2c_int_pot", dbcsr_checksum(t_2c_int_pot(1))
+      CALL check_symmetry(t_2c_int_pot(1))
 
       CALL neighbor_list_2c_destroy(nl_2c_pot)
 
@@ -310,6 +336,7 @@ CONTAINS
                                  r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
 
          PRINT *, "checksum t_2c_int_RI", dbcsr_checksum(t_2c_int_RI(1))
+         CALL check_symmetry(t_2c_int_RI(1))
 
          CALL neighbor_list_2c_destroy(nl_2c_RI)
       ENDIF
@@ -360,7 +387,10 @@ CONTAINS
       threshold = MAX(ri_data%filter_eps, 1.0e-12_dp) ! see admm_methods
       CALL invert_hotelling(t_2c_int_mat(1), t_2c_op_RI(1), &
                             threshold=threshold)
-      CALL check_symmetry(t_2c_int_mat(1)) ! ok
+
+      IF (ri_data%check_2c_inv) THEN
+         CALL check_inverse(t_2c_int_mat(1), t_2c_op_RI(1), unit_nr) ! ok
+      ENDIF
       IF (ri_data%same_op) THEN
          CALL dbcsr_release(t_2c_op_pot(1))
       ELSE
