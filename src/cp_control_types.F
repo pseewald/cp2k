@@ -475,7 +475,8 @@ MODULE cp_control_types
       INTEGER                              :: auto_basis_ri_aux = 1, &
                                               auto_basis_aux_fit = 1, &
                                               auto_basis_lri_aux = 1, &
-                                              auto_basis_ri_hxc = 1
+                                              auto_basis_ri_hxc = 1, &
+                                              auto_basis_ri_hfx = 1
       REAL(KIND=dp)                        :: relax_multiplicity, &
                                               sic_scaling_a, &
                                               sic_scaling_b
