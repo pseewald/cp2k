@@ -23,6 +23,7 @@ MODULE hfx_ri
         dbcsr_dot, dbcsr_filter, dbcsr_frobenius_norm, dbcsr_get_info, dbcsr_multiply, &
         dbcsr_p_type, dbcsr_release, dbcsr_reserve_all_blocks, dbcsr_scalar, dbcsr_scale, &
         dbcsr_set, dbcsr_transposed, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_real_8
+
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, &
@@ -35,7 +36,7 @@ MODULE hfx_ri
                                               ri_pmat
    USE iterate_matrix,                  ONLY: invert_hotelling,&
                                               matrix_sqrt_newton_schulz
-   USE kinds,                           ONLY: dp
+   USE kinds,                           ONLY: dp, default_string_length
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE qs_3c_tensors,                   ONLY: build_2c_integrals,&
@@ -101,8 +102,8 @@ CONTAINS
       ENDIF
 
       CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_op_RI, t_2c_op_pot, t_3c_int_1)
-      IF (.NOT. ri_data%same_op) CALL check_symmetry(t_2c_op_RI(1)) ! ok
       CALL check_symmetry(t_2c_op_pot(1)) ! ok
+      IF (.NOT. ri_data%same_op) CALL check_symmetry(t_2c_op_RI(1)) ! not ok
 
       IF (.NOT. ri_data%same_op) THEN
          CALL dbcsr_create(t_2c_op_RI_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
@@ -203,12 +204,14 @@ CONTAINS
 
       REAL(dp)                                           :: cs, cs_old
       TYPE(dbcsr_type)                                   :: matrix_tr
+      CHARACTER(len=default_string_length)               :: name
 
       CALL dbcsr_transposed(matrix_tr, matrix)
       CALL dbcsr_add(matrix_tr, matrix, 0.5_dp, -0.5_dp)
       cs = dbcsr_checksum(matrix_tr)
       cs_old = dbcsr_checksum(matrix)
-      PRINT *, "checksum sym", cs_old, cs
+      CALL dbcsr_get_info(matrix, name=name)
+      PRINT *, "checksum sym ", TRIM(name), cs_old, cs
       CPASSERT(cs < 1.0E-12_dp)
    END SUBROUTINE
 
@@ -267,6 +270,7 @@ CONTAINS
       CALL build_3c_integrals(t_3c_int, ri_data%filter_eps, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
                               op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
+      PRINT *, "checksum t_3c_int", dbcsr_t_checksum(t_3c_int(1,1))
 
       CALL neighbor_list_3c_destroy(nl_3c)
 
@@ -295,12 +299,17 @@ CONTAINS
                               t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_pot, omega=ri_data%omega_pot)
 
+
+      PRINT *, "checksum t_2c_int_pot", dbcsr_checksum(t_2c_int_pot(1))
+
       CALL neighbor_list_2c_destroy(nl_2c_pot)
 
       IF (.NOT. ri_data%same_op) THEN
          CALL build_2c_integrals(t_2c_int_RI, ri_data%filter_eps, qs_env, nl_2c_RI, basis_set_RI, basis_set_RI, &
                                  op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                                  r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
+
+         PRINT *, "checksum t_2c_int_RI", dbcsr_checksum(t_2c_int_RI(1))
 
          CALL neighbor_list_2c_destroy(nl_2c_RI)
       ENDIF
