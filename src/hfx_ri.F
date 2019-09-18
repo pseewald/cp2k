@@ -172,7 +172,7 @@ CONTAINS
       CALL dbcsr_t_create(t_3c_int_1(1, 1), t_3c_int_2(1, 1), name="(RI | AO AO)")
       CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_2c_int(1), t_3c_int_1(1, 1), &
                             dbcsr_scalar(0.0_dp), t_3c_int_2(1, 1), &
-                            contract_1=[2], notcontract_1=[1], &
+                            contract_1=[1], notcontract_1=[2], &
                             contract_2=[1], notcontract_2=[2, 3], &
                             map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, & !, move_data=.TRUE., &
                             unit_nr=unit_nr)
