@@ -206,7 +206,7 @@ CONTAINS
             IF (ASSOCIATED(basis_j(ikind)%gto_basis_set)) THEN
                j_present(ikind) = .TRUE.
                CALL get_gto_basis_set(basis_j(ikind)%gto_basis_set, kind_radius=j_radius(ikind))
-               j_radius(ikind) = j_radius(ikind)+x_range
+               j_radius(ikind) = j_radius(ikind) + 1.01*x_range
             END IF
          END DO
 
