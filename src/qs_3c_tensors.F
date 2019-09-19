@@ -8,7 +8,7 @@
 !> \todo support symmetry
 ! **************************************************************************************************
 MODULE qs_3c_tensors
-   USE ai_contraction,                  ONLY: block_add
+   USE ai_contraction,                  ONLY: block_add, contraction
    USE ai_contraction_sphi,             ONLY: ab_contract,&
                                               abc_contract
    USE ai_coulomb,                      ONLY: coulomb2_new
@@ -1197,7 +1197,7 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER :: handle, iatom, ibasis, ikind, imax, img, iset, jatom, jkind, jset, m_max, maxli, &
-         maxlj, n1, n2, natom, ncoi, ncoj, nimg, nseti, nsetj, op_prv, sgfi, sgfj, unit_id
+         maxlj, n1, n2, natom, ncoi, ncoj, nimg, nseti, nsetj, op_prv, sgfi, sgfj, offi, offj, unit_id
       INTEGER, DIMENSION(3)                              :: cell
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmin_i, lmin_j, npgfi, &
                                                             npgfj, nsgfi, nsgfj
@@ -1327,12 +1327,14 @@ CONTAINS
             ncoi = npgfi(iset)*ncoset(lmax_i(iset))
             n1 = npgfi(iset)*(ncoset(lmax_i(iset))-ncoset(lmin_i(iset)-1))
             sgfi = first_sgf_i(1, iset)
+            offi = ncoset(lmin_i(iset)-1)+1
 
             DO jset = 1, nsetj
 
                ncoj = npgfj(jset)*ncoset(lmax_j(jset))
                n2 = npgfj(jset)*(ncoset(lmax_j(jset))-ncoset(lmin_j(jset)-1))
                sgfj = first_sgf_j(1, jset)
+               offj = ncoset(lmin_j(jset)-1)+1
 
                IF (ncoi*ncoj > 0) THEN
                   ALLOCATE (sij(ncoi, ncoj))
@@ -1346,7 +1348,7 @@ CONTAINS
                   IF (op_prv == do_potential_id) THEN ! cp2k overlap integrals
                      CALL overlap_ab(lmax_i(iset), lmin_i(iset), npgfi(iset), rpgf_i(:, iset), zeti(:, iset), &
                                      lmax_j(jset), lmin_j(jset), npgfj(jset), rpgf_j(:, jset), zetj(:, jset), &
-                                     rij, sab=sij)
+                                     rij, sab=sij(offi:, offj:))
                   ELSE
                      ri = 0.0_dp
                      rj = rij
@@ -1384,6 +1386,8 @@ CONTAINS
                   CALL ab_contract(sij_contr, sij, &
                                    sphi_i(:, sgfi:), sphi_j(:, sgfj:), &
                                    ncoi, ncoj, nsgfi(iset), nsgfj(jset))
+                  !CALL contraction(sij, sij_contr, ca=scon_i(:, sgfi:), na=n1, ma=nsgfi(iset), &
+                  !                 cb=scon_j(:, sgfj:), nb=n2, mb=nsgfj(jset), fscale=1.0_dp)
 
                   CALL block_add("IN", sij_contr, nsgfi(iset), nsgfj(jset), block_t%block, &
                                  sgfi, sgfj) !trans=trans)
