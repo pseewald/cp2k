@@ -324,7 +324,7 @@ CONTAINS
                           dbcsr_type_real_8, sizes_RI, sizes_AO, sizes_AO)
 
       CALL build_3c_neighbor_lists(nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, ri_data%dist1_3d, "HFX_3c_nl", &
-                                   qs_env, op_ij=ri_data%op_ri, sym_jk=.TRUE., x_range=ri_data%r_cutoff_ri)
+                                   qs_env, op_ij=ri_data%op_ri, sym_jk=.FALSE., x_range=ri_data%r_cutoff_ri)
       CALL build_3c_integrals(t_3c_int, ri_data%filter_eps, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
                               op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)

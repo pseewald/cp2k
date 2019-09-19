@@ -965,21 +965,31 @@ CONTAINS
                         ri = 0.0_dp
                         rj = rij ! ri + rij
                         rk = rik ! ri + rik
-                        CALL eri_3center(sijk, lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), &
-                                         ri, lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), &
-                                         rj, lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), &
-                                         rk, lib, op_jk_prv, omega=omega, r_cutoff=r_cutoff)
+                        CALL eri_3center(sijk, &
+                                         lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), ri, &
+                                         lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), rj, &
+                                         lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), rk, &
+                                         lib, op_jk_prv, omega=omega, r_cutoff=r_cutoff)
                      ELSEIF (op_ij_prv /= do_potential_id) THEN
                         ri = 0.0_dp
                         rj = rij ! ri + rij
                         rk = rik ! ri + rik
                         ALLOCATE (sijk_rs(ncoj, ncok, ncoi))
                         sijk_rs(:, :, :) = 0.0_dp
-                        CALL eri_3center(sijk_rs, lmin_j(iset), lmax_j(jset), npgfj(jset), zetj(:, jset), &
-                                         rj, lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), &
-                                         rk, lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), &
-                                         ri, lib, op_ij_prv, omega=omega, r_cutoff=r_cutoff)
-                        sijk(:, :, :) = RESHAPE(sijk_rs, SHAPE(sijk), ORDER=[3, 1, 2])
+                        CALL eri_3center(sijk_rs, &
+                                         lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), rj, &
+                                         lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), rk, &
+                                         lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), ri, &
+                                         lib, op_ij_prv, omega=omega, r_cutoff=r_cutoff)
+                        !sijk(:, :, :) = RESHAPE(sijk_rs, SHAPE(sijk), ORDER=[3, 1, 2])
+                        sijk(:, :, :) = RESHAPE(sijk_rs, SHAPE(sijk), ORDER=[2, 3, 1])
+                        !DO i=1, SIZE(sijk_rs, 3)
+                        !   DO j=1, SIZE(sijk_rs, 1)
+                        !      DO k=1, SIZE(sijk_rs, 2)
+                        !         sijk(i, j, k) = sijk_rs(j, k, i)
+                        !      ENDDO
+                        !   ENDDO
+                        !ENDDO
                         DEALLOCATE (sijk_rs)
                      ENDIF
 
@@ -999,7 +1009,7 @@ CONTAINS
 
                      IF (do_kpoints_prv) THEN
                         prefac = 0.5_dp
-                     ELSE
+                     ELSEIF(nl_3c%sym == symmetric_jk) THEN
                         IF (jatom == katom) THEN
                            ! factor 0.5 due to double-counting of diagonal blocks
                            ! (we desymmetrize by adding transpose)
@@ -1007,7 +1017,8 @@ CONTAINS
                         ELSE
                            prefac = 1.0_dp
                         ENDIF
-
+                     ELSE
+                        prefac = 1.0_dp
                      ENDIF
 
                      block_t(block_start_i:block_end_i, &
@@ -1075,7 +1086,6 @@ CONTAINS
       ELSEIF (nl_3c%sym == symmetric_none) THEN
          DO jcell = 1, nimg
             DO kcell = 1, nimg
-               ! need half of filter eps because afterwards we add transposed tensor
                CALL dbcsr_t_filter(t3c(jcell, kcell), filter_eps)
             ENDDO
          ENDDO
