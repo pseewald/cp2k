@@ -8,7 +8,7 @@
 !> \todo support symmetry
 ! **************************************************************************************************
 MODULE qs_3c_tensors
-   USE ai_contraction,                  ONLY: block_add, contraction
+   USE ai_contraction,                  ONLY: block_add
    USE ai_contraction_sphi,             ONLY: ab_contract,&
                                               abc_contract
    USE ai_coulomb,                      ONLY: coulomb2_new
@@ -25,13 +25,13 @@ MODULE qs_3c_tensors
    USE cp_files,                        ONLY: close_file,&
                                               open_file
    USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_filter,&
+   USE dbcsr_api,                       ONLY: dbcsr_add,&
+                                              dbcsr_filter,&
                                               dbcsr_finalize,&
                                               dbcsr_get_block_p,&
-                                              dbcsr_type, &
-                                              dbcsr_add, &
-                                              dbcsr_transposed, &
-                                              dbcsr_release
+                                              dbcsr_release,&
+                                              dbcsr_transposed,&
+                                              dbcsr_type
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_blk_sizes, dbcsr_t_copy, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
         dbcsr_t_get_block, dbcsr_t_get_stored_coordinates, dbcsr_t_put_block, &
@@ -209,7 +209,7 @@ CONTAINS
             IF (ASSOCIATED(basis_j(ikind)%gto_basis_set)) THEN
                j_present(ikind) = .TRUE.
                CALL get_gto_basis_set(basis_j(ikind)%gto_basis_set, kind_radius=j_radius(ikind))
-               j_radius(ikind) = j_radius(ikind) + 1.01*x_range
+               j_radius(ikind) = j_radius(ikind)+1.01*x_range
             END IF
          END DO
 
@@ -560,13 +560,18 @@ CONTAINS
 !> \param basis_j ...
 !> \param basis_k ...
 !> \param qs_env ...
+!> \param op_ij ...
+!> \param op_jk ...
+!> \param x_range ...
 !> \param do_kpoints ...
 ! **************************************************************************************************
-   SUBROUTINE alloc_block_3c(t3c, nl_3c, basis_i, basis_j, basis_k, qs_env, do_kpoints)
+   SUBROUTINE alloc_block_3c(t3c, nl_3c, basis_i, basis_j, basis_k, qs_env, op_ij, op_jk, x_range, do_kpoints)
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t3c
       TYPE(neighbor_list_3c_type), INTENT(INOUT)         :: nl_3c
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j, basis_k
       TYPE(qs_environment_type), POINTER                 :: qs_env
+      INTEGER, INTENT(IN), OPTIONAL                      :: op_ij, op_jk
+      REAL(KIND=dp), INTENT(IN), OPTIONAL                :: x_range
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'alloc_block_3c', routineP = moduleN//':'//routineN
@@ -578,8 +583,9 @@ CONTAINS
       INTEGER, DIMENSION(3)                              :: cell_j, cell_k
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL                                            :: do_kpoints_prv, new_block
-      REAL(KIND=dp)                                      :: dij, dik, djk, kind_radius_i, &
-                                                            kind_radius_j, kind_radius_k
+      REAL(KIND=dp)                                      :: dij, dik, djk, dr_ij, dr_jk, &
+                                                            kind_radius_i, kind_radius_j, &
+                                                            kind_radius_k
       REAL(KIND=dp), DIMENSION(3)                        :: rij, rik, rjk
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cp_para_env_type), POINTER                    :: para_env
@@ -597,6 +603,16 @@ CONTAINS
          do_kpoints_prv = do_kpoints
       ELSE
          do_kpoints_prv = .FALSE.
+      ENDIF
+
+      dr_ij = 0.0_dp; dr_jk = 0.0_dp
+
+      IF (PRESENT(op_ij)) THEN
+         IF (op_ij /= do_potential_id .AND. PRESENT(x_range)) dr_ij = x_range
+      ENDIF
+
+      IF (PRESENT(op_jk)) THEN
+         IF (op_jk /= do_potential_id .AND. PRESENT(x_range)) dr_jk = x_range
       ENDIF
 
       CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, qs_kind_set=qs_kind_set, natom=natom, &
@@ -643,9 +659,9 @@ CONTAINS
          CALL get_gto_basis_set(basis_j(jkind)%gto_basis_set, kind_radius=kind_radius_j)
          CALL get_gto_basis_set(basis_k(kkind)%gto_basis_set, kind_radius=kind_radius_k)
 
-         IF (kind_radius_j+kind_radius_i < dij) CYCLE
-         IF (kind_radius_j+kind_radius_k < djk) CYCLE
-         IF (kind_radius_k+kind_radius_i < dik) CYCLE
+         IF (kind_radius_j+kind_radius_i+dr_ij < dij) CYCLE
+         IF (kind_radius_j+kind_radius_k+dr_jk < djk) CYCLE
+         !IF (kind_radius_k+kind_radius_i < dik) CYCLE
 
          ! tensor is not symmetric therefore need to allocate rows and columns in
          ! correspondence with neighborlist. Note that this only allocates half
@@ -782,8 +798,9 @@ CONTAINS
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgf_i, first_sgf_j, first_sgf_k
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL                                            :: do_kpoints_prv, found
-      REAL(KIND=dp)                                      :: dij, dik, djk, kind_radius_i, &
-                                                            kind_radius_j, kind_radius_k, prefac
+      REAL(KIND=dp)                                      :: dij, dik, djk, dr_ij, dr_jk, &
+                                                            kind_radius_i, kind_radius_j, &
+                                                            kind_radius_k, prefac
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: block_t, dummy_block_t, sijk, &
                                                             sijk_contr, sijk_rs
       REAL(KIND=dp), DIMENSION(3)                        :: ri, rij, rik, rj, rjk, rk
@@ -807,7 +824,9 @@ CONTAINS
          do_kpoints_prv = .FALSE.
       ENDIF
 
-      !CPASSERT(.NOT. PRESENT(op_ij) .AND. PRESENT(op_jk))
+      dr_ij = 0; dr_jk = 0
+
+      CPASSERT(.NOT. (PRESENT(op_ij) .AND. PRESENT(op_jk)))
 
       IF (PRESENT(op_ij)) THEN
          op_ij_prv = op_ij
@@ -821,9 +840,16 @@ CONTAINS
          op_jk_prv = do_potential_id
       ENDIF
 
+      dr_ij = 0.0_dp; dr_jk = 0.0_dp
+
+      IF (op_ij_prv /= do_potential_id .AND. PRESENT(r_cutoff)) dr_ij = r_cutoff
+
+      IF (op_jk_prv /= do_potential_id .AND. PRESENT(r_cutoff)) dr_jk = r_cutoff
+
       NULLIFY (qs_kind_set, atomic_kind_set)
 
-      CALL alloc_block_3c(t3c, nl_3c, basis_i, basis_j, basis_k, qs_env, do_kpoints=do_kpoints)
+      CALL alloc_block_3c(t3c, nl_3c, basis_i, basis_j, basis_k, qs_env, &
+                          op_ij=op_ij, op_jk=op_jk, x_range=r_cutoff, do_kpoints=do_kpoints)
 
       ! get stuff
       CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, qs_kind_set=qs_kind_set, &
@@ -919,9 +945,9 @@ CONTAINS
          dij = SQRT(SUM(rij**2))
          dik = SQRT(SUM(rik**2))
 
-         IF (kind_radius_j+kind_radius_i < dij) CYCLE
-         IF (kind_radius_j+kind_radius_k < djk) CYCLE
-         IF (kind_radius_k+kind_radius_i < dik) CYCLE
+         IF (kind_radius_j+kind_radius_i+dr_ij < dij) CYCLE
+         IF (kind_radius_j+kind_radius_k+dr_jk < djk) CYCLE
+         !IF (kind_radius_k+kind_radius_i < dik) CYCLE
 
          CALL dbcsr_t_blk_sizes(t3c(jcell, kcell), [iatom, jatom, katom], blk_size)
 
@@ -934,12 +960,12 @@ CONTAINS
 
             DO jset = 1, nsetj
 
-               IF (set_radius_j(jset)+set_radius_i(iset) < dij) CYCLE
+               IF (set_radius_j(jset)+set_radius_i(iset)+dr_ij < dij) CYCLE
 
                DO kset = 1, nsetk
 
-                  IF (set_radius_j(jset)+set_radius_k(kset) < djk) CYCLE
-                  IF (set_radius_k(kset)+set_radius_i(iset) < dik) CYCLE
+                  IF (set_radius_j(jset)+set_radius_k(kset)+dr_jk < djk) CYCLE
+                  !IF (set_radius_k(kset)+set_radius_i(iset) < dik) CYCLE
 
                   ncoi = npgfi(iset)*ncoset(lmax_i(iset))
                   ncoj = npgfj(jset)*ncoset(lmax_j(jset))
@@ -1009,7 +1035,7 @@ CONTAINS
 
                      IF (do_kpoints_prv) THEN
                         prefac = 0.5_dp
-                     ELSEIF(nl_3c%sym == symmetric_jk) THEN
+                     ELSEIF (nl_3c%sym == symmetric_jk) THEN
                         IF (jatom == katom) THEN
                            ! factor 0.5 due to double-counting of diagonal blocks
                            ! (we desymmetrize by adding transpose)
@@ -1207,7 +1233,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER :: handle, iatom, ibasis, ikind, imax, img, iset, jatom, jkind, jset, m_max, maxli, &
-         maxlj, n1, n2, natom, ncoi, ncoj, nimg, nseti, nsetj, op_prv, sgfi, sgfj, offi, offj, unit_id
+         maxlj, n1, n2, natom, ncoi, ncoj, nimg, nseti, nsetj, offi, offj, op_prv, sgfi, sgfj, &
+         unit_id
       INTEGER, DIMENSION(3)                              :: cell
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmin_i, lmin_j, npgfi, &
                                                             npgfj, nsgfi, nsgfj
@@ -1226,12 +1253,12 @@ CONTAINS
       TYPE(block_p_type)                                 :: block_t
       TYPE(cp_libint_t)                                  :: lib
       TYPE(cp_para_env_type), POINTER                    :: para_env
+      TYPE(dbcsr_type)                                   :: t2c_tr
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(kpoint_type), POINTER                         :: kpoints
       TYPE(neighbor_list_iterator_p_type), &
          DIMENSION(:), POINTER                           :: nl_iterator
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
-      TYPE(dbcsr_type)                                   :: t2c_tr
 
       CALL timeset(routineN, handle)
 

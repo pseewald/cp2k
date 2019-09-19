@@ -23,20 +23,21 @@ MODULE hfx_ri
         dbcsr_dot, dbcsr_filter, dbcsr_frobenius_norm, dbcsr_get_info, dbcsr_multiply, &
         dbcsr_p_type, dbcsr_release, dbcsr_reserve_all_blocks, dbcsr_scalar, dbcsr_scale, &
         dbcsr_set, dbcsr_transposed, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_real_8
-
    USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
+        dbcsr_t_checksum, dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, &
         dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
-        dbcsr_t_get_info, dbcsr_t_mp_environ_pgrid, dbcsr_t_type, dbcsr_t_checksum
+        dbcsr_t_get_info, dbcsr_t_mp_environ_pgrid, dbcsr_t_type
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE hfx_types,                       ONLY: hfx_cyclic_dist,&
                                               hfx_ri_type
+   USE input_constants,                 ONLY: do_potential_id
    USE input_cp2k_hfx,                  ONLY: ri_mo,&
                                               ri_pmat
    USE iterate_matrix,                  ONLY: invert_hotelling,&
                                               matrix_sqrt_newton_schulz
-   USE kinds,                           ONLY: dp, default_string_length
+   USE kinds,                           ONLY: default_string_length,&
+                                              dp
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE qs_3c_tensors,                   ONLY: build_2c_integrals,&
@@ -50,14 +51,13 @@ MODULE hfx_ri
                                               qs_environment_type
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_kind_types,                   ONLY: qs_kind_type
+   USE qs_ks_types,                     ONLY: qs_ks_env_type
    USE qs_mo_methods,                   ONLY: calculate_density_matrix
    USE qs_mo_types,                     ONLY: get_mo_set,&
                                               mo_set_p_type,&
                                               mo_set_type
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
    USE qs_overlap,                      ONLY: build_overlap_matrix_simple
-   USE input_constants,                 ONLY: do_potential_id
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -89,9 +89,10 @@ CONTAINS
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(dbcsr_t_type), DIMENSION(1)                   :: t_2c_int
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_1, t_3c_int_2
-      TYPE(dbcsr_type), DIMENSION(1) :: t_2c_int_mat, t_2c_op_pot, t_2c_op_pot_sqrt, &
-         t_2c_op_pot_sqrt_inv, t_2c_op_RI, t_2c_op_RI_inv !t_2c_op_RI_sqrt, t_2c_op_RI_sqrt_inv
-         !t_2c_op_RI_sqrt_inv_2
+      TYPE(dbcsr_type), DIMENSION(1)                     :: t_2c_int_mat, t_2c_op_pot, &
+                                                            t_2c_op_pot_sqrt, &
+                                                            t_2c_op_pot_sqrt_inv, t_2c_op_RI, &
+                                                            t_2c_op_RI_inv
 
       CALL timeset(routineN, handle)
 
@@ -200,9 +201,9 @@ CONTAINS
    SUBROUTINE check_symmetry(matrix)
       TYPE(dbcsr_type), INTENT(IN)                       :: matrix
 
+      CHARACTER(len=default_string_length)               :: name
       REAL(dp)                                           :: cs, cs_old
       TYPE(dbcsr_type)                                   :: matrix_tr
-      CHARACTER(len=default_string_length)               :: name
 
       CALL dbcsr_transposed(matrix_tr, matrix)
       CALL dbcsr_add(matrix_tr, matrix, 0.5_dp, -0.5_dp)
@@ -213,19 +214,31 @@ CONTAINS
       CPASSERT(cs < 1.0E-12_dp)
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief ...
+!> \param matrix ...
+! **************************************************************************************************
    SUBROUTINE symmetrize(matrix)
-      TYPE(dbcsr_type), INTENT(INOUT) :: matrix
-      TYPE(dbcsr_type)                :: matrix_tr
+      TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix
+
+      TYPE(dbcsr_type)                                   :: matrix_tr
+
       CALL dbcsr_transposed(matrix_tr, matrix)
       CALL dbcsr_add(matrix, matrix_tr, 0.5_dp, 0.5_dp)
    END SUBROUTINE
 
-
+! **************************************************************************************************
+!> \brief ...
+!> \param matrix_1 ...
+!> \param matrix_2 ...
+!> \param unit_nr ...
+! **************************************************************************************************
    SUBROUTINE check_inverse(matrix_1, matrix_2, unit_nr) ! ok
-      TYPE(dbcsr_type), INTENT(INOUT) :: matrix_1, matrix_2
-      TYPE(dbcsr_type)                :: matrix_tmp
-      REAL(KIND=dp)                   :: frob_matrix_base, frob_matrix, error
-      INTEGER, INTENT(IN)             :: unit_nr
+      TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix_1, matrix_2
+      INTEGER, INTENT(IN)                                :: unit_nr
+
+      REAL(KIND=dp)                                      :: error, frob_matrix, frob_matrix_base
+      TYPE(dbcsr_type)                                   :: matrix_tmp
 
       CALL dbcsr_create(matrix_tmp, template=matrix_1, &
                         matrix_type=dbcsr_type_no_symmetry)
@@ -242,11 +255,20 @@ CONTAINS
       CALL dbcsr_release(matrix_tmp)
    END SUBROUTINE
 
+! **************************************************************************************************
+!> \brief ...
+!> \param matrix ...
+!> \param matrix_sqrt ...
+!> \param matrix_sqrt_inv ...
+!> \param unit_nr ...
+! **************************************************************************************************
    SUBROUTINE check_sqrt(matrix, matrix_sqrt, matrix_sqrt_inv, unit_nr)
-      TYPE(dbcsr_type), INTENT(INOUT) :: matrix, matrix_sqrt, matrix_sqrt_inv
-      INTEGER, INTENT(IN)             :: unit_nr
-      TYPE(dbcsr_type)                :: matrix_sqrt_2, matrix_tmp
-      REAL(KIND=dp)                   :: frob_matrix
+      TYPE(dbcsr_type), INTENT(INOUT)                    :: matrix, matrix_sqrt, matrix_sqrt_inv
+      INTEGER, INTENT(IN)                                :: unit_nr
+
+      REAL(KIND=dp)                                      :: frob_matrix
+      TYPE(dbcsr_type)                                   :: matrix_sqrt_2, matrix_tmp
+
       CALL dbcsr_create(matrix_tmp, template=matrix_sqrt, &
                         matrix_type=dbcsr_type_no_symmetry)
       CALL dbcsr_create(matrix_sqrt_2, template=matrix_sqrt, &
@@ -292,7 +314,9 @@ CONTAINS
       INTEGER                                            :: handle, natom, nkind
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: sizes_AO, sizes_RI
       INTEGER, DIMENSION(:), POINTER                     :: col_bsize, row_bsize
+      LOGICAL                                            :: use_qs3c
       TYPE(dbcsr_distribution_type)                      :: dbcsr_dist
+      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: t_2c_int_pot_pointer, t_2c_int_RI_pointer
       TYPE(distribution_2d_type), POINTER                :: dist_2d
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
       TYPE(neighbor_list_3c_type)                        :: nl_3c
@@ -300,9 +324,7 @@ CONTAINS
          POINTER                                         :: nl_2c_pot, nl_2c_RI
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
-      LOGICAL                                            :: use_qs3c
       TYPE(qs_ks_env_type), POINTER                      :: ks_env
-      TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: t_2c_int_pot_pointer, t_2c_int_RI_pointer
 
       use_qs3c = .TRUE.
 
@@ -328,7 +350,7 @@ CONTAINS
       CALL build_3c_integrals(t_3c_int, ri_data%filter_eps, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
                               op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
-      PRINT *, "checksum t_3c_int", dbcsr_t_checksum(t_3c_int(1,1))
+      PRINT *, "checksum t_3c_int", dbcsr_t_checksum(t_3c_int(1, 1))
 
       CALL neighbor_list_3c_destroy(nl_3c)
 
@@ -356,7 +378,6 @@ CONTAINS
       ENDIF
       CALL dbcsr_distribution_release(dbcsr_dist)
 
-
       IF (use_qs3c .OR. (ri_data%op_pot .NE. do_potential_id)) THEN
          CALL build_2c_integrals(t_2c_int_pot, ri_data%filter_eps, qs_env, nl_2c_pot, basis_set_RI, basis_set_RI, &
                                  op_ij=ri_data%op_pot, &
@@ -366,7 +387,6 @@ CONTAINS
          CALL build_overlap_matrix_simple(ks_env, t_2c_int_pot_pointer, basis_set_RI, basis_set_RI, nl_2c_pot)
          t_2c_int_pot = t_2c_int_pot_pointer(1)%matrix
       ENDIF
-
 
       PRINT *, "checksum t_2c_int_pot", dbcsr_checksum(t_2c_int_pot(1))
       CALL check_symmetry(t_2c_int_pot(1))
@@ -383,7 +403,6 @@ CONTAINS
             CALL build_overlap_matrix_simple(ks_env, t_2c_int_RI_pointer, basis_set_RI, basis_set_RI, nl_2c_RI)
             t_2c_int_RI = t_2c_int_RI_pointer(1)%matrix
          ENDIF
-
 
          PRINT *, "checksum t_2c_int_RI", dbcsr_checksum(t_2c_int_RI(1))
          CALL check_symmetry(t_2c_int_RI(1))
@@ -464,15 +483,15 @@ CONTAINS
       CALL dbcsr_t_create(t_3c_int_1(1, 1), t_3c_int_2(1, 1), name="(RI | AO AO)")
       PRINT *, "checksum t_2c_int, t_3c_int_1, t_3c_int_2", &
          dbcsr_t_checksum(t_2c_int(1)), &
-         dbcsr_t_checksum(t_3c_int_1(1,1)), &
-         dbcsr_t_checksum(t_3c_int_2(1,1))
+         dbcsr_t_checksum(t_3c_int_1(1, 1)), &
+         dbcsr_t_checksum(t_3c_int_2(1, 1))
       CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_2c_int(1), t_3c_int_1(1, 1), &
                             dbcsr_scalar(0.0_dp), t_3c_int_2(1, 1), &
                             contract_1=[2], notcontract_1=[1], &
                             contract_2=[1], notcontract_2=[2, 3], &
                             map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, & ! move_data=.TRUE., &
                             unit_nr=unit_nr)
-      PRINT *, "checksum t_3c_int_2(1, 1)", dbcsr_t_checksum(t_3c_int_2(1,1))
+      PRINT *, "checksum t_3c_int_2(1, 1)", dbcsr_t_checksum(t_3c_int_2(1, 1))
       CALL dbcsr_t_destroy(t_2c_int(1))
 
       CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int_ctr(1, 1), order=[2, 1, 3]) !, move_data=.TRUE.)
@@ -703,7 +722,7 @@ CONTAINS
 
          PRINT *, "checksum mo_coeff_t, t_3c_int_ctr, t_3c_int_ctr", &
             dbcsr_t_checksum(mo_coeff_t), &
-            dbcsr_t_checksum(t_3c_int_ctr(1,1)), &
+            dbcsr_t_checksum(t_3c_int_ctr(1, 1)), &
             dbcsr_t_checksum(t_3c_int_ctr(1, 1))
          CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t, ri_data%t_3c_int_ctr(1, 1), &
                                dbcsr_scalar(0.0_dp), t_3c_int_ctr(1, 1), &
@@ -714,7 +733,7 @@ CONTAINS
                                filter_eps=ri_data%filter_eps, &
                                unit_nr=unit_nr)
 
-         PRINT *, "checksum t_3c_int_ctr", dbcsr_t_checksum(t_3c_int_ctr(1,1))
+         PRINT *, "checksum t_3c_int_ctr", dbcsr_t_checksum(t_3c_int_ctr(1, 1))
 
          !PRINT *, "checksum t_3c_int_moco", dbcsr_t_checksum(t_3c_int_ctr(1, 1))
 
@@ -724,8 +743,8 @@ CONTAINS
          CALL dbcsr_t_copy(t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1))
          !PRINT *, "checksum opt copy", dbcsr_t_checksum(t_3c_int_ctr_opt_copy(1,1))
          PRINT *, "checksum t_3c_int_ctr_opt, t_3c_int_ctr_opt_copy, ks_t", &
-            dbcsr_t_checksum(t_3c_int_ctr_opt(1,1)), &
-            dbcsr_t_checksum(t_3c_int_ctr_opt_copy(1,1)), &
+            dbcsr_t_checksum(t_3c_int_ctr_opt(1, 1)), &
+            dbcsr_t_checksum(t_3c_int_ctr_opt_copy(1, 1)), &
             dbcsr_t_checksum(ks_t)
 
          CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1), &
@@ -816,14 +835,14 @@ CONTAINS
                                !move_data=.TRUE., &
                                unit_nr=unit_nr)
 
-         PRINT *, "checksum t_3c_1", dbcsr_t_checksum(t_3c_1(1,1))
+         PRINT *, "checksum t_3c_1", dbcsr_t_checksum(t_3c_1(1, 1))
 
          CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), t_3c_2(1, 1))
          CALL dbcsr_t_copy(t_3c_1(1, 1), t_3c_2(1, 1)) !move_data=.TRUE.)
 
          PRINT *, "checksum t_3c_int_ctr, t_3c_2, ks_t", &
             dbcsr_t_checksum(ri_data%t_3c_int_ctr(1, 1)), &
-            dbcsr_t_checksum(t_3c_2(1,1)), &
+            dbcsr_t_checksum(t_3c_2(1, 1)), &
             dbcsr_t_checksum(ks_t)
          CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), ri_data%t_3c_int_ctr(1, 1), t_3c_2(1, 1), &
                                dbcsr_scalar(0.0_dp), ks_t, &
