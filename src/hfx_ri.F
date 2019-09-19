@@ -251,7 +251,7 @@ CONTAINS
       IF (unit_nr > 0) THEN
          WRITE (unit_nr, *) "Error for (inv(K)*K-I)", error
       ENDIF
-      CPASSERT(error < 1.0E-10_dp)
+      CPASSERT(error < 1.0E-09_dp)
       CALL dbcsr_release(matrix_tmp)
    END SUBROUTINE
 
@@ -541,6 +541,7 @@ CONTAINS
       TYPE(dbcsr_type), DIMENSION(2)                     :: mo_coeff_b
       TYPE(dbcsr_type), POINTER                          :: mo_coeff_b_tmp
       TYPE(mo_set_type), POINTER                         :: mo_set
+      !TYPE(dbcsr_type)                                   :: rho_ao_ns
 
       CALL timeset(routineN, handle)
 
@@ -571,6 +572,7 @@ CONTAINS
          CALL dbcsr_create(rho_ao_full(ispin, 1)%matrix, template=rho_ao(ispin, 1)%matrix, matrix_type=dbcsr_type_no_symmetry)
          CALL calculate_density_matrix(mos(ispin)%mo_set, rho_ao_full(ispin, 1)%matrix, use_dbcsr=.TRUE., &
                                        retain_sparsity=.FALSE.)
+         !CALL dbcsr_desymmetrize(rho_ao(ispin, 1)%matrix, rho_ao_full(ispin, 1)%matrix)
          CALL check_symmetry(rho_ao_full(ispin, 1)%matrix)
       ENDDO
 
@@ -605,9 +607,11 @@ CONTAINS
       DO ispin = 1, nspins
          PRINT *, "checksum result ks", dbcsr_checksum(ks_matrix_ns(ispin, 1)%matrix)
          !PRINT *, "checksum result rho ao", dbcsr_checksum(rho_ao_full(ispin, 1)%matrix)
+         !CALL dbcsr_desymmetrize(rho_ao(ispin, 1)%matrix, rho_ao_ns)
          CALL dbcsr_dot(ks_matrix_ns(ispin, 1)%matrix, rho_ao_full(ispin, 1)%matrix, &
                         etmp)
-         ehfx = ehfx-0.5_dp*etmp
+         !CALL dbcsr_release(rho_ao_ns)
+         ehfx = ehfx-0.25_dp*etmp
          IF (do_admm) THEN
             !for ADMMS, we need the exchange matrix k(d) for both spins
             CALL dbcsr_copy(ks_matrix_aux_fit_hfx(ispin)%matrix, ks_matrix_ns(ispin, 1)%matrix, &
