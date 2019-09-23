@@ -115,7 +115,7 @@ CONTAINS
          !CALL dbcsr_create(t_2c_op_RI_sqrt_inv_2(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
          threshold = MAX(ri_data%filter_eps, 1.0e-12_dp) ! see admm_methods
          CALL invert_hotelling(t_2c_op_RI_inv(1), t_2c_op_RI(1), threshold=threshold)
-         CALL check_symmetry(t_2c_op_RI(1))
+         !CALL check_symmetry(t_2c_op_RI(1))
          !CALL matrix_sqrt_newton_schulz(t_2c_op_RI_sqrt(1), t_2c_op_RI_sqrt_inv(1), t_2c_op_RI(1), &
          !                               ri_data%filter_eps, ri_data%t2c_sqrt_order, ri_data%eps_lanczos, &
          !                               ri_data%max_iter_lanczos)
@@ -170,17 +170,17 @@ CONTAINS
       CALL dbcsr_release(t_2c_int_mat(1))
 
       CALL dbcsr_t_create(t_3c_int_1(1, 1), t_3c_int_2(1, 1), name="(RI | AO AO)")
-      PRINT *, "checksum t_2c_int, t_3c_int_1, t_3c_int_2", &
-         dbcsr_t_checksum(t_2c_int(1)), &
-         dbcsr_t_checksum(t_3c_int_1(1, 1)), &
-         dbcsr_t_checksum(t_3c_int_2(1, 1))
+      !PRINT *, "checksum t_2c_int, t_3c_int_1, t_3c_int_2", &
+      !   dbcsr_t_checksum(t_2c_int(1)), &
+      !   dbcsr_t_checksum(t_3c_int_1(1, 1)), &
+      !   dbcsr_t_checksum(t_3c_int_2(1, 1))
       CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_2c_int(1), t_3c_int_1(1, 1), &
                             dbcsr_scalar(0.0_dp), t_3c_int_2(1, 1), &
                             contract_1=[1], notcontract_1=[2], &
                             contract_2=[1], notcontract_2=[2, 3], &
                             map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, & !, move_data=.TRUE., &
                             unit_nr=unit_nr)
-      PRINT *, "checksum t_3c_int_2", dbcsr_t_checksum(t_3c_int_2(1, 1))
+      !PRINT *, "checksum t_3c_int_2", dbcsr_t_checksum(t_3c_int_2(1, 1))
 
       !PRINT *, "checksum t_3c_int", dbcsr_t_checksum(t_3c_int_1(1, 1))
       !PRINT *, "checksum t_3c_int_ctr", dbcsr_t_checksum(t_3c_int_2(1, 1))
@@ -210,7 +210,7 @@ CONTAINS
       cs = dbcsr_checksum(matrix_tr)
       cs_old = dbcsr_checksum(matrix)
       CALL dbcsr_get_info(matrix, name=name)
-      PRINT *, "checksum sym ", TRIM(name), cs_old, cs
+      !PRINT *, "checksum sym ", TRIM(name), cs_old, cs
       CPASSERT(cs < 1.0E-12_dp)
    END SUBROUTINE
 
@@ -344,11 +344,11 @@ CONTAINS
                           dbcsr_type_real_8, sizes_RI, sizes_AO, sizes_AO)
 
       CALL build_3c_neighbor_lists(nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, ri_data%dist1_3d, "HFX_3c_nl", &
-                                   qs_env, op_ij=ri_data%op_ri, sym_jk=.FALSE., x_range=ri_data%r_cutoff_ri)
+                                   qs_env, op_ij=ri_data%op_ri, sym_jk=.TRUE., x_range=ri_data%r_cutoff_ri)
       CALL build_3c_integrals(t_3c_int, ri_data%filter_eps, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
                               op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
-      PRINT *, "checksum t_3c_int", dbcsr_t_checksum(t_3c_int(1, 1))
+      !PRINT *, "checksum t_3c_int", dbcsr_t_checksum(t_3c_int(1, 1))
 
       CALL neighbor_list_3c_destroy(nl_3c)
 
@@ -386,8 +386,8 @@ CONTAINS
          t_2c_int_pot = t_2c_int_pot_pointer(1)%matrix
       ENDIF
 
-      PRINT *, "checksum t_2c_int_pot", dbcsr_checksum(t_2c_int_pot(1))
-      CALL check_symmetry(t_2c_int_pot(1))
+      !PRINT *, "checksum t_2c_int_pot", dbcsr_checksum(t_2c_int_pot(1))
+      !CALL check_symmetry(t_2c_int_pot(1))
 
       CALL neighbor_list_2c_destroy(nl_2c_pot)
 
@@ -402,8 +402,8 @@ CONTAINS
             t_2c_int_RI = t_2c_int_RI_pointer(1)%matrix
          ENDIF
 
-         PRINT *, "checksum t_2c_int_RI", dbcsr_checksum(t_2c_int_RI(1))
-         CALL check_symmetry(t_2c_int_RI(1))
+         !PRINT *, "checksum t_2c_int_RI", dbcsr_checksum(t_2c_int_RI(1))
+         !CALL check_symmetry(t_2c_int_RI(1))
 
          CALL neighbor_list_2c_destroy(nl_2c_RI)
       ENDIF
@@ -479,17 +479,17 @@ CONTAINS
       CALL dbcsr_release(t_2c_int_mat(1))
 
       CALL dbcsr_t_create(t_3c_int_1(1, 1), t_3c_int_2(1, 1), name="(RI | AO AO)")
-      PRINT *, "checksum t_2c_int, t_3c_int_1, t_3c_int_2", &
-         dbcsr_t_checksum(t_2c_int(1)), &
-         dbcsr_t_checksum(t_3c_int_1(1, 1)), &
-         dbcsr_t_checksum(t_3c_int_2(1, 1))
+      !PRINT *, "checksum t_2c_int, t_3c_int_1, t_3c_int_2", &
+         !dbcsr_t_checksum(t_2c_int(1)), &
+         !dbcsr_t_checksum(t_3c_int_1(1, 1)), &
+         !dbcsr_t_checksum(t_3c_int_2(1, 1))
       CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_2c_int(1), t_3c_int_1(1, 1), &
                             dbcsr_scalar(0.0_dp), t_3c_int_2(1, 1), &
                             contract_1=[2], notcontract_1=[1], &
                             contract_2=[1], notcontract_2=[2, 3], &
                             map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, & ! move_data=.TRUE., &
                             unit_nr=unit_nr)
-      PRINT *, "checksum t_3c_int_2(1, 1)", dbcsr_t_checksum(t_3c_int_2(1, 1))
+      !PRINT *, "checksum t_3c_int_2(1, 1)", dbcsr_t_checksum(t_3c_int_2(1, 1))
       CALL dbcsr_t_destroy(t_2c_int(1))
 
       CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int_ctr(1, 1), order=[2, 1, 3]) !, move_data=.TRUE.)
@@ -529,7 +529,7 @@ CONTAINS
 
       INTEGER                                            :: handle, ispin
       INTEGER, DIMENSION(2)                              :: homo
-      LOGICAL                                            :: debug, tr
+      LOGICAL                                            :: debug
       REAL(KIND=dp)                                      :: cs_1, cs_2, etmp
       TYPE(cp_fm_type), POINTER                          :: mo_coeff
       TYPE(dbcsr_p_type), ALLOCATABLE, DIMENSION(:, :)   :: rho_ao_full
@@ -579,7 +579,7 @@ CONTAINS
          CALL calculate_density_matrix(mos(ispin)%mo_set, rho_ao_full(ispin, 1)%matrix, use_dbcsr=.TRUE., &
                                        retain_sparsity=.FALSE.)
          !CALL dbcsr_desymmetrize(rho_ao(ispin, 1)%matrix, rho_ao_full(ispin, 1)%matrix)
-         CALL check_symmetry(rho_ao_full(ispin, 1)%matrix)
+         !CALL check_symmetry(rho_ao_full(ispin, 1)%matrix)
       ENDDO
 
       SELECT CASE (ri_data%flavour)
@@ -608,14 +608,14 @@ CONTAINS
             !                    last_k=homo(ispin))
             cs_1 = dbcsr_checksum(rho_ao_full(ispin, 1)%matrix)
             cs_2 = dbcsr_checksum(rho_ao(ispin, 1)%matrix)
-            PRINT *, "checksums rho", cs_1, cs_2
+            !PRINT *, "checksums rho", cs_1, cs_2
          ENDDO
       ENDIF
 
       !! ** Calculate the exchange energy, copied from integrate_four_center
       ehfx = 0.0_dp
       DO ispin = 1, nspins
-         PRINT *, "checksum result ks", dbcsr_checksum(ks_matrix_ns(ispin, 1)%matrix)
+         !PRINT *, "checksum result ks", dbcsr_checksum(ks_matrix_ns(ispin, 1)%matrix)
          !PRINT *, "checksum result rho ao", dbcsr_checksum(rho_ao_full(ispin, 1)%matrix)
          !CALL dbcsr_desymmetrize(rho_ao(ispin, 1)%matrix, rho_ao_ns)
          CALL dbcsr_dot(ks_matrix_ns(ispin, 1)%matrix, rho_ao_full(ispin, 1)%matrix, &
@@ -629,7 +629,7 @@ CONTAINS
          END IF
       ENDDO
 
-      PRINT *, "RI HFX Energy", ehfx
+      !PRINT *, "RI HFX Energy", ehfx
 
       DO ispin = 1, nspins
          CALL dbcsr_release(rho_ao_full(ispin, 1)%matrix)
@@ -734,10 +734,10 @@ CONTAINS
          bounds(1, 1) = 1
          bounds(2, 1) = homo(ispin)
 
-         PRINT *, "checksum mo_coeff_t, t_3c_int_ctr, t_3c_int_ctr", &
-            dbcsr_t_checksum(mo_coeff_t), &
-            dbcsr_t_checksum(t_3c_int_ctr(1, 1)), &
-            dbcsr_t_checksum(t_3c_int_ctr(1, 1))
+         !PRINT *, "checksum mo_coeff_t, t_3c_int_ctr, t_3c_int_ctr", &
+            !dbcsr_t_checksum(mo_coeff_t), &
+            !dbcsr_t_checksum(t_3c_int_ctr(1, 1)), &
+            !dbcsr_t_checksum(t_3c_int_ctr(1, 1))
          CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t, ri_data%t_3c_int_ctr(1, 1), &
                                dbcsr_scalar(0.0_dp), t_3c_int_ctr(1, 1), &
                                contract_1=[1], notcontract_1=[2], &
@@ -747,7 +747,7 @@ CONTAINS
                                filter_eps=ri_data%filter_eps, &
                                unit_nr=unit_nr)
 
-         PRINT *, "checksum t_3c_int_ctr", dbcsr_t_checksum(t_3c_int_ctr(1, 1))
+         !PRINT *, "checksum t_3c_int_ctr", dbcsr_t_checksum(t_3c_int_ctr(1, 1))
 
          !PRINT *, "checksum t_3c_int_moco", dbcsr_t_checksum(t_3c_int_ctr(1, 1))
 
@@ -756,10 +756,10 @@ CONTAINS
          !PRINT *, "checksum opt", dbcsr_t_checksum(t_3c_int_ctr_opt(1,1))
          CALL dbcsr_t_copy(t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1))
          !PRINT *, "checksum opt copy", dbcsr_t_checksum(t_3c_int_ctr_opt_copy(1,1))
-         PRINT *, "checksum t_3c_int_ctr_opt, t_3c_int_ctr_opt_copy, ks_t", &
-            dbcsr_t_checksum(t_3c_int_ctr_opt(1, 1)), &
-            dbcsr_t_checksum(t_3c_int_ctr_opt_copy(1, 1)), &
-            dbcsr_t_checksum(ks_t)
+         !PRINT *, "checksum t_3c_int_ctr_opt, t_3c_int_ctr_opt_copy, ks_t", &
+            !dbcsr_t_checksum(t_3c_int_ctr_opt(1, 1)), &
+            !dbcsr_t_checksum(t_3c_int_ctr_opt_copy(1, 1)), &
+            !dbcsr_t_checksum(ks_t)
 
          CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1), &
                                dbcsr_scalar(0.0_dp), ks_t, &
@@ -767,8 +767,8 @@ CONTAINS
                                contract_2=[1, 2], notcontract_2=[3], &
                                map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps, &
                                unit_nr=unit_nr)
-         PRINT *, "checksum ks_t", &
-            dbcsr_t_checksum(ks_t)
+         !PRINT *, "checksum ks_t", &
+            !dbcsr_t_checksum(ks_t)
 
          !PRINT *, "checksum ks_t", dbcsr_t_checksum(ks_t)
          !PRINT *, "checksum ks tensor", ispin, dbcsr_t_checksum(ks_t)
@@ -836,10 +836,10 @@ CONTAINS
 
       DO ispin = 1, nspins
          CALL dbcsr_t_copy_matrix_to_tensor(rho_ao(ispin, 1)%matrix, rho_ao_t)
-         PRINT *, "checksum rho_ao_t, t_3c_int, t_3c_1", &
-            dbcsr_t_checksum(rho_ao_t), &
-            dbcsr_t_checksum(ri_data%t_3c_int(1, 1)), &
-            dbcsr_t_checksum(t_3c_1(1, 1))
+         !PRINT *, "checksum rho_ao_t, t_3c_int, t_3c_1", &
+            !dbcsr_t_checksum(rho_ao_t), &
+            !dbcsr_t_checksum(ri_data%t_3c_int(1, 1)), &
+            !dbcsr_t_checksum(t_3c_1(1, 1))
 
          CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), rho_ao_t, ri_data%t_3c_int(1, 1), &
                                dbcsr_scalar(0.0_dp), t_3c_1(1, 1), &
@@ -849,23 +849,23 @@ CONTAINS
                                !move_data=.TRUE., &
                                unit_nr=unit_nr)
 
-         PRINT *, "checksum t_3c_1", dbcsr_t_checksum(t_3c_1(1, 1))
+         !PRINT *, "checksum t_3c_1", dbcsr_t_checksum(t_3c_1(1, 1))
 
          CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), t_3c_2(1, 1))
          CALL dbcsr_t_copy(t_3c_1(1, 1), t_3c_2(1, 1)) !move_data=.TRUE.)
 
-         PRINT *, "checksum t_3c_int_ctr, t_3c_2, ks_t", &
-            dbcsr_t_checksum(ri_data%t_3c_int_ctr(1, 1)), &
-            dbcsr_t_checksum(t_3c_2(1, 1)), &
-            dbcsr_t_checksum(ks_t)
+         !PRINT *, "checksum t_3c_int_ctr, t_3c_2, ks_t", &
+            !dbcsr_t_checksum(ri_data%t_3c_int_ctr(1, 1)), &
+            !dbcsr_t_checksum(t_3c_2(1, 1)), &
+            !dbcsr_t_checksum(ks_t)
          CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), ri_data%t_3c_int_ctr(1, 1), t_3c_2(1, 1), &
                                dbcsr_scalar(0.0_dp), ks_t, &
                                contract_1=[1, 2], notcontract_1=[3], &
                                contract_2=[1, 2], notcontract_2=[3], &
                                map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps, &
                                unit_nr=unit_nr)
-         PRINT *, "checksum ks_t", &
-            dbcsr_t_checksum(ks_t)
+         !PRINT *, "checksum ks_t", &
+            !dbcsr_t_checksum(ks_t)
 
          CALL dbcsr_t_destroy(t_3c_2(1, 1))
 

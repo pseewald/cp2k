@@ -327,13 +327,13 @@ CONTAINS
          IF (x_data(irep, 1)%do_RI) THEN
             ns = SIZE(x_data, 2)
             ALLOCATE(fraction(ns))
-            ALLOCATE(fraction(ns))
             DO is = 1, ns
                fraction(is) = x_data(irep, is)%general_parameter%fraction
             ENDDO
             CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks_orb, ehfx, &
                                   matrix_ks_aux_fit_hfx, mo_array, rho_ao_orb, &
                                   dft_control%do_admm, s_mstruct_changed, nspins, fraction)
+            DEALLOCATE(fraction)
          ELSE
             DO ispin = 1, mspin
                CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
