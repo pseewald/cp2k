@@ -216,7 +216,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ks_matrix', routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, ikind, img, irep, ispin, mspin, &
-                                                            n_rep_hf, nimages, ns, nspins
+                                                            n_rep_hf, nimages, ns, is, nspins
       LOGICAL                                            :: distribute_fock_matrix, &
                                                             do_adiabatic_rescaling, &
                                                             hfx_treat_lsd_in_core, &
@@ -241,6 +241,7 @@ CONTAINS
       TYPE(section_vals_type), POINTER                   :: adiabatic_rescaling_section, &
                                                             hfx_sections, input
       TYPE(virial_type), POINTER                         :: virial
+      REAL(dp), DIMENSION(:), ALLOCATABLE                :: fraction
 
       CALL timeset(routineN, handle)
 
@@ -324,9 +325,15 @@ CONTAINS
          ehfx = 0.0_dp
 
          IF (x_data(irep, 1)%do_RI) THEN
-            CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks, ehfx, &
+            ns = SIZE(x_data, 2)
+            ALLOCATE(fraction(ns))
+            ALLOCATE(fraction(ns))
+            DO is = 1, ns
+               fraction(is) = x_data(irep, is)%general_parameter%fraction
+            ENDDO
+            CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks_orb, ehfx, &
                                   matrix_ks_aux_fit_hfx, mo_array, rho_ao_orb, &
-                                  dft_control%do_admm, s_mstruct_changed, nspins)
+                                  dft_control%do_admm, s_mstruct_changed, nspins, fraction)
          ELSE
             DO ispin = 1, mspin
                CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
@@ -382,7 +389,7 @@ CONTAINS
             IF (x_data(irep, 1)%do_RI) THEN
                CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks, ehfx, matrix_ks_aux_fit_hfx, &
                                      mo_array, rho_ao_orb, &
-                                     dft_control%do_admm, .FALSE., nspins)
+                                     dft_control%do_admm, .FALSE., nspins, fraction)
             ELSE
                DO ispin = 1, mspin
                   CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &

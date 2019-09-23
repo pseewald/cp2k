@@ -271,8 +271,6 @@ CONTAINS
 
       CALL dbcsr_create(matrix_tmp, template=matrix_sqrt, &
                         matrix_type=dbcsr_type_no_symmetry)
-      CALL dbcsr_create(matrix_sqrt_2, template=matrix_sqrt, &
-                        matrix_type=dbcsr_type_no_symmetry)
       CALL dbcsr_copy(matrix_sqrt_2, matrix_sqrt)
       CALL dbcsr_multiply("N", "N", 1.0_dp, matrix_sqrt, matrix_sqrt_2, &
                           0.0_dp, matrix_tmp)
@@ -514,7 +512,7 @@ CONTAINS
 !> \param nspins ...
 ! **************************************************************************************************
    SUBROUTINE hfx_ri_update_ks(qs_env, ri_data, ks_matrix, ehfx, ks_matrix_aux_fit_hfx, mos, rho_ao, &
-                               do_admm, geometry_did_change, nspins)
+                               do_admm, geometry_did_change, nspins, hf_fraction)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix
@@ -524,13 +522,14 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: rho_ao
       LOGICAL, INTENT(IN)                                :: do_admm, geometry_did_change
       INTEGER, INTENT(IN)                                :: nspins
+      REAL(KIND=dp), DIMENSION(:), INTENT(IN)            :: hf_fraction
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_update_ks', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, ispin
       INTEGER, DIMENSION(2)                              :: homo
-      LOGICAL                                            :: debug
+      LOGICAL                                            :: debug, tr
       REAL(KIND=dp)                                      :: cs_1, cs_2, etmp
       TYPE(cp_fm_type), POINTER                          :: mo_coeff
       TYPE(dbcsr_p_type), ALLOCATABLE, DIMENSION(:, :)   :: rho_ao_full
@@ -539,6 +538,7 @@ CONTAINS
          SIZE(ks_matrix, 2))                             :: ks_matrix_ns
       TYPE(dbcsr_type)                                   :: dbcsr_tmp
       TYPE(dbcsr_type), DIMENSION(2)                     :: mo_coeff_b
+      REAL(dp), DIMENSION(SIZE(hf_fraction))             :: fac
       TYPE(dbcsr_type), POINTER                          :: mo_coeff_b_tmp
       TYPE(mo_set_type), POINTER                         :: mo_set
       !TYPE(dbcsr_type)                                   :: rho_ao_ns
@@ -546,6 +546,12 @@ CONTAINS
       CALL timeset(routineN, handle)
 
       debug = .TRUE.
+
+      IF (nspins == 1) THEN
+         fac(:) = 0.5_dp*hf_fraction
+      ELSE
+         fac(:) = 1.0_dp*hf_fraction
+      END IF
 
       DO ispin = 1, nspins
          !CALL dbcsr_create(ks_matrix_ns, template=ks_matrix, matrix_type=dbcsr_type_no_symmetry)
@@ -587,6 +593,10 @@ CONTAINS
 
       END SELECT
 
+      DO ispin = 1, nspins
+         CALL dbcsr_scale(ks_matrix_ns(ispin, 1)%matrix, fac(ispin))
+      ENDDO
+
       IF (debug) THEN
          DO ispin = 1, nspins
             ALLOCATE (rho_check(ispin, 1)%matrix)
@@ -611,7 +621,7 @@ CONTAINS
          CALL dbcsr_dot(ks_matrix_ns(ispin, 1)%matrix, rho_ao_full(ispin, 1)%matrix, &
                         etmp)
          !CALL dbcsr_release(rho_ao_ns)
-         ehfx = ehfx-0.25_dp*etmp
+         ehfx = ehfx-0.5_dp*etmp
          IF (do_admm) THEN
             !for ADMMS, we need the exchange matrix k(d) for both spins
             CALL dbcsr_copy(ks_matrix_aux_fit_hfx(ispin)%matrix, ks_matrix_ns(ispin, 1)%matrix, &

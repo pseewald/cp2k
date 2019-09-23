@@ -968,6 +968,8 @@ CONTAINS
                           basis_type="RI_HFX")
          IF (.NOT. (ASSOCIATED(ri_aux_basis_set))) THEN
             ! Generate a default basis
+            !CALL init_orbital_pointers(20) ! todo: this needs proper fix
+            !CALL init_spherical_harmonics(20, 0)
             CALL create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, dft_control%auto_basis_ri_hfx)
             CALL init_orb_basis_set(ri_aux_basis_set)
             CALL init_interaction_radii_orb_basis(ri_aux_basis_set, dft_control%qs_control%eps_pgf_orb)
