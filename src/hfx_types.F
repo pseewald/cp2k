@@ -73,7 +73,8 @@ MODULE hfx_types
    USE particle_types,                  ONLY: particle_type
    USE qs_3c_tensors_types,             ONLY: distribution_3d_create,&
                                               distribution_3d_destroy,&
-                                              distribution_3d_type
+                                              distribution_3d_type, &
+                                              cyclic_tensor_dist
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_interactions,                 ONLY: init_interaction_radii_orb_basis
    USE qs_kind_types,                   ONLY: get_qs_kind,&
@@ -103,7 +104,7 @@ MODULE hfx_types
              hfx_pgf_product_list, hfx_block_range_type, &
              alloc_containers, dealloc_containers, hfx_task_list_type, init_t_c_g0_lmax, &
              hfx_create_neighbor_cells, hfx_create_basis_types, hfx_release_basis_types, &
-             hfx_ri_type, hfx_cyclic_dist
+             hfx_ri_type
 
 #define CACHE_SIZE 1024
 #define BITS_MAX_VAL 6
@@ -374,7 +375,6 @@ MODULE hfx_types
 
       ! distribution for (AO | RI AO) 3c integral tensor
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist2_AO_1, dist2_AO_2, dist2_RI
-      TYPE(dbcsr_t_distribution_type)                    :: dist2
 
       ! 3c integral tensor in ( AO | RI AO) format
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_ctr, &
@@ -938,6 +938,7 @@ CONTAINS
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
       TYPE(qs_kind_type), POINTER                        :: qs_kind
+      TYPE(dbcsr_t_distribution_type)                    :: dist_3c
 
       NULLIFY (basis_set_AO, basis_set_RI, ri_aux_basis_set, qs_kind)
 
@@ -968,8 +969,6 @@ CONTAINS
                           basis_type="RI_HFX")
          IF (.NOT. (ASSOCIATED(ri_aux_basis_set))) THEN
             ! Generate a default basis
-            !CALL init_orbital_pointers(20) ! todo: this needs proper fix
-            !CALL init_spherical_harmonics(20, 0)
             CALL create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, dft_control%auto_basis_ri_hfx)
             CALL init_orb_basis_set(ri_aux_basis_set)
             CALL init_interaction_radii_orb_basis(ri_aux_basis_set, dft_control%qs_control%eps_pgf_orb)
@@ -1006,9 +1005,9 @@ CONTAINS
       ALLOCATE (dist_RI(natom))
       ALLOCATE (dist_AO_1(natom))
       ALLOCATE (dist_AO_2(natom))
-      CALL hfx_cyclic_dist(natom, pdims(1), sizes_RI, dist_RI)
-      CALL hfx_cyclic_dist(natom, pdims(2), sizes_AO, dist_AO_1)
-      CALL hfx_cyclic_dist(natom, pdims(3), sizes_AO, dist_AO_2)
+      CALL cyclic_tensor_dist(natom, pdims(1), sizes_RI, dist_RI)
+      CALL cyclic_tensor_dist(natom, pdims(2), sizes_AO, dist_AO_1)
+      CALL cyclic_tensor_dist(natom, pdims(3), sizes_AO, dist_AO_2)
       CALL distribution_3d_create(dist_3d, dist_RI, dist_ao_1, dist_ao_2, nkind, particle_set, &
                                   mp_comm_3d, own_comm=.TRUE.)
 
@@ -1019,9 +1018,9 @@ CONTAINS
       ALLOCATE (ri_data%dist1_ao_2, SOURCE=dist_ao_2)
       ri_data%dist1_3d = dist_3d
 
-      CALL hfx_cyclic_dist(natom, pdims(1), sizes_AO, dist_AO_1)
-      CALL hfx_cyclic_dist(natom, pdims(2), sizes_RI, dist_RI)
-      CALL hfx_cyclic_dist(natom, pdims(3), sizes_AO, dist_AO_2)
+      CALL cyclic_tensor_dist(natom, pdims(1), sizes_AO, dist_AO_1)
+      CALL cyclic_tensor_dist(natom, pdims(2), sizes_RI, dist_RI)
+      CALL cyclic_tensor_dist(natom, pdims(3), sizes_AO, dist_AO_2)
 
       ALLOCATE (ri_data%dist2_ao_1, SOURCE=dist_ao_1)
       ALLOCATE (ri_data%dist2_ao_2, SOURCE=dist_ao_2)
@@ -1030,22 +1029,25 @@ CONTAINS
       CALL dbcsr_t_distribution_new(ri_data%dist1, ri_data%pgrid, [1], [2, 3], &
                                     ri_data%dist1_RI, ri_data%dist1_ao_1, ri_data%dist1_ao_2)
 
+      ! initialize tensors expressed in basis representation
       IF (ri_data%flavour == ri_mo) THEN
-         CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1], [2, 3], &
+         CALL dbcsr_t_distribution_new(dist_3c, ri_data%pgrid, [1], [2, 3], &
                                        ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2)
-         CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), "(AO | RI AO)", ri_data%dist2, [1], [2, 3], &
+         CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), "(AO | RI AO)", dist_3c, [1], [2, 3], &
                              dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
+
+         CALL dbcsr_t_distribution_destroy(dist_3c)
       ELSEIF (ri_data%flavour == ri_pmat) THEN
-         CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1, 2], [3], &
+         CALL dbcsr_t_distribution_new(dist_3c, ri_data%pgrid, [1, 2], [3], &
                                        ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2)
-         CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), "(AO RI | AO)", ri_data%dist2, [1, 2], [3], &
+         CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), "(AO RI | AO)", dist_3c, [1, 2], [3], &
                              dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
-         CALL dbcsr_t_distribution_destroy(ri_data%dist2)
-         CALL dbcsr_t_distribution_new(ri_data%dist2, ri_data%pgrid, [1], [2, 3], &
+         CALL dbcsr_t_distribution_destroy(dist_3c)
+         CALL dbcsr_t_distribution_new(dist_3c, ri_data%pgrid, [1], [2, 3], &
                                        ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2)
-         CALL dbcsr_t_create(ri_data%t_3c_int(1, 1), "(AO | RI AO)", ri_data%dist2, [1], [2, 3], &
+         CALL dbcsr_t_create(ri_data%t_3c_int(1, 1), "(AO | RI AO)", dist_3c, [1], [2, 3], &
                              dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
-         ! todo: dist2 never needed, can be removed
+         CALL dbcsr_t_distribution_destroy(dist_3c)
       ENDIF
 
    END SUBROUTINE
@@ -1062,7 +1064,6 @@ CONTAINS
                   ri_data%dist1_RI, ri_data%dist2_RI)
       CALL distribution_3d_destroy(ri_data%dist1_3d)
       CALL dbcsr_t_distribution_destroy(ri_data%dist1)
-      CALL dbcsr_t_distribution_destroy(ri_data%dist2)
       CALL dbcsr_t_destroy(ri_data%t_3c_int_ctr(1, 1))
       IF (ri_data%flavour == ri_pmat) THEN
          CALL dbcsr_t_destroy(ri_data%t_3c_int(1, 1))
@@ -2304,37 +2305,6 @@ CONTAINS
       END SELECT
 
    END SUBROUTINE alloc_containers
-
-! **************************************************************************************************
-!> \brief cyclic distribution of weighted elements todo: move this to somewhere else
-!> \param nel ...
-!> \param nbin ...
-!> \param weights ...
-!> \param dist ...
-! **************************************************************************************************
-   SUBROUTINE hfx_cyclic_dist(nel, nbin, weights, dist)
-      INTEGER, INTENT(IN)                                :: nel, nbin
-      INTEGER, DIMENSION(nel), INTENT(IN)                :: weights
-      INTEGER, DIMENSION(nel), INTENT(OUT)               :: dist
-
-      INTEGER                                            :: ibin, iel, niter
-      INTEGER, DIMENSION(nbin)                           :: occup
-
-      occup(:) = 0
-      ibin = 0
-      DO iel = 1, nel
-         niter = 0
-         ibin = MOD(ibin+1, nbin)
-         DO WHILE (occup(ibin+1)+weights(iel) .GE. MAXVAL(occup))
-            IF (MINLOC(occup, DIM=1) == ibin+1) EXIT
-            ibin = MOD(ibin+1, nbin)
-            niter = niter+1
-         ENDDO
-         dist(iel) = ibin
-         occup(ibin+1) = occup(ibin+1)+weights(iel)
-      ENDDO
-
-   END SUBROUTINE hfx_cyclic_dist
 
 END MODULE hfx_types
 

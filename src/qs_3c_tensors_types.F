@@ -33,7 +33,7 @@ MODULE qs_3c_tensors_types
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_3c_tensors_types'
 
    PUBLIC :: distribution_3d_type, neighbor_list_3c_type, neighbor_list_3c_iterator_type, &
-             distribution_2d_create, distribution_3d_create, distribution_3d_destroy
+             distribution_2d_create, distribution_3d_create, distribution_3d_destroy, cyclic_tensor_dist
 
    INTEGER, PARAMETER, PUBLIC :: symmetric_none = 0, symmetric_ij = 1, symmetric_jk = 2, symmetrik_ik = 3, symmetric_ijk = 4
 
@@ -216,5 +216,36 @@ CONTAINS
 
       CALL cp_blacs_env_release(blacs_env)
    END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief cyclic distribution of weighted elements
+!> \param nel ...
+!> \param nbin ...
+!> \param weights ...
+!> \param dist ...
+! **************************************************************************************************
+   SUBROUTINE cyclic_tensor_dist(nel, nbin, weights, dist)
+      INTEGER, INTENT(IN)                                :: nel, nbin
+      INTEGER, DIMENSION(nel), INTENT(IN)                :: weights
+      INTEGER, DIMENSION(nel), INTENT(OUT)               :: dist
+
+      INTEGER                                            :: ibin, iel, niter
+      INTEGER, DIMENSION(nbin)                           :: occup
+
+      occup(:) = 0
+      ibin = 0
+      DO iel = 1, nel
+         niter = 0
+         ibin = MOD(ibin+1, nbin)
+         DO WHILE (occup(ibin+1)+weights(iel) .GE. MAXVAL(occup))
+            IF (MINLOC(occup, DIM=1) == ibin+1) EXIT
+            ibin = MOD(ibin+1, nbin)
+            niter = niter+1
+         ENDDO
+         dist(iel) = ibin
+         occup(ibin+1) = occup(ibin+1)+weights(iel)
+      ENDDO
+
+   END SUBROUTINE cyclic_tensor_dist
 
 END MODULE

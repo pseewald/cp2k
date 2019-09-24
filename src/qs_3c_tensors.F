@@ -61,7 +61,7 @@ MODULE qs_3c_tensors
    USE qs_3c_tensors_types,             ONLY: &
         distribution_3d_destroy, distribution_3d_type, neighbor_list_3c_iterator_type, &
         neighbor_list_3c_type, symmetric_ij, symmetric_ijk, symmetric_jk, symmetric_none, &
-        symmetrik_ik
+        symmetrik_ik, cyclic_tensor_dist
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
    USE qs_kind_types,                   ONLY: qs_kind_type
@@ -91,7 +91,7 @@ MODULE qs_3c_tensors
    PUBLIC :: build_3c_neighbor_lists, &
              neighbor_list_3c_destroy, neighbor_list_2c_destroy, neighbor_list_3c_iterate, neighbor_list_3c_iterator_create, &
              neighbor_list_3c_iterator_destroy, get_3c_iterator_info, build_3c_integrals, &
-             contiguous_tensor_dist, cyclic_tensor_dist, &
+             contiguous_tensor_dist, &
              build_2c_neighbor_lists, build_2c_integrals
 
    TYPE one_dim_int_array
@@ -579,7 +579,7 @@ CONTAINS
       INTEGER                                            :: blk_cnt, handle, i, i_img, iatom, iblk, &
                                                             ikind, iproc, j_img, jatom, jcell, &
                                                             jkind, katom, kcell, kkind, natom, nimg
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of, tmp
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: tmp
       INTEGER, DIMENSION(3)                              :: cell_j, cell_k
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL                                            :: do_kpoints_prv, new_block
@@ -629,12 +629,10 @@ CONTAINS
       ALLOCATE (alloc_j(nimg, nimg))
       ALLOCATE (alloc_k(nimg, nimg))
 
-      ALLOCATE (kind_of(natom))
-      CALL get_atomic_kind_set(atomic_kind_set, kind_of=kind_of)
-
       CALL neighbor_list_3c_iterator_create(nl_3c_iter, nl_3c)
       DO WHILE (neighbor_list_3c_iterate(nl_3c_iter) == 0)
-         CALL get_3c_iterator_info(nl_3c_iter, iatom=iatom, jatom=jatom, katom=katom, &
+         CALL get_3c_iterator_info(nl_3c_iter, ikind=ikind, jkind=jkind, kkind=kkind, &
+                                   iatom=iatom, jatom=jatom, katom=katom, &
                                    rij=rij, rjk=rjk, rik=rik, cell_j=cell_j, cell_k=cell_k)
 
          IF (do_kpoints_prv) THEN
@@ -652,9 +650,6 @@ CONTAINS
          dij = SQRT(SUM(rij**2))
          dik = SQRT(SUM(rik**2))
 
-         ikind = kind_of(iatom)
-         jkind = kind_of(jatom)
-         kkind = kind_of(katom)
          CALL get_gto_basis_set(basis_i(ikind)%gto_basis_set, kind_radius=kind_radius_i)
          CALL get_gto_basis_set(basis_j(jkind)%gto_basis_set, kind_radius=kind_radius_j)
          CALL get_gto_basis_set(basis_k(kkind)%gto_basis_set, kind_radius=kind_radius_k)
@@ -790,7 +785,6 @@ CONTAINS
          block_start_k, handle, handle2, iatom, ibasis, ikind, imax, iset, jatom, jcell, jkind, &
          jset, katom, kcell, kkind, kset, m_max, maxli, maxlj, maxlk, natom, ncoi, ncoj, ncok, &
          nimg, nseti, nsetj, nsetk, op_ij_prv, op_jk_prv, sgfi, sgfj, sgfk, unit_id
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of
       INTEGER, DIMENSION(3)                              :: blk_size, cell_j, cell_k
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmax_k, lmin_i, lmin_j, &
                                                             lmin_k, npgfi, npgfj, npgfk, nsgfi, &
@@ -864,10 +858,6 @@ CONTAINS
 
       CPASSERT(ALL(SHAPE(t3c) == [nimg, nimg]))
 
-      ALLOCATE (kind_of(natom))
-
-      CALL get_atomic_kind_set(atomic_kind_set, kind_of=kind_of)
-
       !Need the max l for each basis for libint
       maxli = 0
       DO ibasis = 1, SIZE(basis_i)
@@ -910,10 +900,9 @@ CONTAINS
 
       CALL neighbor_list_3c_iterator_create(nl_3c_iter, nl_3c)
       DO WHILE (neighbor_list_3c_iterate(nl_3c_iter) == 0)
-         CALL get_3c_iterator_info(nl_3c_iter, iatom=iatom, jatom=jatom, katom=katom, &
+         CALL get_3c_iterator_info(nl_3c_iter, ikind=ikind, jkind=jkind, kkind=kkind, &
+                                   iatom=iatom, jatom=jatom, katom=katom, &
                                    rij=rij, rjk=rjk, rik=rik, cell_j=cell_j, cell_k=cell_k)
-         ! todo: get kind from iterator!
-
          IF (do_kpoints_prv) THEN
 
             jcell = cell_to_index(cell_j(1), cell_j(2), cell_j(3))
@@ -926,9 +915,6 @@ CONTAINS
             jcell = 1; kcell = 1
          END IF
 
-         ikind = kind_of(iatom)
-         jkind = kind_of(jatom)
-         kkind = kind_of(katom)
          CALL get_gto_basis_set(basis_i(ikind)%gto_basis_set, first_sgf=first_sgf_i, lmax=lmax_i, lmin=lmin_i, &
                                 npgf=npgfi, nset=nseti, nsgf_set=nsgfi, pgf_radius=rpgf_i, set_radius=set_radius_i, &
                                 sphi=sphi_i, zet=zeti, kind_radius=kind_radius_i)
@@ -950,8 +936,6 @@ CONTAINS
          !IF (kind_radius_k+kind_radius_i < dik) CYCLE
 
          CALL dbcsr_t_blk_sizes(t3c(jcell, kcell), [iatom, jatom, katom], blk_size)
-
-         ! todo: 'CYCLE' does not work with general operators
 
          ALLOCATE (block_t(blk_size(1), blk_size(2), blk_size(3)))
          block_t = 0.0_dp
@@ -1168,37 +1152,6 @@ CONTAINS
       ENDDO
 
    END SUBROUTINE contiguous_tensor_dist
-
-! **************************************************************************************************
-!> \brief cyclic distribution of weighted elements
-!> \param nel ...
-!> \param nbin ...
-!> \param weights ...
-!> \param dist ...
-! **************************************************************************************************
-   SUBROUTINE cyclic_tensor_dist(nel, nbin, weights, dist)
-      INTEGER, INTENT(IN)                                :: nel, nbin
-      INTEGER, DIMENSION(nel), INTENT(IN)                :: weights
-      INTEGER, DIMENSION(nel), INTENT(OUT)               :: dist
-
-      INTEGER                                            :: ibin, iel, niter
-      INTEGER, DIMENSION(nbin)                           :: occup
-
-      occup(:) = 0
-      ibin = 0
-      DO iel = 1, nel
-         niter = 0
-         ibin = MOD(ibin+1, nbin)
-         DO WHILE (occup(ibin+1)+weights(iel) .GE. MAXVAL(occup))
-            IF (MINLOC(occup, DIM=1) == ibin+1) EXIT
-            ibin = MOD(ibin+1, nbin)
-            niter = niter+1
-         ENDDO
-         dist(iel) = ibin
-         occup(ibin+1) = occup(ibin+1)+weights(iel)
-      ENDDO
-
-   END SUBROUTINE cyclic_tensor_dist
 
 ! **************************************************************************************************
 !> \brief ...

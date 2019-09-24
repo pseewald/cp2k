@@ -57,7 +57,7 @@ MODULE rpa_im_time
    USE mp2_types,                       ONLY: integ_mat_buffer_type,&
                                               mp2_type,&
                                               two_dim_int_array
-   USE qs_3c_tensors,                   ONLY: cyclic_tensor_dist
+   USE qs_3c_tensors_types,                   ONLY: cyclic_tensor_dist
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
    USE qs_mo_types,                     ONLY: get_mo_set,&

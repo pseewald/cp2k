@@ -5,7 +5,6 @@
 
 ! **************************************************************************************************
 !> \brief RI-methods for HFX
-!> todo: check that MOs are built from initial guess for all intial guess cases
 ! **************************************************************************************************
 
 MODULE hfx_ri
@@ -29,8 +28,7 @@ MODULE hfx_ri
         dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
         dbcsr_t_get_info, dbcsr_t_mp_environ_pgrid, dbcsr_t_type
    USE distribution_2d_types,           ONLY: distribution_2d_type
-   USE hfx_types,                       ONLY: hfx_cyclic_dist,&
-                                              hfx_ri_type
+   USE hfx_types,                       ONLY: hfx_ri_type
    USE input_constants,                 ONLY: do_potential_id
    USE input_cp2k_hfx,                  ONLY: ri_mo,&
                                               ri_pmat
@@ -46,7 +44,8 @@ MODULE hfx_ri
                                               build_3c_neighbor_lists,&
                                               neighbor_list_2c_destroy,&
                                               neighbor_list_3c_destroy
-   USE qs_3c_tensors_types,             ONLY: neighbor_list_3c_type
+   USE qs_3c_tensors_types,             ONLY: neighbor_list_3c_type,&
+                                              cyclic_tensor_dist
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
    USE qs_integral_utils,               ONLY: basis_set_list_setup
@@ -349,6 +348,7 @@ CONTAINS
                               op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
       !PRINT *, "checksum t_3c_int", dbcsr_t_checksum(t_3c_int(1, 1))
+      !todo: silent by default
 
       CALL neighbor_list_3c_destroy(nl_3c)
 
@@ -564,7 +564,7 @@ CONTAINS
          mo_set => mos(ispin)%mo_set
          CPASSERT(mo_set%uniform_occupation)
          CALL get_mo_set(mo_set=mo_set, mo_coeff=mo_coeff, mo_coeff_b=mo_coeff_b_tmp)
-         CALL copy_fm_to_dbcsr(mo_coeff, mo_coeff_b_tmp, keep_sparsity=.FALSE.)
+         CALL copy_fm_to_dbcsr(mo_coeff, mo_coeff_b_tmp)
 
          CALL dbcsr_copy(dbcsr_tmp, mo_coeff_b_tmp)
          CALL dbcsr_scale(dbcsr_tmp, SQRT(mo_set%maxocc))
@@ -594,7 +594,7 @@ CONTAINS
       END SELECT
 
       DO ispin = 1, nspins
-         CALL dbcsr_scale(ks_matrix_ns(ispin, 1)%matrix, fac(ispin))
+         CALL dbcsr_scale(ks_matrix_ns(ispin, 1)%matrix, -fac(ispin))
       ENDDO
 
       IF (debug) THEN
@@ -621,7 +621,7 @@ CONTAINS
          CALL dbcsr_dot(ks_matrix_ns(ispin, 1)%matrix, rho_ao_full(ispin, 1)%matrix, &
                         etmp)
          !CALL dbcsr_release(rho_ao_ns)
-         ehfx = ehfx-0.5_dp*etmp
+         ehfx = ehfx+0.5_dp*etmp
          IF (do_admm) THEN
             !for ADMMS, we need the exchange matrix k(d) for both spins
             CALL dbcsr_copy(ks_matrix_aux_fit_hfx(ispin)%matrix, ks_matrix_ns(ispin, 1)%matrix, &
@@ -633,8 +633,8 @@ CONTAINS
 
       DO ispin = 1, nspins
          CALL dbcsr_release(rho_ao_full(ispin, 1)%matrix)
-         CALL dbcsr_reserve_all_blocks(ks_matrix(ispin, 1)%matrix)
-         CALL dbcsr_set(ks_matrix(ispin, 1)%matrix, 0.0_dp)
+         !CALL dbcsr_reserve_all_blocks(ks_matrix(ispin, 1)%matrix)
+         !CALL dbcsr_set(ks_matrix(ispin, 1)%matrix, 0.0_dp)
          CALL dbcsr_copy_into_existing(ks_matrix(ispin, 1)%matrix, ks_matrix_ns(ispin, 1)%matrix)
          CALL dbcsr_filter(ks_matrix(ispin, 1)%matrix, ri_data%filter_eps)
          CALL dbcsr_release(ks_matrix_ns(ispin, 1)%matrix)
@@ -707,7 +707,7 @@ CONTAINS
 
       CALL dbcsr_get_info(mo_coeff(1), nblkcols_total=n_mo_blocks, col_blk_size=mo_bsize)
       ALLOCATE (dist_MO(n_mo_blocks))
-      CALL hfx_cyclic_dist(n_mo_blocks, pdims(1), mo_bsize, dist_MO)
+      CALL cyclic_tensor_dist(n_mo_blocks, pdims(1), mo_bsize, dist_MO)
       CALL dbcsr_t_distribution_new(dist1, ri_data%pgrid, [1], [2, 3], &
                                     dist_MO, ri_data%dist2_RI, ri_data%dist2_ao_2)
       CALL dbcsr_t_get_info(ri_data%t_3c_int_ctr(1, 1), blk_size_2=bsize_2, blk_size_3=bsize_3)
@@ -726,7 +726,6 @@ CONTAINS
       CALL dbcsr_t_create(mo_coeff(1), mo_coeff_t)
 
       DO ispin = 1, nspins
-         ! todo: dbcsr_t_copy interface
          CALL dbcsr_t_copy_matrix_to_tensor(mo_coeff(ispin), mo_coeff_t)
          !PRINT *, "checksum mo coeff matrix", dbcsr_checksum(mo_coeff(ispin))
          !PRINT *, "checksum mo coeff tensor", dbcsr_t_checksum(mo_coeff_t)

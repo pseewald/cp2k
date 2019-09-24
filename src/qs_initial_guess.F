@@ -143,7 +143,7 @@ CONTAINS
                                                             sort_kind
       LOGICAL                                            :: did_guess, do_hfx_ri, do_kpoints, &
                                                             do_std_diag, exist, has_unit_metric, &
-                                                            natom_mismatch, need_wm, ofgpw
+                                                            natom_mismatch, need_wm, ofgpw, need_mos
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: buff, buff2
       REAL(dp), DIMENSION(:, :), POINTER                 :: pdata
       REAL(KIND=dp)                                      :: checksum, eps, length, maxocc, occ, &
@@ -208,8 +208,7 @@ CONTAINS
                       para_env=para_env, &
                       x_data=x_data)
 
-      do_hfx_ri = .FALSE.
-      IF (ASSOCIATED(x_data)) do_hfx_ri = x_data(1, 1)%do_RI
+
 
       CALL qs_rho_get(rho, rho_ao_kp=rho_ao_kp)
 
@@ -234,6 +233,15 @@ CONTAINS
       ofgpw = dft_control%qs_control%ofgpw
       density_guess = scf_control%density_guess
       do_std_diag = .FALSE.
+
+      do_hfx_ri = .FALSE.
+      IF (ASSOCIATED(x_data)) do_hfx_ri = x_data(1, 1)%do_RI
+      IF (ASSOCIATED(scf_env%krylov_space)) do_std_diag = (scf_env%krylov_space%eps_std_diag > 0.0_dp)
+
+      need_mos = scf_control%use_ot .OR. scf_env%method == ot_diag_method_nr .OR. &
+                   (scf_env%method == block_krylov_diag_method_nr .AND. .NOT. do_std_diag) &
+                   .OR. dft_control%do_admm .OR. scf_env%method == block_davidson_diag_method_nr &
+                   .OR. do_hfx_ri
 
       safe_density_guess = atomic_guess
       IF (dft_control%qs_control%semi_empirical .OR. dft_control%qs_control%dftb) THEN
@@ -588,11 +596,7 @@ CONTAINS
             IF (ofgpw .AND. (scf_control%use_ot .OR. scf_env%method == ot_diag_method_nr)) THEN
                ! get orbitals later
             ELSE
-               IF (ASSOCIATED(scf_env%krylov_space)) do_std_diag = (scf_env%krylov_space%eps_std_diag > 0.0_dp)
-               IF (scf_control%use_ot .OR. scf_env%method == ot_diag_method_nr .OR. &
-                   (scf_env%method == block_krylov_diag_method_nr .AND. .NOT. do_std_diag) &
-                   .OR. dft_control%do_admm .OR. scf_env%method == block_davidson_diag_method_nr &
-                   .OR. do_hfx_ri) THEN
+               IF (need_mos) THEN
 
                   IF (dft_control%restricted .AND. (ispin == 2)) THEN
                      CALL mo_set_restrict(mo_array)
@@ -930,9 +934,7 @@ CONTAINS
          DO ispin = 1, nspin
             ! The orbital transformation method (OT) requires not only an
             ! initial density matrix, but also an initial wavefunction (MO set)
-            IF (ASSOCIATED(scf_env%krylov_space)) do_std_diag = (scf_env%krylov_space%eps_std_diag > 0.0_dp)
-            IF (scf_control%use_ot .OR. scf_env%method == ot_diag_method_nr .OR. &
-                (scf_env%method == block_krylov_diag_method_nr .AND. .NOT. do_std_diag)) THEN
+            IF (need_mos) THEN
                IF (dft_control%restricted .AND. (ispin == 2)) THEN
                   CALL mo_set_restrict(mo_array)
                ELSE
