@@ -1,43 +1,60 @@
 &FORCE_EVAL
   METHOD Quickstep
   &DFT
+    !BASIS_SET_FILE_NAME HFX_BASIS
     BASIS_SET_FILE_NAME EMSL_BASIS_SETS
+    BASIS_SET_FILE_NAME BASIS_RI_cc-TZ
+    BASIS_SET_FILE_NAME BASIS_def2_QZVP_RI_ALL
     POTENTIAL_FILE_NAME POTENTIAL
+    AUTO_BASIS RI_HFX MEDIUM
     &MGRID
-      CUTOFF 200
+      CUTOFF 300
       REL_CUTOFF 50
     &END MGRID
     &QS
       METHOD GAPW
+      EPS_DEFAULT 1.0E-12
+      EPS_PGF_ORB 1.0E-06
+      EPS_FILTER_MATRIX 0.0e0
+      !EPS_PGF_ORB 1.0E-16
+      !EPS_FILTER_MATRIX 1.0E-16
     &END QS
     &SCF
       &MIXING
-        ALPHA 1.0
+        !ALPHA 1.0
       &END
-      EPS_SCF 1.0E-6
+      EPS_SCF 1.0E-06
       SCF_GUESS ATOMIC
-      MAX_SCF 50
+      MAX_SCF 20
     &END SCF
     &XC
       &XC_FUNCTIONAL NONE
       &END XC_FUNCTIONAL
       &HF
-        DO_RI .TRUE.
+        DO_RI .FALSE.
         &RI
           CUTOFF_RADIUS 2.0
-          RI_FLAVOUR MO
+          RI_FLAVOUR RHO
+          RI_METRIC TRUNCATED
+          CHECK_2C_INV .FALSE.
+          !EPS_LANCZOS 1.0E-08
+          !SQRT_ORDER 3
+          !MAX_ITER_LANCZOS 500
+          !FILTER_EPS 1.0E-12
+          !MEMORY_INFO .FALSE.
         &END
         &SCREENING
-          EPS_SCHWARZ 1.0E-7
-          SCREEN_ON_INITIAL_P FALSE
+          !EPS_SCHWARZ 1.0E-10
+          !EPS_SCHWARZ_FORCES 1.0E-10
+          !SCREEN_ON_INITIAL_P TRUE
         &END
         &INTERACTION_POTENTIAL
           POTENTIAL_TYPE TRUNCATED
           CUTOFF_RADIUS 2.0
-          T_C_G_DATA t_c_g.dat
+          !T_C_G_DATA t_c_g.dat
         &END
         &MEMORY
-          MAX_MEMORY 10
+          MAX_MEMORY 1000
         &END
       &END
     &END XC
@@ -53,10 +70,16 @@
     &END COORD
     &KIND H
       BASIS_SET 6-31Gxx
+      !BASIS_SET def2-QZVP
+      !BASIS_SET RI_HFX RI-5Z
+      !POTENTIAL GTH-PBE-q1
       POTENTIAL ALL
     &END KIND
     &KIND O
       BASIS_SET 6-31Gxx
+      !BASIS_SET def2-QZVP
+      !BASIS_SET RI_HFX RI-5Z
+      !POTENTIAL GTH-PBE-q6
       POTENTIAL ALL
     &END KIND
   &END SUBSYS

@@ -143,7 +143,8 @@ CONTAINS
                                                             sort_kind
       LOGICAL                                            :: did_guess, do_hfx_ri, do_kpoints, &
                                                             do_std_diag, exist, has_unit_metric, &
-                                                            natom_mismatch, need_wm, ofgpw, need_mos
+                                                            natom_mismatch, need_mos, need_wm, &
+                                                            ofgpw
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: buff, buff2
       REAL(dp), DIMENSION(:, :), POINTER                 :: pdata
       REAL(KIND=dp)                                      :: checksum, eps, length, maxocc, occ, &
@@ -208,8 +209,6 @@ CONTAINS
                       para_env=para_env, &
                       x_data=x_data)
 
-
-
       CALL qs_rho_get(rho, rho_ao_kp=rho_ao_kp)
 
       ! just initialize the first image, the other density are set to zero
@@ -239,9 +238,9 @@ CONTAINS
       IF (ASSOCIATED(scf_env%krylov_space)) do_std_diag = (scf_env%krylov_space%eps_std_diag > 0.0_dp)
 
       need_mos = scf_control%use_ot .OR. scf_env%method == ot_diag_method_nr .OR. &
-                   (scf_env%method == block_krylov_diag_method_nr .AND. .NOT. do_std_diag) &
-                   .OR. dft_control%do_admm .OR. scf_env%method == block_davidson_diag_method_nr &
-                   .OR. do_hfx_ri
+                 (scf_env%method == block_krylov_diag_method_nr .AND. .NOT. do_std_diag) &
+                 .OR. dft_control%do_admm .OR. scf_env%method == block_davidson_diag_method_nr &
+                 .OR. do_hfx_ri
 
       safe_density_guess = atomic_guess
       IF (dft_control%qs_control%semi_empirical .OR. dft_control%qs_control%dftb) THEN

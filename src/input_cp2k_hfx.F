@@ -14,6 +14,7 @@ MODULE input_cp2k_hfx
                                               Guidon2009
    USE cp_output_handling,              ONLY: add_last_numeric,&
                                               cp_print_key_section_create,&
+                                              high_print_level,&
                                               medium_print_level
    USE input_constants,                 ONLY: &
         do_potential_coulomb, do_potential_gaussian, do_potential_id, do_potential_long, &
@@ -500,14 +501,15 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       TYPE(keyword_type), POINTER                        :: keyword
+      TYPE(section_type), POINTER                        :: print_key
 
-      NULLIFY (keyword)
+      NULLIFY (keyword, print_key)
 
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, __LOCATION__, name="RI", &
                           description="Parameters for RI method in HFX")
 
-      CALL keyword_create(keyword, __LOCATION__, name="FILTER_EPS", &
+      CALL keyword_create(keyword, __LOCATION__, name="EPS_FILTER", &
                           description="Filter threshold for DBCSR tensors", &
                           default_r_val=1.0E-8_dp)
       CALL section_add_keyword(section, keyword)
@@ -613,14 +615,20 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, __LOCATION__, name="RI_FLAVOUR", &
-                          description="Flavour of RI: how to contract 3-center integrals", &
+      CALL keyword_create(keyword, __LOCATION__, name="RI_FLAVOR", &
+                          description="Flavor of RI: how to contract 3-center integrals", &
                           enum_c_vals=s2a("MO", "RHO"), &
                           enum_desc=s2a("MO coefficients", "density matrix"), &
                           enum_i_vals=(/ri_mo, ri_pmat/), &
                           default_i_val=ri_mo)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
+
+      CALL cp_print_key_section_create(print_key, __LOCATION__, "RI_INFO", &
+                                       description="Controls the printing of DBCSR tensor log in RI HFX.", &
+                                       print_level=high_print_level, add_last=add_last_numeric, filename="__STD_OUT__")
+      CALL section_add_subsection(section, print_key)
+      CALL section_release(print_key)
 
    END SUBROUTINE
 

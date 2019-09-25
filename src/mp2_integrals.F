@@ -117,10 +117,10 @@ MODULE mp2_integrals
                                               build_3c_neighbor_lists,&
                                               contiguous_tensor_dist,&
                                               neighbor_list_3c_destroy
-   USE qs_3c_tensors_types,             ONLY: distribution_3d_create,&
+   USE qs_3c_tensors_types,             ONLY: cyclic_tensor_dist,&
+                                              distribution_3d_create,&
                                               distribution_3d_type,&
-                                              neighbor_list_3c_type,&
-                                              cyclic_tensor_dist
+                                              neighbor_list_3c_type
    USE qs_collocate_density,            ONLY: calculate_wavefunction
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type,&

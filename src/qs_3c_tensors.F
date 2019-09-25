@@ -14,8 +14,7 @@ MODULE qs_3c_tensors
    USE ai_coulomb,                      ONLY: coulomb2_new
    USE ai_overlap,                      ONLY: overlap_ab
    USE ai_overlap3,                     ONLY: overlap3
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
+   USE atomic_kind_types,               ONLY: atomic_kind_type
    USE basis_set_types,                 ONLY: get_gto_basis_set,&
                                               gto_basis_set_p_type
    USE block_p_types,                   ONLY: block_p_type
@@ -61,7 +60,7 @@ MODULE qs_3c_tensors
    USE qs_3c_tensors_types,             ONLY: &
         distribution_3d_destroy, distribution_3d_type, neighbor_list_3c_iterator_type, &
         neighbor_list_3c_type, symmetric_ij, symmetric_ijk, symmetric_jk, symmetric_none, &
-        symmetrik_ik, cyclic_tensor_dist
+        symmetrik_ik
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
    USE qs_kind_types,                   ONLY: qs_kind_type

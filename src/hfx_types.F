@@ -71,10 +71,10 @@ MODULE hfx_types
                                               nso
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
-   USE qs_3c_tensors_types,             ONLY: distribution_3d_create,&
+   USE qs_3c_tensors_types,             ONLY: cyclic_tensor_dist,&
+                                              distribution_3d_create,&
                                               distribution_3d_destroy,&
-                                              distribution_3d_type, &
-                                              cyclic_tensor_dist
+                                              distribution_3d_type
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_interactions,                 ONLY: init_interaction_radii_orb_basis
    USE qs_kind_types,                   ONLY: get_qs_kind,&
@@ -379,7 +379,9 @@ MODULE hfx_types
       ! 3c integral tensor in ( AO | RI AO) format
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_ctr, &
                                                             t_3c_int
-      INTEGER :: flavour
+      INTEGER :: flavor
+      TYPE(section_vals_type), POINTER                   :: ri_section => NULL()
+      INTEGER :: unit_nr
    END TYPE
 
 ! **************************************************************************************************
@@ -899,6 +901,7 @@ CONTAINS
                ALLOCATE (actual_x_data%ri_data)
                CALL hfx_ri_init(actual_x_data%ri_data, actual_x_data, hf_sub_section, qs_kind_set, &
                                 particle_set, dft_control, para_env)
+
             ENDIF
          END DO
       END DO
@@ -934,13 +937,14 @@ CONTAINS
                                                             sizes_RI
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       LOGICAL                                            :: same_op
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(dbcsr_t_distribution_type)                    :: dist_3c
       TYPE(distribution_3d_type)                         :: dist_3d
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
       TYPE(qs_kind_type), POINTER                        :: qs_kind
-      TYPE(dbcsr_t_distribution_type)                    :: dist_3c
 
-      NULLIFY (basis_set_AO, basis_set_RI, ri_aux_basis_set, qs_kind)
+      NULLIFY (basis_set_AO, basis_set_RI, ri_aux_basis_set, qs_kind, logger)
 
       natom = SIZE(particle_set)
       nkind = SIZE(qs_kind_set, 1)
@@ -949,8 +953,9 @@ CONTAINS
       ri_data%omega_pot = x_data%potential_parameter%omega
       ri_data%r_cutoff_pot = x_data%potential_parameter%cutoff_radius
       ri_data%t_c_filename = x_data%potential_parameter%filename
+      ri_data%ri_section => ri_section
 
-      CALL section_vals_val_get(ri_section, "FILTER_EPS", r_val=ri_data%filter_eps)
+      CALL section_vals_val_get(ri_section, "EPS_FILTER", r_val=ri_data%filter_eps)
       CALL section_vals_val_get(ri_section, "EPS_RANGE", r_val=ri_data%eps_range)
       CALL section_vals_val_get(ri_section, "OMEGA", r_val=ri_data%omega_ri)
       CALL section_vals_val_get(ri_section, "CUTOFF_RADIUS", r_val=ri_data%r_cutoff_ri)
@@ -959,7 +964,7 @@ CONTAINS
       CALL section_vals_val_get(ri_section, "SQRT_ORDER", i_val=ri_data%t2c_sqrt_order)
       CALL section_vals_val_get(ri_section, "EPS_LANCZOS", r_val=ri_data%eps_lanczos)
       CALL section_vals_val_get(ri_section, "MAX_ITER_LANCZOS", i_val=ri_data%max_iter_lanczos)
-      CALL section_vals_val_get(ri_section, "RI_FLAVOUR", i_val=ri_data%flavour)
+      CALL section_vals_val_get(ri_section, "RI_FLAVOR", i_val=ri_data%flavor)
 
       ! initialise RI basis
       DO ikind = 1, nkind
@@ -1030,14 +1035,14 @@ CONTAINS
                                     ri_data%dist1_RI, ri_data%dist1_ao_1, ri_data%dist1_ao_2)
 
       ! initialize tensors expressed in basis representation
-      IF (ri_data%flavour == ri_mo) THEN
+      IF (ri_data%flavor == ri_mo) THEN
          CALL dbcsr_t_distribution_new(dist_3c, ri_data%pgrid, [1], [2, 3], &
                                        ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2)
          CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), "(AO | RI AO)", dist_3c, [1], [2, 3], &
                              dbcsr_type_real_8, sizes_AO, sizes_RI, sizes_AO)
 
          CALL dbcsr_t_distribution_destroy(dist_3c)
-      ELSEIF (ri_data%flavour == ri_pmat) THEN
+      ELSEIF (ri_data%flavor == ri_pmat) THEN
          CALL dbcsr_t_distribution_new(dist_3c, ri_data%pgrid, [1, 2], [3], &
                                        ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2)
          CALL dbcsr_t_create(ri_data%t_3c_int_ctr(1, 1), "(AO RI | AO)", dist_3c, [1, 2], [3], &
@@ -1050,6 +1055,10 @@ CONTAINS
          CALL dbcsr_t_distribution_destroy(dist_3c)
       ENDIF
 
+      logger => cp_get_default_logger()
+      ri_data%unit_nr = cp_print_key_unit_nr(logger, ri_data%ri_section, "RI_INFO", &
+                                             extension=".dbcsrLog")
+
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -1059,15 +1068,22 @@ CONTAINS
    SUBROUTINE hfx_ri_release(ri_data)
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
 
+      TYPE(cp_logger_type), POINTER                      :: logger
+
       CALL dbcsr_t_pgrid_destroy(ri_data%pgrid)
       DEALLOCATE (ri_data%dist1_AO_1, ri_data%dist1_AO_2, ri_data%dist2_AO_1, ri_data%dist2_AO_2, &
                   ri_data%dist1_RI, ri_data%dist2_RI)
       CALL distribution_3d_destroy(ri_data%dist1_3d)
       CALL dbcsr_t_distribution_destroy(ri_data%dist1)
       CALL dbcsr_t_destroy(ri_data%t_3c_int_ctr(1, 1))
-      IF (ri_data%flavour == ri_pmat) THEN
+      IF (ri_data%flavor == ri_pmat) THEN
          CALL dbcsr_t_destroy(ri_data%t_3c_int(1, 1))
       ENDIF
+
+      NULLIFY (logger)
+      logger => cp_get_default_logger()
+      CALL cp_print_key_finished_output(ri_data%unit_nr, logger, ri_data%ri_section, &
+                                        "RI_INFO")
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -2054,10 +2070,124 @@ CONTAINS
 !> \brief - This routine prints some information on HFX
 !> \param x_data contains all relevant data structures for hfx runs
 !> \param hfx_section HFX input section
-!> \param i_rep current replica ID
 !> \par History
 !>      03.2008 created [Manuel Guidon]
 !> \author Manuel Guidon
+! **************************************************************************************************
+   SUBROUTINE hfx_print_std_info(x_data, hfx_section)
+      TYPE(hfx_type), POINTER                            :: x_data
+      TYPE(section_vals_type), POINTER                   :: hfx_section
+
+      INTEGER                                            :: iw
+      TYPE(cp_logger_type), POINTER                      :: logger
+
+      NULLIFY (logger)
+      logger => cp_get_default_logger()
+
+      iw = cp_print_key_unit_nr(logger, hfx_section, "HF_INFO", &
+                                extension=".scfLog")
+
+      IF (iw > 0) THEN
+         WRITE (UNIT=iw, FMT="((T3,A,T73,ES8.1))") &
+            "HFX_INFO| EPS_SCHWARZ:     ", x_data%screening_parameter%eps_schwarz
+         WRITE (UNIT=iw, FMT="((T3,A,T73,ES8.1))") &
+            "HFX_INFO| EPS_SCHWARZ_FORCES     ", x_data%screening_parameter%eps_schwarz_forces
+         WRITE (UNIT=iw, FMT="((T3,A,T73,ES8.1))") &
+            "HFX_INFO| EPS_STORAGE_SCALING:     ", x_data%memory_parameter%eps_storage_scaling
+         WRITE (UNIT=iw, FMT="((T3,A,T61,I20))") &
+            "HFX_INFO| NBINS:     ", x_data%load_balance_parameter%nbins
+         WRITE (UNIT=iw, FMT="((T3,A,T61,I20))") &
+            "HFX_INFO| BLOCK_SIZE:     ", x_data%load_balance_parameter%block_size
+         IF (x_data%periodic_parameter%do_periodic) THEN
+            IF (x_data%periodic_parameter%mode == -1) THEN
+               WRITE (UNIT=iw, FMT="((T3,A,T77,A))") &
+                  "HFX_INFO| NUMBER_OF_SHELLS:     ", "AUTO"
+            ELSE
+               WRITE (UNIT=iw, FMT="((T3,A,T61,I20))") &
+                  "HFX_INFO| NUMBER_OF_SHELLS:     ", x_data%periodic_parameter%mode
+            END IF
+            WRITE (UNIT=iw, FMT="((T3,A,T61,I20))") &
+               "HFX_INFO| Number of periodic shells considered:     ", x_data%periodic_parameter%number_of_shells
+            WRITE (UNIT=iw, FMT="((T3,A,T61,I20),/)") &
+               "HFX_INFO| Number of periodic cells considered:     ", SIZE(x_data%neighbor_cells)
+         ELSE
+            WRITE (UNIT=iw, FMT="((T3,A,T77,A))") &
+               "HFX_INFO| Number of periodic shells considered:     ", "NONE"
+            WRITE (UNIT=iw, FMT="((T3,A,T77,A),/)") &
+               "HFX_INFO| Number of periodic cells considered:     ", "NONE"
+         END IF
+      ENDIF
+   END SUBROUTINE hfx_print_std_info
+
+! **************************************************************************************************
+!> \brief ...
+!> \param ri_data ...
+!> \param hfx_section ...
+! **************************************************************************************************
+   SUBROUTINE hfx_print_ri_info(ri_data, hfx_section)
+      TYPE(hfx_ri_type), POINTER                         :: ri_data
+      TYPE(section_vals_type), POINTER                   :: hfx_section
+
+      INTEGER                                            :: iw
+      REAL(dp)                                           :: rc_ang
+      TYPE(cp_logger_type), POINTER                      :: logger
+      TYPE(section_vals_type), POINTER                   :: ri_section
+
+      NULLIFY (logger, ri_section)
+      logger => cp_get_default_logger()
+
+      ri_section => ri_data%ri_section
+
+      iw = cp_print_key_unit_nr(logger, hfx_section, "HF_INFO", &
+                                extension=".scfLog")
+
+      IF (iw > 0) THEN
+         SELECT CASE (ri_data%op_ri)
+         CASE (do_potential_coulomb)
+            WRITE (UNIT=iw, FMT="(/T3,A,T74,A)") &
+               "HFX_RI_INFO| RI metric: ", "COULOMB"
+         CASE (do_potential_short)
+            WRITE (UNIT=iw, FMT="(T3,A,T71,A)") &
+               "HFX_RI_INFO| RI metric: ", "SHORTRANGE"
+            WRITE (iw, '(T3,A,T61,F20.10)') &
+               "HFX_RI_INFO| Omega:     ", ri_data%omega_ri
+            rc_ang = cp_unit_from_cp2k(ri_data%r_cutoff_ri, "angstrom")
+            WRITE (iw, '(T3,A,T61,F20.10)') &
+               "HFX_RI_INFO| Cutoff Radius [angstrom]:     ", rc_ang
+         CASE (do_potential_long)
+            WRITE (UNIT=iw, FMT="(T3,A,T72,A)") &
+               "HFX_RI_INFO| RI metric: ", "LONGRANGE"
+            WRITE (iw, '(T3,A,T61,F20.10)') &
+               "HFX_INFO| Omega:     ", ri_data%omega_ri
+         CASE (do_potential_id)
+            WRITE (UNIT=iw, FMT="(T3,A,T73,A)") &
+               "HFX_RI_INFO| RI metric: ", "IDENTITY"
+         CASE (do_potential_truncated)
+            WRITE (UNIT=iw, FMT="(T3,A,T72,A)") &
+               "HFX_RI_INFO| RI metric: ", "TRUNCATED"
+            rc_ang = cp_unit_from_cp2k(ri_data%r_cutoff_ri, "angstrom")
+            WRITE (iw, '(T3,A,T61,F20.10)') &
+               "HFX_RI_INFO| Cutoff Radius [angstrom]:     ", rc_ang
+         END SELECT
+         SELECT CASE (ri_data%flavor)
+         CASE (ri_mo)
+            WRITE (UNIT=iw, FMT="(T3, A, T79, A)") &
+               "HFX_RI_INFO| RI flavor: ", "MO"
+         CASE (ri_pmat)
+            WRITE (UNIT=iw, FMT="(T3, A, T78, A)") &
+               "HFX_RI_INFO| RI flavor: ", "RHO"
+         END SELECT
+         WRITE (UNIT=iw, FMT="(T3, A, T73, ES8.1)") &
+            "HFX_RI_INFO| EPS_FILTER", ri_data%filter_eps
+      ENDIF
+
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param x_data ...
+!> \param hfx_section ...
+!> \param i_rep ...
 ! **************************************************************************************************
    SUBROUTINE hfx_print_info(x_data, hfx_section, i_rep)
       TYPE(hfx_type), POINTER                            :: x_data
@@ -2073,19 +2203,11 @@ CONTAINS
 
       iw = cp_print_key_unit_nr(logger, hfx_section, "HF_INFO", &
                                 extension=".scfLog")
+
       IF (iw > 0) THEN
          WRITE (UNIT=iw, FMT="(/,(T3,A,T61,I20))") &
             "HFX_INFO| Replica ID:     ", i_rep
-         WRITE (UNIT=iw, FMT="((T3,A,T73,ES8.1))") &
-            "HFX_INFO| EPS_SCHWARZ:     ", x_data%screening_parameter%eps_schwarz
-         WRITE (UNIT=iw, FMT="((T3,A,T73,ES8.1))") &
-            "HFX_INFO| EPS_SCHWARZ_FORCES     ", x_data%screening_parameter%eps_schwarz_forces
-         WRITE (UNIT=iw, FMT="((T3,A,T73,ES8.1))") &
-            "HFX_INFO| EPS_STORAGE_SCALING:     ", x_data%memory_parameter%eps_storage_scaling
-         WRITE (UNIT=iw, FMT="((T3,A,T61,I20))") &
-            "HFX_INFO| NBINS:     ", x_data%load_balance_parameter%nbins
-         WRITE (UNIT=iw, FMT="((T3,A,T61,I20))") &
-            "HFX_INFO| BLOCK_SIZE:     ", x_data%load_balance_parameter%block_size
+
          WRITE (iw, '(T3,A,T61,F20.10)') &
             "HFX_INFO| FRACTION:     ", x_data%general_parameter%fraction
          SELECT CASE (x_data%potential_parameter%potential_type)
@@ -2144,28 +2266,17 @@ CONTAINS
             WRITE (iw, '(T3,A,T61,F20.10)') &
                "HFX_INFO| Cutoff Radius [angstrom]:     ", rc_ang
          END SELECT
-         IF (x_data%periodic_parameter%do_periodic) THEN
-            IF (x_data%periodic_parameter%mode == -1) THEN
-               WRITE (UNIT=iw, FMT="((T3,A,T77,A))") &
-                  "HFX_INFO| NUMBER_OF_SHELLS:     ", "AUTO"
-            ELSE
-               WRITE (UNIT=iw, FMT="((T3,A,T61,I20))") &
-                  "HFX_INFO| NUMBER_OF_SHELLS:     ", x_data%periodic_parameter%mode
-            END IF
-            WRITE (UNIT=iw, FMT="((T3,A,T61,I20))") &
-               "HFX_INFO| Number of periodic shells considered:     ", x_data%periodic_parameter%number_of_shells
-            WRITE (UNIT=iw, FMT="((T3,A,T61,I20),/)") &
-               "HFX_INFO| Number of periodic cells considered:     ", SIZE(x_data%neighbor_cells)
-         ELSE
-            WRITE (UNIT=iw, FMT="((T3,A,T77,A))") &
-               "HFX_INFO| Number of periodic shells considered:     ", "NONE"
-            WRITE (UNIT=iw, FMT="((T3,A,T77,A),/)") &
-               "HFX_INFO| Number of periodic cells considered:     ", "NONE"
-         END IF
+
       END IF
+      IF (x_data%do_RI) THEN
+         CALL hfx_print_ri_info(x_data%ri_data, hfx_section)
+      ELSE
+         CALL hfx_print_std_info(x_data, hfx_section)
+      ENDIF
+
       CALL cp_print_key_finished_output(iw, logger, hfx_section, &
                                         "HF_INFO")
-   END SUBROUTINE hfx_print_info
+   END SUBROUTINE
 
 ! **************************************************************************************************
 !> \brief ...
