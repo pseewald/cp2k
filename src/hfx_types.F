@@ -515,7 +515,7 @@ CONTAINS
 !>        unknown at invocation time
 ! **************************************************************************************************
    SUBROUTINE hfx_create(x_data, para_env, hfx_section, atomic_kind_set, qs_kind_set, &
-                         particle_set, dft_control, cell, do_exx)
+                         particle_set, dft_control, cell, do_exx, do_ot)
       TYPE(hfx_type), DIMENSION(:, :), POINTER           :: x_data
       TYPE(cp_para_env_type)                             :: para_env
       TYPE(section_vals_type), POINTER                   :: hfx_section
@@ -525,6 +525,7 @@ CONTAINS
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(cell_type), POINTER                           :: cell
       LOGICAL, OPTIONAL                                  :: do_exx
+      LOGICAL, OPTIONAL                                  :: do_ot
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_create', routineP = moduleN//':'//routineN
 
@@ -898,9 +899,10 @@ CONTAINS
 
             hf_sub_section => section_vals_get_subs_vals(hfx_section, "RI", i_rep_section=irep)
             IF (actual_x_data%do_hfx_ri) THEN
+               CPASSERT(PRESENT(do_ot))
                ALLOCATE (actual_x_data%ri_data)
                CALL hfx_ri_init(actual_x_data%ri_data, actual_x_data, hf_sub_section, qs_kind_set, &
-                                particle_set, dft_control, para_env)
+                                particle_set, dft_control, para_env, do_ot)
 
             ENDIF
          END DO
@@ -923,7 +925,7 @@ CONTAINS
 !> \param dft_control ...
 !> \param para_env ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_init(ri_data, x_data, ri_section, qs_kind_set, particle_set, dft_control, para_env)
+   SUBROUTINE hfx_ri_init(ri_data, x_data, ri_section, qs_kind_set, particle_set, dft_control, para_env, do_ot)
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
       TYPE(hfx_type), INTENT(INOUT)                      :: x_data
       TYPE(section_vals_type), POINTER                   :: ri_section
@@ -931,6 +933,7 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(cp_para_env_type)                             :: para_env
+      LOGICAL, INTENT(IN)                                :: do_ot
 
       INTEGER                                            :: ikind, mp_comm_3d, natom, nkind
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_AO_1, dist_AO_2, dist_RI, sizes_AO, &
@@ -965,6 +968,10 @@ CONTAINS
       CALL section_vals_val_get(ri_section, "EPS_LANCZOS", r_val=ri_data%eps_lanczos)
       CALL section_vals_val_get(ri_section, "MAX_ITER_LANCZOS", i_val=ri_data%max_iter_lanczos)
       CALL section_vals_val_get(ri_section, "RI_FLAVOR", i_val=ri_data%flavor)
+
+      IF(ri_data%flavor == ri_mo .AND. .NOT. do_ot) THEN
+         CPABORT("RI_FLAVOR MO is not consistent with density mixing. Either use OT or RI_FLAVOR RHO.")
+      ENDIF
 
       ! initialise RI basis
       DO ikind = 1, nkind

@@ -268,6 +268,7 @@ CONTAINS
       TYPE(section_vals_type), POINTER                   :: dft_section, et_coupling_section, &
                                                             hfx_section, kpoint_section, &
                                                             mp2_section, transport_section
+      TYPE(scf_control_type), POINTER                    :: scf_control
 
       NULLIFY (my_cell, my_cell_ref, atomic_kind_set, particle_set, &
                qs_kind_set, kpoint_section, dft_section, &
@@ -388,11 +389,11 @@ CONTAINS
       do_hfx = .FALSE.
       hfx_section => section_vals_get_subs_vals(qs_env%input, "DFT%XC%HF")
       CALL section_vals_get(hfx_section, explicit=do_hfx)
-      CALL get_qs_env(qs_env, dft_control=dft_control)
+      CALL get_qs_env(qs_env, dft_control=dft_control, scf_control=scf_control)
       IF (do_hfx) THEN
          ! Retrieve particle_set and atomic_kind_set (needed for both kinds of initialization)
          CALL hfx_create(qs_env%x_data, para_env, hfx_section, atomic_kind_set, &
-                         qs_kind_set, particle_set, dft_control, my_cell)
+                         qs_kind_set, particle_set, dft_control, my_cell, do_ot=scf_control%use_ot)
       END IF
 
       mp2_section => section_vals_get_subs_vals(qs_env%input, "DFT%XC%WF_CORRELATION")
@@ -412,7 +413,8 @@ CONTAINS
             CALL section_vals_val_get(mp2_section, "RI_RPA%ADMM", l_val=do_admm_rpa)
 
             CALL hfx_create(qs_env%mp2_env%ri_rpa%x_data, para_env, hfx_section, atomic_kind_set, &
-                            qs_kind_set, particle_set, dft_control, my_cell, do_exx=(.NOT. do_admm_rpa))
+                            qs_kind_set, particle_set, dft_control, my_cell, do_exx=(.NOT. do_admm_rpa), &
+                            do_ot=scf_control%use_ot)
 
          END IF
       END IF
