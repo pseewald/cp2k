@@ -511,7 +511,7 @@ CONTAINS
 
       CALL keyword_create(keyword, __LOCATION__, name="EPS_FILTER", &
                           description="Filter threshold for DBCSR tensors", &
-                          default_r_val=1.0E-8_dp)
+                          default_r_val=1.0E-9_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
