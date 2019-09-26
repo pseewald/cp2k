@@ -48,7 +48,6 @@ MODULE hfx_ri
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_kind_types,                   ONLY: qs_kind_type
    USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_mo_methods,                   ONLY: calculate_density_matrix
    USE qs_mo_types,                     ONLY: get_mo_set,&
                                               mo_set_p_type,&
                                               mo_set_type
@@ -462,20 +461,19 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: rho_ao
       LOGICAL, INTENT(IN)                                :: do_admm, geometry_did_change
       INTEGER, INTENT(IN)                                :: nspins
-      REAL(KIND=dp), DIMENSION(:), INTENT(IN)            :: hf_fraction
+      REAL(KIND=dp), INTENT(IN)                          :: hf_fraction
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_update_ks', &
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, ispin
       INTEGER, DIMENSION(2)                              :: homo
-      REAL(KIND=dp)                                      :: etmp
-      REAL(dp), DIMENSION(SIZE(hf_fraction))             :: fac
+      REAL(dp)                                      :: etmp
+      REAL(dp)                                           :: fac
       TYPE(cp_fm_type), POINTER                          :: mo_coeff
       TYPE(dbcsr_p_type), ALLOCATABLE, DIMENSION(:, :)   :: rho_ao_full
       TYPE(dbcsr_p_type), DIMENSION(SIZE(ks_matrix, 1), &
          SIZE(ks_matrix, 2))                             :: ks_matrix_ns
-      TYPE(dbcsr_type)                                   :: dbcsr_tmp
       TYPE(dbcsr_type), DIMENSION(2)                     :: mo_coeff_b
       TYPE(dbcsr_type), POINTER                          :: mo_coeff_b_tmp
       TYPE(mo_set_type), POINTER                         :: mo_set
@@ -483,9 +481,9 @@ CONTAINS
       CALL timeset(routineN, handle)
 
       IF (nspins == 1) THEN
-         fac(:) = 0.5_dp*hf_fraction
+         fac = 0.5_dp*hf_fraction
       ELSE
-         fac(:) = 1.0_dp*hf_fraction
+         fac = 1.0_dp*hf_fraction
       END IF
 
       DO ispin = 1, nspins
@@ -500,11 +498,10 @@ CONTAINS
          CPASSERT(mo_set%uniform_occupation)
          CALL get_mo_set(mo_set=mo_set, mo_coeff=mo_coeff, mo_coeff_b=mo_coeff_b_tmp)
 
-         IF(.NOT. mo_set%use_mo_coeff_b) CALL copy_fm_to_dbcsr(mo_coeff, mo_coeff_b_tmp)
+         IF (.NOT. mo_set%use_mo_coeff_b) CALL copy_fm_to_dbcsr(mo_coeff, mo_coeff_b_tmp)
 
-         CALL dbcsr_copy(dbcsr_tmp, mo_coeff_b_tmp)
-         CALL dbcsr_scale(dbcsr_tmp, SQRT(mo_set%maxocc))
-         mo_coeff_b(ispin) = dbcsr_tmp
+         CALL dbcsr_copy(mo_coeff_b(ispin), mo_coeff_b_tmp)
+         CALL dbcsr_scale(mo_coeff_b(ispin), SQRT(mo_set%maxocc))
          homo(ispin) = mo_set%homo
       ENDDO
 
@@ -517,7 +514,7 @@ CONTAINS
 
          ! careful! density matrix rho_ao may have imposed sparsity pattern of overlap/kohn-sham matrix
          ! even though this is conceptually incorrect in HFX.
-         CALL dbcsr_desymmetrize(rho_ao(ispin, 1)%matrix, rho_ao_full(ispin,1)%matrix)
+         CALL dbcsr_desymmetrize(rho_ao(ispin, 1)%matrix, rho_ao_full(ispin, 1)%matrix)
       ENDDO
 
       SELECT CASE (ri_data%flavor)
@@ -532,7 +529,7 @@ CONTAINS
       END SELECT
 
       DO ispin = 1, nspins
-         CALL dbcsr_scale(ks_matrix_ns(ispin, 1)%matrix, -fac(ispin))
+         CALL dbcsr_scale(ks_matrix_ns(ispin, 1)%matrix, -fac)
       ENDDO
 
       !! ** Calculate the exchange energy, copied from integrate_four_center
@@ -631,9 +628,9 @@ CONTAINS
 
       CALL dbcsr_t_create(mo_coeff(1), mo_coeff_t, name="MO coeffs")
 
+      ALLOCATE (bounds(2, 1))
       DO ispin = 1, nspins
          CALL dbcsr_t_copy_matrix_to_tensor(mo_coeff(ispin), mo_coeff_t)
-         ALLOCATE (bounds(2, 1))
          bounds(1, 1) = 1
          bounds(2, 1) = homo(ispin)
 

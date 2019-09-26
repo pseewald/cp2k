@@ -53,6 +53,7 @@ MODULE qs_initial_guess
                                               random_guess,&
                                               restart_guess,&
                                               sparse_guess
+   USE input_cp2k_hfx,                  ONLY: ri_mo
    USE input_section_types,             ONLY: section_vals_get_subs_vals,&
                                               section_vals_type
    USE kinds,                           ONLY: default_path_length,&
@@ -94,7 +95,6 @@ MODULE qs_initial_guess
    USE util,                            ONLY: sort
    USE xtb_types,                       ONLY: get_xtb_atom_param,&
                                               xtb_atom_type
-   USE input_cp2k_hfx,                  ONLY: ri_mo
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -215,14 +215,14 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ks_matrix', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, ikind, img, irep, is, ispin, &
-                                                            mspin, n_rep_hf, nimages, ns, nspins
+      INTEGER                                            :: handle, ikind, img, irep, ispin, mspin, &
+                                                            n_rep_hf, nimages, ns, nspins
       LOGICAL                                            :: distribute_fock_matrix, &
                                                             do_adiabatic_rescaling, &
                                                             hfx_treat_lsd_in_core, &
                                                             s_mstruct_changed, use_virial
       REAL(dp)                                           :: eh1, ehfx, ehfxrt
-      REAL(dp), ALLOCATABLE, DIMENSION(:)                :: fraction, hf_energy
+      REAL(dp), ALLOCATABLE, DIMENSION(:)                :: hf_energy
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_ks_1d, matrix_ks_aux_fit, &
                                                             matrix_ks_aux_fit_hfx, &
@@ -323,19 +323,15 @@ CONTAINS
          ! Finally the real hfx calulation
          ehfx = 0.0_dp
 
-         IF(x_data(irep, 1)%do_hfx_ri .AND. calculate_forces) THEN
+         IF (x_data(irep, 1)%do_hfx_ri .AND. calculate_forces) THEN
             CPABORT("RI forces not yet implemented in HFX")
          ENDIF
 
          IF (x_data(irep, 1)%do_hfx_ri) THEN
-            ALLOCATE (FRACTION(nspins))
-            DO is = 1, nspins
-               FRACTION(is) = x_data(irep, is)%general_parameter%fraction
-            ENDDO
             CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks_orb, ehfx, &
                                   matrix_ks_aux_fit_hfx, mo_array, rho_ao_orb, &
-                                  dft_control%do_admm, s_mstruct_changed, nspins, fraction)
-            DEALLOCATE (fraction)
+                                  dft_control%do_admm, s_mstruct_changed, nspins, &
+                                  x_data(irep, 1)%general_parameter%fraction)
          ELSE
             DO ispin = 1, mspin
                CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
@@ -391,7 +387,8 @@ CONTAINS
             IF (x_data(irep, 1)%do_hfx_ri) THEN
                CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks_orb, ehfx, matrix_ks_aux_fit_hfx, &
                                      mo_array, rho_ao_orb, &
-                                     dft_control%do_admm, .FALSE., nspins, fraction)
+                                     dft_control%do_admm, .FALSE., nspins, &
+                                     x_data(irep, 1)%general_parameter%fraction)
             ELSE
                DO ispin = 1, mspin
                   CALL integrate_four_center(qs_env, x_data, matrix_ks_orb, eh1, rho_ao_orb, hfx_sections, &
