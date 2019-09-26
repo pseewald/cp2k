@@ -499,7 +499,8 @@ CONTAINS
          mo_set => mos(ispin)%mo_set
          CPASSERT(mo_set%uniform_occupation)
          CALL get_mo_set(mo_set=mo_set, mo_coeff=mo_coeff, mo_coeff_b=mo_coeff_b_tmp)
-         CALL copy_fm_to_dbcsr(mo_coeff, mo_coeff_b_tmp)
+
+         IF(.NOT. mo_set%use_mo_coeff_b) CALL copy_fm_to_dbcsr(mo_coeff, mo_coeff_b_tmp)
 
          CALL dbcsr_copy(dbcsr_tmp, mo_coeff_b_tmp)
          CALL dbcsr_scale(dbcsr_tmp, SQRT(mo_set%maxocc))
@@ -510,9 +511,13 @@ CONTAINS
       ALLOCATE (rho_ao_full(nspins, 1))
       DO ispin = 1, nspins
          ALLOCATE (rho_ao_full(ispin, 1)%matrix)
-         CALL dbcsr_create(rho_ao_full(ispin, 1)%matrix, template=rho_ao(ispin, 1)%matrix, matrix_type=dbcsr_type_no_symmetry)
-         CALL calculate_density_matrix(mos(ispin)%mo_set, rho_ao_full(ispin, 1)%matrix, use_dbcsr=.TRUE., &
-                                       retain_sparsity=.FALSE.)
+         !CALL dbcsr_create(rho_ao_full(ispin, 1)%matrix, template=rho_ao(ispin, 1)%matrix, matrix_type=dbcsr_type_no_symmetry)
+         !CALL calculate_density_matrix(mos(ispin)%mo_set, rho_ao_full(ispin, 1)%matrix, use_dbcsr=.TRUE., &
+         !                              retain_sparsity=.FALSE.)
+
+         ! careful! density matrix rho_ao may have imposed sparsity pattern of overlap/kohn-sham matrix
+         ! even though this is conceptually incorrect in HFX.
+         CALL dbcsr_desymmetrize(rho_ao(ispin, 1)%matrix, rho_ao_full(ispin,1)%matrix)
       ENDDO
 
       SELECT CASE (ri_data%flavor)

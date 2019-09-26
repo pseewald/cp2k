@@ -490,7 +490,7 @@ MODULE hfx_types
       REAL(dp), DIMENSION(:, :), POINTER        :: pmax_block
       LOGICAL, DIMENSION(:, :), POINTER         :: atomic_pair_list
       LOGICAL, DIMENSION(:, :), POINTER         :: atomic_pair_list_forces
-      LOGICAL                                   :: do_RI
+      LOGICAL                                   :: do_hfx_ri
       TYPE(hfx_ri_type), POINTER                :: ri_data
    END TYPE hfx_type
 
@@ -566,7 +566,7 @@ CONTAINS
             actual_x_data%general_parameter%treat_lsd_in_core = logic_val
 
             CALL section_vals_val_get(hfx_section, "DO_RI", l_val=logic_val, i_rep_section=irep)
-            actual_x_data%do_ri = logic_val
+            actual_x_data%do_hfx_ri = logic_val
 
             !! MEMORY section
             hf_sub_section => section_vals_get_subs_vals(hfx_section, "MEMORY", i_rep_section=irep)
@@ -897,7 +897,7 @@ CONTAINS
             actual_x_data%b_first_load_balance_forces = .TRUE.
 
             hf_sub_section => section_vals_get_subs_vals(hfx_section, "RI", i_rep_section=irep)
-            IF (actual_x_data%do_ri) THEN
+            IF (actual_x_data%do_hfx_ri) THEN
                ALLOCATE (actual_x_data%ri_data)
                CALL hfx_ri_init(actual_x_data%ri_data, actual_x_data, hf_sub_section, qs_kind_set, &
                                 particle_set, dft_control, para_env)
@@ -1473,7 +1473,7 @@ CONTAINS
                DEALLOCATE (actual_x_data%map_atoms_to_cpus)
             END IF
 
-            IF (actual_x_data%do_ri) THEN
+            IF (actual_x_data%do_hfx_ri) THEN
                CALL hfx_ri_release(actual_x_data%ri_data)
                DEALLOCATE (actual_x_data%ri_data)
             ENDIF
@@ -2268,7 +2268,7 @@ CONTAINS
          END SELECT
 
       END IF
-      IF (x_data%do_RI) THEN
+      IF (x_data%do_hfx_ri) THEN
          CALL hfx_print_ri_info(x_data%ri_data, hfx_section)
       ELSE
          CALL hfx_print_std_info(x_data, hfx_section)

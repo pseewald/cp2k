@@ -323,10 +323,13 @@ CONTAINS
          ! Finally the real hfx calulation
          ehfx = 0.0_dp
 
-         IF (x_data(irep, 1)%do_RI) THEN
-            ns = SIZE(x_data, 2)
-            ALLOCATE (FRACTION(ns))
-            DO is = 1, ns
+         IF(x_data(irep, 1)%do_hfx_ri .AND. calculate_forces) THEN
+            CPABORT("RI forces not yet implemented in HFX")
+         ENDIF
+
+         IF (x_data(irep, 1)%do_hfx_ri) THEN
+            ALLOCATE (FRACTION(nspins))
+            DO is = 1, nspins
                FRACTION(is) = x_data(irep, is)%general_parameter%fraction
             ENDDO
             CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks_orb, ehfx, &
@@ -385,8 +388,8 @@ CONTAINS
 
             ehfxrt = 0.0_dp
 
-            IF (x_data(irep, 1)%do_RI) THEN
-               CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks, ehfx, matrix_ks_aux_fit_hfx, &
+            IF (x_data(irep, 1)%do_hfx_ri) THEN
+               CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks_orb, ehfx, matrix_ks_aux_fit_hfx, &
                                      mo_array, rho_ao_orb, &
                                      dft_control%do_admm, .FALSE., nspins, fraction)
             ELSE

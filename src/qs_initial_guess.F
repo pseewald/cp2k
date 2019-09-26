@@ -94,6 +94,7 @@ MODULE qs_initial_guess
    USE util,                            ONLY: sort
    USE xtb_types,                       ONLY: get_xtb_atom_param,&
                                               xtb_atom_type
+   USE input_cp2k_hfx,                  ONLY: ri_mo
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -141,7 +142,7 @@ CONTAINS
       INTEGER, DIMENSION(2)                              :: nelectron_spin
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, elec_conf, nelec_kind, &
                                                             sort_kind
-      LOGICAL                                            :: did_guess, do_hfx_ri, do_kpoints, &
+      LOGICAL                                            :: did_guess, do_hfx_ri_mo, do_kpoints, &
                                                             do_std_diag, exist, has_unit_metric, &
                                                             natom_mismatch, need_mos, need_wm, &
                                                             ofgpw
@@ -233,14 +234,14 @@ CONTAINS
       density_guess = scf_control%density_guess
       do_std_diag = .FALSE.
 
-      do_hfx_ri = .FALSE.
-      IF (ASSOCIATED(x_data)) do_hfx_ri = x_data(1, 1)%do_RI
+      do_hfx_ri_mo = .FALSE.
+      IF (ASSOCIATED(x_data)) do_hfx_ri_mo = x_data(1, 1)%do_hfx_ri .AND. x_data(1, 1)%ri_data%flavor == ri_mo
       IF (ASSOCIATED(scf_env%krylov_space)) do_std_diag = (scf_env%krylov_space%eps_std_diag > 0.0_dp)
 
       need_mos = scf_control%use_ot .OR. scf_env%method == ot_diag_method_nr .OR. &
                  (scf_env%method == block_krylov_diag_method_nr .AND. .NOT. do_std_diag) &
                  .OR. dft_control%do_admm .OR. scf_env%method == block_davidson_diag_method_nr &
-                 .OR. do_hfx_ri
+                 .OR. do_hfx_ri_mo
 
       safe_density_guess = atomic_guess
       IF (dft_control%qs_control%semi_empirical .OR. dft_control%qs_control%dftb) THEN
