@@ -609,6 +609,12 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, __LOCATION__, name="EPS_PGF_ORB", &
+                          description="Sets precision of the integral tensors.", &
+                          default_r_val=1.0E-5_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, __LOCATION__, name="MAX_ITER_LANCZOS", &
                           description="Maximum number of lanczos iterations.", &
                           usage="MAX_ITER_LANCZOS ", default_i_val=128)

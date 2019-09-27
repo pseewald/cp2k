@@ -362,7 +362,7 @@ MODULE hfx_types
       CHARACTER(len=default_string_length)    :: t_c_filename
       LOGICAL :: check_2c_inv
       INTEGER :: t2c_sqrt_order
-      REAL(KIND=dp) :: eps_lanczos
+      REAL(KIND=dp) :: eps_lanczos, eps_pgf_orb
       INTEGER :: max_iter_lanczos
 
       ! process grid used for any 3c tensors
@@ -968,6 +968,7 @@ CONTAINS
       CALL section_vals_val_get(ri_section, "EPS_LANCZOS", r_val=ri_data%eps_lanczos)
       CALL section_vals_val_get(ri_section, "MAX_ITER_LANCZOS", i_val=ri_data%max_iter_lanczos)
       CALL section_vals_val_get(ri_section, "RI_FLAVOR", i_val=ri_data%flavor)
+      CALL section_vals_val_get(ri_section, "EPS_PGF_ORB", r_val=ri_data%eps_pgf_orb)
 
       IF(ri_data%flavor == ri_mo .AND. .NOT. do_ot) THEN
          CPABORT("RI_FLAVOR MO is not consistent with density mixing. Either use OT or RI_FLAVOR RHO.")
@@ -983,7 +984,7 @@ CONTAINS
             ! Generate a default basis
             CALL create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, dft_control%auto_basis_ri_hfx)
             CALL init_orb_basis_set(ri_aux_basis_set)
-            CALL init_interaction_radii_orb_basis(ri_aux_basis_set, dft_control%qs_control%eps_pgf_orb)
+            CALL init_interaction_radii_orb_basis(ri_aux_basis_set, ri_data%eps_pgf_orb)
             CALL add_basis_set_to_container(qs_kind%basis_sets, ri_aux_basis_set, "RI_HFX")
          END IF
       END DO
