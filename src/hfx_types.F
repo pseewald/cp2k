@@ -507,6 +507,7 @@ CONTAINS
 !> \param dft_control ...
 !> \param cell ...
 !> \param do_exx ...
+!> \param do_ot ...
 !> \par History
 !>      09.2007 created [Manuel Guidon]
 !> \author Manuel Guidon
@@ -524,8 +525,7 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(cell_type), POINTER                           :: cell
-      LOGICAL, OPTIONAL                                  :: do_exx
-      LOGICAL, OPTIONAL                                  :: do_ot
+      LOGICAL, OPTIONAL                                  :: do_exx, do_ot
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_create', routineP = moduleN//':'//routineN
 
@@ -537,7 +537,8 @@ CONTAINS
       LOGICAL                                            :: logic_val, my_do_exx
       REAL(dp)                                           :: real_val
       TYPE(hfx_type), POINTER                            :: actual_x_data
-      TYPE(section_vals_type), POINTER                   :: hf_pbc_section, hf_sub_section
+      TYPE(section_vals_type), POINTER                   :: hf_pbc_section, hf_sub_section, &
+                                                            hfx_ri_section
 
       CALL timeset(routineN, handle)
 
@@ -566,8 +567,8 @@ CONTAINS
             CALL section_vals_val_get(hfx_section, "TREAT_LSD_IN_CORE", l_val=logic_val, i_rep_section=irep)
             actual_x_data%general_parameter%treat_lsd_in_core = logic_val
 
-            CALL section_vals_val_get(hfx_section, "DO_RI", l_val=logic_val, i_rep_section=irep)
-            actual_x_data%do_hfx_ri = logic_val
+            hfx_ri_section => section_vals_get_subs_vals(hfx_section, "RI")
+            CALL section_vals_val_get(hfx_ri_section, "_SECTION_PARAMETERS_", l_val=actual_x_data%do_hfx_ri)
 
             !! MEMORY section
             hf_sub_section => section_vals_get_subs_vals(hfx_section, "MEMORY", i_rep_section=irep)
@@ -924,6 +925,7 @@ CONTAINS
 !> \param particle_set ...
 !> \param dft_control ...
 !> \param para_env ...
+!> \param do_ot ...
 ! **************************************************************************************************
    SUBROUTINE hfx_ri_init(ri_data, x_data, ri_section, qs_kind_set, particle_set, dft_control, para_env, do_ot)
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
@@ -970,7 +972,7 @@ CONTAINS
       CALL section_vals_val_get(ri_section, "RI_FLAVOR", i_val=ri_data%flavor)
       CALL section_vals_val_get(ri_section, "EPS_PGF_ORB", r_val=ri_data%eps_pgf_orb)
 
-      IF(ri_data%flavor == ri_mo .AND. .NOT. do_ot) THEN
+      IF (ri_data%flavor == ri_mo .AND. .NOT. do_ot) THEN
          CPABORT("RI_FLAVOR MO is not consistent with density mixing. Either use OT or RI_FLAVOR RHO.")
       ENDIF
 
@@ -983,10 +985,11 @@ CONTAINS
          IF (.NOT. (ASSOCIATED(ri_aux_basis_set))) THEN
             ! Generate a default basis
             CALL create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, dft_control%auto_basis_ri_hfx)
-            CALL init_orb_basis_set(ri_aux_basis_set)
-            CALL init_interaction_radii_orb_basis(ri_aux_basis_set, ri_data%eps_pgf_orb)
+
             CALL add_basis_set_to_container(qs_kind%basis_sets, ri_aux_basis_set, "RI_HFX")
          END IF
+         CALL init_orb_basis_set(ri_aux_basis_set)
+         CALL init_interaction_radii_orb_basis(ri_aux_basis_set, ri_data%eps_pgf_orb)
       END DO
 
       IF (ri_data%op_ri == do_potential_short) THEN

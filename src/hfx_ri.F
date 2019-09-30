@@ -468,8 +468,7 @@ CONTAINS
 
       INTEGER                                            :: handle, ispin
       INTEGER, DIMENSION(2)                              :: homo
-      REAL(dp)                                      :: etmp
-      REAL(dp)                                           :: fac
+      REAL(dp)                                           :: etmp, fac
       TYPE(cp_fm_type), POINTER                          :: mo_coeff
       TYPE(dbcsr_p_type), ALLOCATABLE, DIMENSION(:, :)   :: rho_ao_full
       TYPE(dbcsr_p_type), DIMENSION(SIZE(ks_matrix, 1), &

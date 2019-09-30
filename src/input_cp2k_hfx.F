@@ -97,12 +97,6 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, __LOCATION__, name="DO_RI", &
-                          description="Enable Resolution of the Identity", &
-                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
       NULLIFY (print_key)
       CALL cp_print_key_section_create(print_key, __LOCATION__, "HF_INFO", &
                                        description="Controls the printing basic info about hf method", &
@@ -508,6 +502,14 @@ CONTAINS
       CPASSERT(.NOT. ASSOCIATED(section))
       CALL section_create(section, __LOCATION__, name="RI", &
                           description="Parameters for RI method in HFX")
+
+      CALL keyword_create(keyword, __LOCATION__, name="_SECTION_PARAMETERS_", &
+                          description="controls the activation of RI", &
+                          usage="&RI T", &
+                          default_l_val=.FALSE., &
+                          lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, __LOCATION__, name="EPS_FILTER", &
                           description="Filter threshold for DBCSR tensors", &

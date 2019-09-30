@@ -265,10 +265,10 @@ CONTAINS
       TYPE(qs_subsys_type), POINTER                      :: subsys
       TYPE(qs_wf_history_type), POINTER                  :: wf_history
       TYPE(rel_control_type), POINTER                    :: rel_control
+      TYPE(scf_control_type), POINTER                    :: scf_control
       TYPE(section_vals_type), POINTER                   :: dft_section, et_coupling_section, &
                                                             hfx_section, kpoint_section, &
                                                             mp2_section, transport_section
-      TYPE(scf_control_type), POINTER                    :: scf_control
 
       NULLIFY (my_cell, my_cell_ref, atomic_kind_set, particle_set, &
                qs_kind_set, kpoint_section, dft_section, &
@@ -491,9 +491,8 @@ CONTAINS
          maxlppnl, method_id, multiplicity, my_ival, n_ao, n_ao_aux_fit, n_mo_add, natom, &
          nelectron, ngauss, nkind, output_unit, tnadd_method
       INTEGER, DIMENSION(2)                              :: n_mo, nelectron_spin
-      LOGICAL                                            :: all_potential_present, be_silent, &
-                                                            do_kpoints, e1terms, has_unit_metric, &
-                                                            lribas, orb_gradient, was_present
+      LOGICAL :: all_potential_present, be_silent, do_kpoints, do_ri_hfx, e1terms, &
+         has_unit_metric, lribas, orb_gradient, was_present
       REAL(dp)                                           :: alpha, ccore, ewald_rcut, maxocc, &
                                                             verlet_skin, zeff_correction
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -773,6 +772,23 @@ CONTAINS
             END IF
          END DO
       END IF
+
+      !hfx_ri_section => section_vals_get_subs_vals(qs_env%input, "DFT%XC%HF%RI")
+      CALL section_vals_val_get(qs_env%input, "DFT%XC%HF%RI%_SECTION_PARAMETERS_", l_val=do_ri_hfx)
+      !CALL section_vals_get(hfx_ri_section, explicit=do_ri_hfx)
+      IF (do_ri_hfx) THEN
+         CALL get_qs_env(qs_env, nkind=nkind)
+         DO ikind = 1, nkind
+            NULLIFY (ri_hfx_basis)
+            qs_kind => qs_kind_set(ikind)
+            CALL get_qs_kind(qs_kind=qs_kind, basis_set=ri_hfx_basis, &
+                             basis_type="RI_HFX")
+            IF (.NOT. (ASSOCIATED(ri_hfx_basis))) THEN
+               CALL create_ri_aux_basis_set(ri_hfx_basis, qs_kind, dft_control%auto_basis_ri_hfx)
+               CALL add_basis_set_to_container(qs_kind%basis_sets, ri_hfx_basis, "RI_HFX")
+            END IF
+         END DO
+      ENDIF
 
       IF (dft_control%qs_control%method_id == do_method_rigpw) THEN
          ! Check if RI_HXC basis is available, auto-generate if needed
