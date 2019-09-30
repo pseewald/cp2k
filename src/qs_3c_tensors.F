@@ -582,7 +582,7 @@ CONTAINS
       INTEGER, DIMENSION(3)                              :: cell_j, cell_k
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL                                            :: do_kpoints_prv, new_block
-      REAL(KIND=dp)                                      :: dij, dik, djk, dr_ij, dr_jk, &
+      REAL(KIND=dp)                                      :: dij, dik, djk, dr_ij, dr_ik, dr_jk, &
                                                             kind_radius_i, kind_radius_j, &
                                                             kind_radius_k
       REAL(KIND=dp), DIMENSION(3)                        :: rij, rik, rjk
@@ -604,14 +604,30 @@ CONTAINS
          do_kpoints_prv = .FALSE.
       ENDIF
 
-      dr_ij = 0.0_dp; dr_jk = 0.0_dp
+      dr_ij = 0.0_dp; dr_jk = 0.0_dp; dr_ik = 0.0_dp
 
       IF (PRESENT(op_ij)) THEN
-         IF (op_ij /= do_potential_id .AND. PRESENT(x_range)) dr_ij = x_range
+         IF (op_ij /= do_potential_id) THEN
+            IF (PRESENT(x_range)) THEN
+               dr_ij = x_range
+               dr_ik = x_range
+            ELSE
+               dr_ij = 1000000.0_dp
+               dr_ik = 1000000.0_dp
+            ENDIF
+         ENDIF
       ENDIF
 
       IF (PRESENT(op_jk)) THEN
-         IF (op_jk /= do_potential_id .AND. PRESENT(x_range)) dr_jk = x_range
+         IF (op_jk /= do_potential_id) THEN
+            IF (PRESENT(x_range)) THEN
+               dr_jk = x_range
+               dr_ik = x_range
+            ELSE
+               dr_jk = 1000000.0_dp
+               dr_ik = 1000000.0_dp
+            ENDIF
+         ENDIF
       ENDIF
 
       CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, qs_kind_set=qs_kind_set, natom=natom, &
@@ -655,7 +671,7 @@ CONTAINS
 
          IF (kind_radius_j+kind_radius_i+dr_ij < dij) CYCLE
          IF (kind_radius_j+kind_radius_k+dr_jk < djk) CYCLE
-         !IF (kind_radius_k+kind_radius_i < dik) CYCLE
+         IF (kind_radius_k+kind_radius_i+dr_ik < dik) CYCLE
 
          ! tensor is not symmetric therefore need to allocate rows and columns in
          ! correspondence with neighborlist. Note that this only allocates half
@@ -791,7 +807,7 @@ CONTAINS
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgf_i, first_sgf_j, first_sgf_k
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL                                            :: do_kpoints_prv, found
-      REAL(KIND=dp)                                      :: dij, dik, djk, dr_ij, dr_jk, &
+      REAL(KIND=dp)                                      :: dij, dik, djk, dr_ij, dr_ik, dr_jk, &
                                                             kind_radius_i, kind_radius_j, &
                                                             kind_radius_k, prefac
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: block_t, dummy_block_t, sijk, &
@@ -817,8 +833,6 @@ CONTAINS
          do_kpoints_prv = .FALSE.
       ENDIF
 
-      dr_ij = 0; dr_jk = 0
-
       CPASSERT(.NOT. (PRESENT(op_ij) .AND. PRESENT(op_jk)))
 
       IF (PRESENT(op_ij)) THEN
@@ -833,11 +847,27 @@ CONTAINS
          op_jk_prv = do_potential_id
       ENDIF
 
-      dr_ij = 0.0_dp; dr_jk = 0.0_dp
+      dr_ij = 0.0_dp; dr_jk = 0.0_dp; dr_ik = 0.0_dp
 
-      IF (op_ij_prv /= do_potential_id .AND. PRESENT(r_cutoff)) dr_ij = r_cutoff
+      IF (op_ij_prv /= do_potential_id) THEN
+         IF (PRESENT(r_cutoff)) THEN
+            dr_ij = r_cutoff
+            dr_ik = r_cutoff
+         ELSE
+            dr_ij = 1000000.0_dp
+            dr_ik = 1000000.0_dp
+         ENDIF
+      ENDIF
 
-      IF (op_jk_prv /= do_potential_id .AND. PRESENT(r_cutoff)) dr_jk = r_cutoff
+      IF (op_jk_prv /= do_potential_id) THEN
+         IF (PRESENT(r_cutoff)) THEN
+            dr_jk = r_cutoff
+            dr_ik = r_cutoff
+         ELSE
+            dr_jk = 1000000.0_dp
+            dr_ik = 1000000.0_dp
+         ENDIF
+      ENDIF
 
       NULLIFY (qs_kind_set, atomic_kind_set)
 
@@ -932,7 +962,7 @@ CONTAINS
 
          IF (kind_radius_j+kind_radius_i+dr_ij < dij) CYCLE
          IF (kind_radius_j+kind_radius_k+dr_jk < djk) CYCLE
-         !IF (kind_radius_k+kind_radius_i < dik) CYCLE
+         IF (kind_radius_k+kind_radius_i+dr_ik < dik) CYCLE
 
          CALL dbcsr_t_blk_sizes(t3c(jcell, kcell), [iatom, jatom, katom], blk_size)
 
@@ -948,7 +978,7 @@ CONTAINS
                DO kset = 1, nsetk
 
                   IF (set_radius_j(jset)+set_radius_k(kset)+dr_jk < djk) CYCLE
-                  !IF (set_radius_k(kset)+set_radius_i(iset) < dik) CYCLE
+                  IF (set_radius_k(kset)+set_radius_i(iset)+dr_ik < dik) CYCLE
 
                   ncoi = npgfi(iset)*ncoset(lmax_i(iset))
                   ncoj = npgfj(jset)*ncoset(lmax_j(jset))
@@ -975,10 +1005,10 @@ CONTAINS
                         rj = rij ! ri + rij
                         rk = rik ! ri + rik
                         CALL eri_3center(sijk, &
-                                         lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), ri, &
-                                         lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), rj, &
-                                         lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), rk, &
-                                         lib, op_jk_prv, omega=omega, r_cutoff=r_cutoff)
+                                         lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), rpgf_i(:, iset), ri, &
+                                         lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), rpgf_j(:, jset), rj, &
+                                         lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), rpgf_k(:, kset), rk, &
+                                         dij, dik, djk, lib, op_jk_prv, omega=omega, r_cutoff=r_cutoff)
                      ELSEIF (op_ij_prv /= do_potential_id) THEN
                         ri = 0.0_dp
                         rj = rij ! ri + rij
@@ -986,10 +1016,10 @@ CONTAINS
                         ALLOCATE (sijk_rs(ncoj, ncok, ncoi))
                         sijk_rs(:, :, :) = 0.0_dp
                         CALL eri_3center(sijk_rs, &
-                                         lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), rj, &
-                                         lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), rk, &
-                                         lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), ri, &
-                                         lib, op_ij_prv, omega=omega, r_cutoff=r_cutoff)
+                                         lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), rpgf_j(:, jset), rj, &
+                                         lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), rpgf_k(:, kset), rk, &
+                                         lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), rpgf_i(:, iset), ri, &
+                                         djk, dij, dik, lib, op_ij_prv, omega=omega, r_cutoff=r_cutoff)
                         !sijk(:, :, :) = RESHAPE(sijk_rs, SHAPE(sijk), ORDER=[3, 1, 2])
                         sijk(:, :, :) = RESHAPE(sijk_rs, SHAPE(sijk), ORDER=[2, 3, 1])
                         !DO i=1, SIZE(sijk_rs, 3)

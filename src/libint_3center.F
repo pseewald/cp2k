@@ -16,6 +16,7 @@ MODULE libint_3center
                                               cp_libint_t,&
                                               prim_data_f_size
    USE input_constants,                 ONLY: do_potential_coulomb,&
+                                              do_potential_id,&
                                               do_potential_short,&
                                               do_potential_truncated
    USE kinds,                           ONLY: dp
@@ -50,17 +51,23 @@ CONTAINS
 !> \param la_max ...
 !> \param npgfa ...
 !> \param zeta ...
+!> \param rpgfa ...
 !> \param ra ...
 !> \param lb_min ...
 !> \param lb_max ...
 !> \param npgfb ...
 !> \param zetb ...
+!> \param rpgfb ...
 !> \param rb ...
 !> \param lc_min ...
 !> \param lc_max ...
 !> \param npgfc ...
 !> \param zetc ...
+!> \param rpgfc ...
 !> \param rc ...
+!> \param dab ...
+!> \param dac ...
+!> \param dbc ...
 !> \param lib the libint_t object for evaluation (assume that it is initialized outside)
 !> \param op which operator to use for the integrals
 !> \param omega in case of short range erfc operator
@@ -69,37 +76,53 @@ CONTAINS
 !>       the libint library must be static initialized, and in case of truncated Coulomb operator,
 !>       the latter must be initialized too
 ! **************************************************************************************************
-   SUBROUTINE eri_3center(int_abc, la_min, la_max, npgfa, zeta, ra, &
-                          lb_min, lb_max, npgfb, zetb, rb, &
-                          lc_min, lc_max, npgfc, zetc, rc, &
-                          lib, op, omega, r_cutoff)
+   SUBROUTINE eri_3center(int_abc, la_min, la_max, npgfa, zeta, rpgfa, ra, &
+                          lb_min, lb_max, npgfb, zetb, rpgfb, rb, &
+                          lc_min, lc_max, npgfc, zetc, rpgfc, rc, &
+                          dab, dac, dbc, lib, op, omega, r_cutoff)
 
       REAL(dp), DIMENSION(:, :, :), INTENT(INOUT)        :: int_abc
       INTEGER, INTENT(IN)                                :: la_min, la_max, npgfa
-      REAL(dp), DIMENSION(:), INTENT(IN)                 :: zeta
+      REAL(dp), DIMENSION(:), INTENT(IN)                 :: zeta, rpgfa
       REAL(dp), DIMENSION(3), INTENT(IN)                 :: ra
       INTEGER, INTENT(IN)                                :: lb_min, lb_max, npgfb
-      REAL(dp), DIMENSION(:), INTENT(IN)                 :: zetb
+      REAL(dp), DIMENSION(:), INTENT(IN)                 :: zetb, rpgfb
       REAL(dp), DIMENSION(3), INTENT(IN)                 :: rb
       INTEGER, INTENT(IN)                                :: lc_min, lc_max, npgfc
-      REAL(dp), DIMENSION(:), INTENT(IN)                 :: zetc
+      REAL(dp), DIMENSION(:), INTENT(IN)                 :: zetc, rpgfc
       REAL(dp), DIMENSION(3), INTENT(IN)                 :: rc
+      REAL(KIND=dp), INTENT(IN)                          :: dab, dac, dbc
       TYPE(cp_libint_t), INTENT(INOUT)                   :: lib
       INTEGER, INTENT(IN)                                :: op
       REAL(dp), INTENT(IN), OPTIONAL                     :: omega, r_cutoff
 
       CHARACTER(len=*), PARAMETER :: routineN = 'eri_3center', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: a_mysize(1), a_offset, a_start, &
-                                                            b_offset, b_start, c_offset, c_start, &
-                                                            i, ipgf, j, jpgf, k, kpgf, li, lj, lk, &
-                                                            ncoa, ncob, ncoc, p1, p2, p3
-      REAL(dp)                                           :: my_omega, my_r_cutoff, zeti, zetj, zetk
+      INTEGER :: a_mysize(1), a_offset, a_start, b_offset, b_start, c_offset, c_start, handle, i, &
+         ipgf, j, jpgf, k, kpgf, li, lj, lk, ncoa, ncob, ncoc, p1, p2, p3
+      REAL(dp)                                           :: dr_ab, dr_ac, dr_bc, my_omega, &
+                                                            my_r_cutoff, zeti, zetj, zetk
       REAL(dp), DIMENSION(:), POINTER                    :: p_work
       TYPE(params_3c), POINTER                           :: params
 
+      CALL timeset(routineN, handle)
+
       NULLIFY (params, p_work)
       ALLOCATE (params)
+
+      dr_ab = 0.0_dp
+      dr_bc = 0.0_dp
+      dr_ac = 0.0_dp
+
+      IF (op /= do_potential_id) THEN
+         IF (PRESENT(r_cutoff)) THEN
+            dr_bc = r_cutoff
+            dr_ac = r_cutoff
+         ELSE
+            dr_bc = 1000000.0_dp
+            dr_ab = 1000000.0_dp
+         ENDIF
+      ENDIF
 
       !Note: we want to compute all possible integrals based on the 3-centers (ab|c) before
       !      having to switch to (ba|c) (or the other way around) due to angular momenta in libint
@@ -117,10 +140,19 @@ CONTAINS
          a_start = (ipgf-1)*ncoset(la_max)
 
          DO jpgf = 1, npgfb
+
+            ! screening
+            IF (rpgfa(ipgf)+rpgfb(jpgf)+dr_ab < dab) CYCLE
+
             zetj = zetb(jpgf)
             b_start = (jpgf-1)*ncoset(lb_max)
 
             DO kpgf = 1, npgfc
+
+               ! screening
+               IF (rpgfb(jpgf)+rpgfc(kpgf)+dr_bc < dbc) CYCLE
+               IF (rpgfa(ipgf)+rpgfc(kpgf)+dr_ac < dac) CYCLE
+
                zetk = zetc(kpgf)
                c_start = (kpgf-1)*ncoset(lc_max)
 
@@ -192,6 +224,8 @@ CONTAINS
       END DO !ipgf
 
       DEALLOCATE (params)
+
+      CALL timestop(handle)
 
    END SUBROUTINE eri_3center
 
