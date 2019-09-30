@@ -799,8 +799,7 @@ CONTAINS
       INTEGER :: block_end_i, block_end_j, block_end_k, block_start_i, block_start_j, &
          block_start_k, handle, handle2, iatom, ibasis, ikind, imax, iset, jatom, jcell, jkind, &
          jset, katom, kcell, kkind, kset, m_max, maxli, maxlj, maxlk, natom, ncoi, ncoj, ncok, &
-         nimg, nseti, nsetj, nsetk, op_ij_prv, op_jk_prv, sgfi, sgfj, sgfk, unit_id, mem_i, mem_j, mem_k, &
-         maxmem
+         nimg, nseti, nsetj, nsetk, op_ij_prv, op_jk_prv, sgfi, sgfj, sgfk, unit_id
       INTEGER, DIMENSION(3)                              :: blk_size, cell_j, cell_k
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmax_k, lmin_i, lmin_j, &
                                                             lmin_k, npgfi, npgfj, npgfk, nsgfi, &
@@ -890,25 +889,19 @@ CONTAINS
 
       !Need the max l for each basis for libint
       maxli = 0
-      mem_i = 0
       DO ibasis = 1, SIZE(basis_i)
-         CALL get_gto_basis_set(gto_basis_set=basis_i(ibasis)%gto_basis_set, maxl=imax, maxco=maxmem)
+         CALL get_gto_basis_set(gto_basis_set=basis_i(ibasis)%gto_basis_set, maxl=imax)
          maxli = MAX(maxli, imax)
-         mem_i = MAX(mem_i, maxmem)
       END DO
       maxlj = 0
-      mem_j = 0
       DO ibasis = 1, SIZE(basis_j)
-         CALL get_gto_basis_set(gto_basis_set=basis_j(ibasis)%gto_basis_set, maxl=imax, maxco=maxmem)
+         CALL get_gto_basis_set(gto_basis_set=basis_j(ibasis)%gto_basis_set, maxl=imax)
          maxlj = MAX(maxlj, imax)
-         mem_j = MAX(mem_j, maxmem)
       END DO
       maxlk = 0
-      mem_k = 0
       DO ibasis = 1, SIZE(basis_k)
-         CALL get_gto_basis_set(gto_basis_set=basis_k(ibasis)%gto_basis_set, maxl=imax, maxco=maxmem)
+         CALL get_gto_basis_set(gto_basis_set=basis_k(ibasis)%gto_basis_set, maxl=imax)
          maxlk = MAX(maxlk, imax)
-         mem_k = MAX(mem_k, maxmem)
       END DO
       m_max = maxli+maxlj+maxlk
 
@@ -933,8 +926,6 @@ CONTAINS
          CALL cp_libint_init_3eri(lib, MAX(maxli, maxlj, maxlk))
          CALL cp_libint_set_contrdepth(lib, 1)
       ENDIF
-
-      ALLOCATE(sijk(mem_i, mem_j, mem_k), sijk_contr(mem_i, mem_j, mem_k), sijk_rs(mem_j, mem_k, mem_i))
 
       CALL neighbor_list_3c_iterator_create(nl_3c_iter, nl_3c)
       DO WHILE (neighbor_list_3c_iterate(nl_3c_iter) == 0)
@@ -999,8 +990,8 @@ CONTAINS
 
                   IF (ncoj*ncok*ncoi > 0) THEN
 
-                     !ALLOCATE (sijk(ncoi, ncoj, ncok))
-                     sijk = 0.0_dp
+                     ALLOCATE (sijk(ncoi, ncoj, ncok))
+                     sijk(:, :, :) = 0.0_dp
 
                      IF (op_ij_prv == do_potential_id .AND. op_jk_prv == do_potential_id) THEN ! cp2k overlap integrals
                         CALL overlap3(lmax_i(iset), npgfi(iset), zeti(:, iset), rpgf_i(:, iset), &
@@ -1022,15 +1013,15 @@ CONTAINS
                         ri = 0.0_dp
                         rj = rij ! ri + rij
                         rk = rik ! ri + rik
-                        sijk_rs = 0.0_dp
+                        ALLOCATE (sijk_rs(ncoj, ncok, ncoi))
+                        sijk_rs(:, :, :) = 0.0_dp
                         CALL eri_3center(sijk_rs, &
                                          lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), rpgf_j(:, jset), rj, &
                                          lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), rpgf_k(:, kset), rk, &
                                          lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), rpgf_i(:, iset), ri, &
                                          djk, dij, dik, lib, op_ij_prv, omega=omega, r_cutoff=r_cutoff)
                         !sijk(:, :, :) = RESHAPE(sijk_rs, SHAPE(sijk), ORDER=[3, 1, 2])
-                        sijk(:ncoi, :ncoj, :ncok) = sijk(:ncoi, :ncoj, :ncok) + &
-                           RESHAPE(sijk_rs(:ncoj, :ncok, :ncoi), [ncoi, ncoj, ncok], ORDER=[2, 3, 1])
+                        sijk(:, :, :) = RESHAPE(sijk_rs, SHAPE(sijk), ORDER=[2, 3, 1])
                         !DO i=1, SIZE(sijk_rs, 3)
                         !   DO j=1, SIZE(sijk_rs, 1)
                         !      DO k=1, SIZE(sijk_rs, 2)
@@ -1038,13 +1029,13 @@ CONTAINS
                         !      ENDDO
                         !   ENDDO
                         !ENDDO
+                        DEALLOCATE (sijk_rs)
                      ENDIF
 
-                     !ALLOCATE (sijk_contr(nsgfi(iset), nsgfj(jset), nsgfk(kset)))
-                     sijk_contr = 0.0_dp
+                     ALLOCATE (sijk_contr(nsgfi(iset), nsgfj(jset), nsgfk(kset)))
 
                      ! todo: if necessary apply screening
-                     CALL abc_contract(sijk_contr(:nsgfi(iset), :nsgfj(jset), :nsgfk(kset)), sijk, &
+                     CALL abc_contract(sijk_contr, sijk, &
                                        sphi_i(:, sgfi:), sphi_j(:, sgfj:), sphi_k(:, sgfk:), &
                                        ncoi, ncoj, ncok, nsgfi(iset), nsgfj(jset), nsgfk(kset))
 
@@ -1075,7 +1066,8 @@ CONTAINS
                         block_t(block_start_i:block_end_i, &
                                 block_start_j:block_end_j, &
                                 block_start_k:block_end_k)+ &
-                        prefac*sijk_contr(:nsgfi(iset), :nsgfj(jset), :nsgfk(kset))
+                        prefac*sijk_contr(:, :, :)
+                     DEALLOCATE (sijk, sijk_contr)
 
                   END IF ! number of triples > 0
 
@@ -1139,8 +1131,6 @@ CONTAINS
       ELSE
          CPABORT("requested symmetric case not implemented")
       ENDIF
-
-      DEALLOCATE(sijk, sijk_contr, sijk_rs)
 
       CALL timestop(handle)
    END SUBROUTINE
