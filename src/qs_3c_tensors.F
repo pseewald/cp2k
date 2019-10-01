@@ -809,7 +809,8 @@ CONTAINS
                                                             nsgfj, nsgfk
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgf_i, first_sgf_j, first_sgf_k
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
-      LOGICAL                                            :: debug, do_kpoints_prv, found
+      LOGICAL                                            :: block_not_zero, debug, do_kpoints_prv, &
+                                                            found
       REAL(KIND=dp)                                      :: dij, dik, djk, dr_ij, dr_ik, dr_jk, &
                                                             kind_radius_i, kind_radius_j, &
                                                             kind_radius_k, max_contraction_val, &
@@ -1016,6 +1017,7 @@ CONTAINS
          ENDIF
 
          block_t = 0.0_dp
+         block_not_zero = .FALSE.
 
          DO iset = 1, nseti
 
@@ -1081,6 +1083,8 @@ CONTAINS
                         ENDIF
                      ENDIF
 
+                     block_not_zero = .TRUE.
+
                      IF (op_ij_prv /= do_potential_id) THEN
                         ALLOCATE (sijk_contr(nsgfj(jset), nsgfk(kset), nsgfi(iset)))
                         CALL abc_contract(sijk_contr, sijk, &
@@ -1136,27 +1140,28 @@ CONTAINS
             END DO
 
          END DO
-         CALL timeset(routineN//"_put_dbcsr", handle2)
 
-         IF (debug) THEN
-            CALL dbcsr_t_get_block(t3c(jcell, kcell), &
-                                   [iatom, jatom, katom], dummy_block_t, found=found)
-            CPASSERT(found)
+         IF (block_not_zero) THEN
+            CALL timeset(routineN//"_put_dbcsr", handle2)
+            IF (debug) THEN
+               CALL dbcsr_t_get_block(t3c(jcell, kcell), &
+                                      [iatom, jatom, katom], dummy_block_t, found=found)
+               CPASSERT(found)
+            ENDIF
+            sp = SHAPE(block_t)
+
+            IF (op_ij_prv /= do_potential_id) THEN
+
+               sp([2, 3, 1]) = sp
+
+               CALL dbcsr_t_put_block(t3c(jcell, kcell), &
+                                      [iatom, jatom, katom], sp, RESHAPE(block_t, SHAPE=sp, ORDER=[2, 3, 1]), summation=.TRUE.)
+            ELSE
+               CALL dbcsr_t_put_block(t3c(jcell, kcell), &
+                                      [iatom, jatom, katom], sp, block_t, summation=.TRUE.)
+            ENDIF
+            CALL timestop(handle2)
          ENDIF
-
-         sp = SHAPE(block_t)
-         IF (op_ij_prv /= do_potential_id) THEN
-
-            sp([2, 3, 1]) = sp
-
-            CALL dbcsr_t_put_block(t3c(jcell, kcell), &
-                                   [iatom, jatom, katom], sp, RESHAPE(block_t, SHAPE=sp, ORDER=[2, 3, 1]), summation=.TRUE.)
-         ELSE
-            CALL dbcsr_t_put_block(t3c(jcell, kcell), &
-                                   [iatom, jatom, katom], sp, block_t, summation=.TRUE.)
-         ENDIF
-
-         CALL timestop(handle2)
 
          DEALLOCATE (block_t)
 
