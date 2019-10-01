@@ -425,11 +425,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'neighbor_list_3c_iterate', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, iatom, iter_level, jatom, &
+      INTEGER                                            :: iatom, iter_level, jatom, &
                                                             jatom_1, jatom_2, katom
       LOGICAL                                            :: skip_this
-
-      CALL timeset(routineN, handle)
 
       iter_level = iterator%iter_level
 
@@ -437,7 +435,6 @@ CONTAINS
          iter_stat = neighbor_list_iterate(iterator%iter_ij)
 
          IF (iter_stat /= 0) THEN
-            CALL timestop(handle)
             RETURN
          ENDIF
       ENDIF
@@ -445,7 +442,6 @@ CONTAINS
       IF (iter_stat /= 0) THEN
          iterator%iter_level = 0
          iter_stat = neighbor_list_3c_iterate(iterator)
-         CALL timestop(handle)
          RETURN
       ELSE
          iterator%iter_level = 1
@@ -477,11 +473,9 @@ CONTAINS
 
       IF (skip_this) THEN
          iter_stat = neighbor_list_3c_iterate(iterator)
-         CALL timestop(handle)
          RETURN
       ENDIF
 
-      CALL timestop(handle)
    END FUNCTION
 
 ! **************************************************************************************************
@@ -513,12 +507,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'get_3c_iterator_info', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle
       INTEGER, DIMENSION(2)                              :: atoms_1, atoms_2, kinds_1, kinds_2
       INTEGER, DIMENSION(3)                              :: cell_1, cell_2
       REAL(KIND=dp), DIMENSION(3)                        :: r_1, r_2
-
-      CALL timeset(routineN, handle)
 
       CPASSERT(iterator%iter_level == 1)
 
@@ -546,7 +537,6 @@ CONTAINS
       IF (PRESENT(cell_j)) cell_j = cell_1
       IF (PRESENT(cell_k)) cell_k = cell_1+cell_2
 
-      CALL timestop(handle)
    END SUBROUTINE
 
 ! **************************************************************************************************
