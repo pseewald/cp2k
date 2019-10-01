@@ -772,6 +772,7 @@ CONTAINS
 !> \param basis_i ...
 !> \param basis_j ...
 !> \param basis_k ...
+!> \param int_eps ...
 !> \param op_ij operator between i & j
 !> \param op_jk operator between j & k
 !> \param t_c_filename ...
@@ -782,12 +783,14 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE build_3c_integrals(t3c, filter_eps, qs_env, &
                                  nl_3c, basis_i, basis_j, basis_k, &
+                                 int_eps, &
                                  op_ij, op_jk, t_c_filename, r_cutoff, omega, do_kpoints)
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t3c
       REAL(KIND=dp), INTENT(IN)                          :: filter_eps
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(neighbor_list_3c_type), INTENT(INOUT)         :: nl_3c
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j, basis_k
+      REAL(KIND=dp), INTENT(IN), OPTIONAL                :: int_eps
       INTEGER, INTENT(IN), OPTIONAL                      :: op_ij, op_jk
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: t_c_filename
       REAL(KIND=dp), INTENT(IN), OPTIONAL                :: r_cutoff, omega
@@ -797,21 +800,23 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER :: block_end_i, block_end_j, block_end_k, block_start_i, block_start_j, &
-         block_start_k, handle, handle2, iatom, ibasis, ikind, imax, iset, jatom, jcell, jkind, &
+         block_start_k, handle, handle2, i, iatom, ibasis, ikind, imax, iset, jatom, jcell, jkind, &
          jset, katom, kcell, kkind, kset, m_max, maxli, maxlj, maxlk, natom, ncoi, ncoj, ncok, &
          nimg, nseti, nsetj, nsetk, op_ij_prv, op_jk_prv, sgfi, sgfj, sgfk, unit_id
-      INTEGER, DIMENSION(3)                              :: blk_size, cell_j, cell_k
+      INTEGER, DIMENSION(3)                              :: blk_size, cell_j, cell_k, sp
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmax_k, lmin_i, lmin_j, &
                                                             lmin_k, npgfi, npgfj, npgfk, nsgfi, &
                                                             nsgfj, nsgfk
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgf_i, first_sgf_j, first_sgf_k
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
-      LOGICAL                                            :: do_kpoints_prv, found
+      LOGICAL                                            :: debug, do_kpoints_prv, found
       REAL(KIND=dp)                                      :: dij, dik, djk, dr_ij, dr_ik, dr_jk, &
                                                             kind_radius_i, kind_radius_j, &
-                                                            kind_radius_k, prefac
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: block_t, dummy_block_t, sijk, &
-                                                            sijk_contr, sijk_rs
+                                                            kind_radius_k, max_contraction_val, &
+                                                            prefac
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: max_contraction_i, max_contraction_j, &
+                                                            max_contraction_k
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: block_t, dummy_block_t, sijk, sijk_contr
       REAL(KIND=dp), DIMENSION(3)                        :: ri, rij, rik, rj, rjk, rk
       REAL(KIND=dp), DIMENSION(:), POINTER               :: set_radius_i, set_radius_j, set_radius_k
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: rpgf_i, rpgf_j, rpgf_k, sphi_i, sphi_j, &
@@ -826,6 +831,8 @@ CONTAINS
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
 
       CALL timeset(routineN, handle)
+
+      debug = .FALSE.
 
       IF (PRESENT(do_kpoints)) THEN
          do_kpoints_prv = do_kpoints
@@ -851,8 +858,8 @@ CONTAINS
 
       IF (op_ij_prv /= do_potential_id) THEN
          IF (PRESENT(r_cutoff)) THEN
-            dr_ij = r_cutoff
-            dr_ik = r_cutoff
+            dr_ij = r_cutoff*1.01
+            dr_ik = r_cutoff*1.01
          ELSE
             dr_ij = 1000000.0_dp
             dr_ik = 1000000.0_dp
@@ -861,8 +868,8 @@ CONTAINS
 
       IF (op_jk_prv /= do_potential_id) THEN
          IF (PRESENT(r_cutoff)) THEN
-            dr_jk = r_cutoff
-            dr_ik = r_cutoff
+            dr_jk = r_cutoff*1.01
+            dr_ik = r_cutoff*1.01
          ELSE
             dr_jk = 1000000.0_dp
             dr_ik = 1000000.0_dp
@@ -932,6 +939,21 @@ CONTAINS
          CALL get_3c_iterator_info(nl_3c_iter, ikind=ikind, jkind=jkind, kkind=kkind, &
                                    iatom=iatom, jatom=jatom, katom=katom, &
                                    rij=rij, rjk=rjk, rik=rik, cell_j=cell_j, cell_k=cell_k)
+
+         IF (do_kpoints_prv) THEN
+            prefac = 0.5_dp
+         ELSEIF (nl_3c%sym == symmetric_jk) THEN
+            IF (jatom == katom) THEN
+               ! factor 0.5 due to double-counting of diagonal blocks
+               ! (we desymmetrize by adding transpose)
+               prefac = 0.5_dp
+            ELSE
+               prefac = 1.0_dp
+            ENDIF
+         ELSE
+            prefac = 1.0_dp
+         ENDIF
+
          IF (do_kpoints_prv) THEN
 
             jcell = cell_to_index(cell_j(1), cell_j(2), cell_j(3))
@@ -964,9 +986,35 @@ CONTAINS
          IF (kind_radius_j+kind_radius_k+dr_jk < djk) CYCLE
          IF (kind_radius_k+kind_radius_i+dr_ik < dik) CYCLE
 
+         ALLOCATE (max_contraction_i(nseti))
+         max_contraction_i = 0.0_dp
+         DO iset = 1, nseti
+            sgfi = first_sgf_i(1, iset)
+            max_contraction_i(iset) = MAXVAL((/(SUM(ABS(sphi_i(:, i))), i=sgfi, sgfi+nsgfi(iset)-1)/))
+         ENDDO
+
+         ALLOCATE (max_contraction_j(nsetj))
+         max_contraction_j = 0.0_dp
+         DO jset = 1, nsetj
+            sgfj = first_sgf_j(1, jset)
+            max_contraction_j(jset) = MAXVAL((/(SUM(ABS(sphi_j(:, i))), i=sgfj, sgfj+nsgfj(jset)-1)/))
+         ENDDO
+
+         ALLOCATE (max_contraction_k(nsetk))
+         max_contraction_k = 0.0_dp
+         DO kset = 1, nsetk
+            sgfk = first_sgf_k(1, kset)
+            max_contraction_k(kset) = MAXVAL((/(SUM(ABS(sphi_k(:, i))), i=sgfk, sgfk+nsgfk(kset)-1)/))
+         ENDDO
+
          CALL dbcsr_t_blk_sizes(t3c(jcell, kcell), [iatom, jatom, katom], blk_size)
 
-         ALLOCATE (block_t(blk_size(1), blk_size(2), blk_size(3)))
+         IF (op_ij_prv /= do_potential_id) THEN
+            ALLOCATE (block_t(blk_size(2), blk_size(3), blk_size(1)))
+         ELSE
+            ALLOCATE (block_t(blk_size(1), blk_size(2), blk_size(3)))
+         ENDIF
+
          block_t = 0.0_dp
 
          DO iset = 1, nseti
@@ -990,16 +1038,17 @@ CONTAINS
 
                   IF (ncoj*ncok*ncoi > 0) THEN
 
-                     ALLOCATE (sijk(ncoi, ncoj, ncok))
-                     sijk(:, :, :) = 0.0_dp
-
                      IF (op_ij_prv == do_potential_id .AND. op_jk_prv == do_potential_id) THEN ! cp2k overlap integrals
+                        ALLOCATE (sijk(ncoi, ncoj, ncok))
+                        sijk(:, :, :) = 0.0_dp
                         CALL overlap3(lmax_i(iset), npgfi(iset), zeti(:, iset), rpgf_i(:, iset), &
                                       lmin_i(iset), &
                                       lmax_j(jset), npgfj(jset), zetj(:, jset), rpgf_j(:, jset), lmin_j(jset), &
                                       lmax_k(kset), npgfk(kset), zetk(:, kset), rpgf_k(:, kset), lmin_k(kset), &
                                       rij, dij, rik, dik, rjk, djk, sijk)
                      ELSEIF (op_jk_prv /= do_potential_id) THEN ! for everything else use libint
+                        ALLOCATE (sijk(ncoi, ncoj, ncok))
+                        sijk(:, :, :) = 0.0_dp
                         !need positions for libint. Only relative positions are needed => set ri to 0.0
                         ri = 0.0_dp
                         rj = rij ! ri + rij
@@ -1010,64 +1059,75 @@ CONTAINS
                                          lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), rpgf_k(:, kset), rk, &
                                          dij, dik, djk, lib, op_jk_prv, omega=omega, r_cutoff=r_cutoff)
                      ELSEIF (op_ij_prv /= do_potential_id) THEN
+                        ALLOCATE (sijk(ncoj, ncok, ncoi))
+                        sijk(:, :, :) = 0.0_dp
                         ri = 0.0_dp
                         rj = rij ! ri + rij
                         rk = rik ! ri + rik
-                        ALLOCATE (sijk_rs(ncoj, ncok, ncoi))
-                        sijk_rs(:, :, :) = 0.0_dp
-                        CALL eri_3center(sijk_rs, &
+                        CALL eri_3center(sijk, &
                                          lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), rpgf_j(:, jset), rj, &
                                          lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), rpgf_k(:, kset), rk, &
                                          lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), rpgf_i(:, iset), ri, &
                                          djk, dij, dik, lib, op_ij_prv, omega=omega, r_cutoff=r_cutoff)
-                        !sijk(:, :, :) = RESHAPE(sijk_rs, SHAPE(sijk), ORDER=[3, 1, 2])
-                        sijk(:, :, :) = RESHAPE(sijk_rs, SHAPE(sijk), ORDER=[2, 3, 1])
-                        !DO i=1, SIZE(sijk_rs, 3)
-                        !   DO j=1, SIZE(sijk_rs, 1)
-                        !      DO k=1, SIZE(sijk_rs, 2)
-                        !         sijk(i, j, k) = sijk_rs(j, k, i)
-                        !      ENDDO
-                        !   ENDDO
-                        !ENDDO
-                        DEALLOCATE (sijk_rs)
+
                      ENDIF
+                     ! todo: contract all periodic images at once
+                     max_contraction_val = max_contraction_i(iset)*max_contraction_j(jset)*max_contraction_k(kset)
 
-                     ALLOCATE (sijk_contr(nsgfi(iset), nsgfj(jset), nsgfk(kset)))
-
-                     ! todo: if necessary apply screening
-                     CALL abc_contract(sijk_contr, sijk, &
-                                       sphi_i(:, sgfi:), sphi_j(:, sgfj:), sphi_k(:, sgfk:), &
-                                       ncoi, ncoj, ncok, nsgfi(iset), nsgfj(jset), nsgfk(kset))
-
-                     block_start_j = sgfj
-                     block_end_j = sgfj+nsgfj(jset)-1
-                     block_start_k = sgfk
-                     block_end_k = sgfk+nsgfk(kset)-1
-                     block_start_i = sgfi
-                     block_end_i = sgfi+nsgfi(iset)-1
-
-                     IF (do_kpoints_prv) THEN
-                        prefac = 0.5_dp
-                     ELSEIF (nl_3c%sym == symmetric_jk) THEN
-                        IF (jatom == katom) THEN
-                           ! factor 0.5 due to double-counting of diagonal blocks
-                           ! (we desymmetrize by adding transpose)
-                           prefac = 0.5_dp
-                        ELSE
-                           prefac = 1.0_dp
+                     IF (PRESENT(int_eps)) THEN
+                        IF (MAXVAL(ABS(sijk))*max_contraction_val < int_eps) THEN
+                           DEALLOCATE (sijk)
+                           CYCLE
                         ENDIF
-                     ELSE
-                        prefac = 1.0_dp
                      ENDIF
 
-                     block_t(block_start_i:block_end_i, &
-                             block_start_j:block_end_j, &
-                             block_start_k:block_end_k) = &
+                     IF (op_ij_prv /= do_potential_id) THEN
+                        ALLOCATE (sijk_contr(nsgfj(jset), nsgfk(kset), nsgfi(iset)))
+                        CALL abc_contract(sijk_contr, sijk, &
+                                          sphi_j(:, sgfj:), sphi_k(:, sgfk:), sphi_i(:, sgfi:), &
+                                          ncoj, ncok, ncoi, nsgfj(jset), nsgfk(kset), nsgfi(iset))
+                        DEALLOCATE (sijk)
+
+                        block_start_j = sgfj
+                        block_end_j = sgfj+nsgfj(jset)-1
+                        block_start_k = sgfk
+                        block_end_k = sgfk+nsgfk(kset)-1
+                        block_start_i = sgfi
+                        block_end_i = sgfi+nsgfi(iset)-1
+
+                        block_t(block_start_j:block_end_j, &
+                                block_start_k:block_end_k, &
+                                block_start_i:block_end_i) = &
+                           block_t(block_start_j:block_end_j, &
+                                   block_start_k:block_end_k, &
+                                   block_start_i:block_end_i)+ &
+                           prefac*sijk_contr(:, :, :)
+                        DEALLOCATE (sijk_contr)
+                     ELSE
+                        ALLOCATE (sijk_contr(nsgfi(iset), nsgfj(jset), nsgfk(kset)))
+
+                        CALL abc_contract(sijk_contr, sijk, &
+                                          sphi_i(:, sgfi:), sphi_j(:, sgfj:), sphi_k(:, sgfk:), &
+                                          ncoi, ncoj, ncok, nsgfi(iset), nsgfj(jset), nsgfk(kset))
+
+                        DEALLOCATE (sijk)
+                        block_start_j = sgfj
+                        block_end_j = sgfj+nsgfj(jset)-1
+                        block_start_k = sgfk
+                        block_end_k = sgfk+nsgfk(kset)-1
+                        block_start_i = sgfi
+                        block_end_i = sgfi+nsgfi(iset)-1
+
                         block_t(block_start_i:block_end_i, &
                                 block_start_j:block_end_j, &
-                                block_start_k:block_end_k)+ &
-                        prefac*sijk_contr(:, :, :)
-                     DEALLOCATE (sijk, sijk_contr)
+                                block_start_k:block_end_k) = &
+                           block_t(block_start_i:block_end_i, &
+                                   block_start_j:block_end_j, &
+                                   block_start_k:block_end_k)+ &
+                           prefac*sijk_contr(:, :, :)
+                        DEALLOCATE (sijk_contr)
+
+                     ENDIF
 
                   END IF ! number of triples > 0
 
@@ -1078,17 +1138,29 @@ CONTAINS
          END DO
          CALL timeset(routineN//"_put_dbcsr", handle2)
 
-         CALL dbcsr_t_get_block(t3c(jcell, kcell), &
-                                [iatom, jatom, katom], dummy_block_t, found=found)
-         CPASSERT(found)
+         IF (debug) THEN
+            CALL dbcsr_t_get_block(t3c(jcell, kcell), &
+                                   [iatom, jatom, katom], dummy_block_t, found=found)
+            CPASSERT(found)
+         ENDIF
 
-         CALL dbcsr_t_put_block(t3c(jcell, kcell), &
-                                [iatom, jatom, katom], SHAPE(block_t), block_t, summation=.TRUE.)
+         sp = SHAPE(block_t)
+         IF (op_ij_prv /= do_potential_id) THEN
+
+            sp([2, 3, 1]) = sp
+
+            CALL dbcsr_t_put_block(t3c(jcell, kcell), &
+                                   [iatom, jatom, katom], sp, RESHAPE(block_t, SHAPE=sp, ORDER=[2, 3, 1]), summation=.TRUE.)
+         ELSE
+            CALL dbcsr_t_put_block(t3c(jcell, kcell), &
+                                   [iatom, jatom, katom], sp, block_t, summation=.TRUE.)
+         ENDIF
 
          CALL timestop(handle2)
 
          DEALLOCATE (block_t)
 
+         DEALLOCATE (max_contraction_i, max_contraction_j, max_contraction_k)
       END DO
 
       IF (op_ij_prv /= do_potential_id .OR. op_jk_prv /= do_potential_id) THEN

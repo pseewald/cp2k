@@ -353,7 +353,7 @@ MODULE hfx_types
    END TYPE
 
    TYPE hfx_ri_type
-      REAL(KIND=dp) :: filter_eps
+      REAL(KIND=dp) :: filter_eps, eps_schwarz
       REAL(KIND=dp) :: eps_range
       REAL(KIND=dp) :: omega_ri, omega_pot
       REAL(KIND=dp) :: r_cutoff_ri, r_cutoff_pot
@@ -959,8 +959,14 @@ CONTAINS
       ri_data%r_cutoff_pot = x_data%potential_parameter%cutoff_radius
       ri_data%t_c_filename = x_data%potential_parameter%filename
       ri_data%ri_section => ri_section
+      ri_data%eps_schwarz = x_data%screening_parameter%eps_schwarz
 
       CALL section_vals_val_get(ri_section, "EPS_FILTER", r_val=ri_data%filter_eps)
+
+      ! since frobenius norm of a DBCSR block is always greater than norm of a single element,
+      ! using eps_schwarz for DBCSR filter eps is a conservative choice that should not lead
+      ! to a loss of accuracy
+      ri_data%filter_eps = MAX(ri_data%filter_eps, ri_data%eps_schwarz)
       CALL section_vals_val_get(ri_section, "EPS_RANGE", r_val=ri_data%eps_range)
       CALL section_vals_val_get(ri_section, "OMEGA", r_val=ri_data%omega_ri)
       CALL section_vals_val_get(ri_section, "CUTOFF_RADIUS", r_val=ri_data%r_cutoff_ri)
@@ -2190,6 +2196,8 @@ CONTAINS
          END SELECT
          WRITE (UNIT=iw, FMT="(T3, A, T73, ES8.1)") &
             "HFX_RI_INFO| EPS_FILTER", ri_data%filter_eps
+         WRITE (UNIT=iw, FMT="((T3, A, T73, ES8.1))") &
+            "HFX_INFO| EPS_SCHWARZ:     ", ri_data%eps_schwarz
       ENDIF
 
    END SUBROUTINE

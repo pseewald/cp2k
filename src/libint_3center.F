@@ -116,8 +116,8 @@ CONTAINS
 
       IF (op /= do_potential_id) THEN
          IF (PRESENT(r_cutoff)) THEN
-            dr_bc = r_cutoff
-            dr_ac = r_cutoff
+            dr_bc = r_cutoff*1.01
+            dr_ac = r_cutoff*1.01
          ELSE
             dr_bc = 1000000.0_dp
             dr_ab = 1000000.0_dp
