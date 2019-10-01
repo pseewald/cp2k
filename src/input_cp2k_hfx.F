@@ -512,9 +512,8 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, __LOCATION__, name="EPS_FILTER", &
-                          description="Filter threshold for DBCSR tensors. By default this is equal to EPS_SCHWARZ "// &
-                          "from HF section", &
-                          default_r_val=0.0_dp)
+                          description="Filter threshold for DBCSR tensors.", &
+                          default_r_val=1.0E-09_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 

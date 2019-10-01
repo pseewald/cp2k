@@ -963,10 +963,6 @@ CONTAINS
 
       CALL section_vals_val_get(ri_section, "EPS_FILTER", r_val=ri_data%filter_eps)
 
-      ! since frobenius norm of a DBCSR block is always greater than norm of a single element,
-      ! using eps_schwarz for DBCSR filter eps is a conservative choice that should not lead
-      ! to a loss of accuracy
-      ri_data%filter_eps = MAX(ri_data%filter_eps, ri_data%eps_schwarz)
       CALL section_vals_val_get(ri_section, "EPS_RANGE", r_val=ri_data%eps_range)
       CALL section_vals_val_get(ri_section, "OMEGA", r_val=ri_data%omega_ri)
       CALL section_vals_val_get(ri_section, "CUTOFF_RADIUS", r_val=ri_data%r_cutoff_ri)
