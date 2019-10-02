@@ -28,7 +28,6 @@
       &END XC_FUNCTIONAL
       &HF
         &RI
-          RI_FLAVOR MO
           RI_METRIC IDENTITY
         &END
         &SCREENING

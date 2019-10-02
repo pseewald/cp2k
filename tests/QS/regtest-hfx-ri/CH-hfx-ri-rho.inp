@@ -22,7 +22,6 @@
        &HF
         &RI
            RI_FLAVOR RHO
-           RI_METRIC COULOMB
         &END
         &SCREENING
           EPS_SCHWARZ 1.0E-10

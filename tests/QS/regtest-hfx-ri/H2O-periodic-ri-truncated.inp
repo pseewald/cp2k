@@ -24,9 +24,7 @@
           EPS_SCHWARZ 1.0E-05 ! affects screening in RI
           SCREEN_ON_INITIAL_P F
         &END
-        &RI T
-          RI_FLAVOR MO
-          RI_METRIC TRUNCATED
+        &RI
           CUTOFF_RADIUS 1.5
           EPS_FILTER 1.0E-05
           EPS_PGF_ORB 1.0E-04
