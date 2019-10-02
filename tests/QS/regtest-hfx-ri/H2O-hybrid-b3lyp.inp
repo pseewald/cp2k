@@ -41,8 +41,7 @@
        &END
       &END XC_FUNCTIONAL
       &HF
-        &RI T
-          RI_METRIC COULOMB
+        &RI
         &END
         &SCREENING
           EPS_SCHWARZ 1.0E-10
