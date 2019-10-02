@@ -16,7 +16,6 @@ MODULE libint_3center
                                               cp_libint_t,&
                                               prim_data_f_size
    USE input_constants,                 ONLY: do_potential_coulomb,&
-                                              do_potential_id,&
                                               do_potential_short,&
                                               do_potential_truncated
    USE kinds,                           ONLY: dp
@@ -114,14 +113,12 @@ CONTAINS
       dr_bc = 0.0_dp
       dr_ac = 0.0_dp
 
-      IF (op /= do_potential_id) THEN
-         IF (PRESENT(r_cutoff)) THEN
-            dr_bc = r_cutoff*1.01
-            dr_ac = r_cutoff*1.01
-         ELSE
-            dr_bc = 1000000.0_dp
-            dr_ab = 1000000.0_dp
-         ENDIF
+      IF (op == do_potential_truncated .OR. op == do_potential_short) THEN
+         dr_bc = r_cutoff*1.01
+         dr_ac = r_cutoff*1.01
+      ELSEIF (op == do_potential_coulomb) THEN
+         dr_bc = 1000000.0_dp
+         dr_ab = 1000000.0_dp
       ENDIF
 
       !Note: we want to compute all possible integrals based on the 3-centers (ab|c) before

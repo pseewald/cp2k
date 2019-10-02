@@ -112,9 +112,10 @@ CONTAINS
 !> \param op_ij operator
 !> \param x_range in case some truncated/screened operator is used, gives its range
 !> \param dist_2d optionally a custom 2d distribution
+!> \param pot_to_rad which radius (1 for i, 2 for j) should be adapted to incorporate potential
 ! **************************************************************************************************
    SUBROUTINE build_2c_neighbor_lists(ij_list, basis_i, basis_j, name, qs_env, &
-                                      sym_ij, molecular, op_ij, x_range, dist_2d)
+                                      sym_ij, molecular, op_ij, x_range, dist_2d, pot_to_rad)
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: ij_list
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j
@@ -124,6 +125,7 @@ CONTAINS
       INTEGER, INTENT(IN), OPTIONAL                      :: op_ij
       REAL(dp), INTENT(IN), OPTIONAL                     :: x_range
       TYPE(distribution_2d_type), OPTIONAL, POINTER      :: dist_2d
+      iNTEGER, INTENT(IN), OPTIONAL                      :: pot_to_rad
 
       CHARACTER(len=*), PARAMETER :: routineN = 'build_2c_neighbor_lists', &
          routineP = moduleN//':'//routineN
@@ -140,6 +142,7 @@ CONTAINS
       TYPE(local_atoms_type), ALLOCATABLE, DIMENSION(:)  :: atom2d
       TYPE(molecule_type), DIMENSION(:), POINTER         :: molecule_set
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
+      INTEGER                                            :: pot_to_rad_prv
 
       NULLIFY (atomic_kind_set, cell, local_particles, molecule_set, &
                particle_set, dist_2d_prv)
@@ -148,6 +151,12 @@ CONTAINS
          op_ij_prv = op_ij
       ELSE
          op_ij_prv = do_potential_id
+      ENDIF
+
+      IF(PRESENT(pot_to_rad)) THEN
+         pot_to_rad_prv = pot_to_rad
+      ELSE
+         pot_to_rad_prv = 1
       ENDIF
 
       CALL get_qs_env(qs_env, &
@@ -190,11 +199,14 @@ CONTAINS
 
          !Coulomb operator, virtually infinite range => set j_radius to arbitrarily large number
          DO ikind = 1, nkind
+            IF (ASSOCIATED(basis_i(ikind)%gto_basis_set)) THEN
+               i_present(ikind) = .TRUE.
+               IF(pot_to_rad_prv == 1) i_radius(ikind) = 1000000.0_dp
+            ENDIF
             IF (ASSOCIATED(basis_j(ikind)%gto_basis_set)) THEN
                j_present(ikind) = .TRUE.
-               j_radius(ikind) = 1000000.0_dp
+               IF(pot_to_rad_prv == 2) j_radius(ikind) = 1000000.0_dp
             END IF
-            IF (ASSOCIATED(basis_i(ikind)%gto_basis_set)) i_present(ikind) = .TRUE.
          END DO !ikind
 
       ELSE IF (op_ij_prv == do_potential_truncated .OR. op_ij_prv == do_potential_short) THEN
@@ -204,11 +216,12 @@ CONTAINS
             IF (ASSOCIATED(basis_i(ikind)%gto_basis_set)) THEN
                i_present(ikind) = .TRUE.
                CALL get_gto_basis_set(basis_i(ikind)%gto_basis_set, kind_radius=i_radius(ikind))
+               IF(pot_to_rad_prv == 1) i_radius(ikind) = i_radius(ikind)+1.01*x_range
             END IF
             IF (ASSOCIATED(basis_j(ikind)%gto_basis_set)) THEN
                j_present(ikind) = .TRUE.
                CALL get_gto_basis_set(basis_j(ikind)%gto_basis_set, kind_radius=j_radius(ikind))
-               j_radius(ikind) = j_radius(ikind)+1.01*x_range
+               IF(pot_to_rad_prv == 2) j_radius(ikind) = j_radius(ikind)+1.01*x_range
             END IF
          END DO
 
@@ -289,11 +302,11 @@ CONTAINS
 
       CALL build_2c_neighbor_lists(ijk_list%ij_list, basis_i, basis_j, TRIM(name)//"_sub_1", &
                                    qs_env, sym_ij=.FALSE., molecular=molecular, op_ij=op_ij, x_range=x_range, &
-                                   dist_2d=dist_3d%dist_2d_1)
+                                   dist_2d=dist_3d%dist_2d_1, pot_to_rad=1)
 
       CALL build_2c_neighbor_lists(ijk_list%jk_list, basis_j, basis_k, TRIM(name)//"_sub_2", &
                                    qs_env, sym_ij=.FALSE., molecular=molecular, op_ij=op_jk, x_range=x_range, &
-                                   dist_2d=dist_3d%dist_2d_2)
+                                   dist_2d=dist_3d%dist_2d_2, pot_to_rad=2)
 
       ijk_list%sym = symmetric_none
 
@@ -597,26 +610,22 @@ CONTAINS
       dr_ij = 0.0_dp; dr_jk = 0.0_dp; dr_ik = 0.0_dp
 
       IF (PRESENT(op_ij)) THEN
-         IF (op_ij /= do_potential_id) THEN
-            IF (PRESENT(x_range)) THEN
-               dr_ij = x_range
-               dr_ik = x_range
-            ELSE
-               dr_ij = 1000000.0_dp
-               dr_ik = 1000000.0_dp
-            ENDIF
+         IF (op_ij == do_potential_truncated .OR. op_ij == do_potential_short) THEN
+            dr_ij = x_range*1.01
+            dr_ik = x_range*1.01
+         ELSEIF (op_ij == do_potential_coulomb) THEN
+            dr_ij = 1000000.0_dp
+            dr_ik = 1000000.0_dp
          ENDIF
       ENDIF
 
       IF (PRESENT(op_jk)) THEN
-         IF (op_jk /= do_potential_id) THEN
-            IF (PRESENT(x_range)) THEN
-               dr_jk = x_range
-               dr_ik = x_range
-            ELSE
-               dr_jk = 1000000.0_dp
-               dr_ik = 1000000.0_dp
-            ENDIF
+         IF (op_jk == do_potential_truncated .OR. op_jk == do_potential_short) THEN
+            dr_jk = x_range*1.01
+            dr_ik = x_range*1.01
+         ELSEIF (op_jk == do_potential_coulomb) THEN
+            dr_jk = 1000000.0_dp
+            dr_ik = 1000000.0_dp
          ENDIF
       ENDIF
 
@@ -847,24 +856,20 @@ CONTAINS
 
       dr_ij = 0.0_dp; dr_jk = 0.0_dp; dr_ik = 0.0_dp
 
-      IF (op_ij_prv /= do_potential_id) THEN
-         IF (PRESENT(r_cutoff)) THEN
-            dr_ij = r_cutoff*1.01
-            dr_ik = r_cutoff*1.01
-         ELSE
-            dr_ij = 1000000.0_dp
-            dr_ik = 1000000.0_dp
-         ENDIF
+      IF (op_ij_prv == do_potential_truncated .OR. op_ij_prv == do_potential_short) THEN
+         dr_ij = r_cutoff*1.01
+         dr_ik = r_cutoff*1.01
+      ELSEIF (op_ij_prv == do_potential_coulomb) THEN
+         dr_ij = 1000000.0_dp
+         dr_ik = 1000000.0_dp
       ENDIF
 
-      IF (op_jk_prv /= do_potential_id) THEN
-         IF (PRESENT(r_cutoff)) THEN
-            dr_jk = r_cutoff*1.01
-            dr_ik = r_cutoff*1.01
-         ELSE
-            dr_jk = 1000000.0_dp
-            dr_ik = 1000000.0_dp
-         ENDIF
+      IF (op_jk_prv == do_potential_truncated .OR. op_jk_prv == do_potential_short) THEN
+         dr_jk = r_cutoff*1.01
+         dr_ik = r_cutoff*1.01
+      ELSEIF (op_jk_prv == do_potential_coulomb) THEN
+         dr_jk = 1000000.0_dp
+         dr_ik = 1000000.0_dp
       ENDIF
 
       NULLIFY (qs_kind_set, atomic_kind_set)
