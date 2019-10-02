@@ -946,7 +946,7 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_AO_1, dist_AO_2, dist_RI, sizes_AO, &
                                                             sizes_RI
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
-      LOGICAL                                            :: same_op
+      LOGICAL                                            :: explicit, same_op
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(dbcsr_t_distribution_type)                    :: dist_3c
       TYPE(distribution_3d_type)                         :: dist_3d
@@ -969,9 +969,22 @@ CONTAINS
       CALL section_vals_val_get(ri_section, "EPS_FILTER", r_val=ri_data%filter_eps)
 
       CALL section_vals_val_get(ri_section, "EPS_RANGE", r_val=ri_data%eps_range)
-      CALL section_vals_val_get(ri_section, "OMEGA", r_val=ri_data%omega_ri)
-      CALL section_vals_val_get(ri_section, "CUTOFF_RADIUS", r_val=ri_data%r_cutoff_ri)
-      CALL section_vals_val_get(ri_section, "RI_METRIC", i_val=ri_data%op_ri)
+
+      CALL section_vals_val_get(ri_section, "RI_METRIC", i_val=ri_data%op_ri, explicit=explicit)
+      IF (.NOT. explicit .OR. ri_data%op_ri == 0) THEN
+         ri_data%op_ri = ri_data%op_pot
+      ENDIF
+
+      CALL section_vals_val_get(ri_section, "OMEGA", r_val=ri_data%omega_ri, explicit=explicit)
+      IF (.NOT. explicit) THEN
+         ri_data%omega_ri = ri_data%omega_pot
+      ENDIF
+
+      CALL section_vals_val_get(ri_section, "CUTOFF_RADIUS", r_val=ri_data%r_cutoff_ri, explicit=explicit)
+      IF (.NOT. explicit) THEN
+         ri_data%r_cutoff_ri = ri_data%r_cutoff_pot
+      ENDIF
+
       CALL section_vals_val_get(ri_section, "CHECK_2C_INV", l_val=ri_data%check_2c_inv)
       CALL section_vals_val_get(ri_section, "SQRT_ORDER", i_val=ri_data%t2c_sqrt_order)
       CALL section_vals_val_get(ri_section, "EPS_LANCZOS", r_val=ri_data%eps_lanczos)

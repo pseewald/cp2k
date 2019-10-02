@@ -526,7 +526,8 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, __LOCATION__, name="OMEGA", &
-                          description="The range parameter for the short range operator (in 1/a0).", &
+                          description="The range parameter for the short range operator (in 1/a0). "// &
+                          "Default is OMEGA from INTERACTION_POTENTIAL. ", &
                           default_r_val=0.0_dp, &
                           repeats=.FALSE.)
       CALL section_add_keyword(section, keyword)
@@ -540,8 +541,9 @@ CONTAINS
       !CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, __LOCATION__, name="CUTOFF_RADIUS", &
-                          description="The cutoff radius (in Angstrom) for the truncated Coulomb operator.", &
-                          default_r_val=6.0_dp, &
+                          description="The cutoff radius (in Angstrom) for the truncated Coulomb operator. "// &
+                          "Default is CUTOFF_RADIUS from INTERACTION_POTENTIAL. ", &
+                          default_r_val=0.0_dp, &
                           repeats=.FALSE., &
                           unit_str="angstrom")
       CALL section_add_keyword(section, keyword)
@@ -570,17 +572,20 @@ CONTAINS
       !CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, __LOCATION__, name="RI_METRIC", &
-                          description="The type of operator used for exact exchange. The standard"// &
+                          description="The type of RI operator. "// &
+                          "Default is POTENTIAL_TYPE from INTERACTION_POTENTIAL. "// &
+                          "The standard "// &
                           "Coulomb operator cannot be used in periodic systems.", &
                           usage="OPERATOR {string}", &
                           repeats=.FALSE., &
-                          default_i_val=do_potential_truncated, &
-                          enum_c_vals=s2a("COULOMB", "IDENTITY", "TRUNCATED", "SHORTRANGE"), &
-                          enum_desc=s2a("Stendard Coulomb operator: 1/r", &
+                          default_i_val=0, &
+                          enum_c_vals=s2a("HFX", "COULOMB", "IDENTITY", "TRUNCATED", "SHORTRANGE"), &
+                          enum_desc=s2a("Same as HFX operator", &
+                                        "Standard Coulomb operator: 1/r", &
                                         "Overlap", &
                                         "Truncated Coulomb operator: 1/r if (r<R_c), 0 otherwise ", &
                                         "Short range: erfc(omega*r)/r"), &
-                          enum_i_vals=(/do_potential_coulomb, do_potential_id, do_potential_truncated, &
+                          enum_i_vals=(/0, do_potential_coulomb, do_potential_id, do_potential_truncated, &
                                         do_potential_short/))
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
