@@ -209,7 +209,7 @@ CONTAINS
       IF (unit_nr > 0) THEN
          WRITE (unit_nr, *) "Error for (inv(K)*K-I)", error
       ENDIF
-      CPASSERT(error < 1.0E-09_dp)
+      CPASSERT(error < 1.0E-08_dp)
       CALL dbcsr_release(matrix_tmp)
    END SUBROUTINE
 
