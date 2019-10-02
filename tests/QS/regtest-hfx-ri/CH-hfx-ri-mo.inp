@@ -23,7 +23,6 @@
        &XC_FUNCTIONAL NONE
        &END XC_FUNCTIONAL
        &HF
-        DO_RI
         &RI
            RI_FLAVOR MO
            RI_METRIC COULOMB
