@@ -784,6 +784,9 @@ CONTAINS
             CALL get_qs_kind(qs_kind=qs_kind, basis_set=ri_hfx_basis, &
                              basis_type="RI_HFX")
             IF (.NOT. (ASSOCIATED(ri_hfx_basis))) THEN
+               !Because might need nco(l) with high l<=max_orbl in create_ri_aux_basis_set
+               CALL get_qs_kind_set(qs_kind_set, maxlgto=maxlgto)
+               CALL init_orbital_pointers(2*maxlgto)
                CALL create_ri_aux_basis_set(ri_hfx_basis, qs_kind, dft_control%auto_basis_ri_hfx)
                CALL add_basis_set_to_container(qs_kind%basis_sets, ri_hfx_basis, "RI_HFX")
             END IF
