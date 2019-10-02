@@ -98,8 +98,10 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER :: routineN = 'eri_3center', routineP = moduleN//':'//routineN
 
-      INTEGER :: a_mysize(1), a_offset, a_start, b_offset, b_start, c_offset, c_start, i, &
-         ipgf, j, jpgf, k, kpgf, li, lj, lk, ncoa, ncob, ncoc, p1, p2, p3
+      INTEGER                                            :: a_mysize(1), a_offset, a_start, &
+                                                            b_offset, b_start, c_offset, c_start, &
+                                                            i, ipgf, j, jpgf, k, kpgf, li, lj, lk, &
+                                                            ncoa, ncob, ncoc, p1, p2, p3
       REAL(dp)                                           :: dr_ab, dr_ac, dr_bc, my_omega, &
                                                             my_r_cutoff, zeti, zetj, zetk
       REAL(dp), DIMENSION(:), POINTER                    :: p_work

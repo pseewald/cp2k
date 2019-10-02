@@ -902,8 +902,8 @@ CONTAINS
             IF (actual_x_data%do_hfx_ri) THEN
                CPASSERT(PRESENT(do_ot))
                ALLOCATE (actual_x_data%ri_data)
-               CALL hfx_ri_init(actual_x_data%ri_data, actual_x_data, hf_sub_section, qs_kind_set, &
-                                particle_set, dft_control, para_env, do_ot)
+               CALL hfx_ri_init(actual_x_data%ri_data, actual_x_data, hfx_section, hf_sub_section, qs_kind_set, &
+                                particle_set, dft_control, para_env, irep, do_ot)
 
             ENDIF
          END DO
@@ -920,23 +920,28 @@ CONTAINS
 !> \brief ...
 !> \param ri_data ...
 !> \param x_data ...
+!> \param hfx_section ...
 !> \param ri_section ...
 !> \param qs_kind_set ...
 !> \param particle_set ...
 !> \param dft_control ...
 !> \param para_env ...
+!> \param irep ...
 !> \param do_ot ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_init(ri_data, x_data, ri_section, qs_kind_set, particle_set, dft_control, para_env, do_ot)
+   SUBROUTINE hfx_ri_init(ri_data, x_data, hfx_section, ri_section, qs_kind_set, particle_set, dft_control, para_env, irep, do_ot)
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
       TYPE(hfx_type), INTENT(INOUT)                      :: x_data
-      TYPE(section_vals_type), POINTER                   :: ri_section
+      TYPE(section_vals_type), POINTER                   :: hfx_section, ri_section
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(cp_para_env_type)                             :: para_env
+      INTEGER, INTENT(IN)                                :: irep
       LOGICAL, INTENT(IN)                                :: do_ot
 
+      CHARACTER(LEN=512)                                 :: error_msg
+      CHARACTER(LEN=default_path_length)                 :: char_val
       INTEGER                                            :: ikind, mp_comm_3d, natom, nkind
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_AO_1, dist_AO_2, dist_RI, sizes_AO, &
                                                             sizes_RI
@@ -948,8 +953,9 @@ CONTAINS
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
       TYPE(qs_kind_type), POINTER                        :: qs_kind
+      TYPE(section_vals_type), POINTER                   :: hf_sub_section
 
-      NULLIFY (basis_set_AO, basis_set_RI, ri_aux_basis_set, qs_kind, logger)
+      NULLIFY (basis_set_AO, basis_set_RI, ri_aux_basis_set, qs_kind, logger, hf_sub_section)
 
       natom = SIZE(particle_set)
       nkind = SIZE(qs_kind_set, 1)
@@ -957,7 +963,6 @@ CONTAINS
       ri_data%op_pot = x_data%potential_parameter%potential_type
       ri_data%omega_pot = x_data%potential_parameter%omega
       ri_data%r_cutoff_pot = x_data%potential_parameter%cutoff_radius
-      ri_data%t_c_filename = x_data%potential_parameter%filename
       ri_data%ri_section => ri_section
       ri_data%eps_schwarz = x_data%screening_parameter%eps_schwarz
 
@@ -994,6 +999,20 @@ CONTAINS
          CALL init_interaction_radii_orb_basis(ri_aux_basis_set, ri_data%eps_pgf_orb)
       END DO
 
+      IF (ri_data%op_ri == do_potential_truncated .OR. ri_data%op_pot == do_potential_truncated) THEN
+         hf_sub_section => section_vals_get_subs_vals(hfx_section, "INTERACTION_POTENTIAL", i_rep_section=irep)
+         CALL section_vals_val_get(hf_sub_section, "T_C_G_DATA", c_val=char_val)
+         CALL compress(char_val, .TRUE.)
+         ! ** Check if file is there
+         IF (.NOT. file_exists(char_val)) THEN
+            WRITE (error_msg, '(A,A,A)') "RI hfx calculation with truncated RI metric requested. The file containing "// &
+               "the data could not be found at ", TRIM(char_val), " Please check T_C_G_DATA "// &
+               "in the INTERACTION_POTENTIAL section"
+            CPABORT(error_msg)
+         ELSE
+            ri_data%t_c_filename = char_val
+         END IF
+      END IF
       IF (ri_data%op_ri == do_potential_short) THEN
          CALL erfc_cutoff(ri_data%eps_range, ri_data%omega_ri, ri_data%r_cutoff_ri)
       ENDIF

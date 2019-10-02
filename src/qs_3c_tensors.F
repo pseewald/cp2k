@@ -425,8 +425,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'neighbor_list_3c_iterate', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: iatom, iter_level, jatom, &
-                                                            jatom_1, jatom_2, katom
+      INTEGER                                            :: iatom, iter_level, jatom, jatom_1, &
+                                                            jatom_2, katom
       LOGICAL                                            :: skip_this
 
       iter_level = iterator%iter_level
