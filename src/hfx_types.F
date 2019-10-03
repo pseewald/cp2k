@@ -354,7 +354,6 @@ MODULE hfx_types
 
    TYPE hfx_ri_type
       REAL(KIND=dp) :: filter_eps, eps_schwarz
-      REAL(KIND=dp) :: eps_range
       REAL(KIND=dp) :: omega_ri, omega_pot
       REAL(KIND=dp) :: r_cutoff_ri, r_cutoff_pot
       INTEGER :: op_pot, op_ri
@@ -968,8 +967,6 @@ CONTAINS
 
       CALL section_vals_val_get(ri_section, "EPS_FILTER", r_val=ri_data%filter_eps)
 
-      CALL section_vals_val_get(ri_section, "EPS_RANGE", r_val=ri_data%eps_range)
-
       CALL section_vals_val_get(ri_section, "RI_METRIC", i_val=ri_data%op_ri, explicit=explicit)
       IF (.NOT. explicit .OR. ri_data%op_ri == 0) THEN
          ri_data%op_ri = ri_data%op_pot
@@ -1027,7 +1024,7 @@ CONTAINS
          END IF
       END IF
       IF (ri_data%op_ri == do_potential_short) THEN
-         CALL erfc_cutoff(ri_data%eps_range, ri_data%omega_ri, ri_data%r_cutoff_ri)
+         CALL erfc_cutoff(ri_data%eps_schwarz, ri_data%omega_ri, ri_data%r_cutoff_ri)
       ENDIF
 
       ! determine whether RI metric is same operator as used in HFX

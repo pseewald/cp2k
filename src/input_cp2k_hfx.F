@@ -517,14 +517,6 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
-      CALL keyword_create(keyword, __LOCATION__, name="EPS_RANGE", &
-                          description="The threshold to determine the effective range of the short range "// &
-                          "operator: erfc(omega*eff_range)/eff_range = EPS_RANGE", &
-                          default_r_val=1.0E-6_dp, &
-                          repeats=.FALSE.)
-      CALL section_add_keyword(section, keyword)
-      CALL keyword_release(keyword)
-
       CALL keyword_create(keyword, __LOCATION__, name="OMEGA", &
                           description="The range parameter for the short range operator (in 1/a0). "// &
                           "Default is OMEGA from INTERACTION_POTENTIAL. ", &
