@@ -9,7 +9,9 @@
 
 MODULE hfx_ri
 
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type
+   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
+                                              gto_basis_set_type
+   USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr,&
                                               cp_dbcsr_dist2d_to_dist
    USE cp_fm_types,                     ONLY: cp_fm_type
@@ -46,6 +48,7 @@ MODULE hfx_ri
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
    USE qs_integral_utils,               ONLY: basis_set_list_setup
+   USE qs_interactions,                 ONLY: init_interaction_radii_orb_basis
    USE qs_kind_types,                   ONLY: qs_kind_type
    USE qs_ks_types,                     ONLY: qs_ks_env_type
    USE qs_mo_types,                     ONLY: get_mo_set,&
@@ -267,14 +270,16 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_pre_scf_calc_tensors', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, natom, nkind
+      INTEGER                                            :: handle, ibasis, natom, nkind
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: sizes_AO, sizes_RI
       INTEGER, DIMENSION(:), POINTER                     :: col_bsize, row_bsize
       LOGICAL                                            :: use_qs3c
       TYPE(dbcsr_distribution_type)                      :: dbcsr_dist
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: t_2c_int_pot_pointer, t_2c_int_RI_pointer
+      TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(distribution_2d_type), POINTER                :: dist_2d
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
+      TYPE(gto_basis_set_type), POINTER                  :: orb_basis
       TYPE(neighbor_list_3c_type)                        :: nl_3c
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: nl_2c_pot, nl_2c_RI
@@ -289,7 +294,7 @@ CONTAINS
                nl_2c_pot, nl_2c_RI, particle_set, qs_kind_set, ks_env, t_2c_int_pot_pointer, t_2c_int_RI_pointer)
 
       CALL get_qs_env(qs_env, natom=natom, nkind=nkind, qs_kind_set=qs_kind_set, particle_set=particle_set, &
-                      distribution_2d=dist_2d, ks_env=ks_env)
+                      distribution_2d=dist_2d, ks_env=ks_env, dft_control=dft_control)
 
       ALLOCATE (sizes_RI(natom), sizes_AO(natom))
       ALLOCATE (basis_set_RI(nkind), basis_set_AO(nkind))
@@ -297,6 +302,14 @@ CONTAINS
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_RI, basis=basis_set_RI)
       CALL basis_set_list_setup(basis_set_AO, "ORB", qs_kind_set)
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_AO, basis=basis_set_AO)
+
+      DO ibasis = 1, SIZE(basis_set_AO)
+         orb_basis => basis_set_AO(ibasis)%gto_basis_set
+         ! interaction radii should be based on eps_pgf_orb controlled in RI section
+         ! (since hartree-fock needs very tight eps_pgf_orb for Kohn-Sham/Fock matrix but eps_pgf_orb
+         ! can be much looser in RI HFX since no systematic error is introduced with tensor sparsity)
+         CALL init_interaction_radii_orb_basis(orb_basis, ri_data%eps_pgf_orb)
+      ENDDO
 
       CALL dbcsr_t_create(t_3c_int(1, 1), "(RI | AO AO)", ri_data%dist1, [1], [2, 3], &
                           dbcsr_type_real_8, sizes_RI, sizes_AO, sizes_AO)
@@ -358,6 +371,13 @@ CONTAINS
 
          CALL neighbor_list_2c_destroy(nl_2c_RI)
       ENDIF
+
+      DO ibasis = 1, SIZE(basis_set_AO)
+         orb_basis => basis_set_AO(ibasis)%gto_basis_set
+         ! reset interaction radii of orb basis
+         CALL init_interaction_radii_orb_basis(orb_basis, dft_control%qs_control%eps_pgf_orb)
+      ENDDO
+
       CALL timestop(handle)
    END SUBROUTINE
 

@@ -125,12 +125,12 @@ CONTAINS
       INTEGER, INTENT(IN), OPTIONAL                      :: op_ij
       REAL(dp), INTENT(IN), OPTIONAL                     :: x_range
       TYPE(distribution_2d_type), OPTIONAL, POINTER      :: dist_2d
-      iNTEGER, INTENT(IN), OPTIONAL                      :: pot_to_rad
+      INTEGER, INTENT(IN), OPTIONAL                      :: pot_to_rad
 
       CHARACTER(len=*), PARAMETER :: routineN = 'build_2c_neighbor_lists', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: ikind, nkind, op_ij_prv
+      INTEGER                                            :: ikind, nkind, op_ij_prv, pot_to_rad_prv
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: i_present, j_present
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: pair_radius
       REAL(kind=dp)                                      :: subcells
@@ -142,7 +142,6 @@ CONTAINS
       TYPE(local_atoms_type), ALLOCATABLE, DIMENSION(:)  :: atom2d
       TYPE(molecule_type), DIMENSION(:), POINTER         :: molecule_set
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
-      INTEGER                                            :: pot_to_rad_prv
 
       NULLIFY (atomic_kind_set, cell, local_particles, molecule_set, &
                particle_set, dist_2d_prv)
@@ -153,7 +152,7 @@ CONTAINS
          op_ij_prv = do_potential_id
       ENDIF
 
-      IF(PRESENT(pot_to_rad)) THEN
+      IF (PRESENT(pot_to_rad)) THEN
          pot_to_rad_prv = pot_to_rad
       ELSE
          pot_to_rad_prv = 1
@@ -201,11 +200,11 @@ CONTAINS
          DO ikind = 1, nkind
             IF (ASSOCIATED(basis_i(ikind)%gto_basis_set)) THEN
                i_present(ikind) = .TRUE.
-               IF(pot_to_rad_prv == 1) i_radius(ikind) = 1000000.0_dp
+               IF (pot_to_rad_prv == 1) i_radius(ikind) = 1000000.0_dp
             ENDIF
             IF (ASSOCIATED(basis_j(ikind)%gto_basis_set)) THEN
                j_present(ikind) = .TRUE.
-               IF(pot_to_rad_prv == 2) j_radius(ikind) = 1000000.0_dp
+               IF (pot_to_rad_prv == 2) j_radius(ikind) = 1000000.0_dp
             END IF
          END DO !ikind
 
@@ -216,12 +215,12 @@ CONTAINS
             IF (ASSOCIATED(basis_i(ikind)%gto_basis_set)) THEN
                i_present(ikind) = .TRUE.
                CALL get_gto_basis_set(basis_i(ikind)%gto_basis_set, kind_radius=i_radius(ikind))
-               IF(pot_to_rad_prv == 1) i_radius(ikind) = i_radius(ikind)+1.01*x_range
+               IF (pot_to_rad_prv == 1) i_radius(ikind) = i_radius(ikind)+1.01*x_range
             END IF
             IF (ASSOCIATED(basis_j(ikind)%gto_basis_set)) THEN
                j_present(ikind) = .TRUE.
                CALL get_gto_basis_set(basis_j(ikind)%gto_basis_set, kind_radius=j_radius(ikind))
-               IF(pot_to_rad_prv == 2) j_radius(ikind) = j_radius(ikind)+1.01*x_range
+               IF (pot_to_rad_prv == 2) j_radius(ikind) = j_radius(ikind)+1.01*x_range
             END IF
          END DO
 
