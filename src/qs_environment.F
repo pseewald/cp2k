@@ -787,7 +787,11 @@ CONTAINS
                !Because might need nco(l) with high l<=max_orbl in create_ri_aux_basis_set
                CALL get_qs_kind_set(qs_kind_set, maxlgto=maxlgto)
                CALL init_orbital_pointers(2*maxlgto)
-               CALL create_ri_aux_basis_set(ri_hfx_basis, qs_kind, dft_control%auto_basis_ri_hfx)
+               IF (dft_control%do_admm) THEN
+                  CALL create_ri_aux_basis_set(ri_hfx_basis, qs_kind, dft_control%auto_basis_ri_hfx, basis_type="AUX_FIT")
+               ELSE
+                  CALL create_ri_aux_basis_set(ri_hfx_basis, qs_kind, dft_control%auto_basis_ri_hfx)
+               ENDIF
                CALL add_basis_set_to_container(qs_kind%basis_sets, ri_hfx_basis, "RI_HFX")
             END IF
          END DO

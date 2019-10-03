@@ -381,6 +381,8 @@ MODULE hfx_types
       INTEGER :: flavor
       TYPE(section_vals_type), POINTER                   :: ri_section => NULL()
       INTEGER :: unit_nr
+
+      CHARACTER(len=default_string_length)    :: orb_basis_type
    END TYPE
 
 ! **************************************************************************************************
@@ -993,6 +995,12 @@ CONTAINS
          CPABORT("RI_FLAVOR MO is not consistent with density mixing. Either use OT or RI_FLAVOR RHO.")
       ENDIF
 
+      IF (dft_control%do_admm) THEN
+         ri_data%orb_basis_type = "AUX_FIT"
+      ELSE
+         ri_data%orb_basis_type = "ORB"
+      ENDIF
+
       ! initialise RI basis
       DO ikind = 1, nkind
          NULLIFY (ri_aux_basis_set)
@@ -1001,7 +1009,7 @@ CONTAINS
                           basis_type="RI_HFX")
          IF (.NOT. (ASSOCIATED(ri_aux_basis_set))) THEN
             ! Generate a default basis
-            CALL create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, dft_control%auto_basis_ri_hfx)
+            CALL create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, dft_control%auto_basis_ri_hfx, ri_data%orb_basis_type)
 
             CALL add_basis_set_to_container(qs_kind%basis_sets, ri_aux_basis_set, "RI_HFX")
          END IF
@@ -1046,7 +1054,7 @@ CONTAINS
       ALLOCATE (basis_set_RI(nkind), basis_set_AO(nkind))
       CALL basis_set_list_setup(basis_set_RI, "RI_HFX", qs_kind_set)
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_RI, basis=basis_set_RI)
-      CALL basis_set_list_setup(basis_set_AO, "ORB", qs_kind_set)
+      CALL basis_set_list_setup(basis_set_AO, ri_data%orb_basis_type, qs_kind_set)
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_AO, basis=basis_set_AO)
 
       ALLOCATE (dist_RI(natom))

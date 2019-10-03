@@ -300,7 +300,8 @@ CONTAINS
       ALLOCATE (basis_set_RI(nkind), basis_set_AO(nkind))
       CALL basis_set_list_setup(basis_set_RI, "RI_HFX", qs_kind_set)
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_RI, basis=basis_set_RI)
-      CALL basis_set_list_setup(basis_set_AO, "ORB", qs_kind_set)
+      CALL basis_set_list_setup(basis_set_AO, ri_data%orb_basis_type, qs_kind_set)
+
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_AO, basis=basis_set_AO)
 
       DO ibasis = 1, SIZE(basis_set_AO)
@@ -645,10 +646,11 @@ CONTAINS
       CALL dbcsr_t_distribution_destroy(dist2)
       CALL dbcsr_t_create(ks_matrix(1, 1)%matrix, ks_t)
 
-      CALL dbcsr_t_create(mo_coeff(1), mo_coeff_t, name="MO coeffs")
-
       ALLOCATE (bounds(2, 1))
       DO ispin = 1, nspins
+
+         CALL dbcsr_t_create(mo_coeff(ispin), mo_coeff_t, name="MO coeffs")
+         ! todo: why does valgrind show uninitialized if I create it from one spin component?
          CALL dbcsr_t_copy_matrix_to_tensor(mo_coeff(ispin), mo_coeff_t)
          bounds(1, 1) = 1
          bounds(2, 1) = homo(ispin)
@@ -674,13 +676,13 @@ CONTAINS
 
          CALL dbcsr_t_copy_tensor_to_matrix(ks_t, ks_matrix(ispin, 1)%matrix, summation=.TRUE.)
 
+         CALL dbcsr_t_destroy(mo_coeff_t)
       ENDDO
 
       CALL dbcsr_t_destroy(t_3c_int_ctr(1, 1))
       CALL dbcsr_t_destroy(t_3c_int_ctr_opt(1, 1))
       CALL dbcsr_t_destroy(t_3c_int_ctr_opt_copy(1, 1))
       CALL dbcsr_t_destroy(ks_t)
-      CALL dbcsr_t_destroy(mo_coeff_t)
 
       CALL timestop(handle)
 
