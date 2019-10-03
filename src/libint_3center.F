@@ -118,7 +118,7 @@ CONTAINS
          dr_ac = r_cutoff*1.01
       ELSEIF (op == do_potential_coulomb) THEN
          dr_bc = 1000000.0_dp
-         dr_ab = 1000000.0_dp
+         dr_ac = 1000000.0_dp
       ENDIF
 
       !Note: we want to compute all possible integrals based on the 3-centers (ab|c) before
