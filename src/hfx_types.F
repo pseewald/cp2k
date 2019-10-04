@@ -379,7 +379,7 @@ MODULE hfx_types
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_ctr, &
                                                             t_3c_int
       INTEGER :: flavor
-      TYPE(section_vals_type), POINTER                   :: ri_section => NULL()
+      TYPE(section_vals_type), POINTER                   :: ri_section => NULL() ! todo: generalize
       INTEGER :: unit_nr
 
       CHARACTER(len=default_string_length)    :: orb_basis_type

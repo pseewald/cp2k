@@ -479,7 +479,7 @@ CONTAINS
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix
       REAL(KIND=dp), INTENT(OUT)                         :: ehfx
-      TYPE(dbcsr_p_type), DIMENSION(:)                   :: ks_matrix_aux_fit_hfx
+      TYPE(dbcsr_p_type), DIMENSION(:)                   :: ks_matrix_aux_fit_hfx ! todo: optional
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: rho_ao
       LOGICAL, INTENT(IN)                                :: do_admm, geometry_did_change
