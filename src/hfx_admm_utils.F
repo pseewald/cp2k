@@ -252,7 +252,6 @@ CONTAINS
       CALL get_qs_env(qs_env=qs_env, &
                       dft_control=dft_control, &
                       input=input, &
-                      mos=mo_array, &
                       matrix_h_kp=matrix_h, &
                       para_env=para_env, &
                       pw_env=pw_env, &
@@ -263,6 +262,12 @@ CONTAINS
                       matrix_ks_aux_fit_hfx=matrix_ks_aux_fit_hfx, &
                       s_mstruct_changed=s_mstruct_changed, &
                       x_data=x_data)
+
+      IF (dft_control%do_admm) THEN
+         CALL get_qs_env(qs_env=qs_env, mos_aux_fit=mo_array)
+      ELSE
+         CALL get_qs_env(qs_env=qs_env, mos=mo_array)
+      ENDIF
 
       nspins = dft_control%nspins
       nimages = dft_control%nimages

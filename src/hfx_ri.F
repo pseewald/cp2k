@@ -628,26 +628,25 @@ CONTAINS
 
       CALL dbcsr_t_mp_environ_pgrid(ri_data%pgrid, pdims, pcoord)
 
-      CALL dbcsr_get_info(mo_coeff(1), nblkcols_total=n_mo_blocks, col_blk_size=mo_bsize)
-      ALLOCATE (dist_MO(n_mo_blocks))
-      CALL cyclic_tensor_dist(n_mo_blocks, pdims(1), mo_bsize, dist_MO)
-      CALL dbcsr_t_distribution_new(dist1, ri_data%pgrid, [1], [2, 3], &
-                                    dist_MO, ri_data%dist2_RI, ri_data%dist2_ao_2)
-      CALL dbcsr_t_get_info(ri_data%t_3c_int_ctr(1, 1), blk_size_2=bsize_2, blk_size_3=bsize_3)
-      CALL dbcsr_t_create(t_3c_int_ctr(1, 1), "(MO | RI AO)", dist1, [1], [2, 3], dbcsr_type_real_8, &
-                          mo_bsize, bsize_2, bsize_3)
-      CALL dbcsr_t_distribution_destroy(dist1)
-      CALL dbcsr_t_distribution_new(dist2, ri_data%pgrid, [1, 2], [3], &
-                                    dist_MO, ri_data%dist2_RI, ri_data%dist2_ao_2)
-      CALL dbcsr_t_create(t_3c_int_ctr_opt(1, 1), "(MO RI | AO)", dist2, [1, 2], [3], dbcsr_type_real_8, &
-                          mo_bsize, bsize_2, bsize_3)
-
-      CALL dbcsr_t_create(t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1))
-      CALL dbcsr_t_distribution_destroy(dist2)
-      CALL dbcsr_t_create(ks_matrix(1, 1)%matrix, ks_t)
-
       ALLOCATE (bounds(2, 1))
       DO ispin = 1, nspins
+         CALL dbcsr_get_info(mo_coeff(ispin), nblkcols_total=n_mo_blocks, col_blk_size=mo_bsize)
+         ALLOCATE (dist_MO(n_mo_blocks))
+         CALL cyclic_tensor_dist(n_mo_blocks, pdims(1), mo_bsize, dist_MO)
+         CALL dbcsr_t_distribution_new(dist1, ri_data%pgrid, [1], [2, 3], &
+                                       dist_MO, ri_data%dist2_RI, ri_data%dist2_ao_2)
+         CALL dbcsr_t_get_info(ri_data%t_3c_int_ctr(1, 1), blk_size_2=bsize_2, blk_size_3=bsize_3)
+         CALL dbcsr_t_create(t_3c_int_ctr(1, 1), "(MO | RI AO)", dist1, [1], [2, 3], dbcsr_type_real_8, &
+                             mo_bsize, bsize_2, bsize_3)
+         CALL dbcsr_t_distribution_destroy(dist1)
+         CALL dbcsr_t_distribution_new(dist2, ri_data%pgrid, [1, 2], [3], &
+                                       dist_MO, ri_data%dist2_RI, ri_data%dist2_ao_2)
+         CALL dbcsr_t_create(t_3c_int_ctr_opt(1, 1), "(MO RI | AO)", dist2, [1, 2], [3], dbcsr_type_real_8, &
+                             mo_bsize, bsize_2, bsize_3)
+
+         CALL dbcsr_t_create(t_3c_int_ctr_opt(1, 1), t_3c_int_ctr_opt_copy(1, 1))
+         CALL dbcsr_t_distribution_destroy(dist2)
+         CALL dbcsr_t_create(ks_matrix(1, 1)%matrix, ks_t)
 
          CALL dbcsr_t_create(mo_coeff(ispin), mo_coeff_t, name="MO coeffs")
          ! todo: why does valgrind show uninitialized if I create it from one spin component?
@@ -677,12 +676,12 @@ CONTAINS
          CALL dbcsr_t_copy_tensor_to_matrix(ks_t, ks_matrix(ispin, 1)%matrix, summation=.TRUE.)
 
          CALL dbcsr_t_destroy(mo_coeff_t)
+         CALL dbcsr_t_destroy(t_3c_int_ctr(1, 1))
+         CALL dbcsr_t_destroy(t_3c_int_ctr_opt(1, 1))
+         CALL dbcsr_t_destroy(t_3c_int_ctr_opt_copy(1, 1))
+         CALL dbcsr_t_destroy(ks_t)
+         DEALLOCATE (dist_MO)
       ENDDO
-
-      CALL dbcsr_t_destroy(t_3c_int_ctr(1, 1))
-      CALL dbcsr_t_destroy(t_3c_int_ctr_opt(1, 1))
-      CALL dbcsr_t_destroy(t_3c_int_ctr_opt_copy(1, 1))
-      CALL dbcsr_t_destroy(ks_t)
 
       CALL timestop(handle)
 
