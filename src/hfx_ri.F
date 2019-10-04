@@ -55,7 +55,6 @@ MODULE hfx_ri
                                               mo_set_p_type,&
                                               mo_set_type
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_overlap,                      ONLY: build_overlap_matrix_simple
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -278,7 +277,8 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: t_2c_int_pot_pointer, t_2c_int_RI_pointer
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(distribution_2d_type), POINTER                :: dist_2d
-      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
+      TYPE(gto_basis_set_p_type), ALLOCATABLE, &
+         DIMENSION(:)                                    :: basis_set_AO, basis_set_RI
       TYPE(gto_basis_set_type), POINTER                  :: orb_basis
       TYPE(neighbor_list_3c_type)                        :: nl_3c
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
@@ -290,7 +290,7 @@ CONTAINS
       use_qs3c = .TRUE.
 
       CALL timeset(routineN, handle)
-      NULLIFY (col_bsize, row_bsize, dist_2d, basis_set_AO, basis_set_RI, &
+      NULLIFY (col_bsize, row_bsize, dist_2d, &
                nl_2c_pot, nl_2c_RI, particle_set, qs_kind_set, ks_env, t_2c_int_pot_pointer, t_2c_int_RI_pointer)
 
       CALL get_qs_env(qs_env, natom=natom, nkind=nkind, qs_kind_set=qs_kind_set, particle_set=particle_set, &
@@ -338,7 +338,7 @@ CONTAINS
       row_bsize(:) = sizes_RI
       col_bsize(:) = sizes_RI
       IF (ri_data%op_pot .NE. do_potential_id .OR. use_qs3c) THEN
-         CALL dbcsr_create(t_2c_int_pot(1), "(R|P)", dbcsr_dist, dbcsr_type_no_symmetry, row_bsize, col_bsize)
+         CALL dbcsr_create(t_2c_int_pot(1), "(R|P)", dbcsr_dist, dbcsr_type_no_symmetry, row_bsize, col_bsize, reuse_arrays=.TRUE.)
       ENDIF
       IF (.NOT. ri_data%same_op) THEN
          IF (ri_data%op_ri .NE. do_potential_id .OR. use_qs3c) THEN
@@ -353,7 +353,7 @@ CONTAINS
                                  t_c_filename=ri_data%t_c_filename, &
                                  r_cutoff=ri_data%r_cutoff_pot, omega=ri_data%omega_pot)
       ELSE
-         CALL build_overlap_matrix_simple(ks_env, t_2c_int_pot_pointer, basis_set_RI, basis_set_RI, nl_2c_pot)
+         !CALL build_overlap_matrix_simple(ks_env, t_2c_int_pot_pointer, basis_set_RI, basis_set_RI, nl_2c_pot)
          t_2c_int_pot = t_2c_int_pot_pointer(1)%matrix
       ENDIF
 
@@ -366,7 +366,7 @@ CONTAINS
                                     op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                                     r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
          ELSE
-            CALL build_overlap_matrix_simple(ks_env, t_2c_int_RI_pointer, basis_set_RI, basis_set_RI, nl_2c_RI)
+            !CALL build_overlap_matrix_simple(ks_env, t_2c_int_RI_pointer, basis_set_RI, basis_set_RI, nl_2c_RI)
             t_2c_int_RI = t_2c_int_RI_pointer(1)%matrix
          ENDIF
 

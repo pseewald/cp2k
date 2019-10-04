@@ -951,12 +951,13 @@ CONTAINS
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(dbcsr_t_distribution_type)                    :: dist_3c
       TYPE(distribution_3d_type)                         :: dist_3d
-      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_AO, basis_set_RI
+      TYPE(gto_basis_set_p_type), ALLOCATABLE, &
+         DIMENSION(:)                                    :: basis_set_AO, basis_set_RI
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
       TYPE(qs_kind_type), POINTER                        :: qs_kind
       TYPE(section_vals_type), POINTER                   :: hf_sub_section
 
-      NULLIFY (basis_set_AO, basis_set_RI, ri_aux_basis_set, qs_kind, logger, hf_sub_section)
+      NULLIFY (ri_aux_basis_set, qs_kind, logger, hf_sub_section)
 
       natom = SIZE(particle_set)
       nkind = SIZE(qs_kind_set, 1)

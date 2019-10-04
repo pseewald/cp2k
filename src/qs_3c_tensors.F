@@ -118,7 +118,7 @@ CONTAINS
                                       sym_ij, molecular, op_ij, x_range, dist_2d, pot_to_rad)
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: ij_list
-      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j
+      TYPE(gto_basis_set_p_type), DIMENSION(:)           :: basis_i, basis_j
       CHARACTER(LEN=*), INTENT(IN)                       :: name
       TYPE(qs_environment_type), POINTER                 :: qs_env
       LOGICAL, INTENT(IN), OPTIONAL                      :: sym_ij, molecular
@@ -283,7 +283,7 @@ CONTAINS
                                       dist_3d, name, qs_env, sym_ij, sym_jk, sym_ik, molecular, op_ij, op_jk, &
                                       x_range, own_dist)
       TYPE(neighbor_list_3c_type), INTENT(OUT)           :: ijk_list
-      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j, basis_k
+      TYPE(gto_basis_set_p_type), DIMENSION(:)           :: basis_i, basis_j, basis_k
       TYPE(distribution_3d_type), INTENT(IN)             :: dist_3d
       CHARACTER(LEN=*), INTENT(IN)                       :: name
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -569,7 +569,7 @@ CONTAINS
    SUBROUTINE alloc_block_3c(t3c, nl_3c, basis_i, basis_j, basis_k, qs_env, op_ij, op_jk, x_range, do_kpoints)
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t3c
       TYPE(neighbor_list_3c_type), INTENT(INOUT)         :: nl_3c
-      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j, basis_k
+      TYPE(gto_basis_set_p_type), DIMENSION(:)           :: basis_i, basis_j, basis_k
       TYPE(qs_environment_type), POINTER                 :: qs_env
       INTEGER, INTENT(IN), OPTIONAL                      :: op_ij, op_jk
       REAL(KIND=dp), INTENT(IN), OPTIONAL                :: x_range
@@ -787,7 +787,7 @@ CONTAINS
       REAL(KIND=dp), INTENT(IN)                          :: filter_eps
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(neighbor_list_3c_type), INTENT(INOUT)         :: nl_3c
-      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j, basis_k
+      TYPE(gto_basis_set_p_type), DIMENSION(:)           :: basis_i, basis_j, basis_k
       REAL(KIND=dp), INTENT(IN), OPTIONAL                :: int_eps
       INTEGER, INTENT(IN), OPTIONAL                      :: op_ij, op_jk
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: t_c_filename
@@ -1276,7 +1276,7 @@ CONTAINS
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: nl_2c
-      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_i, basis_j
+      TYPE(gto_basis_set_p_type), DIMENSION(:)           :: basis_i, basis_j
       INTEGER, INTENT(IN), OPTIONAL                      :: op_ij
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: t_c_filename
       REAL(KIND=dp), INTENT(IN), OPTIONAL                :: r_cutoff, omega
