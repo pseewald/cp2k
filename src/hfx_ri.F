@@ -449,9 +449,11 @@ CONTAINS
                             contract_2=[1], notcontract_2=[2, 3], &
                             map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, & ! move_data=.TRUE., &
                             unit_nr=unit_nr)
+      CALL dbcsr_t_destroy(t_3c_int_1(1, 1))
       CALL dbcsr_t_destroy(t_2c_int(1))
 
       CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int_ctr(1, 1), order=[2, 1, 3]) !, move_data=.TRUE.)
+      CALL dbcsr_t_destroy(t_3c_int_2(1, 1))
 
       CALL timestop(handle)
    END SUBROUTINE
