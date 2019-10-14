@@ -10,7 +10,7 @@
 !>      10.2009 refactored [Manuel Guidon]
 !> \author Manuel Guidon
 ! **************************************************************************************************
-MODULE hfx_libint_wrapper
+MODULE libint_wrapper
 
 #if(__LIBINT)
 #include <libint2/libint2_params.h>
@@ -47,7 +47,7 @@ MODULE hfx_libint_wrapper
              cp_libint_init_3eri, cp_libint_cleanup_3eri, cp_libint_get_3eris, &
              cp_libint_init_2eri, cp_libint_cleanup_2eri, cp_libint_get_2eris
 
-   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'hfx_libint_wrapper'
+   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'libint_wrapper'
 
 #if(__LIBINT)
    INTEGER, PARAMETER :: libint_max_am = libint2_max_am_eri
@@ -608,4 +608,4 @@ CONTAINS
 #endif
    END SUBROUTINE
 
-END MODULE hfx_libint_wrapper
+END MODULE libint_wrapper

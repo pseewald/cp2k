@@ -9,17 +9,17 @@
 !> \author A. Bussy (05.2019)
 ! **************************************************************************************************
 
-MODULE libint_3center
+MODULE libint_2c_3c
    USE gamma,                           ONLY: fgamma => fgamma_0
-   USE hfx_libint_wrapper,              ONLY: cp_libint_get_2eris,&
-                                              cp_libint_get_3eris,&
-                                              cp_libint_set_params_eri,&
-                                              cp_libint_t,&
-                                              prim_data_f_size
    USE input_constants,                 ONLY: do_potential_coulomb,&
                                               do_potential_short,&
                                               do_potential_truncated
    USE kinds,                           ONLY: dp
+   USE libint_wrapper,                  ONLY: cp_libint_get_2eris,&
+                                              cp_libint_get_3eris,&
+                                              cp_libint_set_params_eri,&
+                                              cp_libint_t,&
+                                              prim_data_f_size
    USE mathconstants,                   ONLY: pi
    USE orbital_pointers,                ONLY: nco,&
                                               ncoset
@@ -30,7 +30,7 @@ MODULE libint_3center
    IMPLICIT NONE
    PRIVATE
 
-   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'libint_3center'
+   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'libint_2c_3c'
 
    PUBLIC :: eri_3center, eri_2center, cutoff_screen_factor
 
@@ -563,5 +563,5 @@ CONTAINS
 
    END SUBROUTINE set_params_2c
 
-END MODULE libint_3center
+END MODULE libint_2c_3c
 

@@ -34,14 +34,6 @@ MODULE hfx_ri
    USE kinds,                           ONLY: dp
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
-   USE qs_3c_tensors,                   ONLY: build_2c_integrals,&
-                                              build_2c_neighbor_lists,&
-                                              build_3c_integrals,&
-                                              build_3c_neighbor_lists,&
-                                              neighbor_list_2c_destroy,&
-                                              neighbor_list_3c_destroy
-   USE qs_3c_tensors_types,             ONLY: cyclic_tensor_dist,&
-                                              neighbor_list_3c_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
    USE qs_integral_utils,               ONLY: basis_set_list_setup
@@ -52,6 +44,14 @@ MODULE hfx_ri
                                               mo_set_p_type,&
                                               mo_set_type
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
+   USE qs_tensors,                      ONLY: build_2c_integrals,&
+                                              build_2c_neighbor_lists,&
+                                              build_3c_integrals,&
+                                              build_3c_neighbor_lists,&
+                                              neighbor_list_2c_destroy,&
+                                              neighbor_list_3c_destroy
+   USE qs_tensors_types,                ONLY: cyclic_tensor_dist,&
+                                              neighbor_list_3c_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
