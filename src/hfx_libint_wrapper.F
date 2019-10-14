@@ -411,7 +411,6 @@ CONTAINS
 
       CALL C_F_POINTER(lib%prv(1)%targets(1), p_work, SHAPE=a_mysize)
 #else
-      MARK_USED(n_c)
       MARK_USED(n_b)
       MARK_USED(n_a)
       MARK_USED(lib)
