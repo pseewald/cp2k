@@ -275,7 +275,7 @@ CONTAINS
                           dbcsr_type_real_8, sizes_RI, sizes_AO, sizes_AO)
 
       CALL build_3c_neighbor_lists(nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, ri_data%dist1_3d, "HFX_3c_nl", &
-                                   qs_env, op_ij=ri_data%op_ri, sym_jk=.TRUE., x_range=ri_data%r_cutoff_ri)
+                                   qs_env, op_ij=ri_data%op_ri, sym_jk=.TRUE., r_cutoff=ri_data%r_cutoff_ri)
       CALL build_3c_integrals(t_3c_int, ri_data%filter_eps, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
                               op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri, int_eps=ri_data%eps_schwarz)
@@ -283,11 +283,11 @@ CONTAINS
       CALL neighbor_list_3c_destroy(nl_3c)
 
       CALL build_2c_neighbor_lists(nl_2c_pot, basis_set_RI, basis_set_RI, "HFX_2c_nl_pot", qs_env, sym_ij=.TRUE., &
-                                   op_ij=ri_data%op_pot, x_range=ri_data%r_cutoff_pot, &
+                                   op_ij=ri_data%op_pot, r_cutoff=ri_data%r_cutoff_pot, &
                                    dist_2d=dist_2d)
       IF (.NOT. ri_data%same_op) THEN
          CALL build_2c_neighbor_lists(nl_2c_RI, basis_set_RI, basis_set_RI, "HFX_2c_nl_RI", qs_env, sym_ij=.TRUE., &
-                                      op_ij=ri_data%op_ri, x_range=ri_data%r_cutoff_ri, &
+                                      op_ij=ri_data%op_ri, r_cutoff=ri_data%r_cutoff_ri, &
                                       dist_2d=dist_2d)
       ENDIF
 

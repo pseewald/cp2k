@@ -32,7 +32,11 @@ MODULE libint_3center
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'libint_3center'
 
-   PUBLIC :: eri_3center, eri_2center
+   PUBLIC :: eri_3center, eri_2center, cutoff_screen_factor
+
+   ! For screening of integrals with a truncated potential, it is important to use a slightly larger
+   ! cutoff radius due to the discontinuity of the truncated Coulomb potential at the cutoff radius.
+   REAL(KIND=dp), PARAMETER :: cutoff_screen_factor = 1.0001_dp
 
    TYPE :: params_2c
       INTEGER                               :: m_max
@@ -122,8 +126,8 @@ CONTAINS
       dr_ac = 0.0_dp
 
       IF (op == do_potential_truncated .OR. op == do_potential_short) THEN
-         dr_bc = r_cutoff*1.01
-         dr_ac = r_cutoff*1.01
+         dr_bc = r_cutoff*cutoff_screen_factor
+         dr_ac = r_cutoff*cutoff_screen_factor
       ELSEIF (op == do_potential_coulomb) THEN
          dr_bc = 1000000.0_dp
          dr_ac = 1000000.0_dp
