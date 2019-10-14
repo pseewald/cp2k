@@ -539,9 +539,9 @@ CONTAINS
          zetc => basis_set_c%zet
          rpgf_c => basis_set_c%pgf_radius
 
-         djk = SQRT(SUM(rjk**2))
-         dij = SQRT(SUM(rij**2))
-         dik = SQRT(SUM(rik**2))
+         djk = NORM2(rjk)
+         dij = NORM2(rij)
+         dik = NORM2(rik)
 
          ni = SUM(nsgfa)
          nj = SUM(nsgfb)
