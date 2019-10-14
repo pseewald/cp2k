@@ -400,10 +400,8 @@ CONTAINS
                                                             li, lj, ncoa, ncob, p1, p2
       REAL(dp)                                           :: my_omega, my_r_cutoff, zeti, zetj
       REAL(dp), DIMENSION(:), POINTER                    :: p_work
-      TYPE(params_2c), POINTER                           :: params
 
-      NULLIFY (params, p_work)
-      ALLOCATE (params)
+      NULLIFY (p_work)
 
       my_r_cutoff = 0.0_dp
       IF (PRESENT(r_cutoff)) my_r_cutoff = r_cutoff
@@ -421,7 +419,7 @@ CONTAINS
             b_start = (jpgf-1)*ncoset(lb_max)
 
             CALL set_params_2c(lib, ra, rb, la_max, lb_max, zeti, zetj, op, &
-                               params_out=params, r_cutoff=my_r_cutoff, omega=my_omega)
+                               r_cutoff=my_r_cutoff, omega=my_omega)
 
             DO li = la_min, la_max
                a_offset = a_start+ncoset(li-1)
@@ -447,8 +445,6 @@ CONTAINS
          END DO
       END DO
 
-      DEALLOCATE (params)
-
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -463,22 +459,16 @@ CONTAINS
 !> \param op ...
 !> \param r_cutoff ...
 !> \param omega ...
-!> \param params_in external parameters to use for libint
-!> \param params_out returns the libint parameters computed based on the other arguments
-!> \note The use of params_in and params_out comes from the fact that one might have to swap
-!>       centers 1 and 2 because of angular momenta and pretty much all the parameters of libint
-!>       remain the same upon such a change => might avoid recomputing things over and over again
 ! **************************************************************************************************
    SUBROUTINE set_params_2c(lib, rj, rk, lj_max, lk_max, zetj, zetk, &
-                            op, r_cutoff, omega, params_in, params_out)
+                            op, r_cutoff, omega)
 
       TYPE(cp_libint_t), INTENT(INOUT)                   :: lib
       REAL(dp), DIMENSION(3), INTENT(IN)                 :: rj, rk
-      INTEGER, INTENT(IN), OPTIONAL                      :: lj_max, lk_max
-      REAL(dp), INTENT(IN), OPTIONAL                     :: zetj, zetk
-      INTEGER, INTENT(IN), OPTIONAL                      :: op
-      REAL(dp), INTENT(IN), OPTIONAL                     :: r_cutoff, omega
-      TYPE(params_2c), OPTIONAL, POINTER                 :: params_in, params_out
+      INTEGER, INTENT(IN)                                :: lj_max, lk_max
+      REAL(dp), INTENT(IN)                               :: zetj, zetk
+      INTEGER, INTENT(IN)                                :: op
+      REAL(dp), INTENT(IN)                               :: r_cutoff, omega
 
       CHARACTER(len=*), PARAMETER :: routineN = 'set_params_2c', routineP = moduleN//':'//routineN
 
@@ -487,75 +477,62 @@ CONTAINS
       REAL(dp)                                           :: omega2, omega_corr, omega_corr2, prefac, &
                                                             R, T, tmp
       REAL(dp), ALLOCATABLE, DIMENSION(:)                :: Fm
-      TYPE(params_2c), POINTER                           :: params
-
-      !Assume that one of params_in or params_out is present, and that in the latter case, all
-      !other optinal arguments are here
+      TYPE(params_2c)                                    :: params
 
       !The internal structure of libint2 is based on 4-center integrals
       !For 2-center, two of those are dummy centers
       !The integral is assumed to be (k|j) where the centers are ordered as:
       !k -> 1, j -> 3 and (the centers #2 & #4 are dummy centers)
 
-      !If external parameters are given, just use them
-      IF (PRESENT(params_in)) THEN
-         params => params_in
+      !Note: some variable of 4-center integrals simplify due to dummy centers:
+      !      P -> rk, gammap -> zetk
+      !      Q -> rj, gammaq -> zetj
+      params%m_max = lj_max+lk_max
+      params%ZetaInv = 1._dp/zetk; params%EtaInv = 1._dp/zetj
+      params%ZetapEtaInv = 1._dp/(zetk+zetj)
 
-         !If no external parameters to use, compute them
-      ELSE
-         params => params_out
+      params%W = (zetk*rk+zetj*rj)*params%ZetapEtaInv
+      params%Rho = zetk*zetj/(zetk+zetj)
 
-         !Note: some variable of 4-center integrals simplify due to dummy centers:
-         !      P -> rk, gammap -> zetk
-         !      Q -> rj, gammaq -> zetj
-         params%m_max = lj_max+lk_max
-         params%ZetaInv = 1._dp/zetk; params%EtaInv = 1._dp/zetj
-         params%ZetapEtaInv = 1._dp/(zetk+zetj)
+      SELECT CASE (op)
+      CASE (do_potential_coulomb)
+         T = params%Rho*SUM((rj-rk)**2)
+         prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)
+         params%Fm = 0.0_dp
+         CALL fgamma(params%m_max, T, params%Fm)
+         params%Fm = prefac*params%Fm
+      CASE (do_potential_truncated)
+         R = r_cutoff*SQRT(params%Rho)
+         T = params%Rho*SUM((rj-rk)**2)
+         prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)
 
-         params%W = (zetk*rk+zetj*rj)*params%ZetapEtaInv
-         params%Rho = zetk*zetj/(zetk+zetj)
+         CPASSERT(get_lmax_init() .GE. params%m_max) !check if truncated coulomb init correctly
+         CALL t_c_g0_n(params%Fm, use_gamma, R, T, params%m_max)
+         IF (use_gamma) CALL fgamma(params%m_max, T, params%Fm)
+         params%Fm = prefac*params%Fm
+      CASE (do_potential_short)
+         T = params%Rho*SUM((rj-rk)**2)
+         prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)
 
-         SELECT CASE (op)
-         CASE (do_potential_coulomb)
-            T = params%Rho*SUM((rj-rk)**2)
-            prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)
-            params%Fm = 0.0_dp
-            CALL fgamma(params%m_max, T, params%Fm)
-            params%Fm = prefac*params%Fm
-         CASE (do_potential_truncated)
-            R = r_cutoff*SQRT(params%Rho)
-            T = params%Rho*SUM((rj-rk)**2)
-            prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)
+         params%Fm = 0.0_dp
+         CALL fgamma(params%m_max, T, params%Fm)
 
-            CPASSERT(get_lmax_init() .GE. params%m_max) !check if truncated coulomb init correctly
-            CALL t_c_g0_n(params%Fm, use_gamma, R, T, params%m_max)
-            IF (use_gamma) CALL fgamma(params%m_max, T, params%Fm)
-            params%Fm = prefac*params%Fm
-         CASE (do_potential_short)
-            T = params%Rho*SUM((rj-rk)**2)
-            prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)
+         omega2 = omega**2
+         omega_corr2 = omega2/(omega2+params%Rho)
+         omega_corr = SQRT(omega_corr2)
+         T = T*omega_corr2
+         ALLOCATE (Fm(prim_data_f_size))
 
-            params%Fm = 0.0_dp
-            CALL fgamma(params%m_max, T, params%Fm)
-
-            omega2 = omega**2
-            omega_corr2 = omega2/(omega2+params%Rho)
-            omega_corr = SQRT(omega_corr2)
-            T = T*omega_corr2
-            ALLOCATE (Fm(prim_data_f_size))
-
-            CALL fgamma(params%m_max, T, Fm)
-            tmp = -omega_corr
-            DO l = 1, params%m_max+1
-               params%Fm(l) = params%Fm(l)+Fm(l)*tmp
-               tmp = tmp*omega_corr2
-            END DO
-            params%Fm = prefac*params%Fm
-         CASE DEFAULT
-            CPABORT("Requested operator NYI")
-         END SELECT
-
-      END IF
+         CALL fgamma(params%m_max, T, Fm)
+         tmp = -omega_corr
+         DO l = 1, params%m_max+1
+            params%Fm(l) = params%Fm(l)+Fm(l)*tmp
+            tmp = tmp*omega_corr2
+         END DO
+         params%Fm = prefac*params%Fm
+      CASE DEFAULT
+         CPABORT("Requested operator NYI")
+      END SELECT
 
       CALL cp_libint_set_params_eri(lib, rk, rk, rj, rj, params%ZetaInv, params%EtaInv, &
                                     params%ZetapEtaInv, params%Rho, rk, rj, params%W, &
