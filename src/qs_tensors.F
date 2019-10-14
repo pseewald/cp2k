@@ -652,9 +652,9 @@ CONTAINS
             jcell = 1; kcell = 1
          END IF
 
-         djk = SQRT(SUM(rjk**2))
-         dij = SQRT(SUM(rij**2))
-         dik = SQRT(SUM(rik**2))
+         djk = NORM2(rjk)
+         dij = NORM2(rij)
+         dik = NORM2(rik)
 
          CALL get_gto_basis_set(basis_i(ikind)%gto_basis_set, kind_radius=kind_radius_i)
          CALL get_gto_basis_set(basis_j(jkind)%gto_basis_set, kind_radius=kind_radius_j)
@@ -966,9 +966,9 @@ CONTAINS
                                 npgf=npgfk, nset=nsetk, nsgf_set=nsgfk, pgf_radius=rpgf_k, set_radius=set_radius_k, &
                                 sphi=sphi_k, zet=zetk, kind_radius=kind_radius_k)
 
-         djk = SQRT(SUM(rjk**2))
-         dij = SQRT(SUM(rij**2))
-         dik = SQRT(SUM(rik**2))
+         djk = NORM2(rjk)
+         dij = NORM2(rij)
+         dik = NORM2(rik)
 
          IF (kind_radius_j+kind_radius_i+dr_ij < dij) CYCLE
          IF (kind_radius_j+kind_radius_k+dr_jk < djk) CYCLE
@@ -1418,7 +1418,7 @@ CONTAINS
             icol = jatom
          END IF
 
-         dab = SQRT(SUM(rij**2))
+         dab = NORM2(rij)
 
          CALL dbcsr_get_block_p(matrix=t2c(img), &
                                 row=irow, col=icol, BLOCK=block_t%block, found=found)
