@@ -44,10 +44,6 @@ MODULE hfx_types
         dbcsr_t_pgrid_type, dbcsr_t_type
    USE hfx_helpers,                     ONLY: count_cells_perd,&
                                               next_image_cell_perd
-   USE hfx_libint_wrapper,              ONLY: &
-        cp_libint_cleanup_eri, cp_libint_cleanup_eri1, cp_libint_init_eri, cp_libint_init_eri1, &
-        cp_libint_set_contrdepth, cp_libint_static_cleanup, cp_libint_static_init, cp_libint_t, &
-        prim_data_f_size
    USE input_constants,                 ONLY: &
         do_hfx_auto_shells, do_potential_coulomb, do_potential_gaussian, do_potential_id, &
         do_potential_long, do_potential_mix_cl, do_potential_mix_cl_trunc, do_potential_mix_lg, &
@@ -62,6 +58,10 @@ MODULE hfx_types
                                               default_string_length,&
                                               dp,&
                                               int_8
+   USE libint_wrapper,                  ONLY: &
+        cp_libint_cleanup_eri, cp_libint_cleanup_eri1, cp_libint_init_eri, cp_libint_init_eri1, &
+        cp_libint_set_contrdepth, cp_libint_static_cleanup, cp_libint_static_init, cp_libint_t, &
+        prim_data_f_size
    USE machine,                         ONLY: m_chdir,&
                                               m_getcwd
    USE mathlib,                         ONLY: erfc_cutoff
@@ -71,15 +71,15 @@ MODULE hfx_types
                                               nso
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
-   USE qs_3c_tensors_types,             ONLY: cyclic_tensor_dist,&
-                                              distribution_3d_create,&
-                                              distribution_3d_destroy,&
-                                              distribution_3d_type
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_interactions,                 ONLY: init_interaction_radii_orb_basis
    USE qs_kind_types,                   ONLY: get_qs_kind,&
                                               get_qs_kind_set,&
                                               qs_kind_type
+   USE qs_tensors_types,                ONLY: cyclic_tensor_dist,&
+                                              distribution_3d_create,&
+                                              distribution_3d_destroy,&
+                                              distribution_3d_type
    USE string_utilities,                ONLY: compress
    USE t_c_g0,                          ONLY: free_C0
 
