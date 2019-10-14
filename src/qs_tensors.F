@@ -6,7 +6,7 @@
 ! **************************************************************************************************
 !> \brief Utility methods to build 3-center integral tensors of various types.
 ! **************************************************************************************************
-MODULE qs_3c_tensors
+MODULE qs_tensors
    USE ai_contraction,                  ONLY: block_add
    USE ai_contraction_sphi,             ONLY: ab_contract,&
                                               abc_contract
@@ -34,12 +34,6 @@ MODULE qs_3c_tensors
    USE distribution_1d_types,           ONLY: distribution_1d_type
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE gamma,                           ONLY: init_md_ftable
-   USE hfx_libint_wrapper,              ONLY: cp_libint_cleanup_2eri,&
-                                              cp_libint_cleanup_3eri,&
-                                              cp_libint_init_2eri,&
-                                              cp_libint_init_3eri,&
-                                              cp_libint_set_contrdepth,&
-                                              cp_libint_t
    USE input_constants,                 ONLY: do_potential_coulomb,&
                                               do_potential_id,&
                                               do_potential_short,&
@@ -48,16 +42,18 @@ MODULE qs_3c_tensors
    USE kinds,                           ONLY: dp
    USE kpoint_types,                    ONLY: get_kpoint_info,&
                                               kpoint_type
-   USE libint_3center,                  ONLY: cutoff_screen_factor,&
+   USE libint_2c_3c,                    ONLY: cutoff_screen_factor,&
                                               eri_2center,&
                                               eri_3center
+   USE libint_wrapper,                  ONLY: cp_libint_cleanup_2eri,&
+                                              cp_libint_cleanup_3eri,&
+                                              cp_libint_init_2eri,&
+                                              cp_libint_init_3eri,&
+                                              cp_libint_set_contrdepth,&
+                                              cp_libint_t
    USE molecule_types,                  ONLY: molecule_type
    USE orbital_pointers,                ONLY: ncoset
    USE particle_types,                  ONLY: particle_type
-   USE qs_3c_tensors_types,             ONLY: &
-        distribution_3d_destroy, distribution_3d_type, neighbor_list_3c_iterator_type, &
-        neighbor_list_3c_type, symmetric_ij, symmetric_ijk, symmetric_jk, symmetric_none, &
-        symmetrik_ik
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
    USE qs_kind_types,                   ONLY: qs_kind_type
@@ -70,6 +66,10 @@ MODULE qs_3c_tensors
                                               build_neighbor_lists,&
                                               local_atoms_type,&
                                               pair_radius_setup
+   USE qs_tensors_types,                ONLY: &
+        distribution_3d_destroy, distribution_3d_type, neighbor_list_3c_iterator_type, &
+        neighbor_list_3c_type, symmetric_ij, symmetric_ijk, symmetric_jk, symmetric_none, &
+        symmetrik_ik
    USE t_c_g0,                          ONLY: get_lmax_init,&
                                               init
 #include "./base/base_uses.f90"

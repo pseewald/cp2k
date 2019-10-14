@@ -7,7 +7,7 @@
 !> \brief Utility methods to build 3-center integral tensors of various types.
 ! **************************************************************************************************
 
-MODULE qs_3c_tensors_types
+MODULE qs_tensors_types
    USE cp_array_utils,                  ONLY: cp_1d_i_p_type
    USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
                                               cp_blacs_env_release,&
@@ -30,7 +30,7 @@ MODULE qs_3c_tensors_types
 
    PRIVATE
 
-   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_3c_tensors_types'
+   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_tensors_types'
 
    PUBLIC :: distribution_3d_type, neighbor_list_3c_type, neighbor_list_3c_iterator_type, &
              distribution_2d_create, distribution_3d_create, distribution_3d_destroy, cyclic_tensor_dist

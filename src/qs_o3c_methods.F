@@ -22,13 +22,13 @@ MODULE qs_o3c_methods
                                               dbcsr_p_type,&
                                               dbcsr_type
    USE gamma,                           ONLY: init_md_ftable
-   USE hfx_libint_wrapper,              ONLY: cp_libint_cleanup_3eri,&
+   USE input_constants,                 ONLY: do_potential_truncated
+   USE kinds,                           ONLY: dp
+   USE libint_2c_3c,                    ONLY: eri_3center
+   USE libint_wrapper,                  ONLY: cp_libint_cleanup_3eri,&
                                               cp_libint_init_3eri,&
                                               cp_libint_set_contrdepth,&
                                               cp_libint_t
-   USE input_constants,                 ONLY: do_potential_truncated
-   USE kinds,                           ONLY: dp
-   USE libint_3center,                  ONLY: eri_3center
    USE orbital_pointers,                ONLY: ncoset
    USE qs_o3c_types,                    ONLY: &
         get_o3c_container, get_o3c_iterator_info, get_o3c_vec, o3c_container_type, o3c_iterate, &
