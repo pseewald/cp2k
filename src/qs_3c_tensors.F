@@ -48,7 +48,8 @@ MODULE qs_3c_tensors
    USE kinds,                           ONLY: dp
    USE kpoint_types,                    ONLY: get_kpoint_info,&
                                               kpoint_type
-   USE libint_3center,                  ONLY: eri_2center,&
+   USE libint_3center,                  ONLY: cutoff_screen_factor,&
+                                              eri_2center,&
                                               eri_3center
    USE molecule_types,                  ONLY: molecule_type
    USE orbital_pointers,                ONLY: ncoset
@@ -77,13 +78,13 @@ MODULE qs_3c_tensors
 
    PRIVATE
 
-   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_3c_tensors'
+   CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_tensors'
 
    PUBLIC :: build_3c_neighbor_lists, &
              neighbor_list_3c_destroy, neighbor_list_2c_destroy, neighbor_list_3c_iterate, neighbor_list_3c_iterator_create, &
              neighbor_list_3c_iterator_destroy, get_3c_iterator_info, build_3c_integrals, &
              contiguous_tensor_dist, &
-             build_2c_neighbor_lists, build_2c_integrals
+             build_2c_neighbor_lists, build_2c_integrals, cutoff_screen_factor
 
    TYPE one_dim_int_array
       INTEGER, DIMENSION(:), ALLOCATABLE    :: array
@@ -102,12 +103,12 @@ CONTAINS
 !> \param sym_ij Symmetry in i, j (default .TRUE.)
 !> \param molecular ...
 !> \param op_ij operator
-!> \param x_range in case some truncated/screened operator is used, gives its range
+!> \param r_cutoff in case some truncated/screened operator is used, gives its range
 !> \param dist_2d optionally a custom 2d distribution
 !> \param pot_to_rad which radius (1 for i, 2 for j) should be adapted to incorporate potential
 ! **************************************************************************************************
    SUBROUTINE build_2c_neighbor_lists(ij_list, basis_i, basis_j, name, qs_env, &
-                                      sym_ij, molecular, op_ij, x_range, dist_2d, pot_to_rad)
+                                      sym_ij, molecular, op_ij, r_cutoff, dist_2d, pot_to_rad)
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: ij_list
       TYPE(gto_basis_set_p_type), DIMENSION(:)           :: basis_i, basis_j
@@ -115,7 +116,7 @@ CONTAINS
       TYPE(qs_environment_type), POINTER                 :: qs_env
       LOGICAL, INTENT(IN), OPTIONAL                      :: sym_ij, molecular
       INTEGER, INTENT(IN), OPTIONAL                      :: op_ij
-      REAL(dp), INTENT(IN), OPTIONAL                     :: x_range
+      REAL(dp), INTENT(IN), OPTIONAL                     :: r_cutoff
       TYPE(distribution_2d_type), OPTIONAL, POINTER      :: dist_2d
       INTEGER, INTENT(IN), OPTIONAL                      :: pot_to_rad
 
@@ -202,17 +203,17 @@ CONTAINS
 
       ELSE IF (op_ij_prv == do_potential_truncated .OR. op_ij_prv == do_potential_short) THEN
 
-         !Truncated coulomb/short range: set j_radius to x_range + the kind_radii
+         !Truncated coulomb/short range: set j_radius to r_cutoff + the kind_radii
          DO ikind = 1, nkind
             IF (ASSOCIATED(basis_i(ikind)%gto_basis_set)) THEN
                i_present(ikind) = .TRUE.
                CALL get_gto_basis_set(basis_i(ikind)%gto_basis_set, kind_radius=i_radius(ikind))
-               IF (pot_to_rad_prv == 1) i_radius(ikind) = i_radius(ikind)+1.01*x_range
+               IF (pot_to_rad_prv == 1) i_radius(ikind) = i_radius(ikind)+cutoff_screen_factor*r_cutoff
             END IF
             IF (ASSOCIATED(basis_j(ikind)%gto_basis_set)) THEN
                j_present(ikind) = .TRUE.
                CALL get_gto_basis_set(basis_j(ikind)%gto_basis_set, kind_radius=j_radius(ikind))
-               IF (pot_to_rad_prv == 2) j_radius(ikind) = j_radius(ikind)+1.01*x_range
+               IF (pot_to_rad_prv == 2) j_radius(ikind) = j_radius(ikind)+cutoff_screen_factor*r_cutoff
             END IF
          END DO
 
@@ -268,12 +269,12 @@ CONTAINS
 !> \param molecular ??? not tested
 !> \param op_ij operator between i and j
 !> \param op_jk operator between j and k
-!> \param x_range in case some truncated/screened operator is used, gives its range
+!> \param r_cutoff in case some truncated/screened operator is used, gives its range
 !> \param own_dist ...
 ! **************************************************************************************************
    SUBROUTINE build_3c_neighbor_lists(ijk_list, basis_i, basis_j, basis_k, &
                                       dist_3d, name, qs_env, sym_ij, sym_jk, sym_ik, molecular, op_ij, op_jk, &
-                                      x_range, own_dist)
+                                      r_cutoff, own_dist)
       TYPE(neighbor_list_3c_type), INTENT(OUT)           :: ijk_list
       TYPE(gto_basis_set_p_type), DIMENSION(:)           :: basis_i, basis_j, basis_k
       TYPE(distribution_3d_type), INTENT(IN)             :: dist_3d
@@ -281,7 +282,7 @@ CONTAINS
       TYPE(qs_environment_type), POINTER                 :: qs_env
       LOGICAL, INTENT(IN), OPTIONAL                      :: sym_ij, sym_jk, sym_ik, molecular
       INTEGER, INTENT(IN), OPTIONAL                      :: op_ij, op_jk
-      REAL(dp), INTENT(IN), OPTIONAL                     :: x_range
+      REAL(dp), INTENT(IN), OPTIONAL                     :: r_cutoff
       LOGICAL, INTENT(IN), OPTIONAL                      :: own_dist
 
       CHARACTER(len=*), PARAMETER :: routineN = 'build_3c_neighbor_lists', &
@@ -292,11 +293,11 @@ CONTAINS
       CALL timeset(routineN, handle)
 
       CALL build_2c_neighbor_lists(ijk_list%ij_list, basis_i, basis_j, TRIM(name)//"_sub_1", &
-                                   qs_env, sym_ij=.FALSE., molecular=molecular, op_ij=op_ij, x_range=x_range, &
+                                   qs_env, sym_ij=.FALSE., molecular=molecular, op_ij=op_ij, r_cutoff=r_cutoff, &
                                    dist_2d=dist_3d%dist_2d_1, pot_to_rad=1)
 
       CALL build_2c_neighbor_lists(ijk_list%jk_list, basis_j, basis_k, TRIM(name)//"_sub_2", &
-                                   qs_env, sym_ij=.FALSE., molecular=molecular, op_ij=op_jk, x_range=x_range, &
+                                   qs_env, sym_ij=.FALSE., molecular=molecular, op_ij=op_jk, r_cutoff=r_cutoff, &
                                    dist_2d=dist_3d%dist_2d_2, pot_to_rad=2)
 
       ijk_list%sym = symmetric_none
@@ -555,16 +556,16 @@ CONTAINS
 !> \param qs_env ...
 !> \param op_ij ...
 !> \param op_jk ...
-!> \param x_range ...
+!> \param r_cutoff ...
 !> \param do_kpoints ...
 ! **************************************************************************************************
-   SUBROUTINE alloc_block_3c(t3c, nl_3c, basis_i, basis_j, basis_k, qs_env, op_ij, op_jk, x_range, do_kpoints)
+   SUBROUTINE alloc_block_3c(t3c, nl_3c, basis_i, basis_j, basis_k, qs_env, op_ij, op_jk, r_cutoff, do_kpoints)
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t3c
       TYPE(neighbor_list_3c_type), INTENT(INOUT)         :: nl_3c
       TYPE(gto_basis_set_p_type), DIMENSION(:)           :: basis_i, basis_j, basis_k
       TYPE(qs_environment_type), POINTER                 :: qs_env
       INTEGER, INTENT(IN), OPTIONAL                      :: op_ij, op_jk
-      REAL(KIND=dp), INTENT(IN), OPTIONAL                :: x_range
+      REAL(KIND=dp), INTENT(IN), OPTIONAL                :: r_cutoff
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'alloc_block_3c', routineP = moduleN//':'//routineN
@@ -602,8 +603,8 @@ CONTAINS
 
       IF (PRESENT(op_ij)) THEN
          IF (op_ij == do_potential_truncated .OR. op_ij == do_potential_short) THEN
-            dr_ij = x_range*1.01
-            dr_ik = x_range*1.01
+            dr_ij = r_cutoff*cutoff_screen_factor
+            dr_ik = r_cutoff*cutoff_screen_factor
          ELSEIF (op_ij == do_potential_coulomb) THEN
             dr_ij = 1000000.0_dp
             dr_ik = 1000000.0_dp
@@ -612,8 +613,8 @@ CONTAINS
 
       IF (PRESENT(op_jk)) THEN
          IF (op_jk == do_potential_truncated .OR. op_jk == do_potential_short) THEN
-            dr_jk = x_range*1.01
-            dr_ik = x_range*1.01
+            dr_jk = r_cutoff*cutoff_screen_factor
+            dr_ik = r_cutoff*cutoff_screen_factor
          ELSEIF (op_jk == do_potential_coulomb) THEN
             dr_jk = 1000000.0_dp
             dr_ik = 1000000.0_dp
@@ -848,16 +849,16 @@ CONTAINS
       dr_ij = 0.0_dp; dr_jk = 0.0_dp; dr_ik = 0.0_dp
 
       IF (op_ij_prv == do_potential_truncated .OR. op_ij_prv == do_potential_short) THEN
-         dr_ij = r_cutoff*1.01
-         dr_ik = r_cutoff*1.01
+         dr_ij = r_cutoff*cutoff_screen_factor
+         dr_ik = r_cutoff*cutoff_screen_factor
       ELSEIF (op_ij_prv == do_potential_coulomb) THEN
          dr_ij = 1000000.0_dp
          dr_ik = 1000000.0_dp
       ENDIF
 
       IF (op_jk_prv == do_potential_truncated .OR. op_jk_prv == do_potential_short) THEN
-         dr_jk = r_cutoff*1.01
-         dr_ik = r_cutoff*1.01
+         dr_jk = r_cutoff*cutoff_screen_factor
+         dr_ik = r_cutoff*cutoff_screen_factor
       ELSEIF (op_jk_prv == do_potential_coulomb) THEN
          dr_jk = 1000000.0_dp
          dr_ik = 1000000.0_dp
@@ -866,7 +867,7 @@ CONTAINS
       NULLIFY (qs_kind_set, atomic_kind_set)
 
       CALL alloc_block_3c(t3c, nl_3c, basis_i, basis_j, basis_k, qs_env, &
-                          op_ij=op_ij, op_jk=op_jk, x_range=r_cutoff, do_kpoints=do_kpoints)
+                          op_ij=op_ij, op_jk=op_jk, r_cutoff=r_cutoff, do_kpoints=do_kpoints)
 
       ! get stuff
       CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, qs_kind_set=qs_kind_set, &
