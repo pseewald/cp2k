@@ -1160,7 +1160,7 @@ CONTAINS
 
       CALL neighbor_list_3c_iterator_destroy(nl_3c_iter)
 
-      IF (nl_3c%sym == symmetric_jk) THEN
+      IF (nl_3c%sym == symmetric_jk .OR. do_kpoints_prv) THEN
          DO jcell = 1, nimg
             DO kcell = 1, nimg
                ! need half of filter eps because afterwards we add transposed tensor
