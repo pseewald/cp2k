@@ -304,13 +304,13 @@ CONTAINS
          params%W = (zetk*rk+gammaq*params%Q)*params%ZetapEtaInv
          params%Rho = zetk*gammaq/(zetk+gammaq)
 
+         params%Fm = 0.0_dp
          SELECT CASE (op)
          CASE (do_potential_coulomb)
             T = params%Rho*SUM((params%Q-rk)**2)
             S1234 = EXP(-zeti*zetj*params%EtaInv*SUM((rj-ri)**2))
             prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)*S1234
 
-            params%Fm = 0.0_dp
             CALL fgamma(params%m_max, T, params%Fm)
             params%Fm = prefac*params%Fm
          CASE (do_potential_truncated)
@@ -328,7 +328,6 @@ CONTAINS
             S1234 = EXP(-zeti*zetj*params%EtaInv*SUM((rj-ri)**2))
             prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)*S1234
 
-            params%Fm = 0.0_dp
             CALL fgamma(params%m_max, T, params%Fm)
 
             omega2 = omega**2
@@ -494,11 +493,11 @@ CONTAINS
       params%W = (zetk*rk+zetj*rj)*params%ZetapEtaInv
       params%Rho = zetk*zetj/(zetk+zetj)
 
+      params%Fm = 0.0_dp
       SELECT CASE (op)
       CASE (do_potential_coulomb)
          T = params%Rho*SUM((rj-rk)**2)
          prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)
-         params%Fm = 0.0_dp
          CALL fgamma(params%m_max, T, params%Fm)
          params%Fm = prefac*params%Fm
       CASE (do_potential_truncated)
@@ -514,7 +513,6 @@ CONTAINS
          T = params%Rho*SUM((rj-rk)**2)
          prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)
 
-         params%Fm = 0.0_dp
          CALL fgamma(params%m_max, T, params%Fm)
 
          omega2 = omega**2
