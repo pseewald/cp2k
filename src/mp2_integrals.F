@@ -109,7 +109,8 @@ MODULE mp2_integrals
    USE qs_tensors_types,                ONLY: cyclic_tensor_dist,&
                                               distribution_3d_create,&
                                               distribution_3d_type,&
-                                              neighbor_list_3c_type
+                                              neighbor_list_3c_type,&
+                                              split_block_sizes
    USE rpa_communication,               ONLY: communicate_buffer
    USE task_list_types,                 ONLY: task_list_type
    USE util,                            ONLY: get_limit
@@ -970,41 +971,6 @@ CONTAINS
       CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, pgrid, map1_2d=map1_2d, map2_2d=map2_2d, &
                                 nsplit=ngroup, dimsplit=dimsplit)
    END FUNCTION
-
-! **************************************************************************************************
-!> \brief ...
-!> \param blk_sizes ...
-!> \param blk_sizes_split ...
-!> \param max_size ...
-! **************************************************************************************************
-   SUBROUTINE split_block_sizes(blk_sizes, blk_sizes_split, max_size)
-      INTEGER, DIMENSION(:), INTENT(IN)                  :: blk_sizes
-      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT)    :: blk_sizes_split
-      INTEGER, INTENT(IN)                                :: max_size
-
-      INTEGER                                            :: blk_remainder, i, isplit, isplit_sum, &
-                                                            nsplit
-
-      isplit_sum = 0
-      DO i = 1, SIZE(blk_sizes)
-         nsplit = (blk_sizes(i)+max_size-1)/max_size
-         isplit_sum = isplit_sum+nsplit
-      ENDDO
-
-      ALLOCATE (blk_sizes_split(isplit_sum))
-
-      isplit_sum = 0
-      DO i = 1, SIZE(blk_sizes)
-         nsplit = (blk_sizes(i)+max_size-1)/max_size
-         blk_remainder = blk_sizes(i)
-         DO isplit = 1, nsplit
-            isplit_sum = isplit_sum+1
-            blk_sizes_split(isplit_sum) = MIN(max_size, blk_remainder)
-            blk_remainder = blk_remainder-max_size
-         ENDDO
-      ENDDO
-
-   END SUBROUTINE split_block_sizes
 
 ! **************************************************************************************************
 !> \brief ...

@@ -15,6 +15,14 @@ MODULE qs_tensors_types
    USE cp_para_env,                     ONLY: cp_para_env_create,&
                                               cp_para_env_release
    USE cp_para_types,                   ONLY: cp_para_env_type
+   USE dbcsr_api,                       ONLY: dbcsr_type_real_8
+   USE dbcsr_tensor_api,                ONLY: dbcsr_t_create,&
+                                              dbcsr_t_distribution_destroy,&
+                                              dbcsr_t_distribution_new,&
+                                              dbcsr_t_distribution_type,&
+                                              dbcsr_t_mp_environ_pgrid,&
+                                              dbcsr_t_pgrid_type,&
+                                              dbcsr_t_type
    USE distribution_2d_types,           ONLY: distribution_2d_create_prv => distribution_2d_create,&
                                               distribution_2d_release,&
                                               distribution_2d_type
@@ -33,7 +41,8 @@ MODULE qs_tensors_types
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'qs_tensors_types'
 
    PUBLIC :: distribution_3d_type, neighbor_list_3c_type, neighbor_list_3c_iterator_type, &
-             distribution_2d_create, distribution_3d_create, distribution_3d_destroy, cyclic_tensor_dist
+             distribution_2d_create, distribution_3d_create, distribution_3d_destroy, cyclic_tensor_dist, &
+             split_block_sizes, create_3c_tensor, create_2c_tensor
 
    INTEGER, PARAMETER, PUBLIC :: symmetric_none = 0, symmetric_ij = 1, symmetric_jk = 2, symmetrik_ik = 3, symmetric_ijk = 4
 
@@ -247,5 +256,132 @@ CONTAINS
       ENDDO
 
    END SUBROUTINE cyclic_tensor_dist
+
+! **************************************************************************************************
+!> \brief ...
+!> \param t3c Create 3-center tensor with load balanced default distribution.
+!> \param dist_1 ...
+!> \param dist_2 ...
+!> \param dist_3 ...
+!> \param pgrid ...
+!> \param sizes_1 ...
+!> \param sizes_2 ...
+!> \param sizes_3 ...
+!> \param map1 ...
+!> \param map2 ...
+!> \param name ...
+! **************************************************************************************************
+   SUBROUTINE create_3c_tensor(t3c, dist_1, dist_2, dist_3, pgrid, sizes_1, sizes_2, sizes_3, map1, map2, name)
+      TYPE(dbcsr_t_type), INTENT(OUT)                    :: t3c
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT)    :: dist_1, dist_2, dist_3
+      TYPE(dbcsr_t_pgrid_type), INTENT(IN)               :: pgrid
+      INTEGER, DIMENSION(:), INTENT(IN)                  :: sizes_1, sizes_2, sizes_3, map1, map2
+      CHARACTER(len=*), INTENT(IN)                       :: name
+
+      INTEGER                                            :: size_1, size_2, size_3
+      INTEGER, DIMENSION(3)                              :: pcoord, pdims
+      TYPE(dbcsr_t_distribution_type)                    :: dist
+
+      CALL dbcsr_t_mp_environ_pgrid(pgrid, pdims, pcoord)
+
+      size_1 = SIZE(sizes_1)
+      size_2 = SIZE(sizes_2)
+      size_3 = SIZE(sizes_3)
+
+      ALLOCATE (dist_1(size_1))
+      ALLOCATE (dist_2(size_2))
+      ALLOCATE (dist_3(size_3))
+
+      CALL cyclic_tensor_dist(size_1, pdims(1), sizes_1, dist_1)
+      CALL cyclic_tensor_dist(size_2, pdims(2), sizes_2, dist_2)
+      CALL cyclic_tensor_dist(size_3, pdims(3), sizes_3, dist_3)
+
+      CALL dbcsr_t_distribution_new(dist, pgrid, map1, map2, dist_1, dist_2, dist_3)
+      CALL dbcsr_t_create(t3c, name, dist, map1, map2, dbcsr_type_real_8, sizes_1, &
+                          sizes_2, sizes_3)
+      CALL dbcsr_t_distribution_destroy(dist)
+
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param t2c ...
+!> \param dist_1 ...
+!> \param dist_2 ...
+!> \param pgrid ...
+!> \param sizes_1 ...
+!> \param sizes_2 ...
+!> \param order ...
+!> \param name ...
+! **************************************************************************************************
+   SUBROUTINE create_2c_tensor(t2c, dist_1, dist_2, pgrid, sizes_1, sizes_2, order, name)
+      TYPE(dbcsr_t_type), INTENT(OUT)                    :: t2c
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT)    :: dist_1, dist_2
+      TYPE(dbcsr_t_pgrid_type), INTENT(IN)               :: pgrid
+      INTEGER, DIMENSION(:), INTENT(IN)                  :: sizes_1, sizes_2
+      INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL        :: order
+      CHARACTER(len=*), INTENT(IN)                       :: name
+
+      INTEGER                                            :: size_1, size_2
+      INTEGER, DIMENSION(2)                              :: order_in, pcoord, pdims
+      TYPE(dbcsr_t_distribution_type)                    :: dist
+
+      IF (PRESENT(order)) THEN
+         order_in = order
+      ELSE
+         order_in = [1, 2]
+      ENDIF
+
+      CALL dbcsr_t_mp_environ_pgrid(pgrid, pdims, pcoord)
+
+      size_1 = SIZE(sizes_1)
+      size_2 = SIZE(sizes_2)
+
+      ALLOCATE (dist_1(size_1))
+      ALLOCATE (dist_2(size_2))
+
+      CALL cyclic_tensor_dist(size_1, pdims(1), sizes_1, dist_1)
+      CALL cyclic_tensor_dist(size_2, pdims(2), sizes_2, dist_2)
+
+      CALL dbcsr_t_distribution_new(dist, pgrid, [order_in(1)], [order_in(2)], dist_1, dist_2)
+      CALL dbcsr_t_create(t2c, name, dist, [order_in(1)], [order_in(2)], dbcsr_type_real_8, sizes_1, sizes_2)
+      CALL dbcsr_t_distribution_destroy(dist)
+
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param blk_sizes ...
+!> \param blk_sizes_split ...
+!> \param max_size ...
+! **************************************************************************************************
+   SUBROUTINE split_block_sizes(blk_sizes, blk_sizes_split, max_size)
+      INTEGER, DIMENSION(:), INTENT(IN)                  :: blk_sizes
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT)    :: blk_sizes_split
+      INTEGER, INTENT(IN)                                :: max_size
+
+      INTEGER                                            :: blk_remainder, i, isplit, isplit_sum, &
+                                                            nsplit
+
+      isplit_sum = 0
+      DO i = 1, SIZE(blk_sizes)
+         nsplit = (blk_sizes(i)+max_size-1)/max_size
+         isplit_sum = isplit_sum+nsplit
+      ENDDO
+
+      ALLOCATE (blk_sizes_split(isplit_sum))
+
+      isplit_sum = 0
+      DO i = 1, SIZE(blk_sizes)
+         nsplit = (blk_sizes(i)+max_size-1)/max_size
+         blk_remainder = blk_sizes(i)
+         DO isplit = 1, nsplit
+            isplit_sum = isplit_sum+1
+            blk_sizes_split(isplit_sum) = MIN(max_size, blk_remainder)
+            blk_remainder = blk_remainder-max_size
+         ENDDO
+      ENDDO
+
+   END SUBROUTINE split_block_sizes
 
 END MODULE
