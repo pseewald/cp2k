@@ -26,11 +26,14 @@ MODULE qs_tensors
                                               dbcsr_finalize,&
                                               dbcsr_get_block_p,&
                                               dbcsr_has_symmetry,&
-                                              dbcsr_type
+                                              dbcsr_type,&
+                                              dbcsr_type_real_8
    USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_blk_sizes, dbcsr_t_copy, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
-        dbcsr_t_get_block, dbcsr_t_get_stored_coordinates, dbcsr_t_put_block, &
-        dbcsr_t_reserve_blocks, dbcsr_t_type
+        dbcsr_t_blk_sizes, dbcsr_t_copy, dbcsr_t_create, dbcsr_t_destroy, &
+        dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
+        dbcsr_t_filter, dbcsr_t_get_block, dbcsr_t_get_info, dbcsr_t_get_mapping_info, &
+        dbcsr_t_get_stored_coordinates, dbcsr_t_mp_environ_pgrid, dbcsr_t_pgrid_type, &
+        dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_type, dbcsr_t_write_split_info
    USE distribution_1d_types,           ONLY: distribution_1d_type
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE gamma,                           ONLY: init_md_ftable
@@ -39,7 +42,8 @@ MODULE qs_tensors
                                               do_potential_short,&
                                               do_potential_truncated
    USE input_section_types,             ONLY: section_vals_val_get
-   USE kinds,                           ONLY: dp
+   USE kinds,                           ONLY: default_string_length,&
+                                              dp
    USE kpoint_types,                    ONLY: get_kpoint_info,&
                                               kpoint_type
    USE libint_2c_3c,                    ONLY: cutoff_screen_factor,&
@@ -67,9 +71,9 @@ MODULE qs_tensors
                                               local_atoms_type,&
                                               pair_radius_setup
    USE qs_tensors_types,                ONLY: &
-        distribution_3d_destroy, distribution_3d_type, neighbor_list_3c_iterator_type, &
-        neighbor_list_3c_type, symmetric_ij, symmetric_ijk, symmetric_jk, symmetric_none, &
-        symmetrik_ik
+        cyclic_tensor_dist, distribution_3d_destroy, distribution_3d_type, &
+        neighbor_list_3c_iterator_type, neighbor_list_3c_type, symmetric_ij, symmetric_ijk, &
+        symmetric_jk, symmetric_none, symmetrik_ik
    USE t_c_g0,                          ONLY: get_lmax_init,&
                                               init
 #include "./base/base_uses.f90"
@@ -84,7 +88,7 @@ MODULE qs_tensors
              neighbor_list_3c_destroy, neighbor_list_2c_destroy, neighbor_list_3c_iterate, neighbor_list_3c_iterator_create, &
              neighbor_list_3c_iterator_destroy, get_3c_iterator_info, build_3c_integrals, &
              contiguous_tensor_dist, &
-             build_2c_neighbor_lists, build_2c_integrals, cutoff_screen_factor
+             build_2c_neighbor_lists, build_2c_integrals, cutoff_screen_factor, tensor_change_pgrid
 
    TYPE one_dim_int_array
       INTEGER, DIMENSION(:), ALLOCATABLE    :: array
@@ -1497,6 +1501,67 @@ CONTAINS
 
       CALL timestop(handle)
 
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief Change process grid of tensor, a load balanced default distribution adapted to the new grid
+!>        is chosen automatically.
+!> \param t_3c ...
+!> \param pgrid ...
+!> \param nodata ...
+!> \param unit_nr ...
+! **************************************************************************************************
+   SUBROUTINE tensor_change_pgrid(t_3c, pgrid, nodata, unit_nr)
+      TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c
+      TYPE(dbcsr_t_pgrid_type), INTENT(IN)               :: pgrid
+      LOGICAL, INTENT(IN), OPTIONAL                      :: nodata
+      INTEGER, INTENT(IN), OPTIONAL                      :: unit_nr
+
+      CHARACTER(default_string_length)                   :: name
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bs1, bs2, bs3, dist1, dist2, dist3, &
+                                                            map1, map2
+      INTEGER, DIMENSION(3)                              :: pcoord, pcoord_ref, pdims, pdims_ref, &
+                                                            tdims
+      TYPE(dbcsr_t_distribution_type)                    :: dist
+      TYPE(dbcsr_t_type)                                 :: t_tmp
+
+      CALL dbcsr_t_mp_environ_pgrid(pgrid, pdims, pcoord)
+      CALL dbcsr_t_mp_environ_pgrid(t_3c%pgrid, pdims_ref, pcoord_ref)
+
+      IF (ALL(pdims == pdims_ref)) RETURN
+
+      CALL dbcsr_t_get_info(t_3c, nblks_total=tdims, blk_size_1=bs1, blk_size_2=bs2, blk_size_3=bs3, &
+                            name=name)
+
+      ALLOCATE (dist1(tdims(1)))
+      ALLOCATE (dist2(tdims(2)))
+      ALLOCATE (dist3(tdims(3)))
+
+      CALL cyclic_tensor_dist(tdims(1), pdims(1), bs1, dist1)
+      CALL cyclic_tensor_dist(tdims(2), pdims(2), bs2, dist2)
+      CALL cyclic_tensor_dist(tdims(3), pdims(3), bs3, dist3)
+
+      CALL dbcsr_t_get_mapping_info(t_3c%nd_index_blk, map1_2d=map1, map2_2d=map2)
+      CALL dbcsr_t_distribution_new(dist, pgrid, map1, map2, dist1, dist2, dist3)
+      CALL dbcsr_t_create(t_tmp, name, dist, map1, map2, dbcsr_type_real_8, bs1, bs2, bs3)
+      CALL dbcsr_t_distribution_destroy(dist)
+
+      IF (PRESENT(nodata)) THEN
+         IF (.NOT. nodata) CALL dbcsr_t_copy(t_3c, t_tmp, move_data=.TRUE.)
+      ELSE
+         CALL dbcsr_t_copy(t_3c, t_tmp, move_data=.TRUE.)
+      ENDIF
+
+      CALL dbcsr_t_destroy(t_3c)
+      t_3c = t_tmp
+
+      IF (PRESENT(unit_nr)) THEN
+         IF (unit_nr > 0) THEN
+            WRITE (unit_nr, "(T2,A,1X,A)") "OPTIMIZED PGRID INFO FOR", TRIM(t_3c%name)
+            WRITE (unit_nr, "(T4,A,1X,3I6)") "process grid dimensions:", pdims
+            CALL dbcsr_t_write_split_info(pgrid, unit_nr)
+         ENDIF
+      ENDIF
    END SUBROUTINE
 
 END MODULE
