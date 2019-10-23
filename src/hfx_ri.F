@@ -29,8 +29,7 @@ MODULE hfx_ri
    USE hfx_types,                       ONLY: hfx_ri_type
    USE input_cp2k_hfx,                  ONLY: ri_mo,&
                                               ri_pmat
-   USE iterate_matrix,                  ONLY: invert_hotelling,&
-                                              matrix_sqrt_newton_schulz
+   USE iterate_matrix,                  ONLY: matrix_sqrt_newton_schulz
    USE kinds,                           ONLY: dp
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
@@ -82,14 +81,11 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, unit_nr
-      REAL(KIND=dp)                                      :: threshold
       TYPE(dbcsr_t_pgrid_type), POINTER                  :: pgrid_opt
       TYPE(dbcsr_t_type), DIMENSION(1)                   :: t_2c_int
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_1, t_3c_int_2_ctr
-      TYPE(dbcsr_type), DIMENSION(1)                     :: t_2c_int_mat, t_2c_op_pot, &
-                                                            t_2c_op_pot_sqrt, &
-                                                            t_2c_op_pot_sqrt_inv, t_2c_op_RI, &
-                                                            t_2c_op_RI_inv
+      TYPE(dbcsr_type), DIMENSION(1) :: t_2c_int_mat, t_2c_op_pot, t_2c_op_pot_sqrt, &
+         t_2c_op_pot_sqrt_inv, t_2c_op_RI, t_2c_op_RI_inv, t_2c_op_RI_sqrt, t_2c_op_RI_sqrt_inv
 
       CALL timeset(routineN, handle)
 
@@ -106,9 +102,15 @@ CONTAINS
       CALL dbcsr_t_destroy(t_3c_int_1(1, 1))
 
       IF (.NOT. ri_data%same_op) THEN
-         CALL dbcsr_create(t_2c_op_RI_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
-         threshold = MAX(ri_data%filter_eps, 1.0e-12_dp)
-         CALL invert_hotelling(t_2c_op_RI_inv(1), t_2c_op_RI(1), threshold=threshold, silent=.TRUE.)
+         CALL dbcsr_create(t_2c_op_RI_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_symmetric)
+         CALL dbcsr_create(t_2c_op_RI_sqrt_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_symmetric)
+         CALL dbcsr_create(t_2c_op_RI_sqrt(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_symmetric)
+         CALL matrix_sqrt_newton_schulz(t_2c_op_RI_sqrt(1), t_2c_op_RI_sqrt_inv(1), t_2c_op_RI(1), ri_data%filter_eps, &
+                                        ri_data%t2c_sqrt_order, ri_data%eps_lanczos, ri_data%max_iter_lanczos)
+
+         CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_RI_sqrt_inv(1), t_2c_op_RI_sqrt_inv(1), 0.0_dp, t_2c_op_RI_inv(1))
+         CALL dbcsr_release(t_2c_op_RI_sqrt_inv(1))
+         CALL dbcsr_release(t_2c_op_RI_sqrt(1))
          IF (ri_data%check_2c_inv) THEN
             CALL check_inverse(t_2c_op_RI_inv(1), t_2c_op_RI(1), unit_nr)
          ENDIF
@@ -364,11 +366,11 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, unit_nr
-      REAL(KIND=dp)                                      :: threshold
       TYPE(dbcsr_t_pgrid_type), POINTER                  :: pgrid_opt
       TYPE(dbcsr_t_type), DIMENSION(1)                   :: t_2c_int
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_1, t_3c_int_2
       TYPE(dbcsr_type), DIMENSION(1)                     :: t_2c_int_mat, t_2c_op_pot, t_2c_op_RI, &
+                                                            t_2c_op_RI_sqrt, t_2c_op_RI_sqrt_inv, &
                                                             t_2c_tmp, t_2c_tmp_2
 
       CALL timeset(routineN, handle)
@@ -390,10 +392,16 @@ CONTAINS
       CALL dbcsr_t_copy(t_3c_int_1(1, 1), ri_data%t_3c_int_ctr_2(1, 1), order=[2, 1, 3], move_data=.TRUE.)
       CALL dbcsr_t_destroy(t_3c_int_1(1, 1))
 
-      CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
-      threshold = MAX(ri_data%filter_eps, 1.0e-12_dp)
-      CALL invert_hotelling(t_2c_int_mat(1), t_2c_op_RI(1), &
-                            threshold=threshold, silent=.TRUE.)
+      CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_symmetric)
+      CALL dbcsr_create(t_2c_op_RI_sqrt_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_symmetric)
+      CALL dbcsr_create(t_2c_op_RI_sqrt(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_symmetric)
+
+      CALL matrix_sqrt_newton_schulz(t_2c_op_RI_sqrt(1), t_2c_op_RI_sqrt_inv(1), t_2c_op_RI(1), ri_data%filter_eps, &
+                                     ri_data%t2c_sqrt_order, ri_data%eps_lanczos, ri_data%max_iter_lanczos)
+      CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_RI_sqrt_inv(1), t_2c_op_RI_sqrt_inv(1), 0.0_dp, t_2c_int_mat(1))
+
+      CALL dbcsr_release(t_2c_op_RI_sqrt_inv(1))
+      CALL dbcsr_release(t_2c_op_RI_sqrt(1))
 
       IF (ri_data%check_2c_inv) THEN
          CALL check_inverse(t_2c_int_mat(1), t_2c_op_RI(1), unit_nr)
