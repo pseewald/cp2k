@@ -16,11 +16,11 @@ MODULE hfx_ri
                                               cp_dbcsr_dist2d_to_dist
    USE cp_fm_types,                     ONLY: cp_fm_type
    USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_distribution_get, &
-        dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_dot, dbcsr_filter, &
-        dbcsr_frobenius_norm, dbcsr_get_info, dbcsr_multiply, dbcsr_p_type, dbcsr_release, &
-        dbcsr_scalar, dbcsr_scale, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_real_8, &
-        dbcsr_type_symmetric
+        dbcsr_add, dbcsr_add_on_diag, dbcsr_copy, dbcsr_copy_into_existing, dbcsr_create, &
+        dbcsr_distribution_get, dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_dot, &
+        dbcsr_filter, dbcsr_frobenius_norm, dbcsr_get_info, dbcsr_multiply, dbcsr_p_type, &
+        dbcsr_release, dbcsr_scalar, dbcsr_scale, dbcsr_type, dbcsr_type_no_symmetry, &
+        dbcsr_type_real_8, dbcsr_type_symmetric
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_clear, dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
@@ -608,6 +608,7 @@ CONTAINS
                                                             mo_coeff_t_split
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_ctr, t_3c_int_ctr_opt, &
                                                             t_3c_int_ctr_opt_copy
+      TYPE(dbcsr_type)                                   :: ks_matrix_full
 
       CALL timeset(routineN, handle)
 
@@ -715,8 +716,12 @@ CONTAINS
          CALL dbcsr_t_copy(ks_t_split, ks_t, move_data=.TRUE.)
          CALL dbcsr_t_destroy(ks_t_split)
          CALL dbcsr_t_filter(ks_t, ri_data%filter_eps)
-         CALL dbcsr_t_copy_tensor_to_matrix(ks_t, ks_matrix(ispin, 1)%matrix, summation=.TRUE.)
+
+         CALL dbcsr_create(ks_matrix_full, template=ks_matrix(ispin, 1)%matrix)
+         CALL dbcsr_t_copy_tensor_to_matrix(ks_t, ks_matrix_full)
          CALL dbcsr_t_destroy(ks_t)
+         CALL dbcsr_copy_into_existing(ks_matrix(ispin, 1)%matrix, ks_matrix_full)
+         CALL dbcsr_release(ks_matrix_full)
 
          IF (ispin == nspins) THEN
             CPASSERT(ASSOCIATED(pgrid_opt))
