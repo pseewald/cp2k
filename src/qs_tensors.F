@@ -1517,7 +1517,11 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL                      :: nodata
       INTEGER, INTENT(IN), OPTIONAL                      :: unit_nr
 
+      CHARACTER(LEN=*), PARAMETER :: routineN = 'tensor_change_pgrid', &
+         routineP = moduleN//':'//routineN
+
       CHARACTER(default_string_length)                   :: name
+      INTEGER                                            :: handle
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bs1, bs2, bs3, dist1, dist2, dist3, &
                                                             map1, map2
       INTEGER, DIMENSION(3)                              :: pcoord, pcoord_ref, pdims, pdims_ref, &
@@ -1529,6 +1533,8 @@ CONTAINS
       CALL dbcsr_t_mp_environ_pgrid(t_3c%pgrid, pdims_ref, pcoord_ref)
 
       IF (ALL(pdims == pdims_ref)) RETURN
+
+      CALL timeset(routineN, handle)
 
       CALL dbcsr_t_get_info(t_3c, nblks_total=tdims, blk_size_1=bs1, blk_size_2=bs2, blk_size_3=bs3, &
                             name=name)
@@ -1562,6 +1568,8 @@ CONTAINS
             CALL dbcsr_t_write_split_info(pgrid, unit_nr)
          ENDIF
       ENDIF
+
+      CALL timestop(handle)
    END SUBROUTINE
 
 END MODULE
