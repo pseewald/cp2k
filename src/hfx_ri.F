@@ -326,7 +326,7 @@ CONTAINS
 
       CALL dbcsr_distribution_release(dbcsr_dist)
 
-      CALL build_2c_integrals(t_2c_int_pot, ri_data%filter_eps, qs_env, nl_2c_pot, basis_set_RI, basis_set_RI, &
+      CALL build_2c_integrals(t_2c_int_pot, ri_data%filter_eps_int, qs_env, nl_2c_pot, basis_set_RI, basis_set_RI, &
                               op_ij=ri_data%op_pot, &
                               t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_pot, omega=ri_data%omega_pot)
@@ -339,7 +339,7 @@ CONTAINS
                                       dist_2d=dist_2d)
 
          CALL dbcsr_create(t_2c_int_RI(1), template=t_2c_int_pot(1), matrix_type=dbcsr_type_symmetric)
-         CALL build_2c_integrals(t_2c_int_RI, ri_data%filter_eps, qs_env, nl_2c_RI, basis_set_RI, basis_set_RI, &
+         CALL build_2c_integrals(t_2c_int_RI, ri_data%filter_eps_int, qs_env, nl_2c_RI, basis_set_RI, basis_set_RI, &
                                  op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                                  r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
 
