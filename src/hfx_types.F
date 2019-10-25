@@ -360,7 +360,7 @@ MODULE hfx_types
 
    TYPE hfx_ri_type
       ! input parameters
-      REAL(KIND=dp) :: filter_eps, eps_schwarz, omega_ri, omega_pot, r_cutoff_ri, r_cutoff_pot, &
+      REAL(KIND=dp) :: filter_eps, filter_eps_int, eps_schwarz, omega_ri, omega_pot, r_cutoff_ri, r_cutoff_pot, &
                        eps_lanczos, eps_pgf_orb
       CHARACTER(len=default_string_length)    :: t_c_filename
       INTEGER :: op_pot, op_ri, t2c_sqrt_order, max_iter_lanczos, flavor, unit_nr, max_bsize
@@ -980,6 +980,7 @@ CONTAINS
       ri_data%eps_schwarz = x_data%screening_parameter%eps_schwarz
 
       CALL section_vals_val_get(ri_section, "EPS_FILTER", r_val=ri_data%filter_eps)
+      CALL section_vals_val_get(ri_section, "EPS_FILTER_INT", r_val=ri_data%filter_eps_int)
 
       CALL section_vals_val_get(ri_section, "RI_METRIC", i_val=ri_data%op_ri, explicit=explicit)
       IF (.NOT. explicit .OR. ri_data%op_ri == 0) THEN
