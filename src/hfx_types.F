@@ -363,7 +363,7 @@ MODULE hfx_types
       REAL(KIND=dp) :: filter_eps, filter_eps_int, eps_schwarz, omega_ri, omega_pot, r_cutoff_ri, r_cutoff_pot, &
                        eps_lanczos, eps_pgf_orb
       CHARACTER(len=default_string_length)    :: t_c_filename
-      INTEGER :: op_pot, op_ri, t2c_sqrt_order, max_iter_lanczos, flavor, unit_nr, max_bsize
+      INTEGER :: op_pot, op_ri, t2c_sqrt_order, max_iter_lanczos, flavor, unit_nr, max_bsize, t2c_method
       LOGICAL :: check_2c_inv
 
       LOGICAL :: same_op ! whether RI operator is same as HF potential
@@ -996,6 +996,8 @@ CONTAINS
       IF (.NOT. explicit) THEN
          ri_data%r_cutoff_ri = ri_data%r_cutoff_pot
       ENDIF
+
+      CALL section_vals_val_get(ri_section, "2C_MATRIX_FUNCTIONS", i_val=ri_data%t2c_method)
 
       CALL section_vals_val_get(ri_section, "CHECK_2C_INV", l_val=ri_data%check_2c_inv)
       CALL section_vals_val_get(ri_section, "SQRT_ORDER", i_val=ri_data%t2c_sqrt_order)
