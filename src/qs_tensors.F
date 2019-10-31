@@ -1295,8 +1295,8 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: sij, sij_contr, sij_rs
       REAL(KIND=dp), DIMENSION(3)                        :: ri, rij, rj
       REAL(KIND=dp), DIMENSION(:), POINTER               :: set_radius_i, set_radius_j
-      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: rpgf_i, rpgf_j, sphi_i, sphi_j, zeti, &
-                                                            zetj
+      REAL(KIND=dp), DIMENSION(:, :), POINTER            :: rpgf_i, rpgf_j, scon_i, scon_j, sphi_i, &
+                                                            sphi_j, zeti, zetj
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(block_p_type)                                 :: block_t
       TYPE(cp_libint_t)                                  :: lib
@@ -1403,11 +1403,11 @@ CONTAINS
 
          CALL get_gto_basis_set(basis_i(ikind)%gto_basis_set, first_sgf=first_sgf_i, lmax=lmax_i, lmin=lmin_i, &
                                 npgf=npgfi, nset=nseti, nsgf_set=nsgfi, pgf_radius=rpgf_i, set_radius=set_radius_i, &
-                                sphi=sphi_i, zet=zeti)
+                                sphi=sphi_i, zet=zeti, scon=scon_i)
 
          CALL get_gto_basis_set(basis_j(jkind)%gto_basis_set, first_sgf=first_sgf_j, lmax=lmax_j, lmin=lmin_j, &
                                 npgf=npgfj, nset=nsetj, nsgf_set=nsgfj, pgf_radius=rpgf_j, set_radius=set_radius_j, &
-                                sphi=sphi_j, zet=zetj)
+                                sphi=sphi_j, zet=zetj, scon=scon_j)
 
          IF (do_symmetric) THEN
             IF (iatom <= jatom) THEN
@@ -1444,14 +1444,25 @@ CONTAINS
                offj = ncoset(lmin_j(jset)-1)+1
 
                IF (ncoi*ncoj > 0) THEN
-                  ALLOCATE (sij(ncoi, ncoj))
-                  sij(:, :) = 0.0_dp
+                  ALLOCATE (sij_contr(nsgfi(iset), nsgfj(jset)))
+                  sij_contr(:, :) = 0.0_dp
 
                   IF (op_prv == do_potential_id) THEN
+                     ALLOCATE (sij(n1, n2))
+                     sij(:, :) = 0.0_dp
+
                      CALL overlap_ab(lmax_i(iset), lmin_i(iset), npgfi(iset), rpgf_i(:, iset), zeti(:, iset), &
                                      lmax_j(jset), lmin_j(jset), npgfj(jset), rpgf_j(:, jset), zetj(:, jset), &
-                                     rij, sab=sij(offi:, offj:))
+                                     rij, sab=sij(:, :))
+
+                     CALL ab_contract(sij_contr, sij, &
+                                      scon_i(:, sgfi:), scon_j(:, sgfj:), &
+                                      n1, n2, nsgfi(iset), nsgfj(jset))
+
                   ELSE
+                     ALLOCATE (sij(ncoi, ncoj))
+                     sij(:, :) = 0.0_dp
+
                      ri = 0.0_dp
                      rj = rij
 
@@ -1459,14 +1470,12 @@ CONTAINS
                                       ri, lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), &
                                       rj, lib, op_prv, omega=omega, r_cutoff=r_cutoff)
 
+                     CALL ab_contract(sij_contr, sij, &
+                                      sphi_i(:, sgfi:), sphi_j(:, sgfj:), &
+                                      ncoi, ncoj, nsgfi(iset), nsgfj(jset))
                   ENDIF
 
-                  ALLOCATE (sij_contr(nsgfi(iset), nsgfj(jset)))
-
-                  CALL ab_contract(sij_contr, sij, &
-                                   sphi_i(:, sgfi:), sphi_j(:, sgfj:), &
-                                   ncoi, ncoj, nsgfi(iset), nsgfj(jset))
-
+                  DEALLOCATE (sij)
                   IF (trans) THEN
                      ALLOCATE (sij_rs(nsgfj(jset), nsgfi(iset)))
                      sij_rs(:, :) = TRANSPOSE(sij_contr)
@@ -1480,13 +1489,10 @@ CONTAINS
                   CALL block_add("IN", sij_rs, &
                                  nsgfi(iset), nsgfj(jset), block_t%block, &
                                  sgfi, sgfj, trans=trans)
-
                   DEALLOCATE (sij_rs)
-                  DEALLOCATE (sij)
                ENDIF
             END DO
          END DO
-
       ENDDO
 
       IF (op_prv /= do_potential_id) THEN
