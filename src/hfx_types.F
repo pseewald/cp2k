@@ -360,12 +360,18 @@ MODULE hfx_types
    END TYPE
 
    TYPE hfx_ri_type
-      ! input parameters
-      REAL(KIND=dp) :: filter_eps, filter_eps_int, eps_schwarz, omega_ri, omega_pot, r_cutoff_ri, r_cutoff_pot, &
+      ! RI input parameters (see input_cp2k_hfx)
+      REAL(KIND=dp) :: filter_eps, filter_eps_int, omega_ri, r_cutoff_ri, &
                        eps_lanczos, eps_pgf_orb
       CHARACTER(len=default_path_length)    :: t_c_filename
-      INTEGER :: op_pot, op_ri, t2c_sqrt_order, max_iter_lanczos, flavor, unit_nr_dbcsr, unit_nr, max_bsize, t2c_method
+      INTEGER :: op_ri, t2c_sqrt_order, max_iter_lanczos, flavor, unit_nr_dbcsr, unit_nr, max_bsize, t2c_method
       LOGICAL :: check_2c_inv
+
+      ! input parameters from hfx
+      INTEGER :: op_pot ! interaction potential
+      REAL(KIND=dp) :: omega_pot ! omega parameter for shortrange coulomb potential
+      REAL(KIND=dp) :: r_cutoff_pot ! truncation radius for truncated coulomb potential
+      REAL(KIND=dp) :: eps_schwarz ! integral screening threshold
 
       LOGICAL :: same_op ! whether RI operator is same as HF potential
 
