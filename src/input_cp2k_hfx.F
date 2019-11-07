@@ -611,7 +611,14 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, __LOCATION__, name="MAX_BLOCK_SIZE", &
-                          description="Maximum block size in one dimension for sparse tensors. ", &
+                          description="Maximum block size in one dimension for sparse tensors. Blocking affects load balancing.", &
+                          default_i_val=10)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, name="MAX_BLOCK_SIZE_MO", &
+                          description="Maximum block size for molecular orbitals. "// &
+                          "Blocking affects parallelization strategy and load balancing.", &
                           default_i_val=10)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
