@@ -119,13 +119,13 @@ CONTAINS
          SELECT CASE (ri_data%t2c_method)
          CASE (hfx_ri_do_2c_iter)
             CALL dbcsr_create(t_2c_op_RI_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
-            threshold = MAX(ri_data%filter_eps, 1.0e-12_dp)
+            threshold = MAX(ri_data%filter_eps_1, 1.0e-12_dp)
             CALL invert_hotelling(t_2c_op_RI_inv(1), t_2c_op_RI(1), threshold=threshold, silent=.FALSE.)
          CASE (hfx_ri_do_2c_diag)
             CALL dbcsr_copy(t_2c_op_RI_inv(1), t_2c_op_RI(1))
             CALL cp_dbcsr_cholesky_decompose(t_2c_op_RI_inv(1), para_env=para_env, blacs_env=blacs_env)
             CALL cp_dbcsr_cholesky_invert(t_2c_op_RI_inv(1), para_env=para_env, blacs_env=blacs_env, upper_to_full=.TRUE.)
-            CALL dbcsr_filter(t_2c_op_RI_inv(1), ri_data%filter_eps)
+            CALL dbcsr_filter(t_2c_op_RI_inv(1), ri_data%filter_eps_1)
          END SELECT
 
          IF (ri_data%check_2c_inv) THEN
@@ -139,7 +139,7 @@ CONTAINS
             CALL dbcsr_create(t_2c_op_pot_sqrt(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_symmetric)
             CALL dbcsr_create(t_2c_op_pot_sqrt_inv(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_symmetric)
             CALL matrix_sqrt_newton_schulz(t_2c_op_pot_sqrt(1), t_2c_op_pot_sqrt_inv(1), t_2c_op_pot(1), &
-                                           ri_data%filter_eps, ri_data%t2c_sqrt_order, ri_data%eps_lanczos, &
+                                           ri_data%filter_eps_1, ri_data%t2c_sqrt_order, ri_data%eps_lanczos, &
                                            ri_data%max_iter_lanczos)
 
             CALL dbcsr_release(t_2c_op_pot_sqrt_inv(1))
@@ -147,14 +147,14 @@ CONTAINS
             CALL dbcsr_create(t_2c_op_pot_sqrt(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_symmetric)
 
             CALL cp_dbcsr_matrix_function(t_2c_op_pot(1), my_sqrt, t_2c_op_pot_sqrt(1), para_env=para_env, blacs_env=blacs_env)
-            CALL dbcsr_filter(t_2c_op_pot(1), ri_data%filter_eps)
+            CALL dbcsr_filter(t_2c_op_pot(1), ri_data%filter_eps_1)
          END SELECT
          IF (ri_data%check_2c_inv) THEN
             CALL check_sqrt(t_2c_op_pot(1), matrix_sqrt=t_2c_op_pot_sqrt(1), unit_nr=unit_nr)
          ENDIF
          CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
          CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_RI_inv(1), t_2c_op_pot_sqrt(1), &
-                             0.0_dp, t_2c_int_mat(1), filter_eps=ri_data%filter_eps)
+                             0.0_dp, t_2c_int_mat(1), filter_eps=ri_data%filter_eps_1)
          CALL dbcsr_release(t_2c_op_RI_inv(1))
          CALL dbcsr_release(t_2c_op_pot_sqrt(1))
       ELSE
@@ -163,13 +163,13 @@ CONTAINS
             CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_symmetric)
             CALL dbcsr_create(t_2c_op_pot_sqrt(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_symmetric)
             CALL matrix_sqrt_newton_schulz(t_2c_op_pot_sqrt(1), t_2c_int_mat(1), t_2c_op_pot(1), &
-                                           ri_data%filter_eps, ri_data%t2c_sqrt_order, ri_data%eps_lanczos, &
+                                           ri_data%filter_eps_1, ri_data%t2c_sqrt_order, ri_data%eps_lanczos, &
                                            ri_data%max_iter_lanczos)
             CALL dbcsr_release(t_2c_op_pot_sqrt(1))
          CASE (hfx_ri_do_2c_diag)
             CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_symmetric)
             CALL cp_dbcsr_matrix_function(t_2c_op_pot(1), my_invsqrt, t_2c_int_mat(1), para_env=para_env, blacs_env=blacs_env)
-            CALL dbcsr_filter(t_2c_op_pot(1), ri_data%filter_eps)
+            CALL dbcsr_filter(t_2c_op_pot(1), ri_data%filter_eps_1)
          END SELECT
          IF (ri_data%check_2c_inv) THEN
             CALL check_sqrt(t_2c_op_pot(1), matrix_sqrt_inv=t_2c_int_mat(1), unit_nr=unit_nr)
@@ -341,7 +341,7 @@ CONTAINS
 
       CALL build_3c_neighbor_lists(nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, ri_data%dist_3d, "HFX_3c_nl", &
                                    qs_env, op_ij=ri_data%op_ri, sym_jk=.TRUE., r_cutoff=ri_data%r_cutoff_ri)
-      CALL build_3c_integrals(t_3c_int, ri_data%filter_eps, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
+      CALL build_3c_integrals(t_3c_int, ri_data%filter_eps_1, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
                               op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri, int_eps=ri_data%eps_schwarz)
 
@@ -436,16 +436,16 @@ CONTAINS
                                                                 ri_data%pgrid_2, nodata=.TRUE., unit_nr=unit_nr_dbcsr)
 
       CALL dbcsr_t_copy(t_3c_int_1(1, 1), ri_data%t_3c_int_ctr_3(1, 1))
-      CALL dbcsr_t_filter(ri_data%t_3c_int_ctr_3(1, 1), ri_data%filter_eps)
+      CALL dbcsr_t_filter(ri_data%t_3c_int_ctr_3(1, 1), ri_data%filter_eps_1)
       CALL dbcsr_t_copy(t_3c_int_1(1, 1), ri_data%t_3c_int_ctr_2(1, 1), order=[2, 1, 3], move_data=.TRUE.)
       CALL dbcsr_t_destroy(t_3c_int_1(1, 1))
-      CALL dbcsr_t_filter(ri_data%t_3c_int_ctr_2(1, 1), ri_data%filter_eps)
+      CALL dbcsr_t_filter(ri_data%t_3c_int_ctr_2(1, 1), ri_data%filter_eps_1)
 
       CALL timestop(handle2)
 
       CALL timeset(routineN//"_2c", handle2)
       CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
-      threshold = MAX(ri_data%filter_eps, 1.0e-12_dp)
+      threshold = MAX(ri_data%filter_eps_1, 1.0e-12_dp)
 
       SELECT CASE (ri_data%t2c_method)
       CASE (hfx_ri_do_2c_iter)
@@ -455,7 +455,7 @@ CONTAINS
          CALL dbcsr_copy(t_2c_int_mat(1), t_2c_op_RI(1))
          CALL cp_dbcsr_cholesky_decompose(t_2c_int_mat(1), para_env=para_env, blacs_env=blacs_env)
          CALL cp_dbcsr_cholesky_invert(t_2c_int_mat(1), para_env=para_env, blacs_env=blacs_env, upper_to_full=.TRUE.)
-         CALL dbcsr_filter(t_2c_int_mat(1), ri_data%filter_eps)
+         CALL dbcsr_filter(t_2c_int_mat(1), ri_data%filter_eps_1)
       END SELECT
 
       IF (ri_data%check_2c_inv) THEN
@@ -469,11 +469,11 @@ CONTAINS
          CALL dbcsr_create(t_2c_tmp_2(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_no_symmetry)
          CALL dbcsr_release(t_2c_op_RI(1))
          CALL dbcsr_multiply('N', 'N', 1.0_dp, t_2c_int_mat(1), t_2c_op_pot(1), 0.0_dp, t_2c_tmp(1), &
-                             filter_eps=ri_data%filter_eps)
+                             filter_eps=ri_data%filter_eps_1)
 
          CALL dbcsr_release(t_2c_op_pot(1))
          CALL dbcsr_multiply('N', 'N', 1.0_dp, t_2c_tmp(1), t_2c_int_mat(1), 0.0_dp, t_2c_tmp_2(1), &
-                             filter_eps=ri_data%filter_eps)
+                             filter_eps=ri_data%filter_eps_1)
          CALL dbcsr_release(t_2c_tmp(1))
          CALL dbcsr_release(t_2c_int_mat(1))
          t_2c_int_mat(1) = t_2c_tmp_2(1)
@@ -491,7 +491,7 @@ CONTAINS
                             dbcsr_scalar(0.0_dp), t_3c_int_2(1, 1), &
                             contract_1=[2], notcontract_1=[1], &
                             contract_2=[1], notcontract_2=[2, 3], &
-                            map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, &
+                            map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps_1, &
                             unit_nr=unit_nr_dbcsr, move_data=.TRUE., &
                             pgrid_opt_2=pgrid_opt)
       CALL dbcsr_t_clear(ri_data%t_3c_int_ctr_3(1, 1))
@@ -508,7 +508,7 @@ CONTAINS
                                                                 nodata=.TRUE., unit_nr=unit_nr_dbcsr)
       CALL dbcsr_t_copy(t_3c_int_2(1, 1), ri_data%t_3c_int_ctr_1(1, 1), order=[2, 1, 3], move_data=.TRUE.)
       CALL dbcsr_t_destroy(t_3c_int_2(1, 1))
-      CALL dbcsr_t_filter(ri_data%t_3c_int_ctr_1(1, 1), ri_data%filter_eps)
+      CALL dbcsr_t_filter(ri_data%t_3c_int_ctr_1(1, 1), ri_data%filter_eps_1)
 
       CALL timestop(handle2)
 
@@ -590,7 +590,7 @@ CONTAINS
 
       DO ispin = 1, nspins
          CALL dbcsr_scale(ks_matrix(ispin, 1)%matrix, -fac)
-         CALL dbcsr_filter(ks_matrix(ispin, 1)%matrix, ri_data%filter_eps)
+         CALL dbcsr_filter(ks_matrix(ispin, 1)%matrix, ri_data%filter_eps_4)
       ENDDO
 
       CALL timeset(routineN//"_energy", handle2)
@@ -726,13 +726,13 @@ CONTAINS
          CALL dbcsr_t_create(mo_coeff(ispin), mo_coeff_t, name="MO coeffs")
          CALL dbcsr_t_copy_matrix_to_tensor(mo_coeff(ispin), mo_coeff_t)
          CALL dbcsr_t_copy(mo_coeff_t, mo_coeff_t_split, move_data=.TRUE.)
-         CALL dbcsr_t_filter(mo_coeff_t_split, ri_data%filter_eps)
+         !CALL dbcsr_t_filter(mo_coeff_t_split, ri_data%filter_eps_2)
          CALL dbcsr_t_destroy(mo_coeff_t)
 
          CALL timeset(routineN//"_copy_1", handle2)
          CALL dbcsr_t_copy(ri_data%t_3c_int(1, 1), t_3c_int(1, 1))
          CALL timestop(handle2)
-         CALL dbcsr_t_filter(t_3c_int(1, 1), ri_data%filter_eps)
+         !CALL dbcsr_t_filter(t_3c_int(1, 1), ri_data%filter_eps_2)
 
          bounds(1, 1) = 1
          bounds(2, 1) = homo(ispin)
@@ -744,7 +744,7 @@ CONTAINS
                                contract_2=[3], notcontract_2=[1, 2], &
                                map_1=[3], map_2=[1, 2], &
                                bounds_2=bounds, &
-                               filter_eps=ri_data%filter_eps, &
+                               filter_eps=ri_data%filter_eps_2, &
                                unit_nr=unit_nr_dbcsr, &
                                move_data=.TRUE.)
          CALL timestop(handle2)
@@ -764,7 +764,7 @@ CONTAINS
                                dbcsr_scalar(0.0_dp), t_3c_ctr_RI(1, 1), &
                                contract_1=[1], notcontract_1=[2], &
                                contract_2=[1], notcontract_2=[2, 3], &
-                               map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, &
+                               map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps_3, &
                                unit_nr=unit_nr_dbcsr)
          CALL dbcsr_t_destroy(t_3c_int_mo_2(1, 1))
          CALL timestop(handle2)
@@ -782,7 +782,7 @@ CONTAINS
                                dbcsr_scalar(0.0_dp), ks_t_split, &
                                contract_1=[1, 2], notcontract_1=[3], &
                                contract_2=[1, 2], notcontract_2=[3], &
-                               map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps, &
+                               map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps_4, &
                                unit_nr=unit_nr_dbcsr, move_data=.TRUE.)
          CALL timestop(handle2)
 
@@ -791,7 +791,7 @@ CONTAINS
 
          CALL dbcsr_t_copy(ks_t_split, ks_t, move_data=.TRUE.)
          CALL dbcsr_t_destroy(ks_t_split)
-         CALL dbcsr_t_filter(ks_t, ri_data%filter_eps)
+         CALL dbcsr_t_filter(ks_t, ri_data%filter_eps_4)
          CALL dbcsr_t_copy_tensor_to_matrix(ks_t, ks_matrix(ispin, 1)%matrix, summation=.TRUE.)
          CALL dbcsr_t_destroy(ks_t)
 
@@ -861,7 +861,7 @@ CONTAINS
                                dbcsr_scalar(0.0_dp), t_3c_1(1, 1), &
                                contract_1=[2], notcontract_1=[1], &
                                contract_2=[1], notcontract_2=[2, 3], &
-                               map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, &
+                               map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps_1, &
                                unit_nr=unit_nr_dbcsr, &
                                pgrid_opt_2=pgrid_opt)
 
@@ -871,7 +871,7 @@ CONTAINS
          CALL dbcsr_t_create(ri_data%t_3c_int_ctr_1(1, 1), t_3c_2(1, 1))
          CALL dbcsr_t_copy(t_3c_1(1, 1), t_3c_2(1, 1), move_data=.TRUE.)
          CALL dbcsr_t_clear(t_3c_1(1, 1))
-         CALL dbcsr_t_filter(t_3c_2(1, 1), ri_data%filter_eps)
+         CALL dbcsr_t_filter(t_3c_2(1, 1), ri_data%filter_eps_1)
          CALL timestop(handle2)
 
          CPASSERT(ASSOCIATED(pgrid_opt))
@@ -888,7 +888,7 @@ CONTAINS
                                dbcsr_scalar(0.0_dp), ks_t, &
                                contract_1=[1, 2], notcontract_1=[3], &
                                contract_2=[1, 2], notcontract_2=[3], &
-                               map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps, &
+                               map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps_1, &
                                unit_nr=unit_nr_dbcsr, &
                                pgrid_opt_1=pgrid_opt)
          CALL timestop(handle2)
