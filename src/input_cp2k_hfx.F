@@ -513,13 +513,13 @@ CONTAINS
 
       CALL keyword_create(keyword, __LOCATION__, name="EPS_FILTER", &
                           description="Filter threshold for DBCSR tensor contraction.", &
-                          default_r_val=1.0E-09_dp)
+                          default_r_val=1.0E-10_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, __LOCATION__, name="EPS_FILTER_INT", &
-                          description="Filter threshold for 2c integrals. Should be tighter than EPS_FILTER.", &
-                          default_r_val=1.0E-10_dp)
+                          description="Filter threshold for integrals. Should be tighter than EPS_FILTER.", &
+                          default_r_val=1.0E-12_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 

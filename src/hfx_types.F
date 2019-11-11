@@ -389,20 +389,25 @@ MODULE hfx_types
 
       ! 2c tensor in (RI | RI) format for contraction
       TYPE(dbcsr_t_type), DIMENSION(:), ALLOCATABLE    :: t_2c_int
+      REAL(KIND=dp)                                    :: t_2c_int_norm
 
       ! 3c integral tensor in default format
       TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE :: t_3c_int
+      REAL(KIND=dp)                                    :: t_3c_int_norm
 
       ! 3c integral tensor in (AO RI | AO) format for contraction
       TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE :: t_3c_int_ctr_1
+      REAL(KIND=dp)                                    :: t_3c_int_ctr_1_norm
       TYPE(dbcsr_t_pgrid_type), POINTER                :: pgrid_1 => NULL()
 
       ! 3c integral tensor in ( AO | RI AO) format for contraction
       TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE :: t_3c_int_ctr_2
+      REAL(KIND=dp)                                    :: t_3c_int_ctr_2_norm
       TYPE(dbcsr_t_pgrid_type), POINTER                :: pgrid_2 => NULL()
 
       ! 3c integral tensor in ( RI | AO AO ) format for contraction
       TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE :: t_3c_int_ctr_3
+      REAL(KIND=dp)                                    :: t_3c_int_ctr_3_norm
       TYPE(dbcsr_t_pgrid_type), POINTER                :: pgrid_3 => NULL()
 
       ! optional: sections for output handling

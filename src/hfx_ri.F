@@ -30,7 +30,7 @@ MODULE hfx_ri
         dbcsr_t_clear, dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
         dbcsr_t_nd_mp_comm, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, &
-        dbcsr_t_type
+        dbcsr_t_scale, dbcsr_t_type
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE hfx_types,                       ONLY: hfx_ri_type
    USE input_constants,                 ONLY: hfx_ri_do_2c_diag,&
@@ -60,7 +60,8 @@ MODULE hfx_ri
                                               build_3c_neighbor_lists,&
                                               neighbor_list_2c_destroy,&
                                               neighbor_list_3c_destroy,&
-                                              tensor_change_pgrid
+                                              tensor_change_pgrid,&
+                                              tensor_normalize
    USE qs_tensors_types,                ONLY: create_2c_tensor,&
                                               create_3c_tensor,&
                                               neighbor_list_3c_type,&
@@ -111,6 +112,8 @@ CONTAINS
       CALL timeset(routineN//"_int", handle2)
 
       CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_op_RI, t_2c_op_pot, ri_data%t_3c_int)
+      CALL tensor_normalize(ri_data%t_3c_int(1, 1), ri_data%t_3c_int_norm)
+      CALL dbcsr_t_filter(ri_data%t_3c_int(1, 1), ri_data%filter_eps)
 
       CALL timestop(handle2)
 
@@ -125,7 +128,7 @@ CONTAINS
             CALL dbcsr_copy(t_2c_op_RI_inv(1), t_2c_op_RI(1))
             CALL cp_dbcsr_cholesky_decompose(t_2c_op_RI_inv(1), para_env=para_env, blacs_env=blacs_env)
             CALL cp_dbcsr_cholesky_invert(t_2c_op_RI_inv(1), para_env=para_env, blacs_env=blacs_env, upper_to_full=.TRUE.)
-            CALL dbcsr_filter(t_2c_op_RI_inv(1), ri_data%filter_eps)
+            !CALL dbcsr_filter(t_2c_op_RI_inv(1), ri_data%filter_eps)
          END SELECT
 
          IF (ri_data%check_2c_inv) THEN
@@ -147,14 +150,14 @@ CONTAINS
             CALL dbcsr_create(t_2c_op_pot_sqrt(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_symmetric)
 
             CALL cp_dbcsr_matrix_function(t_2c_op_pot(1), my_sqrt, t_2c_op_pot_sqrt(1), para_env=para_env, blacs_env=blacs_env)
-            CALL dbcsr_filter(t_2c_op_pot(1), ri_data%filter_eps)
+            !CALL dbcsr_filter(t_2c_op_pot(1), ri_data%filter_eps)
          END SELECT
          IF (ri_data%check_2c_inv) THEN
             CALL check_sqrt(t_2c_op_pot(1), matrix_sqrt=t_2c_op_pot_sqrt(1), unit_nr=unit_nr)
          ENDIF
          CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
          CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_RI_inv(1), t_2c_op_pot_sqrt(1), &
-                             0.0_dp, t_2c_int_mat(1), filter_eps=ri_data%filter_eps)
+                             0.0_dp, t_2c_int_mat(1)) !, filter_eps=ri_data%filter_eps)
          CALL dbcsr_release(t_2c_op_RI_inv(1))
          CALL dbcsr_release(t_2c_op_pot_sqrt(1))
       ELSE
@@ -169,7 +172,7 @@ CONTAINS
          CASE (hfx_ri_do_2c_diag)
             CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_symmetric)
             CALL cp_dbcsr_matrix_function(t_2c_op_pot(1), my_invsqrt, t_2c_int_mat(1), para_env=para_env, blacs_env=blacs_env)
-            CALL dbcsr_filter(t_2c_op_pot(1), ri_data%filter_eps)
+            !CALL dbcsr_filter(t_2c_op_pot(1), ri_data%filter_eps)
          END SELECT
          IF (ri_data%check_2c_inv) THEN
             CALL check_sqrt(t_2c_op_pot(1), matrix_sqrt_inv=t_2c_int_mat(1), unit_nr=unit_nr)
@@ -183,6 +186,10 @@ CONTAINS
       CALL dbcsr_release(t_2c_int_mat(1))
       CALL dbcsr_t_copy(t_2c_int(1), ri_data%t_2c_int(1), move_data=.TRUE.)
       CALL dbcsr_t_destroy(t_2c_int(1))
+
+      CALL tensor_normalize(ri_data%t_2c_int(1), ri_data%t_2c_int_norm)
+      CALL dbcsr_t_filter(ri_data%t_2c_int(1), ri_data%filter_eps)
+
       CALL timestop(handle2)
 
       CALL timestop(handle)
@@ -341,7 +348,7 @@ CONTAINS
 
       CALL build_3c_neighbor_lists(nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, ri_data%dist_3d, "HFX_3c_nl", &
                                    qs_env, op_ij=ri_data%op_ri, sym_jk=.TRUE., r_cutoff=ri_data%r_cutoff_ri)
-      CALL build_3c_integrals(t_3c_int, ri_data%filter_eps, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
+      CALL build_3c_integrals(t_3c_int, ri_data%filter_eps_int, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
                               op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri, int_eps=ri_data%eps_schwarz)
 
@@ -590,7 +597,7 @@ CONTAINS
 
       DO ispin = 1, nspins
          CALL dbcsr_scale(ks_matrix(ispin, 1)%matrix, -fac)
-         CALL dbcsr_filter(ks_matrix(ispin, 1)%matrix, ri_data%filter_eps)
+         !CALL dbcsr_filter(ks_matrix(ispin, 1)%matrix, ri_data%filter_eps)
       ENDDO
 
       CALL timeset(routineN//"_energy", handle2)
@@ -640,6 +647,8 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(3)                              :: pdims
+      REAL(KIND=dp)                                      :: mo_coeff_norm, t_3c_ctr_RI_norm, &
+                                                            t_3c_int_mo_norm
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_distribution_type)                      :: ks_dist
       TYPE(dbcsr_t_pgrid_type)                           :: pgrid_1, pgrid_2, pgrid_2d
@@ -726,6 +735,8 @@ CONTAINS
          CALL dbcsr_t_create(mo_coeff(ispin), mo_coeff_t, name="MO coeffs")
          CALL dbcsr_t_copy_matrix_to_tensor(mo_coeff(ispin), mo_coeff_t)
          CALL dbcsr_t_copy(mo_coeff_t, mo_coeff_t_split, move_data=.TRUE.)
+
+         CALL tensor_normalize(mo_coeff_t_split, mo_coeff_norm)
          CALL dbcsr_t_filter(mo_coeff_t_split, ri_data%filter_eps)
          CALL dbcsr_t_destroy(mo_coeff_t)
 
@@ -749,6 +760,9 @@ CONTAINS
                                move_data=.TRUE.)
          CALL timestop(handle2)
 
+         CALL dbcsr_t_scale(t_3c_int_mo(1, 1), dbcsr_scalar(mo_coeff_norm*ri_data%t_3c_int_norm))
+         CALL tensor_normalize(t_3c_int_mo(1, 1), t_3c_int_mo_norm)
+
          CALL dbcsr_t_destroy(t_3c_int(1, 1))
          CALL dbcsr_t_destroy(mo_coeff_t_split)
 
@@ -769,6 +783,9 @@ CONTAINS
          CALL dbcsr_t_destroy(t_3c_int_mo_2(1, 1))
          CALL timestop(handle2)
 
+         CALL dbcsr_t_scale(t_3c_ctr_RI(1, 1), dbcsr_scalar(ri_data%t_2c_int_norm*t_3c_int_mo_norm))
+         CALL tensor_normalize(t_3c_ctr_RI(1, 1), t_3c_ctr_RI_norm)
+
          CALL timeset(routineN//"_copy_3", handle2)
 
          ! note: this copy should not involve communication (same block sizes, same 3d distribution on same process grid)
@@ -786,12 +803,14 @@ CONTAINS
                                unit_nr=unit_nr_dbcsr, move_data=.TRUE.)
          CALL timestop(handle2)
 
+         CALL dbcsr_t_scale(ks_t_split, dbcsr_scalar(t_3c_ctr_RI_norm**2))
+
          CALL dbcsr_t_destroy(t_3c_ctr_KS(1, 1))
          CALL dbcsr_t_destroy(t_3c_ctr_KS_copy(1, 1))
 
          CALL dbcsr_t_copy(ks_t_split, ks_t, move_data=.TRUE.)
          CALL dbcsr_t_destroy(ks_t_split)
-         CALL dbcsr_t_filter(ks_t, ri_data%filter_eps)
+         !CALL dbcsr_t_filter(ks_t, ri_data%filter_eps)
          CALL dbcsr_t_copy_tensor_to_matrix(ks_t, ks_matrix(ispin, 1)%matrix, summation=.TRUE.)
          CALL dbcsr_t_destroy(ks_t)
 

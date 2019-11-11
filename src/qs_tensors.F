@@ -26,14 +26,17 @@ MODULE qs_tensors
                                               dbcsr_finalize,&
                                               dbcsr_get_block_p,&
                                               dbcsr_has_symmetry,&
+                                              dbcsr_norm_frobenius,&
+                                              dbcsr_scalar,&
                                               dbcsr_type,&
                                               dbcsr_type_real_8
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_blk_sizes, dbcsr_t_copy, dbcsr_t_create, dbcsr_t_destroy, &
         dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
         dbcsr_t_filter, dbcsr_t_get_block, dbcsr_t_get_info, dbcsr_t_get_mapping_info, &
-        dbcsr_t_get_stored_coordinates, dbcsr_t_mp_environ_pgrid, dbcsr_t_pgrid_type, &
-        dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_type, dbcsr_t_write_split_info
+        dbcsr_t_get_stored_coordinates, dbcsr_t_mp_environ_pgrid, dbcsr_t_norm, &
+        dbcsr_t_pgrid_type, dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_scale, &
+        dbcsr_t_type, dbcsr_t_write_split_info
    USE distribution_1d_types,           ONLY: distribution_1d_type
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE gamma,                           ONLY: init_md_ftable
@@ -88,7 +91,8 @@ MODULE qs_tensors
              neighbor_list_3c_destroy, neighbor_list_2c_destroy, neighbor_list_3c_iterate, neighbor_list_3c_iterator_create, &
              neighbor_list_3c_iterator_destroy, get_3c_iterator_info, build_3c_integrals, &
              contiguous_tensor_dist, &
-             build_2c_neighbor_lists, build_2c_integrals, cutoff_screen_factor, tensor_change_pgrid
+             build_2c_neighbor_lists, build_2c_integrals, cutoff_screen_factor, tensor_change_pgrid, &
+             tensor_normalize
 
    TYPE one_dim_int_array
       INTEGER, DIMENSION(:), ALLOCATABLE    :: array
@@ -1576,6 +1580,19 @@ CONTAINS
       ENDIF
 
       CALL timestop(handle)
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param tensor ...
+!> \param norm ...
+! **************************************************************************************************
+   SUBROUTINE tensor_normalize(tensor, norm)
+      TYPE(dbcsr_t_type), INTENT(INOUT)                  :: tensor
+      REAL(KIND=dp), INTENT(OUT)                         :: norm
+
+      CALL dbcsr_t_norm(tensor, dbcsr_norm_frobenius, norm)
+      CALL dbcsr_t_scale(tensor, dbcsr_scalar(1.0_dp/norm))
    END SUBROUTINE
 
 END MODULE
