@@ -363,7 +363,7 @@ MODULE hfx_types
 
    TYPE hfx_ri_type
       ! input parameters (see input_cp2k_hfx)
-      REAL(KIND=dp) :: filter_eps, filter_eps_2c, filter_eps_mo, eps_schwarz, omega_ri, omega_pot, &
+      REAL(KIND=dp) :: filter_eps, filter_eps_2c, filter_eps_3c, filter_eps_mo, eps_schwarz, omega_ri, omega_pot, &
                        r_cutoff_ri, r_cutoff_pot, eps_lanczos, eps_pgf_orb
       CHARACTER(len=default_path_length)    :: t_c_filename
       INTEGER :: op_pot, op_ri, t2c_sqrt_order, max_iter_lanczos, flavor, unit_nr_dbcsr, unit_nr, &
@@ -1086,6 +1086,7 @@ CONTAINS
 
       CALL section_vals_val_get(ri_section, "EPS_FILTER", r_val=ri_data%filter_eps)
       CALL section_vals_val_get(ri_section, "EPS_FILTER_2C", r_val=ri_data%filter_eps_2c)
+      CALL section_vals_val_get(ri_section, "EPS_FILTER_3C", r_val=ri_data%filter_eps_3c)
       CALL section_vals_val_get(ri_section, "EPS_FILTER_MO", r_val=ri_data%filter_eps_mo)
 
       CALL section_vals_val_get(ri_section, "RI_METRIC", i_val=ri_data%op_ri, explicit=explicit)
