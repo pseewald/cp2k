@@ -348,7 +348,7 @@ CONTAINS
 
       CALL build_3c_neighbor_lists(nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, ri_data%dist_3d, "HFX_3c_nl", &
                                    qs_env, op_ij=ri_data%op_ri, sym_jk=.TRUE., r_cutoff=ri_data%r_cutoff_ri)
-      CALL build_3c_integrals(t_3c_int, ri_data%filter_eps, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
+      CALL build_3c_integrals(t_3c_int, ri_data%filter_eps_3c, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
                               op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
                               r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri, int_eps=ri_data%eps_schwarz)
 
