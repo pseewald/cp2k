@@ -131,9 +131,11 @@ CONTAINS
             threshold = MAX(ri_data%filter_eps, 1.0e-12_dp)
             CALL invert_hotelling(t_2c_op_RI_inv(1), t_2c_op_RI(1), threshold=threshold, silent=.FALSE.)
          CASE (hfx_ri_do_2c_diag)
-            CALL dbcsr_copy(t_2c_op_RI_inv(1), t_2c_op_RI(1))
-            CALL cp_dbcsr_cholesky_decompose(t_2c_op_RI_inv(1), para_env=para_env, blacs_env=blacs_env)
-            CALL cp_dbcsr_cholesky_invert(t_2c_op_RI_inv(1), para_env=para_env, blacs_env=blacs_env, upper_to_full=.TRUE.)
+            !CALL dbcsr_copy(t_2c_op_RI_inv(1), t_2c_op_RI(1))
+            !CALL cp_dbcsr_cholesky_decompose(t_2c_op_RI_inv(1), para_env=para_env, blacs_env=blacs_env)
+            !CALL cp_dbcsr_cholesky_invert(t_2c_op_RI_inv(1), para_env=para_env, blacs_env=blacs_env, upper_to_full=.TRUE.)
+            CALL dbcsr_create(t_2c_op_RI_inv(1), template=t_2c_op_RI(1), matrix_type=dbcsr_type_symmetric)
+            CALL cp_dbcsr_matrix_function(t_2c_op_RI(1), my_inv, t_2c_op_RI_inv(1), para_env=para_env, blacs_env=blacs_env)
             CALL dbcsr_filter(t_2c_op_RI_inv(1), ri_data%filter_eps)
          END SELECT
 
@@ -374,7 +376,8 @@ CONTAINS
                                    qs_env, op_ij=ri_data%op_ri, sym_jk=.TRUE., r_cutoff=ri_data%r_cutoff_ri)
       CALL build_3c_integrals(t_3c_int, ri_data%filter_eps, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
                               op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
-                              r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri, int_eps=ri_data%eps_schwarz)
+                              r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri, int_eps=ri_data%eps_schwarz, &
+                              do_lri=ri_data%do_lri, cutoff_lri=ri_data%cutoff_lri)
 
       CALL neighbor_list_3c_destroy(nl_3c)
 
@@ -408,7 +411,8 @@ CONTAINS
          CALL dbcsr_create(t_2c_int_RI(1), template=t_2c_int_pot(1), matrix_type=dbcsr_type_symmetric, name="(R|P) RI")
          CALL build_2c_integrals(t_2c_int_RI, ri_data%filter_eps_int, qs_env, nl_2c_RI, basis_set_RI, basis_set_RI, &
                                  op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
-                                 r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
+                                 r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri, do_lri=ri_data%do_lri, &
+                                 cutoff_lri=ri_data%cutoff_lri)
 
          CALL neighbor_list_2c_destroy(nl_2c_RI)
       ENDIF
@@ -923,6 +927,18 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(SIZE(values))             :: my_invsqrt
 
       my_invsqrt = SQRT(1.0_dp/values)
+   END FUNCTION
+
+! **************************************************************************************************
+!> \brief ...
+!> \param values ...
+!> \return ...
+! **************************************************************************************************
+   FUNCTION my_inv(values)
+      REAL(KIND=dp), DIMENSION(:), INTENT(IN)            :: values
+      REAL(KIND=dp), DIMENSION(SIZE(values))             :: my_inv
+
+      my_inv = 1.0_dp/values
    END FUNCTION
 
 END MODULE

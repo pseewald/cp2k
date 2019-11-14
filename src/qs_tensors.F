@@ -26,6 +26,7 @@ MODULE qs_tensors
                                               dbcsr_finalize,&
                                               dbcsr_get_block_p,&
                                               dbcsr_has_symmetry,&
+                                              dbcsr_set,&
                                               dbcsr_type,&
                                               dbcsr_type_real_8
    USE dbcsr_tensor_api,                ONLY: &
@@ -33,7 +34,8 @@ MODULE qs_tensors
         dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
         dbcsr_t_filter, dbcsr_t_get_block, dbcsr_t_get_info, dbcsr_t_get_mapping_info, &
         dbcsr_t_get_stored_coordinates, dbcsr_t_mp_environ_pgrid, dbcsr_t_pgrid_type, &
-        dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_type, dbcsr_t_write_split_info
+        dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_set, dbcsr_t_type, &
+        dbcsr_t_write_split_info
    USE distribution_1d_types,           ONLY: distribution_1d_type
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE gamma,                           ONLY: init_md_ftable
@@ -775,11 +777,13 @@ CONTAINS
 !> \param omega ...
 !> \param do_kpoints ...
 !> this routine requires that libint has been static initialised somewhere else
+!> \param do_lri ...
+!> \param cutoff_lri ...
 ! **************************************************************************************************
    SUBROUTINE build_3c_integrals(t3c, filter_eps, qs_env, &
                                  nl_3c, basis_i, basis_j, basis_k, &
                                  int_eps, &
-                                 op_ij, op_jk, t_c_filename, r_cutoff, omega, do_kpoints)
+                                 op_ij, op_jk, t_c_filename, r_cutoff, omega, do_kpoints, do_lri, cutoff_lri)
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t3c
       REAL(KIND=dp), INTENT(IN)                          :: filter_eps
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -789,7 +793,8 @@ CONTAINS
       INTEGER, INTENT(IN), OPTIONAL                      :: op_ij, op_jk
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: t_c_filename
       REAL(KIND=dp), INTENT(IN), OPTIONAL                :: r_cutoff, omega
-      LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints
+      LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints, do_lri
+      REAL(KIND=dp), INTENT(IN), OPTIONAL                :: cutoff_lri
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'build_3c_integrals', &
          routineP = moduleN//':'//routineN
@@ -805,7 +810,7 @@ CONTAINS
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgf_i, first_sgf_j, first_sgf_k
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL                                            :: block_not_zero, debug, do_kpoints_prv, &
-                                                            found
+                                                            do_lri_prv, found
       REAL(KIND=dp)                                      :: dij, dik, djk, dr_ij, dr_ik, dr_jk, &
                                                             kind_radius_i, kind_radius_j, &
                                                             kind_radius_k, max_contraction_val, &
@@ -850,28 +855,49 @@ CONTAINS
          op_jk_prv = do_potential_id
       ENDIF
 
-      dr_ij = 0.0_dp; dr_jk = 0.0_dp; dr_ik = 0.0_dp
-
-      IF (op_ij_prv == do_potential_truncated .OR. op_ij_prv == do_potential_short) THEN
-         dr_ij = r_cutoff*cutoff_screen_factor
-         dr_ik = r_cutoff*cutoff_screen_factor
-      ELSEIF (op_ij_prv == do_potential_coulomb) THEN
-         dr_ij = 1000000.0_dp
-         dr_ik = 1000000.0_dp
+      IF (PRESENT(do_lri)) THEN
+         do_lri_prv = do_lri
+      ELSE
+         do_lri_prv = .FALSE.
       ENDIF
 
-      IF (op_jk_prv == do_potential_truncated .OR. op_jk_prv == do_potential_short) THEN
-         dr_jk = r_cutoff*cutoff_screen_factor
-         dr_ik = r_cutoff*cutoff_screen_factor
-      ELSEIF (op_jk_prv == do_potential_coulomb) THEN
-         dr_jk = 1000000.0_dp
-         dr_ik = 1000000.0_dp
+      IF (do_lri_prv) THEN
+         CPASSERT(PRESENT(cutoff_lri))
+      ENDIF
+
+      dr_ij = 0.0_dp; dr_jk = 0.0_dp; dr_ik = 0.0_dp
+
+      IF (.NOT. do_lri_prv) THEN
+         IF (op_ij_prv == do_potential_truncated .OR. op_ij_prv == do_potential_short) THEN
+            dr_ij = r_cutoff*cutoff_screen_factor
+            dr_ik = r_cutoff*cutoff_screen_factor
+         ELSEIF (op_ij_prv == do_potential_coulomb) THEN
+            dr_ij = 1000000.0_dp
+            dr_ik = 1000000.0_dp
+         ENDIF
+
+         IF (op_jk_prv == do_potential_truncated .OR. op_jk_prv == do_potential_short) THEN
+            dr_jk = r_cutoff*cutoff_screen_factor
+            dr_ik = r_cutoff*cutoff_screen_factor
+         ELSEIF (op_jk_prv == do_potential_coulomb) THEN
+            dr_jk = 1000000.0_dp
+            dr_ik = 1000000.0_dp
+         ENDIF
+      ELSE
+         dr_ij = cutoff_lri
+         dr_ik = cutoff_lri
       ENDIF
 
       NULLIFY (qs_kind_set, atomic_kind_set)
 
       CALL alloc_block_3c(t3c, nl_3c, basis_i, basis_j, basis_k, qs_env, &
                           op_ij=op_ij, op_jk=op_jk, r_cutoff=r_cutoff, do_kpoints=do_kpoints)
+
+      DO jcell = 1, nimg
+         DO kcell = 1, nimg
+            CALL dbcsr_t_set(t3c(jcell, kcell), 0.0_dp)
+         ENDDO
+      ENDDO
 
       ! get stuff
       CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, qs_kind_set=qs_kind_set, &
@@ -974,9 +1000,15 @@ CONTAINS
          dij = NORM2(rij)
          dik = NORM2(rik)
 
-         IF (kind_radius_j+kind_radius_i+dr_ij < dij) CYCLE
-         IF (kind_radius_j+kind_radius_k+dr_jk < djk) CYCLE
-         IF (kind_radius_k+kind_radius_i+dr_ik < dik) CYCLE
+         IF (do_lri_prv) THEN
+            IF (dr_ij+1.0E-16_dp < dij .AND. dr_ik+1.0E-16_dp < dik) CYCLE
+            IF (kind_radius_j+kind_radius_k+dr_jk < djk) CYCLE
+            !IF (dr_ik + 1.0E-16_dp < dik) CYCLE
+         ELSE
+            IF (kind_radius_j+kind_radius_i+dr_ij < dij) CYCLE
+            IF (kind_radius_j+kind_radius_k+dr_jk < djk) CYCLE
+            IF (kind_radius_k+kind_radius_i+dr_ik < dik) CYCLE
+         ENDIF
 
          ALLOCATE (max_contraction_i(nseti))
          max_contraction_i = 0.0_dp
@@ -1263,10 +1295,12 @@ CONTAINS
 !> \param omega ...
 !> \param do_kpoints ...
 !> this routine requires that libint has been static initialised somewhere else
+!> \param do_lri ...
+!> \param cutoff_lri ...
 ! **************************************************************************************************
    SUBROUTINE build_2c_integrals(t2c, filter_eps, qs_env, &
                                  nl_2c, basis_i, basis_j, &
-                                 op_ij, t_c_filename, r_cutoff, omega, do_kpoints)
+                                 op_ij, t_c_filename, r_cutoff, omega, do_kpoints, do_lri, cutoff_lri)
       TYPE(dbcsr_type), DIMENSION(:), INTENT(INOUT)      :: t2c
       REAL(KIND=dp), INTENT(IN)                          :: filter_eps
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -1276,7 +1310,8 @@ CONTAINS
       INTEGER, INTENT(IN), OPTIONAL                      :: op_ij
       CHARACTER(len=*), INTENT(IN), OPTIONAL             :: t_c_filename
       REAL(KIND=dp), INTENT(IN), OPTIONAL                :: r_cutoff, omega
-      LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints
+      LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints, do_lri
+      REAL(KIND=dp), INTENT(IN), OPTIONAL                :: cutoff_lri
 
       CHARACTER(len=*), PARAMETER :: routineN = 'build_2c_integrals', &
          routineP = moduleN//':'//routineN
@@ -1289,8 +1324,8 @@ CONTAINS
                                                             npgfj, nsgfi, nsgfj
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgf_i, first_sgf_j
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
-      LOGICAL                                            :: do_kpoints_prv, do_symmetric, found, &
-                                                            trans
+      LOGICAL                                            :: do_kpoints_prv, do_lri_prv, &
+                                                            do_symmetric, found, trans
       REAL(KIND=dp)                                      :: dab
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: sij, sij_contr, sij_rs
       REAL(KIND=dp), DIMENSION(3)                        :: ri, rij, rj
@@ -1321,6 +1356,16 @@ CONTAINS
          op_prv = do_potential_id
       ENDIF
 
+      IF (PRESENT(do_lri)) THEN
+         do_lri_prv = do_lri
+      ELSE
+         do_lri_prv = .FALSE.
+      ENDIF
+
+      IF (do_lri_prv) THEN
+         CPASSERT(PRESENT(cutoff_lri))
+      ENDIF
+
       NULLIFY (qs_kind_set, atomic_kind_set, block_t%block)
 
       ! check for symmetry
@@ -1339,6 +1384,7 @@ CONTAINS
 
       DO img = 1, SIZE(t2c)
          CALL cp_dbcsr_alloc_block_from_nbl(t2c(img), nl_2c)
+         CALL dbcsr_set(t2c(img), 0.0_dp)
       ENDDO
 
       ! get stuff
@@ -1409,6 +1455,12 @@ CONTAINS
                                 npgf=npgfj, nset=nsetj, nsgf_set=nsgfj, pgf_radius=rpgf_j, set_radius=set_radius_j, &
                                 sphi=sphi_j, zet=zetj, scon=scon_j)
 
+         dab = NORM2(rij)
+
+         IF (do_lri_prv) THEN
+            IF (1.0E-16_dp+cutoff_lri < dab) CYCLE
+         ENDIF
+
          IF (do_symmetric) THEN
             IF (iatom <= jatom) THEN
                irow = iatom
@@ -1421,8 +1473,6 @@ CONTAINS
             irow = iatom
             icol = jatom
          END IF
-
-         dab = NORM2(rij)
 
          CALL dbcsr_get_block_p(matrix=t2c(img), &
                                 row=irow, col=icol, BLOCK=block_t%block, found=found)

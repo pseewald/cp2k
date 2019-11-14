@@ -576,6 +576,20 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, __LOCATION__, name="DO_LRI", &
+                          description="Use a localized RI AKA pair atomic RI.", &
+                          default_l_val=.FALSE., lone_keyword_l_val=.TRUE.)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, name="CUTOFF_LRI", &
+                          description="The cutoff radius (in Angstrom) for localized RI. ", &
+                          default_r_val=0.0_dp, &
+                          repeats=.FALSE., &
+                          unit_str="angstrom")
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, __LOCATION__, name="SQRT_ORDER", &
                           description="Order of the iteration method for the calculation of "// &
                           "the sqrt of 2-center integral matrix.", &

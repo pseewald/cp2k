@@ -362,10 +362,10 @@ MODULE hfx_types
    TYPE hfx_ri_type
       ! RI input parameters (see input_cp2k_hfx)
       REAL(KIND=dp) :: filter_eps, filter_eps_int, omega_ri, r_cutoff_ri, &
-                       eps_lanczos, eps_pgf_orb
+                       eps_lanczos, eps_pgf_orb, cutoff_lri
       CHARACTER(len=default_path_length)    :: t_c_filename
       INTEGER :: op_ri, t2c_sqrt_order, max_iter_lanczos, flavor, unit_nr_dbcsr, unit_nr, max_bsize, t2c_method
-      LOGICAL :: check_2c_inv
+      LOGICAL :: check_2c_inv, do_lri
 
       ! input parameters from hfx
       INTEGER :: op_pot ! interaction potential
@@ -1088,6 +1088,8 @@ CONTAINS
          ri_data%r_cutoff_ri = ri_data%r_cutoff_pot
       ENDIF
 
+      CALL section_vals_val_get(ri_section, "CUTOFF_LRI", r_val=ri_data%cutoff_lri)
+
       CALL section_vals_val_get(ri_section, "2C_MATRIX_FUNCTIONS", i_val=ri_data%t2c_method)
 
       CALL section_vals_val_get(ri_section, "CHECK_2C_MATRIX", l_val=ri_data%check_2c_inv)
@@ -1097,6 +1099,7 @@ CONTAINS
       CALL section_vals_val_get(ri_section, "RI_FLAVOR", i_val=ri_data%flavor)
       CALL section_vals_val_get(ri_section, "EPS_PGF_ORB", r_val=ri_data%eps_pgf_orb)
       CALL section_vals_val_get(ri_section, "MAX_BLOCK_SIZE", i_val=ri_data%max_bsize)
+      CALL section_vals_val_get(ri_section, "DO_LRI", l_val=ri_data%do_lri)
 
       ri_data%orb_basis_type = orb_basis_type
       ri_data%ri_basis_type = ri_basis_type
