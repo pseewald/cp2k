@@ -62,6 +62,7 @@ MODULE hfx_types
                                               default_string_length,&
                                               dp,&
                                               int_8
+   USE libint_2c_3c,                    ONLY: libint_potential_type
    USE libint_wrapper,                  ONLY: &
         cp_libint_cleanup_eri, cp_libint_cleanup_eri1, cp_libint_init_eri, cp_libint_init_eri1, &
         cp_libint_set_contrdepth, cp_libint_static_cleanup, cp_libint_static_init, cp_libint_t, &
@@ -365,17 +366,16 @@ MODULE hfx_types
 
    TYPE hfx_ri_type
       ! input parameters (see input_cp2k_hfx)
-      REAL(KIND=dp) :: filter_eps, filter_eps_2c, filter_eps_3c, filter_eps_mo, omega_ri, &
-                       r_cutoff_ri, eps_lanczos, eps_pgf_orb
-      CHARACTER(len=default_path_length)    :: t_c_filename
-      INTEGER :: op_ri, t2c_sqrt_order, max_iter_lanczos, flavor, unit_nr_dbcsr, unit_nr, &
+      REAL(KIND=dp) :: filter_eps, filter_eps_2c, filter_eps_3c, filter_eps_mo, &
+                       eps_lanczos, eps_pgf_orb
+      INTEGER :: t2c_sqrt_order, max_iter_lanczos, flavor, unit_nr_dbcsr, unit_nr, &
                  max_bsize_RI, max_bsize_mo, max_bsize_AO, t2c_method, nelectron_total
       LOGICAL :: check_2c_inv
 
+      TYPE(libint_potential_type) :: ri_metric
+
       ! input parameters from hfx
-      INTEGER :: op_pot ! interaction potential
-      REAL(KIND=dp) :: omega_pot ! omega parameter for shortrange coulomb potential
-      REAL(KIND=dp) :: r_cutoff_pot ! truncation radius for truncated coulomb potential
+      TYPE(libint_potential_type) :: hfx_pot ! interaction potential
       REAL(KIND=dp) :: eps_schwarz ! integral screening threshold
 
       LOGICAL :: same_op ! whether RI operator is same as HF potential
@@ -1016,9 +1016,11 @@ CONTAINS
 
       NULLIFY (hf_sub_section)
 
-      ri_data%op_pot = x_data%potential_parameter%potential_type
-      ri_data%omega_pot = x_data%potential_parameter%omega
-      ri_data%r_cutoff_pot = x_data%potential_parameter%cutoff_radius
+      ASSOCIATE (hfx_pot=>ri_data%hfx_pot)
+         hfx_pot%potential_type = x_data%potential_parameter%potential_type
+         hfx_pot%omega = x_data%potential_parameter%omega
+         hfx_pot%cutoff_radius = x_data%potential_parameter%cutoff_radius
+      END ASSOCIATE
       ri_data%ri_section => ri_section
       ri_data%hfx_section => hfx_section
       ri_data%eps_schwarz = x_data%screening_parameter%eps_schwarz
@@ -1103,20 +1105,22 @@ CONTAINS
       CALL section_vals_val_get(ri_section, "EPS_FILTER_3C", r_val=ri_data%filter_eps_3c)
       CALL section_vals_val_get(ri_section, "EPS_FILTER_MO", r_val=ri_data%filter_eps_mo)
 
-      CALL section_vals_val_get(ri_section, "RI_METRIC", i_val=ri_data%op_ri, explicit=explicit)
-      IF (.NOT. explicit .OR. ri_data%op_ri == 0) THEN
-         ri_data%op_ri = ri_data%op_pot
-      ENDIF
+      ASSOCIATE (ri_metric=>ri_data%ri_metric, hfx_pot=>ri_data%hfx_pot)
+         CALL section_vals_val_get(ri_section, "RI_METRIC", i_val=ri_metric%potential_type, explicit=explicit)
+         IF (.NOT. explicit .OR. ri_metric%potential_type == 0) THEN
+            ri_metric%potential_type = hfx_pot%potential_type
+         ENDIF
 
-      CALL section_vals_val_get(ri_section, "OMEGA", r_val=ri_data%omega_ri, explicit=explicit)
-      IF (.NOT. explicit) THEN
-         ri_data%omega_ri = ri_data%omega_pot
-      ENDIF
+         CALL section_vals_val_get(ri_section, "OMEGA", r_val=ri_metric%omega, explicit=explicit)
+         IF (.NOT. explicit) THEN
+            ri_metric%omega = hfx_pot%omega
+         ENDIF
 
-      CALL section_vals_val_get(ri_section, "CUTOFF_RADIUS", r_val=ri_data%r_cutoff_ri, explicit=explicit)
-      IF (.NOT. explicit) THEN
-         ri_data%r_cutoff_ri = ri_data%r_cutoff_pot
-      ENDIF
+         CALL section_vals_val_get(ri_section, "CUTOFF_RADIUS", r_val=ri_metric%cutoff_radius, explicit=explicit)
+         IF (.NOT. explicit) THEN
+            ri_metric%cutoff_radius = hfx_pot%cutoff_radius
+         ENDIF
+      END ASSOCIATE
 
       CALL section_vals_val_get(ri_section, "2C_MATRIX_FUNCTIONS", i_val=ri_data%t2c_method)
 
@@ -1134,7 +1138,10 @@ CONTAINS
       ri_data%ri_basis_type = ri_basis_type
       ri_data%nelectron_total = nelectron_total
 
-      IF (PRESENT(t_c_filename)) ri_data%t_c_filename = t_c_filename
+      IF (PRESENT(t_c_filename)) THEN
+         ri_data%ri_metric%filename = t_c_filename
+         ri_data%hfx_pot%filename = t_c_filename
+      ENDIF
 
       ri_data%unit_nr_dbcsr = unit_nr_dbcsr
       ri_data%unit_nr = unit_nr
@@ -1204,20 +1211,28 @@ CONTAINS
          CALL init_interaction_radii_orb_basis(ri_aux_basis_set, ri_data%eps_pgf_orb)
       END DO
 
-      IF (ri_data%op_ri == do_potential_short) THEN
-         CALL erfc_cutoff(ri_data%eps_schwarz, ri_data%omega_ri, ri_data%r_cutoff_ri)
-      ENDIF
+      ASSOCIATE (ri_metric=>ri_data%ri_metric, hfx_pot=>ri_data%hfx_pot)
+         IF (ri_metric%potential_type == do_potential_short) THEN
+            CALL erfc_cutoff(ri_data%eps_schwarz, ri_metric%omega, ri_metric%cutoff_radius)
+         ENDIF
 
-      ! determine whether RI metric is same operator as used in HFX
-      same_op = ri_data%op_ri == ri_data%op_pot
+         IF (hfx_pot%potential_type == do_potential_short) THEN
+            ! need a more accurate threshold for determining 2-center integral operator range
+            ! because stability of matrix inversion/sqrt is sensitive to this
+            CALL erfc_cutoff(ri_data%filter_eps_2c, hfx_pot%omega, hfx_pot%cutoff_radius)
+         ENDIF
+         ! determine whether RI metric is same operator as used in HFX
+         same_op = ri_metric%potential_type == hfx_pot%potential_type
 
-      IF (same_op .AND. ri_data%op_pot == do_potential_truncated) THEN
-         same_op = ABS(ri_data%r_cutoff_ri - ri_data%r_cutoff_pot) < 1.0E-16_dp
-      ENDIF
+         IF (same_op .AND. hfx_pot%potential_type == do_potential_truncated) THEN
+            same_op = ABS(ri_metric%cutoff_radius - hfx_pot%cutoff_radius) < 1.0E-16_dp
+         ENDIF
 
-      IF (same_op .AND. ri_data%op_pot == do_potential_short) THEN
-         same_op = ABS(ri_data%omega_ri - ri_data%omega_pot) < 1.0E-16_dp
-      ENDIF
+         IF (same_op .AND. hfx_pot%potential_type == do_potential_short) THEN
+            same_op = ABS(ri_metric%omega - hfx_pot%omega) < 1.0E-16_dp
+         ENDIF
+      END ASSOCIATE
+
       ri_data%same_op = same_op
 
       pdims = 0
@@ -2451,33 +2466,37 @@ CONTAINS
                                 extension=".scfLog")
 
       IF (iw > 0) THEN
-         SELECT CASE (ri_data%op_ri)
-         CASE (do_potential_coulomb)
-            WRITE (UNIT=iw, FMT="(/T3,A,T74,A)") &
-               "HFX_RI_INFO| RI metric: ", "COULOMB"
-         CASE (do_potential_short)
-            WRITE (UNIT=iw, FMT="(T3,A,T71,A)") &
-               "HFX_RI_INFO| RI metric: ", "SHORTRANGE"
-            WRITE (iw, '(T3,A,T61,F20.10)') &
-               "HFX_RI_INFO| Omega:     ", ri_data%omega_ri
-            rc_ang = cp_unit_from_cp2k(ri_data%r_cutoff_ri, "angstrom")
-            WRITE (iw, '(T3,A,T61,F20.10)') &
-               "HFX_RI_INFO| Cutoff Radius [angstrom]:     ", rc_ang
-         CASE (do_potential_long)
-            WRITE (UNIT=iw, FMT="(T3,A,T72,A)") &
-               "HFX_RI_INFO| RI metric: ", "LONGRANGE"
-            WRITE (iw, '(T3,A,T61,F20.10)') &
-               "HFX_INFO| Omega:     ", ri_data%omega_ri
-         CASE (do_potential_id)
-            WRITE (UNIT=iw, FMT="(T3,A,T73,A)") &
-               "HFX_RI_INFO| RI metric: ", "IDENTITY"
-         CASE (do_potential_truncated)
-            WRITE (UNIT=iw, FMT="(T3,A,T72,A)") &
-               "HFX_RI_INFO| RI metric: ", "TRUNCATED"
-            rc_ang = cp_unit_from_cp2k(ri_data%r_cutoff_ri, "angstrom")
-            WRITE (iw, '(T3,A,T61,F20.10)') &
-               "HFX_RI_INFO| Cutoff Radius [angstrom]:     ", rc_ang
-         END SELECT
+
+         ASSOCIATE (ri_metric=>ri_data%ri_metric, hfx_pot=>ri_data%hfx_pot)
+            SELECT CASE (ri_metric%potential_type)
+            CASE (do_potential_coulomb)
+               WRITE (UNIT=iw, FMT="(/T3,A,T74,A)") &
+                  "HFX_RI_INFO| RI metric: ", "COULOMB"
+            CASE (do_potential_short)
+               WRITE (UNIT=iw, FMT="(T3,A,T71,A)") &
+                  "HFX_RI_INFO| RI metric: ", "SHORTRANGE"
+               WRITE (iw, '(T3,A,T61,F20.10)') &
+                  "HFX_RI_INFO| Omega:     ", ri_metric%omega
+               rc_ang = cp_unit_from_cp2k(ri_metric%cutoff_radius, "angstrom")
+               WRITE (iw, '(T3,A,T61,F20.10)') &
+                  "HFX_RI_INFO| Cutoff Radius [angstrom]:     ", rc_ang
+            CASE (do_potential_long)
+               WRITE (UNIT=iw, FMT="(T3,A,T72,A)") &
+                  "HFX_RI_INFO| RI metric: ", "LONGRANGE"
+               WRITE (iw, '(T3,A,T61,F20.10)') &
+                  "HFX_RI_INFO| Omega:     ", ri_metric%omega
+            CASE (do_potential_id)
+               WRITE (UNIT=iw, FMT="(T3,A,T73,A)") &
+                  "HFX_RI_INFO| RI metric: ", "IDENTITY"
+            CASE (do_potential_truncated)
+               WRITE (UNIT=iw, FMT="(T3,A,T72,A)") &
+                  "HFX_RI_INFO| RI metric: ", "TRUNCATED"
+               rc_ang = cp_unit_from_cp2k(ri_metric%cutoff_radius, "angstrom")
+               WRITE (iw, '(T3,A,T61,F20.10)') &
+                  "HFX_RI_INFO| Cutoff Radius [angstrom]:     ", rc_ang
+            END SELECT
+
+         END ASSOCIATE
          SELECT CASE (ri_data%flavor)
          CASE (ri_mo)
             WRITE (UNIT=iw, FMT="(T3, A, T79, A)") &

@@ -358,17 +358,18 @@ CONTAINS
       CALL dbcsr_t_create(t_3c_int(1, 1), "(RI | AO AO)", ri_data%dist, [1], [2, 3], &
                           dbcsr_type_real_8, sizes_RI, sizes_AO, sizes_AO)
 
-      CALL build_3c_neighbor_lists(nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, ri_data%dist_3d, "HFX_3c_nl", &
-                                   qs_env, op_ij=ri_data%op_ri, sym_jk=.TRUE., r_cutoff=ri_data%r_cutoff_ri)
+      CALL build_3c_neighbor_lists(nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, ri_data%dist_3d, ri_data%ri_metric, &
+                                   "HFX_3c_nl", &
+                                   qs_env, op_pos=1, sym_jk=.TRUE.)
       CALL build_3c_integrals(t_3c_int, ri_data%filter_eps_3c, qs_env, nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, &
-                              op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
-                              r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri, int_eps=ri_data%eps_schwarz, &
+                              ri_data%ri_metric, int_eps=ri_data%eps_schwarz, op_pos=1, &
                               desymmetrize=ri_data%flavor == ri_pmat)
 
       CALL neighbor_list_3c_destroy(nl_3c)
 
-      CALL build_2c_neighbor_lists(nl_2c_pot, basis_set_RI, basis_set_RI, "HFX_2c_nl_pot", qs_env, sym_ij=.TRUE., &
-                                   op_ij=ri_data%op_pot, r_cutoff=ri_data%r_cutoff_pot, &
+      CALL build_2c_neighbor_lists(nl_2c_pot, basis_set_RI, basis_set_RI, ri_data%hfx_pot, &
+                                   "HFX_2c_nl_pot", &
+                                   qs_env, sym_ij=.TRUE., &
                                    dist_2d=dist_2d)
 
       CALL cp_dbcsr_dist2d_to_dist(dist_2d, dbcsr_dist)
@@ -383,21 +384,19 @@ CONTAINS
       CALL dbcsr_distribution_release(dbcsr_dist)
 
       CALL build_2c_integrals(t_2c_int_pot, ri_data%filter_eps_2c, qs_env, nl_2c_pot, basis_set_RI, basis_set_RI, &
-                              op_ij=ri_data%op_pot, &
-                              t_c_filename=ri_data%t_c_filename, &
-                              r_cutoff=ri_data%r_cutoff_pot, omega=ri_data%omega_pot)
+                              ri_data%hfx_pot)
 
       CALL neighbor_list_2c_destroy(nl_2c_pot)
 
       IF (.NOT. ri_data%same_op) THEN
-         CALL build_2c_neighbor_lists(nl_2c_RI, basis_set_RI, basis_set_RI, "HFX_2c_nl_RI", qs_env, sym_ij=.TRUE., &
-                                      op_ij=ri_data%op_ri, r_cutoff=ri_data%r_cutoff_ri, &
+         CALL build_2c_neighbor_lists(nl_2c_RI, basis_set_RI, basis_set_RI, ri_data%ri_metric, &
+                                      "HFX_2c_nl_RI", &
+                                      qs_env, sym_ij=.TRUE., &
                                       dist_2d=dist_2d)
 
          CALL dbcsr_create(t_2c_int_RI(1), template=t_2c_int_pot(1), matrix_type=dbcsr_type_symmetric, name="(R|P) RI")
          CALL build_2c_integrals(t_2c_int_RI, ri_data%filter_eps_2c, qs_env, nl_2c_RI, basis_set_RI, basis_set_RI, &
-                                 op_ij=ri_data%op_ri, t_c_filename=ri_data%t_c_filename, &
-                                 r_cutoff=ri_data%r_cutoff_ri, omega=ri_data%omega_ri)
+                                 ri_data%ri_metric)
 
          CALL neighbor_list_2c_destroy(nl_2c_RI)
       ENDIF
