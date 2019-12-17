@@ -33,10 +33,11 @@ MODULE hfx_ri
         dbcsr_scalar, dbcsr_scale, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_real_8, &
         dbcsr_type_symmetric
    USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_clear, dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
+        dbcsr_t_batched_contract_finalize, dbcsr_t_batched_contract_init, dbcsr_t_clear, &
+        dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
-        dbcsr_t_nd_mp_comm, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, &
-        dbcsr_t_type
+        dbcsr_t_mp_dims_create, dbcsr_t_nd_mp_comm, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, &
+        dbcsr_t_pgrid_type, dbcsr_t_type
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE hfx_types,                       ONLY: hfx_ri_type
    USE input_constants,                 ONLY: hfx_ri_do_2c_diag,&
@@ -73,10 +74,10 @@ MODULE hfx_ri
                                               neighbor_list_2c_destroy,&
                                               neighbor_list_3c_destroy,&
                                               tensor_change_pgrid
-   USE qs_tensors_types,                ONLY: create_2c_tensor,&
+   USE qs_tensors_types,                ONLY: contiguous_tensor_dist,&
+                                              create_2c_tensor,&
                                               create_3c_tensor,&
-                                              neighbor_list_3c_type,&
-                                              split_block_sizes
+                                              neighbor_list_3c_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -701,15 +702,18 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_update_ks_mo', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: comm_2d, handle, handle2, iproc, ispin, &
-                                                            n_mos, nproc, pdim_mo, unit_nr_dbcsr
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, dist3, mo_bsizes
+      INTEGER                                            :: bsum, comm_2d, handle, handle2, i_mem, &
+                                                            iproc, ispin, n_mem, n_mos, nproc, &
+                                                            unit_nr_dbcsr
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, dist3, mem_end, &
+                                                            mem_end_block, mem_start, &
+                                                            mem_start_block, mo_bsizes
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(3)                              :: pdims
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_distribution_type)                      :: ks_dist
-      TYPE(dbcsr_t_pgrid_type)                           :: pgrid_1, pgrid_2, pgrid_2d
+      TYPE(dbcsr_t_pgrid_type)                           :: pgrid, pgrid_2d
       TYPE(dbcsr_t_type)                                 :: ks_t, mo_coeff_t, mo_coeff_t_split
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_ctr_KS, t_3c_ctr_KS_copy, &
                                                             t_3c_ctr_RI, t_3c_int_mo_1, &
@@ -730,21 +734,20 @@ CONTAINS
       ALLOCATE (bounds(2, 1))
       DO ispin = 1, nspins
          CALL dbcsr_get_info(mo_coeff(ispin), nfullcols_total=n_mos)
-         CALL split_block_sizes([n_mos], mo_bsizes, ri_data%max_bsize_mo)
+
+         ALLOCATE (mo_bsizes(n_mos))
+         mo_bsizes = 1
 
          CALL mp_environ(nproc, iproc, para_env%group)
 
-         ! restrict process grid dimension corresponding to MO index to be smaller than the number of occupied MO blocks
-         pdim_mo = MIN((homo(ispin) - 1)/ri_data%max_bsize_mo + 1, nproc)
-         DO WHILE (MOD(nproc, pdim_mo) .NE. 0)
-            pdim_mo = pdim_mo - 1
-         ENDDO
+         CPASSERT(homo(ispin)/ri_data%n_mem > 0)
+         CALL dbcsr_t_mp_dims_create( &
+            nproc, pdims, [SIZE(ri_data%bsizes_RI_split), homo(ispin)/ri_data%n_mem, SIZE(ri_data%bsizes_AO)])
 
-         pdims = [nproc/pdim_mo, 1, pdim_mo]
-         CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid_1)
+         ! 3rd dimension should be 1 (in order to run DBCSR multiplications in serial)
+         pdims = [pdims(1)*pdims(3), pdims(2), 1]
 
-         pdims = [nproc/pdim_mo, pdim_mo, 1]
-         CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid_2)
+         CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid)
 
          CALL create_3c_tensor(t_3c_int_mo_1(1, 1), dist1, dist2, dist3, ri_data%pgrid_1, &
                                ri_data%bsizes_AO, ri_data%bsizes_RI_split, mo_bsizes, &
@@ -758,24 +761,26 @@ CONTAINS
 
          DEALLOCATE (dist1, dist2, dist3)
 
-         CALL create_3c_tensor(t_3c_int_mo_3(1, 1), dist1, dist2, dist3, pgrid_2, &
+         CALL create_3c_tensor(t_3c_int_mo_3(1, 1), dist1, dist2, dist3, pgrid, &
                                ri_data%bsizes_RI_split, mo_bsizes, ri_data%bsizes_AO, &
                                [1], [2, 3], "(RI | MO AO)")
 
          DEALLOCATE (dist1, dist2, dist3)
-         CALL create_3c_tensor(t_3c_ctr_KS(1, 1), dist1, dist2, dist3, pgrid_2, &
+
+         CALL create_3c_tensor(t_3c_ctr_KS(1, 1), dist1, dist2, dist3, pgrid, &
                                ri_data%bsizes_RI_split, mo_bsizes, ri_data%bsizes_AO, &
                                [1, 2], [3], "(RI MO | AO)")
          DEALLOCATE (dist1, dist2, dist3)
-         CALL dbcsr_t_pgrid_destroy(pgrid_2)
+         CALL dbcsr_t_pgrid_destroy(pgrid)
 
+         CALL dbcsr_t_create(t_3c_int_mo_3(1, 1), t_3c_ctr_RI(1, 1), name="(RI | MO AO)")
          CALL dbcsr_t_create(t_3c_ctr_KS(1, 1), t_3c_ctr_KS_copy(1, 1))
 
-         CALL dbcsr_t_create(ks_matrix(1, 1)%matrix, ks_t)
+         CALL dbcsr_t_create(ks_matrix(ispin, 1)%matrix, ks_t)
 
          ! AO block sizes are split in 3c tensor, we need to split blocks of Fock matrix as well
          ! also split MO coefficients
-         CALL dbcsr_get_info(ks_matrix(1, 1)%matrix, distribution=ks_dist)
+         CALL dbcsr_get_info(ks_matrix(ispin, 1)%matrix, distribution=ks_dist)
          CALL dbcsr_distribution_get(ks_dist, group=comm_2d, nprows=pdims_2d(1), npcols=pdims_2d(2))
          pgrid_2d = dbcsr_t_nd_mp_comm(comm_2d, [1], [2], pdims_2d=pdims_2d)
 
@@ -791,82 +796,110 @@ CONTAINS
          CALL dbcsr_t_filter(mo_coeff_t_split, ri_data%filter_eps_mo)
          CALL dbcsr_t_destroy(mo_coeff_t)
 
-         bounds(1, 1) = 1
-         bounds(2, 1) = homo(ispin)
+         n_mem = ri_data%n_mem
 
-         CALL timeset(routineN//"_MOx3C_R", handle2)
-         CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t_split, ri_data%t_3c_int_ctr_1(1, 1), &
-                               dbcsr_scalar(0.0_dp), t_3c_int_mo_1(1, 1), &
-                               contract_1=[1], notcontract_1=[2], &
-                               contract_2=[3], notcontract_2=[1, 2], &
-                               map_1=[3], map_2=[1, 2], &
-                               bounds_2=bounds, &
-                               filter_eps=ri_data%filter_eps_mo/2, &
-                               unit_nr=unit_nr_dbcsr, &
-                               move_data=.FALSE.)
+         ALLOCATE (mem_start_block(n_mem), mem_end_block(n_mem))
+         CALL contiguous_tensor_dist(SIZE(mo_bsizes), n_mem, mo_bsizes, &
+                                     limits_start=mem_start_block, limits_end=mem_end_block)
 
-         CALL timestop(handle2)
-         CALL timeset(routineN//"_copy_1", handle2)
-         CALL dbcsr_t_copy(t_3c_int_mo_1(1, 1), t_3c_int_mo_3(1, 1), order=[3, 1, 2], move_data=.TRUE.)
+         ALLOCATE (mem_start(n_mem), mem_end(n_mem))
+
+         bsum = 0
+         DO i_mem = 1, n_mem
+            mem_start(i_mem) = bsum + 1
+            bsum = bsum + SUM(mo_bsizes(mem_start_block(i_mem):mem_end_block(i_mem)))
+            mem_end(i_mem) = bsum
+         ENDDO
+         DEALLOCATE (mem_start_block, mem_end_block, mo_bsizes)
+
+         CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(1))
+         CALL dbcsr_t_batched_contract_init(ks_t)
+
+         DO i_mem = 1, n_mem
+
+            bounds(:, 1) = [mem_start(i_mem), mem_end(i_mem)]
+
+            CALL timeset(routineN//"_MOx3C_R", handle2)
+            CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t_split, ri_data%t_3c_int_ctr_1(1, 1), &
+                                  dbcsr_scalar(0.0_dp), t_3c_int_mo_1(1, 1), &
+                                  contract_1=[1], notcontract_1=[2], &
+                                  contract_2=[3], notcontract_2=[1, 2], &
+                                  map_1=[3], map_2=[1, 2], &
+                                  bounds_2=bounds, &
+                                  filter_eps=ri_data%filter_eps_mo/2, &
+                                  unit_nr=unit_nr_dbcsr, &
+                                  move_data=.FALSE.)
+
+            CALL timestop(handle2)
+            CALL timeset(routineN//"_copy_1", handle2)
+            CALL dbcsr_t_copy(t_3c_int_mo_1(1, 1), t_3c_int_mo_3(1, 1), order=[3, 1, 2], move_data=.TRUE.)
+            CALL dbcsr_t_clear(t_3c_int_mo_1(1, 1))
+            CALL timestop(handle2)
+
+            CALL timeset(routineN//"_copy_symm", handle2)
+            CALL dbcsr_t_copy(ri_data%t_3c_int_ctr_1(1, 1), ri_data%t_3c_int_ctr_2(1, 1), move_data=.TRUE.)
+            CALL dbcsr_t_clear(ri_data%t_3c_int_ctr_1(1, 1))
+            CALL timestop(handle2)
+
+            CALL timeset(routineN//"_MOx3C_L", handle2)
+            CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t_split, ri_data%t_3c_int_ctr_2(1, 1), &
+                                  dbcsr_scalar(0.0_dp), t_3c_int_mo_2(1, 1), &
+                                  contract_1=[1], notcontract_1=[2], &
+                                  contract_2=[1], notcontract_2=[2, 3], &
+                                  map_1=[1], map_2=[2, 3], &
+                                  bounds_2=bounds, &
+                                  filter_eps=ri_data%filter_eps_mo/2, &
+                                  unit_nr=unit_nr_dbcsr, &
+                                  move_data=.FALSE.)
+            CALL timestop(handle2)
+            CALL timeset(routineN//"_copy_1", handle2)
+            CALL dbcsr_t_copy(t_3c_int_mo_2(1, 1), t_3c_int_mo_3(1, 1), order=[2, 1, 3], summation=.TRUE., move_data=.TRUE.)
+            CALL dbcsr_t_clear(t_3c_int_mo_2(1, 1))
+
+            CALL dbcsr_t_filter(t_3c_int_mo_3(1, 1), ri_data%filter_eps_mo)
+            CALL timestop(handle2)
+
+            CALL timeset(routineN//"_copy_symm", handle2)
+            CALL dbcsr_t_copy(ri_data%t_3c_int_ctr_2(1, 1), ri_data%t_3c_int_ctr_1(1, 1), move_data=.TRUE.)
+            CALL dbcsr_t_clear(ri_data%t_3c_int_ctr_2(1, 1))
+            CALL timestop(handle2)
+
+            CALL timeset(routineN//"_RIx3C", handle2)
+            CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), ri_data%t_2c_int(1), t_3c_int_mo_3(1, 1), &
+                                  dbcsr_scalar(0.0_dp), t_3c_ctr_RI(1, 1), &
+                                  contract_1=[1], notcontract_1=[2], &
+                                  contract_2=[1], notcontract_2=[2, 3], &
+                                  map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, &
+                                  unit_nr=unit_nr_dbcsr)
+            CALL timestop(handle2)
+
+            CALL timeset(routineN//"_copy_2", handle2)
+
+            ! note: this copy should not involve communication (same block sizes, same 3d distribution on same process grid)
+            CALL dbcsr_t_copy(t_3c_ctr_RI(1, 1), t_3c_ctr_KS(1, 1), move_data=.TRUE.)
+            CALL dbcsr_t_clear(t_3c_ctr_RI(1, 1))
+            CALL dbcsr_t_copy(t_3c_ctr_KS(1, 1), t_3c_ctr_KS_copy(1, 1))
+            CALL timestop(handle2)
+
+            CALL timeset(routineN//"_3Cx3C", handle2)
+            CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_3c_ctr_KS(1, 1), t_3c_ctr_KS_copy(1, 1), &
+                                  dbcsr_scalar(1.0_dp), ks_t, &
+                                  contract_1=[1, 2], notcontract_1=[3], &
+                                  contract_2=[1, 2], notcontract_2=[3], &
+                                  map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps/n_mem, &
+                                  unit_nr=unit_nr_dbcsr, move_data=.TRUE.)
+            CALL timestop(handle2)
+         ENDDO
+
+         CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(1))
+         CALL dbcsr_t_batched_contract_finalize(ks_t, unit_nr=unit_nr_dbcsr)
+
          CALL dbcsr_t_destroy(t_3c_int_mo_1(1, 1))
-         CALL timestop(handle2)
-
-         CALL timeset(routineN//"_copy_symm", handle2)
-         CALL dbcsr_t_copy(ri_data%t_3c_int_ctr_1(1, 1), ri_data%t_3c_int_ctr_2(1, 1), move_data=.TRUE.)
-         CALL dbcsr_t_clear(ri_data%t_3c_int_ctr_1(1, 1))
-         CALL timestop(handle2)
-
-         CALL timeset(routineN//"_MOx3C_L", handle2)
-         CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t_split, ri_data%t_3c_int_ctr_2(1, 1), &
-                               dbcsr_scalar(0.0_dp), t_3c_int_mo_2(1, 1), &
-                               contract_1=[1], notcontract_1=[2], &
-                               contract_2=[1], notcontract_2=[2, 3], &
-                               map_1=[1], map_2=[2, 3], &
-                               bounds_2=bounds, &
-                               filter_eps=ri_data%filter_eps_mo/2, &
-                               unit_nr=unit_nr_dbcsr, &
-                               move_data=.FALSE.)
-         CALL timestop(handle2)
-         CALL timeset(routineN//"_copy_1", handle2)
-         CALL dbcsr_t_copy(t_3c_int_mo_2(1, 1), t_3c_int_mo_3(1, 1), order=[2, 1, 3], summation=.TRUE., move_data=.TRUE.)
-         CALL dbcsr_t_filter(t_3c_int_mo_3(1, 1), ri_data%filter_eps_mo)
          CALL dbcsr_t_destroy(t_3c_int_mo_2(1, 1))
-         CALL timestop(handle2)
-
-         CALL timeset(routineN//"_copy_symm", handle2)
-         CALL dbcsr_t_copy(ri_data%t_3c_int_ctr_2(1, 1), ri_data%t_3c_int_ctr_1(1, 1), move_data=.TRUE.)
-         CALL dbcsr_t_clear(ri_data%t_3c_int_ctr_2(1, 1))
-         CALL timestop(handle2)
+         CALL dbcsr_t_destroy(t_3c_int_mo_3(1, 1))
+         CALL dbcsr_t_destroy(t_3c_ctr_RI(1, 1))
 
          CALL dbcsr_t_destroy(mo_coeff_t_split)
-
-         CALL timeset(routineN//"_RIx3C", handle2)
-         CALL dbcsr_t_create(t_3c_int_mo_3(1, 1), t_3c_ctr_RI(1, 1), name="(RI | MO AO)")
-         CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), ri_data%t_2c_int(1), t_3c_int_mo_3(1, 1), &
-                               dbcsr_scalar(0.0_dp), t_3c_ctr_RI(1, 1), &
-                               contract_1=[1], notcontract_1=[2], &
-                               contract_2=[1], notcontract_2=[2, 3], &
-                               map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, &
-                               unit_nr=unit_nr_dbcsr)
-         CALL dbcsr_t_destroy(t_3c_int_mo_3(1, 1))
-         CALL timestop(handle2)
-
-         CALL timeset(routineN//"_copy_2", handle2)
-
-         ! note: this copy should not involve communication (same block sizes, same 3d distribution on same process grid)
-         CALL dbcsr_t_copy(t_3c_ctr_RI(1, 1), t_3c_ctr_KS(1, 1), move_data=.TRUE.)
-         CALL dbcsr_t_destroy(t_3c_ctr_RI(1, 1))
-         CALL dbcsr_t_copy(t_3c_ctr_KS(1, 1), t_3c_ctr_KS_copy(1, 1))
-         CALL timestop(handle2)
-
-         CALL timeset(routineN//"_3Cx3C", handle2)
-         CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_3c_ctr_KS(1, 1), t_3c_ctr_KS_copy(1, 1), &
-                               dbcsr_scalar(0.0_dp), ks_t, &
-                               contract_1=[1, 2], notcontract_1=[3], &
-                               contract_2=[1, 2], notcontract_2=[3], &
-                               map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps, &
-                               unit_nr=unit_nr_dbcsr, move_data=.TRUE.)
-         CALL timestop(handle2)
 
          CALL dbcsr_t_destroy(t_3c_ctr_KS(1, 1))
          CALL dbcsr_t_destroy(t_3c_ctr_KS_copy(1, 1))
@@ -874,6 +907,8 @@ CONTAINS
          CALL dbcsr_t_filter(ks_t, ri_data%filter_eps)
          CALL dbcsr_t_copy_tensor_to_matrix(ks_t, ks_matrix(ispin, 1)%matrix, summation=.TRUE.)
          CALL dbcsr_t_destroy(ks_t)
+
+         DEALLOCATE (mem_end, mem_start)
 
       ENDDO
 

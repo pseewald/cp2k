@@ -37,14 +37,10 @@ MODULE hfx_types
                                               cp_print_key_unit_nr
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE dbcsr_tensor_api,                ONLY: dbcsr_t_destroy,&
-                                              dbcsr_t_distribution_destroy,&
-                                              dbcsr_t_distribution_new,&
-                                              dbcsr_t_distribution_type,&
-                                              dbcsr_t_pgrid_create,&
-                                              dbcsr_t_pgrid_destroy,&
-                                              dbcsr_t_pgrid_type,&
-                                              dbcsr_t_type
+   USE dbcsr_tensor_api,                ONLY: &
+        dbcsr_t_destroy, dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, &
+        dbcsr_t_distribution_type, dbcsr_t_mp_dims_create, dbcsr_t_pgrid_create, &
+        dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_type
    USE hfx_helpers,                     ONLY: count_cells_perd,&
                                               next_image_cell_perd
    USE input_constants,                 ONLY: &
@@ -71,7 +67,6 @@ MODULE hfx_types
                                               m_getcwd
    USE mathlib,                         ONLY: erfc_cutoff
    USE message_passing,                 ONLY: mp_cart_create,&
-                                              mp_dims_create,&
                                               mp_environ
    USE orbital_pointers,                ONLY: nco,&
                                               ncoset,&
@@ -93,7 +88,6 @@ MODULE hfx_types
                                               split_block_sizes
    USE string_utilities,                ONLY: compress
    USE t_c_g0,                          ONLY: free_C0
-   USE util,                            ONLY: sort
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
 
@@ -432,6 +426,9 @@ MODULE hfx_types
 
       ! types of primary and auxiliary basis
       CHARACTER(len=default_string_length) :: orb_basis_type, ri_basis_type
+
+      ! memory reduction factor
+      INTEGER :: n_mem
    END TYPE
 
 ! **************************************************************************************************
@@ -1133,6 +1130,7 @@ CONTAINS
       CALL section_vals_val_get(ri_section, "MAX_BLOCK_SIZE_RI", i_val=ri_data%max_bsize_RI)
       CALL section_vals_val_get(ri_section, "MAX_BLOCK_SIZE_AO", i_val=ri_data%max_bsize_AO)
       CALL section_vals_val_get(ri_section, "MAX_BLOCK_SIZE_MO", i_val=ri_data%max_bsize_mo)
+      CALL section_vals_val_get(ri_section, "MEMORY_CUT", i_val=ri_data%n_mem)
 
       ri_data%orb_basis_type = orb_basis_type
       ri_data%ri_basis_type = ri_basis_type
@@ -1174,12 +1172,12 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_init', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, ikind, iproc, mp_comm_3d, natom, &
-                                                            nkind, nproc, pdims_rem
+      INTEGER                                            :: handle, ikind, iproc, MO_dim, &
+                                                            mp_comm_3d, natom, nkind, nproc
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, dist_AO_1, dist_AO_2, &
                                                             dist_RI
       INTEGER, DIMENSION(2)                              :: pdims_2d
-      INTEGER, DIMENSION(3)                              :: pcoord, pdims, pdims_sort, sort_ind
+      INTEGER, DIMENSION(3)                              :: pcoord, pdims
       LOGICAL                                            :: same_op
       TYPE(dbcsr_t_pgrid_type)                           :: pgrid_2d
       TYPE(distribution_3d_type)                         :: dist_3d
@@ -1305,26 +1303,12 @@ CONTAINS
          ALLOCATE (ri_data%pgrid_1)
          ALLOCATE (ri_data%pgrid_2)
          pdims = 0
-         CALL mp_dims_create(nproc, pdims)
-         pdims_sort = pdims
-         CALL sort(pdims_sort, SIZE(pdims), sort_ind)
 
-         pdims_rem = nproc
-         IF (pdims_sort(1) >= ri_data%nelectron_total/2) THEN
-            pdims_sort(1) = ri_data%nelectron_total/2
-            DO WHILE (MOD(pdims_sort(1), pdims_rem) .NE. 0)
-               pdims_sort(1) = pdims_sort(1) - 1
-            ENDDO
-            pdims_rem = pdims_rem/pdims_sort(1)
-            pdims_sort(2) = ri_data%nelectron_total/2
-            DO WHILE (MOD(pdims_sort(2), pdims_rem) .NE. 0)
-               pdims_sort(2) = pdims_sort(2) - 1
-            ENDDO
-            pdims_rem = pdims_rem/pdims_sort(2)
-            pdims_sort(3) = pdims_rem
-         ENDIF
+         IF (ri_data%n_mem > ri_data%nelectron_total/2) ri_data%n_mem = MAX(ri_data%nelectron_total/2, 1)
+         ! Size of dimension corresponding to MOs is nelectron/2 and divided by the memory factor
+         MO_dim = MAX((ri_data%nelectron_total/2)/ri_data%n_mem, 1)
 
-         pdims = pdims_sort([1, 3, 2])
+         CALL dbcsr_t_mp_dims_create(nproc, pdims, [MO_dim, SIZE(ri_data%bsizes_RI_split), MO_dim])
 
          CALL dbcsr_t_pgrid_create(para_env%group, pdims, ri_data%pgrid_1)
          CALL dbcsr_t_pgrid_create(para_env%group, pdims, ri_data%pgrid_2)
