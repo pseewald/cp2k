@@ -88,7 +88,6 @@ MODULE qs_tensors
    PUBLIC :: build_3c_neighbor_lists, &
              neighbor_list_3c_destroy, neighbor_list_2c_destroy, neighbor_list_3c_iterate, neighbor_list_3c_iterator_create, &
              neighbor_list_3c_iterator_destroy, get_3c_iterator_info, build_3c_integrals, &
-             contiguous_tensor_dist, &
              build_2c_neighbor_lists, build_2c_integrals, cutoff_screen_factor, tensor_change_pgrid
 
    TYPE one_dim_int_array
@@ -1227,53 +1226,6 @@ CONTAINS
 
       CALL timestop(handle)
    END SUBROUTINE
-
-! **************************************************************************************************
-!> \brief contiguous distribution of weighted elements
-!> \param nel ...
-!> \param nbin ...
-!> \param weights ...
-!> \param limits_start ...
-!> \param limits_end ...
-!> \param dist ...
-! **************************************************************************************************
-   SUBROUTINE contiguous_tensor_dist(nel, nbin, weights, limits_start, limits_end, dist)
-      INTEGER, INTENT(IN)                                :: nel, nbin
-      INTEGER, DIMENSION(nel), INTENT(IN)                :: weights
-      INTEGER, DIMENSION(nbin), INTENT(OUT), OPTIONAL    :: limits_start, limits_end
-      INTEGER, DIMENSION(nel), INTENT(OUT), OPTIONAL     :: dist
-
-      INTEGER                                            :: el_end, el_start, end_weight, ibin, &
-                                                            nel_div, nel_rem, nel_split, nel_w, &
-                                                            w_partialsum
-
-      nel_w = SUM(weights)
-      nel_div = nel_w/nbin
-      nel_rem = MOD(nel_w, nbin)
-
-      w_partialsum = 0
-      el_end = 0
-      end_weight = 0
-      DO ibin = 1, nbin
-         nel_split = nel_div
-         IF (ibin <= nel_rem) THEN
-            nel_split = nel_split + 1
-         ENDIF
-         el_start = el_end + 1
-         el_end = el_start
-         w_partialsum = w_partialsum + weights(el_end)
-         end_weight = end_weight + nel_split
-         DO WHILE (w_partialsum < end_weight)
-            !IF (ABS(w_partialsum + weights(el_end) - end_weight) > ABS(w_partialsum - end_weight)) EXIT
-            el_end = el_end + 1
-            w_partialsum = w_partialsum + weights(el_end)
-         ENDDO
-         IF (PRESENT(dist)) dist(el_start:el_end) = ibin - 1
-         IF (PRESENT(limits_start)) limits_start(ibin) = el_start
-         IF (PRESENT(limits_end)) limits_end(ibin) = el_end
-      ENDDO
-
-   END SUBROUTINE contiguous_tensor_dist
 
 ! **************************************************************************************************
 !> \brief ...

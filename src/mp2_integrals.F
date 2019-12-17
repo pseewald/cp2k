@@ -107,9 +107,9 @@ MODULE mp2_integrals
                                               neighbor_list_set_p_type
    USE qs_tensors,                      ONLY: build_3c_integrals,&
                                               build_3c_neighbor_lists,&
-                                              contiguous_tensor_dist,&
                                               neighbor_list_3c_destroy
-   USE qs_tensors_types,                ONLY: cyclic_tensor_dist,&
+   USE qs_tensors_types,                ONLY: contiguous_tensor_dist,&
+                                              cyclic_tensor_dist,&
                                               distribution_3d_create,&
                                               distribution_3d_type,&
                                               neighbor_list_3c_type,&
