@@ -816,7 +816,6 @@ CONTAINS
          ENDDO
          DEALLOCATE (mem_start_block, mem_end_block, mo_bsizes)
 
-         CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(1))
          CALL dbcsr_t_batched_contract_init(ks_t)
 
          DO i_mem = 1, n_mem
@@ -830,6 +829,7 @@ CONTAINS
                CALL dbcsr_t_pgrid_change_dims(pgrid_opt, pdims)
                CALL tensor_change_pgrid(t_3c_int_mo_3(1, 1), pgrid_opt, nodata=.TRUE., unit_nr=unit_nr_dbcsr)
                CALL tensor_change_pgrid(t_3c_ctr_RI(1, 1), pgrid_opt, nodata=.TRUE., unit_nr=unit_nr_dbcsr)
+               CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(1))
                CALL dbcsr_t_pgrid_destroy(pgrid_opt)
                DEALLOCATE (pgrid_opt)
             ENDIF
