@@ -1306,8 +1306,12 @@ CONTAINS
 
          IF (ri_data%n_mem > ri_data%nelectron_total/2) ri_data%n_mem = MAX(ri_data%nelectron_total/2, 1)
          ! Size of dimension corresponding to MOs is nelectron/2 and divided by the memory factor
-         MO_dim = MAX((ri_data%nelectron_total/2)/ri_data%n_mem, 1)
+         ! we are using ceiling of that division to make sure that no MO dimension (after memory cut)
+         ! is larger than this (it is however not a problem for load balancing if actual MO dimension
+         ! is slightly smaller)
+         MO_dim = MAX((ri_data%nelectron_total/2 - 1)/ri_data%n_mem + 1, 1)
 
+         pdims = [1, nproc, 1]
          CALL dbcsr_t_mp_dims_create(nproc, pdims, [MO_dim, SIZE(ri_data%bsizes_RI_split), MO_dim])
 
          CALL dbcsr_t_pgrid_create(para_env%group, pdims, ri_data%pgrid_1)

@@ -36,7 +36,8 @@ MODULE hfx_ri
         dbcsr_t_batched_contract_finalize, dbcsr_t_batched_contract_init, dbcsr_t_clear, &
         dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
-        dbcsr_t_mp_dims_create, dbcsr_t_nd_mp_comm, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, &
+        dbcsr_t_mp_dims_create, dbcsr_t_mp_environ_pgrid, dbcsr_t_nd_mp_comm, &
+        dbcsr_t_pgrid_change_dims, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, &
         dbcsr_t_pgrid_type, dbcsr_t_type
    USE distribution_2d_types,           ONLY: distribution_2d_type
    USE hfx_types,                       ONLY: hfx_ri_type
@@ -710,10 +711,11 @@ CONTAINS
                                                             mem_start_block, mo_bsizes
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
       INTEGER, DIMENSION(2)                              :: pdims_2d
-      INTEGER, DIMENSION(3)                              :: pdims
+      INTEGER, DIMENSION(3)                              :: pcoord, pdims
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_distribution_type)                      :: ks_dist
       TYPE(dbcsr_t_pgrid_type)                           :: pgrid, pgrid_2d
+      TYPE(dbcsr_t_pgrid_type), POINTER                  :: pgrid_opt
       TYPE(dbcsr_t_type)                                 :: ks_t, mo_coeff_t, mo_coeff_t_split
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_ctr_KS, t_3c_ctr_KS_copy, &
                                                             t_3c_ctr_RI, t_3c_int_mo_1, &
@@ -722,6 +724,8 @@ CONTAINS
       CALL timeset(routineN, handle)
 
       CPASSERT(SIZE(ks_matrix, 2) == 1)
+
+      NULLIFY (pgrid_opt)
 
       unit_nr_dbcsr = ri_data%unit_nr_dbcsr
 
@@ -741,11 +745,11 @@ CONTAINS
          CALL mp_environ(nproc, iproc, para_env%group)
 
          CPASSERT(homo(ispin)/ri_data%n_mem > 0)
-         CALL dbcsr_t_mp_dims_create( &
-            nproc, pdims, [SIZE(ri_data%bsizes_RI_split), homo(ispin)/ri_data%n_mem, SIZE(ri_data%bsizes_AO)])
-
+         pdims(:) = 0
+         pdims(3) = 1
          ! 3rd dimension should be 1 (in order to run DBCSR multiplications in serial)
-         pdims = [pdims(1)*pdims(3), pdims(2), 1]
+         CALL dbcsr_t_mp_dims_create( &
+            nproc, pdims, [SIZE(ri_data%bsizes_RI_split), (homo(ispin) - 1)/ri_data%n_mem + 1, 1])
 
          CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid)
 
@@ -817,6 +821,19 @@ CONTAINS
 
          DO i_mem = 1, n_mem
 
+            IF (i_mem == 2) THEN
+               ! todo: store tensor format for future SCF cycles
+               CPASSERT(ASSOCIATED(pgrid_opt))
+               CALL dbcsr_t_mp_environ_pgrid(pgrid_opt, pdims, pcoord)
+               pdims(2) = pdims(2)*pdims(3)
+               pdims(3) = 1
+               CALL dbcsr_t_pgrid_change_dims(pgrid_opt, pdims)
+               CALL tensor_change_pgrid(t_3c_int_mo_3(1, 1), pgrid_opt, nodata=.TRUE., unit_nr=unit_nr_dbcsr)
+               CALL tensor_change_pgrid(t_3c_ctr_RI(1, 1), pgrid_opt, nodata=.TRUE., unit_nr=unit_nr_dbcsr)
+               CALL dbcsr_t_pgrid_destroy(pgrid_opt)
+               DEALLOCATE (pgrid_opt)
+            ENDIF
+
             bounds(:, 1) = [mem_start(i_mem), mem_end(i_mem)]
 
             CALL timeset(routineN//"_MOx3C_R", handle2)
@@ -870,7 +887,13 @@ CONTAINS
                                   contract_1=[1], notcontract_1=[2], &
                                   contract_2=[1], notcontract_2=[2, 3], &
                                   map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, &
+                                  pgrid_opt_3=pgrid_opt, &
                                   unit_nr=unit_nr_dbcsr)
+            CPASSERT(ASSOCIATED(pgrid_opt))
+            IF (i_mem > 1) THEN
+               CALL dbcsr_t_pgrid_destroy(pgrid_opt)
+               DEALLOCATE (pgrid_opt)
+            ENDIF
             CALL timestop(handle2)
 
             CALL timeset(routineN//"_copy_2", handle2)
