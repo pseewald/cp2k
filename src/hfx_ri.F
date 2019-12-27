@@ -830,8 +830,7 @@ CONTAINS
                CALL tensor_change_pgrid(t_3c_int_mo_3(1, 1), pgrid_opt, nodata=.TRUE., unit_nr=unit_nr_dbcsr)
                CALL tensor_change_pgrid(t_3c_ctr_RI(1, 1), pgrid_opt, nodata=.TRUE., unit_nr=unit_nr_dbcsr)
                CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(1))
-               CALL dbcsr_t_pgrid_destroy(pgrid_opt)
-               DEALLOCATE (pgrid_opt)
+
             ENDIF
 
             bounds(:, 1) = [mem_start(i_mem), mem_end(i_mem)]
@@ -881,7 +880,13 @@ CONTAINS
             CALL dbcsr_t_clear(ri_data%t_3c_int_ctr_2(1, 1))
             CALL timestop(handle2)
 
+            IF (ASSOCIATED(pgrid_opt)) THEN
+               CALL dbcsr_t_pgrid_destroy(pgrid_opt)
+               DEALLOCATE (pgrid_opt)
+            ENDIF
+
             CALL timeset(routineN//"_RIx3C", handle2)
+
             CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), ri_data%t_2c_int(1), t_3c_int_mo_3(1, 1), &
                                   dbcsr_scalar(0.0_dp), t_3c_ctr_RI(1, 1), &
                                   contract_1=[1], notcontract_1=[2], &
@@ -889,11 +894,6 @@ CONTAINS
                                   map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, &
                                   pgrid_opt_3=pgrid_opt, &
                                   unit_nr=unit_nr_dbcsr)
-            CPASSERT(ASSOCIATED(pgrid_opt))
-            IF (i_mem > 1) THEN
-               CALL dbcsr_t_pgrid_destroy(pgrid_opt)
-               DEALLOCATE (pgrid_opt)
-            ENDIF
             CALL timestop(handle2)
 
             CALL timeset(routineN//"_copy_2", handle2)
@@ -913,6 +913,11 @@ CONTAINS
                                   unit_nr=unit_nr_dbcsr, move_data=.TRUE.)
             CALL timestop(handle2)
          ENDDO
+
+         IF (ASSOCIATED(pgrid_opt)) THEN
+            CALL dbcsr_t_pgrid_destroy(pgrid_opt)
+            DEALLOCATE (pgrid_opt)
+         ENDIF
 
          CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(1))
          CALL dbcsr_t_batched_contract_finalize(ks_t, unit_nr=unit_nr_dbcsr)
