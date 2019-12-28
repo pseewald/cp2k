@@ -634,7 +634,7 @@ CONTAINS
       ! todo: this may be removed
       CALL keyword_create(keyword, __LOCATION__, name="MAX_BLOCK_SIZE_MO", &
                           description="Maximum block size for molecular orbitals.", &
-                          default_i_val=1)
+                          default_i_val=10)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
