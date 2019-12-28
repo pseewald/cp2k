@@ -1292,7 +1292,7 @@ CONTAINS
          pdims_2d = 0
          CALL dbcsr_t_pgrid_create(para_env%group, pdims_2d, pgrid_2d)
 
-         CALL create_2c_tensor(ri_data%t_2c_int(1), dist1, dist2, pgrid_2d, ri_data%bsizes_RI_split, ri_data%bsizes_RI_split, &
+         CALL create_2c_tensor(ri_data%t_2c_int(1), dist1, dist2, pgrid_2d, ri_data%bsizes_RI, ri_data%bsizes_RI, &
                                name="(RI | RI)")
          CALL dbcsr_t_pgrid_destroy(pgrid_2d)
 

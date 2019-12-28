@@ -79,7 +79,8 @@ MODULE hfx_ri
    USE qs_tensors_types,                ONLY: contiguous_tensor_dist,&
                                               create_2c_tensor,&
                                               create_3c_tensor,&
-                                              neighbor_list_3c_type
+                                              neighbor_list_3c_type,&
+                                              split_block_sizes
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -741,8 +742,7 @@ CONTAINS
       DO ispin = 1, nspins
          CALL dbcsr_get_info(mo_coeff(ispin), nfullcols_total=n_mos)
 
-         ALLOCATE (mo_bsizes(n_mos))
-         mo_bsizes = 1
+         CALL split_block_sizes([n_mos], mo_bsizes, ri_data%max_bsize_mo)
 
          CALL mp_environ(nproc, iproc, para_env%group)
 
@@ -754,12 +754,10 @@ CONTAINS
             pdim_AO = pdim_AO - 1
          ENDDO
 
-         CPASSERT(homo(ispin)/ri_data%n_mem > 0)
          pdims(:) = 0
          pdims(3) = pdim_AO
-         ! 3rd dimension should be 1 (in order to run DBCSR multiplications in serial)
          CALL dbcsr_t_mp_dims_create( &
-            nproc/pdim_AO, pdims(:2), [SIZE(ri_data%bsizes_RI_split), (homo(ispin) - 1)/ri_data%n_mem + 1])
+            nproc/pdim_AO, pdims(:2), [SIZE(ri_data%bsizes_RI_split), (homo(ispin) - 1)/(ri_data%max_bsize_mo*ri_data%n_mem) + 1])
 
          CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid)
 
@@ -774,15 +772,39 @@ CONTAINS
                                [1], [2, 3], "(MO | RI AO)")
 
          DEALLOCATE (dist1, dist2, dist3)
+         CALL dbcsr_t_pgrid_destroy(pgrid)
+
+         CALL dbcsr_get_info(ks_matrix(ispin, 1)%matrix, distribution=ks_dist)
+         CALL dbcsr_distribution_get(ks_dist, group=comm_2d, nprows=pdims_2d(1), npcols=pdims_2d(2))
+
+         pgrid_2d = dbcsr_t_nd_mp_comm(comm_2d, [1], [2], pdims_2d=pdims_2d)
+         CALL create_2c_tensor(mo_coeff_t_split, dist1, dist2, pgrid_2d, ri_data%bsizes_AO, mo_bsizes, &
+                               name="(AO | MO)")
+
+         DEALLOCATE (dist1, dist2)
+         CALL dbcsr_t_pgrid_destroy(pgrid_2d)
+
+         CPASSERT(homo(ispin)/ri_data%n_mem > 0)
+
+         pdims(:) = 0
+         pdims(3) = pdim_AO
+         CALL dbcsr_t_mp_dims_create( &
+            nproc/pdim_AO, pdims(:2), [SIZE(ri_data%bsizes_RI), (homo(ispin) - 1)/ri_data%n_mem + 1])
+
+         CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid)
+
+         DEALLOCATE (mo_bsizes)
+         ALLOCATE (mo_bsizes(n_mos))
+         mo_bsizes = 1
 
          CALL create_3c_tensor(t_3c_int_mo_3(1, 1), dist1, dist2, dist3, pgrid, &
-                               ri_data%bsizes_RI_split, mo_bsizes, ri_data%bsizes_AO, &
+                               ri_data%bsizes_RI, mo_bsizes, ri_data%bsizes_AO, &
                                [1], [2, 3], "(RI | MO AO)")
 
          DEALLOCATE (dist1, dist2, dist3)
 
          CALL create_3c_tensor(t_3c_ctr_KS(1, 1), dist1, dist2, dist3, pgrid, &
-                               ri_data%bsizes_RI_split, mo_bsizes, ri_data%bsizes_AO, &
+                               ri_data%bsizes_RI, mo_bsizes, ri_data%bsizes_AO, &
                                [1, 2], [3], "(RI MO | AO)")
          DEALLOCATE (dist1, dist2, dist3)
          CALL dbcsr_t_pgrid_destroy(pgrid)
@@ -791,18 +813,6 @@ CONTAINS
          CALL dbcsr_t_create(t_3c_ctr_KS(1, 1), t_3c_ctr_KS_copy(1, 1))
 
          CALL dbcsr_t_create(ks_matrix(ispin, 1)%matrix, ks_t)
-
-         ! AO block sizes are split in 3c tensor, we need to split blocks of Fock matrix as well
-         ! also split MO coefficients
-         CALL dbcsr_get_info(ks_matrix(ispin, 1)%matrix, distribution=ks_dist)
-         CALL dbcsr_distribution_get(ks_dist, group=comm_2d, nprows=pdims_2d(1), npcols=pdims_2d(2))
-         pgrid_2d = dbcsr_t_nd_mp_comm(comm_2d, [1], [2], pdims_2d=pdims_2d)
-
-         CALL create_2c_tensor(mo_coeff_t_split, dist1, dist2, pgrid_2d, ri_data%bsizes_AO, mo_bsizes, &
-                               name="(AO | MO)")
-
-         DEALLOCATE (dist1, dist2)
-         CALL dbcsr_t_pgrid_destroy(pgrid_2d)
 
          CALL dbcsr_t_create(mo_coeff(ispin), mo_coeff_t, name="MO coeffs")
          CALL dbcsr_t_copy_matrix_to_tensor(mo_coeff(ispin), mo_coeff_t)
@@ -851,7 +861,9 @@ CONTAINS
 
                CALL dbcsr_t_pgrid_change_dims(pgrid_opt, pdims)
                CALL tensor_change_pgrid(t_3c_int_mo_3(1, 1), pgrid_opt, nodata=.TRUE., unit_nr=unit_nr_dbcsr)
-               CALL tensor_change_pgrid(t_3c_ctr_RI(1, 1), pgrid_opt, nodata=.TRUE., unit_nr=unit_nr_dbcsr)
+               CALL tensor_change_pgrid(t_3c_ctr_RI(1, 1), pgrid_opt, nodata=.TRUE.)
+               CALL tensor_change_pgrid(t_3c_ctr_KS(1, 1), pgrid_opt, nodata=.TRUE.)
+               CALL tensor_change_pgrid(t_3c_ctr_KS_copy(1, 1), pgrid_opt, nodata=.TRUE.)
                CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(1))
 
             ENDIF
