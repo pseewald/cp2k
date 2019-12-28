@@ -759,7 +759,7 @@ CONTAINS
          pdims(3) = pdim_AO
          ! 3rd dimension should be 1 (in order to run DBCSR multiplications in serial)
          CALL dbcsr_t_mp_dims_create( &
-            nproc, pdims, [SIZE(ri_data%bsizes_RI_split), (homo(ispin) - 1)/ri_data%n_mem + 1, SIZE(ri_data%bsizes_AO)])
+            nproc/pdim_AO, pdims(:2), [SIZE(ri_data%bsizes_RI_split), (homo(ispin) - 1)/ri_data%n_mem + 1])
 
          CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid)
 
