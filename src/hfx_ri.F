@@ -48,7 +48,8 @@ MODULE hfx_ri
    USE iterate_matrix,                  ONLY: invert_hotelling,&
                                               matrix_sqrt_newton_schulz
    USE kinds,                           ONLY: default_string_length,&
-                                              dp
+                                              dp,&
+                                              int_8
    USE message_passing,                 ONLY: mp_environ
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
@@ -703,8 +704,9 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_update_ks_mo', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: bsum, comm_2d, handle, handle2, i_mem, &
-                                                            iproc, ispin, n_mem, n_mos, nproc, &
+      INTEGER                                            :: bsum, comm_2d, fac, handle, handle2, &
+                                                            i_mem, iproc, ispin, n_mem, n_mos, &
+                                                            nproc, nsplit_AO, pdim_AO, &
                                                             unit_nr_dbcsr
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, dist3, mem_end, &
                                                             mem_end_block, mem_start, &
@@ -744,12 +746,20 @@ CONTAINS
 
          CALL mp_environ(nproc, iproc, para_env%group)
 
+         ! AO grid dimension of (RI MO AO) tensor derived based on optimum performance for dense tensors
+         nsplit_AO = INT((SUM(INT(ri_data%bsizes_RI, int_8))*n_mos)/(ri_data%n_mem*SUM(INT(ri_data%bsizes_AO, int_8))))
+         pdim_AO = CEILING(SQRT(REAL(nproc, dp)/nsplit_AO))
+         pdim_AO = MIN(pdim_AO, nproc)
+         DO WHILE (MOD(nproc, pdim_AO) /= 0)
+            pdim_AO = pdim_AO - 1
+         ENDDO
+
          CPASSERT(homo(ispin)/ri_data%n_mem > 0)
          pdims(:) = 0
-         pdims(3) = 1
+         pdims(3) = pdim_AO
          ! 3rd dimension should be 1 (in order to run DBCSR multiplications in serial)
          CALL dbcsr_t_mp_dims_create( &
-            nproc, pdims, [SIZE(ri_data%bsizes_RI_split), (homo(ispin) - 1)/ri_data%n_mem + 1, 1])
+            nproc, pdims, [SIZE(ri_data%bsizes_RI_split), (homo(ispin) - 1)/ri_data%n_mem + 1, SIZE(ri_data%bsizes_AO)])
 
          CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid)
 
@@ -825,7 +835,20 @@ CONTAINS
                CPASSERT(ASSOCIATED(pgrid_opt))
                CALL dbcsr_t_mp_environ_pgrid(pgrid_opt, pdims, pcoord)
                pdims(2) = pdims(2)*pdims(3)
-               pdims(3) = 1
+
+               IF (MOD(pdims(2), pdim_AO) /= 0) THEN
+                  DO fac = 2, pdims(1)
+                     IF (MOD(pdims(1), fac) == 0) THEN
+                        IF (MOD(pdims(2)*fac, pdim_AO) == 0) EXIT
+                     ENDIF
+                  ENDDO
+                  pdims(1) = pdims(1)/fac
+                  pdims(2) = pdims(2)*fac
+               ENDIF
+
+               pdims(2) = pdims(2)/pdim_AO
+               pdims(3) = pdim_AO
+
                CALL dbcsr_t_pgrid_change_dims(pgrid_opt, pdims)
                CALL tensor_change_pgrid(t_3c_int_mo_3(1, 1), pgrid_opt, nodata=.TRUE., unit_nr=unit_nr_dbcsr)
                CALL tensor_change_pgrid(t_3c_ctr_RI(1, 1), pgrid_opt, nodata=.TRUE., unit_nr=unit_nr_dbcsr)
