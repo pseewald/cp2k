@@ -97,15 +97,18 @@ CONTAINS
 !> B(mu, lambda, R) = sum_P int_3c(mu, lambda, P) K(P, R)
 !> \param qs_env ...
 !> \param ri_data ...
+!> \param nspins ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_pre_scf_mo(qs_env, ri_data)
+   SUBROUTINE hfx_ri_pre_scf_mo(qs_env, ri_data, nspins)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
+      INTEGER, INTENT(IN)                                :: nspins
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_pre_scf_mo', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, handle2, unit_nr, unit_nr_dbcsr
+      INTEGER                                            :: handle, handle2, ispin, unit_nr, &
+                                                            unit_nr_dbcsr
       REAL(KIND=dp)                                      :: threshold
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_para_env_type), POINTER                    :: para_env
@@ -195,7 +198,10 @@ CONTAINS
       CALL dbcsr_t_create(t_2c_int_mat(1), t_2c_int(1), name="(RI|RI)")
       CALL dbcsr_t_copy_matrix_to_tensor(t_2c_int_mat(1), t_2c_int(1))
       CALL dbcsr_release(t_2c_int_mat(1))
-      CALL dbcsr_t_copy(t_2c_int(1), ri_data%t_2c_int(1), move_data=.TRUE.)
+      DO ispin = 1, nspins
+         IF (ispin > 1) CALL dbcsr_t_create(ri_data%t_2c_int(1, 1), ri_data%t_2c_int(ispin, 1))
+         CALL dbcsr_t_copy(t_2c_int(1), ri_data%t_2c_int(ispin, 1))
+      ENDDO
       CALL dbcsr_t_destroy(t_2c_int(1))
       CALL timestop(handle2)
 
@@ -712,14 +718,13 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(3)                              :: pcoord, pdims, pdims_AO, pdims_RI
+      LOGICAL                                            :: do_initialize
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_distribution_type)                      :: ks_dist
       TYPE(dbcsr_t_pgrid_type)                           :: pgrid, pgrid_2d
       TYPE(dbcsr_t_pgrid_type), POINTER                  :: pgrid_opt_KS, pgrid_opt_RI
       TYPE(dbcsr_t_type)                                 :: ks_t, mo_coeff_t, mo_coeff_t_split
-      TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_ctr_KS, t_3c_ctr_KS_copy, &
-                                                            t_3c_ctr_RI, t_3c_int_mo_1, &
-                                                            t_3c_int_mo_2, t_3c_int_mo_3
+      TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_mo_1, t_3c_int_mo_2
 
       CALL timeset(routineN, handle)
 
@@ -730,7 +735,20 @@ CONTAINS
       unit_nr_dbcsr = ri_data%unit_nr_dbcsr
 
       IF (geometry_did_change) THEN
-         CALL hfx_ri_pre_scf_mo(qs_env, ri_data)
+         CALL hfx_ri_pre_scf_mo(qs_env, ri_data, nspins)
+      ENDIF
+
+      IF (.NOT. ALLOCATED(ri_data%t_3c_int_mo)) THEN
+         do_initialize = .TRUE.
+         CPASSERT(.NOT. ALLOCATED(ri_data%t_3c_ctr_RI))
+         CPASSERT(.NOT. ALLOCATED(ri_data%t_3c_ctr_KS))
+         CPASSERT(.NOT. ALLOCATED(ri_data%t_3c_ctr_KS_copy))
+         ALLOCATE (ri_data%t_3c_int_mo(nspins, 1, 1))
+         ALLOCATE (ri_data%t_3c_ctr_RI(nspins, 1, 1))
+         ALLOCATE (ri_data%t_3c_ctr_KS(nspins, 1, 1))
+         ALLOCATE (ri_data%t_3c_ctr_KS_copy(nspins, 1, 1))
+      ELSE
+         do_initialize = .FALSE.
       ENDIF
 
       CALL get_qs_env(qs_env, para_env=para_env)
@@ -767,31 +785,32 @@ CONTAINS
 
          CPASSERT(homo(ispin)/ri_data%n_mem > 0)
 
-         pdims(:) = 0
-
-         CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid, &
-                                   tensor_dims=[SIZE(ri_data%bsizes_RI), &
-                                                (homo(ispin) - 1)/ri_data%n_mem + 1, &
-                                                SIZE(ri_data%bsizes_AO)])
-
          DEALLOCATE (mo_bsizes)
          ALLOCATE (mo_bsizes(n_mos))
          mo_bsizes = 1
 
-         CALL create_3c_tensor(t_3c_int_mo_3(1, 1), dist1, dist2, dist3, pgrid, &
-                               ri_data%bsizes_RI, mo_bsizes, ri_data%bsizes_AO, &
-                               [1], [2, 3], "(RI | MO AO)")
+         IF (do_initialize) THEN
+            pdims(:) = 0
 
-         DEALLOCATE (dist1, dist2, dist3)
+            CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid, &
+                                      tensor_dims=[SIZE(ri_data%bsizes_RI), &
+                                                   (homo(ispin) - 1)/ri_data%n_mem + 1, &
+                                                   SIZE(ri_data%bsizes_AO)])
+            CALL create_3c_tensor(ri_data%t_3c_int_mo(ispin, 1, 1), dist1, dist2, dist3, pgrid, &
+                                  ri_data%bsizes_RI, mo_bsizes, ri_data%bsizes_AO, &
+                                  [1], [2, 3], "(RI | MO AO)")
 
-         CALL create_3c_tensor(t_3c_ctr_KS(1, 1), dist1, dist2, dist3, pgrid, &
-                               ri_data%bsizes_RI, mo_bsizes, ri_data%bsizes_AO, &
-                               [1, 2], [3], "(RI MO | AO)")
-         DEALLOCATE (dist1, dist2, dist3)
-         CALL dbcsr_t_pgrid_destroy(pgrid)
+            DEALLOCATE (dist1, dist2, dist3)
 
-         CALL dbcsr_t_create(t_3c_int_mo_3(1, 1), t_3c_ctr_RI(1, 1), name="(RI | MO AO)")
-         CALL dbcsr_t_create(t_3c_ctr_KS(1, 1), t_3c_ctr_KS_copy(1, 1))
+            CALL create_3c_tensor(ri_data%t_3c_ctr_KS(ispin, 1, 1), dist1, dist2, dist3, pgrid, &
+                                  ri_data%bsizes_RI, mo_bsizes, ri_data%bsizes_AO, &
+                                  [1, 2], [3], "(RI MO | AO)")
+            DEALLOCATE (dist1, dist2, dist3)
+            CALL dbcsr_t_pgrid_destroy(pgrid)
+
+            CALL dbcsr_t_create(ri_data%t_3c_int_mo(ispin, 1, 1), ri_data%t_3c_ctr_RI(ispin, 1, 1), name="(RI | MO AO)")
+            CALL dbcsr_t_create(ri_data%t_3c_ctr_KS(ispin, 1, 1), ri_data%t_3c_ctr_KS_copy(ispin, 1, 1))
+         ENDIF
 
          CALL dbcsr_t_create(ks_matrix(ispin, 1)%matrix, ks_t)
 
@@ -819,8 +838,7 @@ CONTAINS
 
          DO i_mem = 1, n_mem
 
-            IF (i_mem == 2) THEN
-               ! todo: store tensor format for future SCF cycles
+            IF (i_mem == 2 .AND. do_initialize) THEN
                CPASSERT(ASSOCIATED(pgrid_opt_RI))
                CPASSERT(ASSOCIATED(pgrid_opt_KS))
                CALL dbcsr_t_mp_environ_pgrid(pgrid_opt_RI, pdims_RI, pcoord)
@@ -838,10 +856,10 @@ CONTAINS
                count = 0
 
                DO WHILE (MOD(nproc_rem, pdim_AO_) /= 0 .OR. &
-                         (pdim_MO > max_pdim_mo &
+                         (pdim_MO >= max_pdim_mo &
                           .AND. MOD(tdim_mo, pdim_MO) /= 0))
                   pdim_AO__ = pdim_AO - (count/2 + 1)*(-1)**count
-                  IF(pdim_AO__ > 0) THEN
+                  IF (pdim_AO__ > 0) THEN
                      pdim_AO_ = pdim_AO__
                      pdim_MO = MAX(nproc_rem/pdim_AO_, 1)
                   ENDIF
@@ -852,15 +870,21 @@ CONTAINS
                pdims = [pdims_RI(1), nproc_rem/pdim_AO, pdim_AO]
 
                CALL dbcsr_t_pgrid_change_dims(pgrid_opt_RI, pdims)
-               CALL tensor_change_pgrid(t_3c_int_mo_3(1, 1), pgrid_opt_RI, nodata=.TRUE., unit_nr=unit_nr_dbcsr)
-               CALL tensor_change_pgrid(t_3c_ctr_RI(1, 1), pgrid_opt_RI, nodata=.TRUE.)
-               CALL tensor_change_pgrid(t_3c_ctr_KS(1, 1), pgrid_opt_RI, nodata=.TRUE.)
-               CALL tensor_change_pgrid(t_3c_ctr_KS_copy(1, 1), pgrid_opt_RI, nodata=.TRUE.)
+               CALL tensor_change_pgrid(ri_data%t_3c_int_mo(ispin, 1, 1), pgrid_opt_RI, nodata=.TRUE., unit_nr=unit_nr_dbcsr)
+               CALL tensor_change_pgrid(ri_data%t_3c_ctr_RI(ispin, 1, 1), pgrid_opt_RI, nodata=.TRUE.)
+               CALL tensor_change_pgrid(ri_data%t_3c_ctr_KS(ispin, 1, 1), pgrid_opt_RI, nodata=.TRUE.)
+               CALL tensor_change_pgrid(ri_data%t_3c_ctr_KS_copy(ispin, 1, 1), pgrid_opt_RI, nodata=.TRUE.)
 
                ! initialize batched contraction here since process grid have changed
-               CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(1))
+               CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(ispin, 1))
                CALL dbcsr_t_batched_contract_init(ks_t)
 
+            ELSEIF (i_mem == 2) THEN
+               CALL dbcsr_t_batched_contract_init(ks_t)
+               IF (geometry_did_change) THEN
+                  CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(ispin, 1))
+                  CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(ispin, 1))
+               ENDIF
             ENDIF
 
             bounds(:, 1) = [mem_start(i_mem), mem_end(i_mem)]
@@ -878,7 +902,7 @@ CONTAINS
 
             CALL timestop(handle2)
             CALL timeset(routineN//"_copy_1", handle2)
-            CALL dbcsr_t_copy(t_3c_int_mo_1(1, 1), t_3c_int_mo_3(1, 1), order=[3, 1, 2], move_data=.TRUE.)
+            CALL dbcsr_t_copy(t_3c_int_mo_1(1, 1), ri_data%t_3c_int_mo(ispin, 1, 1), order=[3, 1, 2], move_data=.TRUE.)
             CALL dbcsr_t_clear(t_3c_int_mo_1(1, 1))
             CALL timestop(handle2)
 
@@ -899,10 +923,11 @@ CONTAINS
                                   move_data=.FALSE.)
             CALL timestop(handle2)
             CALL timeset(routineN//"_copy_1", handle2)
-            CALL dbcsr_t_copy(t_3c_int_mo_2(1, 1), t_3c_int_mo_3(1, 1), order=[2, 1, 3], summation=.TRUE., move_data=.TRUE.)
+            CALL dbcsr_t_copy(t_3c_int_mo_2(1, 1), ri_data%t_3c_int_mo(ispin, 1, 1), order=[2, 1, 3], &
+                              summation=.TRUE., move_data=.TRUE.)
             CALL dbcsr_t_clear(t_3c_int_mo_2(1, 1))
 
-            CALL dbcsr_t_filter(t_3c_int_mo_3(1, 1), ri_data%filter_eps_mo)
+            CALL dbcsr_t_filter(ri_data%t_3c_int_mo(ispin, 1, 1), ri_data%filter_eps_mo)
             CALL timestop(handle2)
 
             CALL timeset(routineN//"_copy_symm", handle2)
@@ -917,8 +942,8 @@ CONTAINS
 
             CALL timeset(routineN//"_RIx3C", handle2)
 
-            CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), ri_data%t_2c_int(1), t_3c_int_mo_3(1, 1), &
-                                  dbcsr_scalar(0.0_dp), t_3c_ctr_RI(1, 1), &
+            CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), ri_data%t_2c_int(ispin, 1), ri_data%t_3c_int_mo(ispin, 1, 1), &
+                                  dbcsr_scalar(0.0_dp), ri_data%t_3c_ctr_RI(ispin, 1, 1), &
                                   contract_1=[1], notcontract_1=[2], &
                                   contract_2=[1], notcontract_2=[2, 3], &
                                   map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps, &
@@ -929,9 +954,9 @@ CONTAINS
             CALL timeset(routineN//"_copy_2", handle2)
 
             ! note: this copy should not involve communication (same block sizes, same 3d distribution on same process grid)
-            CALL dbcsr_t_copy(t_3c_ctr_RI(1, 1), t_3c_ctr_KS(1, 1), move_data=.TRUE.)
-            CALL dbcsr_t_clear(t_3c_ctr_RI(1, 1))
-            CALL dbcsr_t_copy(t_3c_ctr_KS(1, 1), t_3c_ctr_KS_copy(1, 1))
+            CALL dbcsr_t_copy(ri_data%t_3c_ctr_RI(ispin, 1, 1), ri_data%t_3c_ctr_KS(ispin, 1, 1), move_data=.TRUE.)
+            CALL dbcsr_t_clear(ri_data%t_3c_ctr_RI(ispin, 1, 1))
+            CALL dbcsr_t_copy(ri_data%t_3c_ctr_KS(ispin, 1, 1), ri_data%t_3c_ctr_KS_copy(ispin, 1, 1))
             CALL timestop(handle2)
 
             IF (ASSOCIATED(pgrid_opt_KS)) THEN
@@ -940,7 +965,7 @@ CONTAINS
             ENDIF
 
             CALL timeset(routineN//"_3Cx3C", handle2)
-            CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), t_3c_ctr_KS(1, 1), t_3c_ctr_KS_copy(1, 1), &
+            CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), ri_data%t_3c_ctr_KS(ispin, 1, 1), ri_data%t_3c_ctr_KS_copy(ispin, 1, 1), &
                                   dbcsr_scalar(1.0_dp), ks_t, &
                                   contract_1=[1, 2], notcontract_1=[3], &
                                   contract_2=[1, 2], notcontract_2=[3], &
@@ -960,18 +985,18 @@ CONTAINS
             DEALLOCATE (pgrid_opt_KS)
          ENDIF
 
-         CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(1))
+         !CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(1))
          CALL dbcsr_t_batched_contract_finalize(ks_t, unit_nr=unit_nr_dbcsr)
 
          CALL dbcsr_t_destroy(t_3c_int_mo_1(1, 1))
          CALL dbcsr_t_destroy(t_3c_int_mo_2(1, 1))
-         CALL dbcsr_t_destroy(t_3c_int_mo_3(1, 1))
-         CALL dbcsr_t_destroy(t_3c_ctr_RI(1, 1))
+         CALL dbcsr_t_clear(ri_data%t_3c_int_mo(ispin, 1, 1))
+         CALL dbcsr_t_clear(ri_data%t_3c_ctr_RI(ispin, 1, 1))
 
          CALL dbcsr_t_destroy(mo_coeff_t_split)
 
-         CALL dbcsr_t_destroy(t_3c_ctr_KS(1, 1))
-         CALL dbcsr_t_destroy(t_3c_ctr_KS_copy(1, 1))
+         CALL dbcsr_t_clear(ri_data%t_3c_ctr_KS(ispin, 1, 1))
+         CALL dbcsr_t_clear(ri_data%t_3c_ctr_KS_copy(ispin, 1, 1))
 
          CALL dbcsr_t_filter(ks_t, ri_data%filter_eps)
          CALL dbcsr_t_copy_tensor_to_matrix(ks_t, ks_matrix(ispin, 1)%matrix, summation=.TRUE.)
