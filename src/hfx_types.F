@@ -38,9 +38,9 @@ MODULE hfx_types
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE cp_units,                        ONLY: cp_unit_from_cp2k
    USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_destroy, dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, &
-        dbcsr_t_distribution_type, dbcsr_t_mp_dims_create, dbcsr_t_pgrid_create, &
-        dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_type
+        dbcsr_t_batched_contract_finalize, dbcsr_t_destroy, dbcsr_t_distribution_destroy, &
+        dbcsr_t_distribution_new, dbcsr_t_distribution_type, dbcsr_t_mp_dims_create, &
+        dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_type
    USE hfx_helpers,                     ONLY: count_cells_perd,&
                                               next_image_cell_perd
    USE input_constants,                 ONLY: &
@@ -398,7 +398,7 @@ MODULE hfx_types
       ! with static dimension gfortran gets stuck during compilation
 
       ! 2c tensor in (RI | RI) format for contraction
-      TYPE(dbcsr_t_type), DIMENSION(:), ALLOCATABLE    :: t_2c_int
+      TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE    :: t_2c_int
 
       ! 3c integral tensor in default format
       TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE :: t_3c_int
@@ -415,6 +415,11 @@ MODULE hfx_types
       TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE :: t_3c_int_ctr_3
       TYPE(dbcsr_t_pgrid_type), POINTER                :: pgrid_3 => NULL()
 
+      ! 3c integral tensor in (RI | MO AO ) format for contraction
+      TYPE(dbcsr_t_type), DIMENSION(:, :, :), ALLOCATABLE :: t_3c_int_mo
+      TYPE(dbcsr_t_type), DIMENSION(:, :, :), ALLOCATABLE :: t_3c_ctr_RI
+      TYPE(dbcsr_t_type), DIMENSION(:, :, :), ALLOCATABLE :: t_3c_ctr_KS
+      TYPE(dbcsr_t_type), DIMENSION(:, :, :), ALLOCATABLE :: t_3c_ctr_KS_copy
       ! 3c integral tensor in ( RI AO | AO ) format for contraction
       !TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE :: t_3c_int_ctr_4
       !TYPE(dbcsr_t_pgrid_type), POINTER                :: pgrid_4 => NULL()
@@ -1287,12 +1292,12 @@ CONTAINS
 
       ELSEIF (ri_data%flavor == ri_mo) THEN
          ALLOCATE (ri_data%t_3c_int(1, 1))
-         ALLOCATE (ri_data%t_2c_int(1))
+         ALLOCATE (ri_data%t_2c_int(2, 1))
 
          pdims_2d = 0
          CALL dbcsr_t_pgrid_create(para_env%group, pdims_2d, pgrid_2d)
 
-         CALL create_2c_tensor(ri_data%t_2c_int(1), dist1, dist2, pgrid_2d, ri_data%bsizes_RI, ri_data%bsizes_RI, &
+         CALL create_2c_tensor(ri_data%t_2c_int(1, 1), dist1, dist2, pgrid_2d, ri_data%bsizes_RI, ri_data%bsizes_RI, &
                                name="(RI | RI)")
          CALL dbcsr_t_pgrid_destroy(pgrid_2d)
 
@@ -1340,7 +1345,7 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_release', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle
+      INTEGER                                            :: handle, ispin
       TYPE(cp_logger_type), POINTER                      :: logger
 
       CALL timeset(routineN, handle)
@@ -1380,8 +1385,20 @@ CONTAINS
          CALL dbcsr_t_destroy(ri_data%t_3c_int_ctr_2(1, 1))
          DEALLOCATE (ri_data%t_3c_int_ctr_1)
          DEALLOCATE (ri_data%t_3c_int_ctr_2)
-         CALL dbcsr_t_destroy(ri_data%t_2c_int(1))
+
+         DO ispin = 1, SIZE(ri_data%t_3c_int_mo, 1)
+            CALL dbcsr_t_destroy(ri_data%t_3c_int_mo(ispin, 1, 1))
+            CALL dbcsr_t_destroy(ri_data%t_3c_ctr_RI(ispin, 1, 1))
+            CALL dbcsr_t_destroy(ri_data%t_3c_ctr_KS(ispin, 1, 1))
+            CALL dbcsr_t_destroy(ri_data%t_3c_ctr_KS_copy(ispin, 1, 1))
+            CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(ispin, 1))
+            CALL dbcsr_t_destroy(ri_data%t_2c_int(ispin, 1))
+         ENDDO
          DEALLOCATE (ri_data%t_2c_int)
+         DEALLOCATE (ri_data%t_3c_int_mo)
+         DEALLOCATE (ri_data%t_3c_ctr_RI)
+         DEALLOCATE (ri_data%t_3c_ctr_KS)
+         DEALLOCATE (ri_data%t_3c_ctr_KS_copy)
       ENDIF
 
       IF (ASSOCIATED(ri_data%ri_section)) THEN
@@ -2495,10 +2512,10 @@ CONTAINS
          END SELECT
          SELECT CASE (ri_data%do_loc)
          CASE (.TRUE.)
-            WRITE (UNIT=iw, FMT="(T3, A, T80)") &
+            WRITE (UNIT=iw, FMT="(T3, A, T80, A)") &
                "HFX_RI_INFO| Localized MOs: ", "T"
          CASE (.FALSE.)
-            WRITE (UNIT=iw, FMT="(T3, A, T80)") &
+            WRITE (UNIT=iw, FMT="(T3, A, T80, A)") &
                "HFX_RI_INFO| Localized MOs: ", "F"
          END SELECT
          SELECT CASE (ri_data%t2c_method)
@@ -2523,7 +2540,8 @@ CONTAINS
             "HFX_RI_INFO| EPS_SCHWARZ:     ", ri_data%eps_schwarz
          WRITE (UNIT=iw, FMT="(T3, A, T70, I3, 1X, I3, 1X, I3)") &
             "HFX_RI_INFO| Maximum block size RI, MO, AO", ri_data%max_bsize_RI, ri_data%max_bsize_mo, ri_data%max_bsize_AO
-
+         WRITE (UNIT=iw, FMT="(T3, A, T79, I2)") &
+            "HFX_RI_INFO| Memory reduction factor", ri_data%n_mem
       ENDIF
 
    END SUBROUTINE
