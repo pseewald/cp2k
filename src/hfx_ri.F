@@ -705,7 +705,7 @@ CONTAINS
       REAL(dp), PARAMETER                                :: lb_ratio = 0.2_dp
 
       INTEGER :: bsum, comm_2d, count, handle, handle2, i_mem, iproc, ispin, max_pdim_mo, n_mem, &
-         n_mos, nproc, nproc_rem, pdim_AO, pdim_mo, tdim_mo, unit_nr_dbcsr
+         n_mos, nproc, nproc_rem, pdim_AO, pdim_AO_, pdim_AO__, pdim_mo, tdim_mo, unit_nr_dbcsr
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, dist3, mem_end, &
                                                             mem_end_block, mem_start, &
                                                             mem_start_block, mo_bsizes
@@ -832,16 +832,22 @@ CONTAINS
 
                ! modify pdim_AO until it divides remaining number of processes
                ! and make sure that process dimension corresponding to MOs is much smaller than tensor dimension (for good load balancing)
+               pdim_AO_ = pdim_AO
                tdim_mo = (homo(ispin) - 1)/ri_data%n_mem + 1
                max_pdim_mo = MAX(INT(REAL(tdim_mo, dp)*lb_ratio), 1)
                count = 0
-               DO WHILE (MOD(nproc_rem, pdim_AO) /= 0 .OR. &
+
+               DO WHILE (MOD(nproc_rem, pdim_AO_) /= 0 .OR. &
                          (pdim_MO > max_pdim_mo &
                           .AND. MOD(tdim_mo, pdim_MO) /= 0))
-                  pdim_AO = pdim_AO - (count/2 + 1)*(-1)**count
-                  pdim_MO = MAX(nproc_rem/pdim_AO, 1)
+                  pdim_AO__ = pdim_AO - (count/2 + 1)*(-1)**count
+                  IF(pdim_AO__ > 0) THEN
+                     pdim_AO_ = pdim_AO__
+                     pdim_MO = MAX(nproc_rem/pdim_AO_, 1)
+                  ENDIF
                   count = count + 1
                ENDDO
+               pdim_AO = pdim_AO_
 
                pdims = [pdims_RI(1), nproc_rem/pdim_AO, pdim_AO]
 
