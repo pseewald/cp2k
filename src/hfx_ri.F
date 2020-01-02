@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2020  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -793,17 +793,17 @@ CONTAINS
             pdims(:) = 0
 
             CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid, &
-                                      tensor_dims=[SIZE(ri_data%bsizes_RI), &
+                                      tensor_dims=[SIZE(ri_data%bsizes_RI_fit), &
                                                    (homo(ispin) - 1)/ri_data%n_mem + 1, &
-                                                   SIZE(ri_data%bsizes_AO)])
+                                                   SIZE(ri_data%bsizes_AO_fit)])
             CALL create_3c_tensor(ri_data%t_3c_int_mo(ispin, 1, 1), dist1, dist2, dist3, pgrid, &
-                                  ri_data%bsizes_RI, mo_bsizes, ri_data%bsizes_AO, &
+                                  ri_data%bsizes_RI_fit, mo_bsizes, ri_data%bsizes_AO_fit, &
                                   [1], [2, 3], "(RI | MO AO)")
 
             DEALLOCATE (dist1, dist2, dist3)
 
             CALL create_3c_tensor(ri_data%t_3c_ctr_KS(ispin, 1, 1), dist1, dist2, dist3, pgrid, &
-                                  ri_data%bsizes_RI, mo_bsizes, ri_data%bsizes_AO, &
+                                  ri_data%bsizes_RI_fit, mo_bsizes, ri_data%bsizes_AO_fit, &
                                   [1, 2], [3], "(RI MO | AO)")
             DEALLOCATE (dist1, dist2, dist3)
             CALL dbcsr_t_pgrid_destroy(pgrid)

@@ -85,6 +85,7 @@ MODULE hfx_types
                                               distribution_3d_create,&
                                               distribution_3d_destroy,&
                                               distribution_3d_type,&
+                                              libcusmm_maxblocksize,&
                                               split_block_sizes
    USE string_utilities,                ONLY: compress
    USE t_c_g0,                          ONLY: free_C0
@@ -392,7 +393,7 @@ MODULE hfx_types
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist4_AO_1, dist4_AO_2, dist4_RI
 
       ! block sizes for RI and AO tensor dimensions (split)
-      INTEGER, DIMENSION(:), ALLOCATABLE :: bsizes_RI, bsizes_AO, bsizes_RI_split, bsizes_AO_split
+      INTEGER, DIMENSION(:), ALLOCATABLE :: bsizes_RI, bsizes_AO, bsizes_RI_split, bsizes_AO_split, bsizes_RI_fit, bsizes_AO_fit
 
       ! Note: changed static DIMENSION(1,1) of dbcsr_t_type to allocatables as workaround for gfortran 8.3.0,
       ! with static dimension gfortran gets stuck during compilation
@@ -1271,7 +1272,9 @@ CONTAINS
       ! initialize tensors expressed in basis representation
 
       CALL split_block_sizes(ri_data%bsizes_AO, ri_data%bsizes_AO_split, ri_data%max_bsize_AO)
+      CALL split_block_sizes(ri_data%bsizes_AO, ri_data%bsizes_AO_fit, libcusmm_maxblocksize)
       CALL split_block_sizes(ri_data%bsizes_RI, ri_data%bsizes_RI_split, ri_data%max_bsize_RI)
+      CALL split_block_sizes(ri_data%bsizes_RI, ri_data%bsizes_RI_fit, libcusmm_maxblocksize)
 
       IF (ri_data%flavor == ri_pmat) THEN
          ALLOCATE (ri_data%t_3c_int_ctr_1(1, 1))
@@ -1297,7 +1300,7 @@ CONTAINS
          pdims_2d = 0
          CALL dbcsr_t_pgrid_create(para_env%group, pdims_2d, pgrid_2d)
 
-         CALL create_2c_tensor(ri_data%t_2c_int(1, 1), dist1, dist2, pgrid_2d, ri_data%bsizes_RI, ri_data%bsizes_RI, &
+         CALL create_2c_tensor(ri_data%t_2c_int(1, 1), dist1, dist2, pgrid_2d, ri_data%bsizes_RI_fit, ri_data%bsizes_RI_fit, &
                                name="(RI | RI)")
          CALL dbcsr_t_pgrid_destroy(pgrid_2d)
 

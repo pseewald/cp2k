@@ -46,6 +46,9 @@ MODULE qs_tensors_types
 
    INTEGER, PARAMETER, PUBLIC :: symmetric_none = 0, symmetric_ij = 1, symmetric_jk = 2, symmetrik_ik = 3, symmetric_ijk = 4
 
+   INTEGER, PARAMETER, PUBLIC :: libcusmm_maxblocksize = 45
+   !! upper limit for block sizes still covered by lib cusmm
+
    TYPE distribution_3d_type
       TYPE(distribution_2d_type), POINTER :: dist_2d_1 => NULL(), dist_2d_2 => NULL()
       INTEGER :: comm_3d, comm_2d_1, comm_2d_2
