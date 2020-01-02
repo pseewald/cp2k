@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2020  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -108,12 +108,12 @@ MODULE mp2_integrals
    USE qs_tensors,                      ONLY: build_3c_integrals,&
                                               build_3c_neighbor_lists,&
                                               contiguous_tensor_dist,&
-                                              neighbor_list_3c_destroy
+                                              neighbor_list_3c_destroy,&
+                                              pgf_block_sizes
    USE qs_tensors_types,                ONLY: cyclic_tensor_dist,&
                                               distribution_3d_create,&
                                               distribution_3d_type,&
-                                              neighbor_list_3c_type,&
-                                              split_block_sizes
+                                              neighbor_list_3c_type
    USE rpa_communication,               ONLY: communicate_buffer
    USE task_list_types,                 ONLY: task_list_type
    USE util,                            ONLY: get_limit
@@ -273,13 +273,13 @@ CONTAINS
 
       INTEGER :: color_sub_3c, cut_memory, cut_RI, eri_method, gw_corr_lev_total, handle, handle2, &
          handle4, i, i_counter, itmp(2), j, LLL, max_row_col_local, max_row_col_local_beta, &
-         max_row_col_local_gw, max_row_col_local_occ_bse, max_row_col_local_virt_bse, &
+         max_row_col_local_gw, max_row_col_local_occ_bse, max_row_col_local_virt_bse, min_bsize, &
          my_B_all_end, my_B_all_size, my_B_all_start, my_B_occ_bse_end, my_B_occ_bse_size, &
          my_B_occ_bse_start, my_B_size, my_B_size_beta, my_B_virt_bse_end, my_B_virt_bse_size, &
          my_B_virt_bse_start, my_B_virtual_end, my_B_virtual_end_beta, my_B_virtual_start, &
-         my_B_virtual_start_beta, my_group_L_end, my_group_L_size, my_group_L_start, natom, ngroup
-      INTEGER :: ngroup_im_time, ngroup_im_time_P, nimg, nkind, num_diff_blk, num_small_eigen, &
-         potential_type, ri_metric_type, sqrt_max_bsize, virtual, virtual_beta
+         my_B_virtual_start_beta, my_group_L_end, my_group_L_size, my_group_L_start, natom
+      INTEGER :: ngroup, ngroup_im_time, ngroup_im_time_P, nimg, nkind, num_diff_blk, &
+         num_small_eigen, potential_type, ri_metric_type, virtual, virtual_beta
       INTEGER, ALLOCATABLE, DIMENSION(:) :: local_atoms_for_mao_basis, my_group_L_ends_im_time, &
          my_group_L_sizes_im_time, my_group_L_starts_im_time, sizes_AO, sizes_AO_split, sizes_RI, &
          sizes_RI_split, sub_proc_map
@@ -831,10 +831,12 @@ CONTAINS
             CALL dbcsr_t_destroy(t_3c_overl_int_template)
 
             ! split blocks to improve load balancing for tensor contraction
-            sqrt_max_bsize = qs_env%mp2_env%ri_rpa_im_time%max_bsize_sqrt
+            min_bsize = qs_env%mp2_env%ri_rpa_im_time%min_bsize
 
-            CALL split_block_sizes(sizes_AO, sizes_AO_split, sqrt_max_bsize)
-            CALL split_block_sizes(sizes_RI, sizes_RI_split, sqrt_max_bsize)
+            CALL pgf_block_sizes(qs_env, basis_set_ao, min_bsize, sizes_AO_split)
+            CALL pgf_block_sizes(qs_env, basis_set_ri_aux, min_bsize, sizes_RI_split)
+            !CALL split_block_sizes(sizes_AO, sizes_AO_split, sqrt_max_bsize)
+            !CALL split_block_sizes(sizes_RI, sizes_RI_split, sqrt_max_bsize)
 
             IF (.NOT. impose_split) THEN
                pdims_t3c = 0

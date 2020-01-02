@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2020  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -333,8 +333,8 @@ CONTAINS
 
       CALL section_vals_val_get(mp2_section, "IM_TIME%DO_DBCSR_T", &
                                 l_val=mp2_env%ri_rpa_im_time%do_dbcsr_t)
-      CALL section_vals_val_get(mp2_section, "IM_TIME%MAX_BLOCK_SIZE_SQRT", &
-                                i_val=mp2_env%ri_rpa_im_time%max_bsize_sqrt)
+      CALL section_vals_val_get(mp2_section, "IM_TIME%MIN_BLOCK_SIZE", &
+                                i_val=mp2_env%ri_rpa_im_time%min_bsize)
       CALL section_vals_val_get(mp2_section, "IM_TIME%GROUP_SIZE_INTERNAL", &
                                 l_val=mp2_env%ri_rpa_im_time%group_size_internal)
 

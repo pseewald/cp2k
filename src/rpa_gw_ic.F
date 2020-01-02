@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2020  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -33,7 +33,7 @@ MODULE rpa_gw_ic
         dbcsr_type_no_symmetry, dbcsr_type_real_default
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_create, &
-        dbcsr_t_destroy, dbcsr_t_get_block, dbcsr_t_iterator_blocks_left, &
+        dbcsr_t_destroy, dbcsr_t_get_block, dbcsr_t_get_info, dbcsr_t_iterator_blocks_left, &
         dbcsr_t_iterator_next_block, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, &
         dbcsr_t_iterator_type, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, &
         dbcsr_t_type
@@ -44,8 +44,7 @@ MODULE rpa_gw_ic
    USE mp2_types,                       ONLY: integ_mat_buffer_type,&
                                               mp2_type
    USE physcon,                         ONLY: evolt
-   USE qs_tensors_types,                ONLY: create_2c_tensor,&
-                                              split_block_sizes
+   USE qs_tensors_types,                ONLY: create_2c_tensor
    USE rpa_communication,               ONLY: communicate_buffer
 #include "./base/base_uses.f90"
 
@@ -115,10 +114,9 @@ CONTAINS
 
       CHARACTER(4)                                       :: occ_virt
       INTEGER                                            :: handle, mo_end, mo_start, n_level_gw, &
-                                                            n_level_gw_ref, sc_iter, sqrt_max_bsize
+                                                            n_level_gw_ref, sc_iter
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_1, dist_2, sizes_RI_split
       INTEGER, DIMENSION(2)                              :: pdims
-      INTEGER, DIMENSION(:), POINTER                     :: sizes_RI
       LOGICAL                                            :: do_closed_shell, do_neaton, my_do_alpha, &
                                                             my_do_beta
       REAL(KIND=dp)                                      :: alpha, old_energy
@@ -165,10 +163,7 @@ CONTAINS
             mo_end = homo + gw_corr_lev_virt
             CPASSERT(mo_end - mo_start + 1 == gw_corr_lev_tot)
 
-            sqrt_max_bsize = mp2_env%ri_rpa_im_time%max_bsize_sqrt
-            CALL dbcsr_get_info(mat_SinvVSinv%matrix, row_blk_size=sizes_RI)
-            CALL split_block_sizes(sizes_RI, sizes_RI_split, sqrt_max_bsize)
-
+            CALL dbcsr_t_get_info(t_3c_overl_nnP_ic_reflected, blk_size_1=sizes_RI_split)
             CALL dbcsr_t_create(mat_SinvVSinv%matrix, t_SinvVSinv_tmp)
             CALL dbcsr_t_copy_matrix_to_tensor(mat_SinvVSinv%matrix, t_SinvVSinv_tmp)
             pdims = 0

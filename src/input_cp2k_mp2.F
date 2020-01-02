@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------------------------------!
 !   CP2K: A general program to perform molecular dynamics simulations                              !
-!   Copyright (C) 2000 - 2019  CP2K developers group                                               !
+!   Copyright (C) 2000 - 2020  CP2K developers group                                               !
 !--------------------------------------------------------------------------------------------------!
 
 ! **************************************************************************************************
@@ -1413,11 +1413,9 @@ CONTAINS
 
       CALL keyword_create( &
          keyword, __LOCATION__, &
-         name="MAX_BLOCK_SIZE_SQRT", &
-         description="Square root of maximum block size for splitting blocks of matrix representation of large tensors "// &
-         "along the combined dimension. "// &
-         "Atomic blocks are split in order to allow for better load balance.", &
-         default_i_val=10)
+         name="MIN_BLOCK_SIZE", &
+         description="Minimum tensor block size.", &
+         default_i_val=3)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
