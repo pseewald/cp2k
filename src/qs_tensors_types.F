@@ -161,7 +161,10 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       INTEGER, INTENT(IN)                                :: mp_comm_2d
 
-      INTEGER                                            :: iatom, ikind, n, natom, nproc
+      CHARACTER(len=*), PARAMETER :: routineN = 'distribution_2d_create', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, iatom, ikind, n, natom, nproc
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: nparticle_local_col, nparticle_local_row
       INTEGER, DIMENSION(2)                              :: mp_coor, mp_dims
       INTEGER, DIMENSION(:, :), POINTER                  :: dist1_prv, dist2_prv
@@ -170,6 +173,8 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                    :: para_env
 
       NULLIFY (blacs_env, local_particle_col, local_particle_row, para_env)
+
+      CALL timeset(routineN, handle)
 
       CALL mp_environ(nproc, mp_dims, mp_coor, mp_comm_2d)
       CALL cp_para_env_create(para_env, mp_comm_2d, owns_group=.FALSE.)
@@ -224,6 +229,8 @@ CONTAINS
                                       local_cols_ptr=local_particle_col, blacs_env=blacs_env)
 
       CALL cp_blacs_env_release(blacs_env)
+
+      CALL timestop(handle)
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -290,12 +297,17 @@ CONTAINS
          starts_array_block_2, ends_array_block_2, starts_array_block_3, ends_array_block_3
       CHARACTER(len=*), INTENT(IN)                       :: name
 
-      INTEGER                                            :: imem, nbatches_1, nbatches_2, &
+      CHARACTER(len=*), PARAMETER :: routineN = 'create_3c_tensor', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, imem, nbatches_1, nbatches_2, &
                                                             nbatches_3, size_1, size_2, size_3, &
                                                             size_cut
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       LOGICAL                                            :: mem_aware_1, mem_aware_2, mem_aware_3
       TYPE(dbcsr_t_distribution_type)                    :: dist
+
+      CALL timeset(routineN, handle)
 
       mem_aware_1 = PRESENT(starts_array_block_1) .AND. PRESENT(ends_array_block_1)
       mem_aware_2 = PRESENT(starts_array_block_2) .AND. PRESENT(ends_array_block_2)
@@ -356,6 +368,7 @@ CONTAINS
                           sizes_2, sizes_3)
       CALL dbcsr_t_distribution_destroy(dist)
 
+      CALL timestop(handle)
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -377,9 +390,14 @@ CONTAINS
       INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL        :: order
       CHARACTER(len=*), INTENT(IN)                       :: name
 
-      INTEGER                                            :: size_1, size_2
+      CHARACTER(len=*), PARAMETER :: routineN = 'create_2c_tensor', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: handle, size_1, size_2
       INTEGER, DIMENSION(2)                              :: order_in, pcoord, pdims
       TYPE(dbcsr_t_distribution_type)                    :: dist
+
+      CALL timeset(routineN, handle)
 
       IF (PRESENT(order)) THEN
          order_in = order
@@ -398,10 +416,11 @@ CONTAINS
       CALL cyclic_tensor_dist(size_1, pdims(1), sizes_1, dist_1)
       CALL cyclic_tensor_dist(size_2, pdims(2), sizes_2, dist_2)
 
-      CALL dbcsr_t_distribution_new(dist, pgrid, [order_in(1)], [order_in(2)], dist_1, dist_2)
+      CALL dbcsr_t_distribution_new(dist, pgrid, dist_1, dist_2)
       CALL dbcsr_t_create(t2c, name, dist, [order_in(1)], [order_in(2)], dbcsr_type_real_8, sizes_1, sizes_2)
       CALL dbcsr_t_distribution_destroy(dist)
 
+      CALL timestop(handle)
    END SUBROUTINE
 
 ! **************************************************************************************************

@@ -177,9 +177,10 @@ CONTAINS
          i_cell_R_1_minus_S, i_cell_R_1_minus_T, i_cell_R_2, i_cell_R_2_minus_S_minus_T, i_cell_S, &
          i_cell_T, i_mem, iquad, j, j_mem, jquad, nproc_rem, num_3c_repl, num_cells_dm, pdim_AO, &
          pdim_RI, pdim_RI_, pdim_RI__, unit_nr_2, unit_nr_prv
-      INTEGER(KIND=int_8)                                :: flops_1, flops_1_max, flops_1_max_occ, &
-                                                            flops_1_occ, flops_2, flops_2_max
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_1, dist_2, size_dm_1, size_dm_2
+      INTEGER(KIND=int_8)                                :: flops_1, flops_1_max, flops_1_occ, &
+                                                            flops_2, flops_2_max
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_1, dist_2, size_dm_1, size_dm_2, &
+                                                            size_P
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(2, 1)                           :: ibounds_2, jbounds_2
       INTEGER, DIMENSION(2, 2)                           :: ibounds_1, jbounds_1
@@ -192,12 +193,12 @@ CONTAINS
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: does_mat_P_T_tau_have_blocks
       REAL(KIND=dp)                                      :: omega, omega_old, t1, t2, tau, weight, &
                                                             weight_old
-      TYPE(dbcsr_distribution_type), POINTER             :: dm_dist
+      TYPE(dbcsr_distribution_type)                      :: dm_dist
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: mat_dm_occ_global, mat_dm_virt_global
       TYPE(dbcsr_t_pgrid_type)                           :: pgrid_1_use, pgrid_2_use, pgrid_2d
       TYPE(dbcsr_t_pgrid_type), POINTER                  :: pgrid_1_opt, pgrid_2_opt
       TYPE(dbcsr_t_type)                                 :: t_3c_M_occ, t_3c_M_tmp, t_3c_M_virt, &
-                                                            t_dm, t_dm_tmp, t_P
+                                                            t_dm, t_dm_tmp, t_P, t_P_tmp
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:)      :: t_dm_occ, t_dm_virt
 
       NULLIFY (pgrid_1_opt, pgrid_2_opt)
@@ -221,7 +222,7 @@ CONTAINS
       pgrid_1_init = .FALSE.; pgrid_2_init = .FALSE.
       DO jquad = 1, num_integ_points
 
-         flops_1_max = 0; flops_1_max_occ = 0; flops_2_max = 0
+         flops_1_max = 0; flops_2_max = 0
 
          IF (pgrid_1_init .AND. pgrid_2_init) THEN
             CALL dbcsr_t_mp_environ_pgrid(pgrid_1_use, pdims_1, pcoord)
@@ -280,7 +281,7 @@ CONTAINS
          IF (memory_info) THEN
 
             IF (pgrid_1_init) THEN
-               CALL dbcsr_t_get_info(t_3c_O(1, 1), pdims=pdims, blk_size_2=size_dm_1, blk_size_3=size_dm_2)
+               CALL dbcsr_t_get_info(t_3c_O(1, 1), pdims=pdims)
                IF (unit_nr_prv > 0) THEN
                   WRITE (unit_nr_prv, "(T2,A)") "OPTIMIZED PGRID INFO M = O x D_virt"
                   WRITE (unit_nr_prv, "(T4,A,1X,3I6)") "process grid dimensions:", pdims
@@ -301,14 +302,17 @@ CONTAINS
          CALL timeset(routineN//"_dbcsr_t", handle6)
          ALLOCATE (t_dm_virt(num_cells_dm))
          ALLOCATE (t_dm_occ(num_cells_dm))
-         CALL dbcsr_t_create(mat_P_global%matrix, t_P, name="P (RI | RI)")
          CALL dbcsr_get_info(mat_dm_virt_global(jquad, 1)%matrix, distribution=dm_dist)
          CALL dbcsr_distribution_get(dm_dist, group=comm_2d, nprows=pdims_2d(1), npcols=pdims_2d(2))
 
          pgrid_2d = dbcsr_t_nd_mp_comm(comm_2d, [1], [2], pdims_2d=pdims_2d)
+         CALL dbcsr_t_get_info(t_3c_O(1, 1), blk_size_2=size_dm_1, blk_size_3=size_dm_2)
+         CALL dbcsr_t_get_info(t_3c_M, blk_size_1=size_P)
          CALL create_2c_tensor(t_dm, dist_1, dist_2, pgrid_2d, size_dm_1, size_dm_2, name="D virt (AO | AO)")
-         CALL dbcsr_t_pgrid_destroy(pgrid_2d)
          DEALLOCATE (dist_1, dist_2)
+         CALL create_2c_tensor(t_P, dist_1, dist_2, pgrid_2d, size_P, size_P, name="P (RI | RI)")
+         DEALLOCATE (dist_1, dist_2)
+         CALL dbcsr_t_pgrid_destroy(pgrid_2d)
 
          DO i_cell = 1, num_cells_dm
             CALL dbcsr_t_create(t_dm, t_dm_virt(i_cell), name="D virt (AO | AO)")
@@ -318,9 +322,9 @@ CONTAINS
             CALL dbcsr_clear(mat_dm_virt_global(jquad, i_cell)%matrix)
 
             CALL dbcsr_t_create(t_dm, t_dm_occ(i_cell), name="D occ (AO | AO)")
-            CALL dbcsr_t_create(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_tmp)
             CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_tmp)
             CALL dbcsr_t_copy(t_dm_tmp, t_dm_occ(i_cell), move_data=.TRUE.)
+            CALL dbcsr_t_destroy(t_dm_tmp)
             CALL dbcsr_clear(mat_dm_occ_global(jquad, i_cell)%matrix)
          ENDDO
          CALL dbcsr_t_destroy(t_dm)
@@ -524,8 +528,11 @@ CONTAINS
 
             CALL dbcsr_t_batched_contract_finalize(t_P, unit_nr=unit_nr_prv)
 
-            CALL dbcsr_t_copy_tensor_to_matrix(t_P, mat_P_global%matrix)
+            CALL dbcsr_t_create(mat_P_global%matrix, t_P_tmp)
+            CALL dbcsr_t_copy(t_P, t_P_tmp, move_data=.TRUE.)
             CALL dbcsr_t_clear(t_P)
+            CALL dbcsr_t_copy_tensor_to_matrix(t_P_tmp, mat_P_global%matrix)
+            CALL dbcsr_t_destroy(t_P_tmp)
 
             IF (do_ri_sos_laplace_mp2) THEN
                ! For RI-SOS-Laplace-MP2 we do not perform a cosine transform,

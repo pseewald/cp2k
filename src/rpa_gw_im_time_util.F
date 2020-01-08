@@ -10,7 +10,6 @@
 ! **************************************************************************************************
 MODULE rpa_gw_im_time_util
 
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type
    USE cell_types,                      ONLY: cell_type,&
                                               pbc
    USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr,&
@@ -33,19 +32,16 @@ MODULE rpa_gw_im_time_util
         dbcsr_scale, dbcsr_set, dbcsr_set_diag, dbcsr_type, dbcsr_type_no_symmetry
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_create, &
-        dbcsr_t_destroy, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, &
-        dbcsr_t_type
+        dbcsr_t_destroy, dbcsr_t_get_info, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, &
+        dbcsr_t_pgrid_type, dbcsr_t_type
    USE kinds,                           ONLY: dp
    USE message_passing,                 ONLY: mp_alltoall,&
                                               mp_sum
    USE mp2_types,                       ONLY: integ_mat_buffer_type
-   USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_tensors,                      ONLY: pgf_block_sizes
    USE qs_tensors_types,                ONLY: create_2c_tensor,&
                                               create_3c_tensor,&
                                               cyclic_tensor_dist
@@ -334,8 +330,8 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, icol_global, imo, irow_global, &
-                                                            min_bsize, nkind, npcols, nprows, &
-                                                            size_MO, unit_nr_prv
+                                                            nkind, npcols, nprows, size_MO, &
+                                                            unit_nr_prv
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, dist3, sizes_AO, &
                                                             sizes_AO_split, sizes_MO, sizes_RI, &
                                                             sizes_RI_split
@@ -355,7 +351,6 @@ CONTAINS
                                                             mat_norm, mat_norm_diag, mat_work
       TYPE(dbcsr_type), POINTER                          :: mat_mo_coeff_gw, &
                                                             mat_mo_coeff_gw_reflected
-      TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_ao, basis_set_ri_aux
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
 
@@ -400,16 +395,6 @@ CONTAINS
       ! just remove the blocks which have been set to zero
       CALL dbcsr_filter(mat_mo_coeff_gw, 1.0E-20_dp)
 
-      ALLOCATE (basis_set_ri_aux(nkind), basis_set_ao(nkind))
-      CALL basis_set_list_setup(basis_set_ri_aux, "RI_AUX", qs_kind_set)
-      CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_RI, basis=basis_set_ri_aux)
-      CALL basis_set_list_setup(basis_set_ao, "ORB", qs_kind_set)
-      CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_AO, basis=basis_set_ao)
-
-      min_bsize = qs_env%mp2_env%ri_rpa_im_time%min_bsize
-      CALL pgf_block_sizes(qs_env, basis_set_ao, min_bsize, sizes_AO_split)
-      CALL pgf_block_sizes(qs_env, basis_set_ri_aux, min_bsize, sizes_RI_split)
-
       pdims = 0
 
       ALLOCATE (sizes_MO(nmo))
@@ -419,6 +404,8 @@ CONTAINS
 
       pdims_2d = 0
       CALL dbcsr_t_pgrid_create(para_env%group, pdims_2d, pgrid_2d)
+
+      CALL dbcsr_t_get_info(t_3c_overl_int(1, 1), blk_size_1=sizes_RI_split, blk_size_2=sizes_AO_split)
 
       CALL create_3c_tensor(t_3c_overl_int_ao_ao, dist1, dist2, dist3, pgrid, &
                             sizes_RI_split, sizes_AO_split, sizes_AO, [1, 2], [3], name="(RI AO | AO)")

@@ -852,8 +852,6 @@ CONTAINS
 
             CALL pgf_block_sizes(qs_env, basis_set_ao, min_bsize, sizes_AO_split)
             CALL pgf_block_sizes(qs_env, basis_set_ri_aux, min_bsize, sizes_RI_split)
-            !CALL split_block_sizes(sizes_AO, sizes_AO_split, sqrt_max_bsize)
-            !CALL split_block_sizes(sizes_RI, sizes_RI_split, sqrt_max_bsize)
 
             IF (.NOT. impose_split) THEN
                pdims_t3c = 0
@@ -866,7 +864,8 @@ CONTAINS
                                             starts_array_mc_block, ends_array_mc_block)
 
             CALL create_3c_tensor(t_3c_M, dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_M, &
-                                  sizes_RI_split, sizes_AO_split, sizes_AO_split, [1], [2, 3], &
+                                  sizes_RI_split, sizes_AO_split, sizes_AO_split, &
+                                  map1=[1], map2=[2, 3], &
                                   starts_array_block_2=starts_array_mc_block, &
                                   ends_array_block_2=ends_array_mc_block, &
                                   starts_array_block_3=starts_array_mc_block, &
@@ -874,24 +873,16 @@ CONTAINS
                                   name="M (RI | AO AO)")
 
             DEALLOCATE (dist_RI, dist_AO_1, dist_AO_2)
-            !CALL create_tensor_M_3c(t_3c_M, pgrid_t3c_M, &
-            !                        cut_memory, &
-            !                        sizes_AO_split, sizes_RI_split, starts_array_mc_t, ends_array_mc_t, &
-            !                        starts_array_mc_block, ends_array_mc_block)
 
             CALL dbcsr_t_pgrid_destroy(pgrid_t3c_M)
 
             ALLOCATE (t_3c_O(SIZE(t_3c_overl_int, 1), SIZE(t_3c_overl_int, 2)))
             CALL create_3c_tensor(t_3c_O(1, 1), dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_overl, &
                                   sizes_RI_split, sizes_AO_split, sizes_AO, &
-                                  map1=[1, 2], map2=[2], &
+                                  map1=[1, 2], map2=[3], &
                                   starts_array_block_2=starts_array_mc_block, ends_array_block_2=ends_array_mc_block, &
                                   name="O (RI AO | AO)")
             DEALLOCATE (dist_RI, dist_AO_1, dist_AO_2)
-
-            !CALL create_tensor_O_3c(t_3c_O(1, 1), pgrid_t3c_overl, sizes_AO_split, &
-            !                        sizes_AO, sizes_RI_split, &
-            !                        starts_array_mc_block=starts_array_mc_block, ends_array_mc_block=ends_array_mc_block)
 
             CALL dbcsr_t_pgrid_destroy(pgrid_t3c_overl)
             DO i = 1, SIZE(t_3c_O, 1)
@@ -915,8 +906,7 @@ CONTAINS
             DO i = 1, SIZE(t_3c_overl_int, 1)
                DO j = 1, SIZE(t_3c_overl_int, 2)
 
-                  ! todo: why order needed?
-                  CALL dbcsr_t_copy(t_3c_overl_int(i, j), t_3c_O(i, j), order=[1, 3, 2], move_data=.FALSE.)
+                  CALL dbcsr_t_copy(t_3c_overl_int(i, j), t_3c_O(i, j), move_data=.FALSE.)
                   CALL dbcsr_t_filter(t_3c_O(i, j), qs_env%mp2_env%mp2_gpw%eps_filter)
                ENDDO
             ENDDO
