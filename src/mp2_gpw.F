@@ -166,7 +166,9 @@ CONTAINS
          gw_corr_lev_occ_beta, gw_corr_lev_virt, gw_corr_lev_virt_beta, handle, homo, homo_beta, &
          i, local_unit_nr, my_group_L_end, my_group_L_size, my_group_L_start, nelectron, &
          nelectron_beta, nmo, nspins, potential_type, ri_metric_type
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ends_array_mc_t, starts_array_mc_t
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ends_array_mc_block, ends_array_mc_t, &
+                                                            starts_array_mc_block, &
+                                                            starts_array_mc_t
       LOGICAL :: blacs_repeatable, do_bse, do_dbcsr_t, do_gpw, do_im_time, do_kpoints_cubic_RPA, &
          do_mao, my_do_gw, my_do_ri_mp2, my_do_ri_rpa, my_do_ri_sos_laplace_mp2
       REAL(KIND=dp) :: Emp2_AB, Emp2_BB, Emp2_Cou_BB, Emp2_d2_AB, Emp2_d_AB, Emp2_EX_BB, &
@@ -453,7 +455,8 @@ CONTAINS
                mo_coeff_o, mo_coeff_v, mo_coeff_all, mo_coeff_gw, &
                mp2_env%mp2_gpw%eps_filter, unit_nr, &
                mp2_env%mp2_memory, mp2_env%calc_PQ_cond_num, calc_forces, blacs_env_sub, my_do_gw .AND. .NOT. do_im_time, &
-               do_bse, gd_B_all, starts_array_mc_t, ends_array_mc_t, gw_corr_lev_occ, gw_corr_lev_virt, &
+               do_bse, gd_B_all, starts_array_mc_t, ends_array_mc_t, starts_array_mc_block, ends_array_mc_block, &
+               gw_corr_lev_occ, gw_corr_lev_virt, &
                do_im_time, do_mao, do_kpoints_cubic_RPA, kpoints, &
                mat_3c_overl_int, do_dbcsr_t, t_3c_overl_int, t_3c_M, t_3c_O, &
                mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
@@ -473,6 +476,7 @@ CONTAINS
                                        mp2_env%mp2_memory, mp2_env%calc_PQ_cond_num, calc_forces, &
                                        blacs_env_sub, my_do_gw .AND. .NOT. do_im_time, do_bse, gd_B_all, &
                                        starts_array_mc_t, ends_array_mc_t, &
+                                       starts_array_mc_block, ends_array_mc_block, &
                                        gw_corr_lev_occ, gw_corr_lev_virt, &
                                        do_im_time, do_mao, do_kpoints_cubic_RPA, kpoints, &
                                        mat_3c_overl_int, do_dbcsr_t, t_3c_overl_int, t_3c_M, t_3c_O, mat_3c_overl_int_mao_for_occ, &
@@ -640,8 +644,9 @@ CONTAINS
                                    mao_coeff_occ, mao_coeff_virt, mao_coeff_occ_A, mao_coeff_virt_A, &
                                    mat_munu, mat_dm_occ_local, mat_dm_virt_local, &
                                    mat_P_local, mat_P_global, mat_M, &
-                                   mat_3c_overl_int, do_dbcsr_t, t_3c_overl_int, t_3c_M, t_3c_O, starts_array_mc_t, &
-                                   ends_array_mc_t, &
+                                   mat_3c_overl_int, do_dbcsr_t, t_3c_overl_int, t_3c_M, t_3c_O, &
+                                   starts_array_mc_t, ends_array_mc_t, &
+                                   starts_array_mc_block, ends_array_mc_block, &
                                    mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
                                    mp2_env%mp2_gpw%eps_filter, BIb_C_beta, homo_beta, Eigenval_beta, &
                                    gd_B_virtual_beta, &
@@ -663,6 +668,7 @@ CONTAINS
                                    mat_P_local, mat_P_global, mat_M, &
                                    mat_3c_overl_int, do_dbcsr_t, t_3c_overl_int, t_3c_M, t_3c_O, &
                                    starts_array_mc_t, ends_array_mc_t, &
+                                   starts_array_mc_block, ends_array_mc_block, &
                                    mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
                                    mp2_env%mp2_gpw%eps_filter)
 

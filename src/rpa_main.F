@@ -156,6 +156,8 @@ CONTAINS
 !> \param t_3c_O ...
 !> \param starts_array_mc_t ...
 !> \param ends_array_mc_t ...
+!> \param starts_array_mc_block ...
+!> \param ends_array_mc_block ...
 !> \param mat_3c_overl_int_mao_for_occ ...
 !> \param mat_3c_overl_int_mao_for_virt ...
 !> \param eps_filter ...
@@ -179,6 +181,7 @@ CONTAINS
                                 mat_P_local, mat_P_global, &
                                 mat_M, mat_3c_overl_int, do_dbcsr_t, t_3c_overl_int, t_3c_M, t_3c_O, &
                                 starts_array_mc_t, ends_array_mc_t, &
+                                starts_array_mc_block, ends_array_mc_block, &
                                 mat_3c_overl_int_mao_for_occ, &
                                 mat_3c_overl_int_mao_for_virt, &
                                 eps_filter, BIb_C_beta, homo_beta, Eigenval_beta, &
@@ -214,7 +217,9 @@ CONTAINS
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_overl_int
       TYPE(dbcsr_t_type)                                 :: t_3c_M
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_O
-      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc_t, ends_array_mc_t
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc_t, ends_array_mc_t, &
+                                                            starts_array_mc_block, &
+                                                            ends_array_mc_block
       TYPE(dbcsr_p_type), DIMENSION(:, :, :), POINTER    :: mat_3c_overl_int_mao_for_occ, &
                                                             mat_3c_overl_int_mao_for_virt
       REAL(KIND=dp), INTENT(IN)                          :: eps_filter
@@ -677,6 +682,7 @@ CONTAINS
                           mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
                           do_dbcsr_t, t_3c_overl_int, t_3c_M, t_3c_O, &
                           starts_array_mc_t, ends_array_mc_t, &
+                          starts_array_mc_block, ends_array_mc_block, &
                           matrix_s, &
                           mao_coeff_occ, mao_coeff_virt, kpoints, eps_filter, &
                           gd_array, color_sub, &
@@ -701,6 +707,7 @@ CONTAINS
                           mat_3c_overl_int, mat_3c_overl_int_mao_for_occ, mat_3c_overl_int_mao_for_virt, &
                           do_dbcsr_t, t_3c_overl_int, t_3c_M, t_3c_O, &
                           starts_array_mc_t, ends_array_mc_t, &
+                          starts_array_mc_block, ends_array_mc_block, &
                           matrix_s, &
                           mao_coeff_occ, mao_coeff_virt, kpoints, &
                           eps_filter, gd_array, color_sub, &
@@ -1353,6 +1360,8 @@ CONTAINS
 !> \param t_3c_O ...
 !> \param starts_array_mc_t ...
 !> \param ends_array_mc_t ...
+!> \param starts_array_mc_block ...
+!> \param ends_array_mc_block ...
 !> \param matrix_s ...
 !> \param mao_coeff_occ ...
 !> \param mao_coeff_virt ...
@@ -1389,6 +1398,7 @@ CONTAINS
                           mat_3c_overl_int_mao_for_virt, &
                           do_dbcsr_t, t_3c_overl_int, t_3c_M, t_3c_O, &
                           starts_array_mc_t, ends_array_mc_t, &
+                          starts_array_mc_block, ends_array_mc_block, &
                           matrix_s, mao_coeff_occ, mao_coeff_virt, kpoints, &
                           eps_filter, gd_array, color_sub, &
                           fm_mo_coeff_occ_beta, fm_mo_coeff_virt_beta, &
@@ -1427,7 +1437,9 @@ CONTAINS
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :), &
          INTENT(INOUT)                                   :: t_3c_O
-      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc_t, ends_array_mc_t
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc_t, ends_array_mc_t, &
+                                                            starts_array_mc_block, &
+                                                            ends_array_mc_block
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s, mao_coeff_occ, mao_coeff_virt
       TYPE(kpoint_type), POINTER                         :: kpoints
       REAL(KIND=dp), INTENT(IN)                          :: eps_filter
@@ -1837,6 +1849,7 @@ CONTAINS
                                      mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut, &
                                      do_dbcsr_t, t_3c_M, t_3c_O, &
                                      starts_array_mc_t, ends_array_mc_t, &
+                                     starts_array_mc_block, ends_array_mc_block, &
                                      mat_dm_loc_occ_cut, mat_dm_loc_virt_cut, &
                                      weights_cos_tf_t_to_w, tj, tau_tj, e_fermi, eps_filter, alpha, &
                                      eps_filter_im_time, Eigenval, nmo, n_group_col, &
@@ -1872,6 +1885,7 @@ CONTAINS
                                            mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut, &
                                            do_dbcsr_t, t_3c_M, t_3c_O, &
                                            starts_array_mc_t, ends_array_mc_t, &
+                                           starts_array_mc_block, ends_array_mc_block, &
                                            mat_dm_loc_occ_cut, mat_dm_loc_virt_cut, &
                                            weights_cos_tf_t_to_w, tj, tau_tj, e_fermi_beta, eps_filter, alpha, &
                                            eps_filter_im_time, Eigenval_beta, nmo, n_group_col, &
@@ -1901,6 +1915,7 @@ CONTAINS
                                            mat_3c_overl_int_mao_for_occ_cut, mat_3c_overl_int_mao_for_virt_cut, &
                                            do_dbcsr_t, t_3c_M, t_3c_O, &
                                            starts_array_mc_t, ends_array_mc_t, &
+                                           starts_array_mc_block, ends_array_mc_block, &
                                            mat_dm_loc_occ_cut, mat_dm_loc_virt_cut, &
                                            weights_cos_tf_t_to_w, tj, tau_tj, e_fermi_beta, eps_filter, alpha, &
                                            eps_filter_im_time, Eigenval_beta, nmo, n_group_col, &

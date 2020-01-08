@@ -407,19 +407,19 @@ CONTAINS
       CALL dbcsr_t_pgrid_create(para_env%group, pdims_2d, pgrid_2d)
 
       CALL create_3c_tensor(t_3c_overl_int_ao_ao, dist1, dist2, dist3, pgrid, &
-                            sizes_RI_split, sizes_AO_split, sizes_AO, [1, 2], [3], "(RI AO | AO)")
+                            sizes_RI_split, sizes_AO_split, sizes_AO, [1, 2], [3], name="(RI AO | AO)")
       DEALLOCATE (dist1, dist2, dist3)
       CALL dbcsr_t_copy(t_3c_overl_int(1, 1), t_3c_overl_int_ao_ao)
       CALL create_3c_tensor(t_3c_overl_int_ao_mo, dist1, dist2, dist3, pgrid, &
-                            sizes_RI_split, sizes_AO_split, sizes_MO, [1, 2], [3], "(RI AO | MO)")
+                            sizes_RI_split, sizes_AO_split, sizes_MO, [1, 2], [3], name="(RI AO | MO)")
       DEALLOCATE (dist1, dist2, dist3)
 
       CALL create_3c_tensor(t_3c_overl_int_gw_RI, dist1, dist2, dist3, pgrid, &
-                            sizes_RI, sizes_AO_split, sizes_MO, [1], [2, 3], "(RI | AO MO)")
+                            sizes_RI, sizes_AO_split, sizes_MO, [1], [2, 3], name="(RI | AO MO)")
       DEALLOCATE (dist1, dist2, dist3)
 
       CALL create_3c_tensor(t_3c_overl_int_gw_AO, dist1, dist2, dist3, pgrid, &
-                            sizes_AO, sizes_RI_split, sizes_MO, [1], [2, 3], "(AO | RI MO)")
+                            sizes_AO, sizes_RI_split, sizes_MO, [1], [2, 3], name="(AO | RI MO)")
       DEALLOCATE (dist1, dist2, dist3)
 
       CALL dbcsr_t_pgrid_destroy(pgrid)
@@ -451,14 +451,14 @@ CONTAINS
          CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid_ic)
 
          CALL create_3c_tensor(t_3c_overl_int_mo_ao, dist1, dist2, dist3, pgrid_ic, &
-                               sizes_RI_split, sizes_MO, sizes_AO, [1, 2], [3], "(RI MO | AO)")
+                               sizes_RI_split, sizes_MO, sizes_AO, [1, 2], [3], name="(RI MO | AO)")
          DEALLOCATE (dist1, dist2, dist3)
          CALL create_3c_tensor(t_3c_overl_int_mo_mo, dist1, dist2, dist3, pgrid_ic, &
-                               sizes_RI_split, sizes_MO, sizes_MO, [1, 2], [3], "(RI MO | MO)")
+                               sizes_RI_split, sizes_MO, sizes_MO, [1, 2], [3], name="(RI MO | MO)")
          DEALLOCATE (dist1, dist2, dist3)
          CALL dbcsr_t_create(t_3c_overl_int_mo_mo, t_3c_overl_nnP_ic)
          CALL create_3c_tensor(t_3c_overl_nnP_ic_reflected, dist1, dist2, dist3, pgrid_ic, &
-                               sizes_RI_split, sizes_MO, sizes_MO, [1], [2, 3], "(RI | MO MO)")
+                               sizes_RI_split, sizes_MO, sizes_MO, [1], [2, 3], name="(RI | MO MO)")
          DEALLOCATE (dist1, dist2, dist3)
 
          CALL dbcsr_t_pgrid_destroy(pgrid_ic)
