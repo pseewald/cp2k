@@ -27,10 +27,9 @@ MODULE rpa_im_time
    USE cp_gemm_interface,               ONLY: cp_gemm
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_clear, dbcsr_copy, dbcsr_create, dbcsr_distribution_get, &
-        dbcsr_distribution_type, dbcsr_filter, dbcsr_finalize, dbcsr_get_info, &
-        dbcsr_get_num_blocks, dbcsr_get_occupation, dbcsr_get_stored_coordinates, dbcsr_init_p, &
-        dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
+        dbcsr_add, dbcsr_clear, dbcsr_copy, dbcsr_create, dbcsr_filter, dbcsr_finalize, &
+        dbcsr_get_info, dbcsr_get_num_blocks, dbcsr_get_occupation, dbcsr_get_stored_coordinates, &
+        dbcsr_init_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
         dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, dbcsr_p_type, dbcsr_release_p, &
         dbcsr_reserve_all_blocks, dbcsr_reserve_blocks, dbcsr_scalar, dbcsr_scale, dbcsr_set, &
         dbcsr_type, dbcsr_type_no_symmetry
@@ -38,8 +37,8 @@ MODULE rpa_im_time
         dbcsr_t_batched_contract_finalize, dbcsr_t_batched_contract_init, dbcsr_t_clear, &
         dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
-        dbcsr_t_get_info, dbcsr_t_nd_mp_comm, dbcsr_t_need_contract, dbcsr_t_pgrid_destroy, &
-        dbcsr_t_pgrid_type, dbcsr_t_type, dbcsr_t_write_split_info
+        dbcsr_t_get_info, dbcsr_t_need_contract, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, &
+        dbcsr_t_type, dbcsr_t_write_split_info
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE kpoint_types,                    ONLY: get_kpoint_info,&
@@ -63,7 +62,6 @@ MODULE rpa_im_time
                                               mo_set_type
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
    USE qs_tensors,                      ONLY: tensor_change_pgrid
-   USE qs_tensors_types,                ONLY: create_2c_tensor
    USE rpa_communication,               ONLY: communicate_buffer
 #include "./base/base_uses.f90"
 
@@ -172,14 +170,12 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'compute_mat_P_omega_t', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: comm_2d, handle, handle5, handle6, i, i_cell, i_cell_R_1, i_cell_R_1_minus_S, &
+      INTEGER :: handle, handle5, handle6, i, i_cell, i_cell_R_1, i_cell_R_1_minus_S, &
          i_cell_R_1_minus_T, i_cell_R_2, i_cell_R_2_minus_S_minus_T, i_cell_S, i_cell_T, i_mem, &
          iquad, j, j_mem, jquad, num_3c_repl, num_cells_dm, unit_nr_2, unit_nr_prv
       INTEGER(KIND=int_8)                                :: flops_1_max_occ, flops_1_max_virt, &
                                                             flops_1_occ, flops_1_virt, flops_2, &
                                                             flops_2_max
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_1, dist_2, size_dm, size_P
-      INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(2, 1)                           :: ibounds_2, jbounds_2
       INTEGER, DIMENSION(2, 2)                           :: ibounds_1, jbounds_1
       INTEGER, DIMENSION(3)                              :: bounds_3c, pdims
@@ -190,15 +186,13 @@ CONTAINS
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: does_mat_P_T_tau_have_blocks
       REAL(KIND=dp)                                      :: omega, omega_old, t1, t2, tau, weight, &
                                                             weight_old
-      TYPE(dbcsr_distribution_type)                      :: dist_P
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: mat_dm_occ_global, mat_dm_virt_global
       TYPE(dbcsr_t_pgrid_type)                           :: pgrid_1_use_occ, pgrid_1_use_virt, &
-                                                            pgrid_2_use, pgrid_2d
+                                                            pgrid_2_use
       TYPE(dbcsr_t_pgrid_type), POINTER                  :: pgrid_1_opt_occ, pgrid_1_opt_virt, &
                                                             pgrid_2_opt
       TYPE(dbcsr_t_type)                                 :: t_3c_M_occ, t_3c_M_occ_tmp, t_3c_M_virt, &
-                                                            t_3c_M_virt_tmp, t_dm, t_dm_tmp, t_P, &
-                                                            t_P_tmp
+                                                            t_3c_M_virt_tmp, t_P
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:)      :: t_dm_occ, t_dm_virt
       TYPE(dbcsr_t_type), &
          DIMENSION(SIZE(t_3c_O, 1), SIZE(t_3c_O, 2))     :: t_3c_O_occ, t_3c_O_virt
@@ -316,32 +310,15 @@ CONTAINS
          CALL timeset(routineN//"_dbcsr_t", handle6)
          ALLOCATE (t_dm_virt(num_cells_dm))
          ALLOCATE (t_dm_occ(num_cells_dm))
-         CALL dbcsr_get_info(mat_P_global%matrix, distribution=dist_P)
-         CALL dbcsr_distribution_get(dist_P, group=comm_2d, nprows=pdims_2d(1), npcols=pdims_2d(2))
-
-         pgrid_2d = dbcsr_t_nd_mp_comm(comm_2d, [1], [2], pdims_2d=pdims_2d)
-         CALL dbcsr_t_get_info(t_3c_M, blk_size_1=size_P)
-         CALL dbcsr_t_get_info(t_3c_O(1, 1), blk_size_3=size_dm)
-         CALL create_2c_tensor(t_dm, dist_1, dist_2, pgrid_2d, size_dm, size_dm, name="D (AO | AO)")
-         DEALLOCATE (dist_1, dist_2)
-         CALL create_2c_tensor(t_P, dist_1, dist_2, pgrid_2d, size_P, size_P, name="P (RI | RI)")
-         DEALLOCATE (dist_1, dist_2)
-         CALL dbcsr_t_pgrid_destroy(pgrid_2d)
-
+         CALL dbcsr_t_create(mat_P_global%matrix, t_P, name="P (RI | RI)")
          DO i_cell = 1, num_cells_dm
-            CALL dbcsr_t_create(t_dm, t_dm_virt(i_cell), name="D virt (AO | AO)")
-            CALL dbcsr_t_create(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_tmp)
-            CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_tmp)
-            CALL dbcsr_t_copy(t_dm_tmp, t_dm_virt(i_cell), move_data=.TRUE.)
+            CALL dbcsr_t_create(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell), name="D virt (AO | AO)")
+            CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell))
             CALL dbcsr_clear(mat_dm_virt_global(jquad, i_cell)%matrix)
-
-            CALL dbcsr_t_create(t_dm, t_dm_occ(i_cell), name="D occ (AO | AO)")
-            CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_tmp)
-            CALL dbcsr_t_copy(t_dm_tmp, t_dm_occ(i_cell), move_data=.TRUE.)
-            CALL dbcsr_t_destroy(t_dm_tmp)
+            CALL dbcsr_t_create(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell), name="D occ (AO | AO)")
+            CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
             CALL dbcsr_clear(mat_dm_occ_global(jquad, i_cell)%matrix)
          ENDDO
-         CALL dbcsr_t_destroy(t_dm)
 
          CALL dbcsr_t_create(t_3c_O_occ(1, 1), t_3c_M_occ_tmp, name="M (RI AO | AO)")
          CALL dbcsr_t_create(t_3c_O_virt(1, 1), t_3c_M_virt_tmp, name="M (RI AO | AO)")
@@ -557,11 +534,8 @@ CONTAINS
 
             CALL dbcsr_t_batched_contract_finalize(t_P, unit_nr=unit_nr_prv)
 
-            CALL dbcsr_t_create(mat_P_global%matrix, t_P_tmp)
-            CALL dbcsr_t_copy(t_P, t_P_tmp, move_data=.TRUE.)
+            CALL dbcsr_t_copy_tensor_to_matrix(t_P, mat_P_global%matrix)
             CALL dbcsr_t_clear(t_P)
-            CALL dbcsr_t_copy_tensor_to_matrix(t_P_tmp, mat_P_global%matrix)
-            CALL dbcsr_t_destroy(t_P_tmp)
 
             IF (do_ri_sos_laplace_mp2) THEN
                ! For RI-SOS-Laplace-MP2 we do not perform a cosine transform,
