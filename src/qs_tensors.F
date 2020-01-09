@@ -1700,13 +1700,12 @@ CONTAINS
                blk_size = 0
             ENDIF
          ENDDO
+         IF (blk_size > 0) THEN
+            blk_count = blk_count + 1
+            pgf_blk_sizes_tmp(blk_count) = pgf_blk_sizes_tmp(blk_count) + blk_size
+            blk_size = 0
+         ENDIF
       ENDDO
-
-      IF (blk_size > 0) THEN
-         blk_count = blk_count + 1
-         pgf_blk_sizes_tmp(blk_count) = pgf_blk_sizes_tmp(blk_count) + blk_size
-         blk_size = 0
-      ENDIF
 
       ALLOCATE (pgf_blk_sizes(blk_count))
       pgf_blk_sizes(:) = pgf_blk_sizes_tmp(:blk_count)
