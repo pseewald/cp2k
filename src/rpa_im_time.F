@@ -178,7 +178,7 @@ CONTAINS
       INTEGER(KIND=int_8)                                :: flops_1_max_occ, flops_1_max_virt, &
                                                             flops_1_occ, flops_1_virt, flops_2, &
                                                             flops_2_max
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_1, dist_2, size_P
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_1, dist_2, size_dm, size_P
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(2, 1)                           :: ibounds_2, jbounds_2
       INTEGER, DIMENSION(2, 2)                           :: ibounds_1, jbounds_1
@@ -197,7 +197,8 @@ CONTAINS
       TYPE(dbcsr_t_pgrid_type), POINTER                  :: pgrid_1_opt_occ, pgrid_1_opt_virt, &
                                                             pgrid_2_opt
       TYPE(dbcsr_t_type)                                 :: t_3c_M_occ, t_3c_M_occ_tmp, t_3c_M_virt, &
-                                                            t_3c_M_virt_tmp, t_P, t_P_tmp
+                                                            t_3c_M_virt_tmp, t_dm, t_dm_tmp, t_P, &
+                                                            t_P_tmp
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:)      :: t_dm_occ, t_dm_virt
       TYPE(dbcsr_t_type), &
          DIMENSION(SIZE(t_3c_O, 1), SIZE(t_3c_O, 2))     :: t_3c_O_occ, t_3c_O_virt
@@ -320,18 +321,28 @@ CONTAINS
 
          pgrid_2d = dbcsr_t_nd_mp_comm(comm_2d, [1], [2], pdims_2d=pdims_2d)
          CALL dbcsr_t_get_info(t_3c_M, blk_size_1=size_P)
+         CALL dbcsr_t_get_info(t_3c_O(1, 1), blk_size_3=size_dm)
+         CALL create_2c_tensor(t_dm, dist_1, dist_2, pgrid_2d, size_dm, size_dm, name="D (AO | AO)")
+         DEALLOCATE (dist_1, dist_2)
          CALL create_2c_tensor(t_P, dist_1, dist_2, pgrid_2d, size_P, size_P, name="P (RI | RI)")
          DEALLOCATE (dist_1, dist_2)
          CALL dbcsr_t_pgrid_destroy(pgrid_2d)
 
          DO i_cell = 1, num_cells_dm
-            CALL dbcsr_t_create(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell), name="D virt (AO | AO)")
-            CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_virt(i_cell))
+            CALL dbcsr_t_create(t_dm, t_dm_virt(i_cell), name="D virt (AO | AO)")
+            CALL dbcsr_t_create(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_tmp)
+            CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_virt_global(jquad, i_cell)%matrix, t_dm_tmp)
+            CALL dbcsr_t_copy(t_dm_tmp, t_dm_virt(i_cell), move_data=.TRUE.)
             CALL dbcsr_clear(mat_dm_virt_global(jquad, i_cell)%matrix)
-            CALL dbcsr_t_create(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell), name="D occ (AO | AO)")
-            CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_occ(i_cell))
+
+            CALL dbcsr_t_create(t_dm, t_dm_occ(i_cell), name="D occ (AO | AO)")
+            CALL dbcsr_t_copy_matrix_to_tensor(mat_dm_occ_global(jquad, i_cell)%matrix, t_dm_tmp)
+            CALL dbcsr_t_copy(t_dm_tmp, t_dm_occ(i_cell), move_data=.TRUE.)
+            CALL dbcsr_t_destroy(t_dm_tmp)
             CALL dbcsr_clear(mat_dm_occ_global(jquad, i_cell)%matrix)
          ENDDO
+         CALL dbcsr_t_destroy(t_dm)
+
          CALL dbcsr_t_create(t_3c_O_occ(1, 1), t_3c_M_occ_tmp, name="M (RI AO | AO)")
          CALL dbcsr_t_create(t_3c_O_virt(1, 1), t_3c_M_virt_tmp, name="M (RI AO | AO)")
          CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ (RI | AO AO)")
@@ -340,6 +351,8 @@ CONTAINS
          DO i_cell_T = 1, num_cells_dm/2 + 1
 
             IF (.NOT. does_mat_P_T_tau_have_blocks(i_cell_T)) CYCLE
+
+            CALL dbcsr_t_batched_contract_init(t_P)
 
             DO j_mem = 1, cut_memory
 
@@ -484,7 +497,7 @@ CONTAINS
                         ENDDO
 
                         CALL timeset(routineN//"_copy_M_virt_t", handle5)
-                        CALL dbcsr_t_copy(t_3c_M_virt_tmp, t_3c_M_virt, order=[1, 2, 3], move_data=.TRUE.)
+                        CALL dbcsr_t_copy(t_3c_M_virt_tmp, t_3c_M_virt, move_data=.TRUE.)
                         CALL dbcsr_t_clear(t_3c_M_virt_tmp)
                         CALL dbcsr_t_filter(t_3c_M_virt, eps_filter)
                         CALL timestop(handle5)
