@@ -289,8 +289,8 @@ CONTAINS
          num_diff_blk, num_small_eigen, potential_type, ri_metric_type, virtual, virtual_beta
       INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_AO_1, dist_AO_2, dist_RI, &
          local_atoms_for_mao_basis, my_group_L_ends_im_time, my_group_L_sizes_im_time, &
-         my_group_L_starts_im_time, sizes_AO, sizes_AO_split, sizes_AO_split_sq, sizes_RI, &
-         sizes_RI_split, sizes_RI_split_sq, sub_proc_map
+         my_group_L_starts_im_time, sizes_AO, sizes_AO_split, sizes_RI, sizes_RI_split, &
+         sub_proc_map
       INTEGER, ALLOCATABLE, DIMENSION(:, :) :: local_col_row_info, local_col_row_info_beta, &
          local_col_row_info_gw, local_col_row_info_occ_bse, local_col_row_info_virt_bse
       INTEGER, DIMENSION(3)                              :: pcoord, pdims, pdims_t3c, periodic
@@ -851,9 +851,7 @@ CONTAINS
             min_bsize = qs_env%mp2_env%ri_rpa_im_time%min_bsize
 
             CALL pgf_block_sizes(qs_env, basis_set_ao, min_bsize, sizes_AO_split)
-            CALL pgf_block_sizes(qs_env, basis_set_ao, min_bsize**2, sizes_AO_split_sq)
             CALL pgf_block_sizes(qs_env, basis_set_ri_aux, min_bsize, sizes_RI_split)
-            CALL pgf_block_sizes(qs_env, basis_set_ri_aux, min_bsize**2, sizes_RI_split_sq)
 
             IF (.NOT. impose_split) THEN
                pdims_t3c = 0
@@ -866,7 +864,7 @@ CONTAINS
                                             starts_array_mc_block, ends_array_mc_block)
 
             CALL create_3c_tensor(t_3c_M, dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_M, &
-                                  sizes_RI_split_sq, sizes_AO_split, sizes_AO_split, &
+                                  sizes_RI_split, sizes_AO_split, sizes_AO_split, &
                                   map1=[1], map2=[2, 3], &
                                   starts_array_block_2=starts_array_mc_block, &
                                   ends_array_block_2=ends_array_mc_block, &
@@ -880,7 +878,7 @@ CONTAINS
 
             ALLOCATE (t_3c_O(SIZE(t_3c_overl_int, 1), SIZE(t_3c_overl_int, 2)))
             CALL create_3c_tensor(t_3c_O(1, 1), dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_overl, &
-                                  sizes_RI_split, sizes_AO_split, sizes_AO_split_sq, &
+                                  sizes_RI_split, sizes_AO_split, sizes_AO_split, &
                                   map1=[1, 2], map2=[3], &
                                   starts_array_block_2=starts_array_mc_block, ends_array_block_2=ends_array_mc_block, &
                                   name="O (RI AO | AO)")

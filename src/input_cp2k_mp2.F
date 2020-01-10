@@ -1415,7 +1415,7 @@ CONTAINS
          keyword, __LOCATION__, &
          name="MIN_BLOCK_SIZE", &
          description="Minimum tensor block size.", &
-         default_i_val=3)
+         default_i_val=10)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
