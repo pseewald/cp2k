@@ -1571,7 +1571,9 @@ CONTAINS
       CALL dbcsr_t_mp_environ_pgrid(pgrid, pdims, pcoord)
       CALL dbcsr_t_mp_environ_pgrid(t_3c%pgrid, pdims_ref, pcoord_ref)
 
-      IF (ALL(pdims == pdims_ref)) RETURN
+      IF (ALL(pdims == pdims_ref)) THEN
+         IF (pgrid%tas_split_info%ngroup == t_3c%pgrid%tas_split_info%ngroup) RETURN
+      ENDIF
 
       CALL timeset(routineN, handle)
 
