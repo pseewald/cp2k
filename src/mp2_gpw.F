@@ -151,7 +151,8 @@ CONTAINS
          gw_corr_lev_virt, gw_corr_lev_virt_beta, handle, homo, homo_beta, local_unit_nr, &
          my_group_L_end, my_group_L_size, my_group_L_start, nelectron, nelectron_beta, nmo, &
          nspins, potential_type, ri_metric_type
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ends_array_mc, starts_array_mc
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ends_array_mc, ends_array_mc_block, &
+                                                            starts_array_mc, starts_array_mc_block
       LOGICAL :: blacs_repeatable, do_bse, do_gpw, do_im_time, do_kpoints_cubic_RPA, my_do_gw, &
          my_do_ri_mp2, my_do_ri_rpa, my_do_ri_sos_laplace_mp2
       REAL(KIND=dp) :: Emp2_AB, Emp2_BB, Emp2_Cou_BB, Emp2_d2_AB, Emp2_d_AB, Emp2_EX_BB, &
@@ -403,7 +404,8 @@ CONTAINS
                mo_coeff_o, mo_coeff_v, mo_coeff_all, mo_coeff_gw, &
                mp2_env%mp2_gpw%eps_filter, unit_nr, &
                mp2_env%mp2_memory, mp2_env%calc_PQ_cond_num, calc_forces, blacs_env_sub, my_do_gw .AND. .NOT. do_im_time, &
-               do_bse, gd_B_all, starts_array_mc, ends_array_mc, gw_corr_lev_occ, gw_corr_lev_virt, &
+               do_bse, gd_B_all, starts_array_mc, ends_array_mc, starts_array_mc_block, ends_array_mc_block, &
+               gw_corr_lev_occ, gw_corr_lev_virt, &
                do_im_time, do_kpoints_cubic_RPA, kpoints, &
                t_3c_overl_int, t_3c_M, t_3c_O, &
                mp2_env%ri_metric, &
@@ -422,6 +424,7 @@ CONTAINS
                                        mp2_env%mp2_memory, mp2_env%calc_PQ_cond_num, calc_forces, &
                                        blacs_env_sub, my_do_gw .AND. .NOT. do_im_time, do_bse, gd_B_all, &
                                        starts_array_mc, ends_array_mc, &
+                                       starts_array_mc_block, ends_array_mc_block, &
                                        gw_corr_lev_occ, gw_corr_lev_virt, &
                                        do_im_time, do_kpoints_cubic_RPA, kpoints, &
                                        t_3c_overl_int, t_3c_M, t_3c_O, &
@@ -551,8 +554,9 @@ CONTAINS
                                    unit_nr, my_do_ri_sos_laplace_mp2, my_do_gw, do_im_time, do_bse, matrix_s, &
                                    mat_munu, &
                                    mat_P_global, &
-                                   t_3c_overl_int, t_3c_M, t_3c_O, starts_array_mc, &
-                                   ends_array_mc, &
+                                   t_3c_overl_int, t_3c_M, t_3c_O, &
+                                   starts_array_mc, ends_array_mc, &
+                                   starts_array_mc_block, ends_array_mc_block, &
                                    mp2_env%mp2_gpw%eps_filter, BIb_C_beta, homo_beta, Eigenval_beta, &
                                    gd_B_virtual_beta, &
                                    mo_coeff_beta, BIb_C_gw_beta, gw_corr_lev_occ_beta, gw_corr_lev_virt_beta)
@@ -572,6 +576,7 @@ CONTAINS
                                    mat_P_global, &
                                    t_3c_overl_int, t_3c_M, t_3c_O, &
                                    starts_array_mc, ends_array_mc, &
+                                   starts_array_mc_block, ends_array_mc_block, &
                                    mp2_env%mp2_gpw%eps_filter)
 
             IF (mp2_env%ri_rpa%do_rse) &

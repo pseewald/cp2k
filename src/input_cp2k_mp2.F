@@ -1259,10 +1259,8 @@ CONTAINS
 
       CALL keyword_create( &
          keyword, __LOCATION__, &
-         name="MAX_BLOCK_SIZE_SQRT", &
-         description="Square root of maximum block size for splitting blocks of matrix representation of large tensors "// &
-         "along the combined dimension. "// &
-         "Atomic blocks are split in order to allow for better load balance.", &
+         name="MIN_BLOCK_SIZE", &
+         description="Minimum tensor block size.", &
          default_i_val=10)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
