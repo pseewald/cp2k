@@ -243,12 +243,10 @@ CONTAINS
       CALL section_vals_val_get(im_time_section, "EXP_KPOINTS", &
                                 r_val=mp2_env%ri_rpa_im_time%exp_kpoints)
 
-      CALL section_vals_val_get(im_time_section, "MAX_BLOCK_SIZE_SQRT", &
-                                i_val=mp2_env%ri_rpa_im_time%max_bsize_sqrt)
-
+      CALL section_vals_val_get(mp2_section, "IM_TIME%MIN_BLOCK_SIZE", &
+                                i_val=mp2_env%ri_rpa_im_time%min_bsize)
       NULLIFY (im_time_test_section)
       im_time_test_section => section_vals_get_subs_vals(im_time_section, "TEST")
-
       CALL section_vals_val_get(im_time_test_section, "_SECTION_PARAMETERS_", &
                                 l_val=mp2_env%ri_rpa_im_time%group_size_internal)
 
