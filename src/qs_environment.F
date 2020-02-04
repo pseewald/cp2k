@@ -23,7 +23,7 @@ MODULE qs_environment
                                               create_ri_aux_basis_set
    USE basis_set_container_types,       ONLY: add_basis_set_to_container
    USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
+                                              gto_basis_set_type, basis_sort_zet
    USE bibliography,                    ONLY: Iannuzzi2006,&
                                               Iannuzzi2007,&
                                               cite_reference
@@ -91,14 +91,15 @@ MODULE qs_environment
                                               xtb_header
    USE hfx_types,                       ONLY: hfx_create
    USE input_constants,                 ONLY: &
-        dispersion_d3, do_et_ddapc, do_method_am1, do_method_dftb, do_method_gapw, &
-        do_method_gapw_xc, do_method_gpw, do_method_lrigpw, do_method_mndo, do_method_mndod, &
-        do_method_ofgpw, do_method_pdg, do_method_pm3, do_method_pm6, do_method_pm6fm, &
-        do_method_pnnl, do_method_rigpw, do_method_rm1, do_method_xtb, do_qmmm_gauss, &
-        do_qmmm_swave, general_roks, kg_tnadd_embed_ri, rel_none, rel_trans_atom, ri_mp2_laplace, &
-        ri_mp2_method_gpw, ri_rpa_method_gpw, vdw_pairpot_dftd3, vdw_pairpot_dftd3bj, wfi_aspc_nr, &
-        wfi_linear_ps_method_nr, wfi_linear_wf_method_nr, wfi_ps_method_nr, &
-        wfi_use_guess_method_nr, xc_vdw_fun_none, xc_vdw_fun_nonloc, xc_vdw_fun_pairpot
+        dispersion_d3, do_et_ddapc, do_method_am1, do_method_dftb, &
+        do_method_gapw, do_method_gapw_xc, do_method_gpw, do_method_lrigpw, do_method_mndo, &
+        do_method_mndod, do_method_ofgpw, do_method_pdg, do_method_pm3, do_method_pm6, &
+        do_method_pm6fm, do_method_pnnl, do_method_rigpw, do_method_rm1, do_method_xtb, &
+        do_qmmm_gauss, do_qmmm_swave, general_roks, kg_tnadd_embed_ri, rel_none, rel_trans_atom, &
+        ri_mp2_laplace, ri_mp2_method_gpw, ri_rpa_method_gpw, vdw_pairpot_dftd3, &
+        vdw_pairpot_dftd3bj, wfi_aspc_nr, wfi_linear_ps_method_nr, wfi_linear_wf_method_nr, &
+        wfi_ps_method_nr, wfi_use_guess_method_nr, xc_vdw_fun_none, xc_vdw_fun_nonloc, &
+        xc_vdw_fun_pairpot
    USE input_section_types,             ONLY: section_vals_get,&
                                               section_vals_get_subs_vals,&
                                               section_vals_type,&
@@ -503,10 +504,10 @@ CONTAINS
       CHARACTER(len=2)                                   :: element_symbol
       INTEGER :: handle, ikind, ispin, iw, lmax_sphere, maxl, maxlgto, maxlgto_lri, maxlppl, &
          maxlppnl, method_id, multiplicity, my_ival, n_ao, n_ao_aux_fit, n_mo_add, natom, &
-         nelectron, ngauss, nkind, output_unit, tnadd_method
+         nelectron, ngauss, nkind, output_unit, sort_basis, tnadd_method
       INTEGER, DIMENSION(2)                              :: n_mo, nelectron_spin
-      LOGICAL :: all_potential_present, be_silent, do_kpoints, e1terms, has_unit_metric, lribas, &
-         mp2_present, orb_gradient, was_present
+      LOGICAL :: all_potential_present, be_silent, do_kpoints, do_wfc_im_time, e1terms, &
+         has_unit_metric, lribas, mp2_present, orb_gradient
       REAL(dp)                                           :: alpha, ccore, ewald_rcut, maxocc, &
                                                             verlet_skin, zeff_correction
       REAL(KIND=dp)                                      :: total_zeff_corr
@@ -558,7 +559,6 @@ CONTAINS
       NULLIFY (logger)
       logger => cp_get_default_logger()
       output_unit = cp_logger_get_default_io_unit(logger)
-      was_present = .FALSE.
 
       be_silent = .FALSE.
       IF (PRESENT(silent)) be_silent = silent
@@ -812,10 +812,21 @@ CONTAINS
          END DO
       END IF
 
-      ! Check if RI_AUX basis (for MP2/RPA) is given, auto-generate if not
       mp2_section => section_vals_get_subs_vals(qs_env%input, "DFT%XC%WF_CORRELATION")
       CALL section_vals_get(mp2_section, explicit=mp2_present)
       IF (mp2_present) THEN
+
+         ! basis should be sorted for imaginary time RPA/GW
+         CALL section_vals_val_get(qs_env%input, "DFT%SORT_BASIS", i_val=sort_basis)
+         CALL section_vals_val_get(qs_env%input, "DFT%XC%WF_CORRELATION%IM_TIME%_SECTION_PARAMETERS_", &
+                                   l_val=do_wfc_im_time)
+
+         IF (do_wfc_im_time .AND. sort_basis /= basis_sort_zet) THEN
+            CALL cp_warn(__LOCATION__, &
+                         "Imaginary time RPA requires SORT_BASIS EXP keyword (in DFT input section) for good performance")
+         ENDIF
+
+         ! Check if RI_AUX basis (for MP2/RPA) is given, auto-generate if not
          CALL mp2_env_create(qs_env%mp2_env)
          CALL get_qs_env(qs_env, mp2_env=mp2_env, nkind=nkind)
          CALL section_vals_val_get(mp2_section, "METHOD", i_val=mp2_env%method)
@@ -832,7 +843,7 @@ CONTAINS
                   CALL cp_warn(__LOCATION__, "Automatic Generation of RI_AUX basis. "// &
                                "This is experimental code.")
                   ! Generate a default basis
-                  CALL create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, dft_control%auto_basis_ri_aux)
+                  CALL create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, dft_control%auto_basis_ri_aux, basis_sort=sort_basis)
                   CALL add_basis_set_to_container(qs_kind%basis_sets, ri_aux_basis_set, "RI_AUX")
                END IF
             END DO
