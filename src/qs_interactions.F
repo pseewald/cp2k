@@ -431,7 +431,10 @@ CONTAINS
                                 kind_radius=kind_radius, &
                                 short_kind_radius=short_radius)
 
+         CALL sort_set_radius_gto_basis_set(orb_basis_set)
+
       END IF
+
 
    END SUBROUTINE init_interaction_radii_orb_basis
 

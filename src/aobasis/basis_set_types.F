@@ -2714,6 +2714,75 @@ CONTAINS
       srules = (REAL(z, dp) - s)/xns(nn)
    END FUNCTION srules
 
+   SUBROUTINE sort_set_radius_gto_basis_set(basis_set)
+      TYPE(gto_basis_set_type), POINTER                  :: basis_set, basis_set_sort
+      INTEGER, DIMENSION(:), ALLOCATABLE :: sort_index, tmp
+      INTEGER :: maxshell, maxpgf, maxco, nset, ncgf
+
+      CPASSERT(ASSOCIATED(basis_set))
+
+      CALL copy_gto_basis_set(basis_set, basis_set_sort)
+
+      bin => basis_set
+      bout => basis_set_sort
+
+      CALL get_gto_basis_set(gto_basis_set=bin, &
+                             nset=nset, &
+                             maxshell=maxshell, &
+                             maxpgf=maxpgf, &
+                             maxco=maxco, &
+                             ncgf=ncgf, &
+                             set_radius=set_radius)
+      ! define new order according to set radius
+      ALLOCATE (sort_index(nset))
+      ALLOCATE (tmp(nset))
+      tmp = set_radius
+      CALL sort(tmp(1:nset), nset, sort_index)
+
+      DEALLOCATE(bout%lmax); ALLOCATE (bout%lmax(nset))
+      bout%lmax = bin%lmax(sort_index)
+      DEALLOCATE(bout%lmin); allocate (bout%lmin(nset))
+      bout%lmin = bin%lmin(sort_index)
+      DEALLOCATE(bout%npgf); allocate (bout%npgf(nset))
+      bout%npgf = bin%npgf(sort_index)
+      DEALLOCATE(bout%nshell); allocate (bout%nshell(nset))
+      bout%nshell = bin%nshell(sort_index)
+      DEALLOCATE(bout%ncgf_set); allocate (bout%ncgf_set(nset))
+      bout%ncgf_set = bin%ncgf_set(sort_index)
+      DEALLOCATE(bout%nsgf_set); allocate (bout%nsgf_set(nset))
+      bout%nsgf_set = bin%nsgf_set(sort_index)
+
+      DEALLOCATE(bout%n); allocate (bout%n(maxshell, nset))
+      bout%n(:, :) = bin%n(:, sort_index)
+      DEALLOCATE(bout%l); allocate (bout%l(maxshell, nset))
+      bout%n(:, :) = bin%n(:, sort_index)
+      DEALLOCATE(bout%zet); allocate (bout%zet(maxpgf, nset))
+      bout%zet(:, :) = bin%zet(:, sort_index)
+
+      DEALLOCATE(bout%gcc); ALLOCATE (bout%gcc(maxpgf, maxshell, nset))
+      bout%gcc(:, :, :) = bin%gcc(:, :, sort_index)
+      DEALLOCATE(bout%set_radius); ALLOCATE (bout%set_radius(nset))
+      bout%set_radius(:) = bin%set_radius(sort_index)
+      DEALLOCATE(bout%pgf_radius); allocate (bout%pgf_radius(maxpgf, nset))
+      bout%pgf_radius(:, :) = bin%pgf_radius(:, sort_index)
+      DEALLOCATE(bout%first_cgf); allocate (bout%first_cgf(maxshell, nset))
+      bout%first_cgf(:, :) = bin%first_cgf(:, sort_index)
+      DEALLOCATE(bout%last_cgf); allocate (bout%last_cgf(maxshell, nset))
+      bout%last_cgf(:, :) = bin%last_cgf(:, sort_index)
+      DEALLOCATE(bout%first_sgf); allocate (bout%first_sgf(maxshell, nset))
+      bout%first_sgf(:, :) = bin%first_sgf(:, sort_index)
+      DEALLOCATE(bout%last_sgf); allocate (bout%last_sgf(maxshell, nset))
+      bout%last_sgf(:, :) = bin%last_sgf(:, sort_index)
+      DEALLOCATE(bout%ncgf_set); allocate (bout%ncgf_set(nset))
+      bout%ncgf_set(:) = bin%ncgf_set(sort_index)
+      DEALLOCATE(bout%nsgf_set); allocate (bout%nsgf_set(nset))
+      bout%nsgf_set(:) = bin%nsgf_set(sort_index)
+
+      CALL deallocate_gto_basis_set(basis_set)
+      basis_set => bout
+
+   END SUBROUTINE
+
 ! **************************************************************************************************
 
 END MODULE basis_set_types
