@@ -31,23 +31,24 @@ MODULE input_cp2k_dft
                                               spline3_pbc_interp
    USE cp_units,                        ONLY: cp_unit_to_cp2k
    USE input_constants,                 ONLY: &
-        atomic_guess, becke_cutoff_element, becke_cutoff_global, broyden_type_1, &
-        broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, broyden_type_2, &
-        broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, casci_canonical, &
-        cdft_alpha_constraint, cdft_beta_constraint, cdft_charge_constraint, &
-        cdft_magnetization_constraint, cholesky_dbcsr, cholesky_inverse, cholesky_off, &
-        cholesky_reduce, cholesky_restore, core_guess, diag_block_davidson, diag_block_krylov, &
-        diag_filter_matrix, diag_ot, diag_standard, dmft_model, do_admm_aux_exch_func_bee, &
-        do_admm_aux_exch_func_default, do_admm_aux_exch_func_none, do_admm_aux_exch_func_opt, &
-        do_admm_aux_exch_func_pbex, do_admm_basis_projection, do_admm_blocked_projection, &
-        do_admm_blocking_purify_full, do_admm_charge_constrained_projection, &
-        do_admm_exch_scaling_merlot, do_admm_exch_scaling_none, do_admm_purify_cauchy, &
-        do_admm_purify_cauchy_subspace, do_admm_purify_mcweeny, do_admm_purify_mo_diag, &
-        do_admm_purify_mo_no_diag, do_admm_purify_none, do_admm_purify_none_dm, do_arnoldi, &
-        do_bch, do_cn, do_ddapc_constraint, do_ddapc_restraint, do_em, do_etrs, do_full_density, &
-        do_gapw_gcs, do_gapw_gct, do_gapw_log, do_loc_both, do_loc_crazy, do_loc_direct, &
-        do_loc_homo, do_loc_jacobi, do_loc_l1_norm_sd, do_loc_lumo, do_loc_max, do_loc_min, &
-        do_loc_none, do_loc_scdm, do_lri_inv, do_lri_inv_auto, do_lri_opt_all, do_lri_opt_coeff, &
+        atomic_guess, becke_cutoff_element, &
+        becke_cutoff_global, broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, &
+        broyden_type_1_ls, broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, &
+        broyden_type_2_ls, casci_canonical, cdft_alpha_constraint, cdft_beta_constraint, &
+        cdft_charge_constraint, cdft_magnetization_constraint, cholesky_dbcsr, cholesky_inverse, &
+        cholesky_off, cholesky_reduce, cholesky_restore, core_guess, diag_block_davidson, &
+        diag_block_krylov, diag_filter_matrix, diag_ot, diag_standard, dmft_model, &
+        do_admm_aux_exch_func_bee, do_admm_aux_exch_func_default, do_admm_aux_exch_func_none, &
+        do_admm_aux_exch_func_opt, do_admm_aux_exch_func_pbex, do_admm_basis_projection, &
+        do_admm_blocked_projection, do_admm_blocking_purify_full, &
+        do_admm_charge_constrained_projection, do_admm_exch_scaling_merlot, &
+        do_admm_exch_scaling_none, do_admm_purify_cauchy, do_admm_purify_cauchy_subspace, &
+        do_admm_purify_mcweeny, do_admm_purify_mo_diag, do_admm_purify_mo_no_diag, &
+        do_admm_purify_none, do_admm_purify_none_dm, do_arnoldi, do_bch, do_cn, &
+        do_ddapc_constraint, do_ddapc_restraint, do_em, do_etrs, do_full_density, do_gapw_gcs, &
+        do_gapw_gct, do_gapw_log, do_loc_both, do_loc_crazy, do_loc_direct, do_loc_homo, &
+        do_loc_jacobi, do_loc_l1_norm_sd, do_loc_lumo, do_loc_max, do_loc_min, do_loc_none, &
+        do_loc_scdm, do_lri_inv, do_lri_inv_auto, do_lri_opt_all, do_lri_opt_coeff, &
         do_lri_opt_exps, do_lri_pseudoinv_diag, do_lri_pseudoinv_svd, do_method_am1, &
         do_method_dftb, do_method_gapw, do_method_gapw_xc, do_method_gpw, do_method_lrigpw, &
         do_method_mndo, do_method_mndod, do_method_ofgpw, do_method_pdg, do_method_pm3, &
@@ -141,6 +142,7 @@ MODULE input_cp2k_dft
    USE qs_mom_types,                    ONLY: create_mom_section
    USE string_utilities,                ONLY: newline,&
                                               s2a
+   USE basis_set_types,                 ONLY: basis_sort_default, basis_sort_radius, basis_sort_zet
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -361,6 +363,18 @@ CONTAINS
                           lone_keyword_l_val=.TRUE.)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, &
+                          name="SORT_BASIS", &
+                          description="Sort basis sets according to a certain criterion.", &
+                          enum_c_vals=s2a("DEFAULT", "RADIUS", "EXP"), &
+                          enum_i_vals=(/basis_sort_default, basis_sort_radius, basis_sort_zet/), &
+                          enum_desc=s2a("don't sort", "sort w.r.t. set radius", "sort w.r.t. exponent"), &
+                          default_i_val=basis_sort_default, &
+                          usage="SORT_BASIS EXP")
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       NULLIFY (subsection)
       CALL create_scf_section(subsection)
       CALL section_add_subsection(section, subsection)
