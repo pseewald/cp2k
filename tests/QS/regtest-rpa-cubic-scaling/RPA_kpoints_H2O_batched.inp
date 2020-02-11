@@ -60,10 +60,6 @@
         &IM_TIME
           MEMORY_CUT 2
           !MEMORY_INFO
-          &TEST
-            GROUP_SIZE_3C 2
-            GROUP_SIZE_P 2
-          &END
           DO_KPOINTS
         &END IM_TIME
         &RI_RPA
