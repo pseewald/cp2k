@@ -136,7 +136,6 @@ CONTAINS
 !> \param matrix_s ...
 !> \param mat_munu ...
 !> \param mat_P_global ...
-!> \param t_3c_overl_int ...
 !> \param t_3c_M ...
 !> \param t_3c_O ...
 !> \param starts_array_mc ...
@@ -161,7 +160,7 @@ CONTAINS
                                 unit_nr, do_ri_sos_laplace_mp2, my_do_gw, do_im_time, do_bse, matrix_s, &
                                 mat_munu, &
                                 mat_P_global, &
-                                t_3c_overl_int, t_3c_M, t_3c_O, &
+                                t_3c_M, t_3c_O, &
                                 starts_array_mc, ends_array_mc, &
                                 starts_array_mc_block, ends_array_mc_block, &
                                 eps_filter, BIb_C_beta, homo_beta, Eigenval_beta, &
@@ -190,7 +189,6 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s
       TYPE(dbcsr_p_type), INTENT(IN)                     :: mat_munu
       TYPE(dbcsr_p_type), INTENT(INOUT)                  :: mat_P_global
-      TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_overl_int
       TYPE(dbcsr_t_type)                                 :: t_3c_M
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_O
       INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc, ends_array_mc, &
@@ -662,7 +660,7 @@ CONTAINS
                           do_im_time, fm_mo_coeff_occ, fm_mo_coeff_virt, mo_coeff, fm_matrix_L_RI_metric, &
                           fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, &
                           mat_munu, mat_P_global, &
-                          t_3c_overl_int, t_3c_M, t_3c_O, &
+                          t_3c_M, t_3c_O, &
                           starts_array_mc, ends_array_mc, &
                           starts_array_mc_block, ends_array_mc_block, &
                           matrix_s, &
@@ -686,7 +684,7 @@ CONTAINS
                           do_im_time, fm_mo_coeff_occ, fm_mo_coeff_virt, mo_coeff, fm_matrix_L_RI_metric, &
                           fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, &
                           mat_munu, mat_P_global, &
-                          t_3c_overl_int, t_3c_M, t_3c_O, &
+                          t_3c_M, t_3c_O, &
                           starts_array_mc, ends_array_mc, &
                           starts_array_mc_block, ends_array_mc_block, &
                           matrix_s, &
@@ -1217,7 +1215,6 @@ CONTAINS
 !> \param fm_scaled_dm_virt_tau ...
 !> \param mat_munu ...
 !> \param mat_P_global ...
-!> \param t_3c_overl_int ...
 !> \param t_3c_M ...
 !> \param t_3c_O ...
 !> \param starts_array_mc ...
@@ -1254,7 +1251,7 @@ CONTAINS
                           fm_mo_coeff_virt, mo_coeff, fm_matrix_L_RI_metric, &
                           fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, mat_munu, &
                           mat_P_global, &
-                          t_3c_overl_int, t_3c_M, t_3c_O, &
+                          t_3c_M, t_3c_O, &
                           starts_array_mc, ends_array_mc, &
                           starts_array_mc_block, ends_array_mc_block, &
                           matrix_s, kpoints, &
@@ -1286,7 +1283,6 @@ CONTAINS
                                                             fm_scaled_dm_virt_tau
       TYPE(dbcsr_p_type), INTENT(IN)                     :: mat_munu
       TYPE(dbcsr_p_type), INTENT(INOUT)                  :: mat_P_global
-      TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_overl_int
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :), &
          INTENT(INOUT)                                   :: t_3c_O
@@ -1464,7 +1460,7 @@ CONTAINS
                                                     mo_coeff, &
                                                     t_3c_overl_int_gw_RI, t_3c_overl_int_gw_AO, &
                                                     t_3c_overl_nnP_ic, t_3c_overl_nnP_ic_reflected, &
-                                                    matrix_s, mat_W, t_3c_overl_int, &
+                                                    matrix_s, mat_W, t_3c_O, &
                                                     qs_env, &
                                                     gw_corr_lev_occ_beta, gw_corr_lev_virt_beta, homo_beta, &
                                                     mo_coeff_beta, &
@@ -1478,7 +1474,7 @@ CONTAINS
                                                     mo_coeff, &
                                                     t_3c_overl_int_gw_RI, t_3c_overl_int_gw_AO, &
                                                     t_3c_overl_nnP_ic, t_3c_overl_nnP_ic_reflected, &
-                                                    matrix_s, mat_W, t_3c_overl_int, qs_env)
+                                                    matrix_s, mat_W, t_3c_O, qs_env)
 
                END IF
 
@@ -2009,7 +2005,7 @@ CONTAINS
                                  wkp_W, cfm_mat_Q, fm_mat_L, fm_mat_RI_global_work, fm_mat_work, &
                                  fm_mo_coeff_occ_scaled, fm_mo_coeff_virt_scaled, mat_dm, mat_L, &
                                  mat_SinvVSinv, mat_P_omega, mat_P_omega_kp, &
-                                 t_3c_overl_int, t_3c_M, t_3c_O, &
+                                 t_3c_M, t_3c_O, &
                                  mat_work, &
                                  fm_mo_coeff_occ_beta, fm_mo_coeff_virt_beta, mat_P_omega_beta)
          ELSE
@@ -2021,7 +2017,7 @@ CONTAINS
                                  wkp_W, cfm_mat_Q, fm_mat_L, fm_mat_RI_global_work, fm_mat_work, &
                                  fm_mo_coeff_occ_scaled, fm_mo_coeff_virt_scaled, mat_dm, mat_L, &
                                  mat_SinvVSinv, mat_P_omega, mat_P_omega_kp, &
-                                 t_3c_overl_int, t_3c_M, t_3c_O, &
+                                 t_3c_M, t_3c_O, &
                                  mat_work)
          END IF
 
