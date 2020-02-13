@@ -1314,6 +1314,7 @@ CONTAINS
          num_3c_repl, num_cells_dm, num_fit_points, num_integ_points_freq, num_points_corr, &
          num_Z_vectors, number_of_rec, number_of_rec_axk, number_of_rec_beta, number_of_send, &
          number_of_send_axk, number_of_send_beta, size_P
+      INTEGER(int_8)                                     :: dbcsr_nflop
       INTEGER, ALLOCATABLE, DIMENSION(:) :: ikp_local, map_rec_size, map_rec_size_axk, &
          map_rec_size_beta, map_send_size, map_send_size_axk, map_send_size_beta, RPA_proc_map
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: index_to_cell_3c, local_size_source, &
@@ -1326,6 +1327,7 @@ CONTAINS
          do_ic_model, do_kpoints_cubic_RPA, do_kpoints_from_Gamma, do_periodic, do_ri_Sigma_x, &
          first_cycle, first_cycle_periodic_correction, my_open_shell, print_ic_values
       LOGICAL, ALLOCATABLE, DIMENSION(:, :, :, :, :)     :: has_mat_P_blocks
+      REAL(dp)                                           :: dbcsr_time
       REAL(KIND=dp) :: a_scaling, alpha, e_axk, e_axk_corr, e_fermi, e_fermi_beta, &
          eps_filter_im_time, eps_min_trans, ext_scaling, fermi_level_offset, my_flop_rate, omega, &
          omega_max_fit, omega_old, stabilize_exp, tau, tau_old
@@ -1612,6 +1614,9 @@ CONTAINS
 
       DO count_ev_sc_GW = 1, iter_ev_sc
 
+         dbcsr_time = 0.0_dp
+         dbcsr_nflop = 0
+
          IF (do_ic_model) CYCLE
 
          ! reset some values, important when doing eigenvalue self-consistent GW
@@ -1637,7 +1642,7 @@ CONTAINS
             tau = 0.0_dp
             tau_old = 0.0_dp
 
-            IF (unit_nr > 0) WRITE (UNIT=unit_nr, FMT="(T3,A,T66,i15)") &
+            IF (unit_nr > 0) WRITE (UNIT=unit_nr, FMT="(/T3,A,T66,i15)") &
                "MEMORY_INFO| Memory cut:", cut_memory
             IF (.NOT. mp2_env%ri_rpa_im_time%group_size_internal) THEN
                IF (unit_nr > 0) WRITE (UNIT=unit_nr, FMT="(T3,A,T66,i15)") &
@@ -1670,7 +1675,8 @@ CONTAINS
                                      num_integ_points, num_integ_points_freq, cut_memory, &
                                      unit_nr, mp2_env, para_env, &
                                      stabilize_exp, qs_env, index_to_cell_3c, cell_to_index_3c, &
-                                     has_mat_P_blocks, do_ri_sos_laplace_mp2)
+                                     has_mat_P_blocks, do_ri_sos_laplace_mp2, &
+                                     dbcsr_time, dbcsr_nflop)
 
             ! the same for open shell, use fm_mo_coeff_occ_beta and fm_mo_coeff_virt_beta
             IF (my_open_shell) THEN
@@ -1692,7 +1698,8 @@ CONTAINS
                                            num_integ_points, num_integ_points_freq, cut_memory, &
                                            unit_nr, mp2_env, para_env, &
                                            stabilize_exp, qs_env, index_to_cell_3c, cell_to_index_3c, &
-                                           has_mat_P_blocks, do_ri_sos_laplace_mp2)
+                                           has_mat_P_blocks, do_ri_sos_laplace_mp2, &
+                                           dbcsr_time, dbcsr_nflop)
                ELSE
                   CALL compute_mat_P_omega(mat_P_omega, fm_scaled_dm_occ_tau, &
                                            fm_scaled_dm_virt_tau, fm_mo_coeff_occ_beta, fm_mo_coeff_virt_beta, &
@@ -1708,7 +1715,8 @@ CONTAINS
                                            num_integ_points, num_integ_points_freq, cut_memory, &
                                            unit_nr, mp2_env, para_env, &
                                            stabilize_exp, qs_env, index_to_cell_3c, cell_to_index_3c, &
-                                           has_mat_P_blocks, do_ri_sos_laplace_mp2)
+                                           has_mat_P_blocks, do_ri_sos_laplace_mp2, &
+                                           dbcsr_time, dbcsr_nflop)
                END IF ! do_ri_sos_laplace_mp2
 
             END IF ! my_open_shell
@@ -1855,7 +1863,17 @@ CONTAINS
             mp2_env%ri_rpa%ener_axk = E_axk
          ENDIF
 
-         IF (.NOT. do_im_time) THEN
+         IF (do_im_time) THEN
+
+            my_flop_rate = REAL(dbcsr_nflop, dp)/(1.0E09_dp*dbcsr_time)
+            IF (unit_nr > 0) WRITE (UNIT=unit_nr, FMT="(T3,A,T73,ES8.2)") &
+               "PERFORMANCE| DBCSR total number of flops:", REAL(dbcsr_nflop*para_env%num_pe, dp)
+            IF (unit_nr > 0) WRITE (UNIT=unit_nr, FMT="(T3,A,T66,F15.2)") &
+               "PERFORMANCE| DBCSR total execution time:", dbcsr_time
+            IF (unit_nr > 0) WRITE (UNIT=unit_nr, FMT="(T3,A,T66,F15.2)") &
+               "PERFORMANCE| DBCSR flop rate (Gflops / MPI rank):", my_flop_rate
+
+         ELSE
 
             IF (para_env_RPA%mepos == 0) my_flop_rate = my_flop_rate/REAL(MAX(my_num_dgemm_call, 1), KIND=dp)/1.0E9_dp
             CALL mp_sum(my_flop_rate, para_env%group)
