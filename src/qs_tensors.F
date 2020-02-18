@@ -1698,10 +1698,12 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT)    :: pgf_blk_sizes
 
       INTEGER                                            :: blk_count, blk_count_prev, blk_size, &
-                                                            iatom, ikind, iset, natom, nblk, nset
+                                                            iatom, ikind, iset, natom, nblk, nset, min_bsize
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of, pgf_blk_sizes_tmp
       INTEGER, DIMENSION(:), POINTER                     :: nsgf_set
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      REAL(dp), POINTER, DIMENSION(:) :: set_radius
+      REAL(dp) :: rad, rad_0
 
       CALL get_qs_env(qs_env, natom=natom, atomic_kind_set=atomic_kind_set)
 
@@ -1722,10 +1724,13 @@ CONTAINS
       DO iatom = 1, natom
          blk_count_prev = blk_count
          ikind = kind_of(iatom)
-         CALL get_gto_basis_set(basis(ikind)%gto_basis_set, nset=nset, nsgf_set=nsgf_set)
+         CALL get_gto_basis_set(basis(ikind)%gto_basis_set, nset=nset, nsgf_set=nsgf_set, set_radius=set_radius)
+         rad_0 = set_radius(nset)
          DO iset = 1, nset
             blk_size = blk_size + nsgf_set(iset)
-            IF (blk_size >= min_blk_size) THEN
+            rad = set_radius(iset)
+            min_bsize = CEILING(REAL(min_blk_size,dp)*(rad_0/rad)**3)
+            IF (blk_size >= min_bsize) THEN
                blk_count = blk_count + 1
                pgf_blk_sizes_tmp(blk_count) = pgf_blk_sizes_tmp(blk_count) + blk_size
                blk_size = 0
