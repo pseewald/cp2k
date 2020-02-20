@@ -83,6 +83,7 @@ CONTAINS
 !> \param matrix_s ...
 !> \param ispin ...
 !> \param t_3c_M ...
+!> \param t_3c_O_store ...
 !> \param t_3c_O ...
 !> \param starts_array_mc ...
 !> \param ends_array_mc ...
@@ -118,7 +119,7 @@ CONTAINS
                                   mat_P_global, &
                                   matrix_s, &
                                   ispin, &
-                                  t_3c_M, t_3c_O, &
+                                  t_3c_M, t_3c_O_store, t_3c_O, &
                                   starts_array_mc, ends_array_mc, &
                                   starts_array_mc_block, ends_array_mc_block, &
                                   weights_cos_tf_t_to_w, &
@@ -136,7 +137,8 @@ CONTAINS
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s
       INTEGER, INTENT(IN)                                :: ispin
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
-      TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t_3c_O
+      TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t_3c_O_store
+      TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_O
       INTEGER, DIMENSION(:), INTENT(IN)                  :: starts_array_mc, ends_array_mc, &
                                                             starts_array_mc_block, &
                                                             ends_array_mc_block
@@ -165,11 +167,11 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'compute_mat_P_omega', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: comm_2d, handle, handle2, handle3, i, i_cell, i_cell_R_1, i_cell_R_1_minus_S, &
+      INTEGER :: comm_2d, handle, handle2, handle3, i_cell, i_cell_R_1, i_cell_R_1_minus_S, &
          i_cell_R_1_minus_T, i_cell_R_2, i_cell_R_2_minus_S_minus_T, i_cell_S, i_cell_T, i_mem, &
-         iquad, j, j_mem, jquad, num_3c_repl, num_cells_dm, unit_nr_2, unit_nr_dbcsr
+         iquad, j_mem, jquad, num_3c_repl, num_cells_dm, unit_nr_2, unit_nr_dbcsr
       INTEGER(int_8)                                     :: nze, nze_dm_occ, nze_dm_virt, nze_M_occ, &
-                                                            nze_M_virt, nze_O
+                                                            nze_M_virt, nze_O, nze_O_store
       INTEGER(KIND=int_8)                                :: flops_1_max_occ, flops_1_max_virt, &
                                                             flops_1_occ, flops_1_virt, flops_2, &
                                                             flops_2_max
@@ -177,13 +179,14 @@ CONTAINS
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(2, 1)                           :: ibounds_2, jbounds_2
       INTEGER, DIMENSION(2, 2)                           :: ibounds_1, jbounds_1
-      INTEGER, DIMENSION(3)                              :: bounds_3c
+      INTEGER, DIMENSION(2, 3)                           :: bounds_3c
+      INTEGER, DIMENSION(3)                              :: bounds_full_3c
       INTEGER, DIMENSION(:, :), POINTER                  :: index_to_cell_dm
       LOGICAL :: do_Gamma_RPA, do_kpoints_cubic_RPA, do_opt_pgrid, first_cycle_im_time, &
          first_cycle_omega_loop, memory_info, pgrid_1_init_occ, pgrid_1_init_virt, pgrid_2_init, &
          R_1_minus_S_needed, R_1_minus_T_needed, R_2_minus_S_minus_T_needed
       REAL(dp)                                           :: occ, occ_dm_occ, occ_dm_virt, occ_M_occ, &
-                                                            occ_M_virt, occ_O, t1_flop
+                                                            occ_M_virt, occ_O, occ_O_store, t1_flop
       REAL(KIND=dp)                                      :: omega, omega_old, t1, t2, tau, weight, &
                                                             weight_old
       TYPE(dbcsr_distribution_type)                      :: dist_P
@@ -193,11 +196,10 @@ CONTAINS
       TYPE(dbcsr_t_pgrid_type), POINTER                  :: pgrid_1_opt_occ, pgrid_1_opt_virt, &
                                                             pgrid_2_opt
       TYPE(dbcsr_t_type)                                 :: t_3c_M_occ, t_3c_M_occ_tmp, t_3c_M_virt, &
-                                                            t_3c_M_virt_tmp, t_dm, t_dm_tmp, t_P, &
+                                                            t_3c_M_virt_tmp, t_3c_O_occ, &
+                                                            t_3c_O_virt, t_dm, t_dm_tmp, t_P, &
                                                             t_P_tmp
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:)      :: t_dm_occ, t_dm_virt
-      TYPE(dbcsr_t_type), &
-         DIMENSION(SIZE(t_3c_O, 1), SIZE(t_3c_O, 2))     :: t_3c_O_occ, t_3c_O_virt
 
       NULLIFY (pgrid_1_opt_occ, pgrid_1_opt_virt, pgrid_2_opt)
 
@@ -216,15 +218,9 @@ CONTAINS
       do_opt_pgrid = qs_env%mp2_env%ri_rpa_im_time%group_size_internal
 
       first_cycle_im_time = .TRUE.
-      DO i = 1, SIZE(t_3c_O, 1)
-         DO j = 1, SIZE(t_3c_O, 2)
-            CALL dbcsr_t_create(t_3c_O(i, j), t_3c_O_occ(i, j))
-            CALL dbcsr_t_copy(t_3c_O(i, j), t_3c_O_occ(i, j))
-            CALL dbcsr_t_create(t_3c_O(i, j), t_3c_O_virt(i, j))
-            CALL dbcsr_t_copy(t_3c_O(i, j), t_3c_O_virt(i, j))
-            !CALL dbcsr_t_clear(t_3c_O(i, j)) ! clearing t_3c_O is not safe because it may be used later
-         ENDDO
-      ENDDO
+
+      CALL dbcsr_t_create(t_3c_O, t_3c_O_occ)
+      CALL dbcsr_t_create(t_3c_O, t_3c_O_virt)
 
       pgrid_1_init_occ = .FALSE.; pgrid_1_init_virt = .FALSE.; pgrid_2_init = .FALSE.
       DO jquad = 1, num_integ_points
@@ -236,28 +232,20 @@ CONTAINS
 
          unit_nr_2 = unit_nr_dbcsr
          IF (pgrid_1_init_occ) THEN
-            DO i = 1, SIZE(t_3c_O, 1)
-               DO j = 1, SIZE(t_3c_O, 2)
-                  CALL tensor_change_pgrid(t_3c_O_occ(i, j), pgrid_1_use_occ, &
-                                           starts_array_mc_block_2=starts_array_mc_block, &
-                                           ends_array_mc_block_2=ends_array_mc_block, &
-                                           unit_nr=unit_nr_2)
-                  unit_nr_2 = 0
-               ENDDO
-            ENDDO
+            CALL tensor_change_pgrid(t_3c_O_occ, pgrid_1_use_occ, &
+                                     starts_array_mc_block_2=starts_array_mc_block, &
+                                     ends_array_mc_block_2=ends_array_mc_block, &
+                                     nodata=.TRUE., unit_nr=unit_nr_2)
+            unit_nr_2 = 0
          ENDIF
 
          unit_nr_2 = unit_nr_dbcsr
          IF (pgrid_1_init_virt) THEN
-            DO i = 1, SIZE(t_3c_O, 1)
-               DO j = 1, SIZE(t_3c_O, 2)
-                  CALL tensor_change_pgrid(t_3c_O_virt(i, j), pgrid_1_use_virt, &
-                                           starts_array_mc_block_2=starts_array_mc_block, &
-                                           ends_array_mc_block_2=ends_array_mc_block, &
-                                           unit_nr=unit_nr_2)
-                  unit_nr_2 = 0
-               ENDDO
-            ENDDO
+            CALL tensor_change_pgrid(t_3c_O_virt, pgrid_1_use_virt, &
+                                     starts_array_mc_block_2=starts_array_mc_block, &
+                                     ends_array_mc_block_2=ends_array_mc_block, &
+                                     nodata=.TRUE., unit_nr=unit_nr_2)
+            unit_nr_2 = 0
          ENDIF
 
          IF (pgrid_2_init) THEN
@@ -285,7 +273,7 @@ CONTAINS
 
          pgrid_2d = dbcsr_t_nd_mp_comm(comm_2d, [1], [2], pdims_2d=pdims_2d)
          CALL dbcsr_t_get_info(t_3c_M, blk_size_1=size_P)
-         CALL dbcsr_t_get_info(t_3c_O(1, 1), blk_size_3=size_dm)
+         CALL dbcsr_t_get_info(t_3c_O, blk_size_3=size_dm)
          CALL create_2c_tensor(t_dm, dist_1, dist_2, pgrid_2d, size_dm, size_dm, name="D (AO | AO)")
          DEALLOCATE (dist_1, dist_2)
          CALL create_2c_tensor(t_P, dist_1, dist_2, pgrid_2d, size_P, size_P, name="P (RI | RI)")
@@ -308,12 +296,12 @@ CONTAINS
 
          CALL get_tensor_occupancy(t_dm_occ(1), 2, nze_dm_occ, occ_dm_occ)
          CALL get_tensor_occupancy(t_dm_virt(1), 2, nze_dm_virt, occ_dm_virt)
-         IF (do_Gamma_RPA) CALL get_tensor_occupancy(t_3c_O(1, 1), 3, nze_O, occ_O)
+         IF (do_Gamma_RPA) CALL get_tensor_occupancy(t_3c_O_store(1, 1), 3, nze_O_store, occ_O_store)
 
          CALL dbcsr_t_destroy(t_dm)
 
-         CALL dbcsr_t_create(t_3c_O_occ(1, 1), t_3c_M_occ_tmp, name="M (RI AO | AO)")
-         CALL dbcsr_t_create(t_3c_O_virt(1, 1), t_3c_M_virt_tmp, name="M (RI AO | AO)")
+         CALL dbcsr_t_create(t_3c_O_occ, t_3c_M_occ_tmp, name="M (RI AO | AO)")
+         CALL dbcsr_t_create(t_3c_O_virt, t_3c_M_virt_tmp, name="M (RI AO | AO)")
          CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ (RI | AO AO)")
          CALL dbcsr_t_create(t_3c_M, t_3c_M_virt, name="M virt (RI | AO AO)")
 
@@ -331,15 +319,17 @@ CONTAINS
             IF (do_Gamma_RPA) THEN
                nze_M_virt = 0
                nze_M_occ = 0
+               nze_O = 0
                occ_M_virt = 0.0_dp
                occ_M_occ = 0.0_dp
+               occ_O = 0.0_dp
             ENDIF
 
             DO j_mem = 1, cut_memory
 
-               CALL dbcsr_t_get_info(t_3c_O_occ(1, 1), nfull_total=bounds_3c)
+               CALL dbcsr_t_get_info(t_3c_O_occ, nfull_total=bounds_full_3c)
 
-               jbounds_1(:, 1) = [1, bounds_3c(1)]
+               jbounds_1(:, 1) = [1, bounds_full_3c(1)]
                jbounds_1(:, 2) = [starts_array_mc(j_mem), ends_array_mc(j_mem)]
 
                jbounds_2(:, 1) = [starts_array_mc(j_mem), ends_array_mc(j_mem)]
@@ -350,26 +340,13 @@ CONTAINS
 
                   IF (.NOT. ANY(has_mat_P_blocks(i_cell_T, i_mem, j_mem, :, :))) CYCLE
 
-                  ibounds_1(:, 1) = [1, bounds_3c(1)]
+                  ibounds_1(:, 1) = [1, bounds_full_3c(1)]
                   ibounds_1(:, 2) = [starts_array_mc(i_mem), ends_array_mc(i_mem)]
 
                   ibounds_2(:, 1) = [starts_array_mc(i_mem), ends_array_mc(i_mem)]
 
                   IF (unit_nr_dbcsr > 0) WRITE (UNIT=unit_nr_dbcsr, FMT="(T3,A,I2,1X,I2)") &
                      "RPA_IM_TIME_INFO| Memory Cut iteration", i_mem, j_mem
-
-                  IF (do_Gamma_RPA) THEN
-                     IF (.NOT. dbcsr_t_need_contract(t_3c_O_occ(1, 1), &
-                                                     t_dm_occ(1), &
-                                                     contract_1=[3], notcontract_1=[1, 2], &
-                                                     contract_2=[2], notcontract_2=[1], &
-                                                     bounds_2=jbounds_1, bounds_3=ibounds_2)) CYCLE
-                     IF (.NOT. dbcsr_t_need_contract(t_3c_O_occ(1, 1), &
-                                                     t_dm_virt(1), &
-                                                     contract_1=[3], notcontract_1=[1, 2], &
-                                                     contract_2=[2], notcontract_2=[1], &
-                                                     bounds_2=ibounds_1, bounds_3=jbounds_2)) CYCLE
-                  ENDIF
 
                   DO i_cell_R_1 = 1, num_3c_repl
 
@@ -385,51 +362,72 @@ CONTAINS
                                                   cell_to_index_3c, index_to_cell_dm, R_1_minus_S_needed, &
                                                   do_kpoints_cubic_RPA)
                            IF (R_1_minus_S_needed) THEN
-                           IF (dbcsr_t_need_contract(t_3c_O_occ(i_cell_R_1_minus_S, i_cell_R_2), &
-                                                     t_dm_occ(i_cell_S), &
-                                                     contract_1=[3], notcontract_1=[1, 2], &
-                                                     contract_2=[2], notcontract_2=[1], &
-                                                     bounds_2=jbounds_1, bounds_3=ibounds_2)) THEN
 
-                              CALL timeset(routineN//"_calc_M_occ_t", handle3)
+                              IF (i_mem == 1 .OR. do_kpoints_cubic_RPA) THEN
+                                 ! copy batch that is needed from 3-center integrals
+                                 CALL timeset(routineN//"_copy_O_occ", handle3)
+                                 bounds_3c(:, 1) = [1, bounds_full_3c(1)]
+                                 bounds_3c(:, 2) = jbounds_1(:, 2)
+                                 bounds_3c(:, 3) = [1, bounds_full_3c(3)]
+                                 CALL dbcsr_t_copy(t_3c_O_store(i_cell_R_1_minus_S, i_cell_R_2), &
+                                                   t_3c_O_occ, &
+                                                   bounds=bounds_3c)
+                                 CALL timestop(handle3)
+                              ENDIF
 
-                              CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), &
-                                                    tensor_1=t_3c_O_occ(i_cell_R_1_minus_S, i_cell_R_2), &
-                                                    tensor_2=t_dm_occ(i_cell_S), &
-                                                    beta=dbcsr_scalar(1.0_dp), &
-                                                    tensor_3=t_3c_M_occ_tmp, &
-                                                    contract_1=[3], notcontract_1=[1, 2], &
-                                                    contract_2=[2], notcontract_2=[1], &
-                                                    map_1=[1, 2], map_2=[3], &
-                                                    bounds_2=jbounds_1, bounds_3=ibounds_2, &
-                                                    pgrid_opt_1=pgrid_1_opt_occ, &
-                                                    filter_eps=eps_filter, unit_nr=unit_nr_dbcsr, &
-                                                    flop=flops_1_occ)
-                              CALL timestop(handle3)
+                              IF (dbcsr_t_need_contract(t_3c_O_occ, &
+                                                        t_dm_occ(i_cell_S), &
+                                                        contract_1=[3], notcontract_1=[1, 2], &
+                                                        contract_2=[2], notcontract_2=[1], &
+                                                        bounds_3=ibounds_2)) THEN
 
-                              dbcsr_nflop = dbcsr_nflop + flops_1_occ
+                                 CALL timeset(routineN//"_calc_M_occ", handle3)
+                                 CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), &
+                                                       tensor_1=t_3c_O_occ, &
+                                                       tensor_2=t_dm_occ(i_cell_S), &
+                                                       beta=dbcsr_scalar(1.0_dp), &
+                                                       tensor_3=t_3c_M_occ_tmp, &
+                                                       contract_1=[3], notcontract_1=[1, 2], &
+                                                       contract_2=[2], notcontract_2=[1], &
+                                                       map_1=[1, 2], map_2=[3], &
+                                                       bounds_3=ibounds_2, &
+                                                       pgrid_opt_1=pgrid_1_opt_occ, &
+                                                       filter_eps=eps_filter, unit_nr=unit_nr_dbcsr, &
+                                                       flop=flops_1_occ)
+                                 CALL timestop(handle3)
 
-                              IF (do_opt_pgrid) THEN
-                                 CPASSERT(ASSOCIATED(pgrid_1_opt_occ))
-                                 IF (flops_1_occ .GT. flops_1_max_occ) THEN
-                                    IF (pgrid_1_init_occ) CALL dbcsr_t_pgrid_destroy(pgrid_1_use_occ)
-                                    pgrid_1_use_occ = pgrid_1_opt_occ
-                                    DEALLOCATE (pgrid_1_opt_occ)
-                                    pgrid_1_init_occ = .TRUE.
-                                    flops_1_max_occ = flops_1_occ
-                                 ELSE
-                                    CALL dbcsr_t_pgrid_destroy(pgrid_1_opt_occ)
-                                    DEALLOCATE (pgrid_1_opt_occ)
+                                 IF (i_mem == 1 .AND. do_Gamma_RPA) THEN
+                                    CALL get_tensor_occupancy(t_3c_O_occ, &
+                                                              3, nze, occ)
+                                    nze_O = nze_O + nze
+                                    occ_O = occ_O + occ
+                                 ENDIF
+
+                                 dbcsr_nflop = dbcsr_nflop + flops_1_occ
+
+                                 IF (do_opt_pgrid) THEN
+                                    CPASSERT(ASSOCIATED(pgrid_1_opt_occ))
+                                    IF (flops_1_occ .GT. flops_1_max_occ) THEN
+                                       IF (pgrid_1_init_occ) CALL dbcsr_t_pgrid_destroy(pgrid_1_use_occ)
+                                       pgrid_1_use_occ = pgrid_1_opt_occ
+                                       DEALLOCATE (pgrid_1_opt_occ)
+                                       pgrid_1_init_occ = .TRUE.
+                                       flops_1_max_occ = flops_1_occ
+                                    ELSE
+                                       CALL dbcsr_t_pgrid_destroy(pgrid_1_opt_occ)
+                                       DEALLOCATE (pgrid_1_opt_occ)
+                                    ENDIF
                                  ENDIF
                               ENDIF
-                           ENDIF
+                              IF (i_mem == cut_memory .OR. do_kpoints_cubic_RPA) &
+                                 CALL dbcsr_t_clear(t_3c_O_occ)
                            ENDIF
                         ENDDO
 
                         ! copy matrix to optimal contraction layout - copy is done manually in order
                         ! to better control memory allocations (we can release data of previous
                         ! representation)
-                        CALL timeset(routineN//"_copy_M_occ_t", handle3)
+                        CALL timeset(routineN//"_copy_M_occ", handle3)
                         CALL dbcsr_t_copy(t_3c_M_occ_tmp, t_3c_M_occ, order=[1, 3, 2], move_data=.TRUE.)
                         CALL dbcsr_t_clear(t_3c_M_occ_tmp)
                         CALL dbcsr_t_filter(t_3c_M_occ, eps_filter)
@@ -448,23 +446,31 @@ CONTAINS
 
                            IF (R_1_minus_T_needed .AND. R_2_minus_S_minus_T_needed) THEN
 
-                              IF (dbcsr_t_need_contract(t_3c_O_virt(i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
+                              CALL timeset(routineN//"_copy_O_virt", handle3)
+                              bounds_3c(:, 1) = [1, bounds_full_3c(1)]
+                              bounds_3c(:, 2) = ibounds_1(:, 2)
+                              bounds_3c(:, 3) = [1, bounds_full_3c(3)]
+                              CALL dbcsr_t_copy(t_3c_O_store(i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
+                                                t_3c_O_virt, &
+                                                bounds=bounds_3c)
+                              CALL timestop(handle3)
+
+                              IF (dbcsr_t_need_contract(t_3c_O_virt, &
                                                         t_dm_virt(i_cell_S), &
                                                         contract_1=[3], notcontract_1=[1, 2], &
                                                         contract_2=[2], notcontract_2=[1], &
-                                                        bounds_2=ibounds_1, bounds_3=jbounds_2)) THEN
+                                                        bounds_3=jbounds_2)) THEN
 
-                                 CALL timeset(routineN//"_calc_M_virt_t", handle3)
+                                 CALL timeset(routineN//"_calc_M_virt", handle3)
                                  CALL dbcsr_t_contract(alpha=dbcsr_scalar(alpha/2.0_dp), &
-                                                       tensor_1=t_3c_O_virt( &
-                                                       i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
+                                                       tensor_1=t_3c_O_virt, &
                                                        tensor_2=t_dm_virt(i_cell_S), &
                                                        beta=dbcsr_scalar(1.0_dp), &
                                                        tensor_3=t_3c_M_virt_tmp, &
                                                        contract_1=[3], notcontract_1=[1, 2], &
                                                        contract_2=[2], notcontract_2=[1], &
                                                        map_1=[1, 2], map_2=[3], &
-                                                       bounds_2=ibounds_1, bounds_3=jbounds_2, &
+                                                       bounds_3=jbounds_2, &
                                                        pgrid_opt_1=pgrid_1_opt_virt, &
                                                        filter_eps=eps_filter, unit_nr=unit_nr_dbcsr, &
                                                        flop=flops_1_virt)
@@ -486,10 +492,12 @@ CONTAINS
                                     ENDIF
                                  ENDIF
                               ENDIF
+
+                              CALL dbcsr_t_clear(t_3c_O_virt)
                            ENDIF
                         ENDDO
 
-                        CALL timeset(routineN//"_copy_M_virt_t", handle3)
+                        CALL timeset(routineN//"_copy_M_virt", handle3)
                         CALL dbcsr_t_copy(t_3c_M_virt_tmp, t_3c_M_virt, move_data=.TRUE.)
                         CALL dbcsr_t_clear(t_3c_M_virt_tmp)
                         CALL dbcsr_t_filter(t_3c_M_virt, eps_filter)
@@ -506,7 +514,7 @@ CONTAINS
                                                   contract_1=[2, 3], notcontract_1=[1], &
                                                   contract_2=[2, 3], notcontract_2=[1])) THEN
 
-                           CALL timeset(routineN//"_calc_P_t", handle3)
+                           CALL timeset(routineN//"_calc_P", handle3)
 
                            CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), tensor_1=t_3c_M_occ, &
                                                  tensor_2=t_3c_M_virt, &
@@ -633,7 +641,9 @@ CONTAINS
                'Occupancy of D virt:', REAL(nze_dm_virt, dp), '/', occ_dm_virt*100, '%'
             IF (do_Gamma_RPA) THEN
                WRITE (unit_nr, '(T6,A,T63,ES7.1,1X,A1,1X,F7.3,A1)') &
-                  'Occupancy of 3c ints:', REAL(nze_O, dp), '/', occ_O*100, '%'
+                  'Occupancy of 3c ints (storage):', REAL(nze_O_store, dp), '/', occ_O_store*100, '%'
+               WRITE (unit_nr, '(T6,A,T63,ES7.1,1X,A1,1X,F7.3,A1)') &
+                  'Occupancy of 3c ints (contraction):', REAL(nze_O, dp), '/', occ_O*100, '%'
                WRITE (unit_nr, '(T6,A,T63,ES7.1,1X,A1,1X,F7.3,A1)') &
                   'Occupancy of M occ:', REAL(nze_M_occ, dp), '/', occ_M_occ*100, '%'
                WRITE (unit_nr, '(T6,A,T63,ES7.1,1X,A1,1X,F7.3,A1)') &
@@ -644,12 +654,8 @@ CONTAINS
 
       END DO ! time points
 
-      DO i = 1, SIZE(t_3c_O, 1)
-         DO j = 1, SIZE(t_3c_O, 2)
-            CALL dbcsr_t_destroy(t_3c_O_occ(i, j))
-            CALL dbcsr_t_destroy(t_3c_O_virt(i, j))
-         ENDDO
-      ENDDO
+      CALL dbcsr_t_destroy(t_3c_O_occ)
+      CALL dbcsr_t_destroy(t_3c_O_virt)
 
       IF (pgrid_1_init_virt) CALL dbcsr_t_pgrid_destroy(pgrid_1_use_virt)
       IF (pgrid_1_init_occ) CALL dbcsr_t_pgrid_destroy(pgrid_1_use_occ)

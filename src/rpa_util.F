@@ -1040,6 +1040,7 @@ CONTAINS
 !> \param mat_P_omega ...
 !> \param mat_P_omega_kp ...
 !> \param t_3c_M ...
+!> \param t_3c_O_store ...
 !> \param t_3c_O ...
 !> \param mat_work ...
 !> \param fm_mo_coeff_occ_beta ...
@@ -1054,7 +1055,7 @@ CONTAINS
                               wkp_W, cfm_mat_Q, fm_mat_L, fm_mat_RI_global_work, fm_mat_work, &
                               fm_mo_coeff_occ_scaled, fm_mo_coeff_virt_scaled, mat_dm, mat_L, &
                               mat_SinvVSinv, mat_P_omega, mat_P_omega_kp, &
-                              t_3c_M, t_3c_O, &
+                              t_3c_M, t_3c_O_store, t_3c_O, &
                               mat_work, &
                               fm_mo_coeff_occ_beta, fm_mo_coeff_virt_beta, mat_P_omega_beta)
 
@@ -1080,7 +1081,8 @@ CONTAINS
       TYPE(dbcsr_p_type), INTENT(INOUT)                  :: mat_dm, mat_L, mat_SinvVSinv
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: mat_P_omega, mat_P_omega_kp
       TYPE(dbcsr_t_type)                                 :: t_3c_M
-      TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_O
+      TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_O_store
+      TYPE(dbcsr_t_type)                                 :: t_3c_O
       TYPE(dbcsr_type), POINTER                          :: mat_work
       TYPE(cp_fm_type), OPTIONAL, POINTER                :: fm_mo_coeff_occ_beta, &
                                                             fm_mo_coeff_virt_beta
@@ -1147,14 +1149,15 @@ CONTAINS
       CALL dbcsr_deallocate_matrix_set(mat_P_omega)
       IF (my_open_shell .AND. do_ri_sos_laplace_mp2) CALL dbcsr_deallocate_matrix_set(mat_P_omega_beta)
 
-      DO i_size = 1, SIZE(t_3c_O, 1)
-         DO j_size = 1, SIZE(t_3c_O, 2)
-            CALL dbcsr_t_destroy(t_3c_O(i_size, j_size))
+      DO i_size = 1, SIZE(t_3c_O_store, 1)
+         DO j_size = 1, SIZE(t_3c_O_store, 2)
+            CALL dbcsr_t_destroy(t_3c_O_store(i_size, j_size))
          ENDDO
       ENDDO
 
-      DEALLOCATE (t_3c_O)
+      DEALLOCATE (t_3c_O_store)
       CALL dbcsr_t_destroy(t_3c_M)
+      CALL dbcsr_t_destroy(t_3c_O)
 
       DEALLOCATE (has_mat_P_blocks)
 

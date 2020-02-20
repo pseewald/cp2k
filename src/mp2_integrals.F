@@ -154,6 +154,7 @@ CONTAINS
 !> \param do_kpoints_cubic_RPA ...
 !> \param kpoints ...
 !> \param t_3c_M ...
+!> \param t_3c_O_store ...
 !> \param t_3c_O ...
 !> \param ri_metric ...
 !> \param gd_B_occ_bse ...
@@ -180,7 +181,7 @@ CONTAINS
                                     starts_array_mc_block, ends_array_mc_block, &
                                     gw_corr_lev_occ, gw_corr_lev_virt, &
                                     do_im_time, do_kpoints_cubic_RPA, kpoints, &
-                                    t_3c_M, t_3c_O, &
+                                    t_3c_M, t_3c_O_store, t_3c_O, &
                                     ri_metric, gd_B_occ_bse, gd_B_virt_bse, BIb_C_beta, BIb_C_gw_beta, &
                                     gd_B_virtual_beta, homo_beta, mo_coeff_o_beta, mo_coeff_v_beta, &
                                     mo_coeff_all_beta, mo_coeff_gw_beta)
@@ -220,7 +221,8 @@ CONTAINS
       TYPE(kpoint_type), POINTER                         :: kpoints
       TYPE(dbcsr_t_type), INTENT(OUT)                    :: t_3c_M
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :), &
-         INTENT(OUT)                                     :: t_3c_O
+         INTENT(OUT)                                     :: t_3c_O_store
+      TYPE(dbcsr_t_type), INTENT(OUT)                    :: t_3c_O
       TYPE(libint_potential_type), INTENT(IN)            :: ri_metric
       TYPE(group_dist_d1_type), INTENT(OUT)              :: gd_B_occ_bse, gd_B_virt_bse
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :), &
@@ -244,8 +246,9 @@ CONTAINS
       INTEGER :: ngroup, ngroup_im_time, ngroup_im_time_P, nimg, nkind, num_small_eigen, &
          potential_type, ri_metric_type, virtual, virtual_beta
       INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_AO_1, dist_AO_2, dist_RI, &
-         ends_array_mc_block_int, ends_array_mc_int, sizes_AO, sizes_AO_split, sizes_RI, &
-         sizes_RI_split, starts_array_mc_block_int, starts_array_mc_int, sub_proc_map
+         ends_array_mc_block_int, ends_array_mc_int, sizes_AO, sizes_AO_int, sizes_AO_split, &
+         sizes_RI, sizes_RI_int, sizes_RI_split, starts_array_mc_block_int, starts_array_mc_int, &
+         sub_proc_map
       INTEGER, ALLOCATABLE, DIMENSION(:, :) :: local_col_row_info, local_col_row_info_beta, &
          local_col_row_info_gw, local_col_row_info_occ_bse, local_col_row_info_virt_bse
       INTEGER, DIMENSION(3)                              :: pcoord, pdims, pdims_t3c, periodic
@@ -736,11 +739,11 @@ CONTAINS
 
          memory_info = qs_env%mp2_env%ri_rpa_im_time%memory_info
 
-         ! we need 3 tensors:
-         ! 1) t_3c_overl_int: 3c overlap integrals, optimized for easy access to integral blocks
-         !                   (atomic blocks)
-         ! 2) t_3c_O: 3c overlap integrals, optimized for contraction (split blocks)
-         ! 3) t_3c_M: tensor M, optimized for contraction
+         ! we need 4 tensors:
+         ! 1) t_3c_overl_int: atomic blocks for calculation of 3-center integrals
+         ! 2) t_3c_O_store: smaller blocks (single basis sets) for memory efficient storage of 3-center integrals
+         ! 3) t_3c_O: optimized format for contraction of 3-center integrals (single basis sets, imposing a min. block size)
+         ! 4) t_3c_M: tensor M, optimized for contraction
 
          CALL get_qs_env(qs_env, natom=natom, nkind=nkind, dft_control=dft_control)
 
@@ -832,8 +835,23 @@ CONTAINS
 
          CALL dbcsr_t_pgrid_destroy(pgrid_t3c_M)
 
-         ALLOCATE (t_3c_O(SIZE(t_3c_overl_int, 1), SIZE(t_3c_overl_int, 2)))
-         CALL create_3c_tensor(t_3c_O(1, 1), dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_overl, &
+         ALLOCATE (t_3c_O_store(SIZE(t_3c_overl_int, 1), SIZE(t_3c_overl_int, 2)))
+
+         ! for integral storage store small blocks in terms of single sets to minimize required memory
+         CALL pgf_block_sizes(qs_env, basis_set_ao, 1, sizes_AO_int)
+         CALL pgf_block_sizes(qs_env, basis_set_ri_aux, 1, sizes_RI_int)
+
+         CALL create_contraction_batches(sizes_AO_int, cut_memory, starts_array_mc_int, ends_array_mc_int, &
+                                         starts_array_mc_block_int, ends_array_mc_block_int)
+
+         CALL create_3c_tensor(t_3c_O_store(1, 1), dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_overl, &
+                               sizes_RI_int, sizes_AO_int, sizes_AO_int, &
+                               map1=[1, 2], map2=[3], &
+                               starts_array_block_2=starts_array_mc_block_int, ends_array_block_2=ends_array_mc_block_int, &
+                               name="O (RI AO | AO)")
+         DEALLOCATE (dist_RI, dist_AO_1, dist_AO_2)
+
+         CALL create_3c_tensor(t_3c_O, dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_overl, &
                                sizes_RI_split, sizes_AO_split, sizes_AO_split, &
                                map1=[1, 2], map2=[3], &
                                starts_array_block_2=starts_array_mc_block, ends_array_block_2=ends_array_mc_block, &
@@ -841,9 +859,9 @@ CONTAINS
          DEALLOCATE (dist_RI, dist_AO_1, dist_AO_2)
 
          CALL dbcsr_t_pgrid_destroy(pgrid_t3c_overl)
-         DO i = 1, SIZE(t_3c_O, 1)
-            DO j = 1, SIZE(t_3c_O, 2)
-               IF (i > 1 .OR. j > 1) CALL dbcsr_t_create(t_3c_O(1, 1), t_3c_O(i, j))
+         DO i = 1, SIZE(t_3c_O_store, 1)
+            DO j = 1, SIZE(t_3c_O_store, 2)
+               IF (i > 1 .OR. j > 1) CALL dbcsr_t_create(t_3c_O_store(1, 1), t_3c_O_store(i, j))
             ENDDO
          ENDDO
 
@@ -862,14 +880,14 @@ CONTAINS
                                     do_kpoints=do_kpoints_cubic_RPA, &
                                     bounds_j=[starts_array_mc_block_int(cm), ends_array_mc_block_int(cm)])
             CALL timeset(routineN//"_copy_3c", handle4)
-            ! copy integral tensor t_3c_overl_int to t_3c_O tensor optimized for contraction
+            ! copy integral tensor t_3c_overl_int to t_3c_O_store tensor optimized for contraction
             DO i = 1, SIZE(t_3c_overl_int, 1)
                DO j = 1, SIZE(t_3c_overl_int, 2)
 
-                  CALL dbcsr_t_copy(t_3c_overl_int(i, j), t_3c_O(i, j), order=[1, 3, 2], &
+                  CALL dbcsr_t_copy(t_3c_overl_int(i, j), t_3c_O_store(i, j), order=[1, 3, 2], &
                                     summation=.TRUE., move_data=.TRUE.)
                   CALL dbcsr_t_clear(t_3c_overl_int(i, j))
-                  CALL dbcsr_t_filter(t_3c_O(i, j), qs_env%mp2_env%mp2_gpw%eps_filter)
+                  CALL dbcsr_t_filter(t_3c_O_store(i, j), qs_env%mp2_env%mp2_gpw%eps_filter)
                ENDDO
             ENDDO
             CALL timestop(handle4)
