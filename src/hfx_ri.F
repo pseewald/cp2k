@@ -620,6 +620,8 @@ CONTAINS
       ri_data%nonzero_pairs(:, 1) = rows
       ri_data%nonzero_pairs(:, 2) = cols
 
+      DEALLOCATE (rows, cols)
+
       CALL sort_unique_blkind_2d(ri_data%nonzero_pairs)
 
       CPASSERT(nblks_total == SIZE(ri_data%nonzero_pairs, 1))
@@ -628,18 +630,18 @@ CONTAINS
 
       ALLOCATE (ri_data%nonzero_rows(nrows + 1))
 
-      iblk = 1
-      DO row = 1, nrows
-         DO WHILE (rows(iblk) < row)
-            iblk = iblk + 1
-            IF (iblk > nblks_total) EXIT
+      ASSOCIATE (rows=>ri_data%nonzero_pairs(:, 1))
+         iblk = 1
+         DO row = 1, nrows
+            DO WHILE (rows(iblk) < row)
+               iblk = iblk + 1
+               IF (iblk > nblks_total) EXIT
+            ENDDO
+            ri_data%nonzero_rows(row) = iblk
          ENDDO
-         ri_data%nonzero_rows(row) = iblk
-      ENDDO
+      END ASSOCIATE
 
       ri_data%nonzero_rows(nrows + 1) = nblks_total + 1
-
-      DEALLOCATE (rows, cols)
 
       CALL timestop(handle)
    END SUBROUTINE
