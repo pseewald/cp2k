@@ -395,7 +395,8 @@ MODULE hfx_types
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist4_AO_1, dist4_AO_2, dist4_RI
 
       ! block sizes for RI and AO tensor dimensions (split)
-      INTEGER, DIMENSION(:), ALLOCATABLE :: bsizes_RI, bsizes_AO, bsizes_RI_split, bsizes_AO_split, bsizes_RI_fit, bsizes_AO_fit
+      INTEGER, DIMENSION(:), ALLOCATABLE :: bsizes_RI, bsizes_AO, bsizes_RI_split, bsizes_AO_split, &
+                                            bsizes_RI_fit, bsizes_AO_fit, bsizes_RI_fit_sq, bsizes_AO_fit_sq
 
       ! Note: changed static DIMENSION(1,1) of dbcsr_t_type to allocatables as workaround for gfortran 8.3.0,
       ! with static dimension gfortran gets stuck during compilation
@@ -1294,8 +1295,11 @@ CONTAINS
       CALL pgf_block_sizes(atomic_kind_set, basis_set_AO, ri_data%min_bsize, ri_data%bsizes_AO_split)
       CALL pgf_block_sizes(atomic_kind_set, basis_set_RI, ri_data%min_bsize, ri_data%bsizes_RI_split)
 
-      CALL split_block_sizes(ri_data%bsizes_AO, ri_data%bsizes_AO_fit, libcusmm_maxblocksize)
-      CALL split_block_sizes(ri_data%bsizes_RI, ri_data%bsizes_RI_fit, libcusmm_maxblocksize)
+      CALL split_block_sizes([SUM(ri_data%bsizes_AO)], ri_data%bsizes_AO_fit, libcusmm_maxblocksize)
+      CALL split_block_sizes([SUM(ri_data%bsizes_RI)], ri_data%bsizes_RI_fit, libcusmm_maxblocksize)
+
+      CALL split_block_sizes([SUM(ri_data%bsizes_AO)], ri_data%bsizes_AO_fit_sq, FLOOR(SQRT(REAL(libcusmm_maxblocksize))))
+      CALL split_block_sizes([SUM(ri_data%bsizes_RI)], ri_data%bsizes_RI_fit_sq, CEILING(SQRT(REAL(libcusmm_maxblocksize))))
 
       IF (ri_data%flavor == ri_pmat) THEN
          ALLOCATE (ri_data%t_3c_int_ctr_1(1, 1))
@@ -1346,12 +1350,12 @@ CONTAINS
          CALL dbcsr_t_pgrid_create(para_env%group, pdims, ri_data%pgrid_2)
 
          CALL create_3c_tensor(ri_data%t_3c_int_ctr_1(1, 1), ri_data%dist1_ao_1, ri_data%dist1_ri, ri_data%dist1_ao_2, &
-                               ri_data%pgrid_1, ri_data%bsizes_AO, ri_data%bsizes_RI_split, ri_data%bsizes_AO, &
+                               ri_data%pgrid_1, ri_data%bsizes_AO_fit_sq, ri_data%bsizes_RI_fit_sq, ri_data%bsizes_AO_fit_sq, &
                                [1, 2], [3], name="(AO RI | AO)")
 
          ALLOCATE (ri_data%t_3c_int_ctr_2(1, 1))
          CALL create_3c_tensor(ri_data%t_3c_int_ctr_2(1, 1), ri_data%dist2_ao_1, ri_data%dist2_ri, ri_data%dist2_ao_2, &
-                               ri_data%pgrid_2, ri_data%bsizes_AO, ri_data%bsizes_RI_split, ri_data%bsizes_AO, &
+                               ri_data%pgrid_2, ri_data%bsizes_AO_fit_sq, ri_data%bsizes_RI_fit_sq, ri_data%bsizes_AO_fit_sq, &
                                [1], [2, 3], name="(AO | RI AO)")
 
       ENDIF
@@ -1430,6 +1434,8 @@ CONTAINS
       DEALLOCATE (ri_data%bsizes_RI_split)
       DEALLOCATE (ri_data%bsizes_AO_fit)
       DEALLOCATE (ri_data%bsizes_RI_fit)
+      DEALLOCATE (ri_data%bsizes_AO_fit_sq)
+      DEALLOCATE (ri_data%bsizes_RI_fit_sq)
 
       IF (ri_data%flavor == ri_pmat) THEN
          CALL dbcsr_t_destroy(ri_data%t_3c_int_ctr_1(1, 1))
