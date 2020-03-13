@@ -1193,8 +1193,8 @@ CONTAINS
 
       INTEGER                                            :: handle, ikind, iproc, MO_dim, &
                                                             mp_comm_3d, natom, nkind, nproc
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, dist_AO_1, dist_AO_2, &
-                                                            dist_RI
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsizes_RI_split, dist1, dist2, &
+                                                            dist_AO_1, dist_AO_2, dist_RI
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       LOGICAL                                            :: same_op
@@ -1290,11 +1290,14 @@ CONTAINS
       CALL pgf_block_sizes(atomic_kind_set, basis_set_AO, ri_data%min_bsize, ri_data%bsizes_AO_split)
       CALL pgf_block_sizes(atomic_kind_set, basis_set_RI, ri_data%min_bsize, ri_data%bsizes_RI_split)
 
+      CALL pgf_block_sizes(atomic_kind_set, basis_set_RI, 1, bsizes_RI_split)
+      CALL split_block_sizes(bsizes_RI_split, ri_data%bsizes_RI_fit_sq, 5)
+
       CALL split_block_sizes([SUM(ri_data%bsizes_AO)], ri_data%bsizes_AO_fit, libcusmm_maxblocksize)
       CALL split_block_sizes([SUM(ri_data%bsizes_RI)], ri_data%bsizes_RI_fit, libcusmm_maxblocksize)
 
-      CALL split_block_sizes(ri_data%bsizes_AO, ri_data%bsizes_AO_fit_sq, FLOOR(SQRT(REAL(libcusmm_maxblocksize))))
-      CALL split_block_sizes(ri_data%bsizes_RI, ri_data%bsizes_RI_fit_sq, CEILING(SQRT(REAL(libcusmm_maxblocksize))))
+      CALL split_block_sizes(ri_data%bsizes_AO, ri_data%bsizes_AO_fit_sq, libcusmm_maxblocksize/5)
+      !CALL split_block_sizes(ri_data%bsizes_RI, ri_data%bsizes_RI_fit_sq, CEILING(SQRT(REAL(libcusmm_maxblocksize))))
 
       IF (ri_data%flavor == ri_pmat) THEN
          ALLOCATE (ri_data%t_3c_int_ctr_1(1, 1))
