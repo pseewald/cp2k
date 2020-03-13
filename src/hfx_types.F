@@ -1298,8 +1298,8 @@ CONTAINS
       CALL split_block_sizes([SUM(ri_data%bsizes_AO)], ri_data%bsizes_AO_fit, libcusmm_maxblocksize)
       CALL split_block_sizes([SUM(ri_data%bsizes_RI)], ri_data%bsizes_RI_fit, libcusmm_maxblocksize)
 
-      CALL split_block_sizes([SUM(ri_data%bsizes_AO)], ri_data%bsizes_AO_fit_sq, FLOOR(SQRT(REAL(libcusmm_maxblocksize))))
-      CALL split_block_sizes([SUM(ri_data%bsizes_RI)], ri_data%bsizes_RI_fit_sq, CEILING(SQRT(REAL(libcusmm_maxblocksize))))
+      CALL split_block_sizes(ri_data%bsizes_AO, ri_data%bsizes_AO_fit_sq, FLOOR(SQRT(REAL(libcusmm_maxblocksize))))
+      CALL split_block_sizes(ri_data%bsizes_RI, ri_data%bsizes_RI_fit_sq, CEILING(SQRT(REAL(libcusmm_maxblocksize))))
 
       IF (ri_data%flavor == ri_pmat) THEN
          ALLOCATE (ri_data%t_3c_int_ctr_1(1, 1))
