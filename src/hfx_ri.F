@@ -1031,18 +1031,18 @@ CONTAINS
          CALL mp_environ(nproc, iproc, para_env%group)
 
          CALL create_3c_tensor(t_3c_int_mo_1(1, 1), dist1, dist2, dist3, ri_data%pgrid_1, &
-                               ri_data%bsizes_AO_fit_sq, ri_data%bsizes_RI_fit_sq, mo_bsizes, &
+                               ri_data%bsizes_AO_split, ri_data%bsizes_RI_split, mo_bsizes, &
                                [1, 2], [3], name="(AO RI | MO)")
 
          DEALLOCATE (dist1, dist2, dist3)
 
          CALL create_3c_tensor(t_3c_int_mo_2(1, 1), dist1, dist2, dist3, ri_data%pgrid_2, &
-                               mo_bsizes, ri_data%bsizes_RI_fit_sq, ri_data%bsizes_AO_fit_sq, &
+                               mo_bsizes, ri_data%bsizes_AO_split, ri_data%bsizes_AO_split, &
                                [1], [2, 3], name="(MO | RI AO)")
 
          DEALLOCATE (dist1, dist2, dist3)
 
-         CALL create_2c_tensor(mo_coeff_t_split, dist1, dist2, pgrid_2d, ri_data%bsizes_AO_fit_sq, mo_bsizes, &
+         CALL create_2c_tensor(mo_coeff_t_split, dist1, dist2, pgrid_2d, ri_data%bsizes_AO_split, mo_bsizes, &
                                name="(AO | MO)")
 
          DEALLOCATE (dist1, dist2)
