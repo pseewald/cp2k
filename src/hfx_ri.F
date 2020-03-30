@@ -958,7 +958,7 @@ CONTAINS
       INTEGER(int_8)                                     :: nblks, nflop
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, dist3, mem_end, &
                                                             mem_end_block, mem_start, &
-                                                            mem_start_block, mo_bsizes
+                                                            mem_start_block, mo_bsizes_1, mo_bsizes_2, mem_size
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(3)                              :: pcoord, pdims, pdims_AO, pdims_RI
@@ -971,6 +971,7 @@ CONTAINS
       TYPE(dbcsr_t_type)                                 :: ks_t, ks_t_mat, mo_coeff_t, &
                                                             mo_coeff_t_split
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_mo_1, t_3c_int_mo_2
+      INTEGER :: bsize
 
       CALL timeset(routineN, handle)
 
@@ -1026,34 +1027,53 @@ CONTAINS
       CALL mp_sync(para_env%group)
       t1 = m_walltime()
       DO ispin = 1, nspins
-         CALL dbcsr_get_info(mo_coeff(ispin), nfullcols_total=n_mos)
 
-         CALL split_block_sizes([n_mos], mo_bsizes, libcusmm_maxblocksize)
+         CALL dbcsr_get_info(mo_coeff(ispin), nfullcols_total=n_mos)
+         ALLOCATE (mo_bsizes_2(n_mos))
+         mo_bsizes_2 = 1
+
+         n_mem = ri_data%n_mem
+
+         ALLOCATE (mem_start_block(n_mem), mem_end_block(n_mem))
+         CALL contiguous_tensor_dist(SIZE(mo_bsizes_2), n_mem, mo_bsizes_2, &
+                                     limits_start=mem_start_block, limits_end=mem_end_block)
+
+         ALLOCATE (mem_start(n_mem), mem_end(n_mem))
+         ALLOCATE (mem_size(n_mem))
+
+         bsum = 0
+         DO i_mem = 1, n_mem
+            mem_start(i_mem) = bsum + 1
+            bsize = SUM(mo_bsizes_2(mem_start_block(i_mem):mem_end_block(i_mem)))
+            bsum = bsum + bsize
+            mem_end(i_mem) = bsum
+            mem_size(i_mem) = bsize
+         ENDDO
+
+         CALL split_block_sizes(mem_size, mo_bsizes_1, ri_data%min_bsize_MO)
 
          CALL mp_environ(nproc, iproc, para_env%group)
 
          CALL create_3c_tensor(t_3c_int_mo_1(1, 1), dist1, dist2, dist3, ri_data%pgrid_1, &
-                               ri_data%bsizes_AO_fit_sq, ri_data%bsizes_RI_fit_sq, mo_bsizes, &
+                               ri_data%bsizes_AO_split, ri_data%bsizes_RI_split, mo_bsizes_1, &
                                [1, 2], [3], name="(AO RI | MO)")
 
          DEALLOCATE (dist1, dist2, dist3)
 
          CALL create_3c_tensor(t_3c_int_mo_2(1, 1), dist1, dist2, dist3, ri_data%pgrid_2, &
-                               mo_bsizes, ri_data%bsizes_RI_fit_sq, ri_data%bsizes_AO_fit_sq, &
+                               mo_bsizes_1, ri_data%bsizes_RI_split, ri_data%bsizes_AO_split, &
                                [1], [2, 3], name="(MO | RI AO)")
 
          DEALLOCATE (dist1, dist2, dist3)
 
-         CALL create_2c_tensor(mo_coeff_t_split, dist1, dist2, pgrid_2d, ri_data%bsizes_AO_fit_sq, mo_bsizes, &
+         CALL create_2c_tensor(mo_coeff_t_split, dist1, dist2, pgrid_2d, ri_data%bsizes_AO_split, mo_bsizes_1, &
                                name="(AO | MO)")
 
          DEALLOCATE (dist1, dist2)
 
          CPASSERT(homo(ispin)/ri_data%n_mem > 0)
 
-         DEALLOCATE (mo_bsizes)
-         ALLOCATE (mo_bsizes(n_mos))
-         mo_bsizes = 1
+
 
          IF (do_initialize) THEN
             pdims(:) = 0
@@ -1063,13 +1083,13 @@ CONTAINS
                                                    (homo(ispin) - 1)/ri_data%n_mem + 1, &
                                                    SIZE(ri_data%bsizes_AO_fit)])
             CALL create_3c_tensor(ri_data%t_3c_int_mo(ispin, 1, 1), dist1, dist2, dist3, pgrid, &
-                                  ri_data%bsizes_RI_fit, mo_bsizes, ri_data%bsizes_AO_fit, &
+                                  ri_data%bsizes_RI_fit, mo_bsizes_2, ri_data%bsizes_AO_fit, &
                                   [1], [2, 3], name="(RI | MO AO)")
 
             DEALLOCATE (dist1, dist2, dist3)
 
             CALL create_3c_tensor(ri_data%t_3c_ctr_KS(ispin, 1, 1), dist1, dist2, dist3, pgrid, &
-                                  ri_data%bsizes_RI_fit, mo_bsizes, ri_data%bsizes_AO_fit, &
+                                  ri_data%bsizes_RI_fit, mo_bsizes_2, ri_data%bsizes_AO_fit, &
                                   [1, 2], [3], name="(RI MO | AO)")
             DEALLOCATE (dist1, dist2, dist3)
             CALL dbcsr_t_pgrid_destroy(pgrid)
@@ -1084,21 +1104,7 @@ CONTAINS
          CALL dbcsr_t_filter(mo_coeff_t_split, ri_data%filter_eps_mo)
          CALL dbcsr_t_destroy(mo_coeff_t)
 
-         n_mem = ri_data%n_mem
 
-         ALLOCATE (mem_start_block(n_mem), mem_end_block(n_mem))
-         CALL contiguous_tensor_dist(SIZE(mo_bsizes), n_mem, mo_bsizes, &
-                                     limits_start=mem_start_block, limits_end=mem_end_block)
-
-         ALLOCATE (mem_start(n_mem), mem_end(n_mem))
-
-         bsum = 0
-         DO i_mem = 1, n_mem
-            mem_start(i_mem) = bsum + 1
-            bsum = bsum + SUM(mo_bsizes(mem_start_block(i_mem):mem_end_block(i_mem)))
-            mem_end(i_mem) = bsum
-         ENDDO
-         DEALLOCATE (mem_start_block, mem_end_block, mo_bsizes)
 
          DO i_mem = 1, n_mem
 
