@@ -47,7 +47,7 @@ MODULE qs_tensors_types
    PUBLIC :: distribution_3d_type, neighbor_list_3c_type, neighbor_list_3c_iterator_type, &
              distribution_2d_create, distribution_3d_create, distribution_3d_destroy, cyclic_tensor_dist, &
              split_block_sizes, create_3c_tensor, create_2c_tensor, contiguous_tensor_dist, pgf_block_sizes, &
-             create_tensor_batches
+             create_tensor_batches, tensor_index_to_block_index
 
    INTEGER, PARAMETER, PUBLIC :: symmetric_none = 0, symmetric_ij = 1, symmetric_jk = 2, symmetrik_ik = 3, symmetric_ijk = 4
 
@@ -349,25 +349,26 @@ CONTAINS
 !> \param sizes_3 ...
 !> \param map1 ...
 !> \param map2 ...
-!> \param starts_array_block_1 ...
-!> \param ends_array_block_1 ...
-!> \param starts_array_block_2 ...
-!> \param ends_array_block_2 ...
-!> \param starts_array_block_3 ...
-!> \param ends_array_block_3 ...
+!> \param starts_array_1 ...
+!> \param ends_array_1 ...
+!> \param starts_array_2 ...
+!> \param ends_array_2 ...
+!> \param starts_array_3 ...
+!> \param ends_array_3 ...
 !> \param name ...
 ! **************************************************************************************************
    SUBROUTINE create_3c_tensor(t3c, dist_1, dist_2, dist_3, pgrid, sizes_1, sizes_2, sizes_3, map1, map2, &
-                               starts_array_block_1, ends_array_block_1, &
-                               starts_array_block_2, ends_array_block_2, &
-                               starts_array_block_3, ends_array_block_3, &
+                               starts_array_1, ends_array_1, &
+                               starts_array_2, ends_array_2, &
+                               starts_array_3, ends_array_3, &
                                name)
       TYPE(dbcsr_t_type), INTENT(OUT)                    :: t3c
       INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT)    :: dist_1, dist_2, dist_3
       TYPE(dbcsr_t_pgrid_type), INTENT(IN)               :: pgrid
       INTEGER, DIMENSION(:), INTENT(IN)                  :: sizes_1, sizes_2, sizes_3, map1, map2
-      INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL :: starts_array_block_1, ends_array_block_1, &
-         starts_array_block_2, ends_array_block_2, starts_array_block_3, ends_array_block_3
+      INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL        :: starts_array_1, ends_array_1, &
+                                                            starts_array_2, ends_array_2, &
+                                                            starts_array_3, ends_array_3
       CHARACTER(len=*), INTENT(IN)                       :: name
 
       CHARACTER(len=*), PARAMETER :: routineN = 'create_3c_tensor', &
@@ -376,19 +377,45 @@ CONTAINS
       INTEGER                                            :: handle, imem, nbatches_1, nbatches_2, &
                                                             nbatches_3, size_1, size_2, size_3, &
                                                             size_cut
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: ends_array_block_1, ends_array_block_2, &
+         ends_array_block_3, starts_array_block_1, starts_array_block_2, starts_array_block_3
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       LOGICAL                                            :: mem_aware_1, mem_aware_2, mem_aware_3
       TYPE(dbcsr_t_distribution_type)                    :: dist
 
       CALL timeset(routineN, handle)
 
-      mem_aware_1 = PRESENT(starts_array_block_1) .AND. PRESENT(ends_array_block_1)
-      mem_aware_2 = PRESENT(starts_array_block_2) .AND. PRESENT(ends_array_block_2)
-      mem_aware_3 = PRESENT(starts_array_block_3) .AND. PRESENT(ends_array_block_3)
+      mem_aware_1 = PRESENT(starts_array_1) .AND. PRESENT(ends_array_1)
+      mem_aware_2 = PRESENT(starts_array_2) .AND. PRESENT(ends_array_2)
+      mem_aware_3 = PRESENT(starts_array_3) .AND. PRESENT(ends_array_3)
 
-      IF (mem_aware_1) nbatches_1 = SIZE(starts_array_block_1)
-      IF (mem_aware_2) nbatches_2 = SIZE(starts_array_block_2)
-      IF (mem_aware_3) nbatches_3 = SIZE(starts_array_block_3)
+      IF (mem_aware_1) nbatches_1 = SIZE(starts_array_1)
+      IF (mem_aware_2) nbatches_2 = SIZE(starts_array_2)
+      IF (mem_aware_3) nbatches_3 = SIZE(starts_array_3)
+
+      IF (PRESENT(starts_array_1)) THEN
+         CALL tensor_index_to_block_index(starts_array_1, starts_array_block_1, sizes_1)
+      ENDIF
+      IF (PRESENT(ends_array_1)) THEN
+         CALL tensor_index_to_block_index(ends_array_1 + 1, ends_array_block_1, sizes_1)
+         ends_array_block_1 = ends_array_block_1 - 1
+      ENDIF
+
+      IF (PRESENT(starts_array_2)) THEN
+         CALL tensor_index_to_block_index(starts_array_2, starts_array_block_2, sizes_2)
+      ENDIF
+      IF (PRESENT(ends_array_2)) THEN
+         CALL tensor_index_to_block_index(ends_array_2 + 1, ends_array_block_2, sizes_2)
+         ends_array_block_2 = ends_array_block_2 - 1
+      ENDIF
+
+      IF (PRESENT(starts_array_3)) THEN
+         CALL tensor_index_to_block_index(starts_array_3, starts_array_block_3, sizes_3)
+      ENDIF
+      IF (PRESENT(ends_array_3)) THEN
+         CALL tensor_index_to_block_index(ends_array_3 + 1, ends_array_block_3, sizes_3)
+         ends_array_block_3 = ends_array_block_3 - 1
+      ENDIF
 
       CALL dbcsr_t_mp_environ_pgrid(pgrid, pdims, pcoord)
 
@@ -619,6 +646,39 @@ CONTAINS
          bsum = bsum + SUM(sizes(starts_array_block(imem):ends_array_block(imem)))
          ends_array(imem) = bsum
       ENDDO
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param ind_t ...
+!> \param ind_b ...
+!> \param sizes_b ...
+! **************************************************************************************************
+   SUBROUTINE tensor_index_to_block_index(ind_t, ind_b, sizes_b)
+      INTEGER, DIMENSION(:), INTENT(IN)                  :: ind_t
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT)    :: ind_b
+      INTEGER, DIMENSION(:), INTENT(IN)                  :: sizes_b
+
+      INTEGER                                            :: iblk, ind, nblk, nind, psum
+
+      nblk = SIZE(sizes_b)
+      nind = SIZE(ind_t)
+      ALLOCATE (ind_b(nind))
+      psum = 0
+      ind = 1
+      ind_b = 0
+      DO iblk = 1, nblk + 1
+         IF (ind_t(ind) == psum + 1) THEN
+            ind_b(ind) = iblk
+            IF (ind == nind) RETURN
+            ind = ind + 1
+         ENDIF
+         CPASSERT(iblk <= nblk)
+         psum = psum + sizes_b(iblk)
+      ENDDO
+
+      CPASSERT(.FALSE.)
+
    END SUBROUTINE
 
 END MODULE

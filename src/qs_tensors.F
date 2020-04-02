@@ -78,7 +78,7 @@ MODULE qs_tensors
    USE qs_tensors_types,                ONLY: &
         cyclic_tensor_dist, distribution_3d_destroy, distribution_3d_type, &
         neighbor_list_3c_iterator_type, neighbor_list_3c_type, symmetric_ij, symmetric_ijk, &
-        symmetric_jk, symmetric_none, symmetrik_ik
+        symmetric_jk, symmetric_none, symmetrik_ik, tensor_index_to_block_index
    USE t_c_g0,                          ONLY: get_lmax_init,&
                                               init
 #include "./base/base_uses.f90"
@@ -1544,25 +1544,25 @@ CONTAINS
 !> \param t_3c ...
 !> \param pgrid ...
 !> \param nodata ...
-!> \param starts_array_mc_block_1 ...
-!> \param ends_array_mc_block_1 ...
-!> \param starts_array_mc_block_2 ...
-!> \param ends_array_mc_block_2 ...
-!> \param starts_array_mc_block_3 ...
-!> \param ends_array_mc_block_3 ...
+!> \param starts_array_mc_1 ...
+!> \param ends_array_mc_1 ...
+!> \param starts_array_mc_2 ...
+!> \param ends_array_mc_2 ...
+!> \param starts_array_mc_3 ...
+!> \param ends_array_mc_3 ...
 !> \param unit_nr ...
 ! **************************************************************************************************
    SUBROUTINE tensor_change_pgrid(t_3c, pgrid, nodata, &
-                                  starts_array_mc_block_1, ends_array_mc_block_1, &
-                                  starts_array_mc_block_2, ends_array_mc_block_2, &
-                                  starts_array_mc_block_3, ends_array_mc_block_3, &
+                                  starts_array_mc_1, ends_array_mc_1, &
+                                  starts_array_mc_2, ends_array_mc_2, &
+                                  starts_array_mc_3, ends_array_mc_3, &
                                   unit_nr)
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c
       TYPE(dbcsr_t_pgrid_type), INTENT(IN)               :: pgrid
       LOGICAL, INTENT(IN), OPTIONAL                      :: nodata
-      INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL :: starts_array_mc_block_1, &
-         ends_array_mc_block_1, starts_array_mc_block_2, ends_array_mc_block_2, &
-         starts_array_mc_block_3, ends_array_mc_block_3
+      INTEGER, DIMENSION(:), INTENT(IN), OPTIONAL        :: starts_array_mc_1, ends_array_mc_1, &
+                                                            starts_array_mc_2, ends_array_mc_2, &
+                                                            starts_array_mc_3, ends_array_mc_3
       INTEGER, INTENT(IN), OPTIONAL                      :: unit_nr
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'tensor_change_pgrid', &
@@ -1571,7 +1571,9 @@ CONTAINS
       CHARACTER(default_string_length)                   :: name
       INTEGER                                            :: handle, imem, memcut_1, memcut_2, &
                                                             memcut_3, size_cut
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bs1, bs2, bs3, dist1, dist2, dist3
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: bs1, bs2, bs3, dist1, dist2, dist3, &
+         ends_array_mc_block_1, ends_array_mc_block_2, ends_array_mc_block_3, &
+         starts_array_mc_block_1, starts_array_mc_block_2, starts_array_mc_block_3
       INTEGER, DIMENSION(3)                              :: pcoord, pcoord_ref, pdims, pdims_ref, &
                                                             tdims
       TYPE(dbcsr_t_type)                                 :: t_tmp
@@ -1592,19 +1594,43 @@ CONTAINS
 
       CALL timeset(routineN, handle)
 
-      mem_aware_1 = PRESENT(starts_array_mc_block_1) .AND. PRESENT(ends_array_mc_block_1)
-      mem_aware_2 = PRESENT(starts_array_mc_block_2) .AND. PRESENT(ends_array_mc_block_2)
-      mem_aware_3 = PRESENT(starts_array_mc_block_3) .AND. PRESENT(ends_array_mc_block_3)
+      mem_aware_1 = PRESENT(starts_array_mc_1) .AND. PRESENT(ends_array_mc_1)
+      mem_aware_2 = PRESENT(starts_array_mc_2) .AND. PRESENT(ends_array_mc_2)
+      mem_aware_3 = PRESENT(starts_array_mc_3) .AND. PRESENT(ends_array_mc_3)
 
-      IF (mem_aware_1) memcut_1 = SIZE(starts_array_mc_block_1)
-      IF (mem_aware_2) memcut_2 = SIZE(starts_array_mc_block_2)
-      IF (mem_aware_3) memcut_3 = SIZE(starts_array_mc_block_3)
+      IF (mem_aware_1) memcut_1 = SIZE(starts_array_mc_1)
+      IF (mem_aware_2) memcut_2 = SIZE(starts_array_mc_2)
+      IF (mem_aware_3) memcut_3 = SIZE(starts_array_mc_3)
 
       ALLOCATE (bs1(dbcsr_t_nblks_total(t_3c, 1)))
       ALLOCATE (bs2(dbcsr_t_nblks_total(t_3c, 2)))
       ALLOCATE (bs3(dbcsr_t_nblks_total(t_3c, 3)))
       CALL dbcsr_t_get_info(t_3c, nblks_total=tdims, blk_size_1=bs1, blk_size_2=bs2, blk_size_3=bs3, &
                             name=name)
+
+      IF (PRESENT(starts_array_mc_1)) THEN
+         CALL tensor_index_to_block_index(starts_array_mc_1, starts_array_mc_block_1, bs1)
+      ENDIF
+      IF (PRESENT(ends_array_mc_1)) THEN
+         CALL tensor_index_to_block_index(ends_array_mc_1 + 1, ends_array_mc_block_1, bs1)
+         ends_array_mc_block_1 = ends_array_mc_block_1 - 1
+      ENDIF
+
+      IF (PRESENT(starts_array_mc_2)) THEN
+         CALL tensor_index_to_block_index(starts_array_mc_2, starts_array_mc_block_2, bs2)
+      ENDIF
+      IF (PRESENT(ends_array_mc_2)) THEN
+         CALL tensor_index_to_block_index(ends_array_mc_2 + 1, ends_array_mc_block_2, bs2)
+         ends_array_mc_block_2 = ends_array_mc_block_2 - 1
+      ENDIF
+
+      IF (PRESENT(starts_array_mc_3)) THEN
+         CALL tensor_index_to_block_index(starts_array_mc_3, starts_array_mc_block_3, bs3)
+      ENDIF
+      IF (PRESENT(ends_array_mc_3)) THEN
+         CALL tensor_index_to_block_index(ends_array_mc_3 + 1, ends_array_mc_block_3, bs3)
+         ends_array_mc_block_3 = ends_array_mc_block_3 - 1
+      ENDIF
 
       ALLOCATE (dist1(tdims(1)))
       ALLOCATE (dist2(tdims(2)))

@@ -89,8 +89,10 @@ MODULE mp2_integrals
                                               create_tensor_batches,&
                                               distribution_3d_create,&
                                               distribution_3d_type,&
+                                              libcusmm_maxblocksize,&
                                               neighbor_list_3c_type,&
-                                              pgf_block_sizes
+                                              pgf_block_sizes,&
+                                              split_block_sizes
    USE task_list_types,                 ONLY: task_list_type
    USE util,                            ONLY: get_limit
 
@@ -146,8 +148,6 @@ CONTAINS
 !> \param gd_B_all ...
 !> \param starts_array_mc ...
 !> \param ends_array_mc ...
-!> \param starts_array_mc_block ...
-!> \param ends_array_mc_block ...
 !> \param gw_corr_lev_occ ...
 !> \param gw_corr_lev_virt ...
 !> \param do_im_time ...
@@ -177,7 +177,6 @@ CONTAINS
                                     mo_coeff_gw, eps_filter, unit_nr, &
                                     mp2_memory, calc_PQ_cond_num, calc_forces, blacs_env_sub, my_do_gw, do_bse, &
                                     gd_B_all, starts_array_mc, ends_array_mc, &
-                                    starts_array_mc_block, ends_array_mc_block, &
                                     gw_corr_lev_occ, gw_corr_lev_virt, &
                                     do_im_time, do_kpoints_cubic_RPA, kpoints, &
                                     t_3c_M, t_3c_O, &
@@ -212,9 +211,7 @@ CONTAINS
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env_sub
       LOGICAL, INTENT(IN)                                :: my_do_gw, do_bse
       TYPE(group_dist_d1_type), INTENT(OUT)              :: gd_B_all
-      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT)    :: starts_array_mc, ends_array_mc, &
-                                                            starts_array_mc_block, &
-                                                            ends_array_mc_block
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT)    :: starts_array_mc, ends_array_mc
       INTEGER, INTENT(IN)                                :: gw_corr_lev_occ, gw_corr_lev_virt
       LOGICAL, INTENT(IN)                                :: do_im_time, do_kpoints_cubic_RPA
       TYPE(kpoint_type), POINTER                         :: kpoints
@@ -236,15 +233,18 @@ CONTAINS
       INTEGER :: cm, cut_memory, eri_method, gw_corr_lev_total, handle, handle2, handle4, i, &
          i_counter, itmp(2), j, jcell, kcell, LLL, max_row_col_local, max_row_col_local_beta, &
          max_row_col_local_gw, max_row_col_local_occ_bse, max_row_col_local_virt_bse, min_bsize, &
-         mp_comm_t3c_2, my_B_all_end, my_B_all_size, my_B_all_start, my_B_occ_bse_end, &
-         my_B_occ_bse_size, my_B_occ_bse_start, my_B_size, my_B_size_beta, my_B_virt_bse_end, &
-         my_B_virt_bse_size, my_B_virt_bse_start, my_B_virtual_end, my_B_virtual_end_beta, &
-         my_B_virtual_start, my_B_virtual_start_beta, my_group_L_end, my_group_L_size
-      INTEGER :: my_group_L_start, natom, ngroup, ngroup_im_time, ngroup_im_time_P, nimg, nkind, &
-         num_small_eigen, potential_type, ri_metric_type, virtual, virtual_beta
-      INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_AO_1, dist_AO_2, dist_RI, &
-         ends_array_mc_block_int, ends_array_mc_int, sizes_AO, sizes_AO_split, sizes_RI, &
-         sizes_RI_split, starts_array_mc_block_int, starts_array_mc_int, sub_proc_map
+         min_bsize_factor_1, min_bsize_factor_2, mp_comm_t3c_2, my_B_all_end, my_B_all_size, &
+         my_B_all_start, my_B_occ_bse_end, my_B_occ_bse_size, my_B_occ_bse_start, my_B_size, &
+         my_B_size_beta, my_B_virt_bse_end, my_B_virt_bse_size, my_B_virt_bse_start, &
+         my_B_virtual_end, my_B_virtual_end_beta, my_B_virtual_start, my_B_virtual_start_beta
+      INTEGER :: my_group_L_end, my_group_L_size, my_group_L_start, natom, ngroup, ngroup_im_time, &
+         ngroup_im_time_P, nimg, nkind, num_small_eigen, potential_type, ri_metric_type, virtual, &
+         virtual_beta
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_AO_1, dist_AO_2, dist_RI, ends_array_mc_block, &
+         ends_array_mc_block_int, ends_array_mc_int, sizes_AO, sizes_AO_split, &
+         sizes_AO_split_factor_1, sizes_AO_split_factor_2, sizes_RI, sizes_RI_split, &
+         sizes_RI_split_factor, sizes_tmp, starts_array_mc_block, starts_array_mc_block_int, &
+         starts_array_mc_int, sub_proc_map
       INTEGER, ALLOCATABLE, DIMENSION(:, :) :: local_col_row_info, local_col_row_info_beta, &
          local_col_row_info_gw, local_col_row_info_occ_bse, local_col_row_info_virt_bse
       INTEGER, DIMENSION(3)                              :: pcoord, pdims, pdims_t3c, periodic
@@ -760,12 +760,11 @@ CONTAINS
          cut_memory = qs_env%mp2_env%ri_rpa_im_time%cut_memory
          CALL create_tensor_batches(sizes_AO, cut_memory, starts_array_mc_int, ends_array_mc_int, &
                                     starts_array_mc_block_int, ends_array_mc_block_int)
-         DEALLOCATE (starts_array_mc_int, ends_array_mc_int)
 
          CALL create_3c_tensor(t_3c_overl_int_template, dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_overl, &
                                sizes_RI, sizes_AO, sizes_AO, map1=[1, 2], map2=[3], &
-                               starts_array_block_2=starts_array_mc_block_int, &
-                               ends_array_block_2=ends_array_mc_block_int, &
+                               starts_array_2=starts_array_mc_int, &
+                               ends_array_2=ends_array_mc_int, &
                                name="O (RI AO | AO)")
 
          CALL get_qs_env(qs_env, nkind=nkind, particle_set=particle_set)
@@ -805,8 +804,17 @@ CONTAINS
          ! split blocks to improve load balancing for tensor contraction
          min_bsize = qs_env%mp2_env%ri_rpa_im_time%min_bsize
 
-         CALL pgf_block_sizes(atomic_kind_set, basis_set_ao, min_bsize, sizes_AO_split)
-         CALL pgf_block_sizes(atomic_kind_set, basis_set_ri_aux, min_bsize, sizes_RI_split)
+         CALL factorize(libcusmm_maxblocksize, min_bsize_factor_1, min_bsize_factor_2)
+
+         CALL pgf_block_sizes(atomic_kind_set, basis_set_ao, min_bsize, sizes_tmp)
+         CALL split_block_sizes(sizes_tmp, sizes_AO_split, libcusmm_maxblocksize)
+         CALL split_block_sizes(sizes_tmp, sizes_AO_split_factor_1, min_bsize_factor_1)
+         CALL split_block_sizes(sizes_tmp, sizes_AO_split_factor_2, min_bsize_factor_2)
+         DEALLOCATE (sizes_tmp)
+         CALL pgf_block_sizes(atomic_kind_set, basis_set_ri_aux, min_bsize, sizes_tmp)
+         CALL split_block_sizes(sizes_tmp, sizes_RI_split, libcusmm_maxblocksize)
+         CALL split_block_sizes(sizes_tmp, sizes_RI_split_factor, min_bsize_factor_2)
+         DEALLOCATE (sizes_tmp)
 
          IF (.NOT. impose_split) THEN
             pdims_t3c = 0
@@ -816,18 +824,20 @@ CONTAINS
          ENDIF
 
          ASSOCIATE (cut_memory=>qs_env%mp2_env%ri_rpa_im_time%cut_memory)
-            CALL create_tensor_batches(sizes_AO_split, cut_memory, starts_array_mc, ends_array_mc, &
+            CALL create_tensor_batches(sizes_AO, cut_memory, starts_array_mc, ends_array_mc, &
                                        starts_array_mc_block, ends_array_mc_block)
          END ASSOCIATE
+         DEALLOCATE (starts_array_mc_block, ends_array_mc_block)
+
          cut_memory = qs_env%mp2_env%ri_rpa_im_time%cut_memory
 
          CALL create_3c_tensor(t_3c_M, dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_M, &
-                               sizes_RI_split, sizes_AO_split, sizes_AO_split, &
+                               sizes_RI_split, sizes_AO_split_factor_1, sizes_AO_split_factor_2, &
                                map1=[1], map2=[2, 3], &
-                               starts_array_block_2=starts_array_mc_block, &
-                               ends_array_block_2=ends_array_mc_block, &
-                               starts_array_block_3=starts_array_mc_block, &
-                               ends_array_block_3=ends_array_mc_block, &
+                               starts_array_2=starts_array_mc, &
+                               ends_array_2=ends_array_mc, &
+                               starts_array_3=starts_array_mc, &
+                               ends_array_3=ends_array_mc, &
                                name="M (RI | AO AO)")
 
          DEALLOCATE (dist_RI, dist_AO_1, dist_AO_2)
@@ -836,9 +846,9 @@ CONTAINS
 
          ALLOCATE (t_3c_O(SIZE(t_3c_overl_int, 1), SIZE(t_3c_overl_int, 2)))
          CALL create_3c_tensor(t_3c_O(1, 1), dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_overl, &
-                               sizes_RI_split, sizes_AO_split, sizes_AO_split, &
+                               sizes_RI_split_factor, sizes_AO_split_factor_1, sizes_AO_split, &
                                map1=[1, 2], map2=[3], &
-                               starts_array_block_2=starts_array_mc_block, ends_array_block_2=ends_array_mc_block, &
+                               starts_array_2=starts_array_mc, ends_array_2=ends_array_mc, &
                                name="O (RI AO | AO)")
          DEALLOCATE (dist_RI, dist_AO_1, dist_AO_2)
 
@@ -1612,5 +1622,28 @@ CONTAINS
       DEALLOCATE (rec_col_row_info)
 
    END SUBROUTINE grep_my_integrals
+
+! **************************************************************************************************
+!> \brief ...
+!> \param number ...
+!> \param factor1 ...
+!> \param factor2 ...
+! **************************************************************************************************
+   SUBROUTINE factorize(number, factor1, factor2)
+      INTEGER, INTENT(IN)                                :: number
+      INTEGER, INTENT(OUT)                               :: factor1, factor2
+
+      INTEGER                                            :: factor
+
+      DO factor = 1, FLOOR(SQRT(REAL(number, dp)))
+         IF (MOD(number, factor) == 0) THEN
+            factor1 = factor
+            factor2 = number/factor1
+         ENDIF
+      ENDDO
+
+      CPASSERT(factor1*factor2 == number)
+      CPASSERT(factor1 <= factor2)
+   END SUBROUTINE
 
 END MODULE mp2_integrals

@@ -398,7 +398,7 @@ CONTAINS
 
       CALL create_3c_tensor(t_3c_int_batched(1, 1), dist_RI, dist_AO_1, dist_AO_2, ri_data%pgrid, &
                             sizes_RI, sizes_AO, sizes_AO, map1=[1], map2=[2, 3], &
-                            starts_array_block_2=starts_array_mc_block_int, ends_array_block_2=ends_array_mc_block_int, &
+                            starts_array_2=starts_array_mc_int, ends_array_2=ends_array_mc_int, &
                             name="(RI | AO AO)")
 
       CALL get_qs_env(qs_env, nkind=nkind, particle_set=particle_set, atomic_kind_set=atomic_kind_set)
