@@ -92,7 +92,6 @@ MODULE mp2_integrals
                                               distribution_3d_type,&
                                               libcusmm_maxblocksize,&
                                               neighbor_list_3c_type,&
-                                              pgf_block_sizes,&
                                               split_block_sizes
    USE task_list_types,                 ONLY: task_list_type
    USE util,                            ONLY: get_limit
@@ -106,7 +105,7 @@ MODULE mp2_integrals
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'mp2_integrals'
 
-   PUBLIC :: mp2_ri_gpw_compute_in
+   PUBLIC :: mp2_ri_gpw_compute_in, block_sizes_factorize
 
 CONTAINS
 
@@ -233,18 +232,19 @@ CONTAINS
 
       INTEGER :: cm, cut_memory, eri_method, gw_corr_lev_total, handle, handle2, handle4, i, &
          i_counter, itmp(2), j, jcell, kcell, LLL, max_row_col_local, max_row_col_local_beta, &
-         max_row_col_local_gw, max_row_col_local_occ_bse, max_row_col_local_virt_bse, min_bsize, &
+         max_row_col_local_gw, max_row_col_local_occ_bse, max_row_col_local_virt_bse, &
          min_bsize_factor_1, min_bsize_factor_2, mp_comm_t3c_2, my_B_all_end, my_B_all_size, &
          my_B_all_start, my_B_occ_bse_end, my_B_occ_bse_size, my_B_occ_bse_start, my_B_size, &
          my_B_size_beta, my_B_virt_bse_end, my_B_virt_bse_size, my_B_virt_bse_start, &
-         my_B_virtual_end, my_B_virtual_end_beta, my_B_virtual_start, my_B_virtual_start_beta
-      INTEGER :: my_group_L_end, my_group_L_size, my_group_L_start, natom, ngroup, ngroup_im_time, &
+         my_B_virtual_end, my_B_virtual_end_beta, my_B_virtual_start, my_B_virtual_start_beta, &
+         my_group_L_end
+      INTEGER :: my_group_L_size, my_group_L_start, natom, ngroup, ngroup_im_time, &
          ngroup_im_time_P, nimg, nkind, num_small_eigen, potential_type, ri_metric_type, virtual, &
          virtual_beta
       INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_AO_1, dist_AO_2, dist_RI, ends_array_mc_block, &
          ends_array_mc_block_int, ends_array_mc_int, sizes_AO, sizes_AO_split, &
          sizes_AO_split_factor_1, sizes_AO_split_factor_2, sizes_RI, sizes_RI_split, &
-         sizes_RI_split_factor, sizes_tmp, starts_array_mc_block, starts_array_mc_block_int, &
+         sizes_RI_split_factor, starts_array_mc_block, starts_array_mc_block_int, &
          starts_array_mc_int, sub_proc_map
       INTEGER, ALLOCATABLE, DIMENSION(:, :) :: local_col_row_info, local_col_row_info_beta, &
          local_col_row_info_gw, local_col_row_info_occ_bse, local_col_row_info_virt_bse
@@ -837,20 +837,13 @@ CONTAINS
 
          CALL dbcsr_t_destroy(t_3c_overl_int_template)
 
-         ! split blocks to improve load balancing for tensor contraction
-         min_bsize = qs_env%mp2_env%ri_rpa_im_time%min_bsize
+         CALL block_sizes_factorize(libcusmm_maxblocksize, min_bsize_factor_1, min_bsize_factor_2)
 
-         CALL factorize(libcusmm_maxblocksize, min_bsize_factor_1, min_bsize_factor_2)
-
-         CALL pgf_block_sizes(atomic_kind_set, basis_set_ao, min_bsize, sizes_tmp)
-         CALL split_block_sizes(sizes_tmp, sizes_AO_split, libcusmm_maxblocksize)
-         CALL split_block_sizes(sizes_tmp, sizes_AO_split_factor_1, min_bsize_factor_1)
-         CALL split_block_sizes(sizes_tmp, sizes_AO_split_factor_2, min_bsize_factor_2)
-         DEALLOCATE (sizes_tmp)
-         CALL pgf_block_sizes(atomic_kind_set, basis_set_ri_aux, min_bsize, sizes_tmp)
-         CALL split_block_sizes(sizes_tmp, sizes_RI_split, libcusmm_maxblocksize)
-         CALL split_block_sizes(sizes_tmp, sizes_RI_split_factor, min_bsize_factor_2)
-         DEALLOCATE (sizes_tmp)
+         CALL split_block_sizes(sizes_AO, sizes_AO_split, libcusmm_maxblocksize)
+         CALL split_block_sizes(sizes_AO, sizes_AO_split_factor_1, min_bsize_factor_1)
+         CALL split_block_sizes(sizes_AO, sizes_AO_split_factor_2, min_bsize_factor_2)
+         CALL split_block_sizes(sizes_RI, sizes_RI_split, libcusmm_maxblocksize)
+         CALL split_block_sizes(sizes_RI, sizes_RI_split_factor, min_bsize_factor_2)
 
          IF (.NOT. impose_split) THEN
             pdims_t3c = 0
@@ -1665,7 +1658,7 @@ CONTAINS
 !> \param factor1 ...
 !> \param factor2 ...
 ! **************************************************************************************************
-   SUBROUTINE factorize(number, factor1, factor2)
+   SUBROUTINE block_sizes_factorize(number, factor1, factor2)
       INTEGER, INTENT(IN)                                :: number
       INTEGER, INTENT(OUT)                               :: factor1, factor2
 

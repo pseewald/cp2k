@@ -36,6 +36,7 @@ MODULE rpa_gw_im_time_util
    USE kinds,                           ONLY: dp
    USE message_passing,                 ONLY: mp_alltoall,&
                                               mp_sum
+   USE mp2_integrals,                   ONLY: block_sizes_factorize
    USE mp2_types,                       ONLY: integ_mat_buffer_type
    USE particle_methods,                ONLY: get_particle_set
    USE particle_types,                  ONLY: particle_type
@@ -45,7 +46,8 @@ MODULE rpa_gw_im_time_util
    USE qs_kind_types,                   ONLY: qs_kind_type
    USE qs_tensors_types,                ONLY: create_2c_tensor,&
                                               create_3c_tensor,&
-                                              pgf_block_sizes
+                                              libcusmm_maxblocksize,&
+                                              split_block_sizes
    USE rpa_communication,               ONLY: communicate_buffer
 #include "./base/base_uses.f90"
 
@@ -104,12 +106,11 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'get_tensor_3c_overl_int_gw', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, icol_global, imo, irow_global, &
-                                                            min_bsize, nkind, npcols, nprows, &
-                                                            size_MO, unit_nr_prv
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, dist3, sizes_AO, &
-                                                            sizes_AO_split, sizes_MO, sizes_RI, &
-                                                            sizes_RI_split
+      INTEGER :: handle, icol_global, imo, irow_global, min_bsize_factor_1, min_bsize_factor_2, &
+         nkind, npcols, nprows, size_MO, unit_nr_prv
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: dist1, dist2, dist3, sizes_AO, sizes_AO_split, &
+         sizes_AO_split_factor_1, sizes_AO_split_factor_2, sizes_MO, sizes_RI, sizes_RI_split, &
+         sizes_RI_split_factor
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(2, 1)                           :: bounds
       INTEGER, DIMENSION(3)                              :: pdims
@@ -183,10 +184,13 @@ CONTAINS
       CALL basis_set_list_setup(basis_set_ao, "ORB", qs_kind_set)
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_AO, basis=basis_set_ao)
 
-      min_bsize = qs_env%mp2_env%ri_rpa_im_time%min_bsize
+      CALL block_sizes_factorize(libcusmm_maxblocksize, min_bsize_factor_1, min_bsize_factor_2)
 
-      CALL pgf_block_sizes(atomic_kind_set, basis_set_ao, min_bsize, sizes_AO_split)
-      CALL pgf_block_sizes(atomic_kind_set, basis_set_ri_aux, min_bsize, sizes_RI_split)
+      CALL split_block_sizes(sizes_AO, sizes_AO_split, libcusmm_maxblocksize)
+      CALL split_block_sizes(sizes_AO, sizes_AO_split_factor_1, min_bsize_factor_1)
+      CALL split_block_sizes(sizes_AO, sizes_AO_split_factor_2, min_bsize_factor_2)
+      CALL split_block_sizes(sizes_RI, sizes_RI_split, libcusmm_maxblocksize)
+      CALL split_block_sizes(sizes_RI, sizes_RI_split_factor, min_bsize_factor_2)
 
       DEALLOCATE (basis_set_ao, basis_set_ri_aux)
 
@@ -198,11 +202,11 @@ CONTAINS
                                 tensor_dims=[SIZE(sizes_AO_split), SIZE(sizes_MO)])
 
       CALL create_3c_tensor(t_3c_overl_int_ao_ao, dist1, dist2, dist3, pgrid, &
-                            sizes_RI_split, sizes_AO_split, sizes_AO_split, [1, 2], [3], name="(RI AO | AO)")
+                            sizes_RI_split_factor, sizes_AO_split_factor_1, sizes_AO_split, [1, 2], [3], name="(RI AO | AO)")
       DEALLOCATE (dist1, dist2, dist3)
       CALL dbcsr_t_copy(t_3c_overl_int(1, 1), t_3c_overl_int_ao_ao)
       CALL create_3c_tensor(t_3c_overl_int_ao_mo, dist1, dist2, dist3, pgrid, &
-                            sizes_RI_split, sizes_AO_split, sizes_MO, [1, 2], [3], name="(RI AO | MO)")
+                            sizes_RI_split_factor, sizes_AO_split_factor_1, sizes_MO, [1, 2], [3], name="(RI AO | MO)")
       DEALLOCATE (dist1, dist2, dist3)
 
       CALL create_3c_tensor(t_3c_overl_int_gw_RI, dist1, dist2, dist3, pgrid, &
