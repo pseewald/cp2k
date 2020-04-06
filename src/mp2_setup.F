@@ -201,6 +201,9 @@ CONTAINS
       CALL section_vals_val_get(low_scaling_section, "EXP_KPOINTS", &
                                 r_val=mp2_env%ri_rpa_im_time%exp_kpoints)
 
+      CALL section_vals_val_get(low_scaling_section, "MIN_BLOCK_SIZE", &
+                                i_val=mp2_env%ri_rpa_im_time%min_bsize)
+
       NULLIFY (im_time_test_section)
       im_time_test_section => section_vals_get_subs_vals(low_scaling_section, "TEST")
 

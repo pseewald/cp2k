@@ -111,7 +111,7 @@ MODULE mp2_types
       LOGICAL                  :: memory_info
       REAL(KIND=dp)            :: eps_filter, cutoff, &
                                   exp_kpoints, eps_filter_factor
-      INTEGER                  :: group_size_P, group_size_3c
+      INTEGER                  :: group_size_P, group_size_3c, min_bsize
       INTEGER, DIMENSION(:), POINTER     :: kp_grid
       LOGICAL                  :: do_im_time_kpoints
       LOGICAL                  :: group_size_internal

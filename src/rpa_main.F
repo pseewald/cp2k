@@ -1309,7 +1309,7 @@ CONTAINS
          iter_evGW, iter_sc_GW0, jquad, max_iter_bse, mm_style, my_num_dgemm_call, nkp, &
          nkp_self_energy, nmo, num_3c_repl, num_cells_dm, num_fit_points, num_points_corr, &
          num_Z_vectors, number_of_rec, number_of_rec_axk, number_of_rec_beta, number_of_send, &
-         number_of_send_axk, number_of_send_beta, size_P
+         number_of_send_axk, number_of_send_beta, size_P, min_bsize
       INTEGER(int_8)                                     :: dbcsr_nflop
       INTEGER, ALLOCATABLE, DIMENSION(:) :: ikp_local, map_rec_size, map_rec_size_axk, &
          map_rec_size_beta, map_send_size, map_send_size_axk, map_send_size_beta, RPA_proc_map
@@ -1426,6 +1426,8 @@ CONTAINS
          eps_filter = mp2_env%ri_rpa_im_time%eps_filter
          eps_filter_im_time = mp2_env%ri_rpa_im_time%eps_filter* &
                               mp2_env%ri_rpa_im_time%eps_filter_factor
+
+         min_bsize = mp2_env%ri_rpa_im_time%min_bsize
 
          CALL alloc_im_time(qs_env, para_env, dimen_RI, dimen_RI_red, &
                             num_integ_points, fm_mat_Q, fm_mo_coeff_occ, fm_mo_coeff_virt, &
@@ -1646,6 +1648,8 @@ CONTAINS
                "SPARSITY_INFO| Eps filter for M virt/occ tensors:", eps_filter
             IF (unit_nr > 0) WRITE (UNIT=unit_nr, FMT="(T3,A,T66,ES15.2)") &
                "SPARSITY_INFO| Eps filter for P matrix:", eps_filter_im_time
+            IF (unit_nr > 0) WRITE (UNIT=unit_nr, FMT="(T3,A,T66,i15)") &
+                "SPARSITY_INFO| Minimum tensor block size:", min_bsize
 
             ! for evGW, we have to ensure that mat_P_omega is zero
             CALL zero_mat_P_omega(mat_P_omega)

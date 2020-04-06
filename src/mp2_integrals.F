@@ -91,7 +91,8 @@ MODULE mp2_integrals
                                               distribution_3d_type,&
                                               libcusmm_maxblocksize,&
                                               neighbor_list_3c_type,&
-                                              split_block_sizes
+                                              split_block_sizes,&
+                                              pgf_block_sizes
    USE task_list_types,                 ONLY: task_list_type
    USE util,                            ONLY: get_limit
 
@@ -240,7 +241,8 @@ CONTAINS
          ngroup_im_time_P, nimg, nkind, num_small_eigen, potential_type, ri_metric_type, virtual, &
          virtual_beta
       INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_AO_1, dist_AO_2, dist_RI, ends_array_mc_block, &
-         ends_array_mc_block_int, ends_array_mc_int, sizes_AO, sizes_AO_split, &
+         ends_array_mc_block_int, ends_array_mc_int, sizes_AO, sizes_AO_split_1, sizes_AO_split_2, &
+         sizes_RI_split_1, sizes_RI_split_2, &
          sizes_AO_split_factor_1, sizes_AO_split_factor_2, sizes_RI, sizes_RI_split, &
          sizes_RI_split_factor, starts_array_mc_block, starts_array_mc_block_int, &
          starts_array_mc_int, sub_proc_map
@@ -802,11 +804,16 @@ CONTAINS
 
          CALL block_sizes_factorize(libcusmm_maxblocksize, min_bsize_factor_1, min_bsize_factor_2)
 
-         CALL split_block_sizes(sizes_AO, sizes_AO_split, libcusmm_maxblocksize)
-         CALL split_block_sizes(sizes_AO, sizes_AO_split_factor_1, min_bsize_factor_1)
-         CALL split_block_sizes(sizes_AO, sizes_AO_split_factor_2, min_bsize_factor_2)
-         CALL split_block_sizes(sizes_RI, sizes_RI_split, libcusmm_maxblocksize)
-         CALL split_block_sizes(sizes_RI, sizes_RI_split_factor, min_bsize_factor_2)
+         ! split blocks to improve load balancing for tensor contraction
+         min_bsize = qs_env%mp2_env%ri_rpa_im_time%min_bsize
+
+         CALL pgf_block_sizes(atomic_kind_set, basis_set_ao, min_bsize, sizes_AO_split_2)
+         CALL split_block_sizes(sizes_AO, sizes_AO_split_1, libcusmm_maxblocksize)
+         !CALL split_block_sizes(sizes_AO, sizes_AO_split_factor_1, min_bsize_factor_1)
+         !CALL split_block_sizes(sizes_AO, sizes_AO_split_factor_2, min_bsize_factor_2)
+         CALL pgf_block_sizes(atomic_kind_set, basis_set_ri_aux, min_bsize, sizes_RI_split_2)
+         CALL split_block_sizes(sizes_RI, sizes_RI_split_1, libcusmm_maxblocksize)
+         !CALL split_block_sizes(sizes_RI, sizes_RI_split_factor, min_bsize_factor_2)
 
          IF (.NOT. impose_split) THEN
             pdims_t3c = 0
@@ -824,7 +831,7 @@ CONTAINS
          cut_memory = qs_env%mp2_env%ri_rpa_im_time%cut_memory
 
          CALL create_3c_tensor(t_3c_M, dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_M, &
-                               sizes_RI_split, sizes_AO_split_factor_1, sizes_AO_split_factor_2, &
+                               sizes_RI_split_1, sizes_AO_split_2, sizes_AO_split_2, &
                                map1=[1], map2=[2, 3], &
                                starts_array_2=starts_array_mc, &
                                ends_array_2=ends_array_mc, &
@@ -838,7 +845,7 @@ CONTAINS
 
          ALLOCATE (t_3c_O(SIZE(t_3c_overl_int, 1), SIZE(t_3c_overl_int, 2)))
          CALL create_3c_tensor(t_3c_O(1, 1), dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_overl, &
-                               sizes_RI_split_factor, sizes_AO_split_factor_1, sizes_AO_split, &
+                               sizes_RI_split_2, sizes_AO_split_2, sizes_AO_split_1, &
                                map1=[1, 2], map2=[3], &
                                starts_array_2=starts_array_mc, ends_array_2=ends_array_mc, &
                                name="O (RI AO | AO)")
