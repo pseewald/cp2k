@@ -863,6 +863,8 @@ CONTAINS
       MARK_USED(cluster_list)
       CALL distribute_lpt_random(SIZE(cluster_prices), nprows, cluster_prices, row_distribution)
       CALL distribute_lpt_random(SIZE(cluster_prices), npcols, cluster_prices, col_distribution)
+      row_distribution = row_distribution + 1
+      col_distribution = col_distribution + 1
       !CALL timeset(routineN, timing_handle)
       !nbins = lcm(nprows, npcols)
       !pgrid_gcd = gcd(nprows, npcols)
