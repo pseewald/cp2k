@@ -851,47 +851,112 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'make_basic_distribution', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: bin, cluster, cluster_index, &
-                                                            cluster_price, nbins, nclusters, pcol, &
-                                                            pgrid_gcd, prow, timing_handle
-      INTEGER(int_8)                                     :: bin_price
-      LOGICAL                                            :: found
-      TYPE(cp_heap_type)                                 :: bin_heap
+      !INTEGER                                            :: bin, cluster, cluster_index, &
+      !                                                      cluster_price, nbins, nclusters, pcol, &
+      !                                                      pgrid_gcd, prow, timing_handle
+      !INTEGER(int_8)                                     :: bin_price
+      !LOGICAL                                            :: found
+      !TYPE(cp_heap_type)                                 :: bin_heap
 
 !   ---------------------------------------------------------------------------
 
-      CALL timeset(routineN, timing_handle)
-      nbins = lcm(nprows, npcols)
-      pgrid_gcd = gcd(nprows, npcols)
-      CALL sort(cluster_prices, SIZE(cluster_list), cluster_list)
-      CALL cp_heap_new(bin_heap, nbins)
-      CALL cp_heap_fill(bin_heap, (/(0_int_8, bin=1, nbins)/))
-      !
-      nclusters = SIZE(cluster_list)
-      ! Put the most expensive cluster in the bin with the smallest
-      ! price and repeat.
-      DO cluster_index = nclusters, 1, -1
-         cluster = cluster_list(cluster_index)
-         CALL cp_heap_get_first(bin_heap, bin, bin_price, found)
-         IF (.NOT. found) &
-            CPABORT("No topmost heap element found.")
-         !
-         prow = INT((bin - 1)*pgrid_gcd/npcols)
-         IF (prow .GE. nprows) &
-            CPABORT("Invalid process row.")
-         pcol = INT((bin - 1)*pgrid_gcd/nprows)
-         IF (pcol .GE. npcols) &
-            CPABORT("Invalid process column.")
-         row_distribution(cluster) = prow + 1
-         col_distribution(cluster) = pcol + 1
-         !
-         cluster_price = cluster_prices(cluster_index)
-         bin_price = bin_price + cluster_price
-         CALL cp_heap_reset_first(bin_heap, bin_price)
-      ENDDO
-      CALL cp_heap_release(bin_heap)
-      CALL timestop(timing_handle)
+      MARK_USED(cluster_list)
+      CALL distribute_lpt_random(SIZE(cluster_prices), nprows, cluster_prices, row_distribution)
+      CALL distribute_lpt_random(SIZE(cluster_prices), npcols, cluster_prices, col_distribution)
+      !CALL timeset(routineN, timing_handle)
+      !nbins = lcm(nprows, npcols)
+      !pgrid_gcd = gcd(nprows, npcols)
+      !CALL sort(cluster_prices, SIZE(cluster_list), cluster_list)
+      !CALL cp_heap_new(bin_heap, nbins)
+      !CALL cp_heap_fill(bin_heap, (/(0_int_8, bin=1, nbins)/))
+      !!
+      !nclusters = SIZE(cluster_list)
+      !! Put the most expensive cluster in the bin with the smallest
+      !! price and repeat.
+      !DO cluster_index = nclusters, 1, -1
+      !   cluster = cluster_list(cluster_index)
+      !   CALL cp_heap_get_first(bin_heap, bin, bin_price, found)
+      !   IF (.NOT. found) &
+      !      CPABORT("No topmost heap element found.")
+      !   !
+      !   prow = INT((bin - 1)*pgrid_gcd/npcols)
+      !   IF (prow .GE. nprows) &
+      !      CPABORT("Invalid process row.")
+      !   pcol = INT((bin - 1)*pgrid_gcd/nprows)
+      !   IF (pcol .GE. npcols) &
+      !      CPABORT("Invalid process column.")
+      !   row_distribution(cluster) = prow + 1
+      !   col_distribution(cluster) = pcol + 1
+      !   !
+      !   cluster_price = cluster_prices(cluster_index)
+      !   bin_price = bin_price + cluster_price
+      !   CALL cp_heap_reset_first(bin_heap, bin_price)
+      !ENDDO
+      !CALL cp_heap_release(bin_heap)
+      !CALL timestop(timing_handle)
    END SUBROUTINE make_basic_distribution
+
+! **************************************************************************************************
+!> \brief ...
+!> \param nel ...
+!> \param nbin ...
+!> \param weights ...
+!> \param dist ...
+! **************************************************************************************************
+   SUBROUTINE distribute_lpt_random(nel, nbin, weights, dist)
+      !! distribute `nel` elements with weights `weights` over `nbin` bins.
+      !! load balanced distribution is obtained by using LPT algorithm together with randomization over equivalent bins
+      !! (i.e. randomization over all bins with the smallest accumulated weight)
+      INTEGER, INTENT(IN)                                :: nel, nbin
+      INTEGER, DIMENSION(nel), INTENT(IN)                :: weights
+      INTEGER, DIMENSION(nel), INTENT(OUT)               :: dist
+
+      INTEGER, PARAMETER                                 :: n_equilibrate = 10000
+
+      INTEGER                                            :: i, i_select, ibin, iel, min_occup, &
+                                                            n_avail
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bins_avail
+      INTEGER, DIMENSION(4)                              :: iseed
+      INTEGER, DIMENSION(nel)                            :: sort_index, weights_s
+      INTEGER, DIMENSION(nbin)                           :: occup
+      LOGICAL, DIMENSION(nbin)                           :: bin_mask
+      REAL(dp)                                           :: rand
+
+      ! initialize seed based on input arguments such that random numbers are deterministic across all processes
+      iseed(1) = nel; iseed(2) = nbin; iseed(3) = MAXVAL(weights); iseed(4) = MINVAL(weights)
+
+      iseed(4) = iseed(4)*2 + 1 ! odd
+
+      iseed(:) = MODULO(iseed(:), 2**12)
+
+      DO i = 1, n_equilibrate
+         CALL dlarnv(1, iseed, 1, rand)
+      ENDDO
+
+      occup(:) = 0
+      weights_s = weights
+      CALL sort(weights_s, nel, sort_index)
+
+      occup(:) = 0
+      DO iel = nel, 1, -1
+         min_occup = MINVAL(occup, 1)
+
+         ! available bins with min. occupancy
+         bin_mask = occup == min_occup
+         n_avail = COUNT(bin_mask)
+         ALLOCATE (bins_avail(n_avail))
+         bins_avail(:) = PACK((/(i, i=1, nbin)/), MASK=bin_mask)
+
+         CALL dlarnv(1, iseed, 1, rand)
+         i_select = FLOOR(rand*n_avail) + 1
+         ibin = bins_avail(i_select)
+         DEALLOCATE (bins_avail)
+
+         dist(sort_index(iel)) = ibin - 1
+         occup(ibin) = occup(ibin) + weights_s(iel)
+      ENDDO
+
+   END SUBROUTINE
 
 ! **************************************************************************************************
 !> \brief Creates a basic spatial distribution
