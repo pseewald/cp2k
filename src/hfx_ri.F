@@ -85,10 +85,14 @@ MODULE hfx_ri
                                               build_3c_neighbor_lists,&
                                               neighbor_list_3c_destroy,&
                                               tensor_change_pgrid
-   USE qs_tensors_types,                ONLY: &
-        contiguous_tensor_dist, create_2c_tensor, create_3c_tensor, create_tensor_batches, &
-        distribution_3d_create, distribution_3d_type, libcusmm_maxblocksize, &
-        neighbor_list_3c_type, split_block_sizes
+   USE qs_tensors_types,                ONLY: contiguous_tensor_dist,&
+                                              create_2c_tensor,&
+                                              create_3c_tensor,&
+                                              create_tensor_batches,&
+                                              distribution_3d_create,&
+                                              distribution_3d_type,&
+                                              neighbor_list_3c_type,&
+                                              split_block_sizes
    USE util,                            ONLY: sort
 #include "./base/base_uses.f90"
 
@@ -951,14 +955,16 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_update_ks_mo', &
          routineP = moduleN//':'//routineN
-      REAL(dp), PARAMETER                                :: lb_ratio = 0.2_dp
+      REAL(dp), PARAMETER                                :: lb_ratio = 0.1_dp
 
-      INTEGER :: bsum, comm_2d, count, handle, handle2, i_mem, iproc, ispin, max_pdim_mo, n_mem, &
-         n_mos, nproc, nproc_rem, pdim_AO, pdim_AO_, pdim_AO__, pdim_mo, tdim_mo, unit_nr_dbcsr
+      INTEGER :: bsize, bsum, comm_2d, count, handle, handle2, i_mem, iproc, ispin, max_pdim_mo, &
+         n_mem, n_mos, nproc, nproc_rem, pdim_AO, pdim_AO_, pdim_AO__, pdim_mo, tdim_mo, &
+         unit_nr_dbcsr
       INTEGER(int_8)                                     :: nblks, nflop
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, dist3, mem_end, &
-                                                            mem_end_block, mem_start, &
-                                                            mem_start_block, mo_bsizes_1, mo_bsizes_2, mem_size
+                                                            mem_end_block, mem_size, mem_start, &
+                                                            mem_start_block, mo_bsizes_1, &
+                                                            mo_bsizes_2
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(3)                              :: pcoord, pdims, pdims_AO, pdims_RI
@@ -971,7 +977,6 @@ CONTAINS
       TYPE(dbcsr_t_type)                                 :: ks_t, ks_t_mat, mo_coeff_t, &
                                                             mo_coeff_t_split
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_mo_1, t_3c_int_mo_2
-      INTEGER :: bsize
 
       CALL timeset(routineN, handle)
 
@@ -1073,8 +1078,6 @@ CONTAINS
 
          CPASSERT(homo(ispin)/ri_data%n_mem > 0)
 
-
-
          IF (do_initialize) THEN
             pdims(:) = 0
 
@@ -1103,8 +1106,6 @@ CONTAINS
          CALL dbcsr_t_copy(mo_coeff_t, mo_coeff_t_split, move_data=.TRUE.)
          CALL dbcsr_t_filter(mo_coeff_t_split, ri_data%filter_eps_mo)
          CALL dbcsr_t_destroy(mo_coeff_t)
-
-
 
          DO i_mem = 1, n_mem
 
