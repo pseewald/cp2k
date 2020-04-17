@@ -1323,7 +1323,7 @@ CONTAINS
          ALLOCATE (ri_data%t_2c_int(2, 1))
 
          CALL create_2c_tensor(ri_data%t_2c_int(1, 1), dist1, dist2, ri_data%pgrid_2d, &
-                               ri_data%bsizes_RI_fit, ri_data%bsizes_RI_fit, &
+                               ri_data%bsizes_RI, ri_data%bsizes_RI, &
                                name="(RI | RI)")
 
          DEALLOCATE (dist1, dist2)
