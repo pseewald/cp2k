@@ -1024,7 +1024,7 @@ CONTAINS
 
       pgrid_2d = dbcsr_t_nd_mp_comm(comm_2d, [1], [2], pdims_2d=pdims_2d)
 
-      CALL create_2c_tensor(ks_t, dist1, dist2, pgrid_2d, ri_data%bsizes_AO_fit, ri_data%bsizes_AO_fit, &
+      CALL create_2c_tensor(ks_t, dist1, dist2, pgrid_2d, ri_data%bsizes_AO, ri_data%bsizes_AO, &
                             name="(AO | AO)")
 
       DEALLOCATE (dist1, dist2)
@@ -1086,13 +1086,13 @@ CONTAINS
                                                    (homo(ispin) - 1)/ri_data%n_mem + 1, &
                                                    SIZE(ri_data%bsizes_AO_fit)])
             CALL create_3c_tensor(ri_data%t_3c_int_mo(ispin, 1, 1), dist1, dist2, dist3, pgrid, &
-                                  ri_data%bsizes_RI_fit, mo_bsizes_2, ri_data%bsizes_AO_fit, &
+                                  ri_data%bsizes_RI, mo_bsizes_2, ri_data%bsizes_AO, &
                                   [1], [2, 3], name="(RI | MO AO)")
 
             DEALLOCATE (dist1, dist2, dist3)
 
             CALL create_3c_tensor(ri_data%t_3c_ctr_KS(ispin, 1, 1), dist1, dist2, dist3, pgrid, &
-                                  ri_data%bsizes_RI_fit, mo_bsizes_2, ri_data%bsizes_AO_fit, &
+                                  ri_data%bsizes_RI, mo_bsizes_2, ri_data%bsizes_AO, &
                                   [1, 2], [3], name="(RI MO | AO)")
             DEALLOCATE (dist1, dist2, dist3)
             CALL dbcsr_t_pgrid_destroy(pgrid)
