@@ -1340,7 +1340,7 @@ CONTAINS
          ! is slightly smaller)
          MO_dim = MAX((ri_data%nelectron_total/2 - 1)/ri_data%n_mem + 1, 1)
 
-         pdims = [1, nproc, 1]
+         pdims = 0
          CALL dbcsr_t_mp_dims_create(nproc, pdims, [MO_dim, SIZE(ri_data%bsizes_RI_split), MO_dim])
 
          CALL dbcsr_t_pgrid_create(para_env%group, pdims, ri_data%pgrid_1)
