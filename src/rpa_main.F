@@ -1751,13 +1751,13 @@ CONTAINS
                IF (.NOT. (do_kpoints_cubic_RPA .OR. do_kpoints_from_Gamma)) THEN
 
                   CALL contract_P_omega_with_mat_L(mat_P_omega(jquad, 1)%matrix, mat_L%matrix, mat_work, eps_filter_im_time, &
-                                                   fm_mat_work, dimen_RI, dimen_RI_red, fm_mat_L(1, 1)%matrix, fm_mat_Q)
+                                                   fm_mat_work, dimen_RI, dimen_RI_red, fm_mat_L(1, 1)%matrix, fm_mat_Q, para_env)
 
                   ! For open-shell SOS-MP2 we have two different matrices to deal with
                   IF (my_open_shell .AND. do_ri_sos_laplace_mp2) THEN
                      CALL contract_P_omega_with_mat_L(mat_P_omega_beta(jquad, 1)%matrix, mat_L%matrix, mat_work, &
                                                       eps_filter_im_time, fm_mat_work, dimen_RI, dimen_RI_red, &
-                                                      fm_mat_L(1, 1)%matrix, fm_mat_Q_beta)
+                                                      fm_mat_L(1, 1)%matrix, fm_mat_Q_beta, para_env)
                   END IF
                END IF
 

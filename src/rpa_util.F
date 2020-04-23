@@ -58,7 +58,8 @@ MODULE rpa_util
    USE machine,                         ONLY: m_walltime
    USE mathconstants,                   ONLY: z_zero
    USE message_passing,                 ONLY: mp_comm_split_direct,&
-                                              mp_sum
+                                              mp_sum,&
+                                              mp_sync
    USE mp2_laplace,                     ONLY: calc_fm_mat_S_laplace
    USE mp2_types,                       ONLY: integ_mat_buffer_type
    USE qs_environment_types,            ONLY: get_qs_env,&
@@ -1189,15 +1190,17 @@ CONTAINS
 !> \param dimen_RI_red ...
 !> \param fm_mat_L ...
 !> \param fm_mat_Q ...
+!> \param para_env ...
 ! **************************************************************************************************
    SUBROUTINE contract_P_omega_with_mat_L(mat_P_omega, mat_L, mat_work, eps_filter_im_time, fm_mat_work, dimen_RI, &
-                                          dimen_RI_red, fm_mat_L, fm_mat_Q)
+                                          dimen_RI_red, fm_mat_L, fm_mat_Q, para_env)
 
       TYPE(dbcsr_type), POINTER                          :: mat_P_omega, mat_L, mat_work
       REAL(KIND=dp), INTENT(IN)                          :: eps_filter_im_time
       TYPE(cp_fm_type), POINTER                          :: fm_mat_work
       INTEGER, INTENT(IN)                                :: dimen_RI, dimen_RI_red
       TYPE(cp_fm_type), POINTER                          :: fm_mat_L, fm_mat_Q
+      TYPE(cp_para_env_type), POINTER                    :: para_env
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'contract_P_omega_with_mat_L', &
          routineP = moduleN//':'//routineN
@@ -1212,6 +1215,7 @@ CONTAINS
 
       CALL copy_dbcsr_to_fm(mat_work, fm_mat_work)
 
+      CALL mp_sync(para_env%group)
       CALL cp_gemm('N', 'N', dimen_RI_red, dimen_RI_red, dimen_RI, 1.0_dp, fm_mat_L, fm_mat_work, &
                    0.0_dp, fm_mat_Q)
 
