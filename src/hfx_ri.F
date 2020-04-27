@@ -83,6 +83,7 @@ MODULE hfx_ri
                                               build_2c_neighbor_lists,&
                                               build_3c_integrals,&
                                               build_3c_neighbor_lists,&
+                                              get_tensor_occupancy,&
                                               neighbor_list_3c_destroy,&
                                               tensor_change_pgrid
    USE qs_tensors_types,                ONLY: create_2c_tensor,&
@@ -389,10 +390,10 @@ CONTAINS
          CALL init_interaction_radii_orb_basis(orb_basis, ri_data%eps_pgf_orb)
       ENDDO
 
-      CALL create_tensor_batches(sizes_AO, ri_data%n_mem, starts_array_mc_int, ends_array_mc_int, &
+      n_mem = ri_data%n_mem
+      CALL create_tensor_batches(sizes_AO, n_mem, starts_array_mc_int, ends_array_mc_int, &
                                  starts_array_mc_block_int, ends_array_mc_block_int)
 
-      n_mem = ri_data%n_mem
       DEALLOCATE (starts_array_mc_int, ends_array_mc_int)
 
       CALL create_3c_tensor(t_3c_int_batched(1, 1), dist_RI, dist_AO_1, dist_AO_2, ri_data%pgrid, &
@@ -1030,17 +1031,16 @@ CONTAINS
       CALL mp_sync(para_env%group)
       t1 = m_walltime()
 
-      n_mem = ri_data%n_mem
-      ALLOCATE (mem_size(n_mem))
-
       DO ispin = 1, nspins
 
          CALL dbcsr_get_info(mo_coeff(ispin), nfullcols_total=n_mos)
          ALLOCATE (mo_bsizes_2(n_mos))
          mo_bsizes_2 = 1
 
-         CALL create_tensor_batches(mo_bsizes_2, n_mem, mem_start, mem_end, &
+         CALL create_tensor_batches(mo_bsizes_2, ri_data%n_mem, mem_start, mem_end, &
                                     mem_start_block, mem_end_block)
+         n_mem = ri_data%n_mem
+         ALLOCATE (mem_size(n_mem))
 
          DO i_mem = 1, n_mem
             bsize = SUM(mo_bsizes_2(mem_start_block(i_mem):mem_end_block(i_mem)))
@@ -1118,7 +1118,7 @@ CONTAINS
                ! modify pdim_AO until it divides remaining number of processes
                ! and make sure that process dimension corresponding to MOs is much smaller than tensor dimension (for good load balancing)
                pdim_AO_ = pdim_AO
-               tdim_mo = (homo(ispin) - 1)/ri_data%n_mem + 1
+               tdim_mo = (homo(ispin) - 1)/n_mem + 1
                max_pdim_mo = MAX(INT(REAL(tdim_mo, dp)*lb_ratio), 1)
                count = 0
 
@@ -1278,7 +1278,7 @@ CONTAINS
          CALL dbcsr_t_copy_tensor_to_matrix(ks_t_mat, ks_matrix(ispin, 1)%matrix, summation=.TRUE.)
          CALL dbcsr_t_destroy(ks_t_mat)
 
-         DEALLOCATE (mem_end, mem_start, mo_bsizes_2)
+         DEALLOCATE (mem_end, mem_start, mo_bsizes_2, mem_size)
 
       ENDDO
 
@@ -1318,8 +1318,10 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER :: col, handle, handle2, i_mem, iblk, iblk_filter, iblkrow, ispin, j_mem, nblk, &
-         nblk_filter, row, row_end, row_start, unit_nr_dbcsr
-      INTEGER(int_8)                                     :: flops_ks_max, flops_ri_max, nblks, nflop
+         nblk_filter, row, row_end, row_start, unit_nr, unit_nr_dbcsr
+      INTEGER(int_8)                                     :: flops_ks_max, flops_ri_max, nblks, &
+                                                            nflop, nze, nze_3c, nze_3c_1, &
+                                                            nze_3c_2, nze_ks, nze_rho
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: ctr_ind, ctr_ind_tmp
       INTEGER, DIMENSION(2)                              :: dims_2c
@@ -1328,7 +1330,8 @@ CONTAINS
                                                             bounds_jj
       INTEGER, DIMENSION(3)                              :: dims_3c
       LOGICAL                                            :: found
-      REAL(dp)                                           :: t1, t2
+      REAL(dp)                                           :: occ, occ_3c, occ_3c_1, occ_3c_2, occ_ks, &
+                                                            occ_rho, t1, t2
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_t_pgrid_type), POINTER                  :: pgrid_opt
       TYPE(dbcsr_t_type)                                 :: ks_t, ks_tmp, rho_ao_t, rho_ao_tmp, &
@@ -1340,6 +1343,7 @@ CONTAINS
 
       ! get a useful output_unit
       unit_nr_dbcsr = ri_data%unit_nr_dbcsr
+      unit_nr = ri_data%unit_nr
 
       CALL get_qs_env(qs_env, para_env=para_env)
 
@@ -1397,6 +1401,17 @@ CONTAINS
          CALL dbcsr_t_batched_contract_init(ks_t)
          CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(1, 1))
          flops_ks_max = 0; flops_ri_max = 0
+
+         CALL get_tensor_occupancy(ri_data%t_3c_int_ctr_1(1, 1), nze_3c, occ_3c)
+
+         nze_rho = 0
+         occ_rho = 0.0_dp
+         nze_3c_1 = 0
+         occ_3c_1 = 0.0_dp
+         nze_3c_2 = 0
+         occ_3c_2 = 0.0_dp
+         nze_ks = 0
+         occ_ks = 0.0_dp
          DO i_mem = 1, ri_data%n_mem
             CALL dbcsr_t_copy_matrix_to_tensor(rho_ao(ispin, 1)%matrix, rho_ao_tmp)
             CALL dbcsr_t_get_info(rho_ao_t, nfull_total=dims_2c)
@@ -1404,7 +1419,12 @@ CONTAINS
             bounds_2c(:, 2) = [1, dims_2c(2)]
             bounds_i(:, 1) = bounds_2c(:, 1)
 
-            CALL dbcsr_t_copy(rho_ao_tmp, rho_ao_t, bounds=bounds_2c, move_data=.TRUE.)
+            CALL dbcsr_t_copy(rho_ao_tmp, rho_ao_t, bounds=bounds_2c)
+
+            CALL get_tensor_occupancy(rho_ao_t, nze, occ)
+            nze_rho = nze_rho + nze
+            occ_rho = occ_rho + occ
+
             CALL dbcsr_t_batched_contract_init(rho_ao_t)
 
             DO j_mem = 1, ri_data%n_mem
@@ -1427,6 +1447,10 @@ CONTAINS
                ri_data%dbcsr_nflop = ri_data%dbcsr_nflop + nflop
 
                CALL timestop(handle2)
+
+               CALL get_tensor_occupancy(t_3c_1, nze, occ)
+               nze_3c_1 = nze_3c_1 + nze
+               occ_3c_1 = occ_3c_1 + occ
 
                CALL timeset(routineN//"_copy_1", handle2)
                CALL dbcsr_t_copy(t_3c_1, ri_data%t_3c_int_ctr_3(1, 1), order=[3, 1, 2], move_data=.TRUE.)
@@ -1498,6 +1522,10 @@ CONTAINS
 
                CALL timestop(handle2)
 
+               CALL get_tensor_occupancy(t_3c_2, nze, occ)
+               nze_3c_2 = nze_3c_2 + nze
+               occ_3c_2 = occ_3c_2 + occ
+
                CALL timeset(routineN//"_copy_2", handle2)
                CALL dbcsr_t_copy(t_3c_2, t_3c_1, order=[2, 1, 3], move_data=.TRUE.)
                CALL timestop(handle2)
@@ -1527,7 +1555,7 @@ CONTAINS
                                      dbcsr_scalar(1.0_dp), ks_t, &
                                      contract_1=[1, 2], notcontract_1=[3], &
                                      contract_2=[1, 2], notcontract_2=[3], &
-                                     map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps, &
+                                     map_1=[1], map_2=[2], filter_eps=ri_data%filter_eps/ri_data%n_mem, &
                                      bounds_1=bounds_ii, &
                                      bounds_3=bounds_j, &
                                      unit_nr=unit_nr_dbcsr, &
@@ -1557,12 +1585,28 @@ CONTAINS
             CALL dbcsr_t_batched_contract_finalize(rho_ao_t)
             CALL dbcsr_t_clear(rho_ao_t)
          ENDDO
-         CALL dbcsr_t_batched_contract_finalize(ks_t)
          CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(1, 1))
+         CALL dbcsr_t_batched_contract_finalize(ks_t, unit_nr=unit_nr_dbcsr)
+         CALL get_tensor_occupancy(ks_t, nze_ks, occ_ks)
+
          CALL dbcsr_t_copy(ks_t, ks_tmp)
          CALL dbcsr_t_clear(ks_t)
          CALL dbcsr_t_copy_tensor_to_matrix(ks_tmp, ks_matrix(ispin, 1)%matrix)
          CALL dbcsr_t_clear(ks_tmp)
+
+         IF (unit_nr > 0 .AND. geometry_did_change) THEN
+            WRITE (unit_nr, '(T6,A,T63,ES7.1,1X,A1,1X,F7.3,A1)') &
+               'Occupancy of density matrix P:', REAL(nze_rho, dp), '/', occ_rho*100, '%'
+            WRITE (unit_nr, '(T6,A,T63,ES7.1,1X,A1,1X,F7.3,A1)') &
+               'Occupancy of 3c ints:', REAL(nze_3c, dp), '/', occ_3c*100, '%'
+            WRITE (unit_nr, '(T6,A,T63,ES7.1,1X,A1,1X,F7.3,A1)') &
+               'Occupancy after contraction with P:', REAL(nze_3c_1, dp), '/', occ_3c_1*100, '%'
+            WRITE (unit_nr, '(T6,A,T63,ES7.1,1X,A1,1X,F7.3,A1)') &
+               'Occupancy after contraction with K:', REAL(nze_3c_2, dp), '/', occ_3c_2*100, '%'
+            WRITE (unit_nr, '(T6,A,T63,ES7.1,1X,A1,1X,F7.3,A1)') &
+               'Occupancy of Kohn-Sham matrix:', REAL(nze_ks, dp), '/', occ_ks*100, '%'
+         ENDIF
+
       ENDDO
 
       CALL mp_sync(para_env%group)
