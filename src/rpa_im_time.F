@@ -189,9 +189,10 @@ CONTAINS
                                                             pgrid_2_use, pgrid_2d
       TYPE(dbcsr_t_pgrid_type), POINTER                  :: pgrid_1_opt_occ, pgrid_1_opt_virt, &
                                                             pgrid_2_opt
-      TYPE(dbcsr_t_type)                                 :: t_3c_M_occ, t_3c_M_occ_tmp, t_3c_M_virt, &
-                                                            t_3c_M_virt_tmp, t_dm, t_dm_tmp, t_P, &
-                                                            t_P_tmp
+      TYPE(dbcsr_t_type)                                 :: t_3c_M_occ, t_3c_M_occ_tmp, &
+                                                            t_3c_M_occ_tmp_2, t_3c_M_virt, &
+                                                            t_3c_M_virt_tmp, t_3c_O_M, t_dm, &
+                                                            t_dm_tmp, t_P, t_P_tmp
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:)      :: t_dm_occ, t_dm_virt
       TYPE(dbcsr_t_type), &
          DIMENSION(SIZE(t_3c_O, 1), SIZE(t_3c_O, 2))     :: t_3c_O_occ, t_3c_O_virt
@@ -222,6 +223,8 @@ CONTAINS
             !CALL dbcsr_t_clear(t_3c_O(i, j)) ! clearing t_3c_O is not safe because it may be used later
          ENDDO
       ENDDO
+      CALL dbcsr_t_create(t_3c_M, t_3c_O_M)
+      CALL dbcsr_t_copy(t_3c_O(1, 1), t_3c_O_M)
 
       pgrid_1_init_occ = .FALSE.; pgrid_1_init_virt = .FALSE.; pgrid_2_init = .FALSE.
       DO jquad = 1, num_integ_points
@@ -264,6 +267,10 @@ CONTAINS
                                      starts_array_mc_block_3=starts_array_mc_block, &
                                      ends_array_mc_block_3=ends_array_mc_block, &
                                      nodata=.TRUE., unit_nr=unit_nr_dbcsr)
+
+            CALL dbcsr_t_destroy(t_3c_O_M)
+            CALL dbcsr_t_create(t_3c_M, t_3c_O_M)
+            CALL dbcsr_t_copy(t_3c_O(1, 1), t_3c_O_M)
          ENDIF
 
          CALL compute_mat_dm_global(fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, tau_tj, num_integ_points, nmo, &
@@ -315,6 +322,7 @@ CONTAINS
          CALL dbcsr_t_destroy(t_dm)
 
          CALL dbcsr_t_create(t_3c_O_occ(1, 1), t_3c_M_occ_tmp, name="M (RI AO | AO)")
+         CALL dbcsr_t_create(t_3c_O_virt(1, 1), t_3c_M_occ_tmp_2, name="M (RI AO | AO)")
          CALL dbcsr_t_create(t_3c_O_virt(1, 1), t_3c_M_virt_tmp, name="M (RI AO | AO)")
          CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ (RI | AO AO)")
          CALL dbcsr_t_create(t_3c_M, t_3c_M_virt, name="M virt (RI | AO AO)")
@@ -413,8 +421,8 @@ CONTAINS
                         ! to better control memory allocations (we can release data of previous
                         ! representation)
                         CALL timeset(routineN//"_copy_M_occ_t", handle3)
-                        CALL dbcsr_t_copy(t_3c_M_occ_tmp, t_3c_M_occ, order=[1, 3, 2], move_data=.TRUE.)
-                        CALL dbcsr_t_filter(t_3c_M_occ, eps_filter)
+                        CALL dbcsr_t_copy(t_3c_M_occ_tmp, t_3c_M_occ_tmp_2, order=[1, 3, 2], move_data=.TRUE.)
+                        CALL dbcsr_t_filter(t_3c_M_occ_tmp_2, eps_filter)
                         CALL timestop(handle3)
 
                         IF (do_Gamma_RPA) THEN
@@ -432,8 +440,7 @@ CONTAINS
 
                               CALL timeset(routineN//"_calc_M_virt_t", handle3)
                               CALL dbcsr_t_contract(alpha=dbcsr_scalar(alpha/2.0_dp), &
-                                                    tensor_1=t_3c_O_virt( &
-                                                    i_cell_R_2_minus_S_minus_T, i_cell_R_1_minus_T), &
+                                                    tensor_1=t_3c_M_occ_tmp_2, &
                                                     tensor_2=t_dm_virt(i_cell_S), &
                                                     beta=dbcsr_scalar(1.0_dp), &
                                                     tensor_3=t_3c_M_virt_tmp, &
@@ -479,7 +486,7 @@ CONTAINS
 
                         CALL timeset(routineN//"_calc_P_t", handle3)
 
-                        CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), tensor_1=t_3c_M_occ, &
+                        CALL dbcsr_t_contract(alpha=dbcsr_scalar(1.0_dp), tensor_1=t_3c_O_M, &
                                               tensor_2=t_3c_M_virt, &
                                               beta=dbcsr_scalar(1.0_dp), &
                                               tensor_3=t_P, &
@@ -580,6 +587,7 @@ CONTAINS
          CALL dbcsr_t_destroy(t_3c_M_virt_tmp)
          CALL dbcsr_t_destroy(t_3c_M_occ)
          CALL dbcsr_t_destroy(t_3c_M_virt)
+         CALL dbcsr_t_destroy(t_3c_M_occ_tmp_2)
          DEALLOCATE (t_dm_virt)
          DEALLOCATE (t_dm_occ)
 
@@ -620,6 +628,8 @@ CONTAINS
       IF (pgrid_1_init_virt) CALL dbcsr_t_pgrid_destroy(pgrid_1_use_virt)
       IF (pgrid_1_init_occ) CALL dbcsr_t_pgrid_destroy(pgrid_1_use_occ)
       IF (pgrid_2_init) CALL dbcsr_t_pgrid_destroy(pgrid_2_use)
+
+      CALL dbcsr_t_destroy(t_3c_O_M)
 
       CALL clean_up(mat_dm_occ_global, mat_dm_virt_global)
 
