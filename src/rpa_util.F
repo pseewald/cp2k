@@ -95,7 +95,6 @@ CONTAINS
 !> \param kpoints ...
 !> \param eps_filter_im_time ...
 !> \param do_ri_sos_laplace_mp2 ...
-!> \param cut_memory ...
 !> \param nkp ...
 !> \param num_cells_dm ...
 !> \param num_3c_repl ...
@@ -109,7 +108,6 @@ CONTAINS
 !> \param do_kpoints_from_Gamma ...
 !> \param do_ri_Sigma_x ...
 !> \param my_open_shell ...
-!> \param has_mat_P_blocks ...
 !> \param wkp_W ...
 !> \param cfm_mat_Q ...
 !> \param fm_mat_L ...
@@ -132,14 +130,14 @@ CONTAINS
                             fm_mat_Q, fm_mo_coeff_occ, fm_mo_coeff_virt, &
                             fm_matrix_L_RI_metric, mat_P_global, &
                             t_3c_O, matrix_s, kpoints, eps_filter_im_time, &
-                            do_ri_sos_laplace_mp2, cut_memory, nkp, num_cells_dm, num_3c_repl, &
+                            do_ri_sos_laplace_mp2, nkp, num_cells_dm, num_3c_repl, &
                             size_P, ikp_local, &
                             index_to_cell_3c, &
                             cell_to_index_3c, &
                             col_blk_size, &
                             do_ic_model, do_kpoints_cubic_RPA, &
                             do_kpoints_from_Gamma, do_ri_Sigma_x, my_open_shell, &
-                            has_mat_P_blocks, wkp_W, &
+                            wkp_W, &
                             cfm_mat_Q, fm_mat_L, fm_mat_RI_global_work, fm_mat_work, fm_mo_coeff_occ_scaled, &
                             fm_mo_coeff_virt_scaled, mat_dm, mat_L, mat_M_P_munu_occ, mat_M_P_munu_virt, mat_P_global_copy, &
                             mat_SinvVSinv, mat_P_omega, mat_P_omega_kp, &
@@ -159,7 +157,6 @@ CONTAINS
       TYPE(kpoint_type), POINTER                         :: kpoints
       REAL(KIND=dp), INTENT(IN)                          :: eps_filter_im_time
       LOGICAL, INTENT(IN)                                :: do_ri_sos_laplace_mp2
-      INTEGER, INTENT(IN)                                :: cut_memory
       INTEGER, INTENT(OUT)                               :: nkp, num_cells_dm, num_3c_repl, size_P
       INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT)    :: ikp_local
       INTEGER, ALLOCATABLE, DIMENSION(:, :), INTENT(OUT) :: index_to_cell_3c
@@ -169,8 +166,6 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: do_ic_model, do_kpoints_cubic_RPA, &
                                                             do_kpoints_from_Gamma, do_ri_Sigma_x, &
                                                             my_open_shell
-      LOGICAL, ALLOCATABLE, DIMENSION(:, :, :, :, :), &
-         INTENT(OUT)                                     :: has_mat_P_blocks
       REAL(KIND=dp), DIMENSION(:), POINTER               :: wkp_W
       TYPE(cp_cfm_type), POINTER                         :: cfm_mat_Q
       TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: fm_mat_L
@@ -282,9 +277,6 @@ CONTAINS
          CALL cp_fm_to_fm(fm_matrix_L_RI_metric(1, 1)%matrix, fm_mat_RI_global_work)
          CALL cp_fm_set_all(fm_mat_RI_global_work, 0.0_dp)
       END IF
-
-      ALLOCATE (has_mat_P_blocks(num_cells_dm/2 + 1, cut_memory, cut_memory, num_3c_repl, num_3c_repl))
-      has_mat_P_blocks = .TRUE.
 
       IF (do_kpoints_cubic_RPA .OR. do_kpoints_from_Gamma) THEN
          CALL reorder_mat_L(fm_mat_L, fm_matrix_L_RI_metric, fm_mat_Q%matrix_struct, para_env, mat_L, &
@@ -1035,7 +1027,6 @@ CONTAINS
 !> \param do_kpoints_cubic_RPA ...
 !> \param do_kpoints_from_Gamma ...
 !> \param do_ri_Sigma_x ...
-!> \param has_mat_P_blocks ...
 !> \param wkp_W ...
 !> \param cfm_mat_Q ...
 !> \param fm_mat_L ...
@@ -1059,7 +1050,6 @@ CONTAINS
                               fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, ikp_local, index_to_cell_3c, &
                               cell_to_index_3c, do_ic_model, &
                               do_kpoints_cubic_RPA, do_kpoints_from_Gamma, do_ri_Sigma_x, &
-                              has_mat_P_blocks, &
                               wkp_W, cfm_mat_Q, fm_mat_L, fm_mat_RI_global_work, fm_mat_work, &
                               fm_mo_coeff_occ_scaled, fm_mo_coeff_virt_scaled, mat_dm, mat_L, &
                               mat_SinvVSinv, mat_P_omega, mat_P_omega_kp, &
@@ -1078,8 +1068,6 @@ CONTAINS
          INTENT(INOUT)                                   :: cell_to_index_3c
       LOGICAL, INTENT(IN)                                :: do_ic_model, do_kpoints_cubic_RPA, &
                                                             do_kpoints_from_Gamma, do_ri_Sigma_x
-      LOGICAL, ALLOCATABLE, DIMENSION(:, :, :, :, :), &
-         INTENT(INOUT)                                   :: has_mat_P_blocks
       REAL(KIND=dp), DIMENSION(:), POINTER               :: wkp_W
       TYPE(cp_cfm_type), POINTER                         :: cfm_mat_Q
       TYPE(cp_fm_p_type), DIMENSION(:, :), POINTER       :: fm_mat_L
@@ -1164,8 +1152,6 @@ CONTAINS
 
       DEALLOCATE (t_3c_O)
       CALL dbcsr_t_destroy(t_3c_M)
-
-      DEALLOCATE (has_mat_P_blocks)
 
       IF (do_kpoints_cubic_RPA .OR. do_kpoints_from_Gamma) THEN
          CALL cp_cfm_release(cfm_mat_Q)

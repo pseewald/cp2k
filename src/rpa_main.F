@@ -1334,7 +1334,6 @@ CONTAINS
       LOGICAL :: do_apply_ic_corr_to_gw, do_gw_im_time, do_ic_model, do_kpoints_cubic_RPA, &
          do_kpoints_from_Gamma, do_periodic, do_ri_Sigma_x, exit_ev_gw, first_cycle, &
          first_cycle_periodic_correction, my_open_shell, print_ic_values
-      LOGICAL, ALLOCATABLE, DIMENSION(:, :, :, :, :)     :: has_mat_P_blocks
       REAL(dp)                                           :: dbcsr_time
       REAL(KIND=dp) :: a_scaling, alpha, e_axk, e_axk_corr, e_fermi, e_fermi_beta, eps_filter, &
          eps_filter_im_time, eps_min_trans, ext_scaling, fermi_level_offset, &
@@ -1445,14 +1444,14 @@ CONTAINS
                             num_integ_points, fm_mat_Q, fm_mo_coeff_occ, fm_mo_coeff_virt, &
                             fm_matrix_L_RI_metric, mat_P_global, &
                             t_3c_O, matrix_s, kpoints, eps_filter_im_time, &
-                            do_ri_sos_laplace_mp2, cut_memory, nkp, num_cells_dm, num_3c_repl, &
+                            do_ri_sos_laplace_mp2, nkp, num_cells_dm, num_3c_repl, &
                             size_P, ikp_local, &
                             index_to_cell_3c, &
                             cell_to_index_3c, &
                             col_blk_size, &
                             do_ic_model, do_kpoints_cubic_RPA, &
                             do_kpoints_from_Gamma, do_ri_Sigma_x, my_open_shell, &
-                            has_mat_P_blocks, wkp_W, &
+                            wkp_W, &
                             cfm_mat_Q, fm_mat_L, fm_mat_RI_global_work, fm_mat_work, fm_mo_coeff_occ_scaled, &
                             fm_mo_coeff_virt_scaled, mat_dm, mat_L, mat_M_P_munu_occ, mat_M_P_munu_virt, mat_P_global_copy, &
                             mat_SinvVSinv, mat_P_omega, mat_P_omega_kp, &
@@ -1681,7 +1680,7 @@ CONTAINS
                                      num_integ_points, cut_memory, &
                                      unit_nr, mp2_env, para_env, &
                                      qs_env, index_to_cell_3c, cell_to_index_3c, &
-                                     has_mat_P_blocks, do_ri_sos_laplace_mp2, &
+                                     do_ri_sos_laplace_mp2, &
                                      dbcsr_time, dbcsr_nflop)
 
             ! the same for open shell, use fm_mo_coeff_occ_beta and fm_mo_coeff_virt_beta
@@ -1704,7 +1703,7 @@ CONTAINS
                                            num_integ_points, cut_memory, &
                                            unit_nr, mp2_env, para_env, &
                                            qs_env, index_to_cell_3c, cell_to_index_3c, &
-                                           has_mat_P_blocks, do_ri_sos_laplace_mp2, &
+                                           do_ri_sos_laplace_mp2, &
                                            dbcsr_time, dbcsr_nflop)
                ELSE
                   CALL compute_mat_P_omega(mat_P_omega, fm_scaled_dm_occ_tau, &
@@ -1721,7 +1720,7 @@ CONTAINS
                                            num_integ_points, cut_memory, &
                                            unit_nr, mp2_env, para_env, &
                                            qs_env, index_to_cell_3c, cell_to_index_3c, &
-                                           has_mat_P_blocks, do_ri_sos_laplace_mp2, &
+                                           do_ri_sos_laplace_mp2, &
                                            dbcsr_time, dbcsr_nflop)
                END IF ! do_ri_sos_laplace_mp2
 
@@ -2022,7 +2021,6 @@ CONTAINS
                                  fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, ikp_local, index_to_cell_3c, &
                                  cell_to_index_3c, do_ic_model, &
                                  do_kpoints_cubic_RPA, do_kpoints_from_Gamma, do_ri_Sigma_x, &
-                                 has_mat_P_blocks, &
                                  wkp_W, cfm_mat_Q, fm_mat_L, fm_mat_RI_global_work, fm_mat_work, &
                                  fm_mo_coeff_occ_scaled, fm_mo_coeff_virt_scaled, mat_dm, mat_L, &
                                  mat_SinvVSinv, mat_P_omega, mat_P_omega_kp, &
@@ -2034,7 +2032,6 @@ CONTAINS
                                  fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, ikp_local, index_to_cell_3c, &
                                  cell_to_index_3c, do_ic_model, &
                                  do_kpoints_cubic_RPA, do_kpoints_from_Gamma, do_ri_Sigma_x, &
-                                 has_mat_P_blocks, &
                                  wkp_W, cfm_mat_Q, fm_mat_L, fm_mat_RI_global_work, fm_mat_work, &
                                  fm_mo_coeff_occ_scaled, fm_mo_coeff_virt_scaled, mat_dm, mat_L, &
                                  mat_SinvVSinv, mat_P_omega, mat_P_omega_kp, &
