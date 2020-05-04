@@ -590,5 +590,4 @@ CONTAINS
          ends_array(imem) = bsum
       ENDDO
    END SUBROUTINE
-
 END MODULE

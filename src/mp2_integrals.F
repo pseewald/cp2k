@@ -40,10 +40,10 @@ MODULE mp2_integrals
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_clear, dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_create, dbcsr_t_destroy, &
         dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
-        dbcsr_t_filter, dbcsr_t_get_block, dbcsr_t_get_stored_coordinates, &
+        dbcsr_t_filter, dbcsr_t_get_block, dbcsr_t_get_num_blocks, dbcsr_t_get_stored_coordinates, &
         dbcsr_t_mp_environ_pgrid, dbcsr_t_pgrid_create, dbcsr_t_pgrid_create_expert, &
         dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_put_block, dbcsr_t_reserve_blocks, &
-        dbcsr_t_split_blocks, dbcsr_t_type
+        dbcsr_t_reserved_block_indices, dbcsr_t_split_blocks, dbcsr_t_type
    USE group_dist_types,                ONLY: create_group_dist,&
                                               get_group_dist,&
                                               group_dist_d1_type
@@ -60,7 +60,8 @@ MODULE mp2_integrals
    USE kpoint_types,                    ONLY: kpoint_type
    USE libint_2c_3c,                    ONLY: libint_potential_type
    USE machine,                         ONLY: m_flush
-   USE message_passing,                 ONLY: mp_cart_create,&
+   USE message_passing,                 ONLY: mp_allgather,&
+                                              mp_cart_create,&
                                               mp_dims_create,&
                                               mp_environ,&
                                               mp_max,&
@@ -85,7 +86,8 @@ MODULE mp2_integrals
    USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
    USE qs_tensors,                      ONLY: build_3c_integrals,&
                                               build_3c_neighbor_lists,&
-                                              neighbor_list_3c_destroy
+                                              neighbor_list_3c_destroy,&
+                                              sort_unique_blkind_2d
    USE qs_tensors_types,                ONLY: create_3c_tensor,&
                                               create_tensor_batches,&
                                               distribution_3d_create,&
@@ -156,6 +158,8 @@ CONTAINS
 !> \param kpoints ...
 !> \param t_3c_M ...
 !> \param t_3c_O ...
+!> \param nonzero_pairs ...
+!> \param nonzero_rows ...
 !> \param ri_metric ...
 !> \param gd_B_occ_bse ...
 !> \param gd_B_virt_bse ...
@@ -182,6 +186,7 @@ CONTAINS
                                     gw_corr_lev_occ, gw_corr_lev_virt, &
                                     do_im_time, do_kpoints_cubic_RPA, kpoints, &
                                     t_3c_M, t_3c_O, &
+                                    nonzero_pairs, nonzero_rows, &
                                     ri_metric, gd_B_occ_bse, gd_B_virt_bse, BIb_C_beta, BIb_C_gw_beta, &
                                     gd_B_virtual_beta, homo_beta, mo_coeff_o_beta, mo_coeff_v_beta, &
                                     mo_coeff_all_beta, mo_coeff_gw_beta)
@@ -222,6 +227,8 @@ CONTAINS
       TYPE(dbcsr_t_type), INTENT(OUT)                    :: t_3c_M
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :), &
          INTENT(OUT)                                     :: t_3c_O
+      INTEGER, ALLOCATABLE, DIMENSION(:, :), INTENT(OUT) :: nonzero_pairs
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(OUT)    :: nonzero_rows
       TYPE(libint_potential_type), INTENT(IN)            :: ri_metric
       TYPE(group_dist_d1_type), INTENT(OUT)              :: gd_B_occ_bse, gd_B_virt_bse
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :), &
@@ -235,21 +242,23 @@ CONTAINS
          routineP = moduleN//':'//routineN
 
       INTEGER :: cm, cut_memory, cut_memory_int, eri_method, gw_corr_lev_total, handle, handle2, &
-         handle4, i, i_counter, itmp(2), j, jcell, kcell, LLL, max_row_col_local, &
+         handle4, i, i_counter, iblk, is, itmp(2), j, jcell, kcell, LLL, max_row_col_local, &
          max_row_col_local_beta, max_row_col_local_gw, max_row_col_local_occ_bse, &
          max_row_col_local_virt_bse, min_bsize, mp_comm_t3c_2, my_B_all_end, my_B_all_size, &
          my_B_all_start, my_B_occ_bse_end, my_B_occ_bse_size, my_B_occ_bse_start, my_B_size, &
          my_B_size_beta, my_B_virt_bse_end, my_B_virt_bse_size, my_B_virt_bse_start, &
          my_B_virtual_end, my_B_virtual_end_beta, my_B_virtual_start, my_B_virtual_start_beta, &
          my_group_L_end
-      INTEGER :: my_group_L_size, my_group_L_start, natom, ngroup, ngroup_im_time, &
-         ngroup_im_time_P, nimg, nkind, num_small_eigen, potential_type, ri_metric_type, virtual, &
-         virtual_beta
-      INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_AO_1, dist_AO_2, dist_RI, &
-         ends_array_mc_block_int, ends_array_mc_int, sizes_AO, sizes_AO_split, sizes_RI, &
-         sizes_RI_split, starts_array_mc_block_int, starts_array_mc_int, sub_proc_map
-      INTEGER, ALLOCATABLE, DIMENSION(:, :) :: local_col_row_info, local_col_row_info_beta, &
-         local_col_row_info_gw, local_col_row_info_occ_bse, local_col_row_info_virt_bse
+      INTEGER :: my_group_L_size, my_group_L_start, natom, nblk, nblks_total, ngroup, &
+         ngroup_im_time, ngroup_im_time_P, nimg, nkind, nrows, num_small_eigen, potential_type, &
+         ri_metric_type, row, virtual, virtual_beta
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: cols, cols_local, dist1, dist2, dist3, dist_AO_1, &
+         dist_AO_2, dist_RI, ends_array_mc_block_int, ends_array_mc_int, offsets_proc, rows, &
+         rows_local, sizes_AO, sizes_AO_split, sizes_proc, sizes_RI, sizes_RI_split, &
+         starts_array_mc_block_int, starts_array_mc_int, sub_proc_map
+      INTEGER, ALLOCATABLE, DIMENSION(:, :) :: blk_ind, blk_ind_2d, local_col_row_info, &
+         local_col_row_info_beta, local_col_row_info_gw, local_col_row_info_occ_bse, &
+         local_col_row_info_virt_bse
       INTEGER, DIMENSION(3)                              :: pcoord, pdims, pdims_t3c, periodic
       LOGICAL                                            :: do_alpha_beta, do_gpw, &
                                                             do_kpoints_from_Gamma, do_svd, &
@@ -265,8 +274,9 @@ CONTAINS
                                                             fm_BIb_jb_beta, fm_matrix_L
       TYPE(cp_para_env_type), POINTER                    :: para_env_L
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: mat_munu_local_L
-      TYPE(dbcsr_t_pgrid_type)                           :: pgrid_t3c_M, pgrid_t3c_overl
-      TYPE(dbcsr_t_type)                                 :: t_3c_overl_int_template, t_3c_tmp
+      TYPE(dbcsr_t_pgrid_type)                           :: pgrid, pgrid_t3c_M, pgrid_t3c_overl
+      TYPE(dbcsr_t_type)                                 :: AO_AO_structure, &
+                                                            t_3c_overl_int_template, t_3c_tmp
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_overl_int
       TYPE(dbcsr_type) :: matrix_bse_ab, matrix_bse_anu, matrix_bse_ij, matrix_bse_inu, &
          matrix_ia_jb, matrix_ia_jb_beta, matrix_ia_jnu, matrix_ia_jnu_beta, matrix_in_jm, &
@@ -949,6 +959,79 @@ CONTAINS
          CALL cp_para_env_release(para_env_L)
 
       END IF
+
+      ! get sparsity of AO/AO index
+      pdims = [0, 0, 1]
+      CALL dbcsr_t_pgrid_create(para_env%group, pdims, pgrid)
+
+      CALL create_3c_tensor(AO_AO_structure, dist1, dist2, dist3, pgrid, &
+                            sizes_AO_split, sizes_AO_split, sizes_RI_split, &
+                            map1=[1, 2], map2=[3], &
+                            name="O (AO AO | RI)")
+      CALL dbcsr_t_pgrid_destroy(pgrid)
+
+      CALL dbcsr_t_copy(t_3c_O(1, 1), AO_AO_structure, order=[3, 1, 2])
+
+      ALLOCATE (blk_ind(dbcsr_t_get_num_blocks(AO_AO_structure), 3))
+      CALL dbcsr_t_reserved_block_indices(AO_AO_structure, blk_ind)
+      CALL dbcsr_t_destroy(AO_AO_structure)
+
+      nblk = SIZE(blk_ind, 1)
+      ALLOCATE (blk_ind_2d(nblk, 2))
+      blk_ind_2d(:, :) = blk_ind(:, 1:2)
+      DEALLOCATE (blk_ind)
+      CALL sort_unique_blkind_2d(blk_ind_2d)
+      nblk = SIZE(blk_ind_2d, 1)
+
+      ALLOCATE (sizes_proc(para_env%num_pe))
+      ALLOCATE (offsets_proc(para_env%num_pe))
+
+      CALL mp_allgather(nblk, sizes_proc, para_env%group)
+      nblks_total = SUM(sizes_proc)
+
+      offsets_proc(1) = 0
+      DO is = 2, SIZE(sizes_proc)
+         offsets_proc(is) = offsets_proc(is - 1) + sizes_proc(is - 1)
+      ENDDO
+
+      ALLOCATE (rows_local(nblk))
+      ALLOCATE (cols_local(nblk))
+
+      rows_local(:) = blk_ind_2d(:, 1)
+      cols_local(:) = blk_ind_2d(:, 2)
+
+      ALLOCATE (rows(nblks_total), cols(nblks_total))
+
+      CALL mp_allgather(rows_local, rows, sizes_proc, offsets_proc, para_env%group)
+      CALL mp_allgather(cols_local, cols, sizes_proc, offsets_proc, para_env%group)
+      DEALLOCATE (sizes_proc, offsets_proc, rows_local, cols_local)
+
+      ALLOCATE (nonzero_pairs(nblks_total, 2))
+      nonzero_pairs(:, 1) = rows
+      nonzero_pairs(:, 2) = cols
+
+      DEALLOCATE (rows, cols)
+
+      CALL sort_unique_blkind_2d(nonzero_pairs)
+
+      CPASSERT(nblks_total == SIZE(nonzero_pairs, 1))
+
+      nrows = SIZE(sizes_AO_split)
+
+      ALLOCATE (nonzero_rows(nrows + 1))
+
+      ASSOCIATE (rows=>nonzero_pairs(:, 1))
+         iblk = 1
+         DO row = 1, nrows
+            DO WHILE (rows(iblk) < row)
+               iblk = iblk + 1
+               IF (iblk > nblks_total) EXIT
+            ENDDO
+            nonzero_rows(row) = iblk
+         ENDDO
+      END ASSOCIATE
+
+      nonzero_rows(nrows + 1) = nblks_total + 1
 
       CALL timestop(handle)
 

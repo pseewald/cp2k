@@ -82,6 +82,7 @@ MODULE qs_tensors
         symmetrik_ik
    USE t_c_g0,                          ONLY: get_lmax_init,&
                                               init
+   USE util,                            ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -94,7 +95,7 @@ MODULE qs_tensors
              neighbor_list_3c_destroy, neighbor_list_3c_iterate, neighbor_list_3c_iterator_create, &
              neighbor_list_3c_iterator_destroy, get_3c_iterator_info, build_3c_integrals, &
              build_2c_neighbor_lists, build_2c_integrals, cutoff_screen_factor, tensor_change_pgrid, &
-             get_tensor_occupancy
+             get_tensor_occupancy, sort_unique_blkind_2d
 
    TYPE one_dim_int_array
       INTEGER, DIMENSION(:), ALLOCATABLE    :: array
@@ -1788,6 +1789,77 @@ CONTAINS
       nze = dbcsr_t_get_nze_total(tensor)
       CALL dbcsr_t_get_info(tensor, nfull_total=dims)
       occ = REAL(nze, dp)/PRODUCT(REAL(dims, dp))
+
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief Sorts 2d indices w.r.t. rows and columns
+!> \param blk_ind ...
+! **************************************************************************************************
+   SUBROUTINE sort_unique_blkind_2d(blk_ind)
+      INTEGER, ALLOCATABLE, DIMENSION(:, :), &
+         INTENT(INOUT)                                   :: blk_ind
+
+      INTEGER                                            :: end_ind, iblk, iblk_all, irow, nblk, &
+                                                            ncols, start_ind
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ind_1, ind_2, sort_1, sort_2
+      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: blk_ind_tmp
+
+      nblk = SIZE(blk_ind, 1)
+
+      ALLOCATE (sort_1(nblk))
+      ALLOCATE (ind_1(nblk))
+
+      sort_1(:) = blk_ind(:, 1)
+      CALL sort(sort_1, nblk, ind_1)
+
+      blk_ind(:, :) = blk_ind(ind_1, :)
+
+      start_ind = 1
+
+      DO WHILE (start_ind <= nblk)
+         irow = blk_ind(start_ind, 1)
+         end_ind = start_ind
+
+         IF (end_ind + 1 <= nblk) THEN
+         DO WHILE (blk_ind(end_ind + 1, 1) == irow)
+            end_ind = end_ind + 1
+            IF (end_ind + 1 > nblk) EXIT
+         ENDDO
+         ENDIF
+
+         ncols = end_ind - start_ind + 1
+         ALLOCATE (sort_2(ncols))
+         ALLOCATE (ind_2(ncols))
+         sort_2(:) = blk_ind(start_ind:end_ind, 2)
+         CALL sort(sort_2, ncols, ind_2)
+         ind_2 = ind_2 + start_ind - 1
+
+         blk_ind(start_ind:end_ind, :) = blk_ind(ind_2, :)
+         start_ind = end_ind + 1
+
+         DEALLOCATE (sort_2, ind_2)
+      ENDDO
+
+      ALLOCATE (blk_ind_tmp(nblk, 2))
+      blk_ind_tmp = 0
+
+      iblk = 0
+      DO iblk_all = 1, nblk
+         IF (iblk >= 1) THEN
+            IF (ALL(blk_ind_tmp(iblk, :) == blk_ind(iblk_all, :))) THEN
+               CYCLE
+            ENDIF
+         ENDIF
+         iblk = iblk + 1
+         blk_ind_tmp(iblk, :) = blk_ind(iblk_all, :)
+      ENDDO
+      nblk = iblk
+
+      DEALLOCATE (blk_ind)
+      ALLOCATE (blk_ind(nblk, 2))
+
+      blk_ind(:, :) = blk_ind_tmp(:nblk, :)
 
    END SUBROUTINE
 

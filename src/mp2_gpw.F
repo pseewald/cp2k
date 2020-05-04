@@ -150,7 +150,9 @@ CONTAINS
          my_group_L_size, my_group_L_start, nelectron, nelectron_beta, nmo, nspins, &
          potential_type, ri_metric_type
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ends_array_mc, ends_array_mc_block, &
-                                                            starts_array_mc, starts_array_mc_block
+                                                            nonzero_rows, starts_array_mc, &
+                                                            starts_array_mc_block
+      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: nonzero_pairs
       INTEGER, DIMENSION(3)                              :: periodic
       LOGICAL :: blacs_repeatable, do_bse, do_gpw, do_im_time, do_kpoints_cubic_RPA, my_do_gw, &
          my_do_ri_mp2, my_do_ri_rpa, my_do_ri_sos_laplace_mp2
@@ -411,6 +413,7 @@ CONTAINS
                gw_corr_lev_occ, gw_corr_lev_virt, &
                do_im_time, do_kpoints_cubic_RPA, kpoints, &
                t_3c_M, t_3c_O, &
+               nonzero_pairs, nonzero_rows, &
                mp2_env%ri_metric, &
                gd_B_occ_bse, gd_B_virt_bse, &
                BIb_C_beta, BIb_C_gw_beta, gd_B_virtual_beta, &
@@ -431,6 +434,7 @@ CONTAINS
                                        gw_corr_lev_occ, gw_corr_lev_virt, &
                                        do_im_time, do_kpoints_cubic_RPA, kpoints, &
                                        t_3c_M, t_3c_O, &
+                                       nonzero_pairs, nonzero_rows, &
                                        mp2_env%ri_metric, gd_B_occ_bse, gd_B_virt_bse)
 
          END IF
@@ -558,6 +562,7 @@ CONTAINS
                                    mat_munu, &
                                    mat_P_global, &
                                    t_3c_M, t_3c_O, &
+                                   nonzero_pairs, nonzero_rows, &
                                    starts_array_mc, ends_array_mc, &
                                    starts_array_mc_block, ends_array_mc_block, &
                                    BIb_C_beta, homo_beta, Eigenval_beta, &
@@ -578,6 +583,7 @@ CONTAINS
                                    mat_munu, &
                                    mat_P_global, &
                                    t_3c_M, t_3c_O, &
+                                   nonzero_pairs, nonzero_rows, &
                                    starts_array_mc, ends_array_mc, &
                                    starts_array_mc_block, ends_array_mc_block)
 

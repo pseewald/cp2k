@@ -33,10 +33,10 @@ MODULE rpa_im_time
         dbcsr_type, dbcsr_type_no_symmetry
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_batched_contract_finalize, dbcsr_t_batched_contract_init, dbcsr_t_clear, &
-        dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
+        dbcsr_t_contract, dbcsr_t_contract_index, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
-        dbcsr_t_get_info, dbcsr_t_nblks_total, dbcsr_t_nd_mp_comm, dbcsr_t_pgrid_destroy, &
-        dbcsr_t_pgrid_type, dbcsr_t_type
+        dbcsr_t_get_info, dbcsr_t_max_nblks_local, dbcsr_t_nblks_total, dbcsr_t_nd_mp_comm, &
+        dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_reserve_blocks, dbcsr_t_type
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE kpoint_types,                    ONLY: get_kpoint_info,&
@@ -84,6 +84,8 @@ CONTAINS
 !> \param ispin ...
 !> \param t_3c_M ...
 !> \param t_3c_O ...
+!> \param nonzero_pairs ...
+!> \param nonzero_rows ...
 !> \param starts_array_mc ...
 !> \param ends_array_mc ...
 !> \param starts_array_mc_block ...
@@ -116,6 +118,7 @@ CONTAINS
                                   matrix_s, &
                                   ispin, &
                                   t_3c_M, t_3c_O, &
+                                  nonzero_pairs, nonzero_rows, &
                                   starts_array_mc, ends_array_mc, &
                                   starts_array_mc_block, ends_array_mc_block, &
                                   weights_cos_tf_t_to_w, &
@@ -134,6 +137,8 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: ispin
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t_3c_O
+      INTEGER, ALLOCATABLE, DIMENSION(:, :), INTENT(IN)  :: nonzero_pairs
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: nonzero_rows
       INTEGER, DIMENSION(:), INTENT(IN)                  :: starts_array_mc, ends_array_mc, &
                                                             starts_array_mc_block, &
                                                             ends_array_mc_block
@@ -161,23 +166,25 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'compute_mat_P_omega', &
          routineP = moduleN//':'//routineN
 
-      INTEGER :: comm_2d, handle, handle2, handle3, i, i_cell, i_cell_R_1, i_cell_R_1_minus_S, &
-         i_cell_R_1_minus_T, i_cell_R_2, i_cell_R_2_minus_S_minus_T, i_cell_S, i_cell_T, i_mem, &
-         iquad, j, jquad, num_3c_repl, num_cells_dm, unit_nr_2, unit_nr_dbcsr
+      INTEGER :: col, comm_2d, handle, handle2, handle3, i, i_cell, i_cell_R_1, &
+         i_cell_R_1_minus_S, i_cell_R_1_minus_T, i_cell_R_2, i_cell_R_2_minus_S_minus_T, i_cell_S, &
+         i_cell_T, i_mem, iblk, iblk_filter, iblkrow, iquad, j, jquad, nblk, nblk_filter, &
+         num_3c_repl, num_cells_dm, row, row_end, row_start, unit_nr_2, unit_nr_dbcsr
       INTEGER(int_8)                                     :: nze, nze_dm_occ, nze_dm_virt, nze_M_occ, &
                                                             nze_M_virt, nze_O
       INTEGER(KIND=int_8)                                :: flops_1_max_occ, flops_1_max_virt, &
                                                             flops_1_occ, flops_1_virt, flops_2, &
                                                             flops_2_max
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_1, dist_2, size_dm, size_P
+      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: ctr_ind, ctr_ind_tmp
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(2, 1)                           :: ibounds_2
       INTEGER, DIMENSION(2, 2)                           :: ibounds_1
       INTEGER, DIMENSION(3)                              :: bounds_3c
       INTEGER, DIMENSION(:, :), POINTER                  :: index_to_cell_dm
       LOGICAL :: do_Gamma_RPA, do_kpoints_cubic_RPA, do_opt_pgrid, first_cycle_im_time, &
-         first_cycle_omega_loop, memory_info, pgrid_1_init_occ, pgrid_1_init_virt, pgrid_2_init, &
-         R_1_minus_S_needed, R_1_minus_T_needed, R_2_minus_S_minus_T_needed
+         first_cycle_omega_loop, found, memory_info, pgrid_1_init_occ, pgrid_1_init_virt, &
+         pgrid_2_init, R_1_minus_S_needed, R_1_minus_T_needed, R_2_minus_S_minus_T_needed
       REAL(dp)                                           :: occ, occ_dm_occ, occ_dm_virt, occ_M_occ, &
                                                             occ_M_virt, occ_O, t1_flop
       REAL(KIND=dp)                                      :: omega, omega_old, t1, t2, tau, weight, &
@@ -424,6 +431,54 @@ CONTAINS
 
                         IF (R_1_minus_T_needed .AND. R_2_minus_S_minus_T_needed) THEN
 
+                           ALLOCATE (ctr_ind(dbcsr_t_max_nblks_local(t_3c_M_virt_tmp), 3))
+                           CALL dbcsr_t_contract_index(alpha=dbcsr_scalar(alpha/2.0_dp), &
+                                                       tensor_1=t_3c_M_occ_tmp_2, &
+                                                       tensor_2=t_dm_virt(i_cell_S), &
+                                                       beta=dbcsr_scalar(1.0_dp), &
+                                                       tensor_3=t_3c_M_virt_tmp, &
+                                                       contract_1=[3], notcontract_1=[1, 2], &
+                                                       contract_2=[2], notcontract_2=[1], &
+                                                       map_1=[1, 2], map_2=[3], &
+                                                       bounds_2=ibounds_1, &
+                                                       filter_eps=eps_filter, &
+                                                       nblks_local=nblk, result_index=ctr_ind)
+
+                           ALLOCATE (ctr_ind_tmp(nblk, 3))
+                           iblk_filter = 0
+                           DO iblk = 1, nblk
+                              row = ctr_ind(iblk, 2)
+                              col = ctr_ind(iblk, 3)
+                              found = .FALSE.
+
+                              CPASSERT(ALLOCATED(nonzero_rows))
+                              row_start = nonzero_rows(row)
+                              row_end = nonzero_rows(row + 1)
+
+                              IF (row_start /= row_end) THEN
+                                 DO iblkrow = row_start, row_end - 1
+                                    CPASSERT(nonzero_pairs(iblkrow, 1) == row)
+                                    IF (nonzero_pairs(iblkrow, 2) == col) found = .TRUE.
+                                 ENDDO
+                              ENDIF
+
+                              IF (found) THEN
+                                 iblk_filter = iblk_filter + 1
+                                 ctr_ind_tmp(iblk_filter, :) = ctr_ind(iblk, :)
+                              ENDIF
+
+                           ENDDO
+
+                           nblk_filter = iblk_filter
+
+                           DEALLOCATE (ctr_ind)
+                           ALLOCATE (ctr_ind(nblk_filter, 3))
+                           ctr_ind(:, :) = ctr_ind_tmp(1:nblk_filter, :)
+                           DEALLOCATE (ctr_ind_tmp)
+
+                           CALL dbcsr_t_reserve_blocks(t_3c_M_virt_tmp, ctr_ind)
+                           DEALLOCATE (ctr_ind)
+
                            CALL timeset(routineN//"_calc_M_virt_t", handle3)
                            CALL dbcsr_t_contract(alpha=dbcsr_scalar(alpha/2.0_dp), &
                                                  tensor_1=t_3c_M_occ_tmp_2, &
@@ -436,6 +491,7 @@ CONTAINS
                                                  bounds_2=ibounds_1, &
                                                  pgrid_opt_1=pgrid_1_opt_virt, &
                                                  filter_eps=eps_filter, unit_nr=unit_nr_dbcsr, &
+                                                 retain_sparsity=.TRUE., &
                                                  flop=flops_1_virt)
                            CALL timestop(handle3)
 

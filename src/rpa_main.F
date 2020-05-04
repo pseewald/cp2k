@@ -135,6 +135,8 @@ CONTAINS
 !> \param mat_P_global ...
 !> \param t_3c_M ...
 !> \param t_3c_O ...
+!> \param nonzero_pairs ...
+!> \param nonzero_rows ...
 !> \param starts_array_mc ...
 !> \param ends_array_mc ...
 !> \param starts_array_mc_block ...
@@ -157,6 +159,7 @@ CONTAINS
                                 mat_munu, &
                                 mat_P_global, &
                                 t_3c_M, t_3c_O, &
+                                nonzero_pairs, nonzero_rows, &
                                 starts_array_mc, ends_array_mc, &
                                 starts_array_mc_block, ends_array_mc_block, &
                                 BIb_C_beta, homo_beta, Eigenval_beta, &
@@ -187,8 +190,9 @@ CONTAINS
       TYPE(dbcsr_p_type), INTENT(INOUT)                  :: mat_P_global
       TYPE(dbcsr_t_type)                                 :: t_3c_M
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_O
-      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc, ends_array_mc, &
-                                                            starts_array_mc_block, &
+      INTEGER, ALLOCATABLE, DIMENSION(:, :), INTENT(IN)  :: nonzero_pairs
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: nonzero_rows, starts_array_mc, &
+                                                            ends_array_mc, starts_array_mc_block, &
                                                             ends_array_mc_block
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :), &
          INTENT(INOUT), OPTIONAL                         :: BIb_C_beta
@@ -671,6 +675,7 @@ CONTAINS
                           fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, &
                           mat_munu, mat_P_global, &
                           t_3c_M, t_3c_O, &
+                          nonzero_pairs, nonzero_rows, &
                           starts_array_mc, ends_array_mc, &
                           starts_array_mc_block, ends_array_mc_block, &
                           matrix_s, &
@@ -695,6 +700,7 @@ CONTAINS
                           fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, &
                           mat_munu, mat_P_global, &
                           t_3c_M, t_3c_O, &
+                          nonzero_pairs, nonzero_rows, &
                           starts_array_mc, ends_array_mc, &
                           starts_array_mc_block, ends_array_mc_block, &
                           matrix_s, &
@@ -1227,6 +1233,8 @@ CONTAINS
 !> \param mat_P_global ...
 !> \param t_3c_M ...
 !> \param t_3c_O ...
+!> \param nonzero_pairs ...
+!> \param nonzero_rows ...
 !> \param starts_array_mc ...
 !> \param ends_array_mc ...
 !> \param starts_array_mc_block ...
@@ -1261,6 +1269,7 @@ CONTAINS
                           fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, mat_munu, &
                           mat_P_global, &
                           t_3c_M, t_3c_O, &
+                          nonzero_pairs, nonzero_rows, &
                           starts_array_mc, ends_array_mc, &
                           starts_array_mc_block, ends_array_mc_block, &
                           matrix_s, kpoints, &
@@ -1295,8 +1304,9 @@ CONTAINS
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :), &
          INTENT(INOUT)                                   :: t_3c_O
-      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc, ends_array_mc, &
-                                                            starts_array_mc_block, &
+      INTEGER, ALLOCATABLE, DIMENSION(:, :), INTENT(IN)  :: nonzero_pairs
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: nonzero_rows, starts_array_mc, &
+                                                            ends_array_mc, starts_array_mc_block, &
                                                             ends_array_mc_block
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s
       TYPE(kpoint_type), POINTER                         :: kpoints
@@ -1673,6 +1683,7 @@ CONTAINS
                                      matrix_s, &
                                      1, &
                                      t_3c_M, t_3c_O, &
+                                     nonzero_pairs, nonzero_rows, &
                                      starts_array_mc, ends_array_mc, &
                                      starts_array_mc_block, ends_array_mc_block, &
                                      weights_cos_tf_t_to_w, tj, tau_tj, e_fermi, eps_filter, alpha, &
@@ -1696,6 +1707,7 @@ CONTAINS
                                            matrix_s, &
                                            2, &
                                            t_3c_M, t_3c_O, &
+                                           nonzero_pairs, nonzero_rows, &
                                            starts_array_mc, ends_array_mc, &
                                            starts_array_mc_block, ends_array_mc_block, &
                                            weights_cos_tf_t_to_w, tj, tau_tj, e_fermi_beta, eps_filter, alpha, &
@@ -1713,6 +1725,7 @@ CONTAINS
                                            matrix_s, &
                                            2, &
                                            t_3c_M, t_3c_O, &
+                                           nonzero_pairs, nonzero_rows, &
                                            starts_array_mc, ends_array_mc, &
                                            starts_array_mc_block, ends_array_mc_block, &
                                            weights_cos_tf_t_to_w, tj, tau_tj, e_fermi_beta, eps_filter, alpha, &

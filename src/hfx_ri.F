@@ -39,7 +39,7 @@ MODULE hfx_ri
         dbcsr_t_contract, dbcsr_t_contract_index, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
         dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
         dbcsr_t_get_info, dbcsr_t_get_num_blocks, dbcsr_t_get_num_blocks_total, &
-        dbcsr_t_max_nblks_local, dbcsr_t_mp_environ_pgrid, dbcsr_t_nd_mp_comm, dbcsr_t_ndims, &
+        dbcsr_t_max_nblks_local, dbcsr_t_mp_environ_pgrid, dbcsr_t_nd_mp_comm, &
         dbcsr_t_pgrid_change_dims, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, &
         dbcsr_t_pgrid_type, dbcsr_t_reserve_blocks, dbcsr_t_reserved_block_indices, dbcsr_t_type
    USE distribution_2d_types,           ONLY: distribution_2d_type
@@ -85,6 +85,7 @@ MODULE hfx_ri
                                               build_3c_neighbor_lists,&
                                               get_tensor_occupancy,&
                                               neighbor_list_3c_destroy,&
+                                              sort_unique_blkind_2d,&
                                               tensor_change_pgrid
    USE qs_tensors_types,                ONLY: create_2c_tensor,&
                                               create_3c_tensor,&
@@ -93,7 +94,6 @@ MODULE hfx_ri
                                               distribution_3d_type,&
                                               neighbor_list_3c_type,&
                                               split_block_sizes
-   USE util,                            ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -703,77 +703,6 @@ CONTAINS
       ri_data%nonzero_rows(nrows + 1) = nblks_total + 1
 
       CALL timestop(handle)
-   END SUBROUTINE
-
-! **************************************************************************************************
-!> \brief Sorts 2d indices w.r.t. rows and columns
-!> \param blk_ind ...
-! **************************************************************************************************
-   SUBROUTINE sort_unique_blkind_2d(blk_ind)
-      INTEGER, ALLOCATABLE, DIMENSION(:, :), &
-         INTENT(INOUT)                                   :: blk_ind
-
-      INTEGER                                            :: end_ind, iblk, iblk_all, irow, nblk, &
-                                                            ncols, start_ind
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ind_1, ind_2, sort_1, sort_2
-      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: blk_ind_tmp
-
-      nblk = SIZE(blk_ind, 1)
-
-      ALLOCATE (sort_1(nblk))
-      ALLOCATE (ind_1(nblk))
-
-      sort_1(:) = blk_ind(:, 1)
-      CALL sort(sort_1, nblk, ind_1)
-
-      blk_ind(:, :) = blk_ind(ind_1, :)
-
-      start_ind = 1
-
-      DO WHILE (start_ind <= nblk)
-         irow = blk_ind(start_ind, 1)
-         end_ind = start_ind
-
-         IF (end_ind + 1 <= nblk) THEN
-         DO WHILE (blk_ind(end_ind + 1, 1) == irow)
-            end_ind = end_ind + 1
-            IF (end_ind + 1 > nblk) EXIT
-         ENDDO
-         ENDIF
-
-         ncols = end_ind - start_ind + 1
-         ALLOCATE (sort_2(ncols))
-         ALLOCATE (ind_2(ncols))
-         sort_2(:) = blk_ind(start_ind:end_ind, 2)
-         CALL sort(sort_2, ncols, ind_2)
-         ind_2 = ind_2 + start_ind - 1
-
-         blk_ind(start_ind:end_ind, :) = blk_ind(ind_2, :)
-         start_ind = end_ind + 1
-
-         DEALLOCATE (sort_2, ind_2)
-      ENDDO
-
-      ALLOCATE (blk_ind_tmp(nblk, 2))
-      blk_ind_tmp = 0
-
-      iblk = 0
-      DO iblk_all = 1, nblk
-         IF (iblk >= 1) THEN
-            IF (ALL(blk_ind_tmp(iblk, :) == blk_ind(iblk_all, :))) THEN
-               CYCLE
-            ENDIF
-         ENDIF
-         iblk = iblk + 1
-         blk_ind_tmp(iblk, :) = blk_ind(iblk_all, :)
-      ENDDO
-      nblk = iblk
-
-      DEALLOCATE (blk_ind)
-      ALLOCATE (blk_ind(nblk, 2))
-
-      blk_ind(:, :) = blk_ind_tmp(:nblk, :)
-
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -1517,7 +1446,7 @@ CONTAINS
                bounds_ij(:, 2) = [ri_data%starts_array_mem(j_mem), ri_data%ends_array_mem(j_mem)]
 
                ! impose sparsity of 3-center integrals:
-               ALLOCATE (ctr_ind(dbcsr_t_max_nblks_local(t_3c_2), dbcsr_t_ndims(t_3c_2)))
+               ALLOCATE (ctr_ind(dbcsr_t_max_nblks_local(t_3c_2), 3))
                CALL dbcsr_t_contract_index(dbcsr_scalar(1.0_dp), ri_data%t_2c_int(1, 1), ri_data%t_3c_int_ctr_3(1, 1), &
                                            dbcsr_scalar(0.0_dp), t_3c_2, &
                                            contract_1=[2], notcontract_1=[1], &
