@@ -1119,6 +1119,14 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, __LOCATION__, &
+                          name="EPS_STORAGE_SCALING", &
+                          description="Scaling factor to scale EPS_FILTER for storage of 3-center integrals. Storage threshold "// &
+                          "will be EPS_FILTER*EPS_STORAGE_SCALING.", &
+                          default_r_val=10.0_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create( &
          keyword, __LOCATION__, &
          name="DO_KPOINTS", &
