@@ -18,8 +18,10 @@ MODULE libint_2c_3c
    USE kinds,                           ONLY: default_path_length,&
                                               dp
    USE libint_wrapper,                  ONLY: cp_libint_get_2eris,&
+                                              cp_libint_get_3eri_derivs,&
                                               cp_libint_get_3eris,&
                                               cp_libint_set_params_eri,&
+                                              cp_libint_set_params_eri_deriv,&
                                               cp_libint_t,&
                                               prim_data_f_size
    USE mathconstants,                   ONLY: pi
@@ -49,7 +51,8 @@ MODULE libint_2c_3c
 
    TYPE :: params_3c
       INTEGER                               :: m_max
-      REAL(dp)                              :: ZetaInv, EtaInv, ZetapEtaInv, Rho
+      REAL(dp)                              :: ZetaInv, EtaInv, ZetapEtaInv, Rho, &
+                                               zeti, zetj, zetk
       REAL(dp), DIMENSION(3)                :: Q, W
       REAL(dp), DIMENSION(prim_data_f_size) :: Fm
    END TYPE
@@ -92,6 +95,8 @@ CONTAINS
 !> \param dbc ...
 !> \param lib the libint_t object for evaluation (assume that it is initialized outside)
 !> \param potential_parameter the info about the potential
+!> \param libderiv ...
+!> \param der_abc ...
 !> \param int_abc_ext the extremal value of int_abc, i.e., MAXVAL(ABS(int_abc))
 !> \note Prior to calling this routine, the cp_libint_t type passed as argument must be initialized,
 !>       the libint library must be static initialized, and in case of truncated Coulomb operator,
@@ -101,7 +106,7 @@ CONTAINS
                           lb_min, lb_max, npgfb, zetb, rpgfb, rb, &
                           lc_min, lc_max, npgfc, zetc, rpgfc, rc, &
                           dab, dac, dbc, lib, potential_parameter, &
-                          int_abc_ext)
+                          libderiv, der_abc, int_abc_ext)
 
       REAL(dp), DIMENSION(:, :, :), INTENT(INOUT)        :: int_abc
       INTEGER, INTENT(IN)                                :: la_min, la_max, npgfa
@@ -116,18 +121,34 @@ CONTAINS
       REAL(KIND=dp), INTENT(IN)                          :: dab, dac, dbc
       TYPE(cp_libint_t), INTENT(INOUT)                   :: lib
       TYPE(libint_potential_type), INTENT(IN)            :: potential_parameter
+      TYPE(cp_libint_t), INTENT(INOUT), OPTIONAL         :: libderiv
+      REAL(dp), DIMENSION(:, :, :, :), INTENT(INOUT), &
+         OPTIONAL                                        :: der_abc
       REAL(dp), INTENT(OUT), OPTIONAL                    :: int_abc_ext
 
       CHARACTER(len=*), PARAMETER :: routineN = 'eri_3center', routineP = moduleN//':'//routineN
 
-      INTEGER :: a_mysize(1), a_offset, a_start, b_offset, b_start, c_offset, c_start, i, ipgf, j, &
-         jpgf, k, kpgf, li, lj, lk, ncoa, ncob, ncoc, op, p1, p2, p3
+      INTEGER :: a_mysize(1), a_offset, a_start, b_offset, b_start, c_offset, c_start, i, i_deriv, &
+         ipgf, j, jpgf, k, kpgf, li, lj, lk, n_deriv, ncoa, ncob, ncoc, op, p1, p2, p3
+      INTEGER, DIMENSION(9)                              :: deriv_permute_1, deriv_permute_2
+      LOGICAL                                            :: do_forces
       REAL(dp)                                           :: dr_ab, dr_ac, dr_bc, zeti, zetj, zetk
       REAL(dp), DIMENSION(:), POINTER                    :: p_work
-      TYPE(params_3c), POINTER                           :: params
+      REAL(dp), DIMENSION(:, :), POINTER                 :: p_deriv
+      TYPE(params_3c), POINTER                           :: params, params_deriv
 
-      NULLIFY (params, p_work)
+      NULLIFY (params, p_work, p_deriv, params_deriv)
       ALLOCATE (params)
+
+      do_forces = PRESENT(der_abc)
+      IF (do_forces) THEN
+         CPASSERT(PRESENT(libderiv))
+         n_deriv = SIZE(der_abc, 4)
+         ALLOCATE (params_deriv)
+         deriv_permute_1 = [7, 8, 9, 4, 5, 6, 1, 2, 3]
+         deriv_permute_2 = [7, 8, 9, 1, 2, 3, 4, 5, 6]
+
+      ENDIF
 
       dr_ab = 0.0_dp
       dr_bc = 0.0_dp
@@ -177,6 +198,9 @@ CONTAINS
                CALL set_params_3c(lib, ra, rb, rc, la_max, lb_max, lc_max, zeti, zetj, zetk, &
                                   potential_parameter=potential_parameter, params_out=params)
 
+               IF (do_forces) CALL set_params_3c_deriv(libderiv, ra, rb, rc, la_max, lb_max, lc_max, zeti, zetj, zetk, &
+                                                       potential_parameter=potential_parameter)
+
                DO li = la_min, la_max
                   a_offset = a_start + ncoset(li - 1)
                   ncoa = nco(li)
@@ -190,6 +214,8 @@ CONTAINS
                         a_mysize(1) = ncoa*ncob*ncoc
                         CALL cp_libint_get_3eris(li, lj, lk, lib, p_work, a_mysize)
 
+                        IF (do_forces) CALL cp_libint_get_3eri_derivs(li, lj, lk, libderiv, p_deriv, a_mysize)
+
                         IF (PRESENT(int_abc_ext)) THEN
                            DO k = 1, ncoc
                               p1 = (k - 1)*ncob
@@ -199,6 +225,13 @@ CONTAINS
                                     p3 = p2 + i
                                     int_abc(a_offset + i, b_offset + j, c_offset + k) = p_work(p3)
                                     int_abc_ext = MAX(int_abc_ext, ABS(p_work(p3)))
+                                    IF (do_forces) THEN
+                                       DO i_deriv = 1, n_deriv
+                                          der_abc(a_offset + i, b_offset + j, c_offset + k, deriv_permute_1(i_deriv)) = &
+                                             p_deriv(p3, i_deriv)
+
+                                       ENDDO
+                                    ENDIF
                                  END DO
                               END DO
                            END DO
@@ -210,17 +243,28 @@ CONTAINS
                                  DO i = 1, ncoa
                                     p3 = p2 + i
                                     int_abc(a_offset + i, b_offset + j, c_offset + k) = p_work(p3)
+                                    IF (do_forces) THEN
+                                       DO i_deriv = 1, n_deriv
+                                          der_abc(a_offset + i, b_offset + j, c_offset + k, deriv_permute_1(i_deriv)) = &
+                                             p_deriv(p3, i_deriv)
+
+                                       ENDDO
+                                    ENDIF
                                  END DO
                               END DO
                            END DO
                         ENDIF
-
+                        IF (do_forces) DEALLOCATE (p_deriv)
                      END DO !lk
                   END DO !lj
                END DO !li
 
                !swap centers 3 and 4 to compute (c|ab) with lb < la
                CALL set_params_3c(lib, rb, ra, rc, params_in=params)
+               IF (do_forces) CALL set_params_3c_deriv(libderiv, rb, ra, rc, lb_max, la_max, lc_max, zetj, zeti, zetk, &
+                                                       potential_parameter=potential_parameter)
+
+               !IF (do_forces) CALL set_params_3c_deriv(libderiv, rb, ra, rc, params_in=params_deriv)
 
                DO lj = lb_min, lb_max
                   b_offset = b_start + ncoset(lj - 1)
@@ -234,6 +278,7 @@ CONTAINS
 
                         a_mysize(1) = ncoa*ncob*ncoc
                         CALL cp_libint_get_3eris(lj, li, lk, lib, p_work, a_mysize)
+                        IF (do_forces) CALL cp_libint_get_3eri_derivs(lj, li, lk, libderiv, p_deriv, a_mysize)
 
                         IF (PRESENT(int_abc_ext)) THEN
                            DO k = 1, ncoc
@@ -244,6 +289,14 @@ CONTAINS
                                     p3 = p2 + j
                                     int_abc(a_offset + i, b_offset + j, c_offset + k) = p_work(p3)
                                     int_abc_ext = MAX(int_abc_ext, ABS(p_work(p3)))
+                                    IF (do_forces) THEN
+                                       DO i_deriv = 1, n_deriv
+                                          der_abc(a_offset + i, b_offset + j, c_offset + k, deriv_permute_2(i_deriv)) = &
+                                             p_deriv(p3, i_deriv)
+
+                                       ENDDO
+                                    ENDIF
+
                                  END DO
                               END DO
                            END DO
@@ -255,11 +308,19 @@ CONTAINS
                                  DO j = 1, ncob
                                     p3 = p2 + j
                                     int_abc(a_offset + i, b_offset + j, c_offset + k) = p_work(p3)
+                                    IF (do_forces) THEN
+                                       DO i_deriv = 1, n_deriv
+                                          der_abc(a_offset + i, b_offset + j, c_offset + k, deriv_permute_2(i_deriv)) = &
+                                             p_deriv(p3, i_deriv)
+
+                                       ENDDO
+                                    ENDIF
                                  END DO
                               END DO
                            END DO
                         ENDIF
 
+                        IF (do_forces) DEALLOCATE (p_deriv)
                      END DO !lk
                   END DO !li
                END DO !lj
@@ -269,6 +330,8 @@ CONTAINS
       END DO !ipgf
 
       DEALLOCATE (params)
+
+      IF (do_forces) DEALLOCATE (params_deriv)
 
    END SUBROUTINE eri_3center
 
@@ -393,6 +456,110 @@ CONTAINS
                                     params%m_max, params%Fm)
 
    END SUBROUTINE set_params_3c
+
+! **************************************************************************************************
+!> \brief Sets the internals of the cp_libint_t object for integrals of type (k|ji)
+!> \param lib ..
+!> \param ri ...
+!> \param rj ...
+!> \param rk ...
+!> \param li_max ...
+!> \param lj_max ...
+!> \param lk_max ...
+!> \param zeti ...
+!> \param zetj ...
+!> \param zetk ...
+!> \param potential_parameter ...
+!> \note The use of params_in and params_out comes from the fact that one might have to swap
+!>       centers 3 and 4 because of angular momenta and pretty much all the parameters of libint
+!>       remain the same upon such a change => might avoid recomputing things over and over again
+! **************************************************************************************************
+   SUBROUTINE set_params_3c_deriv(lib, ri, rj, rk, li_max, lj_max, lk_max, zeti, zetj, zetk, &
+                                  potential_parameter)
+
+      TYPE(cp_libint_t), INTENT(INOUT)                   :: lib
+      REAL(dp), DIMENSION(3), INTENT(IN)                 :: ri, rj, rk
+      INTEGER, INTENT(IN), OPTIONAL                      :: li_max, lj_max, lk_max
+      REAL(dp), INTENT(IN), OPTIONAL                     :: zeti, zetj, zetk
+      TYPE(libint_potential_type), INTENT(IN), OPTIONAL  :: potential_parameter
+
+      CHARACTER(len=*), PARAMETER :: routineN = 'set_params_3c_deriv', &
+         routineP = moduleN//':'//routineN
+
+      INTEGER                                            :: l
+      LOGICAL                                            :: use_gamma
+      REAL(dp)                                           :: gammaq, omega2, omega_corr, omega_corr2, &
+                                                            prefac, R, S1234, T, tmp
+      REAL(dp), ALLOCATABLE, DIMENSION(:)                :: Fm
+      TYPE(params_3c)                                    :: params
+
+      params%m_max = li_max + lj_max + lk_max + 1
+      gammaq = zeti + zetj
+      params%ZetaInv = 1._dp/zetk; params%EtaInv = 1._dp/gammaq
+      params%ZetapEtaInv = 1._dp/(zetk + gammaq)
+
+      params%Q = (zeti*ri + zetj*rj)*params%EtaInv
+      params%W = (zetk*rk + gammaq*params%Q)*params%ZetapEtaInv
+      params%Rho = zetk*gammaq/(zetk + gammaq)
+
+      params%zeti = zeti
+      params%zetj = zetj
+      params%zetk = zetk
+
+      params%Fm = 0.0_dp
+      SELECT CASE (potential_parameter%potential_type)
+      CASE (do_potential_coulomb)
+         T = params%Rho*SUM((params%Q - rk)**2)
+         S1234 = EXP(-zeti*zetj*params%EtaInv*SUM((rj - ri)**2))
+         prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)*S1234
+
+         CALL fgamma(params%m_max, T, params%Fm)
+         params%Fm = prefac*params%Fm
+      CASE (do_potential_truncated)
+         R = potential_parameter%cutoff_radius*SQRT(params%Rho)
+         T = params%Rho*SUM((params%Q - rk)**2)
+         S1234 = EXP(-zeti*zetj*params%EtaInv*SUM((rj - ri)**2))
+         prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)*S1234
+
+         CPASSERT(get_lmax_init() .GE. params%m_max) !check if truncated coulomb init correctly
+         CALL t_c_g0_n(params%Fm, use_gamma, R, T, params%m_max)
+         IF (use_gamma) CALL fgamma(params%m_max, T, params%Fm)
+         params%Fm = prefac*params%Fm
+      CASE (do_potential_short)
+         T = params%Rho*SUM((params%Q - rk)**2)
+         S1234 = EXP(-zeti*zetj*params%EtaInv*SUM((rj - ri)**2))
+         prefac = 2._dp*pi/params%Rho*SQRT((pi*params%ZetapEtaInv)**3)*S1234
+
+         CALL fgamma(params%m_max, T, params%Fm)
+
+         omega2 = potential_parameter%omega**2
+         omega_corr2 = omega2/(omega2 + params%Rho)
+         omega_corr = SQRT(omega_corr2)
+         T = T*omega_corr2
+         ALLOCATE (Fm(prim_data_f_size))
+
+         CALL fgamma(params%m_max, T, Fm)
+         tmp = -omega_corr
+         DO l = 1, params%m_max + 1
+            params%Fm(l) = params%Fm(l) + Fm(l)*tmp
+            tmp = tmp*omega_corr2
+         END DO
+         params%Fm = prefac*params%Fm
+      CASE (do_potential_id)
+         S1234 = EXP(-zeti*zetj*params%EtaInv*SUM((rj - ri)**2) &
+                     - gammaq*zetk*params%ZetapEtaInv*SUM((params%Q - rk)**2))
+         prefac = SQRT((pi*params%ZetapEtaInv)**3)*S1234
+
+         params%Fm(:) = prefac
+      CASE DEFAULT
+         CPABORT("Requested operator NYI")
+      END SELECT
+
+      CALL cp_libint_set_params_eri_deriv(lib, rk, rk, rj, ri, rk, &
+                                          params%Q, params%W, params%zetk, 0.0_dp, params%zetj, params%zeti, &
+                                          params%ZetaInv, params%EtaInv, params%ZetapEtaInv, params%Rho, params%m_max, params%Fm)
+
+   END SUBROUTINE set_params_3c_deriv
 
 ! **************************************************************************************************
 !> \brief Computes the 2-center electron repulsion integrals (a|b) for a given set of cartesian

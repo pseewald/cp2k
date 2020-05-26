@@ -42,7 +42,8 @@ MODULE hfx_admm_utils
    USE external_potential_types,        ONLY: copy_potential
    USE hfx_derivatives,                 ONLY: derivatives_four_center
    USE hfx_energy_potential,            ONLY: integrate_four_center
-   USE hfx_ri,                          ONLY: hfx_ri_update_ks
+   USE hfx_ri,                          ONLY: hfx_ri_update_force,&
+                                              hfx_ri_update_ks
    USE hfx_types,                       ONLY: hfx_type
    USE input_constants,                 ONLY: &
         do_admm_aux_exch_func_bee, do_admm_aux_exch_func_default, do_admm_aux_exch_func_none, &
@@ -444,10 +445,6 @@ CONTAINS
          ! Finally the real hfx calulation
          ehfx = 0.0_dp
 
-         IF (x_data(irep, 1)%do_hfx_ri .AND. calculate_forces) THEN
-            CPABORT("RI forces not yet implemented in HFX")
-         ENDIF
-
          IF (x_data(irep, 1)%do_hfx_ri) THEN
             CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks_orb, ehfx, &
                                   mo_array, rho_ao_orb, &
@@ -481,8 +478,15 @@ CONTAINS
             ELSE
                NULLIFY (rho_ao_resp)
             END IF
-            CALL derivatives_four_center(qs_env, rho_ao_orb, rho_ao_resp, hfx_sections, &
-                                         para_env, irep, use_virial)
+            IF (x_data(irep, 1)%do_hfx_ri) THEN
+               CALL hfx_ri_update_force(qs_env, x_data(irep, 1)%ri_data, force, rho_ao_orb, nspins, &
+                                        x_data(irep, 1)%general_parameter%fraction)
+            ELSE
+               CALL derivatives_four_center(qs_env, rho_ao_orb, rho_ao_resp, hfx_sections, &
+                                            para_env, irep, use_virial)
+
+            ENDIF
+
             !Scale auxiliary density matrix for ADMMP back with 1/gsi(ispin)
             IF (dft_control%do_admm) THEN
                CALL scale_dm(qs_env, rho_ao_orb, scale_back=.TRUE.)
