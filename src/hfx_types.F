@@ -426,6 +426,7 @@ MODULE hfx_types
 
       ! 3c integral tensor in ( RI | AO AO ) format for contraction
       TYPE(dbcsr_t_type), DIMENSION(:, :), ALLOCATABLE :: t_3c_int_ctr_3
+      TYPE(dbcsr_t_type), DIMENSION(:, :, :), ALLOCATABLE :: t_3c_int_ctr_2_der
       TYPE(dbcsr_t_pgrid_type), POINTER                :: pgrid_3 => NULL()
 
       ! 3c integral tensor in (RI | MO AO ) format for contraction
@@ -1197,8 +1198,9 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_init', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, i_mem, ikind, iproc, j_mem, &
-                                                            MO_dim, mp_comm_3d, natom, nkind, nproc
+      INTEGER                                            :: handle, i_mem, i_xyz, ikind, iproc, &
+                                                            j_mem, MO_dim, mp_comm_3d, natom, &
+                                                            nkind, nproc
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bsizes_AO_store, bsizes_RI_store, dist1, &
                                                             dist2, dist_AO_1, dist_AO_2, dist_RI
       INTEGER, DIMENSION(2)                              :: pdims_2d
@@ -1356,6 +1358,11 @@ CONTAINS
                                ends_array_block_2=ri_data%ends_array_mem_block, &
                                name="(RI | AO AO)")
 
+         ALLOCATE (ri_data%t_3c_int_ctr_2_der(1, 1, 3))
+         DO i_xyz = 1, 3
+            CALL dbcsr_t_create(ri_data%t_3c_int_ctr_2(1, 1), ri_data%t_3c_int_ctr_2_der(1, 1, i_xyz))
+         ENDDO
+
          ALLOCATE (ri_data%t_2c_int(1, 1))
          CALL create_2c_tensor(ri_data%t_2c_int(1, 1), dist1, dist2, ri_data%pgrid_2d, &
                                ri_data%bsizes_RI_split, ri_data%bsizes_RI_split, &
@@ -1445,7 +1452,8 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_release', routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, i_mem, ispin, j_mem, unused
+      INTEGER                                            :: handle, i_mem, i_xyz, ispin, j_mem, &
+                                                            unused
 
       CALL timeset(routineN, handle)
 
@@ -1496,6 +1504,9 @@ CONTAINS
          DEALLOCATE (ri_data%dist3_RI, ri_data%dist3_AO_1, ri_data%dist3_AO_2)
          CALL dbcsr_t_destroy(ri_data%t_3c_int_ctr_3(1, 1))
          DEALLOCATE (ri_data%t_3c_int_ctr_3)
+         DO i_xyz = 1, 3
+            CALL dbcsr_t_destroy(ri_data%t_3c_int_ctr_2_der(1, 1, i_xyz))
+         ENDDO
          CALL dbcsr_t_destroy(ri_data%t_2c_int(1, 1))
          DEALLOCATE (ri_data%t_2c_int)
          DEALLOCATE (ri_data%starts_array_mem_block, ri_data%ends_array_mem_block, &

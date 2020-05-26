@@ -10,7 +10,8 @@
 MODULE hfx_ri
 
    USE arnoldi_api,                     ONLY: arnoldi_extremal
-   USE atomic_kind_types,               ONLY: atomic_kind_type
+   USE atomic_kind_types,               ONLY: atomic_kind_type,&
+                                              get_atomic_kind_set
    USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
                                               gto_basis_set_type
    USE cp_array_utils,                  ONLY: cp_1d_r_p_type
@@ -29,11 +30,13 @@ MODULE hfx_ri
                                               cp_fm_type
    USE cp_para_types,                   ONLY: cp_para_env_type
    USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_distribution_get, &
-        dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_dot, dbcsr_filter, &
-        dbcsr_frobenius_norm, dbcsr_get_info, dbcsr_get_num_blocks, dbcsr_multiply, dbcsr_p_type, &
-        dbcsr_release, dbcsr_scalar, dbcsr_scale, dbcsr_type, dbcsr_type_no_symmetry, &
-        dbcsr_type_symmetric
+        dbcsr_add, dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_desymmetrize, &
+        dbcsr_distribution_get, dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_dot, &
+        dbcsr_filter, dbcsr_frobenius_norm, dbcsr_get_block_p, dbcsr_get_info, &
+        dbcsr_get_num_blocks, dbcsr_has_symmetry, dbcsr_iterator_blocks_left, &
+        dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
+        dbcsr_multiply, dbcsr_p_type, dbcsr_release, dbcsr_release_p, dbcsr_scalar, dbcsr_scale, &
+        dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_symmetric
    USE dbcsr_tensor_api,                ONLY: &
         dbcsr_t_batched_contract_finalize, dbcsr_t_batched_contract_init, dbcsr_t_clear, &
         dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
@@ -63,6 +66,7 @@ MODULE hfx_ri
    USE particle_types,                  ONLY: particle_type
    USE qs_environment_types,            ONLY: get_qs_env,&
                                               qs_environment_type
+   USE qs_force_types,                  ONLY: qs_force_type
    USE qs_integral_utils,               ONLY: basis_set_list_setup
    USE qs_interactions,                 ONLY: init_interaction_radii_orb_basis
    USE qs_kind_types,                   ONLY: qs_kind_type
@@ -95,7 +99,7 @@ MODULE hfx_ri
    IMPLICIT NONE
    PRIVATE
 
-   PUBLIC :: hfx_ri_update_ks
+   PUBLIC :: hfx_ri_update_ks, hfx_ri_update_force
 
    CHARACTER(len=*), PARAMETER, PRIVATE :: moduleN = 'hfx_ri'
 CONTAINS
@@ -118,12 +122,13 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_pre_scf_mo', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, handle2, ispin, n_dependent, &
-                                                            unit_nr, unit_nr_dbcsr
+      INTEGER                                            :: handle, handle2, i_xyz, ispin, &
+                                                            n_dependent, unit_nr, unit_nr_dbcsr
       REAL(KIND=dp)                                      :: threshold
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_t_type), DIMENSION(1)                   :: t_2c_int
+      TYPE(dbcsr_t_type), DIMENSION(1, 1, 3)             :: t_3c_der
       TYPE(dbcsr_type), DIMENSION(1)                     :: t_2c_int_mat, t_2c_op_pot, &
                                                             t_2c_op_pot_sqrt, &
                                                             t_2c_op_pot_sqrt_inv, t_2c_op_RI, &
@@ -138,7 +143,10 @@ CONTAINS
 
       CALL timeset(routineN//"_int", handle2)
 
-      CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_op_RI, t_2c_op_pot, ri_data%t_3c_int)
+      CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_op_RI, t_2c_op_pot, ri_data%t_3c_int, t_3c_der)
+      DO i_xyz = 1, 3
+         CALL dbcsr_t_destroy(t_3c_der(1, 1, i_xyz))
+      ENDDO
 
       CALL timestop(handle2)
 
@@ -328,18 +336,21 @@ CONTAINS
 !> \param t_2c_int_RI K_2(P, R)
 !> \param t_2c_int_pot K_1(P, R)
 !> \param t_3c_int int_3c(mu, lambda, P)
+!> \param t_3c_der ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_int_RI, t_2c_int_pot, t_3c_int)
+   SUBROUTINE hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_int_RI, t_2c_int_pot, t_3c_int, t_3c_der)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
       TYPE(dbcsr_type), DIMENSION(1), INTENT(OUT)        :: t_2c_int_RI, t_2c_int_pot
       TYPE(dbcsr_t_type), DIMENSION(1, 1), INTENT(OUT)   :: t_3c_int
+      TYPE(dbcsr_t_type), DIMENSION(1, 1, 3), &
+         INTENT(OUT)                                     :: t_3c_der
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_pre_scf_calc_tensors', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, i_mem, ibasis, mp_comm_t3c, &
-                                                            n_mem, natom, nkind
+      INTEGER                                            :: handle, i_mem, i_xyz, ibasis, &
+                                                            mp_comm_t3c, n_mem, natom, nkind
       INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_AO_1, dist_AO_2, dist_RI, &
          ends_array_mc_block_int, ends_array_mc_int, sizes_AO, sizes_RI, &
          starts_array_mc_block_int, starts_array_mc_int
@@ -349,8 +360,8 @@ CONTAINS
       REAL(dp)                                           :: max_ev, min_ev
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(dbcsr_distribution_type)                      :: dbcsr_dist
-      TYPE(dbcsr_t_type)                                 :: t_3c_tmp
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_batched
+      TYPE(dbcsr_t_type), DIMENSION(1, 1, 3)             :: t_3c_der_batched
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(distribution_2d_type), POINTER                :: dist_2d
       TYPE(distribution_3d_type)                         :: dist_3d
@@ -398,6 +409,10 @@ CONTAINS
                             starts_array_block_2=starts_array_mc_block_int, ends_array_block_2=ends_array_mc_block_int, &
                             name="(RI | AO AO)")
 
+      DO i_xyz = 1, 3
+         CALL dbcsr_t_create(t_3c_int_batched(1, 1), t_3c_der_batched(1, 1, i_xyz))
+      ENDDO
+
       CALL get_qs_env(qs_env, nkind=nkind, particle_set=particle_set, atomic_kind_set=atomic_kind_set)
       CALL dbcsr_t_mp_environ_pgrid(ri_data%pgrid, pdims, pcoord)
       CALL mp_cart_create(ri_data%pgrid%mp_comm_2d, 3, pdims, pcoord, mp_comm_t3c)
@@ -410,41 +425,42 @@ CONTAINS
                             map1=[1], map2=[2, 3], &
                             name="O (RI AO | AO)")
 
+      DO i_xyz = 1, 3
+         CALL dbcsr_t_create(t_3c_int(1, 1), t_3c_der(1, 1, i_xyz))
+      ENDDO
+
       ! create 3c tensor for storage of ints
 
       CALL build_3c_neighbor_lists(nl_3c, basis_set_RI, basis_set_AO, basis_set_AO, dist_3d, ri_data%ri_metric, &
                                    "HFX_3c_nl", &
-                                   qs_env, op_pos=1, sym_jk=.TRUE., own_dist=.TRUE.)
+                                   qs_env, op_pos=1, own_dist=.TRUE.)
 
       DO i_mem = 1, n_mem
          CALL build_3c_integrals(t_3c_int_batched, ri_data%filter_eps/2, qs_env, nl_3c, &
                                  basis_set_RI, basis_set_AO, basis_set_AO, &
                                  ri_data%ri_metric, int_eps=ri_data%eps_schwarz, op_pos=1, &
-                                 desymmetrize=.FALSE., &
-                                 bounds_j=[starts_array_mc_block_int(i_mem), ends_array_mc_block_int(i_mem)])
+                                 bounds_j=[starts_array_mc_block_int(i_mem), ends_array_mc_block_int(i_mem)], &
+                                 t3c_der_j=t_3c_der_batched)
          CALL dbcsr_t_copy(t_3c_int_batched(1, 1), t_3c_int(1, 1), summation=.TRUE., move_data=.TRUE.)
-         CALL dbcsr_t_filter(t_3c_int(1, 1), ri_data%filter_eps/2)
+         DO i_xyz = 1, 3
+            CALL dbcsr_t_copy(t_3c_der_batched(1, 1, i_xyz), t_3c_der(1, 1, i_xyz))
+         ENDDO
+         CALL dbcsr_t_filter(t_3c_int(1, 1), ri_data%filter_eps)
+         DO i_xyz = 1, 3
+            CALL dbcsr_t_filter(t_3c_der(1, 1, i_xyz), ri_data%filter_eps)
+         ENDDO
       ENDDO
 
       CALL dbcsr_t_destroy(t_3c_int_batched(1, 1))
+      DO i_xyz = 1, 3
+         CALL dbcsr_t_destroy(t_3c_der_batched(1, 1, i_xyz))
+      ENDDO
 
       CALL neighbor_list_3c_destroy(nl_3c)
 
-      CALL dbcsr_t_create(t_3c_int(1, 1), t_3c_tmp)
-
-      IF (ri_data%flavor == ri_pmat) THEN ! desymmetrize
-         ! desymmetrize
-         CALL dbcsr_t_copy(t_3c_int(1, 1), t_3c_tmp)
-         CALL dbcsr_t_copy(t_3c_tmp, t_3c_int(1, 1), order=[1, 3, 2], summation=.TRUE., move_data=.TRUE.)
-
-         ! For RI-RHO filter_eps_storage is reserved for screening tensor contracted with RI-metric
-         ! with RI metric but not to bare integral tensor
-         CALL dbcsr_t_filter(t_3c_int(1, 1), ri_data%filter_eps)
-      ELSE
+      IF (ri_data%flavor == ri_mo) THEN ! desymmetrize
          CALL dbcsr_t_filter(t_3c_int(1, 1), ri_data%filter_eps_storage/2)
       ENDIF
-
-      CALL dbcsr_t_destroy(t_3c_tmp)
 
       CALL build_2c_neighbor_lists(nl_2c_pot, basis_set_RI, basis_set_RI, ri_data%hfx_pot, &
                                    "HFX_2c_nl_pot", &
@@ -544,7 +560,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_pre_scf_Pmat', &
          routineP = moduleN//':'//routineN
 
-      INTEGER                                            :: handle, handle2, i_mem, j_mem, &
+      INTEGER                                            :: handle, handle2, i_mem, i_xyz, j_mem, &
                                                             n_dependent, unit_nr, unit_nr_dbcsr
       INTEGER(int_8)                                     :: nflop
       INTEGER, DIMENSION(2, 1)                           :: bounds_i
@@ -556,6 +572,7 @@ CONTAINS
       TYPE(dbcsr_t_type)                                 :: t_3c_2
       TYPE(dbcsr_t_type), DIMENSION(1)                   :: t_2c_int
       TYPE(dbcsr_t_type), DIMENSION(1, 1)                :: t_3c_int_1
+      TYPE(dbcsr_t_type), DIMENSION(1, 1, 3)             :: t_3c_der_1
       TYPE(dbcsr_type), DIMENSION(1)                     :: t_2c_int_mat, t_2c_op_pot, t_2c_op_RI, &
                                                             t_2c_tmp, t_2c_tmp_2
 
@@ -567,11 +584,17 @@ CONTAINS
       CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env)
 
       CALL timeset(routineN//"_int", handle2)
-      CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_op_RI, t_2c_op_pot, t_3c_int_1)
+      CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, t_2c_op_RI, t_2c_op_pot, t_3c_int_1, t_3c_der_1)
 
       CALL dbcsr_t_copy(t_3c_int_1(1, 1), ri_data%t_3c_int_ctr_3(1, 1), order=[1, 2, 3], move_data=.TRUE.)
+      DO i_xyz = 1, 3
+         CALL dbcsr_t_copy(t_3c_der_1(1, 1, i_xyz), ri_data%t_3c_int_ctr_2_der(1, 1, i_xyz), order=[2, 1, 3], move_data=.TRUE.)
+      ENDDO
 
       CALL dbcsr_t_destroy(t_3c_int_1(1, 1))
+      DO i_xyz = 1, 3
+         CALL dbcsr_t_destroy(t_3c_der_1(1, 1, i_xyz))
+      ENDDO
 
       CALL timestop(handle2)
 
@@ -867,7 +890,7 @@ CONTAINS
             ENDIF
          ENDDO
 
-         CALL hfx_ri_update_ks_pmat(qs_env, ri_data, ks_matrix, rho_ao, &
+         CALL hfx_ri_update_ks_pmat(qs_env, ri_data, ri_data%t_3c_int_ctr_2, ks_matrix, rho_ao, &
                                     geometry_did_change, nspins)
 
       END SELECT
@@ -893,6 +916,124 @@ CONTAINS
       CALL timestop(handle2)
 
       CALL timestop(handle)
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param qs_env ...
+!> \param ri_data ...
+!> \param force ...
+!> \param rho_ao ...
+!> \param nspins ...
+!> \param hf_fraction ...
+! **************************************************************************************************
+   SUBROUTINE hfx_ri_update_force(qs_env, ri_data, force, rho_ao, nspins, hf_fraction)
+      TYPE(qs_environment_type), POINTER                 :: qs_env
+      TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
+      TYPE(qs_force_type), DIMENSION(:), POINTER         :: force
+      TYPE(dbcsr_p_type), DIMENSION(:, :)                :: rho_ao
+      INTEGER, INTENT(IN)                                :: nspins
+      REAL(KIND=dp), INTENT(IN)                          :: hf_fraction
+
+      INTEGER                                            :: i_xyz, ispin
+      REAL(dp)                                           :: fac
+      TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      TYPE(dbcsr_p_type), ALLOCATABLE, &
+         DIMENSION(:, :, :)                              :: ks_matrix_der
+
+      IF (nspins == 1) THEN
+         ! todo: check this!
+         fac = 0.5_dp*hf_fraction
+      ELSE
+         fac = 1.0_dp*hf_fraction
+      END IF
+
+      CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set)
+      ALLOCATE (ks_matrix_der(nspins, 1, 3))
+      DO i_xyz = 1, 3
+         DO ispin = 1, nspins
+            ALLOCATE (ks_matrix_der(ispin, 1, i_xyz)%matrix)
+            CALL dbcsr_create(ks_matrix_der(ispin, 1, i_xyz)%matrix, template=rho_ao(ispin, 1)%matrix, &
+                              matrix_type=dbcsr_type_no_symmetry)
+         ENDDO
+         CALL hfx_ri_update_ks_pmat(qs_env, ri_data, ri_data%t_3c_int_ctr_2_der(:, :, i_xyz), &
+                                    ks_matrix_der(:, :, i_xyz), rho_ao, &
+                                    .FALSE., nspins)
+      ENDDO
+      CALL hfx_ri_trace_force(force, ks_matrix_der, rho_ao, nspins, atomic_kind_set, fac)
+      DO i_xyz = 1, 3
+         DO ispin = 1, nspins
+            CALL dbcsr_release_p(ks_matrix_der(ispin, 1, i_xyz)%matrix)
+         ENDDO
+      ENDDO
+      DEALLOCATE (ks_matrix_der)
+
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param force ...
+!> \param ks_matrix_der ...
+!> \param rho_ao ...
+!> \param nspins ...
+!> \param atomic_kind_set ...
+!> \param hf_fraction ...
+! **************************************************************************************************
+   SUBROUTINE hfx_ri_trace_force(force, ks_matrix_der, rho_ao, nspins, atomic_kind_set, hf_fraction)
+
+      TYPE(qs_force_type), DIMENSION(:), POINTER         :: force
+      TYPE(dbcsr_p_type), DIMENSION(:, :, :), INTENT(IN) :: ks_matrix_der
+      TYPE(dbcsr_p_type), DIMENSION(:, :), INTENT(IN)    :: rho_ao
+      INTEGER, INTENT(IN)                                :: nspins
+      TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
+      REAL(dp), INTENT(IN)                               :: hf_fraction
+
+      INTEGER                                            :: atom, atom_kind, col, i_xyz, ispin, &
+                                                            kind_atom, natom, row
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, kind_of
+      LOGICAL                                            :: found, tr
+      REAL(dp), DIMENSION(:), POINTER                    :: block_d, block_p
+      TYPE(dbcsr_iterator_type)                          :: iter
+      TYPE(dbcsr_type)                                   :: rho_nosym
+
+      CALL get_atomic_kind_set(atomic_kind_set, natom=natom)
+      ALLOCATE (atom_of_kind(natom), kind_of(natom))
+      CALL get_atomic_kind_set(atomic_kind_set, kind_of=kind_of, atom_of_kind=atom_of_kind)
+
+      DO ispin = 1, nspins
+         CPASSERT(dbcsr_has_symmetry(rho_ao(ispin, 1)%matrix))
+         CALL dbcsr_create(rho_nosym, template=rho_ao(ispin, 1)%matrix, matrix_type=dbcsr_type_no_symmetry)
+         CALL dbcsr_desymmetrize(rho_ao(ispin, 1)%matrix, rho_nosym)
+         DO i_xyz = 1, 3
+            CPASSERT(.NOT. dbcsr_has_symmetry(ks_matrix_der(ispin, 1, i_xyz)%matrix))
+            CALL dbcsr_iterator_start(iter, ks_matrix_der(ispin, 1, i_xyz)%matrix)
+            DO WHILE (dbcsr_iterator_blocks_left(iter))
+               CALL dbcsr_iterator_next_block(iter, row, col, block_d, tr)
+               CPASSERT(.NOT. tr)
+               CALL dbcsr_get_block_p(rho_nosym, row, col, block_p, tr, found)
+               IF (.NOT. found) CYCLE
+               CPASSERT(.NOT. tr)
+
+               atom = col
+               atom_kind = atom_of_kind(atom)
+               kind_atom = kind_of(atom)
+               force(kind_atom)%fock_4c(i_xyz, atom_kind) = force(kind_atom)%fock_4c(i_xyz, atom_kind) - &
+                                                            2.0_dp*hf_fraction*DOT_PRODUCT(block_d, block_p)
+
+               !atom=row
+               !atom_kind = atom_of_kind(atom)
+               !kind_atom = kind_of(atom)
+               !force(kind_atom)%fock_4c(i_xyz, atom_kind) = force(kind_atom)%fock_4c(i_xyz, atom_kind) + &
+               !   2*hf_fraction*DOT_PRODUCT(block_d, block_p)
+
+               !force(kind_atom)%fock_4c(i_xyz, atom_kind) = 0.0_dp
+
+            ENDDO
+            CALL dbcsr_iterator_stop(iter)
+         ENDDO
+         CALL dbcsr_release(rho_nosym)
+      ENDDO
+
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -1321,15 +1462,17 @@ CONTAINS
 !> KS(mu, lambda) = sum_{nu,R} B(mu, nu, R) M(lambda, nu, R)
 !> \param qs_env ...
 !> \param ri_data ...
+!> \param t_3c_int ...
 !> \param ks_matrix ...
 !> \param rho_ao ...
 !> \param geometry_did_change ...
 !> \param nspins ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_update_ks_Pmat(qs_env, ri_data, ks_matrix, rho_ao, &
+   SUBROUTINE hfx_ri_update_ks_Pmat(qs_env, ri_data, t_3c_int, ks_matrix, rho_ao, &
                                     geometry_did_change, nspins)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
+      TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t_3c_int
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix, rho_ao
       LOGICAL, INTENT(IN)                                :: geometry_did_change
       INTEGER, INTENT(IN)                                :: nspins
@@ -1367,10 +1510,11 @@ CONTAINS
       CPASSERT(SIZE(ks_matrix, 2) == 1)
 
       IF (geometry_did_change) THEN
+         ! todo: fix grid optimizations for forces
          CALL hfx_ri_pre_scf_Pmat(qs_env, ri_data)
       ENDIF
 
-      nblks = dbcsr_t_get_num_blocks_total(ri_data%t_3c_int_ctr_2(1, 1))
+      nblks = dbcsr_t_get_num_blocks_total(t_3c_int(1, 1))
       IF (nblks == 0) THEN
          CPABORT("3-center integrals are not available (first call requires geometry_did_change=.TRUE.)")
       ENDIF
@@ -1393,7 +1537,7 @@ CONTAINS
          ENDDO
       ENDDO
 
-      IF (ASSOCIATED(ri_data%pgrid_2)) CALL tensor_change_pgrid(ri_data%t_3c_int_ctr_2(1, 1), &
+      IF (ASSOCIATED(ri_data%pgrid_2)) CALL tensor_change_pgrid(t_3c_int(1, 1), &
                                                                 ri_data%pgrid_2, &
                                                                 starts_array_mc_block_2=ri_data%starts_array_RI_mem_block, &
                                                                 ends_array_mc_block_2=ri_data%ends_array_RI_mem_block, &
@@ -1415,7 +1559,7 @@ CONTAINS
                             name="(AO | AO)")
       DEALLOCATE (dist1, dist2)
 
-      CALL dbcsr_t_create(ri_data%t_3c_int_ctr_2(1, 1), t_3c_1)
+      CALL dbcsr_t_create(t_3c_int(1, 1), t_3c_1)
       CALL dbcsr_t_create(ri_data%t_3c_int_ctr_1(1, 1), t_3c_3)
 
       CALL mp_sync(para_env%group)
@@ -1425,7 +1569,7 @@ CONTAINS
 
       DO ispin = 1, nspins
 
-         CALL get_tensor_occupancy(ri_data%t_3c_int_ctr_2(1, 1), nze_3c, occ_3c)
+         CALL get_tensor_occupancy(t_3c_int(1, 1), nze_3c, occ_3c)
 
          nze_rho = 0
          occ_rho = 0.0_dp
@@ -1453,7 +1597,7 @@ CONTAINS
                bounds_j(:, 1) = [1, dims_3c(1)]
                bounds_j(:, 2) = [ri_data%starts_array_RI_mem(j_mem), ri_data%ends_array_RI_mem(j_mem)]
 
-               CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), rho_ao_t, ri_data%t_3c_int_ctr_2(1, 1), &
+               CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), rho_ao_t, t_3c_int(1, 1), &
                                      dbcsr_scalar(0.0_dp), t_3c_1, &
                                      contract_1=[2], notcontract_1=[1], &
                                      contract_2=[3], notcontract_2=[1, 2], &
