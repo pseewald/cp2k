@@ -25,6 +25,7 @@ MODULE auto_basis
                                               pi,&
                                               rootpi
    USE orbital_pointers,                ONLY: init_orbital_pointers
+   USE orbital_transformation_matrices, ONLY: init_spherical_harmonics
    USE periodic_table,                  ONLY: get_ptable_info
    USE powell,                          ONLY: opt_state_type,&
                                               powell_optimize
@@ -49,15 +50,17 @@ CONTAINS
 !> \param basis_cntrl ...
 !> \param basis_type ...
 !> \param basis_sort ...
+!> \param force ...
 !> \date    01.11.2017
 !> \author  JGH
 ! **************************************************************************************************
-   SUBROUTINE create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, basis_cntrl, basis_type, basis_sort)
+   SUBROUTINE create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, basis_cntrl, basis_type, basis_sort, force)
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
       TYPE(qs_kind_type), INTENT(IN)                     :: qs_kind
       INTEGER, INTENT(IN)                                :: basis_cntrl
       CHARACTER(LEN=*), INTENT(IN), OPTIONAL             :: basis_type
       INTEGER, INTENT(IN), OPTIONAL                      :: basis_sort
+      LOGICAL, INTENT(IN), OPTIONAL                      :: force
 
       CHARACTER(len=*), PARAMETER :: routineN = 'create_ri_aux_basis_set', &
          routineP = moduleN//':'//routineN
@@ -96,7 +99,7 @@ CONTAINS
          CALL get_basis_keyfigures(orb_basis_set, lmax, zmin, zmax, zeff)
          !Note: RI basis coud require lmax up to 2*orb_lmax. This ensures that all orbital pointers
          !      are properly initialized before building the basis
-         CALL init_orbital_pointers(2*lmax)
+
          CALL get_basis_products(lmax, zmin, zmax, zeff, pmin, pmax, peff)
          CALL get_qs_kind(qs_kind, zeff=zval, elec_conf=econf, element_symbol=element_symbol)
          CALL get_ptable_info(element_symbol, ielement=z)
@@ -122,8 +125,11 @@ CONTAINS
          CASE DEFAULT
             CPABORT("Invalid value of control variable")
          END SELECT
+
+         CALL init_orbital_pointers(laux + 1)
+         CALL init_spherical_harmonics(laux + 1, 0)
          !
-         DO l = 2*lmax + 1, laux
+         DO l = 2*lmax + 1, laux + 1
             xv = peff(2*lmax)
             pmin(l) = xv
             pmax(l) = xv
@@ -131,7 +137,7 @@ CONTAINS
             pend(l) = xv
          END DO
          !
-         DO l = 0, laux
+         DO l = 0, laux + 1
             IF (l <= 2*lval) THEN
                pend(l) = MIN(fv(l)*peff(l), pmax(l))
                bval(l) = 1.8_dp
@@ -146,7 +152,7 @@ CONTAINS
          nsets = 1
          ls1(1) = 0
          ls2(1) = lval
-         DO l = lval + 1, laux
+         DO l = lval + 1, laux + 1
             IF (nval(l) < nval(lval) - 1) EXIT
             ls2(1) = l
          END DO
@@ -161,7 +167,7 @@ CONTAINS
                ls1(2) = ls2(1) + 1
                ls2(2) = MIN(2*lval, laux)
                lx = ls2(2)
-               DO l = lx + 1, laux
+               DO l = lx + 1, laux + 1
                   IF (nval(l) < nval(lx) - 1) EXIT
                   ls2(2) = l
                END DO
@@ -194,13 +200,17 @@ CONTAINS
                jj = npgf(i) - j + 1
                zet(jj, i) = amin(i)*bmin(i)**(j - 1)
             END DO
-            DO l = ls1(i), ls2(i)
+            DO l = ls1(i), ls2(i) + 1
                nl(l, i) = nval(l)
             END DO
          END DO
          bsname = TRIM(element_symbol)//"-RI-AUX-"//TRIM(orb_basis_set%name)
          !
-         CALL create_aux_basis(ri_aux_basis_set, bsname, nsets, ls1, ls2, nl, npgf, zet)
+         IF (PRESENT(force)) THEN
+            CALL create_aux_basis(ri_aux_basis_set, bsname, nsets, ls1, ls2 + 1, nl, npgf, zet)
+         ELSE
+            CALL create_aux_basis(ri_aux_basis_set, bsname, nsets, ls1, ls2, nl, npgf, zet)
+         ENDIF
 
          DEALLOCATE (zet)
 
