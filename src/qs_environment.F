@@ -521,9 +521,8 @@ CONTAINS
       TYPE(ewald_pw_type), POINTER                       :: ewald_pw
       TYPE(fist_nonbond_env_type), POINTER               :: se_nonbond_env
       TYPE(gapw_control_type), POINTER                   :: gapw_control
-      TYPE(gto_basis_set_type), POINTER                  :: aux_fit_basis, lri_aux_basis, &
-                                                            ri_aux_basis_set, ri_hfx_basis, &
-                                                            ri_xas_basis, tmp_basis_set
+      TYPE(gto_basis_set_type), POINTER :: aux_fit_basis, lri_aux_basis, ri_aux_basis_set, &
+         ri_hfx_basis, ri_hfx_basis_deriv, ri_xas_basis, tmp_basis_set
       TYPE(local_rho_type), POINTER                      :: local_rho_set
       TYPE(lri_environment_type), POINTER                :: lri_env
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos, mos_aux_fit, mos_last_converged
@@ -799,18 +798,22 @@ CONTAINS
       IF (do_ri_hfx) THEN
          CALL get_qs_env(qs_env, nkind=nkind)
          DO ikind = 1, nkind
-            NULLIFY (ri_hfx_basis)
+            NULLIFY (ri_hfx_basis, ri_hfx_basis_deriv)
             qs_kind => qs_kind_set(ikind)
             CALL get_qs_kind(qs_kind=qs_kind, basis_set=ri_hfx_basis, &
                              basis_type="RI_HFX")
+            CALL get_qs_kind(qs_kind=qs_kind, basis_set=ri_hfx_basis_deriv, &
+                             basis_type="RI_HFX_DERIV")
             IF (.NOT. (ASSOCIATED(ri_hfx_basis))) THEN
                CALL get_qs_kind_set(qs_kind_set, maxlgto=maxlgto)
                IF (dft_control%do_admm) THEN
                   CALL create_ri_aux_basis_set(ri_hfx_basis, qs_kind, dft_control%auto_basis_ri_hfx, basis_type="AUX_FIT")
                ELSE
                   CALL create_ri_aux_basis_set(ri_hfx_basis, qs_kind, dft_control%auto_basis_ri_hfx)
+                  CALL create_ri_aux_basis_set(ri_hfx_basis_deriv, qs_kind, dft_control%auto_basis_ri_hfx, force=.TRUE.)
                ENDIF
                CALL add_basis_set_to_container(qs_kind%basis_sets, ri_hfx_basis, "RI_HFX")
+               CALL add_basis_set_to_container(qs_kind%basis_sets, ri_hfx_basis_deriv, "RI_HFX_DERIV")
             END IF
          END DO
       ENDIF
