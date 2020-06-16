@@ -811,6 +811,8 @@ CONTAINS
                CALL get_qs_kind_set(qs_kind_set, maxlgto=maxlgto)
                IF (dft_control%do_admm) THEN
                   CALL create_ri_aux_basis_set(ri_hfx_basis, qs_kind, dft_control%auto_basis_ri_hfx, basis_type="AUX_FIT")
+                  CALL create_ri_aux_basis_set(ri_hfx_basis_deriv, qs_kind, dft_control%auto_basis_ri_hfx, &
+                                               basis_type="AUX_FIT", n_der=1)
                ELSE
                   CALL create_ri_aux_basis_set(ri_hfx_basis, qs_kind, dft_control%auto_basis_ri_hfx)
                   CALL create_ri_aux_basis_set(ri_hfx_basis_deriv, qs_kind, dft_control%auto_basis_ri_hfx, n_der=1)
