@@ -50,25 +50,24 @@ CONTAINS
 !> \param basis_cntrl ...
 !> \param basis_type ...
 !> \param basis_sort ...
-!> \param force ...
+!> \param n_der ...
 !> \date    01.11.2017
 !> \author  JGH
 ! **************************************************************************************************
-   SUBROUTINE create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, basis_cntrl, basis_type, basis_sort, force)
+   SUBROUTINE create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, basis_cntrl, basis_type, basis_sort, n_der)
       TYPE(gto_basis_set_type), POINTER                  :: ri_aux_basis_set
       TYPE(qs_kind_type), INTENT(IN)                     :: qs_kind
       INTEGER, INTENT(IN)                                :: basis_cntrl
       CHARACTER(LEN=*), INTENT(IN), OPTIONAL             :: basis_type
-      INTEGER, INTENT(IN), OPTIONAL                      :: basis_sort
-      LOGICAL, INTENT(IN), OPTIONAL                      :: force
+      INTEGER, INTENT(IN), OPTIONAL                      :: basis_sort, n_der
 
       CHARACTER(len=*), PARAMETER :: routineN = 'create_ri_aux_basis_set', &
          routineP = moduleN//':'//routineN
 
       CHARACTER(LEN=2)                                   :: element_symbol
       CHARACTER(LEN=default_string_length)               :: bsname
-      INTEGER                                            :: i, j, jj, l, laux, linc, lmax, lval, lx, &
-                                                            nsets, nx, z
+      INTEGER                                            :: dl, i, j, jj, l, laux, linc, lmax, lval, &
+                                                            lx, nsets, nx, z
       INTEGER, DIMENSION(0:18)                           :: nval
       INTEGER, DIMENSION(0:9, 1:20)                      :: nl
       INTEGER, DIMENSION(1:3)                            :: ls1, ls2, npgf
@@ -90,6 +89,13 @@ CONTAINS
       !
       CPASSERT(.NOT. ASSOCIATED(ri_aux_basis_set))
       NULLIFY (orb_basis_set)
+
+      IF (PRESENT(n_der)) THEN
+         dl = n_der
+      ELSE
+         dl = 0
+      ENDIF
+
       IF (.NOT. PRESENT(basis_type)) THEN
          CALL get_qs_kind(qs_kind, basis_set=orb_basis_set, basis_type="ORB")
       ELSE
@@ -97,9 +103,6 @@ CONTAINS
       ENDIF
       IF (ASSOCIATED(orb_basis_set)) THEN
          CALL get_basis_keyfigures(orb_basis_set, lmax, zmin, zmax, zeff)
-         !Note: RI basis coud require lmax up to 2*orb_lmax. This ensures that all orbital pointers
-         !      are properly initialized before building the basis
-
          CALL get_basis_products(lmax, zmin, zmax, zeff, pmin, pmax, peff)
          CALL get_qs_kind(qs_kind, zeff=zval, elec_conf=econf, element_symbol=element_symbol)
          CALL get_ptable_info(element_symbol, ielement=z)
@@ -126,10 +129,12 @@ CONTAINS
             CPABORT("Invalid value of control variable")
          END SELECT
 
-         CALL init_orbital_pointers(laux + 1)
-         CALL init_spherical_harmonics(laux + 1, 0)
+         ! Note: This ensures that all orbital pointers
+         ! are properly initialized before building the basis
+         CALL init_orbital_pointers(laux + dl)
+         CALL init_spherical_harmonics(laux + dl, 0)
          !
-         DO l = 2*lmax + 1, laux + 1
+         DO l = 2*lmax + 1, laux + dl
             xv = peff(2*lmax)
             pmin(l) = xv
             pmax(l) = xv
@@ -137,7 +142,7 @@ CONTAINS
             pend(l) = xv
          END DO
          !
-         DO l = 0, laux + 1
+         DO l = 0, laux + dl
             IF (l <= 2*lval) THEN
                pend(l) = MIN(fv(l)*peff(l), pmax(l))
                bval(l) = 1.8_dp
@@ -152,7 +157,7 @@ CONTAINS
          nsets = 1
          ls1(1) = 0
          ls2(1) = lval
-         DO l = lval + 1, laux + 1
+         DO l = lval + 1, laux + dl
             IF (nval(l) < nval(lval) - 1) EXIT
             ls2(1) = l
          END DO
@@ -167,7 +172,7 @@ CONTAINS
                ls1(2) = ls2(1) + 1
                ls2(2) = MIN(2*lval, laux)
                lx = ls2(2)
-               DO l = lx + 1, laux + 1
+               DO l = lx + 1, laux + dl
                   IF (nval(l) < nval(lx) - 1) EXIT
                   ls2(2) = l
                END DO
@@ -200,17 +205,13 @@ CONTAINS
                jj = npgf(i) - j + 1
                zet(jj, i) = amin(i)*bmin(i)**(j - 1)
             END DO
-            DO l = ls1(i), ls2(i) + 1
+            DO l = ls1(i), ls2(i) + dl
                nl(l, i) = nval(l)
             END DO
          END DO
          bsname = TRIM(element_symbol)//"-RI-AUX-"//TRIM(orb_basis_set%name)
          !
-         IF (PRESENT(force)) THEN
-            CALL create_aux_basis(ri_aux_basis_set, bsname, nsets, ls1, ls2 + 1, nl, npgf, zet)
-         ELSE
-            CALL create_aux_basis(ri_aux_basis_set, bsname, nsets, ls1, ls2, nl, npgf, zet)
-         ENDIF
+         CALL create_aux_basis(ri_aux_basis_set, bsname, nsets, ls1 + dl, ls2 + dl, nl, npgf, zet)
 
          DEALLOCATE (zet)
 

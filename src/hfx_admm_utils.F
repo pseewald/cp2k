@@ -449,7 +449,7 @@ CONTAINS
             CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks_orb, ehfx, &
                                   mo_array, rho_ao_orb, &
                                   s_mstruct_changed, nspins, &
-                                  x_data(irep, 1)%general_parameter%fraction)
+                                  x_data(irep, 1)%general_parameter%fraction, .FALSE.)
             IF (dft_control%do_admm) THEN
                !for ADMMS, we need the exchange matrix k(d) for both spins
 
@@ -527,7 +527,7 @@ CONTAINS
                CALL hfx_ri_update_ks(qs_env, x_data(irep, 1)%ri_data, matrix_ks_orb, ehfx, &
                                      mo_array, rho_ao_orb, &
                                      .FALSE., nspins, &
-                                     x_data(irep, 1)%general_parameter%fraction)
+                                     x_data(irep, 1)%general_parameter%fraction, .FALSE.)
                IF (dft_control%do_admm) THEN
                   !for ADMMS, we need the exchange matrix k(d) for both spins
 

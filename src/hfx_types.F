@@ -1158,6 +1158,7 @@ CONTAINS
 
       ri_data%orb_basis_type = orb_basis_type
       ri_data%ri_basis_type = ri_basis_type
+      ri_data%ri_basis_type_deriv = TRIM(ri_basis_type)//"_DERIV"
       ri_data%nelectron_total = nelectron_total
 
       IF (PRESENT(t_c_filename)) THEN
@@ -1227,7 +1228,7 @@ CONTAINS
                           basis_type=ri_data%ri_basis_type)
          IF (.NOT. (ASSOCIATED(ri_aux_basis_set))) THEN
             ! Generate a default basis
-            CALL create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, basis_cntrl, ri_data%orb_basis_type, force=.TRUE.)
+            CALL create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, basis_cntrl, ri_data%orb_basis_type, n_der=1)
 
             CALL add_basis_set_to_container(qs_kind%basis_sets, ri_aux_basis_set, ri_data%ri_basis_type)
          END IF

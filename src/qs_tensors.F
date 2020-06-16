@@ -1061,6 +1061,7 @@ CONTAINS
          max_ncok = MAX(max_ncok, MAXVAL(npgfk)*ncoset(maxlk))
       END DO
       m_max = maxli + maxlj + maxlk
+      IF (do_force) m_max = m_max + 1
 
       !To minimize expensive memory opsand generally optimize contraction, pre-allocate buffers and
       !contiguous sphi arrays (and transposed in the cas of sphi_i)
@@ -1217,10 +1218,10 @@ CONTAINS
          CALL dbcsr_t_blk_sizes(t3c(jcell, kcell), [iatom, jatom, katom], blk_size)
 
          ALLOCATE (block_t(blk_size(2), blk_size(3), blk_size(1)))
-         ALLOCATE (block_der_t(blk_size(2), blk_size(3), blk_size(1), 9))
+         IF (do_force) ALLOCATE (block_der_t(blk_size(2), blk_size(3), blk_size(1), 9))
 
          block_t = 0.0_dp
-         block_der_t = 0.0_dp
+         IF (do_force) block_der_t = 0.0_dp
          block_not_zero = .FALSE.
 
          DO iset = 1, nseti
@@ -1273,7 +1274,8 @@ CONTAINS
                         IF (int_eps > sijk_ext*(max_contraction_i(iset)* &
                                                 max_contraction_j(jset)* &
                                                 max_contraction_k(kset))) THEN
-                           DEALLOCATE (sijk, dijk)
+                           DEALLOCATE (sijk)
+                           IF (do_force) DEALLOCATE (dijk)
                            CYCLE
                         END IF
                      ENDIF
