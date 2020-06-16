@@ -1219,9 +1219,10 @@ CONTAINS
 !> \param gto_basis_set ...
 !> \param para_env ...
 !> \param dft_section ...
+!> \param n_der ...
 ! **************************************************************************************************
    SUBROUTINE read_gto_basis_set1(element_symbol, basis_set_name, gto_basis_set, &
-                                  para_env, dft_section)
+                                  para_env, dft_section, n_der)
 
       ! Read a Gaussian-type orbital (GTO) basis set from the database file.
 
@@ -1231,6 +1232,7 @@ CONTAINS
       TYPE(gto_basis_set_type), POINTER                  :: gto_basis_set
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(section_vals_type), POINTER                   :: dft_section
+      INTEGER, INTENT(IN), OPTIONAL                      :: n_der
 
       CHARACTER(len=*), PARAMETER :: routineN = 'read_gto_basis_set1', &
          routineP = moduleN//':'//routineN
@@ -1244,7 +1246,7 @@ CONTAINS
       CHARACTER(LEN=LEN(basis_set_name)+2)               :: bsname2
       CHARACTER(LEN=LEN(element_symbol))                 :: symbol
       CHARACTER(LEN=LEN(element_symbol)+2)               :: symbol2
-      INTEGER :: i, ibasis, ico, ipgf, irep, iset, ishell, lshell, m, maxco, maxl, maxpgf, &
+      INTEGER :: dl, i, ibasis, ico, ipgf, irep, iset, ishell, lshell, m, maxco, maxl, maxpgf, &
          maxshell, nbasis, ncgf, nmin, nset, nsgf, sort_method, strlen1, strlen2
       INTEGER, DIMENSION(:), POINTER                     :: lmax, lmin, npgf, nshell
       INTEGER, DIMENSION(:, :), POINTER                  :: l, n
@@ -1261,6 +1263,12 @@ CONTAINS
       bsname2 = ""
 
       nbasis = 1
+
+      IF (PRESENT(n_der)) THEN
+         dl = n_der
+      ELSE
+         dl = 0
+      ENDIF
 
       gto_basis_set%name = basis_set_name
       gto_basis_set%aliases = basis_set_name
@@ -1371,7 +1379,9 @@ CONTAINS
                      DO iset = 1, nset
                         CALL parser_get_object(parser, n(1, iset), newline=.TRUE.)
                         CALL parser_get_object(parser, lmin(iset))
+                        lmin(iset) = lmin(iset) + dl
                         CALL parser_get_object(parser, lmax(iset))
+                        lmax(iset) = lmax(iset) + dl
                         CALL parser_get_object(parser, npgf(iset))
                         maxl = MAX(maxl, lmax(iset))
                         IF (npgf(iset) > maxpgf) THEN

@@ -348,7 +348,7 @@ CONTAINS
       TYPE(dbcsr_type), DIMENSION(1), INTENT(OUT)        :: t_2c_int_RI, t_2c_int_pot
       TYPE(dbcsr_t_type), DIMENSION(1, 1), INTENT(OUT)   :: t_3c_int
       TYPE(dbcsr_t_type), DIMENSION(1, 1, 3), &
-         INTENT(OUT)                                     :: t_3c_der
+         INTENT(OUT), OPTIONAL                           :: t_3c_der
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_pre_scf_calc_tensors', &
          routineP = moduleN//':'//routineN
@@ -360,7 +360,7 @@ CONTAINS
          starts_array_mc_block_int, starts_array_mc_int
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       INTEGER, DIMENSION(:), POINTER                     :: col_bsize, row_bsize
-      LOGICAL                                            :: converged
+      LOGICAL                                            :: converged, do_forces
       REAL(dp)                                           :: max_ev, min_ev
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(dbcsr_distribution_type)                      :: dbcsr_dist
@@ -383,12 +383,14 @@ CONTAINS
       NULLIFY (col_bsize, row_bsize, dist_2d, nl_2c_pot, nl_2c_RI, &
                particle_set, qs_kind_set, ks_env)
 
+      do_forces = PRESENT(t_3c_der)
+
       CALL get_qs_env(qs_env, natom=natom, nkind=nkind, qs_kind_set=qs_kind_set, particle_set=particle_set, &
                       distribution_2d=dist_2d, ks_env=ks_env, dft_control=dft_control)
 
       ALLOCATE (sizes_RI(natom), sizes_AO(natom))
       ALLOCATE (basis_set_RI(nkind), basis_set_AO(nkind))
-      CALL basis_set_list_setup(basis_set_RI, ri_data%ri_basis_type, qs_kind_set)
+      CALL basis_set_list_setup(basis_set_RI, basis_type, qs_kind_set)
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=sizes_RI, basis=basis_set_RI)
       CALL basis_set_list_setup(basis_set_AO, ri_data%orb_basis_type, qs_kind_set)
 
@@ -413,9 +415,11 @@ CONTAINS
                             starts_array_block_2=starts_array_mc_block_int, ends_array_block_2=ends_array_mc_block_int, &
                             name="(RI | AO AO)")
 
+      IF (do_forces) THEN
       DO i_xyz = 1, 3
          CALL dbcsr_t_create(t_3c_int_batched(1, 1), t_3c_der_batched(1, 1, i_xyz))
       ENDDO
+      ENDIF
 
       CALL get_qs_env(qs_env, nkind=nkind, particle_set=particle_set, atomic_kind_set=atomic_kind_set)
       CALL dbcsr_t_mp_environ_pgrid(ri_data%pgrid, pdims, pcoord)
@@ -429,9 +433,11 @@ CONTAINS
                             map1=[1], map2=[2, 3], &
                             name="O (RI AO | AO)")
 
+      IF (do_forces) THEN
       DO i_xyz = 1, 3
          CALL dbcsr_t_create(t_3c_int(1, 1), t_3c_der(1, 1, i_xyz))
       ENDDO
+      ENDIF
 
       ! create 3c tensor for storage of ints
 
@@ -440,25 +446,39 @@ CONTAINS
                                    qs_env, op_pos=1, own_dist=.TRUE.)
 
       DO i_mem = 1, n_mem
-         CALL build_3c_integrals(t_3c_int_batched, ri_data%filter_eps/2, qs_env, nl_3c, &
-                                 basis_set_RI, basis_set_AO, basis_set_AO, &
-                                 ri_data%ri_metric, int_eps=ri_data%eps_schwarz, op_pos=1, &
-                                 bounds_j=[starts_array_mc_block_int(i_mem), ends_array_mc_block_int(i_mem)], &
-                                 t3c_der_j=t_3c_der_batched)
+         IF (do_forces) THEN
+            CALL build_3c_integrals(t_3c_int_batched, ri_data%filter_eps/2, qs_env, nl_3c, &
+                                    basis_set_RI, basis_set_AO, basis_set_AO, &
+                                    ri_data%ri_metric, int_eps=ri_data%eps_schwarz, op_pos=1, &
+                                    bounds_j=[starts_array_mc_block_int(i_mem), ends_array_mc_block_int(i_mem)], &
+                                    t3c_der_j=t_3c_der_batched)
+         ELSE
+            CALL build_3c_integrals(t_3c_int_batched, ri_data%filter_eps/2, qs_env, nl_3c, &
+                                    basis_set_RI, basis_set_AO, basis_set_AO, &
+                                    ri_data%ri_metric, int_eps=ri_data%eps_schwarz, op_pos=1, &
+                                    bounds_j=[starts_array_mc_block_int(i_mem), ends_array_mc_block_int(i_mem)])
+         ENDIF
+
          CALL dbcsr_t_copy(t_3c_int_batched(1, 1), t_3c_int(1, 1), summation=.TRUE., move_data=.TRUE.)
+         IF (do_forces) THEN
          DO i_xyz = 1, 3
             CALL dbcsr_t_copy(t_3c_der_batched(1, 1, i_xyz), t_3c_der(1, 1, i_xyz))
          ENDDO
+         ENDIF
          CALL dbcsr_t_filter(t_3c_int(1, 1), ri_data%filter_eps)
+         IF (do_forces) THEN
          DO i_xyz = 1, 3
             CALL dbcsr_t_filter(t_3c_der(1, 1, i_xyz), ri_data%filter_eps)
          ENDDO
+         ENDIF
       ENDDO
 
       CALL dbcsr_t_destroy(t_3c_int_batched(1, 1))
+      IF (do_forces) THEN
       DO i_xyz = 1, 3
          CALL dbcsr_t_destroy(t_3c_der_batched(1, 1, i_xyz))
       ENDDO
+      ENDIF
 
       CALL neighbor_list_3c_destroy(nl_3c)
 
@@ -557,11 +577,13 @@ CONTAINS
 !> \param qs_env ...
 !> \param ri_data ...
 !> \param basis_type ...
+!> \param do_forces ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_pre_scf_Pmat(qs_env, ri_data, basis_type)
+   SUBROUTINE hfx_ri_pre_scf_Pmat(qs_env, ri_data, basis_type, do_forces)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
       CHARACTER(len=*), INTENT(IN)                       :: basis_type
+      LOGICAL, INTENT(IN)                                :: do_forces
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_pre_scf_Pmat', &
          routineP = moduleN//':'//routineN
@@ -590,17 +612,25 @@ CONTAINS
       CALL get_qs_env(qs_env, para_env=para_env, blacs_env=blacs_env)
 
       CALL timeset(routineN//"_int", handle2)
-      CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, basis_type, t_2c_op_RI, t_2c_op_pot, t_3c_int_1, t_3c_der_1)
+      IF (do_forces) THEN
+         CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, basis_type, t_2c_op_RI, t_2c_op_pot, t_3c_int_1, t_3c_der_1)
+      ELSE
+         CALL hfx_ri_pre_scf_calc_tensors(qs_env, ri_data, basis_type, t_2c_op_RI, t_2c_op_pot, t_3c_int_1)
+      ENDIF
 
       CALL dbcsr_t_copy(t_3c_int_1(1, 1), ri_data%t_3c_int_ctr_3(1, 1), order=[1, 2, 3], move_data=.TRUE.)
+      IF (do_forces) THEN
       DO i_xyz = 1, 3
          CALL dbcsr_t_copy(t_3c_der_1(1, 1, i_xyz), ri_data%t_3c_int_ctr_2_der(1, 1, i_xyz), order=[2, 1, 3], move_data=.TRUE.)
       ENDDO
+      ENDIF
 
       CALL dbcsr_t_destroy(t_3c_int_1(1, 1))
+      IF (do_forces) THEN
       DO i_xyz = 1, 3
          CALL dbcsr_t_destroy(t_3c_der_1(1, 1, i_xyz))
       ENDDO
+      ENDIF
 
       CALL timestop(handle2)
 
@@ -781,9 +811,10 @@ CONTAINS
 !> \param geometry_did_change ...
 !> \param nspins ...
 !> \param hf_fraction ...
+!> \param do_forces ...
 ! **************************************************************************************************
    SUBROUTINE hfx_ri_update_ks(qs_env, ri_data, ks_matrix, ehfx, mos, rho_ao, &
-                               geometry_did_change, nspins, hf_fraction)
+                               geometry_did_change, nspins, hf_fraction, do_forces)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
       TYPE(dbcsr_p_type), DIMENSION(:, :), INTENT(INOUT) :: ks_matrix
@@ -794,6 +825,7 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: geometry_did_change
       INTEGER, INTENT(IN)                                :: nspins
       REAL(KIND=dp), INTENT(IN)                          :: hf_fraction
+      LOGICAL, INTENT(IN)                                :: do_forces
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_update_ks', &
          routineP = moduleN//':'//routineN
@@ -897,7 +929,7 @@ CONTAINS
          ENDDO
 
          CALL hfx_ri_update_ks_pmat(qs_env, ri_data, ri_data%ri_basis_type, ri_data%t_3c_int_ctr_2, ks_matrix, rho_ao, &
-                                    geometry_did_change, nspins)
+                                    geometry_did_change, do_forces, nspins)
 
       END SELECT
 
@@ -964,7 +996,7 @@ CONTAINS
          ENDDO
          CALL hfx_ri_update_ks_pmat(qs_env, ri_data, ri_data%ri_basis_type_deriv, ri_data%t_3c_int_ctr_2_der(:, :, i_xyz), &
                                     ks_matrix_der(:, :, i_xyz), rho_ao, &
-                                    .TRUE., nspins)
+                                    .TRUE., .TRUE., nspins)
       ENDDO
       CALL hfx_ri_trace_force(force, ks_matrix_der, rho_ao, nspins, atomic_kind_set, fac)
       DO i_xyz = 1, 3
@@ -1100,7 +1132,7 @@ CONTAINS
       unit_nr_dbcsr = ri_data%unit_nr_dbcsr
 
       IF (geometry_did_change) THEN
-         CALL hfx_ri_pre_scf_mo(qs_env, ri_data, nspins)
+         CALL hfx_ri_pre_scf_mo(qs_env, ri_data, "RI_HFX", nspins)
       ENDIF
 
       nblks = dbcsr_t_get_num_blocks_total(ri_data%t_3c_int_ctr_1(1, 1))
@@ -1473,16 +1505,17 @@ CONTAINS
 !> \param ks_matrix ...
 !> \param rho_ao ...
 !> \param geometry_did_change ...
+!> \param do_forces ...
 !> \param nspins ...
 ! **************************************************************************************************
    SUBROUTINE hfx_ri_update_ks_Pmat(qs_env, ri_data, basis_type, t_3c_int, ks_matrix, rho_ao, &
-                                    geometry_did_change, nspins)
+                                    geometry_did_change, do_forces, nspins)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
       CHARACTER(len=*), INTENT(IN)                       :: basis_type
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t_3c_int
       TYPE(dbcsr_p_type), DIMENSION(:, :)                :: ks_matrix, rho_ao
-      LOGICAL, INTENT(IN)                                :: geometry_did_change
+      LOGICAL, INTENT(IN)                                :: geometry_did_change, do_forces
       INTEGER, INTENT(IN)                                :: nspins
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_update_ks_Pmat', &
@@ -1519,7 +1552,7 @@ CONTAINS
 
       IF (geometry_did_change) THEN
          ! todo: fix grid optimizations for forces
-         CALL hfx_ri_pre_scf_Pmat(qs_env, ri_data, basis_type)
+         CALL hfx_ri_pre_scf_Pmat(qs_env, ri_data, basis_type, do_forces)
       ENDIF
 
       nblks = dbcsr_t_get_num_blocks_total(t_3c_int(1, 1))

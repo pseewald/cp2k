@@ -1450,7 +1450,8 @@ CONTAINS
       TYPE(atom_sgp_potential_type)                      :: sgppot
       TYPE(atom_upfpot_type)                             :: upfpot
       TYPE(cp_logger_type), POINTER                      :: logger
-      TYPE(gto_basis_set_type), POINTER                  :: sup_basis_set, tmp_basis_set
+      TYPE(gto_basis_set_type), POINTER                  :: sup_basis_set, tmp_basis_set, &
+                                                            tmp_basis_set_deriv
       TYPE(section_vals_type), POINTER :: basis_section, bs_section, dft_plus_u_section, &
          dft_section, enforce_occupation_section, kgpot_section, pao_desc_section, &
          pao_pot_section, potential_section, spin_section
@@ -2098,6 +2099,15 @@ CONTAINS
                CALL allocate_gto_basis_set(tmp_basis_set)
                CALL read_gto_basis_set(qs_kind%element_symbol, basis_set_name(i), &
                                        tmp_basis_set, para_env, dft_section)
+               tmp = basis_set_type(i)
+               CALL uppercase(tmp)
+               IF (tmp == "RI_HFX") THEN ! in this case need to create RI basis for derivatives
+                  NULLIFY (tmp_basis_set_deriv)
+                  CALL allocate_gto_basis_set(tmp_basis_set_deriv)
+                  CALL read_gto_basis_set(qs_kind%element_symbol, basis_set_name(i), &
+                                          tmp_basis_set_deriv, para_env, dft_section, n_der=1)
+
+               ENDIF
             CASE ("STO")
                NULLIFY (sto_basis_set)
                CALL allocate_sto_basis_set(sto_basis_set)
@@ -2114,6 +2124,9 @@ CONTAINS
             tmp = basis_set_type(i)
             CALL uppercase(tmp)
             CALL add_basis_set_to_container(qs_kind%basis_sets, tmp_basis_set, tmp)
+            IF (tmp == "RI_HFX") THEN
+               CALL add_basis_set_to_container(qs_kind%basis_sets, tmp_basis_set_deriv, TRIM(tmp)//"_DERIV")
+            ENDIF
          END DO
          ! now explicit basis sets
          IF (explicit_basis) THEN
@@ -2123,6 +2136,7 @@ CONTAINS
                CALL allocate_gto_basis_set(tmp_basis_set)
                CALL read_gto_basis_set(qs_kind%element_symbol, basis_type, &
                                        tmp_basis_set, basis_section, i, dft_section)
+
                tmp = basis_type
                CALL uppercase(tmp)
                CALL add_basis_set_to_container(qs_kind%basis_sets, tmp_basis_set, tmp)
@@ -2758,6 +2772,8 @@ CONTAINS
                   bstring = "RI XAS Basis Set"
                CASE ("RI_HFX")
                   bstring = "RI HFX Basis Set"
+               CASE ("RI_HFX_DERIV")
+                  bstring = "RI HFX Derivatives Basis Set"
                END SELECT
 
                CALL write_orb_basis_set(tmp_basis, output_unit, bstring)

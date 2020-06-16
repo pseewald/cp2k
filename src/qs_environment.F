@@ -813,7 +813,7 @@ CONTAINS
                   CALL create_ri_aux_basis_set(ri_hfx_basis, qs_kind, dft_control%auto_basis_ri_hfx, basis_type="AUX_FIT")
                ELSE
                   CALL create_ri_aux_basis_set(ri_hfx_basis, qs_kind, dft_control%auto_basis_ri_hfx)
-                  CALL create_ri_aux_basis_set(ri_hfx_basis_deriv, qs_kind, dft_control%auto_basis_ri_hfx, force=.TRUE.)
+                  CALL create_ri_aux_basis_set(ri_hfx_basis_deriv, qs_kind, dft_control%auto_basis_ri_hfx, n_der=1)
                ENDIF
                CALL add_basis_set_to_container(qs_kind%basis_sets, ri_hfx_basis, "RI_HFX")
                CALL add_basis_set_to_container(qs_kind%basis_sets, ri_hfx_basis_deriv, "RI_HFX_DERIV")
