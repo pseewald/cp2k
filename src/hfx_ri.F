@@ -601,6 +601,7 @@ CONTAINS
       INTEGER                                            :: handle, handle2, i_mem, i_xyz, j_mem, &
                                                             n_dependent, unit_nr, unit_nr_dbcsr
       INTEGER(int_8)                                     :: nflop
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ends_array_RI_mem, starts_array_RI_mem
       INTEGER, DIMENSION(2, 1)                           :: bounds_i
       INTEGER, DIMENSION(2, 2)                           :: bounds_j
       INTEGER, DIMENSION(3)                              :: dims_3c
@@ -698,8 +699,16 @@ CONTAINS
       CALL dbcsr_t_create(t_3c_int_ctr_3(1, 1), t_3c_2)
       CALL dbcsr_t_get_info(t_3c_int_ctr_3(1, 1), nfull_total=dims_3c)
 
+      IF (.NOT. do_forces) THEN
+         ALLOCATE (starts_array_RI_mem, SOURCE=ri_data%starts_array_RI_mem)
+         ALLOCATE (ends_array_RI_mem, SOURCE=ri_data%ends_array_RI_mem)
+      ELSE
+         ALLOCATE (starts_array_RI_mem, SOURCE=ri_data%starts_array_RI_deriv_mem)
+         ALLOCATE (ends_array_RI_mem, SOURCE=ri_data%ends_array_RI_deriv_mem)
+      ENDIF
+
       DO i_mem = 1, ri_data%n_mem
-         bounds_i(:, 1) = [ri_data%starts_array_RI_mem(i_mem), ri_data%ends_array_RI_mem(i_mem)]
+         bounds_i(:, 1) = [starts_array_RI_mem(i_mem), ends_array_RI_mem(i_mem)]
          CALL dbcsr_t_batched_contract_init(t_2c_int(1, 1))
          DO j_mem = 1, ri_data%n_mem
             bounds_j(:, 1) = [ri_data%starts_array_mem(j_mem), ri_data%ends_array_mem(j_mem)]

@@ -2106,7 +2106,7 @@ CONTAINS
                   CALL allocate_gto_basis_set(tmp_basis_set_deriv)
                   CALL read_gto_basis_set(qs_kind%element_symbol, basis_set_name(i), &
                                           tmp_basis_set_deriv, para_env, dft_section, n_der=1)
-
+                  CALL combine_basis_sets(tmp_basis_set_deriv, tmp_basis_set)
                ENDIF
             CASE ("STO")
                NULLIFY (sto_basis_set)

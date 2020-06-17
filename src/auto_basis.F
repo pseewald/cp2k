@@ -211,7 +211,7 @@ CONTAINS
          END DO
          bsname = TRIM(element_symbol)//"-RI-AUX-"//TRIM(orb_basis_set%name)
          !
-         CALL create_aux_basis(ri_aux_basis_set, bsname, nsets, ls1 + dl, ls2 + dl, nl, npgf, zet)
+         CALL create_aux_basis(ri_aux_basis_set, bsname, nsets, ls1, ls2 + dl, nl, npgf, zet)
 
          DEALLOCATE (zet)
 
