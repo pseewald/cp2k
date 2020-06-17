@@ -586,15 +586,13 @@ CONTAINS
 !> \param ri_data ...
 !> \param t_2c_int ...
 !> \param t_3c_int_ctr_1 ...
-!> \param t_3c_int_ctr_2 ...
 !> \param t_3c_int_ctr_3 ...
 !> \param do_forces ...
 ! **************************************************************************************************
-   SUBROUTINE hfx_ri_pre_scf_Pmat(qs_env, ri_data, t_2c_int, t_3c_int_ctr_1, t_3c_int_ctr_2, t_3c_int_ctr_3, do_forces)
+   SUBROUTINE hfx_ri_pre_scf_Pmat(qs_env, ri_data, t_2c_int, t_3c_int_ctr_1, t_3c_int_ctr_3, do_forces)
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(hfx_ri_type), INTENT(INOUT)                   :: ri_data
-      TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t_2c_int, t_3c_int_ctr_1, &
-                                                            t_3c_int_ctr_2, t_3c_int_ctr_3
+      TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t_2c_int, t_3c_int_ctr_1, t_3c_int_ctr_3
       LOGICAL, INTENT(IN)                                :: do_forces
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_ri_pre_scf_Pmat', &
@@ -736,7 +734,11 @@ CONTAINS
       CALL dbcsr_t_clear(t_2c_int(1, 1))
       CALL dbcsr_t_destroy(t_3c_2)
 
-      CALL dbcsr_t_copy(t_3c_int_ctr_3(1, 1), t_3c_int_ctr_2(1, 1), order=[2, 1, 3], move_data=.TRUE.)
+      IF (.NOT. do_forces) THEN
+         CALL dbcsr_t_copy(t_3c_int_ctr_3(1, 1), ri_data%t_3c_int_ctr_2(1, 1), order=[2, 1, 3], move_data=.TRUE.)
+      ELSE
+         CALL dbcsr_t_clear(t_3c_int_ctr_3(1, 1))
+      ENDIF
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -1011,7 +1013,7 @@ CONTAINS
             ri_data%t_2c_int_deriv, ri_data%t_3c_int_ctr_deriv_1, ri_data%t_3c_int_ctr_deriv_2(:, :, i_xyz), &
             ri_data%t_3c_int_ctr_deriv_3, &
             ks_matrix_der(:, :, i_xyz), rho_ao, &
-            .TRUE., .TRUE., nspins)
+            i_xyz == 1, .TRUE., nspins)
       ENDDO
       CALL hfx_ri_trace_force(force, ks_matrix_der, rho_ao, nspins, atomic_kind_set, fac)
       DO i_xyz = 1, 3
@@ -1574,7 +1576,7 @@ CONTAINS
 
       IF (geometry_did_change) THEN
          ! todo: fix grid optimizations for forces
-         CALL hfx_ri_pre_scf_Pmat(qs_env, ri_data, t_2c_int, t_3c_int_ctr_1, t_3c_int_ctr_2, t_3c_int_ctr_3, do_forces)
+         CALL hfx_ri_pre_scf_Pmat(qs_env, ri_data, t_2c_int, t_3c_int_ctr_1, t_3c_int_ctr_3, do_forces)
       ENDIF
 
       nblks = dbcsr_t_get_num_blocks_total(t_3c_int_ctr_2(1, 1))
