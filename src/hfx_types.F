@@ -1230,14 +1230,19 @@ CONTAINS
          qs_kind => qs_kind_set(ikind)
          CALL get_qs_kind(qs_kind=qs_kind, basis_set=ri_aux_basis_set, &
                           basis_type=ri_data%ri_basis_type)
+         CALL get_qs_kind(qs_kind=qs_kind, basis_set=ri_aux_basis_deriv, &
+                          basis_type=ri_data%ri_basis_type_deriv)
          IF (.NOT. (ASSOCIATED(ri_aux_basis_set))) THEN
             ! Generate a default basis
             CALL create_ri_aux_basis_set(ri_aux_basis_set, qs_kind, basis_cntrl, ri_data%orb_basis_type)
-            CALL create_ri_aux_basis_set(ri_aux_basis_deriv, qs_kind, basis_cntrl, ri_data%orb_basis_type, n_der=1)
-
             CALL add_basis_set_to_container(qs_kind%basis_sets, ri_aux_basis_set, ri_data%ri_basis_type)
-            CALL add_basis_set_to_container(qs_kind%basis_sets, ri_aux_basis_deriv, ri_data%ri_basis_type_deriv)
          END IF
+
+         IF (.NOT. (ASSOCIATED(ri_aux_basis_deriv))) THEN
+            CALL create_ri_aux_basis_set(ri_aux_basis_deriv, qs_kind, basis_cntrl, ri_data%orb_basis_type, n_der=1)
+            CALL add_basis_set_to_container(qs_kind%basis_sets, ri_aux_basis_deriv, ri_data%ri_basis_type_deriv)
+         ENDIF
+
          CALL init_orb_basis_set(ri_aux_basis_set)
          CALL init_orb_basis_set(ri_aux_basis_deriv)
          CALL init_interaction_radii_orb_basis(ri_aux_basis_set, ri_data%eps_pgf_orb)
