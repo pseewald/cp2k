@@ -806,6 +806,9 @@ CONTAINS
                              basis_type="RI_HFX_DERIV")
             IF (.NOT. (ASSOCIATED(ri_hfx_basis))) THEN
                CALL get_qs_kind_set(qs_kind_set, maxlgto=maxlgto)
+               IF (ASSOCIATED(ri_hfx_basis_deriv)) THEN
+                  CPABORT("RI_HFX_DERIV requires RI_HFX basis specified")
+               ENDIF
                IF (dft_control%do_admm) THEN
                   CALL create_ri_aux_basis_set(ri_hfx_basis, qs_kind, dft_control%auto_basis_ri_hfx, basis_type="AUX_FIT")
                   CALL create_ri_aux_basis_set(ri_hfx_basis_deriv, qs_kind, dft_control%auto_basis_ri_hfx, &
