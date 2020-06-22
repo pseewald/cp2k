@@ -1429,7 +1429,8 @@ CONTAINS
                                                             potential_file_name, potential_fn_kind
       CHARACTER(LEN=default_string_length)               :: akind_name, basis_type, keyword, &
                                                             kgpot_name, kgpot_type, &
-                                                            potential_name, potential_type, tmp
+                                                            potential_name, potential_type, &
+                                                            ri_hfx_basis_name, tmp
       CHARACTER(LEN=default_string_length), DIMENSION(4) :: description
       CHARACTER(LEN=default_string_length), &
          DIMENSION(:), POINTER                           :: tmpstringlist
@@ -1441,6 +1442,7 @@ CONTAINS
       INTEGER, DIMENSION(:), POINTER                     :: add_el, elec_conf, orbitals
       LOGICAL :: check, explicit, explicit_basis, explicit_kgpot, explicit_potential, nobasis, &
          section_enabled, subsection_enabled, update_input
+      LOGICAL, DIMENSION(2)                              :: ri_hfx_basis_exists
       REAL(KIND=dp)                                      :: alpha, ccore, rc, zeff_correction
       REAL(KIND=dp), DIMENSION(3)                        :: error
       REAL(KIND=dp), DIMENSION(:), POINTER               :: a_nl, aloc, anlcc, cloc, cnlcc, nelec
@@ -1450,8 +1452,7 @@ CONTAINS
       TYPE(atom_sgp_potential_type)                      :: sgppot
       TYPE(atom_upfpot_type)                             :: upfpot
       TYPE(cp_logger_type), POINTER                      :: logger
-      TYPE(gto_basis_set_type), POINTER                  :: sup_basis_set, tmp_basis_set, &
-                                                            tmp_basis_set_deriv
+      TYPE(gto_basis_set_type), POINTER                  :: sup_basis_set, tmp_basis_set
       TYPE(section_vals_type), POINTER :: basis_section, bs_section, dft_plus_u_section, &
          dft_section, enforce_occupation_section, kgpot_section, pao_desc_section, &
          pao_pot_section, potential_section, spin_section
@@ -2101,13 +2102,6 @@ CONTAINS
                                        tmp_basis_set, para_env, dft_section)
                tmp = basis_set_type(i)
                CALL uppercase(tmp)
-               IF (tmp == "RI_HFX") THEN ! in this case need to create RI basis for derivatives
-                  NULLIFY (tmp_basis_set_deriv)
-                  CALL allocate_gto_basis_set(tmp_basis_set_deriv)
-                  CALL read_gto_basis_set(qs_kind%element_symbol, basis_set_name(i), &
-                                          tmp_basis_set_deriv, para_env, dft_section, n_der=1)
-                  CALL combine_basis_sets(tmp_basis_set_deriv, tmp_basis_set)
-               ENDIF
             CASE ("STO")
                NULLIFY (sto_basis_set)
                CALL allocate_sto_basis_set(sto_basis_set)
@@ -2124,10 +2118,30 @@ CONTAINS
             tmp = basis_set_type(i)
             CALL uppercase(tmp)
             CALL add_basis_set_to_container(qs_kind%basis_sets, tmp_basis_set, tmp)
-            IF (tmp == "RI_HFX") THEN
-               CALL add_basis_set_to_container(qs_kind%basis_sets, tmp_basis_set_deriv, TRIM(tmp)//"_DERIV")
-            ENDIF
          END DO
+
+         ri_hfx_basis_exists(:) = .FALSE.
+         DO i = 1, SIZE(qs_kind%basis_sets)
+            NULLIFY (tmp_basis_set)
+            CALL get_basis_from_container(qs_kind%basis_sets, basis_set=tmp_basis_set, inumbas=i, basis_type=tmp)
+
+            IF (tmp == "RI_HFX") THEN
+               ri_hfx_basis_exists(1) = .TRUE.
+               ri_hfx_basis_name = tmp_basis_set%name
+            ENDIF
+            IF (tmp == "RI_HFX_DERIV") THEN
+               ri_hfx_basis_exists(2) = .TRUE.
+            ENDIF
+         ENDDO
+
+         IF (ri_hfx_basis_exists(1) .AND. .NOT. ri_hfx_basis_exists(2)) THEN
+            NULLIFY (tmp_basis_set)
+            CALL allocate_gto_basis_set(tmp_basis_set)
+            CALL read_gto_basis_set(qs_kind%element_symbol, ri_hfx_basis_name, &
+                                    tmp_basis_set, para_env, dft_section, n_der=1)
+            CALL add_basis_set_to_container(qs_kind%basis_sets, tmp_basis_set, "RI_HFX_DERIV")
+         ENDIF
+
          ! now explicit basis sets
          IF (explicit_basis) THEN
             CALL section_vals_get(basis_section, n_repetition=nexp)
@@ -2964,6 +2978,8 @@ CONTAINS
                      bstring = "LRI Basis Set"
                   CASE ("RI_HFX")
                      bstring = "RI HFX Basis Set"
+                  CASE ("RI_HFX_DERIV")
+                     bstring = "RI HFX Derivatives Basis Set"
                   END SELECT
 
                   CALL write_gto_basis_set(tmp_basis, output_unit, bstring)

@@ -35,6 +35,7 @@ MODULE basis_set_types
                                               pi
    USE memory_utilities,                ONLY: reallocate
    USE orbital_pointers,                ONLY: coset,&
+                                              current_maxl,&
                                               indco,&
                                               init_orbital_pointers,&
                                               nco,&
@@ -1246,10 +1247,11 @@ CONTAINS
       CHARACTER(LEN=LEN(basis_set_name)+2)               :: bsname2
       CHARACTER(LEN=LEN(element_symbol))                 :: symbol
       CHARACTER(LEN=LEN(element_symbol)+2)               :: symbol2
-      INTEGER :: dl, i, ibasis, ico, ipgf, irep, iset, ishell, lshell, m, maxco, maxl, maxpgf, &
-         maxshell, nbasis, ncgf, nmin, nset, nsgf, sort_method, strlen1, strlen2
+      INTEGER :: add_shell_deriv, dl, i, ibasis, ico, ipgf, irep, iset, ishell, ishell_l, lshell, &
+         m, maxco, maxl, maxpgf, maxshell, nbasis, ncgf, nmin, nset, nsgf, sort_method, strlen1, &
+         strlen2
       INTEGER, DIMENSION(:), POINTER                     :: lmax, lmin, npgf, nshell
-      INTEGER, DIMENSION(:, :), POINTER                  :: l, n
+      INTEGER, DIMENSION(:, :), POINTER                  :: l, n, nshell_l
       LOGICAL                                            :: basis_found, found, match
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: zet
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: gcc
@@ -1362,12 +1364,13 @@ CONTAINS
                      i = i + 1 + INDEX(line2(i + 1:), " ")
                      gto_basis_set%aliases = line2(i:)
 
-                     NULLIFY (gcc, l, lmax, lmin, n, npgf, nshell, zet)
+                     NULLIFY (gcc, l, lmax, lmin, n, npgf, nshell, nshell_l, zet)
                      ! Read the basis set information
                      CALL parser_get_object(parser, nset, newline=.TRUE.)
 
                      CALL reallocate(npgf, 1, nset)
                      CALL reallocate(nshell, 1, nset)
+                     CALL reallocate(nshell_l, 1, nset, 0, current_maxl)
                      CALL reallocate(lmax, 1, nset)
                      CALL reallocate(lmin, 1, nset)
                      CALL reallocate(n, 1, 1, 1, nset)
@@ -1379,7 +1382,12 @@ CONTAINS
                      DO iset = 1, nset
                         CALL parser_get_object(parser, n(1, iset), newline=.TRUE.)
                         CALL parser_get_object(parser, lmin(iset))
-                        lmin(iset) = lmin(iset) + dl
+                        IF (lmin(iset) > 0) THEN
+                           lmin(iset) = lmin(iset) + dl
+                           add_shell_deriv = 0
+                        ELSE
+                           add_shell_deriv = dl
+                        ENDIF
                         CALL parser_get_object(parser, lmax(iset))
                         lmax(iset) = lmax(iset) + dl
                         CALL parser_get_object(parser, npgf(iset))
@@ -1392,8 +1400,14 @@ CONTAINS
                         nshell(iset) = 0
                         DO lshell = lmin(iset), lmax(iset)
                            nmin = n(1, iset) + lshell - lmin(iset)
-                           CALL parser_get_object(parser, ishell)
+                           IF (add_shell_deriv == 0 .OR. lshell == 0 .OR. lshell > add_shell_deriv) THEN
+                              CALL parser_get_object(parser, ishell)
+                           ELSE
+                              ishell = nshell_l(iset, lshell - 1)
+                           ENDIF
                            nshell(iset) = nshell(iset) + ishell
+                           nshell_l(iset, lshell) = ishell
+
                            IF (nshell(iset) > maxshell) THEN
                               maxshell = nshell(iset)
                               CALL reallocate(n, 1, maxshell, 1, nset)
@@ -1407,10 +1421,19 @@ CONTAINS
                         END DO
                         DO ipgf = 1, npgf(iset)
                            CALL parser_get_object(parser, zet(ipgf, iset), newline=.TRUE.)
-                           DO ishell = 1, nshell(iset)
-                              CALL parser_get_object(parser, gcc(ipgf, ishell, iset))
-                           END DO
-                        END DO
+                           ishell = 0
+                           DO lshell = lmin(iset), lmax(iset)
+                              DO ishell_l = 1, nshell_l(iset, lshell)
+                                 IF (add_shell_deriv == 0 .OR. lshell == 0 .OR. lshell > add_shell_deriv) THEN
+                                    CALL parser_get_object(parser, gcc(ipgf, ishell + ishell_l, iset))
+                                 ELSE
+                                    gcc(ipgf, ishell + ishell_l, iset) = &
+                                       gcc(ipgf, ishell + ishell_l - nshell_l(iset, lshell), iset)
+                                 ENDIF
+                              END DO
+                              ishell = ishell + nshell_l(iset, lshell)
+                           ENDDO
+                        ENDDO
                      END DO
 
                      ! Maximum angular momentum quantum number of the atomic kind
@@ -1522,7 +1545,7 @@ CONTAINS
                         END DO
                      END DO
 
-                     DEALLOCATE (gcc, l, lmax, lmin, n, npgf, nshell, zet)
+                     DEALLOCATE (gcc, l, lmax, lmin, n, npgf, nshell, nshell_l, zet)
 
                      basis_found = .TRUE.
                      EXIT search_loop
