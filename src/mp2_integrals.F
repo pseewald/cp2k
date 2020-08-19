@@ -799,8 +799,6 @@ CONTAINS
 
          CALL create_3c_tensor(t_3c_overl_int_template, dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_overl, &
                                sizes_RI, sizes_AO, sizes_AO, map1=[1, 2], map2=[3], &
-                               starts_array_block_2=starts_array_mc_block_int, &
-                               ends_array_block_2=ends_array_mc_block_int, &
                                name="O (RI AO | AO)")
 
          CALL get_qs_env(qs_env, nkind=nkind, particle_set=particle_set)
@@ -859,10 +857,6 @@ CONTAINS
          CALL create_3c_tensor(t_3c_M, dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_M, &
                                sizes_RI_split, sizes_AO_split, sizes_AO_split, &
                                map1=[1], map2=[2, 3], &
-                               starts_array_block_2=starts_array_mc_block, &
-                               ends_array_block_2=ends_array_mc_block, &
-                               starts_array_block_3=starts_array_mc_block, &
-                               ends_array_block_3=ends_array_mc_block, &
                                name="M (RI | AO AO)")
 
          DEALLOCATE (dist_RI, dist_AO_1, dist_AO_2)
@@ -873,7 +867,6 @@ CONTAINS
          CALL create_3c_tensor(t_3c_O(1, 1), dist_RI, dist_AO_1, dist_AO_2, pgrid_t3c_overl, &
                                sizes_RI_split, sizes_AO_split, sizes_AO_split, &
                                map1=[1, 2], map2=[3], &
-                               starts_array_block_2=starts_array_mc_block, ends_array_block_2=ends_array_mc_block, &
                                name="O (RI AO | AO)")
          DEALLOCATE (dist_RI, dist_AO_1, dist_AO_2)
 

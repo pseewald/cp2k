@@ -1316,10 +1316,6 @@ CONTAINS
          CALL create_3c_tensor(ri_data%t_3c_int_ctr_1(1, 1), ri_data%dist1_ao_1, ri_data%dist1_ri, ri_data%dist1_ao_2, &
                                ri_data%pgrid, ri_data%bsizes_AO_split, ri_data%bsizes_RI_split, ri_data%bsizes_AO_split, &
                                [1, 2], [3], &
-                               starts_array_block_1=ri_data%starts_array_mem_block, &
-                               ends_array_block_1=ri_data%ends_array_mem_block, &
-                               starts_array_block_2=ri_data%starts_array_RI_mem_block, &
-                               ends_array_block_2=ri_data%ends_array_RI_mem_block, &
                                name="(AO RI | AO)")
 
          DO i_mem = 1, ri_data%n_mem
@@ -1341,20 +1337,12 @@ CONTAINS
          CALL create_3c_tensor(ri_data%t_3c_int_ctr_2(1, 1), ri_data%dist1_ao_1, ri_data%dist1_ri, ri_data%dist1_ao_2, &
                                ri_data%pgrid, ri_data%bsizes_AO_split, ri_data%bsizes_RI_split, ri_data%bsizes_AO_split, &
                                [1, 2], [3], &
-                               starts_array_block_2=ri_data%starts_array_RI_mem_block, &
-                               ends_array_block_2=ri_data%ends_array_RI_mem_block, &
-                               starts_array_block_3=ri_data%starts_array_mem_block, &
-                               ends_array_block_3=ri_data%ends_array_mem_block, &
                                name="(AO RI | AO)")
 
          ALLOCATE (ri_data%t_3c_int_ctr_3(1, 1))
          CALL create_3c_tensor(ri_data%t_3c_int_ctr_3(1, 1), ri_data%dist3_RI, ri_data%dist3_AO_1, ri_data%dist3_AO_2, &
                                ri_data%pgrid, ri_data%bsizes_RI_split, ri_data%bsizes_AO_split, ri_data%bsizes_AO_split, &
                                [1], [2, 3], &
-                               starts_array_block_1=ri_data%starts_array_RI_mem_block, &
-                               ends_array_block_1=ri_data%ends_array_RI_mem_block, &
-                               starts_array_block_2=ri_data%starts_array_mem_block, &
-                               ends_array_block_2=ri_data%ends_array_mem_block, &
                                name="(RI | AO AO)")
 
          ALLOCATE (ri_data%t_2c_int(1, 1))

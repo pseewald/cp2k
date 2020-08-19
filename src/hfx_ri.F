@@ -393,7 +393,6 @@ CONTAINS
 
       CALL create_3c_tensor(t_3c_int_batched(1, 1), dist_RI, dist_AO_1, dist_AO_2, ri_data%pgrid, &
                             sizes_RI, sizes_AO, sizes_AO, map1=[1], map2=[2, 3], &
-                            starts_array_block_2=starts_array_mc_block_int, ends_array_block_2=ends_array_mc_block_int, &
                             name="(RI | AO AO)")
 
       CALL get_qs_env(qs_env, nkind=nkind, particle_set=particle_set, atomic_kind_set=atomic_kind_set)
@@ -1037,7 +1036,6 @@ CONTAINS
          CALL create_3c_tensor(t_3c_int_mo_1(1, 1), dist1, dist2, dist3, ri_data%pgrid_1, &
                                ri_data%bsizes_AO_split, ri_data%bsizes_RI_split, mo_bsizes_1, &
                                [1, 2], [3], &
-                               starts_array_block_3=mem_start_block_1, ends_array_block_3=mem_end_block_1, &
                                name="(AO RI | MO)")
 
          DEALLOCATE (dist1, dist2, dist3)
@@ -1045,7 +1043,6 @@ CONTAINS
          CALL create_3c_tensor(t_3c_int_mo_2(1, 1), dist1, dist2, dist3, ri_data%pgrid_2, &
                                mo_bsizes_1, ri_data%bsizes_RI_split, ri_data%bsizes_AO_split, &
                                [1], [2, 3], &
-                               starts_array_block_1=mem_start_block_1, ends_array_block_1=mem_end_block_1, &
                                name="(MO | RI AO)")
 
          DEALLOCATE (dist1, dist2, dist3)
@@ -1067,7 +1064,6 @@ CONTAINS
             CALL create_3c_tensor(ri_data%t_3c_int_mo(ispin, 1, 1), dist1, dist2, dist3, pgrid, &
                                   ri_data%bsizes_RI_fit, mo_bsizes_2, ri_data%bsizes_AO_fit, &
                                   [1], [2, 3], &
-                                  starts_array_block_2=mem_start_block_2, ends_array_block_2=mem_end_block_2, &
                                   name="(RI | MO AO)")
 
             DEALLOCATE (dist1, dist2, dist3)
@@ -1075,7 +1071,6 @@ CONTAINS
             CALL create_3c_tensor(ri_data%t_3c_ctr_KS(ispin, 1, 1), dist1, dist2, dist3, pgrid, &
                                   ri_data%bsizes_RI_fit, mo_bsizes_2, ri_data%bsizes_AO_fit, &
                                   [1, 2], [3], &
-                                  starts_array_block_2=mem_start_block_2, ends_array_block_2=mem_end_block_2, &
                                   name="(RI MO | AO)")
             DEALLOCATE (dist1, dist2, dist3)
             CALL dbcsr_t_pgrid_destroy(pgrid)
