@@ -235,8 +235,6 @@ CONTAINS
             DO i = 1, SIZE(t_3c_O, 1)
                DO j = 1, SIZE(t_3c_O, 2)
                   CALL tensor_change_pgrid(t_3c_O_occ(i, j), pgrid_1_use_occ, &
-                                           starts_array_mc_block_2=starts_array_mc_block, &
-                                           ends_array_mc_block_2=ends_array_mc_block, &
                                            unit_nr=unit_nr_2)
                   unit_nr_2 = 0
                ENDDO
@@ -248,8 +246,6 @@ CONTAINS
             DO i = 1, SIZE(t_3c_O, 1)
                DO j = 1, SIZE(t_3c_O, 2)
                   CALL tensor_change_pgrid(t_3c_O_virt(i, j), pgrid_1_use_virt, &
-                                           starts_array_mc_block_2=starts_array_mc_block, &
-                                           ends_array_mc_block_2=ends_array_mc_block, &
                                            unit_nr=unit_nr_2)
                   unit_nr_2 = 0
                ENDDO
@@ -258,10 +254,6 @@ CONTAINS
 
          IF (pgrid_2_init) THEN
             CALL tensor_change_pgrid(t_3c_M, pgrid_2_use, &
-                                     starts_array_mc_block_2=starts_array_mc_block, &
-                                     ends_array_mc_block_2=ends_array_mc_block, &
-                                     starts_array_mc_block_3=starts_array_mc_block, &
-                                     ends_array_mc_block_3=ends_array_mc_block, &
                                      nodata=.TRUE., unit_nr=unit_nr_dbcsr)
          ENDIF
 
