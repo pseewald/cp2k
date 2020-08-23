@@ -137,8 +137,6 @@ CONTAINS
 !> \param t_3c_O ...
 !> \param starts_array_mc ...
 !> \param ends_array_mc ...
-!> \param starts_array_mc_block ...
-!> \param ends_array_mc_block ...
 !> \param BIb_C_beta ...
 !> \param homo_beta ...
 !> \param Eigenval_beta ...
@@ -158,7 +156,6 @@ CONTAINS
                                 mat_P_global, &
                                 t_3c_M, t_3c_O, &
                                 starts_array_mc, ends_array_mc, &
-                                starts_array_mc_block, ends_array_mc_block, &
                                 BIb_C_beta, homo_beta, Eigenval_beta, &
                                 gd_B_virtual_beta, &
                                 mo_coeff_beta, BIb_C_gw_beta, gw_corr_lev_occ_beta, gw_corr_lev_virt_beta)
@@ -187,9 +184,7 @@ CONTAINS
       TYPE(dbcsr_p_type), INTENT(INOUT)                  :: mat_P_global
       TYPE(dbcsr_t_type)                                 :: t_3c_M
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_O
-      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc, ends_array_mc, &
-                                                            starts_array_mc_block, &
-                                                            ends_array_mc_block
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc, ends_array_mc
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :), &
          INTENT(INOUT), OPTIONAL                         :: BIb_C_beta
       INTEGER, INTENT(IN), OPTIONAL                      :: homo_beta
@@ -671,7 +666,6 @@ CONTAINS
                           mat_munu, mat_P_global, &
                           t_3c_M, t_3c_O, &
                           starts_array_mc, ends_array_mc, &
-                          starts_array_mc_block, ends_array_mc_block, &
                           matrix_s, &
                           kpoints, &
                           gd_array, color_sub, &
@@ -695,7 +689,6 @@ CONTAINS
                           mat_munu, mat_P_global, &
                           t_3c_M, t_3c_O, &
                           starts_array_mc, ends_array_mc, &
-                          starts_array_mc_block, ends_array_mc_block, &
                           matrix_s, &
                           kpoints, &
                           gd_array, color_sub, &
@@ -1224,8 +1217,6 @@ CONTAINS
 !> \param t_3c_O ...
 !> \param starts_array_mc ...
 !> \param ends_array_mc ...
-!> \param starts_array_mc_block ...
-!> \param ends_array_mc_block ...
 !> \param matrix_s ...
 !> \param kpoints ...
 !> \param gd_array ...
@@ -1257,7 +1248,6 @@ CONTAINS
                           mat_P_global, &
                           t_3c_M, t_3c_O, &
                           starts_array_mc, ends_array_mc, &
-                          starts_array_mc_block, ends_array_mc_block, &
                           matrix_s, kpoints, &
                           gd_array, color_sub, &
                           fm_mo_coeff_occ_beta, fm_mo_coeff_virt_beta, &
@@ -1290,9 +1280,7 @@ CONTAINS
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :), &
          INTENT(INOUT)                                   :: t_3c_O
-      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc, ends_array_mc, &
-                                                            starts_array_mc_block, &
-                                                            ends_array_mc_block
+      INTEGER, ALLOCATABLE, DIMENSION(:), INTENT(IN)     :: starts_array_mc, ends_array_mc
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s
       TYPE(kpoint_type), POINTER                         :: kpoints
       TYPE(group_dist_d1_type), INTENT(IN)               :: gd_array
@@ -1670,7 +1658,6 @@ CONTAINS
                                      1, &
                                      t_3c_M, t_3c_O, &
                                      starts_array_mc, ends_array_mc, &
-                                     starts_array_mc_block, ends_array_mc_block, &
                                      weights_cos_tf_t_to_w, tj, tau_tj, e_fermi, eps_filter, alpha, &
                                      eps_filter_im_time, Eigenval, nmo, &
                                      num_integ_points, cut_memory, &
@@ -1693,7 +1680,6 @@ CONTAINS
                                            2, &
                                            t_3c_M, t_3c_O, &
                                            starts_array_mc, ends_array_mc, &
-                                           starts_array_mc_block, ends_array_mc_block, &
                                            weights_cos_tf_t_to_w, tj, tau_tj, e_fermi_beta, eps_filter, alpha, &
                                            eps_filter_im_time, Eigenval_beta, nmo, &
                                            num_integ_points, cut_memory, &
@@ -1710,7 +1696,6 @@ CONTAINS
                                            2, &
                                            t_3c_M, t_3c_O, &
                                            starts_array_mc, ends_array_mc, &
-                                           starts_array_mc_block, ends_array_mc_block, &
                                            weights_cos_tf_t_to_w, tj, tau_tj, e_fermi_beta, eps_filter, alpha, &
                                            eps_filter_im_time, Eigenval_beta, nmo, &
                                            num_integ_points, cut_memory, &

@@ -42,8 +42,8 @@ MODULE mp2_integrals
         dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
         dbcsr_t_filter, dbcsr_t_get_block, dbcsr_t_get_stored_coordinates, &
         dbcsr_t_mp_environ_pgrid, dbcsr_t_pgrid_create, dbcsr_t_pgrid_create_expert, &
-        dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_put_block, dbcsr_t_reserve_blocks, &
-        dbcsr_t_split_blocks, dbcsr_t_type
+        dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_set_strict_split, dbcsr_t_pgrid_type, &
+        dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_split_blocks, dbcsr_t_type
    USE group_dist_types,                ONLY: create_group_dist,&
                                               get_group_dist,&
                                               group_dist_d1_type
@@ -781,6 +781,7 @@ CONTAINS
             CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, pgrid_t3c_overl)
          ELSE
             pgrid_t3c_overl = get_pgrid_from_ngroup(para_env, ngroup_im_time, map1_2d=[1, 2], map2_2d=[3])
+            CALL dbcsr_t_pgrid_set_strict_split(pgrid_t3c_overl)
          ENDIF
 
          ! set up basis
