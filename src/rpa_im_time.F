@@ -207,6 +207,9 @@ CONTAINS
          ENDDO
       ENDDO
 
+      CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ (RI | AO AO)")
+      CALL dbcsr_t_create(t_3c_M, t_3c_M_virt, name="M virt (RI | AO AO)")
+
       DO jquad = 1, num_integ_points
 
          CALL mp_sync(para_env%group)
@@ -262,8 +265,7 @@ CONTAINS
 
          CALL dbcsr_t_create(t_3c_O_occ(1, 1), t_3c_M_occ_tmp, name="M (RI AO | AO)")
          CALL dbcsr_t_create(t_3c_O_virt(1, 1), t_3c_M_virt_tmp, name="M (RI AO | AO)")
-         CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ (RI | AO AO)")
-         CALL dbcsr_t_create(t_3c_M, t_3c_M_virt, name="M virt (RI | AO AO)")
+
 
          CALL timeset(routineN//"_contract", handle2)
 
@@ -483,8 +485,6 @@ CONTAINS
 
          CALL dbcsr_t_destroy(t_3c_M_occ_tmp)
          CALL dbcsr_t_destroy(t_3c_M_virt_tmp)
-         CALL dbcsr_t_destroy(t_3c_M_occ)
-         CALL dbcsr_t_destroy(t_3c_M_virt)
          DEALLOCATE (t_dm_virt)
          DEALLOCATE (t_dm_occ)
 
@@ -514,6 +514,10 @@ CONTAINS
          ENDIF
 
       END DO ! time points
+
+      CALL dbcsr_t_destroy(t_3c_M_occ)
+      CALL dbcsr_t_destroy(t_3c_M_virt)
+
 
       DO i = 1, SIZE(t_3c_O, 1)
          DO j = 1, SIZE(t_3c_O, 2)
