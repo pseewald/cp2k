@@ -114,6 +114,7 @@ CONTAINS
                                   ispin, &
                                   t_3c_M, t_3c_O, &
                                   starts_array_mc, ends_array_mc, &
+                                  starts_array_mc_block, ends_array_mc_block, &
                                   weights_cos_tf_t_to_w, &
                                   tj, tau_tj, e_fermi, eps_filter, &
                                   alpha, eps_filter_im_time, Eigenval, nmo, &
@@ -130,7 +131,8 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: ispin
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t_3c_O
-      INTEGER, DIMENSION(:), INTENT(IN)                  :: starts_array_mc, ends_array_mc
+      INTEGER, DIMENSION(:), INTENT(IN)                  :: starts_array_mc, ends_array_mc, &
+                                                            starts_array_mc_block, ends_array_mc_block
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :), &
          INTENT(IN)                                      :: weights_cos_tf_t_to_w
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:), &
@@ -161,7 +163,7 @@ CONTAINS
       INTEGER(int_8)                                     :: nze, nze_dm_occ, nze_dm_virt, nze_M_occ, &
                                                             nze_M_virt, nze_O
       INTEGER(KIND=int_8)                                :: flops_1_occ, flops_1_virt, flops_2
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_1, dist_2, size_dm, size_P
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_1, dist_2, size_dm, size_P, mc_ranges
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(2, 1)                           :: ibounds_2, jbounds_2
       INTEGER, DIMENSION(2, 2)                           :: ibounds_1, jbounds_1
@@ -209,6 +211,10 @@ CONTAINS
 
       CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ (RI | AO AO)")
       CALL dbcsr_t_create(t_3c_M, t_3c_M_virt, name="M virt (RI | AO AO)")
+
+      ALLOCATE(mc_ranges(cut_memory+1))
+      mc_ranges(:cut_memory-1)=starts_array_mc_block(:)
+      mc_ranges(cut_memory) = ends_array_mc_block(cut_memory) + 1
 
       DO jquad = 1, num_integ_points
 
@@ -271,6 +277,23 @@ CONTAINS
 
          CALL mp_sync(para_env%group)
          t1_flop = m_walltime()
+
+         !DO i=1, SIZE(t_3c_O_occ,1)
+         !   DO j=1, SIZE(t_3c_O_occ,2)
+         !      CALL dbcsr_t_batched_contract_init(t_3c_O_occ(i,j), batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+         !      !CALL dbcsr_t_batched_contract_init(t_3c_O_occ(i,j), batch_range_2=mc_ranges)
+         !   ENDDO
+         !ENDDO
+         !DO i=1, SIZE(t_3c_O_virt,1)
+         !   DO j=1, SIZE(t_3c_O_virt,2)
+         !      CALL dbcsr_t_batched_contract_init(t_3c_O_virt(i,j), batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+         !      !CALL dbcsr_t_batched_contract_init(t_3c_O_virt(i,j), batch_range_2=mc_ranges)
+         !   ENDDO
+         !ENDDO
+         !CALL dbcsr_t_batched_contract_init(t_3c_M_occ_tmp, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+         !CALL dbcsr_t_batched_contract_init(t_3c_M_virt_tmp, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+         !CALL dbcsr_t_batched_contract_init(t_3c_M_occ, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+         !CALL dbcsr_t_batched_contract_init(t_3c_M_virt, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
 
          DO i_cell_T = 1, num_cells_dm/2 + 1
 
@@ -476,6 +499,23 @@ CONTAINS
          ENDDO
 
          CALL timestop(handle2)
+
+         !CALL dbcsr_t_batched_contract_finalize(t_3c_M_occ_tmp)
+         !CALL dbcsr_t_batched_contract_finalize(t_3c_M_virt_tmp)
+         !CALL dbcsr_t_batched_contract_finalize(t_3c_M_occ)
+         !CALL dbcsr_t_batched_contract_finalize(t_3c_M_virt)
+
+         !DO i=1, SIZE(t_3c_O_occ,1)
+         !   DO j=1, SIZE(t_3c_O_occ,2)
+         !      CALL dbcsr_t_batched_contract_finalize(t_3c_O_occ(i,j))
+         !   ENDDO
+         !ENDDO
+
+         !DO i=1, SIZE(t_3c_O_virt,1)
+         !   DO j=1, SIZE(t_3c_O_virt,2)
+         !      CALL dbcsr_t_batched_contract_finalize(t_3c_O_virt(i,j))
+         !   ENDDO
+         !ENDDO
 
          CALL dbcsr_t_destroy(t_P)
          DO i_cell = 1, num_cells_dm
