@@ -84,6 +84,8 @@ CONTAINS
 !> \param t_3c_O ...
 !> \param starts_array_mc ...
 !> \param ends_array_mc ...
+!> \param starts_array_mc_block ...
+!> \param ends_array_mc_block ...
 !> \param weights_cos_tf_t_to_w ...
 !> \param tj ...
 !> \param tau_tj ...
@@ -132,7 +134,8 @@ CONTAINS
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_M
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t_3c_O
       INTEGER, DIMENSION(:), INTENT(IN)                  :: starts_array_mc, ends_array_mc, &
-                                                            starts_array_mc_block, ends_array_mc_block
+                                                            starts_array_mc_block, &
+                                                            ends_array_mc_block
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :), &
          INTENT(IN)                                      :: weights_cos_tf_t_to_w
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:), &
@@ -163,7 +166,8 @@ CONTAINS
       INTEGER(int_8)                                     :: nze, nze_dm_occ, nze_dm_virt, nze_M_occ, &
                                                             nze_M_virt, nze_O
       INTEGER(KIND=int_8)                                :: flops_1_occ, flops_1_virt, flops_2
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_1, dist_2, size_dm, size_P, mc_ranges
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_1, dist_2, mc_ranges, size_dm, &
+                                                            size_P
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(2, 1)                           :: ibounds_2, jbounds_2
       INTEGER, DIMENSION(2, 2)                           :: ibounds_1, jbounds_1
@@ -212,9 +216,9 @@ CONTAINS
       CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ (RI | AO AO)")
       CALL dbcsr_t_create(t_3c_M, t_3c_M_virt, name="M virt (RI | AO AO)")
 
-      ALLOCATE(mc_ranges(cut_memory+1))
-      mc_ranges(:cut_memory-1)=starts_array_mc_block(:)
-      mc_ranges(cut_memory) = ends_array_mc_block(cut_memory) + 1
+      ALLOCATE (mc_ranges(cut_memory + 1))
+      mc_ranges(:cut_memory) = starts_array_mc_block(:)
+      mc_ranges(cut_memory + 1) = ends_array_mc_block(cut_memory) + 1
 
       DO jquad = 1, num_integ_points
 
@@ -271,7 +275,6 @@ CONTAINS
 
          CALL dbcsr_t_create(t_3c_O_occ(1, 1), t_3c_M_occ_tmp, name="M (RI AO | AO)")
          CALL dbcsr_t_create(t_3c_O_virt(1, 1), t_3c_M_virt_tmp, name="M (RI AO | AO)")
-
 
          CALL timeset(routineN//"_contract", handle2)
 
@@ -557,7 +560,6 @@ CONTAINS
 
       CALL dbcsr_t_destroy(t_3c_M_occ)
       CALL dbcsr_t_destroy(t_3c_M_virt)
-
 
       DO i = 1, SIZE(t_3c_O, 1)
          DO j = 1, SIZE(t_3c_O, 2)
