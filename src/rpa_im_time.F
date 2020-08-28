@@ -281,22 +281,22 @@ CONTAINS
          CALL mp_sync(para_env%group)
          t1_flop = m_walltime()
 
-         !DO i=1, SIZE(t_3c_O_occ,1)
-         !   DO j=1, SIZE(t_3c_O_occ,2)
-         !      CALL dbcsr_t_batched_contract_init(t_3c_O_occ(i,j), batch_range_2=mc_ranges, batch_range_3=mc_ranges)
-         !      !CALL dbcsr_t_batched_contract_init(t_3c_O_occ(i,j), batch_range_2=mc_ranges)
-         !   ENDDO
-         !ENDDO
-         !DO i=1, SIZE(t_3c_O_virt,1)
-         !   DO j=1, SIZE(t_3c_O_virt,2)
-         !      CALL dbcsr_t_batched_contract_init(t_3c_O_virt(i,j), batch_range_2=mc_ranges, batch_range_3=mc_ranges)
-         !      !CALL dbcsr_t_batched_contract_init(t_3c_O_virt(i,j), batch_range_2=mc_ranges)
-         !   ENDDO
-         !ENDDO
-         !CALL dbcsr_t_batched_contract_init(t_3c_M_occ_tmp, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
-         !CALL dbcsr_t_batched_contract_init(t_3c_M_virt_tmp, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
-         !CALL dbcsr_t_batched_contract_init(t_3c_M_occ, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
-         !CALL dbcsr_t_batched_contract_init(t_3c_M_virt, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+         DO i=1, SIZE(t_3c_O_occ,1)
+            DO j=1, SIZE(t_3c_O_occ,2)
+               CALL dbcsr_t_batched_contract_init(t_3c_O_occ(i,j), batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+               !CALL dbcsr_t_batched_contract_init(t_3c_O_occ(i,j), batch_range_2=mc_ranges)
+            ENDDO
+         ENDDO
+         DO i=1, SIZE(t_3c_O_virt,1)
+            DO j=1, SIZE(t_3c_O_virt,2)
+               CALL dbcsr_t_batched_contract_init(t_3c_O_virt(i,j), batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+               !CALL dbcsr_t_batched_contract_init(t_3c_O_virt(i,j), batch_range_2=mc_ranges)
+            ENDDO
+         ENDDO
+         CALL dbcsr_t_batched_contract_init(t_3c_M_occ_tmp, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+         CALL dbcsr_t_batched_contract_init(t_3c_M_virt_tmp, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+         CALL dbcsr_t_batched_contract_init(t_3c_M_occ, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+         CALL dbcsr_t_batched_contract_init(t_3c_M_virt, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
 
          DO i_cell_T = 1, num_cells_dm/2 + 1
 
@@ -503,22 +503,22 @@ CONTAINS
 
          CALL timestop(handle2)
 
-         !CALL dbcsr_t_batched_contract_finalize(t_3c_M_occ_tmp)
-         !CALL dbcsr_t_batched_contract_finalize(t_3c_M_virt_tmp)
-         !CALL dbcsr_t_batched_contract_finalize(t_3c_M_occ)
-         !CALL dbcsr_t_batched_contract_finalize(t_3c_M_virt)
+         CALL dbcsr_t_batched_contract_finalize(t_3c_M_occ_tmp)
+         CALL dbcsr_t_batched_contract_finalize(t_3c_M_virt_tmp)
+         CALL dbcsr_t_batched_contract_finalize(t_3c_M_occ)
+         CALL dbcsr_t_batched_contract_finalize(t_3c_M_virt)
 
-         !DO i=1, SIZE(t_3c_O_occ,1)
-         !   DO j=1, SIZE(t_3c_O_occ,2)
-         !      CALL dbcsr_t_batched_contract_finalize(t_3c_O_occ(i,j))
-         !   ENDDO
-         !ENDDO
+         DO i=1, SIZE(t_3c_O_occ,1)
+            DO j=1, SIZE(t_3c_O_occ,2)
+               CALL dbcsr_t_batched_contract_finalize(t_3c_O_occ(i,j))
+            ENDDO
+         ENDDO
 
-         !DO i=1, SIZE(t_3c_O_virt,1)
-         !   DO j=1, SIZE(t_3c_O_virt,2)
-         !      CALL dbcsr_t_batched_contract_finalize(t_3c_O_virt(i,j))
-         !   ENDDO
-         !ENDDO
+         DO i=1, SIZE(t_3c_O_virt,1)
+            DO j=1, SIZE(t_3c_O_virt,2)
+               CALL dbcsr_t_batched_contract_finalize(t_3c_O_virt(i,j))
+            ENDDO
+         ENDDO
 
          CALL dbcsr_t_destroy(t_P)
          DO i_cell = 1, num_cells_dm
