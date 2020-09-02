@@ -4746,7 +4746,6 @@ CONTAINS
       END DO ! jquad (tau)
       CALL dbcsr_t_destroy(t_W)
 
-      CALL dbcsr_t_pgrid_destroy(pgrid_2d)
       CALL dbcsr_t_destroy(t_greens_fct_occ)
       CALL dbcsr_t_destroy(t_greens_fct_virt)
 
@@ -4853,6 +4852,8 @@ CONTAINS
          END IF
 
       END IF
+
+      CALL dbcsr_t_pgrid_destroy(pgrid_2d)
 
       CALL dbcsr_t_destroy(t_3c_ctr_RI)
       CALL dbcsr_t_destroy(t_3c_ctr_AO)
