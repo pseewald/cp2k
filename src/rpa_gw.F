@@ -45,11 +45,11 @@ MODULE rpa_gw
         dbcsr_p_type, dbcsr_release_p, dbcsr_scalar, dbcsr_scale, dbcsr_set, dbcsr_type, &
         dbcsr_type_no_symmetry
    USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_create, &
-        dbcsr_t_destroy, dbcsr_t_get_block, dbcsr_t_get_info, dbcsr_t_iterator_blocks_left, &
-        dbcsr_t_iterator_next_block, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, &
-        dbcsr_t_iterator_type, dbcsr_t_nblks_total, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, &
-        dbcsr_t_pgrid_type, dbcsr_t_type
+        dbcsr_t_clear, dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
+        dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_get_block, dbcsr_t_get_info, &
+        dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_next_block, dbcsr_t_iterator_start, &
+        dbcsr_t_iterator_stop, dbcsr_t_iterator_type, dbcsr_t_nblks_total, dbcsr_t_pgrid_create, &
+        dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_type
    USE input_constants,                 ONLY: gw_pade_approx,&
                                               gw_two_pole_model,&
                                               ri_rpa_g0w0_crossing_bisection,&
@@ -4585,8 +4585,9 @@ CONTAINS
       COMPLEX(KIND=dp), ALLOCATABLE, DIMENSION(:, :)     :: delta_corr_omega
       INTEGER :: gw_lev_end, gw_lev_start, handle, handle3, iblk_mo, iquad, jquad, mo_end, &
          mo_start, n_level_gw, n_level_gw_ref, nblk_mo, unit_nr_prv
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: mo_bsizes, mo_offsets
-      INTEGER, DIMENSION(2)                              :: mo_bounds
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, mo_bsizes, mo_offsets, &
+                                                            sizes_AO, sizes_RI
+      INTEGER, DIMENSION(2)                              :: mo_bounds, pdims_2d
       LOGICAL                                            :: memory_info, my_do_beta
       REAL(KIND=dp)                                      :: ext_scaling, omega, omega_i, omega_sign, &
                                                             sign_occ_virt, t_i_Clenshaw, tau, &
@@ -4594,7 +4595,9 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :) :: vec_Sigma_c_gw_cos_omega, &
          vec_Sigma_c_gw_cos_tau, vec_Sigma_c_gw_neg_tau, vec_Sigma_c_gw_pos_tau, &
          vec_Sigma_c_gw_sin_omega, vec_Sigma_c_gw_sin_tau
-      TYPE(dbcsr_t_type)                                 :: t_3c_ctr_RI
+      TYPE(dbcsr_t_pgrid_type)                           :: pgrid_2d
+      TYPE(dbcsr_t_type) :: t_3c_ctr, t_3c_ctr_AO, t_3c_ctr_RI, t_AO_tmp, t_dm, t_greens_fct_occ, &
+         t_greens_fct_virt, t_RI_tmp, t_SinvVSinv, t_W
       TYPE(dbcsr_type), POINTER                          :: mat_greens_fct_occ, mat_greens_fct_virt
 
       CALL timeset(routineN, handle)
@@ -4652,6 +4655,30 @@ CONTAINS
       ALLOCATE (mo_bsizes(nblk_mo))
       CALL dbcsr_t_get_info(t_3c_overl_int_gw_AO, blk_offset_3=mo_offsets, blk_size_3=mo_bsizes)
 
+      pdims_2d = 0
+      CALL dbcsr_t_pgrid_create(para_env%group, pdims_2d, pgrid_2d)
+      ALLOCATE (sizes_RI(dbcsr_t_nblks_total(t_3c_overl_int_gw_RI, 1)))
+      CALL dbcsr_t_get_info(t_3c_overl_int_gw_RI, blk_size_1=sizes_RI)
+
+      CALL create_2c_tensor(t_W, dist1, dist2, pgrid_2d, sizes_RI, sizes_RI, name="(RI|RI)")
+
+      DEALLOCATE (dist1, dist2)
+
+      CALL dbcsr_t_create(mat_W, t_RI_tmp, name="(RI|RI)")
+
+      CALL dbcsr_t_create(t_3c_overl_int_gw_RI, t_3c_ctr_RI)
+      CALL dbcsr_t_create(t_3c_overl_int_gw_AO, t_3c_ctr_AO)
+      CALL dbcsr_t_create(t_3c_overl_int_gw_AO, t_3c_ctr)
+
+      ALLOCATE (sizes_AO(dbcsr_t_nblks_total(t_3c_overl_int_gw_AO, 1)))
+      CALL dbcsr_t_get_info(t_3c_overl_int_gw_AO, blk_size_1=sizes_AO)
+      CALL create_2c_tensor(t_greens_fct_occ, dist1, dist2, pgrid_2d, sizes_AO, sizes_AO, name="(AO|AO)")
+      DEALLOCATE (dist1, dist2)
+      CALL create_2c_tensor(t_greens_fct_virt, dist1, dist2, pgrid_2d, sizes_AO, sizes_AO, name="(AO|AO)")
+      DEALLOCATE (dist1, dist2)
+
+      mo_bounds = [mo_offsets(2), mo_offsets(nblk_mo - 1) + mo_bsizes(nblk_mo - 1) - 1]
+
       DO jquad = 1, num_integ_points
 
          CALL compute_Greens_function_time(mat_greens_fct_occ, mat_greens_fct_virt, &
@@ -4663,22 +4690,36 @@ CONTAINS
          CALL dbcsr_set(mat_W, 0.0_dp)
          CALL copy_fm_to_dbcsr(fm_mat_W(jquad)%matrix, mat_W, keep_sparsity=.FALSE.)
 
+         IF (jquad == 1) CALL dbcsr_t_create(mat_greens_fct_occ, t_AO_tmp, name="(AO|AO)")
+
+         CALL dbcsr_t_copy_matrix_to_tensor(mat_W, t_RI_tmp)
+         CALL dbcsr_t_copy(t_RI_tmp, t_W)
+         CALL dbcsr_t_copy_matrix_to_tensor(mat_greens_fct_occ, t_AO_tmp)
+         CALL dbcsr_t_copy(t_AO_tmp, t_greens_fct_occ)
+         CALL dbcsr_t_copy_matrix_to_tensor(mat_greens_fct_virt, t_AO_tmp)
+         CALL dbcsr_t_copy(t_AO_tmp, t_greens_fct_virt)
+
          ! in iteration over MO blocks skip first and last block because they correspond to the MO s
          ! outside of the GW range of required MOs
          DO iblk_mo = 2, nblk_mo - 1
             mo_bounds = [mo_offsets(iblk_mo), mo_offsets(iblk_mo) + mo_bsizes(iblk_mo) - 1]
             CALL compute_sigma_gw(t_3c_overl_int_gw_AO, t_3c_overl_int_gw_RI, &
-                                  mat_greens_fct_occ, mat_W, [1.0_dp, -1.0_dp], &
-                                  vec_Sigma_c_gw_neg_tau(:, jquad), mo_start, mo_bounds, para_env, unit_nr_prv, &
-                                  t_3c_ctr_RI=t_3c_ctr_RI, t_3c_ctr_in=.FALSE.)
+                                  t_greens_fct_occ, t_W, [1.0_dp, -1.0_dp], &
+                                  mo_bounds, unit_nr_prv, &
+                                  t_3c_ctr_RI, t_3c_ctr_AO, t_3c_ctr, calculate_t_3c_ctr=.TRUE.)
+            CALL trace_sigma_gw(t_3c_ctr_AO, t_3c_ctr, vec_Sigma_c_gw_neg_tau(:, jquad), mo_start, mo_bounds, para_env)
 
             CALL compute_sigma_gw(t_3c_overl_int_gw_AO, t_3c_overl_int_gw_RI, &
-                                  mat_greens_fct_virt, mat_W, [1.0_dp, 1.0_dp], &
-                                  vec_Sigma_c_gw_pos_tau(:, jquad), mo_start, mo_bounds, para_env, unit_nr_prv, &
-                                  t_3c_ctr_RI=t_3c_ctr_RI, t_3c_ctr_in=.TRUE.)
+                                  t_greens_fct_virt, t_W, [1.0_dp, 1.0_dp], &
+                                  mo_bounds, unit_nr_prv, &
+                                  t_3c_ctr_RI, t_3c_ctr_AO, t_3c_ctr, calculate_t_3c_ctr=.FALSE.)
 
-            CALL dbcsr_t_destroy(t_3c_ctr_RI)
+            CALL trace_sigma_gw(t_3c_ctr_AO, t_3c_ctr, vec_Sigma_c_gw_pos_tau(:, jquad), mo_start, mo_bounds, para_env)
          ENDDO
+
+         CALL dbcsr_t_clear(t_3c_ctr_AO)
+         CALL dbcsr_t_clear(t_3c_ctr_RI)
+         CALL dbcsr_t_clear(t_3c_ctr)
 
          vec_Sigma_c_gw_cos_tau(:, jquad) = 0.5_dp*(vec_Sigma_c_gw_pos_tau(:, jquad) + &
                                                     vec_Sigma_c_gw_neg_tau(:, jquad))
@@ -4687,6 +4728,11 @@ CONTAINS
                                                     vec_Sigma_c_gw_neg_tau(:, jquad))
 
       END DO ! jquad (tau)
+      CALL dbcsr_t_destroy(t_W)
+
+      CALL dbcsr_t_pgrid_destroy(pgrid_2d)
+      CALL dbcsr_t_destroy(t_greens_fct_occ)
+      CALL dbcsr_t_destroy(t_greens_fct_virt)
 
       ! Fourier transform from time to frequency
       DO jquad = 1, num_fit_points
@@ -4737,13 +4783,32 @@ CONTAINS
 
          CALL timestop(handle3)
 
+         CALL create_2c_tensor(t_dm, dist1, dist2, pgrid_2d, sizes_AO, sizes_AO, name="(AO|AO)")
+         DEALLOCATE (dist1, dist2)
+
+         CALL dbcsr_t_copy_matrix_to_tensor(mat_dm%matrix, t_AO_tmp)
+         CALL dbcsr_t_copy(t_AO_tmp, t_dm)
+
+         CALL create_2c_tensor(t_SinvVSinv, dist1, dist2, pgrid_2d, sizes_RI, sizes_RI, name="(RI|RI)")
+         DEALLOCATE (dist1, dist2)
+
+         CALL dbcsr_t_copy_matrix_to_tensor(mat_SinvVSinv%matrix, t_RI_tmp)
+         CALL dbcsr_t_copy(t_RI_tmp, t_SinvVSinv)
+
          DO iblk_mo = 2, nblk_mo - 1
             mo_bounds = [mo_offsets(iblk_mo), mo_offsets(iblk_mo) + mo_bsizes(iblk_mo) - 1]
 
             CALL compute_sigma_gw(t_3c_overl_int_gw_AO, t_3c_overl_int_gw_RI, &
-                                  mat_dm%matrix, mat_SinvVSinv%matrix, [1.0_dp, -1.0_dp], &
-                                  vec_Sigma_x_gw(mo_start:mo_end, 1), mo_start, mo_bounds, para_env, unit_nr_prv)
+                                  t_dm, t_SinvVSinv, [1.0_dp, -1.0_dp], &
+                                  mo_bounds, unit_nr_prv, &
+                                  t_3c_ctr_RI, t_3c_ctr_AO, t_3c_ctr, calculate_t_3c_ctr=.TRUE.)
+
+            CALL trace_sigma_gw(t_3c_ctr_AO, t_3c_ctr, vec_Sigma_x_gw(mo_start:mo_end, 1), mo_start, mo_bounds, para_env)
          ENDDO
+
+         CALL dbcsr_t_destroy(t_dm)
+         CALL dbcsr_t_destroy(t_SinvVSinv)
+         !CALL trace_sigma_gw(t_3c_ctr_AO, t_3c_ctr, vec_Sigma_x_gw(mo_start:mo_end, 1), mo_start, mo_bounds, para_env)
 
          IF (my_do_beta) THEN
 
@@ -4760,6 +4825,12 @@ CONTAINS
          END IF
 
       END IF
+
+      CALL dbcsr_t_destroy(t_3c_ctr_RI)
+      CALL dbcsr_t_destroy(t_3c_ctr_AO)
+      CALL dbcsr_t_destroy(t_3c_ctr)
+      CALL dbcsr_t_destroy(t_AO_tmp)
+      CALL dbcsr_t_destroy(t_RI_tmp)
 
       ! compute and add the periodic correction
       IF (do_periodic) THEN
@@ -4840,131 +4911,64 @@ CONTAINS
 !> \brief ...
 !> \param t_3c_overl_int_gw_AO ...
 !> \param t_3c_overl_int_gw_RI ...
-!> \param mat_AO ...
-!> \param mat_RI ...
+!> \param t_AO ...
+!> \param t_RI ...
 !> \param prefac ...
-!> \param vec_Sigma ...
-!> \param mo_offset ...
 !> \param mo_bounds ...
-!> \param para_env ...
 !> \param unit_nr ...
 !> \param t_3c_ctr_RI ...
-!> \param t_3c_ctr_in ...
+!> \param t_3c_ctr_AO ...
+!> \param t_3c_ctr ...
+!> \param calculate_t_3c_ctr ...
 ! **************************************************************************************************
    SUBROUTINE compute_sigma_gw(t_3c_overl_int_gw_AO, t_3c_overl_int_gw_RI, &
-                               mat_AO, mat_RI, prefac, &
-                               vec_Sigma, mo_offset, mo_bounds, para_env, unit_nr, &
-                               t_3c_ctr_RI, t_3c_ctr_in)
+                               t_AO, t_RI, prefac, &
+                               mo_bounds, unit_nr, &
+                               t_3c_ctr_RI, t_3c_ctr_AO, t_3c_ctr, calculate_t_3c_ctr)
       TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_overl_int_gw_AO, &
-                                                            t_3c_overl_int_gw_RI
-      TYPE(dbcsr_type), INTENT(IN)                       :: mat_AO, mat_RI
+                                                            t_3c_overl_int_gw_RI, t_AO, t_RI
       REAL(dp), DIMENSION(2), INTENT(IN)                 :: prefac
-      REAL(KIND=dp), DIMENSION(:), INTENT(INOUT)         :: vec_Sigma
-      INTEGER, INTENT(IN)                                :: mo_offset
       INTEGER, DIMENSION(2), INTENT(IN)                  :: mo_bounds
-      TYPE(cp_para_env_type), POINTER                    :: para_env
       INTEGER, INTENT(IN)                                :: unit_nr
-      TYPE(dbcsr_t_type), INTENT(INOUT), OPTIONAL        :: t_3c_ctr_RI
-      LOGICAL, INTENT(IN), OPTIONAL                      :: t_3c_ctr_in
+      TYPE(dbcsr_t_type), INTENT(INOUT)                  :: t_3c_ctr_RI, t_3c_ctr_AO, t_3c_ctr
+      LOGICAL, INTENT(IN)                                :: calculate_t_3c_ctr
 
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'compute_sigma_gw'
 
       INTEGER                                            :: handle
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, sizes_AO, sizes_RI
-      INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(2, 2)                           :: ctr_bounds_mo
       INTEGER, DIMENSION(3)                              :: bounds_3c
-      LOGICAL                                            :: t_3c_ctr_in_prv
-      TYPE(dbcsr_t_pgrid_type)                           :: pgrid_2d
-      TYPE(dbcsr_t_type)                                 :: t_3c_ctr_RI_prv, t_3c_overl_int_gw_copy, &
-                                                            t_AO, t_AO_tmp, t_RI, t_RI_tmp
 
       CALL timeset(routineN, handle)
 
-      IF (PRESENT(t_3c_ctr_in)) THEN
-         t_3c_ctr_in_prv = t_3c_ctr_in
-      ELSE
-         t_3c_ctr_in_prv = .FALSE.
-      ENDIF
-
-      pdims_2d = 0
-      CALL dbcsr_t_pgrid_create(para_env%group, pdims_2d, pgrid_2d)
-
-      IF (t_3c_ctr_in_prv) THEN
-         CPASSERT(PRESENT(t_3c_ctr_RI))
-         t_3c_ctr_RI_prv = t_3c_ctr_RI
-      ELSE
-
-         ALLOCATE (sizes_RI(dbcsr_t_nblks_total(t_3c_overl_int_gw_RI, 1)))
-         CALL dbcsr_t_get_info(t_3c_overl_int_gw_RI, blk_size_1=sizes_RI)
-
-         CALL create_2c_tensor(t_RI, dist1, dist2, pgrid_2d, sizes_RI, sizes_RI, name="(RI|RI)")
-         DEALLOCATE (dist1, dist2, sizes_RI)
-
-         CALL dbcsr_t_create(mat_RI, t_RI_tmp, name="(RI|RI)")
-         CALL dbcsr_t_copy_matrix_to_tensor(mat_RI, t_RI_tmp)
-         CALL dbcsr_t_copy(t_RI_tmp, t_RI)
-         CALL dbcsr_t_destroy(t_RI_tmp)
-
-         CALL dbcsr_t_create(t_3c_overl_int_gw_RI, t_3c_overl_int_gw_copy)
-
+      IF (calculate_t_3c_ctr) THEN
          CALL dbcsr_t_get_info(t_3c_overl_int_gw_RI, nfull_total=bounds_3c)
          ctr_bounds_mo(:, 1) = [1, bounds_3c(2)]
          ctr_bounds_mo(:, 2) = mo_bounds
 
          CALL dbcsr_t_contract(dbcsr_scalar(prefac(1)), t_RI, t_3c_overl_int_gw_RI, dbcsr_scalar(0.0_dp), &
-                               t_3c_overl_int_gw_copy, &
+                               t_3c_ctr_RI, &
                                contract_1=[2], notcontract_1=[1], &
                                contract_2=[1], notcontract_2=[2, 3], &
                                map_1=[1], map_2=[2, 3], &
                                bounds_3=ctr_bounds_mo, &
                                unit_nr=unit_nr)
 
-         CALL dbcsr_t_create(t_3c_overl_int_gw_AO, t_3c_ctr_RI_prv)
-         CALL dbcsr_t_copy(t_3c_overl_int_gw_copy, t_3c_ctr_RI_prv, order=[2, 1, 3])
-         CALL dbcsr_t_destroy(t_3c_overl_int_gw_copy)
-         CALL dbcsr_t_destroy(t_RI)
+         CALL dbcsr_t_copy(t_3c_ctr_RI, t_3c_ctr, order=[2, 1, 3])
 
       ENDIF
-
-      ALLOCATE (sizes_AO(dbcsr_t_nblks_total(t_3c_overl_int_gw_AO, 1)))
-      CALL dbcsr_t_get_info(t_3c_overl_int_gw_AO, blk_size_1=sizes_AO)
-      CALL create_2c_tensor(t_AO, dist1, dist2, pgrid_2d, sizes_AO, sizes_AO, name="(AO|AO)")
-      DEALLOCATE (dist1, dist2, sizes_AO)
-
-      CALL dbcsr_t_create(mat_AO, t_AO_tmp, name="(AO|AO)")
-      CALL dbcsr_t_copy_matrix_to_tensor(mat_AO, t_AO_tmp)
-      CALL dbcsr_t_copy(t_AO_tmp, t_AO)
-      CALL dbcsr_t_destroy(t_AO_tmp)
-
-      CALL dbcsr_t_create(t_3c_overl_int_gw_AO, t_3c_overl_int_gw_copy)
 
       CALL dbcsr_t_get_info(t_3c_overl_int_gw_AO, nfull_total=bounds_3c)
       ctr_bounds_mo(:, 1) = [1, bounds_3c(2)]
       ctr_bounds_mo(:, 2) = mo_bounds
 
       CALL dbcsr_t_contract(dbcsr_scalar(prefac(2)), t_AO, t_3c_overl_int_gw_AO, dbcsr_scalar(0.0_dp), &
-                            t_3c_overl_int_gw_copy, &
+                            t_3c_ctr_AO, &
                             contract_1=[2], notcontract_1=[1], &
                             contract_2=[1], notcontract_2=[2, 3], &
                             map_1=[1], map_2=[2, 3], &
                             bounds_3=ctr_bounds_mo, &
                             unit_nr=unit_nr)
-
-      CALL trace_sigma_gw(t_3c_ctr_RI_prv, t_3c_overl_int_gw_copy, vec_sigma, mo_offset, mo_bounds, para_env)
-      CALL dbcsr_t_destroy(t_3c_overl_int_gw_copy)
-
-      IF (PRESENT(t_3c_ctr_in)) THEN
-         IF (.NOT. t_3c_ctr_in) THEN
-            CPASSERT(PRESENT(t_3c_ctr_RI))
-            t_3c_ctr_RI = t_3c_ctr_RI_prv
-         ENDIF
-      ELSE
-         CALL dbcsr_t_destroy(t_3c_ctr_RI_prv)
-      ENDIF
-
-      CALL dbcsr_t_pgrid_destroy(pgrid_2d)
-      CALL dbcsr_t_destroy(t_AO)
 
       CALL timestop(handle)
 
