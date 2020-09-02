@@ -4584,10 +4584,10 @@ CONTAINS
 
       COMPLEX(KIND=dp)                                   :: im_unit
       COMPLEX(KIND=dp), ALLOCATABLE, DIMENSION(:, :)     :: delta_corr_omega
-      INTEGER :: gw_lev_end, gw_lev_start, handle, handle3, iblk_mo, iquad, jquad, mo_end, &
+      INTEGER :: gw_lev_end, gw_lev_start, handle, handle3, i, iblk_mo, iquad, jquad, mo_end, &
          mo_start, n_level_gw, n_level_gw_ref, nblk_mo, unit_nr_prv
-      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, mo_bsizes, mo_offsets, &
-                                                            sizes_AO, sizes_RI
+      INTEGER, ALLOCATABLE, DIMENSION(:)                 :: batch_range_mo, dist1, dist2, mo_bsizes, &
+                                                            mo_offsets, sizes_AO, sizes_RI
       INTEGER, DIMENSION(2)                              :: mo_bounds, pdims_2d
       LOGICAL                                            :: memory_info, my_do_beta
       REAL(KIND=dp)                                      :: ext_scaling, omega, omega_i, omega_sign, &
@@ -4656,6 +4656,7 @@ CONTAINS
       nblk_mo = dbcsr_t_nblks_total(t_3c_overl_int_gw_AO, 3)
       ALLOCATE (mo_offsets(nblk_mo))
       ALLOCATE (mo_bsizes(nblk_mo))
+      ALLOCATE (batch_range_mo(nblk_mo - 1))
       CALL dbcsr_t_get_info(t_3c_overl_int_gw_AO, blk_offset_3=mo_offsets, blk_size_3=mo_bsizes)
 
       pdims_2d = 0
@@ -4679,8 +4680,6 @@ CONTAINS
       CALL create_2c_tensor(t_greens_fct_virt, dist1, dist2, pgrid_2d, sizes_AO, sizes_AO, name="(AO|AO)")
       DEALLOCATE (dist1, dist2)
 
-      mo_bounds = [mo_offsets(2), mo_offsets(nblk_mo - 1) + mo_bsizes(nblk_mo - 1) - 1]
-
       DO jquad = 1, num_integ_points
 
          CALL compute_Greens_function_time(mat_greens_fct_occ, mat_greens_fct_virt, &
@@ -4701,10 +4700,11 @@ CONTAINS
          CALL dbcsr_t_copy_matrix_to_tensor(mat_greens_fct_virt, t_AO_tmp)
          CALL dbcsr_t_copy(t_AO_tmp, t_greens_fct_virt)
 
-         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_AO)
-         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_RI)
-         CALL dbcsr_t_batched_contract_init(t_3c_ctr_AO)
-         CALL dbcsr_t_batched_contract_init(t_3c_ctr_RI)
+         batch_range_mo(:) = [(i, i=2, nblk_mo)]
+         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_AO, batch_range_3=batch_range_mo)
+         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_RI, batch_range_3=batch_range_mo)
+         CALL dbcsr_t_batched_contract_init(t_3c_ctr_AO, batch_range_3=batch_range_mo)
+         CALL dbcsr_t_batched_contract_init(t_3c_ctr_RI, batch_range_3=batch_range_mo)
          CALL dbcsr_t_batched_contract_init(t_W)
          CALL dbcsr_t_batched_contract_init(t_greens_fct_occ)
          CALL dbcsr_t_batched_contract_init(t_greens_fct_virt)
@@ -4811,12 +4811,13 @@ CONTAINS
          CALL dbcsr_t_copy_matrix_to_tensor(mat_SinvVSinv%matrix, t_RI_tmp)
          CALL dbcsr_t_copy(t_RI_tmp, t_SinvVSinv)
 
-         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_AO)
-         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_RI)
+         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_AO, batch_range_3=batch_range_mo)
+         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_RI, batch_range_3=batch_range_mo)
+         CALL dbcsr_t_batched_contract_init(t_3c_ctr_RI, batch_range_3=batch_range_mo)
+         CALL dbcsr_t_batched_contract_init(t_3c_ctr_AO, batch_range_3=batch_range_mo)
          CALL dbcsr_t_batched_contract_init(t_dm)
          CALL dbcsr_t_batched_contract_init(t_SinvVSinv)
-         CALL dbcsr_t_batched_contract_init(t_3c_ctr_RI)
-         CALL dbcsr_t_batched_contract_init(t_3c_ctr_AO)
+
          DO iblk_mo = 2, nblk_mo - 1
             mo_bounds = [mo_offsets(iblk_mo), mo_offsets(iblk_mo) + mo_bsizes(iblk_mo) - 1]
 
