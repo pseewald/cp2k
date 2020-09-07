@@ -22,6 +22,7 @@ MODULE qs_tensors
    USE cp_array_utils,                  ONLY: cp_2d_r_p_type
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_eri_mme_interface,            ONLY: cp_eri_mme_param
    USE cp_files,                        ONLY: close_file,&
                                               open_file
    USE cp_para_types,                   ONLY: cp_para_env_type
@@ -38,6 +39,10 @@ MODULE qs_tensors
         dbcsr_t_put_block, dbcsr_t_reserve_blocks, dbcsr_t_type
    USE distribution_1d_types,           ONLY: distribution_1d_type
    USE distribution_2d_types,           ONLY: distribution_2d_type
+   USE eri_mme_integrate,               ONLY: eri_mme_3c_integrate
+   USE eri_mme_types,                   ONLY: eri_mme_coulomb,&
+                                              eri_mme_longrange,&
+                                              eri_mme_set_potential
    USE gamma,                           ONLY: init_md_ftable
    USE hfx_compression_methods,         ONLY: hfx_add_mult_cache_elements,&
                                               hfx_add_single_cache_element,&
@@ -54,6 +59,7 @@ MODULE qs_tensors
                                               hfx_init_container
    USE input_constants,                 ONLY: do_potential_coulomb,&
                                               do_potential_id,&
+                                              do_potential_long,&
                                               do_potential_short,&
                                               do_potential_truncated
    USE input_section_types,             ONLY: section_vals_val_get
@@ -129,9 +135,10 @@ CONTAINS
 !> \param molecular ...
 !> \param dist_2d optionally a custom 2d distribution
 !> \param pot_to_rad which radius (1 for i, 2 for j) should be adapted to incorporate potential
+!> \param cell ...
 ! **************************************************************************************************
    SUBROUTINE build_2c_neighbor_lists(ij_list, basis_i, basis_j, potential_parameter, name, qs_env, &
-                                      sym_ij, molecular, dist_2d, pot_to_rad)
+                                      sym_ij, molecular, dist_2d, pot_to_rad, cell)
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: ij_list
       TYPE(gto_basis_set_p_type), DIMENSION(:)           :: basis_i, basis_j
@@ -141,6 +148,7 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL                      :: sym_ij, molecular
       TYPE(distribution_2d_type), OPTIONAL, POINTER      :: dist_2d
       INTEGER, INTENT(IN), OPTIONAL                      :: pot_to_rad
+      TYPE(cell_type), INTENT(IN), OPTIONAL, TARGET      :: cell
 
       INTEGER                                            :: ikind, nkind, pot_to_rad_prv
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: i_present, j_present
@@ -148,14 +156,14 @@ CONTAINS
       REAL(kind=dp)                                      :: subcells
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: i_radius, j_radius
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
-      TYPE(cell_type), POINTER                           :: cell
+      TYPE(cell_type), POINTER                           :: cell_prv
       TYPE(distribution_1d_type), POINTER                :: local_particles
       TYPE(distribution_2d_type), POINTER                :: dist_2d_prv
       TYPE(local_atoms_type), ALLOCATABLE, DIMENSION(:)  :: atom2d
       TYPE(molecule_type), DIMENSION(:), POINTER         :: molecule_set
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
 
-      NULLIFY (atomic_kind_set, cell, local_particles, molecule_set, &
+      NULLIFY (atomic_kind_set, cell_prv, local_particles, molecule_set, &
                particle_set, dist_2d_prv)
 
       IF (PRESENT(pot_to_rad)) THEN
@@ -164,9 +172,14 @@ CONTAINS
          pot_to_rad_prv = 1
       ENDIF
 
+      IF (PRESENT(cell)) THEN
+         cell_prv => cell
+      ELSE
+         CALL get_qs_env(qs_env, cell=cell_prv)
+      ENDIF
+
       CALL get_qs_env(qs_env, &
                       nkind=nkind, &
-                      cell=cell, &
                       particle_set=particle_set, &
                       atomic_kind_set=atomic_kind_set, &
                       local_particles=local_particles, &
@@ -243,7 +256,7 @@ CONTAINS
 
       CALL atom2d_build(atom2d, local_particles, dist_2d_prv, atomic_kind_set, &
                         molecule_set, molecule_only=.FALSE., particle_set=particle_set)
-      CALL build_neighbor_lists(ij_list, particle_set, atom2d, cell, pair_radius, subcells, &
+      CALL build_neighbor_lists(ij_list, particle_set, atom2d, cell_prv, pair_radius, subcells, &
                                 symmetric=sym_ij, molecular=molecular, nlname=TRIM(name))
 
       CALL atom2d_cleanup(atom2d)
@@ -266,10 +279,11 @@ CONTAINS
 !> \param molecular ??? not tested
 !> \param op_pos ...
 !> \param own_dist ...
+!> \param cell ...
 ! **************************************************************************************************
    SUBROUTINE build_3c_neighbor_lists(ijk_list, basis_i, basis_j, basis_k, &
                                       dist_3d, potential_parameter, name, qs_env, &
-                                      sym_ij, sym_jk, sym_ik, molecular, op_pos, own_dist)
+                                      sym_ij, sym_jk, sym_ik, molecular, op_pos, own_dist, cell)
       TYPE(neighbor_list_3c_type), INTENT(OUT)           :: ijk_list
       TYPE(gto_basis_set_p_type), DIMENSION(:)           :: basis_i, basis_j, basis_k
       TYPE(distribution_3d_type), INTENT(IN)             :: dist_3d
@@ -279,6 +293,7 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL                      :: sym_ij, sym_jk, sym_ik, molecular
       INTEGER, INTENT(IN), OPTIONAL                      :: op_pos
       LOGICAL, INTENT(IN), OPTIONAL                      :: own_dist
+      TYPE(cell_type), INTENT(IN), OPTIONAL, TARGET      :: cell
 
       CHARACTER(len=*), PARAMETER :: routineN = 'build_3c_neighbor_lists'
 
@@ -304,11 +319,11 @@ CONTAINS
 
       CALL build_2c_neighbor_lists(ijk_list%ij_list, basis_i, basis_j, pot_par_1, TRIM(name)//"_sub_1", &
                                    qs_env, sym_ij=.FALSE., molecular=molecular, &
-                                   dist_2d=dist_3d%dist_2d_1, pot_to_rad=1)
+                                   dist_2d=dist_3d%dist_2d_1, pot_to_rad=1, cell=cell)
 
       CALL build_2c_neighbor_lists(ijk_list%jk_list, basis_j, basis_k, pot_par_2, TRIM(name)//"_sub_2", &
                                    qs_env, sym_ij=.FALSE., molecular=molecular, &
-                                   dist_2d=dist_3d%dist_2d_2, pot_to_rad=2)
+                                   dist_2d=dist_3d%dist_2d_2, pot_to_rad=2, cell=cell)
 
       ijk_list%sym = symmetric_none
 
@@ -840,13 +855,15 @@ CONTAINS
 !> \param bounds_i ...
 !> \param bounds_j ...
 !> \param bounds_k ...
+!> \param periodic ...
+!> \param param ...
 ! **************************************************************************************************
    SUBROUTINE build_3c_integrals(t3c, filter_eps, qs_env, &
                                  nl_3c, basis_i, basis_j, basis_k, &
                                  potential_parameter, &
                                  int_eps, &
                                  op_pos, do_kpoints, desymmetrize, &
-                                 bounds_i, bounds_j, bounds_k)
+                                 bounds_i, bounds_j, bounds_k, periodic, param)
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t3c
       REAL(KIND=dp), INTENT(IN)                          :: filter_eps
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -857,14 +874,17 @@ CONTAINS
       INTEGER, INTENT(IN), OPTIONAL                      :: op_pos
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints, desymmetrize
       INTEGER, DIMENSION(2), INTENT(IN), OPTIONAL        :: bounds_i, bounds_j, bounds_k
+      LOGICAL, INTENT(IN), OPTIONAL                      :: periodic
+      TYPE(cp_eri_mme_param), INTENT(INOUT), OPTIONAL    :: param
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'build_3c_integrals'
 
       INTEGER :: block_end_i, block_end_j, block_end_k, block_start_i, block_start_j, &
-         block_start_k, egfi, handle, handle2, i, iatom, ibasis, ikind, ilist, imax, iset, jatom, &
-         jcell, jkind, jset, katom, kcell, kkind, kset, m_max, max_ncoi, max_ncoj, max_ncok, &
-         max_nset, max_nsgfi, max_nsgfj, max_nsgfk, maxli, maxlj, maxlk, natom, nbasis, ncoi, &
-         ncoj, ncok, nimg, nseti, nsetj, nsetk, op_ij, op_jk, op_pos_prv, sgfi, sgfj, sgfk, unit_id
+         block_start_k, egfi, handle, handle2, i, iatom, ibasis, ikind, ilist, imax, ipgf, iset, &
+         jatom, jcell, jkind, jpgf, jset, katom, kcell, kkind, kpgf, kset, m_max, max_ncoi, &
+         max_ncoj, max_ncok, max_nset, max_nsgfi, max_nsgfj, max_nsgfk, maxli, maxlj, maxlk, &
+         natom, nbasis, ncoi, ncoj, ncok, ni, nimg, nj, nk, nseti, nsetj, nsetk, op_ij, op_jk, &
+         op_pos_prv, sgfi, sgfj, sgfk, unit_id
       INTEGER, DIMENSION(3)                              :: blk_size, cell_j, cell_k, &
                                                             kp_index_lbounds, kp_index_ubounds, sp
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmax_k, lmin_i, lmin_j, &
@@ -873,14 +893,15 @@ CONTAINS
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgf_i, first_sgf_j, first_sgf_k
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL                                            :: block_not_zero, debug, desymmetrize_prv, &
-                                                            do_kpoints_prv, found
+                                                            do_eri_mme, do_kpoints_prv, found
       REAL(KIND=dp)                                      :: dij, dik, djk, dr_ij, dr_ik, dr_jk, &
                                                             kind_radius_i, kind_radius_j, &
                                                             kind_radius_k, prefac, sijk_ext
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: ccp_buffer, cpp_buffer, &
                                                             max_contraction_i, max_contraction_j, &
                                                             max_contraction_k
-      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: block_t, dummy_block_t, sijk, sijk_contr
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: block_t, dummy_block_t, sijk, &
+                                                            sijk_contr, sijk_cp
       REAL(KIND=dp), DIMENSION(3)                        :: ri, rij, rik, rj, rjk, rk
       REAL(KIND=dp), DIMENSION(:), POINTER               :: set_radius_i, set_radius_j, set_radius_k
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: rpgf_i, rpgf_j, rpgf_k, sphi_i, sphi_j, &
@@ -918,6 +939,16 @@ CONTAINS
          op_pos_prv = op_pos
       ELSE
          op_pos_prv = 1
+      ENDIF
+
+      do_eri_mme = .FALSE.
+      IF (PRESENT(periodic)) do_eri_mme = periodic
+
+      IF (do_eri_mme) THEN
+         CALL eri_mme_set_potential( &
+            param%par, &
+            convert_potential_type(potential_parameter%potential_type), &
+            potential_parameter%omega)
       ENDIF
 
       SELECT CASE (op_pos_prv)
@@ -1184,11 +1215,46 @@ CONTAINS
                      ri = 0.0_dp
                      rj = rij ! ri + rij
                      rk = rik ! ri + rik
-                     CALL eri_3center(sijk, &
-                                      lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), rpgf_j(:, jset), rj, &
-                                      lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), rpgf_k(:, kset), rk, &
-                                      lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), rpgf_i(:, iset), ri, &
-                                      djk, dij, dik, lib, potential_parameter, int_abc_ext=sijk_ext)
+                     IF (.NOT. do_eri_mme) THEN
+                        CALL eri_3center(sijk, &
+                                         lmin_j(jset), lmax_j(jset), npgfj(jset), zetj(:, jset), rpgf_j(:, jset), rj, &
+                                         lmin_k(kset), lmax_k(kset), npgfk(kset), zetk(:, kset), rpgf_k(:, kset), rk, &
+                                         lmin_i(iset), lmax_i(iset), npgfi(iset), zeti(:, iset), rpgf_i(:, iset), ri, &
+                                         djk, dij, dik, lib, potential_parameter, int_abc_ext=sijk_ext)
+                     ELSE
+
+                        ALLOCATE (sijk_cp(ncoj, ncok, ncoi))
+                        DO jpgf = 1, npgfj(jset)
+                           nj = (jpgf - 1)*ncoset(lmax_j(jset))
+                           DO kpgf = 1, npgfk(kset)
+                              IF (rpgf_j(jpgf, jset) + rpgf_k(kpgf, kset) + dr_jk < djk) CYCLE
+                              nk = (kpgf - 1)*ncoset(lmax_k(kset))
+                              DO ipgf = 1, npgfi(iset)
+                                 IF (rpgf_i(ipgf, iset) + rpgf_j(jpgf, jset) + dr_ij < dij) CYCLE
+                                 IF (rpgf_i(ipgf, iset) + rpgf_k(kpgf, kset) + dr_ik < dik) CYCLE
+
+                                 ni = (ipgf - 1)*ncoset(lmax_i(iset))
+                                 sijk_cp(:, :, :) = 0.0_dp
+
+                                 CALL eri_mme_3c_integrate(param%par, &
+                                                           lmin_j(jset), lmax_j(jset), &
+                                                           lmin_k(kset), lmax_k(kset), &
+                                                           lmin_i(iset), lmax_i(iset), &
+                                                           zetj(jpgf, jset), zetk(kpgf, kset), zeti(ipgf, iset), &
+                                                           rj, rk, ri, &
+                                                           sijk_cp, 0, 0, 0)
+                                 sijk(nj + 1:nj + ncoset(lmax_j(jset)), &
+                                      nk + 1:nk + ncoset(lmax_k(kset)), &
+                                      ni + 1:ni + ncoset(lmax_i(iset))) = &
+                                    sijk(nj + 1:nj + ncoset(lmax_j(jset)), &
+                                         nk + 1:nk + ncoset(lmax_k(kset)), &
+                                         ni + 1:ni + ncoset(lmax_i(iset))) + &
+                                    sijk_cp(:ncoset(lmax_j(jset)), :ncoset(lmax_k(kset)), :ncoset(lmax_i(iset)))
+                              ENDDO
+                           ENDDO
+                        ENDDO
+                        DEALLOCATE (sijk_cp)
+                     ENDIF
 
                      IF (PRESENT(int_eps)) THEN
                         IF (int_eps > sijk_ext*(max_contraction_i(iset)* &
@@ -1762,5 +1828,24 @@ CONTAINS
       occ = REAL(nze, dp)/PRODUCT(REAL(dims, dp))
 
    END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param potential_type ...
+!> \return ...
+! **************************************************************************************************
+   FUNCTION convert_potential_type(potential_type) RESULT(res)
+      INTEGER, INTENT(IN)                                :: potential_type
+      INTEGER                                            :: res
+
+      IF (potential_type == do_potential_coulomb) THEN
+         res = eri_mme_coulomb
+      ELSE IF (potential_type == do_potential_long) THEN
+         res = eri_mme_longrange
+      ELSE
+         CPABORT("MME potential not implemented!")
+      END IF
+
+   END FUNCTION convert_potential_type
 
 END MODULE

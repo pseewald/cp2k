@@ -32,7 +32,18 @@ MODULE mp2_eri
                                    cp_eri_mme_set_params
    USE cp_para_types, ONLY: cp_para_env_type
    USE dbcsr_api, ONLY: dbcsr_get_block_p, &
-                        dbcsr_p_type
+                        dbcsr_p_type, &
+                        dbcsr_distribution_type, &
+                        dbcsr_type_real_8, dbcsr_get_info, dbcsr_distribution_get, &
+                        dbcsr_put_block
+   USE dbcsr_tensor_api, ONLY: dbcsr_t_pgrid_type, dbcsr_t_distribution_type, &
+                 dbcsr_t_iterator_type, dbcsr_t_type, dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, &
+              dbcsr_t_pgrid_create, dbcsr_t_mp_environ_pgrid, dbcsr_t_copy, dbcsr_t_distribution_new, dbcsr_t_iterator_next_block, &
+                               dbcsr_t_get_block, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_pgrid_destroy, &
+                               dbcsr_t_distribution_destroy
+   USE qs_tensors_types, ONLY: distribution_3d_type, distribution_3d_create
+
+   USE qs_tensors, ONLY: build_3c_neighbor_lists, build_3c_integrals
    USE eri_mme_integrate, ONLY: eri_mme_2c_integrate, &
                                 eri_mme_3c_integrate
    USE eri_mme_test, ONLY: eri_mme_2c_perf_acc_test, &
@@ -48,11 +59,12 @@ MODULE mp2_eri
                                   section_vals_type, &
                                   section_vals_val_get
    USE kinds, ONLY: dp
-   USE message_passing, ONLY: mp_sum
+   USE message_passing, ONLY: mp_sum, mp_cart_create
    USE orbital_pointers, ONLY: coset, &
                                init_orbital_pointers, &
                                ncoset
    USE particle_types, ONLY: particle_type
+   USE particle_methods, ONLY: get_particle_set
    USE qs_environment_types, ONLY: get_qs_env, &
                                    qs_environment_type
    USE qs_integral_utils, ONLY: basis_set_list_setup
@@ -67,6 +79,10 @@ MODULE mp2_eri
                                      neighbor_list_set_p_type
    USE util, ONLY: get_limit
    USE cp_eri_mme_interface, ONLY: cp_eri_mme_update_local_counts
+   USE qs_tensors_types, ONLY: neighbor_list_3c_type, create_3c_tensor
+   USE qs_tensors, ONLY: neighbor_list_3c_destroy
+   USE libint_2c_3c, ONLY: libint_potential_type
+   USE cell_types, ONLY: get_cell, set_cell_param
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -591,6 +607,148 @@ CONTAINS
 
    END SUBROUTINE integrate_set_2c
 
+   SUBROUTINE mp2_eri_3c_integrate_tensor(param, ngroup, igroup, ri_metric, para_env, qs_env, &
+                                          first_c, last_c, mat_ab, &
+                                          basis_type_a, basis_type_b, basis_type_c)
+      TYPE(cp_eri_mme_param), INTENT(INOUT)              :: param
+      INTEGER, INTENT(IN) :: ngroup, igroup ! see how these are obtained in contraction of integrals
+      TYPE(libint_potential_type), INTENT(IN) :: ri_metric
+      TYPE(cp_para_env_type), INTENT(IN), POINTER        :: para_env
+      TYPE(qs_environment_type), INTENT(IN), POINTER     :: qs_env
+      INTEGER, INTENT(IN)                                :: first_c, last_c
+      TYPE(dbcsr_p_type), DIMENSION(last_c - first_c + 1), &
+         INTENT(INOUT)                                   :: mat_ab
+      CHARACTER(LEN=*), INTENT(IN)                       :: basis_type_a, basis_type_b, basis_type_c
+      INTEGER :: ic
+      TYPE(dbcsr_t_pgrid_type) :: pgrid
+
+      TYPE(dbcsr_distribution_type) :: dist_2c
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_1, dist_2, dist_3, bsize_1, bsize_2, bsize_3, bsize_a, bsize_b, bsize_c
+      REAL(dp), ALLOCATABLE, DIMENSION(:, :, :) :: block_3d
+      INTEGER, DIMENSION(3) :: ind_3d, pdims_3c, pcoord_3c
+      INTEGER, POINTER, DIMENSION(:) :: dist_2_p, dist_3_p, bsize_2_p, bsize_3_p
+      TYPE(qs_kind_type), DIMENSION(:), &
+         POINTER                                         :: qs_kind_set
+      TYPE(particle_type), DIMENSION(:), &
+         POINTER                                         :: particle_set
+
+      TYPE(gto_basis_set_p_type), DIMENSION(:), ALLOCATABLE           :: basis_set_a, basis_set_b, basis_set_c
+      INTEGER, DIMENSION(:), ALLOCATABLE :: dist_a, &
+                                            dist_b, dist_c
+      INTEGER :: nkind, blk, mp_comm_t3c, natom
+      TYPE(dbcsr_t_distribution_type) :: dist_3c
+      TYPE(distribution_3d_type)                         :: dist_3d
+      LOGICAL :: found
+      TYPE(dbcsr_t_iterator_type) :: iter
+      TYPE(neighbor_list_3c_type)           :: nl_3c
+      TYPE(dbcsr_t_type) :: t_abc
+      TYPE(dbcsr_t_type), DIMENSION(1, 1) :: t_int
+
+      REAL(dp), DIMENSION(:), POINTER           :: block_p
+      TYPE(cell_type), POINTER :: cell, cell_np
+      REAL(dp), DIMENSION(3) :: alphabetagamma, abc
+
+      ALLOCATE (dist_1(ngroup), bsize_1(ngroup))
+      pdims_3c(1) = ngroup
+      dist_1 = 0
+      dist_1(igroup + 1) = igroup
+      bsize_1 = 0
+      bsize_1(igroup + 1) = last_c - first_c + 1
+      CALL mp_sum(dist_1, para_env%group)
+      dist_1 = dist_1/(para_env%num_pe/ngroup)
+      CALL mp_sum(bsize_1, para_env%group)
+      bsize_1 = bsize_1/(para_env%num_pe/ngroup)
+
+      CALL dbcsr_get_info(mat_ab(1)%matrix, proc_row_dist=dist_2_p, proc_col_dist=dist_3_p, row_blk_size=bsize_2_p, &
+                          col_blk_size=bsize_3_p, distribution=dist_2c)
+
+      ALLOCATE (dist_2(SIZE(dist_2_p)), dist_3(SIZE(dist_3_p)))
+      dist_2(:) = dist_2_p; dist_3(:) = dist_3_p
+
+      ALLOCATE (bsize_2(SIZE(bsize_2_p)), bsize_3(SIZE(bsize_3_p)))
+      bsize_2(:) = bsize_2_p; bsize_3(:) = bsize_3_p
+
+      CALL dbcsr_distribution_get(dist_2c, nprows=pdims_3c(2), npcols=pdims_3c(3))
+      CALL dbcsr_t_pgrid_create(para_env%group, pdims_3c, pgrid)
+      CALL dbcsr_t_distribution_new(dist_3c, pgrid, dist_1, dist_2, dist_3)
+      CALL dbcsr_t_create(t_abc, "3c int", dist_3c, [1, 2], [3], dbcsr_type_real_8, bsize_1, bsize_2, bsize_3)
+      CALL dbcsr_t_distribution_destroy(dist_3c)
+
+      CALL get_qs_env(qs_env, &
+                      nkind=nkind, &
+                      natom=natom, &
+                      qs_kind_set=qs_kind_set, &
+                      particle_set=particle_set, cell=cell)
+
+      CALL get_cell(cell, alpha=alphabetagamma(1), beta=alphabetagamma(2), gamma=alphabetagamma(3), abc=abc)
+      ALLOCATE (cell_np)
+      CALL set_cell_param(cell_np, cell_length=abc, cell_angle=alphabetagamma, periodic=[0, 0, 0], do_init_cell=.TRUE.)
+
+      ALLOCATE (basis_set_a(nkind), basis_set_b(nkind), basis_set_c(nkind))
+      ALLOCATE (bsize_a(natom), bsize_b(natom), bsize_c(natom))
+      CALL basis_set_list_setup(basis_set_c, basis_type_c, qs_kind_set)
+      CALL get_particle_set(particle_set, qs_kind_set, nsgf=bsize_c, basis=basis_set_c)
+
+      CALL basis_set_list_setup(basis_set_a, basis_type_a, qs_kind_set)
+      CALL get_particle_set(particle_set, qs_kind_set, nsgf=bsize_a, basis=basis_set_a)
+
+      CALL basis_set_list_setup(basis_set_b, basis_type_b, qs_kind_set)
+      CALL get_particle_set(particle_set, qs_kind_set, nsgf=bsize_b, basis=basis_set_b)
+
+      CALL create_3c_tensor(t_int(1, 1), dist_c, dist_a, dist_b, pgrid, &
+                            bsize_c, bsize_a, bsize_b, map1=[1, 2], map2=[3], &
+                            name="3c int")
+
+      CALL dbcsr_t_mp_environ_pgrid(pgrid, pdims_3c, pcoord_3c)
+      CALL mp_cart_create(pgrid%mp_comm_2d, 3, pdims_3c, pcoord_3c, mp_comm_t3c)
+      CALL distribution_3d_create(dist_3d, dist_c, dist_a, dist_b, &
+                                  nkind, particle_set, mp_comm_t3c, own_comm=.TRUE.)
+
+      CALL build_3c_neighbor_lists(nl_3c, basis_set_c, basis_set_a, basis_set_b, &
+                                   dist_3d, ri_metric, "RPA_3c_nl", qs_env, &
+                                   sym_jk=.TRUE., own_dist=.TRUE., cell=cell_np)
+
+      ! todo: batches to save memory
+      CALL build_3c_integrals(t_int, &
+                              1.0E-12_dp, & ! todo: systematic
+                              qs_env, &
+                              nl_3c, &
+                              basis_i=basis_set_c, &
+                              basis_j=basis_set_a, basis_k=basis_set_b, &
+                              potential_parameter=ri_metric, &
+                              desymmetrize=.TRUE., periodic=.TRUE., param=param)
+      ! if memory intensive, don't desymmetrize!
+
+      CALL dbcsr_t_copy(t_int(1, 1), t_abc, move_data=.TRUE.)
+      CALL dbcsr_t_destroy(t_int(1, 1))
+
+      CALL dbcsr_t_iterator_start(iter, t_abc)
+      DO WHILE (dbcsr_t_iterator_blocks_left(iter))
+         CALL dbcsr_t_iterator_next_block(iter, ind_3d, blk)
+         CALL dbcsr_t_get_block(t_abc, ind_3d, block_3d, found)
+         CPASSERT(found)
+         DO ic = 1, SIZE(block_3d, 1)
+            IF (ind_3d(2) > ind_3d(3)) THEN
+               CALL dbcsr_get_block_p(mat_ab(ic)%matrix, ind_3d(3), ind_3d(2), block_p, found=found)
+               IF (found) CALL dbcsr_put_block(mat_ab(ic)%matrix, ind_3d(3), ind_3d(2), TRANSPOSE(block_3d(ic, :, :)))
+            ELSE
+               CALL dbcsr_get_block_p(mat_ab(ic)%matrix, ind_3d(2), ind_3d(3), block_p, found=found)
+               IF (found) CALL dbcsr_put_block(mat_ab(ic)%matrix, ind_3d(2), ind_3d(3), block_3d(ic, :, :))
+            ENDIF
+         ENDDO
+         DEALLOCATE (block_3d)
+      ENDDO
+      CALL dbcsr_t_iterator_stop(iter)
+
+      CALL dbcsr_t_destroy(t_abc)
+
+      DEALLOCATE (cell_np)
+      CALL neighbor_list_3c_destroy(nl_3c)
+      CALL dbcsr_t_pgrid_destroy(pgrid)
+      DEALLOCATE (basis_set_a, basis_set_b, basis_set_c)
+
+   END SUBROUTINE
+
 ! **************************************************************************************************
 !> \brief high-level integration routine for 3c integrals (ab|c) over CP2K basis sets.
 !>        For each local function of c, (ab|c) is written to a DBCSR matrix mat_ab.
@@ -613,15 +771,14 @@ CONTAINS
 !> \param mat_adbc ...
 !> \param mat_abdc ...
 ! **************************************************************************************************
-   SUBROUTINE mp2_eri_3c_integrate(param, potential_type, omega, para_env, qs_env, &
+   SUBROUTINE mp2_eri_3c_integrate(param, ri_metric, para_env, qs_env, &
                                    first_c, last_c, mat_ab, &
                                    basis_type_a, basis_type_b, basis_type_c, &
                                    sab_nl, eri_method, &
                                    pabc, force_a, force_b, force_c, &
-                                   mat_dabc, mat_adbc, mat_abdc)
+                                   mat_dabc, mat_adbc, mat_abdc, ngroup, igroup, para_env_glob)
       TYPE(cp_eri_mme_param), INTENT(INOUT)              :: param
-      INTEGER, INTENT(IN)                                :: potential_type
-      REAL(KIND=dp), INTENT(IN)                          :: omega
+      TYPE(libint_potential_type), INTENT(IN) :: ri_metric
       TYPE(cp_para_env_type), INTENT(IN), POINTER        :: para_env
       TYPE(qs_environment_type), INTENT(IN), POINTER     :: qs_env
       INTEGER, INTENT(IN)                                :: first_c, last_c
@@ -639,6 +796,9 @@ CONTAINS
          DIMENSION(3, last_c - first_c + 1), INTENT(INOUT), &
          OPTIONAL                                        :: mat_dabc, mat_adbc, mat_abdc
 
+      TYPE(cp_para_env_type), INTENT(IN), POINTER, OPTIONAL        :: para_env_glob
+
+      INTEGER, INTENT(IN), OPTIONAL :: ngroup, igroup
       CHARACTER(LEN=*), PARAMETER :: routineN = 'mp2_eri_3c_integrate'
 
       INTEGER :: atom_a, atom_b, atom_c, atom_end, atom_start, first_set, GG_count, GR_count, &
@@ -678,6 +838,14 @@ CONTAINS
 
       my_eri_method = do_eri_mme
       IF (PRESENT(eri_method)) my_eri_method = eri_method
+
+      IF (my_eri_method == do_eri_mme .AND. .NOT. calculate_forces) THEN
+         CALL mp2_eri_3c_integrate_tensor(param, ngroup, igroup, ri_metric, para_env_glob, qs_env, &
+                                          first_c, last_c, mat_ab, &
+                                          basis_type_a, basis_type_b, basis_type_c)
+         CALL timestop(handle)
+         RETURN
+      ENDIF
 
       IF (PRESENT(force_a) .OR. PRESENT(force_b) .OR. PRESENT(force_c)) THEN
          CPASSERT(PRESENT(pabc))
@@ -895,7 +1063,7 @@ CONTAINS
                          ${conditional(adbc)}$PRESENT(mat_adbc) .AND. &
                          ${conditional(abdc)}$PRESENT(mat_abdc)) THEN
                         CALL integrate_set_3c( &
-                           param%par, potential_type, omega, &
+                           param%par, ri_metric%potential_type, ri_metric%omega, &
                            la_min(iset), la_max(iset), &
                            lb_min(jset), lb_max(jset), &
                            lc_min(kset), lc_max(kset), &

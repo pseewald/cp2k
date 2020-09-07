@@ -586,12 +586,13 @@ CONTAINS
                CALL dbcsr_copy(mat_munu_local_L(LLL)%matrix, mat_munu%matrix)
                CALL dbcsr_set(mat_munu_local_L(LLL)%matrix, 0.0_dp)
             ENDDO
-            CALL mp2_eri_3c_integrate(eri_param, ri_metric%potential_type, ri_metric%omega, para_env_sub, qs_env, &
+            CALL mp2_eri_3c_integrate(eri_param, ri_metric, para_env_sub, qs_env, &
                                       first_c=my_group_L_start, last_c=my_group_L_end, &
                                       mat_ab=mat_munu_local_L, &
                                       basis_type_a="ORB", basis_type_b="ORB", &
                                       basis_type_c="RI_AUX", &
-                                      sab_nl=sab_orb_sub, eri_method=eri_method)
+                                      sab_nl=sab_orb_sub, eri_method=eri_method, ngroup=ngroup, igroup=color_sub, &
+                                      para_env_glob=para_env)
 
             DO LLL = 1, my_group_L_size
                CALL ao_to_mo_and_store_B(para_env_sub, mat_munu_local_L(LLL), matrix_ia_jnu, matrix_ia_jb, &
