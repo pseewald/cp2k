@@ -35,12 +35,12 @@ MODULE mp2_eri
                         dbcsr_p_type, &
                         dbcsr_distribution_type, &
                         dbcsr_type_real_8, dbcsr_get_info, dbcsr_distribution_get, &
-                        dbcsr_put_block
+                        dbcsr_put_block, dbcsr_clear, dbcsr_finalize
    USE dbcsr_tensor_api, ONLY: dbcsr_t_pgrid_type, dbcsr_t_distribution_type, &
                  dbcsr_t_iterator_type, dbcsr_t_type, dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, &
               dbcsr_t_pgrid_create, dbcsr_t_mp_environ_pgrid, dbcsr_t_copy, dbcsr_t_distribution_new, dbcsr_t_iterator_next_block, &
                                dbcsr_t_get_block, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_pgrid_destroy, &
-                               dbcsr_t_distribution_destroy
+                               dbcsr_t_distribution_destroy, dbcsr_t_write_tensor_dist
    USE qs_tensors_types, ONLY: distribution_3d_type, distribution_3d_create
 
    USE qs_tensors, ONLY: build_3c_neighbor_lists, build_3c_integrals
@@ -83,6 +83,8 @@ MODULE mp2_eri
    USE qs_tensors, ONLY: neighbor_list_3c_destroy
    USE libint_2c_3c, ONLY: libint_potential_type
    USE cell_types, ONLY: get_cell, set_cell_param
+   USE machine, ONLY: default_output_unit
+   USE mp2_types, ONLY: mp2_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -183,7 +185,7 @@ CONTAINS
       my_do_reflection_b = .FALSE.
       IF (PRESENT(do_reflection_b) .AND. PRESENT(reflection_z_b)) my_do_reflection_b = do_reflection_b
 
-      G_count = 0; R_count = 0; 
+      G_count = 0; R_count = 0;
       ! get mapping between ERIs and atoms, sets, set offsets
       CALL get_eri_offsets(qs_env, basis_type_b, eri_offsets)
 
@@ -635,7 +637,7 @@ CONTAINS
       TYPE(gto_basis_set_p_type), DIMENSION(:), ALLOCATABLE           :: basis_set_a, basis_set_b, basis_set_c
       INTEGER, DIMENSION(:), ALLOCATABLE :: dist_a, &
                                             dist_b, dist_c
-      INTEGER :: nkind, blk, mp_comm_t3c, natom
+      INTEGER :: nkind, blk, mp_comm_t3c, natom, unit_nr
       TYPE(dbcsr_t_distribution_type) :: dist_3c
       TYPE(distribution_3d_type)                         :: dist_3d
       LOGICAL :: found
@@ -645,6 +647,7 @@ CONTAINS
       TYPE(dbcsr_t_type), DIMENSION(1, 1) :: t_int
 
       REAL(dp), DIMENSION(:), POINTER           :: block_p
+      TYPE(mp2_type), POINTER                  :: mp2_env
 
       ALLOCATE (dist_1(ngroup), bsize_1(ngroup))
       pdims_3c(1) = ngroup
@@ -676,7 +679,7 @@ CONTAINS
                       nkind=nkind, &
                       natom=natom, &
                       qs_kind_set=qs_kind_set, &
-                      particle_set=particle_set)
+                      particle_set=particle_set, mp2_env=mp2_env)
 
       ALLOCATE (basis_set_a(nkind), basis_set_b(nkind), basis_set_c(nkind))
       ALLOCATE (bsize_a(natom), bsize_b(natom), bsize_c(natom))
@@ -688,6 +691,10 @@ CONTAINS
 
       CALL basis_set_list_setup(basis_set_b, basis_type_b, qs_kind_set)
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=bsize_b, basis=basis_set_b)
+
+      CALL dbcsr_t_pgrid_destroy(pgrid)
+      pdims_3c(:) = 0
+      CALL dbcsr_t_pgrid_create(para_env%group, pdims_3c, pgrid)
 
       CALL create_3c_tensor(t_int(1, 1), dist_c, dist_a, dist_b, pgrid, &
                             bsize_c, bsize_a, bsize_b, map1=[1, 2], map2=[3], &
@@ -704,7 +711,7 @@ CONTAINS
 
       ! todo: batches to save memory
       CALL build_3c_integrals(t_int, &
-                              1.0E-12_dp, & ! todo: systematic
+                              mp2_env%mp2_gpw%eps_filter, &
                               qs_env, &
                               nl_3c, &
                               basis_i=basis_set_c, &
@@ -713,14 +720,27 @@ CONTAINS
                               desymmetrize=.TRUE., param=param)
       ! if memory intensive, don't desymmetrize!
 
+      IF(para_env%mepos == 0) THEN
+         unit_nr=default_output_unit
+      ELSE
+         unit_nr = -1
+      ENDIF
+
+      CALL dbcsr_t_write_tensor_dist(t_int(1,1), unit_nr)
+
       CALL dbcsr_t_copy(t_int(1, 1), t_abc, move_data=.TRUE.)
+
+      CALL dbcsr_t_write_tensor_dist(t_abc, unit_nr)
       CALL dbcsr_t_destroy(t_int(1, 1))
 
       CALL dbcsr_t_iterator_start(iter, t_abc)
+
+      !CALL dbcsr_clear(mat_ab(ic)%matrix)
       DO WHILE (dbcsr_t_iterator_blocks_left(iter))
          CALL dbcsr_t_iterator_next_block(iter, ind_3d, blk)
          CALL dbcsr_t_get_block(t_abc, ind_3d, block_3d, found)
-         CPASSERT(found)
+         !CPASSERT(found)
+         !CPASSERT(SIZE(block_3d,1) == last_c-first_c+1)
          DO ic = 1, SIZE(block_3d, 1)
             IF (ind_3d(2) > ind_3d(3)) THEN
                CALL dbcsr_get_block_p(mat_ab(ic)%matrix, ind_3d(3), ind_3d(2), block_p, found=found)
@@ -732,12 +752,18 @@ CONTAINS
          ENDDO
          DEALLOCATE (block_3d)
       ENDDO
+
+      !DO ic=1, last_c-first_c+1
+      !   CALL dbcsr_finalize(mat_ab(ic)%matrix)
+      !ENDDO
+
+      CALL dbcsr_t_pgrid_destroy(pgrid)
+
       CALL dbcsr_t_iterator_stop(iter)
 
       CALL dbcsr_t_destroy(t_abc)
 
       CALL neighbor_list_3c_destroy(nl_3c)
-      CALL dbcsr_t_pgrid_destroy(pgrid)
       DEALLOCATE (basis_set_a, basis_set_b, basis_set_c)
 
    END SUBROUTINE
