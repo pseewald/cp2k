@@ -68,6 +68,7 @@ MODULE qs_tensors_types
       INTEGER :: sym
       TYPE(distribution_3d_type) :: dist_3d
       LOGICAL :: owns_dist
+      LOGICAL :: excl_img = .FALSE.
    END TYPE
 
    TYPE neighbor_list_3c_iterator_type
@@ -76,6 +77,8 @@ MODULE qs_tensors_types
       INTEGER                                                    :: iter_level
       TYPE(neighbor_list_3c_type)                                :: ijk_nl
       INTEGER, DIMENSION(2)                                      :: bounds_i, bounds_j, bounds_k
+      INTEGER :: last_atom_j, last_atom_k
+      LOGICAL :: excl_img = .FALSE.
    END TYPE
 
 CONTAINS

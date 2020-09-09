@@ -645,8 +645,6 @@ CONTAINS
       TYPE(dbcsr_t_type), DIMENSION(1, 1) :: t_int
 
       REAL(dp), DIMENSION(:), POINTER           :: block_p
-      TYPE(cell_type), POINTER :: cell, cell_np
-      REAL(dp), DIMENSION(3) :: alphabetagamma, abc
 
       ALLOCATE (dist_1(ngroup), bsize_1(ngroup))
       pdims_3c(1) = ngroup
@@ -678,12 +676,7 @@ CONTAINS
                       nkind=nkind, &
                       natom=natom, &
                       qs_kind_set=qs_kind_set, &
-                      particle_set=particle_set, cell=cell)
-
-      NULLIFY (cell_np)
-      CALL cell_create(cell_np)
-      CALL get_cell(cell, alpha=alphabetagamma(1), beta=alphabetagamma(2), gamma=alphabetagamma(3), abc=abc)
-      CALL set_cell_param(cell_np, cell_length=abc, cell_angle=alphabetagamma, periodic=[0, 0, 0], do_init_cell=.TRUE.)
+                      particle_set=particle_set)
 
       ALLOCATE (basis_set_a(nkind), basis_set_b(nkind), basis_set_c(nkind))
       ALLOCATE (bsize_a(natom), bsize_b(natom), bsize_c(natom))
@@ -707,7 +700,7 @@ CONTAINS
 
       CALL build_3c_neighbor_lists(nl_3c, basis_set_c, basis_set_a, basis_set_b, &
                                    dist_3d, ri_metric, "RPA_3c_nl", qs_env, &
-                                   sym_jk=.TRUE., own_dist=.TRUE., cell=cell_np)
+                                   sym_jk=.TRUE., own_dist=.TRUE., excl_img=.TRUE.)
 
       ! todo: batches to save memory
       CALL build_3c_integrals(t_int, &
@@ -717,7 +710,7 @@ CONTAINS
                               basis_i=basis_set_c, &
                               basis_j=basis_set_a, basis_k=basis_set_b, &
                               potential_parameter=ri_metric, &
-                              desymmetrize=.TRUE., periodic=.TRUE., param=param)
+                              desymmetrize=.TRUE., param=param)
       ! if memory intensive, don't desymmetrize!
 
       CALL dbcsr_t_copy(t_int(1, 1), t_abc, move_data=.TRUE.)
@@ -743,7 +736,6 @@ CONTAINS
 
       CALL dbcsr_t_destroy(t_abc)
 
-      CALL cell_release(cell_np)
       CALL neighbor_list_3c_destroy(nl_3c)
       CALL dbcsr_t_pgrid_destroy(pgrid)
       DEALLOCATE (basis_set_a, basis_set_b, basis_set_c)

@@ -18,7 +18,8 @@ MODULE qs_tensors
                                               gto_basis_set_p_type,&
                                               gto_basis_set_type
    USE block_p_types,                   ONLY: block_p_type
-   USE cell_types,                      ONLY: cell_type
+   USE cell_types,                      ONLY: cell_type,&
+                                              get_cell
    USE cp_array_utils,                  ONLY: cp_2d_r_p_type
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
@@ -142,7 +143,7 @@ CONTAINS
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
          POINTER                                         :: ij_list
       TYPE(gto_basis_set_p_type), DIMENSION(:)           :: basis_i, basis_j
-      TYPE(libint_potential_type), INTENT(IN)            :: potential_parameter
+      TYPE(libint_potential_type), INTENT(INOUT)         :: potential_parameter
       CHARACTER(LEN=*), INTENT(IN)                       :: name
       TYPE(qs_environment_type), POINTER                 :: qs_env
       LOGICAL, INTENT(IN), OPTIONAL                      :: sym_ij, molecular
@@ -151,8 +152,10 @@ CONTAINS
       TYPE(cell_type), INTENT(IN), OPTIONAL, TARGET      :: cell
 
       INTEGER                                            :: ikind, nkind, pot_to_rad_prv
+      LOGICAL                                            :: do_periodic
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: i_present, j_present
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: pair_radius
+      REAL(dp), DIMENSION(3)                             :: abc
       REAL(kind=dp)                                      :: subcells
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: i_radius, j_radius
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -214,16 +217,25 @@ CONTAINS
          END DO
 
       ELSE IF (potential_parameter%potential_type == do_potential_coulomb) THEN
+         do_periodic = ALL(cell_prv%perd == 1)
+         IF (do_periodic) THEN
+            CALL get_cell(cell_prv, abc=abc)
+            potential_parameter%cutoff_radius = NORM2(abc)
+         ELSE
+            potential_parameter%cutoff_radius = 1000000.0_dp
+         ENDIF
 
          !Coulomb operator, virtually infinite range => set j_radius to arbitrarily large number
          DO ikind = 1, nkind
             IF (ASSOCIATED(basis_i(ikind)%gto_basis_set)) THEN
                i_present(ikind) = .TRUE.
-               IF (pot_to_rad_prv == 1) i_radius(ikind) = 1000000.0_dp
+               CALL get_gto_basis_set(basis_i(ikind)%gto_basis_set, kind_radius=i_radius(ikind))
+               IF (pot_to_rad_prv == 1) i_radius(ikind) = i_radius(ikind) + cutoff_screen_factor*potential_parameter%cutoff_radius
             ENDIF
             IF (ASSOCIATED(basis_j(ikind)%gto_basis_set)) THEN
                j_present(ikind) = .TRUE.
-               IF (pot_to_rad_prv == 2) j_radius(ikind) = 1000000.0_dp
+               CALL get_gto_basis_set(basis_j(ikind)%gto_basis_set, kind_radius=j_radius(ikind))
+               IF (pot_to_rad_prv == 2) j_radius(ikind) = j_radius(ikind) + cutoff_screen_factor*potential_parameter%cutoff_radius
             END IF
          END DO !ikind
 
@@ -280,10 +292,11 @@ CONTAINS
 !> \param op_pos ...
 !> \param own_dist ...
 !> \param cell ...
+!> \param excl_img ...
 ! **************************************************************************************************
    SUBROUTINE build_3c_neighbor_lists(ijk_list, basis_i, basis_j, basis_k, &
                                       dist_3d, potential_parameter, name, qs_env, &
-                                      sym_ij, sym_jk, sym_ik, molecular, op_pos, own_dist, cell)
+                                      sym_ij, sym_jk, sym_ik, molecular, op_pos, own_dist, cell, excl_img)
       TYPE(neighbor_list_3c_type), INTENT(OUT)           :: ijk_list
       TYPE(gto_basis_set_p_type), DIMENSION(:)           :: basis_i, basis_j, basis_k
       TYPE(distribution_3d_type), INTENT(IN)             :: dist_3d
@@ -294,6 +307,7 @@ CONTAINS
       INTEGER, INTENT(IN), OPTIONAL                      :: op_pos
       LOGICAL, INTENT(IN), OPTIONAL                      :: own_dist
       TYPE(cell_type), INTENT(IN), OPTIONAL, TARGET      :: cell
+      LOGICAL, INTENT(IN), OPTIONAL                      :: excl_img
 
       CHARACTER(len=*), PARAMETER :: routineN = 'build_3c_neighbor_lists'
 
@@ -360,6 +374,8 @@ CONTAINS
          ijk_list%owns_dist = .FALSE.
       ENDIF
 
+      IF (PRESENT(excl_img)) ijk_list%excl_img = excl_img
+
       CALL timestop(handle)
    END SUBROUTINE
 
@@ -420,6 +436,8 @@ CONTAINS
       iterator%bounds_j = 0
       iterator%bounds_k = 0
 
+      iterator%excl_img = ijk_nl%excl_img
+
       CALL timestop(handle)
    END SUBROUTINE
 
@@ -472,8 +490,8 @@ CONTAINS
          INTENT(INOUT)                                   :: iterator
       INTEGER                                            :: iter_stat
 
-      INTEGER                                            :: iatom, iter_level, jatom, jatom_1, &
-                                                            jatom_2, katom
+      INTEGER                                            :: iatom, inode, iter_level, jatom, &
+                                                            jatom_1, jatom_2, katom
       LOGICAL                                            :: skip_this
 
       iter_level = iterator%iter_level
@@ -485,7 +503,20 @@ CONTAINS
             RETURN
          ENDIF
 
-         CALL get_iterator_info(iterator%iter_ij, iatom=iatom, jatom=jatom)
+         IF (iterator%excl_img) THEN
+            CALL get_iterator_info(iterator%iter_ij, iatom=iatom, jatom=jatom, inode=inode)
+
+            ! exclude periodic images because method is periodic intrinsically
+            IF (inode == 1) iterator%last_atom_j = 0
+
+            IF (jatom /= iterator%last_atom_j) THEN
+               iterator%last_atom_j = jatom
+            ELSE
+               iter_stat = neighbor_list_3c_iterate(iterator)
+               RETURN
+            END IF
+         ENDIF
+
          skip_this = .FALSE.
          IF ((iterator%bounds_i(1) > 0 .AND. iatom < iterator%bounds_i(1)) &
              .OR. (iterator%bounds_i(2) > 0 .AND. iatom > iterator%bounds_i(2))) skip_this = .TRUE.
@@ -505,6 +536,20 @@ CONTAINS
          RETURN
       ELSE
          iterator%iter_level = 1
+      ENDIF
+
+      IF (iterator%excl_img) THEN
+         CALL get_iterator_info(iterator%iter_jk, iatom=jatom, jatom=katom, inode=inode)
+
+         ! exclude periodic images because method is periodic intrinsically
+         IF (inode == 1) iterator%last_atom_k = 0
+
+         IF (katom /= iterator%last_atom_k) THEN
+            iterator%last_atom_k = katom
+         ELSE
+            iter_stat = neighbor_list_3c_iterate(iterator)
+            RETURN
+         END IF
       ENDIF
 
       CPASSERT(iter_stat == 0)
@@ -675,20 +720,13 @@ CONTAINS
          op_jk = potential_parameter%potential_type
       END SELECT
 
-      IF (op_ij == do_potential_truncated .OR. op_ij == do_potential_short) THEN
+      IF (op_ij == do_potential_truncated .OR. op_ij == do_potential_short .OR. op_ij == do_potential_coulomb) THEN
          dr_ij = potential_parameter%cutoff_radius*cutoff_screen_factor
          dr_ik = potential_parameter%cutoff_radius*cutoff_screen_factor
-      ELSEIF (op_ij == do_potential_coulomb) THEN
-         dr_ij = 1000000.0_dp
-         dr_ik = 1000000.0_dp
       ENDIF
-
-      IF (op_jk == do_potential_truncated .OR. op_jk == do_potential_short) THEN
+      IF (op_jk == do_potential_truncated .OR. op_jk == do_potential_short .OR. op_jk == do_potential_coulomb) THEN
          dr_jk = potential_parameter%cutoff_radius*cutoff_screen_factor
          dr_ik = potential_parameter%cutoff_radius*cutoff_screen_factor
-      ELSEIF (op_jk == do_potential_coulomb) THEN
-         dr_jk = 1000000.0_dp
-         dr_ik = 1000000.0_dp
       ENDIF
 
       CALL get_qs_env(qs_env, atomic_kind_set=atomic_kind_set, qs_kind_set=qs_kind_set, natom=natom, &
@@ -855,7 +893,6 @@ CONTAINS
 !> \param bounds_i ...
 !> \param bounds_j ...
 !> \param bounds_k ...
-!> \param periodic ...
 !> \param param ...
 ! **************************************************************************************************
    SUBROUTINE build_3c_integrals(t3c, filter_eps, qs_env, &
@@ -863,7 +900,7 @@ CONTAINS
                                  potential_parameter, &
                                  int_eps, &
                                  op_pos, do_kpoints, desymmetrize, &
-                                 bounds_i, bounds_j, bounds_k, periodic, param)
+                                 bounds_i, bounds_j, bounds_k, param)
       TYPE(dbcsr_t_type), DIMENSION(:, :), INTENT(INOUT) :: t3c
       REAL(KIND=dp), INTENT(IN)                          :: filter_eps
       TYPE(qs_environment_type), POINTER                 :: qs_env
@@ -874,7 +911,6 @@ CONTAINS
       INTEGER, INTENT(IN), OPTIONAL                      :: op_pos
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_kpoints, desymmetrize
       INTEGER, DIMENSION(2), INTENT(IN), OPTIONAL        :: bounds_i, bounds_j, bounds_k
-      LOGICAL, INTENT(IN), OPTIONAL                      :: periodic
       TYPE(cp_eri_mme_param), INTENT(INOUT), OPTIONAL    :: param
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'build_3c_integrals'
@@ -942,7 +978,10 @@ CONTAINS
       ENDIF
 
       do_eri_mme = .FALSE.
-      IF (PRESENT(periodic)) do_eri_mme = periodic
+      IF (PRESENT(param)) THEN
+         do_eri_mme = .TRUE.
+         CPASSERT(nl_3c%excl_img)
+      ENDIF
 
       IF (do_eri_mme) THEN
          CALL eri_mme_set_potential( &
@@ -960,20 +999,14 @@ CONTAINS
 
       dr_ij = 0.0_dp; dr_jk = 0.0_dp; dr_ik = 0.0_dp
 
-      IF (op_ij == do_potential_truncated .OR. op_ij == do_potential_short) THEN
+      IF (op_ij == do_potential_truncated .OR. op_ij == do_potential_short .OR. op_ij == do_potential_coulomb) THEN
          dr_ij = potential_parameter%cutoff_radius*cutoff_screen_factor
          dr_ik = potential_parameter%cutoff_radius*cutoff_screen_factor
-      ELSEIF (op_ij == do_potential_coulomb) THEN
-         dr_ij = 1000000.0_dp
-         dr_ik = 1000000.0_dp
       ENDIF
 
-      IF (op_jk == do_potential_truncated .OR. op_jk == do_potential_short) THEN
+      IF (op_jk == do_potential_truncated .OR. op_jk == do_potential_short .OR. op_jk == do_potential_coulomb) THEN
          dr_jk = potential_parameter%cutoff_radius*cutoff_screen_factor
          dr_ik = potential_parameter%cutoff_radius*cutoff_screen_factor
-      ELSEIF (op_jk == do_potential_coulomb) THEN
-         dr_jk = 1000000.0_dp
-         dr_ik = 1000000.0_dp
       ENDIF
 
       NULLIFY (qs_kind_set, atomic_kind_set)
