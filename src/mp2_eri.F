@@ -680,8 +680,9 @@ CONTAINS
                       qs_kind_set=qs_kind_set, &
                       particle_set=particle_set, cell=cell)
 
+      NULLIFY (cell_np)
+      CALL cell_create(cell_np)
       CALL get_cell(cell, alpha=alphabetagamma(1), beta=alphabetagamma(2), gamma=alphabetagamma(3), abc=abc)
-      ALLOCATE (cell_np)
       CALL set_cell_param(cell_np, cell_length=abc, cell_angle=alphabetagamma, periodic=[0, 0, 0], do_init_cell=.TRUE.)
 
       ALLOCATE (basis_set_a(nkind), basis_set_b(nkind), basis_set_c(nkind))
@@ -742,7 +743,7 @@ CONTAINS
 
       CALL dbcsr_t_destroy(t_abc)
 
-      DEALLOCATE (cell_np)
+      CALL cell_release(cell_np)
       CALL neighbor_list_3c_destroy(nl_3c)
       CALL dbcsr_t_pgrid_destroy(pgrid)
       DEALLOCATE (basis_set_a, basis_set_b, basis_set_c)
