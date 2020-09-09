@@ -503,8 +503,8 @@ CONTAINS
             RETURN
          ENDIF
 
+         CALL get_iterator_info(iterator%iter_ij, iatom=iatom, jatom=jatom, inode=inode)
          IF (iterator%excl_img) THEN
-            CALL get_iterator_info(iterator%iter_ij, iatom=iatom, jatom=jatom, inode=inode)
 
             ! exclude periodic images because method is periodic intrinsically
             IF (inode == 1) iterator%last_atom_j = 0
@@ -538,8 +538,8 @@ CONTAINS
          iterator%iter_level = 1
       ENDIF
 
+      CALL get_iterator_info(iterator%iter_jk, iatom=jatom, jatom=katom, inode=inode)
       IF (iterator%excl_img) THEN
-         CALL get_iterator_info(iterator%iter_jk, iatom=jatom, jatom=katom, inode=inode)
 
          ! exclude periodic images because method is periodic intrinsically
          IF (inode == 1) iterator%last_atom_k = 0
