@@ -14,6 +14,7 @@ MODULE qs_tensors_types
                                               get_atomic_kind_set
    USE basis_set_types,                 ONLY: get_gto_basis_set,&
                                               gto_basis_set_p_type
+   USE cell_types,                      ONLY: cell_type
    USE cp_array_utils,                  ONLY: cp_1d_i_p_type
    USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
                                               cp_blacs_env_release,&
@@ -69,6 +70,7 @@ MODULE qs_tensors_types
       TYPE(distribution_3d_type) :: dist_3d
       LOGICAL :: owns_dist
       LOGICAL :: excl_img = .FALSE.
+      TYPE(cell_type), POINTER :: cell => NULL()
    END TYPE
 
    TYPE neighbor_list_3c_iterator_type
@@ -79,6 +81,7 @@ MODULE qs_tensors_types
       INTEGER, DIMENSION(2)                                      :: bounds_i, bounds_j, bounds_k
       INTEGER :: last_atom_j, last_atom_k
       LOGICAL :: excl_img = .FALSE.
+      TYPE(cell_type), POINTER :: cell => NULL()
    END TYPE
 
 CONTAINS

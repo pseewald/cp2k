@@ -19,7 +19,8 @@ MODULE qs_tensors
                                               gto_basis_set_type
    USE block_p_types,                   ONLY: block_p_type
    USE cell_types,                      ONLY: cell_type,&
-                                              get_cell
+                                              get_cell,&
+                                              pbc
    USE cp_array_utils,                  ONLY: cp_2d_r_p_type
    USE cp_control_types,                ONLY: dft_control_type
    USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
@@ -331,6 +332,12 @@ CONTAINS
          pot_par_1%potential_type = do_potential_id
       END SELECT
 
+      IF (PRESENT(cell)) THEN
+         ijk_list%cell => cell
+      ELSE
+         CALL get_qs_env(qs_env, cell=ijk_list%cell)
+      ENDIF
+
       CALL build_2c_neighbor_lists(ijk_list%ij_list, basis_i, basis_j, pot_par_1, TRIM(name)//"_sub_1", &
                                    qs_env, sym_ij=.FALSE., molecular=molecular, &
                                    dist_2d=dist_3d%dist_2d_1, pot_to_rad=1, cell=cell)
@@ -411,6 +418,8 @@ CONTAINS
          CALL distribution_3d_destroy(ijk_list%dist_3d)
       ENDIF
 
+      NULLIFY (ijk_list%cell)
+
    END SUBROUTINE
 
 ! **************************************************************************************************
@@ -437,6 +446,7 @@ CONTAINS
       iterator%bounds_k = 0
 
       iterator%excl_img = ijk_nl%excl_img
+      iterator%cell => ijk_nl%cell
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -476,6 +486,7 @@ CONTAINS
       CALL neighbor_list_iterator_release(iterator%iter_jk)
       NULLIFY (iterator%iter_ij)
       NULLIFY (iterator%iter_jk)
+      NULLIFY (iterator%cell)
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -640,9 +651,15 @@ CONTAINS
       IF (PRESENT(jatom)) jatom = atoms_1(2)
       IF (PRESENT(katom)) katom = atoms_2(2)
 
-      IF (PRESENT(rij)) rij = r_1
-      IF (PRESENT(rjk)) rjk = r_2
-      IF (PRESENT(rik)) rik = r_1 + r_2
+      IF (.NOT. iterator%excl_img) THEN
+         IF (PRESENT(rij)) rij = r_1
+         IF (PRESENT(rjk)) rjk = r_2
+         IF (PRESENT(rik)) rik = r_1 + r_2
+      ELSE
+         IF (PRESENT(rij)) rij = pbc(r_1, iterator%cell)
+         IF (PRESENT(rjk)) rjk = pbc(r_2, iterator%cell)
+         IF (PRESENT(rik)) rik = pbc(r_1 + r_2, iterator%cell)
+      ENDIF
 
       IF (PRESENT(cell_j)) cell_j = cell_1
       IF (PRESENT(cell_k)) cell_k = cell_1 + cell_2
