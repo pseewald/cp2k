@@ -301,7 +301,7 @@ CONTAINS
       TYPE(neighbor_list_3c_type), INTENT(OUT)           :: ijk_list
       TYPE(gto_basis_set_p_type), DIMENSION(:)           :: basis_i, basis_j, basis_k
       TYPE(distribution_3d_type), INTENT(IN)             :: dist_3d
-      TYPE(libint_potential_type), INTENT(IN)            :: potential_parameter
+      TYPE(libint_potential_type), INTENT(IN), TARGET    :: potential_parameter
       CHARACTER(LEN=*), INTENT(IN)                       :: name
       TYPE(qs_environment_type), POINTER                 :: qs_env
       LOGICAL, INTENT(IN), OPTIONAL                      :: sym_ij, sym_jk, sym_ik, molecular
@@ -313,7 +313,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'build_3c_neighbor_lists'
 
       INTEGER                                            :: handle, op_pos_prv, sym_level
-      TYPE(libint_potential_type)                        :: pot_par_1, pot_par_2
+      TYPE(libint_potential_type), POINTER               :: pot_par_1, pot_par_2
+
+      NULLIFY(pot_par_1, pot_par_2)
 
       CALL timeset(routineN, handle)
 
@@ -325,10 +327,12 @@ CONTAINS
 
       SELECT CASE (op_pos_prv)
       CASE (1)
-         pot_par_1 = potential_parameter
+         pot_par_1 => potential_parameter
+         ALLOCATE(pot_par_2)
          pot_par_2%potential_type = do_potential_id
       CASE (2)
-         pot_par_2 = potential_parameter
+         pot_par_2 => potential_parameter
+         ALLOCATE(pot_par_1)
          pot_par_1%potential_type = do_potential_id
       END SELECT
 
@@ -346,6 +350,14 @@ CONTAINS
                                    qs_env, sym_ij=.FALSE., molecular=molecular, &
                                    dist_2d=dist_3d%dist_2d_2, pot_to_rad=2, cell=cell)
 
+      SELECT CASE (op_pos_prv)
+      CASE (1)
+         DEALLOCATE(pot_par_2)
+         NULLIFY(pot_par_1)
+      CASE (2)
+         DEALLOCATE(pot_par_1)
+         NULLIFY(pot_par_2)
+      END SELECT
       ijk_list%sym = symmetric_none
 
       sym_level = 0
@@ -937,7 +949,7 @@ CONTAINS
          jatom, jcell, jkind, jpgf, jset, katom, kcell, kkind, kpgf, kset, m_max, max_ncoi, &
          max_ncoj, max_ncok, max_nset, max_nsgfi, max_nsgfj, max_nsgfk, maxli, maxlj, maxlk, &
          natom, nbasis, ncoi, ncoj, ncok, ni, nimg, nj, nk, nseti, nsetj, nsetk, op_ij, op_jk, &
-         op_pos_prv, sgfi, sgfj, sgfk, unit_id
+         op_pos_prv, sgfi, sgfj, sgfk, unit_id, handle3
       INTEGER, DIMENSION(3)                              :: blk_size, cell_j, cell_k, &
                                                             kp_index_lbounds, kp_index_ubounds, sp
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmax_k, lmin_i, lmin_j, &
@@ -1273,6 +1285,8 @@ CONTAINS
                                          djk, dij, dik, lib, potential_parameter, int_abc_ext=sijk_ext)
                      ELSE
 
+                        CALL timeset("eri_mme_3c_integrate", handle3)
+
                         ALLOCATE (sijk_cp(ncoj, ncok, ncoi))
                         DO jpgf = 1, npgfj(jset)
                            nj = (jpgf - 1)*ncoset(lmax_j(jset))
@@ -1303,6 +1317,7 @@ CONTAINS
                               ENDDO
                            ENDDO
                         ENDDO
+                        CALL timestop(handle3)
                         DEALLOCATE (sijk_cp)
                      ENDIF
 
