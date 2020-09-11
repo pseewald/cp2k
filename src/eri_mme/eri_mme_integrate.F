@@ -336,6 +336,7 @@ CONTAINS
                                               zeta, zetb, zetc, RA, RB, RC, &
                                               habc_screen, o1, o2, o3, RR_count)
          IF (MAXVAL(ABS(habc_screen)) < int_eps) THEN
+            habc=0.0_dp
             RETURN
          ENDIF
       ENDIF
