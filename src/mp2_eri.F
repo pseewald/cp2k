@@ -636,8 +636,6 @@ CONTAINS
          POINTER                                         :: particle_set
 
       TYPE(gto_basis_set_p_type), DIMENSION(:), ALLOCATABLE           :: basis_set_a, basis_set_b, basis_set_c
-      INTEGER, DIMENSION(:), ALLOCATABLE :: dist_a, &
-                                            dist_b, dist_c
       INTEGER :: nkind, blk, mp_comm_t3c, natom, unit_nr
       TYPE(dbcsr_t_distribution_type) :: dist_3c
       TYPE(distribution_3d_type)                         :: dist_3d
@@ -696,17 +694,24 @@ CONTAINS
       CALL basis_set_list_setup(basis_set_b, basis_type_b, qs_kind_set)
       CALL get_particle_set(particle_set, qs_kind_set, nsgf=bsize_b, basis=basis_set_b)
 
-      CALL dbcsr_t_pgrid_destroy(pgrid)
-      pdims_3c(:) = 0
-      CALL dbcsr_t_pgrid_create(para_env%group, pdims_3c, pgrid)
+      !CALL dbcsr_t_pgrid_destroy(pgrid)
+      !pdims_3c(:) = 0
+      !CALL dbcsr_t_pgrid_create(para_env%group, pdims_3c, pgrid)
 
-      CALL create_3c_tensor(t_int(1, 1), dist_c, dist_a, dist_b, pgrid, &
-                            bsize_c, bsize_a, bsize_b, map1=[1, 2], map2=[3], &
-                            name="3c int")
+      !CALL create_3c_tensor(t_int(1, 1), dist_c, dist_a, dist_b, pgrid, &
+      !                      bsize_c, bsize_a, bsize_b, map1=[1, 2], map2=[3], &
+      !                      name="3c int")
+
+      DEALLOCATE (dist_1)
+      ALLOCATE (dist_1(natom))
+      dist_1(:) = 0
+      CALL dbcsr_t_distribution_new(dist_3c, pgrid, dist_1, dist_2, dist_3)
+      CALL dbcsr_t_create(t_int(1, 1), "3c int", dist_3c, [1, 2], [3], dbcsr_type_real_8, bsize_c, bsize_a, bsize_b)
+      CALL dbcsr_t_distribution_destroy(dist_3c)
 
       CALL dbcsr_t_mp_environ_pgrid(pgrid, pdims_3c, pcoord_3c)
       CALL mp_cart_create(pgrid%mp_comm_2d, 3, pdims_3c, pcoord_3c, mp_comm_t3c)
-      CALL distribution_3d_create(dist_3d, dist_c, dist_a, dist_b, &
+      CALL distribution_3d_create(dist_3d, dist_1, dist_2, dist_3, &
                                   nkind, particle_set, mp_comm_t3c, own_comm=.TRUE.)
 
       CALL build_3c_neighbor_lists(nl_3c, basis_set_c, basis_set_a, basis_set_b, &
