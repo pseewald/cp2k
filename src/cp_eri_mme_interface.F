@@ -195,6 +195,13 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, __LOCATION__, &
+                          name="INT_EPS", &
+                          description="Screening criterion for integrals. ", &
+                          default_r_val=1.0E-05_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL section_create(subsection, __LOCATION__, name="CUTOFF_CALIB", &
                           description="Parameters for the calibration of the energy cutoff by "// &
                           "minimizing the errors due to finite cutoff and minimax approximation. "// &
@@ -250,7 +257,7 @@ CONTAINS
                                                             print_calib
       REAL(KIND=dp)                                      :: cutoff, cutoff_delta, cutoff_eps, &
                                                             cutoff_max, cutoff_min, debug_delta, &
-                                                            sum_precision
+                                                            int_eps, sum_precision
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(section_vals_type), POINTER                   :: subsection
 
@@ -266,6 +273,7 @@ CONTAINS
       CALL section_vals_val_get(mme_section, "DO_CALIBRATE_CUTOFF", l_val=do_calib_cutoff)
       CALL section_vals_val_get(mme_section, "DO_ERROR_ESTIMATE", l_val=do_error_est)
       CALL section_vals_val_get(mme_section, "PRINT_CALIB", l_val=print_calib)
+      CALL section_vals_val_get(mme_section, "INT_EPS", r_val=int_eps)
       subsection => section_vals_get_subs_vals(mme_section, "CUTOFF_CALIB")
       CALL section_vals_val_get(subsection, "MIN", r_val=cutoff_min)
       CALL section_vals_val_get(subsection, "MAX", r_val=cutoff_max)
@@ -278,7 +286,7 @@ CONTAINS
       param%mme_section => mme_section
 
       CALL eri_mme_init(param%par, n_minimax, &
-                        cutoff, do_calib_cutoff, do_error_est, cutoff_min, cutoff_max, cutoff_eps, cutoff_delta, &
+                        cutoff, int_eps, do_calib_cutoff, do_error_est, cutoff_min, cutoff_max, cutoff_eps, cutoff_delta, &
                         sum_precision, debug, debug_delta, debug_nsum, unit_nr, print_calib)
 
       param%do_calib = do_calib_cutoff
@@ -550,6 +558,7 @@ CONTAINS
       IF (unit_nr > 0) THEN
          WRITE (unit_nr, '(/T2, A, T71, F10.1)') "ERI_MME| Cutoff for ERIs [a.u.]:", param%par%cutoff
          WRITE (unit_nr, '(/T2, A, T78, I3/)') "ERI_MME| Number of terms in minimax approximation:", param%par%n_minimax
+         WRITE (unit_nr, '(/T2, A, T71, ES9.2)') "ERI_MME| Epsilon for integral screening:", param%par%int_eps
       ENDIF
       IF (param%par%is_ortho) THEN
          IF (unit_nr > 0) THEN

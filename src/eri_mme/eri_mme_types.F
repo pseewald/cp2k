@@ -88,6 +88,7 @@ MODULE eri_mme_types
       INTEGER                          :: l_mm, l_max_zet
       INTEGER                          :: potential
       REAL(KIND=dp)                    :: pot_par
+      REAL(KIND=dp)                    :: int_eps
    END TYPE eri_mme_param
 
 CONTAINS
@@ -97,6 +98,7 @@ CONTAINS
 !> \param param ...
 !> \param n_minimax ...
 !> \param cutoff ...
+!> \param int_eps ...
 !> \param do_calib_cutoff ...
 !> \param do_error_est ...
 !> \param cutoff_min ...
@@ -110,12 +112,12 @@ CONTAINS
 !> \param unit_nr ...
 !> \param print_calib ...
 ! **************************************************************************************************
-   SUBROUTINE eri_mme_init(param, n_minimax, cutoff, do_calib_cutoff, do_error_est, &
+   SUBROUTINE eri_mme_init(param, n_minimax, cutoff, int_eps, do_calib_cutoff, do_error_est, &
                            cutoff_min, cutoff_max, cutoff_eps, cutoff_delta, sum_precision, &
                            debug, debug_delta, debug_nsum, unit_nr, print_calib)
       TYPE(eri_mme_param), INTENT(OUT)                   :: param
       INTEGER, INTENT(IN)                                :: n_minimax
-      REAL(KIND=dp), INTENT(IN)                          :: cutoff
+      REAL(KIND=dp), INTENT(IN)                          :: cutoff, int_eps
       LOGICAL, INTENT(IN)                                :: do_calib_cutoff, do_error_est
       REAL(KIND=dp), INTENT(IN)                          :: cutoff_min, cutoff_max, cutoff_eps, &
                                                             cutoff_delta, sum_precision
@@ -133,6 +135,7 @@ CONTAINS
       param%n_minimax = n_minimax
       param%n_grids = 1
       param%cutoff = cutoff
+      param%int_eps = int_eps
       param%do_calib_cutoff = do_calib_cutoff
       param%do_error_est = do_error_est
       param%cutoff_min = cutoff_min

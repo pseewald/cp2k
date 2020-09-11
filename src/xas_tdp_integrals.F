@@ -1461,7 +1461,7 @@ CONTAINS
                         cutoff_min=10.0_dp, cutoff_max=10000.0_dp, cutoff_eps=0.01_dp, &
                         cutoff_delta=0.9_dp, sum_precision=1.0E-12_dp, debug=.FALSE., &
                         debug_delta=1.0E-6_dp, debug_nsum=1000000, unit_nr=0, print_calib=.FALSE., &
-                        do_error_est=.FALSE.)
+                        int_eps=1.0E-12_dp, do_error_est=.FALSE.)
       mme_param%do_calib = .TRUE.
 
       CALL cp_eri_mme_set_params(mme_param, cell, qs_kind_set, basis_type_1="RI_XAS", para_env=para_env)

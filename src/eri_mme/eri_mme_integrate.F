@@ -320,16 +320,18 @@ CONTAINS
                                                             lc_max
       REAL(KIND=dp), INTENT(IN)                          :: zeta, zetb, zetc
       REAL(KIND=dp), DIMENSION(3), INTENT(IN)            :: RA, RB, RC
-      REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: habc
+      REAL(KIND=dp), DIMENSION(:, :, :), INTENT(OUT)     :: habc
       INTEGER, INTENT(IN)                                :: o1, o2, o3
       INTEGER, INTENT(INOUT), OPTIONAL                   :: RR_count
 
       INTEGER                                            :: grid, i_aw, lmax_0, n_aw
       INTEGER(KIND=int_8), DIMENSION(3)                  :: n_sum_3d
       INTEGER(KIND=int_8), DIMENSION(3, 3)               :: n_sum_1d
+      LOGICAL                                            :: discard
       REAL(KIND=dp)                                      :: alpha_R_0, cutoff, G_res, lgth, prefac, &
                                                             R_rad_0, R_res, vol
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: S_G_0
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: sabc
       REAL(KIND=dp), ALLOCATABLE, &
          DIMENSION(:, :, :, :, :)                        :: S_G
       REAL(KIND=dp), DIMENSION(2)                        :: R_rads_3
@@ -337,6 +339,9 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(3)                        :: G_rads_1, R_rads_2
       REAL(KIND=dp), DIMENSION(3, 3)                     :: G_bounds_1, h_inv, hmat, R_bounds_2
       REAL(KIND=dp), DIMENSION(:), POINTER               :: aw
+
+      habc(:, :, :) = 0.0_dp
+      ALLOCATE (sabc(SIZE(habc, 1), SIZE(habc, 2), SIZE(habc, 3)))
 
       grid = 0
 
@@ -399,11 +404,17 @@ CONTAINS
                             zeta, zetb, zetc, aw(i_aw), ABS(hmat(3, 3)), &
                             R_bounds_3(:, 3))
 
+         CALL eri_mme_3c_collect_ortho(vol, la_min, la_max, lb_min, lb_max, lc_min, lc_max, &
+                                       zeta, zetb, zetc, i_aw, n_aw, aw, S_G, S_G_0, prefac, habc, &
+                                       o1, o2, o3, param%int_eps, discard)
+
+         IF (discard) THEN
+            habc(:, :, :) = 0.0_dp
+            RETURN
+         ENDIF
+
          IF (PRESENT(RR_count)) RR_count = RR_count + 3
       ENDDO
-
-      CALL eri_mme_3c_collect_ortho(vol, la_min, la_max, lb_min, lb_max, lc_min, lc_max, &
-                                    zeta, zetb, zetc, n_aw, aw, S_G, S_G_0, prefac, habc, o1, o2, o3)
 
    END SUBROUTINE
 
@@ -653,6 +664,7 @@ CONTAINS
 !> \param zeta ...
 !> \param zetb ...
 !> \param zetc ...
+!> \param i_aw ...
 !> \param n_aw ...
 !> \param aw ...
 !> \param S_G ...
@@ -662,14 +674,16 @@ CONTAINS
 !> \param o1 ...
 !> \param o2 ...
 !> \param o3 ...
+!> \param int_eps ...
+!> \param discard ...
 ! **************************************************************************************************
    SUBROUTINE eri_mme_3c_collect_ortho(vol, la_min, la_max, lb_min, lb_max, lc_min, lc_max, &
-                                       zeta, zetb, zetc, n_aw, aw, S_G, S_G_0, prefac, habc, o1, o2, o3)
+                                       zeta, zetb, zetc, i_aw, n_aw, aw, S_G, S_G_0, prefac, habc, o1, o2, o3, int_eps, discard)
       REAL(KIND=dp), INTENT(IN)                          :: vol
       INTEGER, INTENT(IN)                                :: la_min, la_max, lb_min, lb_max, lc_min, &
                                                             lc_max
       REAL(KIND=dp), INTENT(IN)                          :: zeta, zetb, zetc
-      INTEGER, INTENT(IN)                                :: n_aw
+      INTEGER, INTENT(IN)                                :: i_aw, n_aw
       REAL(KIND=dp), DIMENSION(2*n_aw), INTENT(IN)       :: aw
       REAL(KIND=dp), DIMENSION(:, :, 0:, 0:, 0:), &
          INTENT(IN)                                      :: S_G
@@ -678,13 +692,15 @@ CONTAINS
       REAL(KIND=dp), INTENT(IN)                          :: prefac
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: habc
       INTEGER, INTENT(IN)                                :: o1, o2, o3
+      REAL(dp), INTENT(IN)                               :: int_eps
+      LOGICAL, INTENT(OUT)                               :: discard
 
       INTEGER                                            :: ax, ay, az, bx, by, bz, cx, cy, cz, ico, &
                                                             jco, kco, la, la_prev, lb, lb_prev, &
                                                             lc, lc_prev
       REAL(KIND=dp)                                      :: Imm, Ixyz_0, mone_lb, resc_a, &
                                                             resc_a_init, resc_b, resc_b_init, &
-                                                            resc_c, resc_c_init
+                                                            resc_c, resc_c_init, Smm, w_sum
 
       ! Initialization of rescaling factors due to Hermite Gaussians
       resc_a_init = (2.0_dp*zeta)**la_min
@@ -693,6 +709,9 @@ CONTAINS
 
       resc_c = resc_c_init
       lc_prev = lc_min
+
+      w_sum = SUM(aw(n_aw + i_aw + 1:))
+      Smm = 0.0_dp
       DO kco = ncoset(lc_min - 1) + 1, ncoset(lc_max)
          CALL get_l(kco, lc, cx, cy, cz)
          IF (lc_prev < lc) resc_c = resc_c*(2.0_dp*zetc)
@@ -717,19 +736,29 @@ CONTAINS
                            S_G_0(az + bz, 3) &
                            /vol*mone_lb
                ENDIF
-               Imm = SUM(aw(n_aw + 1:2*n_aw)*( &
-                         S_G(1:n_aw, 1, ax, bx, cx)* &
-                         S_G(1:n_aw, 2, ay, by, cy)* &
-                         S_G(1:n_aw, 3, az, bz, cz)) - Ixyz_0)
 
-               ! rescaling needed due to Hermite Gaussians
-               habc(o1 + ico, o2 + jco, o3 + kco) = Imm*prefac/(resc_a*resc_b*resc_c)
+               Imm = S_G(i_aw, 1, ax, bx, cx)* &
+                     S_G(i_aw, 2, ay, by, cy)* &
+                     S_G(i_aw, 3, az, bz, cz) - Ixyz_0
+
+               habc(o1 + ico, o2 + jco, o3 + kco) = habc(o1 + ico, o2 + jco, o3 + kco) + &
+                                                    aw(n_aw + i_aw)*Imm*prefac/(resc_a*resc_b*resc_c)
+
+               Smm = MAX(Smm, ABS(habc(o1 + ico, o2 + jco, o3 + kco)) + ABS( &
+                         w_sum*Imm*prefac/(resc_a*resc_b*resc_c)))
+
                la_prev = la
             ENDDO ! la
             lb_prev = lb
          ENDDO ! lb
          lc_prev = lc
       ENDDO ! lc
+
+      IF (Smm < int_eps) THEN
+         discard = .TRUE.
+      ELSE
+         discard = .FALSE.
+      ENDIF
 
    END SUBROUTINE
 
