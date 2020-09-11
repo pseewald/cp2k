@@ -315,7 +315,7 @@ CONTAINS
       INTEGER                                            :: handle, op_pos_prv, sym_level
       TYPE(libint_potential_type), POINTER               :: pot_par_1, pot_par_2
 
-      NULLIFY (pot_par_1, pot_par_2)
+      NULLIFY(pot_par_1, pot_par_2)
 
       CALL timeset(routineN, handle)
 
@@ -328,11 +328,11 @@ CONTAINS
       SELECT CASE (op_pos_prv)
       CASE (1)
          pot_par_1 => potential_parameter
-         ALLOCATE (pot_par_2)
+         ALLOCATE(pot_par_2)
          pot_par_2%potential_type = do_potential_id
       CASE (2)
          pot_par_2 => potential_parameter
-         ALLOCATE (pot_par_1)
+         ALLOCATE(pot_par_1)
          pot_par_1%potential_type = do_potential_id
       END SELECT
 
@@ -352,11 +352,11 @@ CONTAINS
 
       SELECT CASE (op_pos_prv)
       CASE (1)
-         DEALLOCATE (pot_par_2)
-         NULLIFY (pot_par_1)
+         DEALLOCATE(pot_par_2)
+         NULLIFY(pot_par_1)
       CASE (2)
-         DEALLOCATE (pot_par_1)
-         NULLIFY (pot_par_2)
+         DEALLOCATE(pot_par_1)
+         NULLIFY(pot_par_2)
       END SELECT
       ijk_list%sym = symmetric_none
 
@@ -945,11 +945,11 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'build_3c_integrals'
 
       INTEGER :: block_end_i, block_end_j, block_end_k, block_start_i, block_start_j, &
-         block_start_k, egfi, handle, handle2, handle3, i, iatom, ibasis, ikind, ilist, imax, &
-         ipgf, iset, jatom, jcell, jkind, jpgf, jset, katom, kcell, kkind, kpgf, kset, m_max, &
-         max_ncoi, max_ncoj, max_ncok, max_nset, max_nsgfi, max_nsgfj, max_nsgfk, maxli, maxlj, &
-         maxlk, natom, nbasis, ncoi, ncoj, ncok, ni, nimg, nj, nk, nseti, nsetj, nsetk, op_ij, &
-         op_jk, op_pos_prv, sgfi, sgfj, sgfk, unit_id
+         block_start_k, egfi, handle, handle2, i, iatom, ibasis, ikind, ilist, imax, ipgf, iset, &
+         jatom, jcell, jkind, jpgf, jset, katom, kcell, kkind, kpgf, kset, m_max, max_ncoi, &
+         max_ncoj, max_ncok, max_nset, max_nsgfi, max_nsgfj, max_nsgfk, maxli, maxlj, maxlk, &
+         natom, nbasis, ncoi, ncoj, ncok, ni, nimg, nj, nk, nseti, nsetj, nsetk, op_ij, op_jk, &
+         op_pos_prv, sgfi, sgfj, sgfk, unit_id, handle3
       INTEGER, DIMENSION(3)                              :: blk_size, cell_j, cell_k, &
                                                             kp_index_lbounds, kp_index_ubounds, sp
       INTEGER, DIMENSION(:), POINTER                     :: lmax_i, lmax_j, lmax_k, lmin_i, lmin_j, &
@@ -1298,6 +1298,7 @@ CONTAINS
                                  IF (rpgf_i(ipgf, iset) + rpgf_k(kpgf, kset) + dr_ik < dik) CYCLE
 
                                  ni = (ipgf - 1)*ncoset(lmax_i(iset))
+                                 sijk_cp(:, :, :) = 0.0_dp
 
                                  CALL eri_mme_3c_integrate(param%par, &
                                                            lmin_j(jset), lmax_j(jset), &
