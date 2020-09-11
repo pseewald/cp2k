@@ -28,7 +28,8 @@ MODULE eri_mme_integrate
         eri_mme_3c_get_rads, get_l, pgf_sum_2c_gspace_1d, pgf_sum_2c_gspace_3d, &
         pgf_sum_2c_rspace_1d, pgf_sum_2c_rspace_3d, pgf_sum_3c_1d, pgf_sum_3c_3d
    USE eri_mme_types,                   ONLY: eri_mme_param,&
-                                              get_minimax_from_cutoff
+                                              get_minimax_from_cutoff,&
+                                              minimax_grid
    USE kinds,                           ONLY: dp,&
                                               int_8
    USE mathconstants,                   ONLY: pi
@@ -283,7 +284,7 @@ CONTAINS
       CPASSERT(param%is_valid)
       IF (param%is_ortho) THEN
          CALL eri_mme_3c_integrate_ortho(param, la_min, la_max, lb_min, lb_max, lc_min, lc_max, zeta, zetb, zetc, RA, RB, RC, &
-                                         habc, o1, o2, o3, RR_count)
+                                         habc, o1, o2, o3, int_eps=param%int_eps, RR_count=RR_count)
 
       ELSE
          CALL eri_mme_3c_integrate_nonortho(param, la_min, la_max, lb_min, lb_max, lc_min, lc_max, zeta, zetb, zetc, RA, RB, RC, &
@@ -322,7 +323,7 @@ CONTAINS
                                                             lc_max
       REAL(KIND=dp), INTENT(IN)                          :: zeta, zetb, zetc
       REAL(KIND=dp), DIMENSION(3), INTENT(IN)            :: RA, RB, RC
-      REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: habc
+      REAL(KIND=dp), DIMENSION(:, :, :), INTENT(OUT)     :: habc
       INTEGER, INTENT(IN)                                :: o1, o2, o3
       REAL(dp), INTENT(IN), OPTIONAL                     :: int_eps
       INTEGER, INTENT(INOUT), OPTIONAL                   :: RR_count
@@ -334,14 +335,14 @@ CONTAINS
          CALL eri_mme_3c_integrate_ortho_grid(param, param%minimax_screen, la_min, la_max, lb_min, lb_max, lc_min, lc_max, &
                                               zeta, zetb, zetc, RA, RB, RC, &
                                               habc_screen, o1, o2, o3, RR_count)
-         IF (MAXVAL(habc_screen) < int_eps) THEN
+         IF (MAXVAL(ABS(habc_screen)) < int_eps) THEN
             RETURN
          ENDIF
       ENDIF
 
-      CALL eri_mme_3c_integrate_ortho_grid(param, param%minimax_grids, la_min, la_max, lb_min, lb_max, lc_min, lc_max, &
+      CALL eri_mme_3c_integrate_ortho_grid(param, param%minimax_grid, la_min, la_max, lb_min, lb_max, lc_min, lc_max, &
                                            zeta, zetb, zetc, RA, RB, RC, &
-                                           habc_screen, o1, o2, o3, RR_count)
+                                           habc, o1, o2, o3, RR_count)
 
    END SUBROUTINE
 
@@ -376,7 +377,7 @@ CONTAINS
                                                             lc_max
       REAL(KIND=dp), INTENT(IN)                          :: zeta, zetb, zetc
       REAL(KIND=dp), DIMENSION(3), INTENT(IN)            :: RA, RB, RC
-      REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: habc
+      REAL(KIND=dp), DIMENSION(:, :, :), INTENT(OUT)     :: habc
       INTEGER, INTENT(IN)                                :: o1, o2, o3
       INTEGER, INTENT(INOUT), OPTIONAL                   :: RR_count
 
@@ -386,6 +387,7 @@ CONTAINS
       REAL(KIND=dp)                                      :: alpha_R_0, cutoff, G_res, lgth, prefac, &
                                                             R_rad_0, R_res, vol
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: S_G_0
+      REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: sabc
       REAL(KIND=dp), ALLOCATABLE, &
          DIMENSION(:, :, :, :, :)                        :: S_G
       REAL(KIND=dp), DIMENSION(2)                        :: R_rads_3
@@ -393,6 +395,9 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(3)                        :: G_rads_1, R_rads_2
       REAL(KIND=dp), DIMENSION(3, 3)                     :: G_bounds_1, h_inv, hmat, R_bounds_2
       REAL(KIND=dp), DIMENSION(:), POINTER               :: aw
+
+      habc(:, :, :) = 0.0_dp
+      ALLOCATE (sabc(SIZE(habc, 1), SIZE(habc, 2), SIZE(habc, 3)))
 
       grid = 0
 

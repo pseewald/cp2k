@@ -50,7 +50,8 @@ MODULE eri_mme_types
              eri_mme_coulomb, &
              eri_mme_yukawa, &
              eri_mme_longrange, &
-             eri_mme_set_potential
+             eri_mme_set_potential, &
+             minimax_grid
 
    TYPE minimax_grid
       REAL(KIND=dp)                    :: cutoff
@@ -91,6 +92,7 @@ MODULE eri_mme_types
       INTEGER                          :: l_mm, l_max_zet
       INTEGER                          :: potential
       REAL(KIND=dp)                    :: pot_par
+      REAL(KIND=dp)                    :: int_eps
    END TYPE eri_mme_param
 
 CONTAINS
@@ -101,6 +103,7 @@ CONTAINS
 !> \param n_minimax ...
 !> \param n_minimax_screen ...
 !> \param cutoff ...
+!> \param int_eps ...
 !> \param do_calib_cutoff ...
 !> \param do_error_est ...
 !> \param cutoff_min ...
@@ -114,12 +117,13 @@ CONTAINS
 !> \param unit_nr ...
 !> \param print_calib ...
 ! **************************************************************************************************
-   SUBROUTINE eri_mme_init(param, n_minimax, n_minimax_screen, cutoff, do_calib_cutoff, do_error_est, &
+
+   SUBROUTINE eri_mme_init(param, n_minimax, n_minimax_screen, cutoff, int_eps, do_calib_cutoff, do_error_est, &
                            cutoff_min, cutoff_max, cutoff_eps, cutoff_delta, sum_precision, &
                            debug, debug_delta, debug_nsum, unit_nr, print_calib)
       TYPE(eri_mme_param), INTENT(OUT)                   :: param
       INTEGER, INTENT(IN)                                :: n_minimax, n_minimax_screen
-      REAL(KIND=dp), INTENT(IN)                          :: cutoff
+      REAL(KIND=dp), INTENT(IN)                          :: cutoff, int_eps
       LOGICAL, INTENT(IN)                                :: do_calib_cutoff, do_error_est
       REAL(KIND=dp), INTENT(IN)                          :: cutoff_min, cutoff_max, cutoff_eps, &
                                                             cutoff_delta, sum_precision
@@ -140,6 +144,7 @@ CONTAINS
       param%n_minimax_screen = n_minimax_screen
       param%n_grids = 1
       param%cutoff = cutoff
+      param%int_eps = int_eps
       param%do_calib_cutoff = do_calib_cutoff
       param%do_error_est = do_error_est
       param%cutoff_min = cutoff_min
@@ -310,11 +315,11 @@ CONTAINS
 
       CALL eri_mme_create_minimax_grids(param%n_grids, param%minimax_grid, param%n_minimax, &
                                         cutoff_max, cutoff_min, param%G_min, &
-                                        param%mm_delta, potential=potential, pot_par=pot_par)
+                                        target_error=param%mm_delta, potential=potential, pot_par=pot_par)
 
       CALL eri_mme_create_minimax_grids(1, param%minimax_screen, param%n_minimax_screen, &
                                         cutoff_max, cutoff_min, param%G_min, &
-                                        param%mm_delta, potential=potential, pot_par=pot_par)
+                                        potential=potential, pot_par=pot_par)
 
    END SUBROUTINE
 
@@ -337,8 +342,8 @@ CONTAINS
       TYPE(minimax_grid), DIMENSION(n_grids), &
          INTENT(OUT)                                     :: minimax_grids
       INTEGER, INTENT(IN)                                :: n_minimax
-      REAL(KIND=dp), INTENT(IN)                          :: cutoff_max, cutoff_min, G_min, &
-                                                            target_error
+      REAL(KIND=dp), INTENT(IN)                          :: cutoff_max, cutoff_min, G_min
+      REAL(KIND=dp), INTENT(IN), OPTIONAL                :: target_error
       INTEGER, INTENT(IN), OPTIONAL                      :: potential
       REAL(KIND=dp), INTENT(IN), OPTIONAL                :: pot_par
 
@@ -353,7 +358,9 @@ CONTAINS
       ! for first grid (for max. cutoff) always use default n_minimax
       CALL get_minimax_coeff_v_gspace(n_minimax, cutoff, G_min, minimax_aw, err_minimax=err_mm, &
                                       potential=potential, pot_par=pot_par)
-      CPASSERT(err_mm .LT. 1.1_dp*target_error + 1.0E-12)
+      IF (PRESENT(target_error)) THEN
+         CPASSERT(err_mm .LT. 1.1_dp*target_error + 1.0E-12)
+      ENDIF
       CALL create_minimax_grid(minimax_grids(n_grids), cutoff, n_minimax, minimax_aw, err_mm)
       DEALLOCATE (minimax_aw)
 
@@ -363,12 +370,14 @@ CONTAINS
             CALL get_minimax_coeff_v_gspace(n_mm, cutoff, G_min, minimax_aw, err_minimax=err_mm, &
                                             potential=potential, pot_par=pot_par)
 
-            IF (err_mm .GT. 1.1_dp*target_error) THEN
-               CPASSERT(n_mm .NE. n_minimax)
-               CALL create_minimax_grid(minimax_grids(i_grid), cutoff, n_mm + 1, minimax_aw_prev, err_mm_prev)
+            IF (PRESENT(target_error)) THEN
+               IF (err_mm .GT. 1.1_dp*target_error) THEN
+                  CPASSERT(n_mm .NE. n_minimax)
+                  CALL create_minimax_grid(minimax_grids(i_grid), cutoff, n_mm + 1, minimax_aw_prev, err_mm_prev)
 
-               DEALLOCATE (minimax_aw)
-               EXIT
+                  DEALLOCATE (minimax_aw)
+                  EXIT
+               ENDIF
             ENDIF
 
             IF (ALLOCATED(minimax_aw_prev)) DEALLOCATE (minimax_aw_prev)
