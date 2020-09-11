@@ -62,6 +62,7 @@ MODULE eri_mme_types
 
    TYPE eri_mme_param
       INTEGER                          :: n_minimax
+      INTEGER                          :: n_minimax_screen
       REAL(KIND=dp), DIMENSION(3, 3)   :: hmat, h_inv
       REAL(KIND=dp)                    :: vol
       LOGICAL                          :: is_ortho
@@ -84,6 +85,8 @@ MODULE eri_mme_types
       INTEGER                          :: n_grids
       TYPE(minimax_grid), DIMENSION(:), &
          ALLOCATABLE                   :: minimax_grid
+      TYPE(minimax_grid), DIMENSION(:), &
+         ALLOCATABLE         :: minimax_screen
       REAL(KIND=dp)                    :: zet_max, zet_min
       INTEGER                          :: l_mm, l_max_zet
       INTEGER                          :: potential
@@ -96,6 +99,7 @@ CONTAINS
 !> \brief ...
 !> \param param ...
 !> \param n_minimax ...
+!> \param n_minimax_screen ...
 !> \param cutoff ...
 !> \param do_calib_cutoff ...
 !> \param do_error_est ...
@@ -110,11 +114,11 @@ CONTAINS
 !> \param unit_nr ...
 !> \param print_calib ...
 ! **************************************************************************************************
-   SUBROUTINE eri_mme_init(param, n_minimax, cutoff, do_calib_cutoff, do_error_est, &
+   SUBROUTINE eri_mme_init(param, n_minimax, n_minimax_screen, cutoff, do_calib_cutoff, do_error_est, &
                            cutoff_min, cutoff_max, cutoff_eps, cutoff_delta, sum_precision, &
                            debug, debug_delta, debug_nsum, unit_nr, print_calib)
       TYPE(eri_mme_param), INTENT(OUT)                   :: param
-      INTEGER, INTENT(IN)                                :: n_minimax
+      INTEGER, INTENT(IN)                                :: n_minimax, n_minimax_screen
       REAL(KIND=dp), INTENT(IN)                          :: cutoff
       LOGICAL, INTENT(IN)                                :: do_calib_cutoff, do_error_est
       REAL(KIND=dp), INTENT(IN)                          :: cutoff_min, cutoff_max, cutoff_eps, &
@@ -130,7 +134,10 @@ CONTAINS
       IF (n_minimax .GT. n_minimax_max) &
          CPABORT("The maximum allowed number of minimax points N_MINIMAX is "//TRIM(string))
 
+      CPASSERT(n_minimax_screen <= n_minimax)
+
       param%n_minimax = n_minimax
+      param%n_minimax_screen = n_minimax_screen
       param%n_grids = 1
       param%cutoff = cutoff
       param%do_calib_cutoff = do_calib_cutoff
@@ -150,6 +157,7 @@ CONTAINS
 
       param%is_valid = .FALSE.
       ALLOCATE (param%minimax_grid(param%n_grids))
+      ALLOCATE (param%minimax_screen(1))
    END SUBROUTINE eri_mme_init
 
 ! **************************************************************************************************
@@ -296,9 +304,15 @@ CONTAINS
       cutoff_min = param%zet_min*cutoff_rel
 
       CALL eri_mme_destroy_minimax_grids(param%minimax_grid)
+      CALL eri_mme_destroy_minimax_grids(param%minimax_screen)
       ALLOCATE (param%minimax_grid(param%n_grids))
+      ALLOCATE (param%minimax_screen(1))
 
       CALL eri_mme_create_minimax_grids(param%n_grids, param%minimax_grid, param%n_minimax, &
+                                        cutoff_max, cutoff_min, param%G_min, &
+                                        param%mm_delta, potential=potential, pot_par=pot_par)
+
+      CALL eri_mme_create_minimax_grids(1, param%minimax_screen, param%n_minimax_screen, &
                                         cutoff_max, cutoff_min, param%G_min, &
                                         param%mm_delta, potential=potential, pot_par=pot_par)
 
@@ -473,6 +487,7 @@ CONTAINS
 
       IF (ALLOCATED(param%minimax_grid)) THEN
          CALL eri_mme_destroy_minimax_grids(param%minimax_grid)
+         CALL eri_mme_destroy_minimax_grids(param%minimax_screen)
       ENDIF
    END SUBROUTINE eri_mme_release
 

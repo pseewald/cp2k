@@ -127,6 +127,15 @@ CONTAINS
       CALL keyword_release(keyword)
 
       CALL keyword_create(keyword, __LOCATION__, &
+                          name="N_MINIMAX_SCREEN", &
+                          description="Number of terms in minimax approximation of "// &
+                          "reciprocal space potential for integrals screening. This number should be "// &
+                          "significantly lower than N_MINIMAX", &
+                          default_i_val=3)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
+      CALL keyword_create(keyword, __LOCATION__, &
                           name="CUTOFF", &
                           description="User-defined energy cutoff to be used only if "// &
                           "DO_CALIBRATE_CUTOFF is set to .FALSE. ", &
@@ -260,6 +269,7 @@ CONTAINS
 
       NULLIFY (subsection)
       CALL section_vals_val_get(mme_section, "N_MINIMAX", i_val=n_minimax)
+      CALL section_vals_val_get(mme_section, "N_MINIMAX_SCREEN", i_val=n_minimax_screen)
 
       CALL section_vals_val_get(mme_section, "CUTOFF", r_val=cutoff)
       CALL section_vals_val_get(mme_section, "SUM_PRECISION", r_val=sum_precision)
@@ -277,7 +287,7 @@ CONTAINS
 
       param%mme_section => mme_section
 
-      CALL eri_mme_init(param%par, n_minimax, &
+      CALL eri_mme_init(param%par, n_minimax, n_minimax_screen, &
                         cutoff, do_calib_cutoff, do_error_est, cutoff_min, cutoff_max, cutoff_eps, cutoff_delta, &
                         sum_precision, debug, debug_delta, debug_nsum, unit_nr, print_calib)
 

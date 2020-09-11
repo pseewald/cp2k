@@ -311,11 +311,67 @@ CONTAINS
 !> \param o1 ...
 !> \param o2 ...
 !> \param o3 ...
+!> \param int_eps ...
 !> \param RR_count ...
 ! **************************************************************************************************
-   SUBROUTINE eri_mme_3c_integrate_ortho(param, la_min, la_max, lb_min, lb_max, lc_min, lc_max, zeta, zetb, zetc, RA, RB, RC, &
-                                         habc, o1, o2, o3, RR_count)
+   SUBROUTINE eri_mme_3c_integrate_ortho(param, la_min, la_max, lb_min, lb_max, lc_min, lc_max, &
+                                         zeta, zetb, zetc, RA, RB, RC, &
+                                         habc, o1, o2, o3, int_eps, RR_count)
       TYPE(eri_mme_param), INTENT(IN)                    :: param
+      INTEGER, INTENT(IN)                                :: la_min, la_max, lb_min, lb_max, lc_min, &
+                                                            lc_max
+      REAL(KIND=dp), INTENT(IN)                          :: zeta, zetb, zetc
+      REAL(KIND=dp), DIMENSION(3), INTENT(IN)            :: RA, RB, RC
+      REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: habc
+      INTEGER, INTENT(IN)                                :: o1, o2, o3
+      REAL(dp), INTENT(IN), OPTIONAL                     :: int_eps
+      INTEGER, INTENT(INOUT), OPTIONAL                   :: RR_count
+
+      REAL(KIND=dp), DIMENSION(SIZE(habc, 1), SIZE(habc,&
+         2), SIZE(habc, 3))                              :: habc_screen
+
+      IF (PRESENT(int_eps)) THEN
+         CALL eri_mme_3c_integrate_ortho_grid(param, param%minimax_screen, la_min, la_max, lb_min, lb_max, lc_min, lc_max, &
+                                              zeta, zetb, zetc, RA, RB, RC, &
+                                              habc_screen, o1, o2, o3, RR_count)
+         IF (MAXVAL(habc_screen) < int_eps) THEN
+            RETURN
+         ENDIF
+      ENDIF
+
+      CALL eri_mme_3c_integrate_ortho_grid(param, param%minimax_grids, la_min, la_max, lb_min, lb_max, lc_min, lc_max, &
+                                           zeta, zetb, zetc, RA, RB, RC, &
+                                           habc_screen, o1, o2, o3, RR_count)
+
+   END SUBROUTINE
+
+! **************************************************************************************************
+!> \brief ...
+!> \param param ...
+!> \param grids ...
+!> \param la_min ...
+!> \param la_max ...
+!> \param lb_min ...
+!> \param lb_max ...
+!> \param lc_min ...
+!> \param lc_max ...
+!> \param zeta ...
+!> \param zetb ...
+!> \param zetc ...
+!> \param RA ...
+!> \param RB ...
+!> \param RC ...
+!> \param habc ...
+!> \param o1 ...
+!> \param o2 ...
+!> \param o3 ...
+!> \param RR_count ...
+! **************************************************************************************************
+   SUBROUTINE eri_mme_3c_integrate_ortho_grid(param, grids, la_min, la_max, lb_min, lb_max, lc_min, lc_max, &
+                                              zeta, zetb, zetc, RA, RB, RC, &
+                                              habc, o1, o2, o3, RR_count)
+      TYPE(eri_mme_param), INTENT(IN)                    :: param
+      TYPE(minimax_grid), DIMENSION(:), INTENT(IN)       :: grids
       INTEGER, INTENT(IN)                                :: la_min, la_max, lb_min, lb_max, lc_min, &
                                                             lc_max
       REAL(KIND=dp), INTENT(IN)                          :: zeta, zetb, zetc
@@ -345,13 +401,13 @@ CONTAINS
 
       cutoff = (MIN(G_rads_1(1), G_rads_1(2) + G_rads_1(3)))**2/2
 
-      CALL get_minimax_from_cutoff(param%minimax_grid, cutoff, n_aw, aw, grid)
+      CALL get_minimax_from_cutoff(grids, cutoff, n_aw, aw, grid)
 
       CPASSERT(grid .GT. 0)
 
       ! minimax coeffs
-      n_aw = param%minimax_grid(grid)%n_minimax
-      aw => param%minimax_grid(grid)%minimax_aw
+      n_aw = grids(grid)%n_minimax
+      aw => grids(grid)%minimax_aw
 
       ! cell info
       h_inv = param%h_inv
