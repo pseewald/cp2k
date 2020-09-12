@@ -663,6 +663,9 @@ CONTAINS
 
       CALL dbcsr_get_info(mat_ab(1)%matrix, proc_row_dist=dist_2_p, proc_col_dist=dist_3_p, row_blk_size=bsize_2_p, &
                           col_blk_size=bsize_3_p, distribution=dist_2c)
+      DO ic = 2, SIZE(mat_ab)
+         CALL dbcsr_clear(mat_ab(ic)%matrix)
+      ENDDO
 
       ALLOCATE (dist_2(SIZE(dist_2_p)), dist_3(SIZE(dist_3_p)))
       dist_2(:) = dist_2_p; dist_3(:) = dist_3_p
@@ -736,11 +739,11 @@ CONTAINS
 
       CALL dbcsr_t_iterator_start(iter, t_abc)
 
-      !CALL dbcsr_clear(mat_ab(ic)%matrix)
       DO WHILE (dbcsr_t_iterator_blocks_left(iter))
          CALL dbcsr_t_iterator_next_block(iter, ind_3d, blk)
          CALL dbcsr_t_get_block(t_abc, ind_3d, block_3d, found)
          DO ic = 1, SIZE(block_3d, 1)
+            IF (ic > 1) CALL dbcsr_create(mat_ab(ic)%matrix, template=mat_ab(1)%matrix)
             IF (ind_3d(2) > ind_3d(3)) THEN
                CALL dbcsr_get_block_p(mat_ab(ic)%matrix, ind_3d(3), ind_3d(2), block_p, found=found)
                IF (found) CALL dbcsr_put_block(mat_ab(ic)%matrix, ind_3d(3), ind_3d(2), TRANSPOSE(block_3d(ic, :, :)))
