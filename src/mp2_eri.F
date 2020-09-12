@@ -35,7 +35,8 @@ MODULE mp2_eri
                         dbcsr_p_type, &
                         dbcsr_distribution_type, &
                         dbcsr_type_real_8, dbcsr_get_info, dbcsr_distribution_get, &
-                        dbcsr_put_block, dbcsr_clear, dbcsr_finalize
+                        dbcsr_put_block, dbcsr_clear, dbcsr_finalize, dbcsr_type, dbcsr_create, dbcsr_release, &
+                        dbcsr_complete_redistribute, dbcsr_type_no_symmetry
    USE dbcsr_tensor_api, ONLY: dbcsr_t_pgrid_type, dbcsr_t_distribution_type, &
                  dbcsr_t_iterator_type, dbcsr_t_type, dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, &
               dbcsr_t_pgrid_create, dbcsr_t_mp_environ_pgrid, dbcsr_t_copy, dbcsr_t_distribution_new, dbcsr_t_iterator_next_block, &
@@ -185,7 +186,7 @@ CONTAINS
       my_do_reflection_b = .FALSE.
       IF (PRESENT(do_reflection_b) .AND. PRESENT(reflection_z_b)) my_do_reflection_b = do_reflection_b
 
-      G_count = 0; R_count = 0;
+      G_count = 0; R_count = 0; 
       ! get mapping between ERIs and atoms, sets, set offsets
       CALL get_eri_offsets(qs_env, basis_type_b, eri_offsets)
 
@@ -646,8 +647,8 @@ CONTAINS
       TYPE(dbcsr_t_type) :: t_abc
       TYPE(dbcsr_t_type), DIMENSION(1, 1) :: t_int
 
-      REAL(dp), DIMENSION(:), POINTER           :: block_p
       TYPE(mp2_type), POINTER                  :: mp2_env
+      TYPE(dbcsr_type), DIMENSION(:), ALLOCATABLE :: mat_tmp
 
       ALLOCATE (dist_1(ngroup), bsize_1(ngroup))
       pdims_3c(1) = ngroup
@@ -717,16 +718,16 @@ CONTAINS
                               basis_i=basis_set_c, &
                               basis_j=basis_set_a, basis_k=basis_set_b, &
                               potential_parameter=ri_metric, &
-                              desymmetrize=.TRUE., param=param)
+                              desymmetrize=.FALSE., param=param)
       ! if memory intensive, don't desymmetrize!
 
-      IF(para_env%mepos == 0) THEN
-         unit_nr=default_output_unit
+      IF (para_env%mepos == 0) THEN
+         unit_nr = default_output_unit
       ELSE
          unit_nr = -1
       ENDIF
 
-      CALL dbcsr_t_write_tensor_dist(t_int(1,1), unit_nr)
+      CALL dbcsr_t_write_tensor_dist(t_int(1, 1), unit_nr)
 
       CALL dbcsr_t_copy(t_int(1, 1), t_abc, move_data=.TRUE.)
 
@@ -736,21 +737,32 @@ CONTAINS
       CALL dbcsr_t_iterator_start(iter, t_abc)
 
       !CALL dbcsr_clear(mat_ab(ic)%matrix)
+      ALLOCATE (mat_tmp(last_c - first_c + 1))
+      DO ic = 1, last_c - first_c + 1
+         CALL dbcsr_create(mat_tmp(ic), template=mat_ab(ic)%matrix)
+      ENDDO
       DO WHILE (dbcsr_t_iterator_blocks_left(iter))
          CALL dbcsr_t_iterator_next_block(iter, ind_3d, blk)
          CALL dbcsr_t_get_block(t_abc, ind_3d, block_3d, found)
          !CPASSERT(found)
          !CPASSERT(SIZE(block_3d,1) == last_c-first_c+1)
          DO ic = 1, SIZE(block_3d, 1)
-            IF (ind_3d(2) > ind_3d(3)) THEN
-               CALL dbcsr_get_block_p(mat_ab(ic)%matrix, ind_3d(3), ind_3d(2), block_p, found=found)
-               IF (found) CALL dbcsr_put_block(mat_ab(ic)%matrix, ind_3d(3), ind_3d(2), TRANSPOSE(block_3d(ic, :, :)))
+            IF (.NOT. ind_3d(2) == ind_3d(3)) THEN
+               CALL dbcsr_put_block(mat_tmp(ic), ind_3d(3), ind_3d(2), TRANSPOSE(block_3d(ic, :, :)))
+               CALL dbcsr_put_block(mat_tmp(ic), ind_3d(2), ind_3d(3), block_3d(ic, :, :))
             ELSE
-               CALL dbcsr_get_block_p(mat_ab(ic)%matrix, ind_3d(2), ind_3d(3), block_p, found=found)
-               IF (found) CALL dbcsr_put_block(mat_ab(ic)%matrix, ind_3d(2), ind_3d(3), block_3d(ic, :, :))
+               CALL dbcsr_put_block(mat_tmp(ic), ind_3d(2), ind_3d(3), (TRANSPOSE(block_3d(ic, :, :)) + block_3d(ic, :, :)))
             ENDIF
          ENDDO
          DEALLOCATE (block_3d)
+      ENDDO
+
+      CALL dbcsr_t_destroy(t_abc)
+
+      DO ic = 1, last_c - first_c + 1
+         CALL dbcsr_finalize(mat_tmp(ic))
+         CALL dbcsr_complete_redistribute(mat_tmp(ic), mat_ab(ic)%matrix)
+         CALL dbcsr_release(mat_tmp(ic))
       ENDDO
 
       !DO ic=1, last_c-first_c+1
@@ -760,8 +772,6 @@ CONTAINS
       CALL dbcsr_t_pgrid_destroy(pgrid)
 
       CALL dbcsr_t_iterator_stop(iter)
-
-      CALL dbcsr_t_destroy(t_abc)
 
       CALL neighbor_list_3c_destroy(nl_3c)
       DEALLOCATE (basis_set_a, basis_set_b, basis_set_c)
