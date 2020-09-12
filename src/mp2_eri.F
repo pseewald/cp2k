@@ -41,7 +41,7 @@ MODULE mp2_eri
                  dbcsr_t_iterator_type, dbcsr_t_type, dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, &
               dbcsr_t_pgrid_create, dbcsr_t_mp_environ_pgrid, dbcsr_t_copy, dbcsr_t_distribution_new, dbcsr_t_iterator_next_block, &
                                dbcsr_t_get_block, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_pgrid_destroy, &
-                               dbcsr_t_distribution_destroy, dbcsr_t_write_tensor_dist, dbcsr_t_default_distvec
+                               dbcsr_t_distribution_destroy, dbcsr_t_write_tensor_dist
    USE qs_tensors_types, ONLY: distribution_3d_type, distribution_3d_create
 
    USE qs_tensors, ONLY: build_3c_neighbor_lists, build_3c_integrals
@@ -704,7 +704,7 @@ CONTAINS
 
       DEALLOCATE (dist_1)
       ALLOCATE (dist_1(natom))
-      CALL dbcsr_t_default_distvec(natom, pdims_3c(1), bsize_c, dist_1)
+      dist_1(:) = 0
       CALL dbcsr_t_distribution_new(dist_3c, pgrid, dist_1, dist_2, dist_3)
       CALL dbcsr_t_create(t_int(1, 1), "3c int", dist_3c, [1, 2], [3], dbcsr_type_real_8, bsize_c, bsize_a, bsize_b)
       CALL dbcsr_t_distribution_destroy(dist_3c)
