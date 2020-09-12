@@ -737,15 +737,19 @@ CONTAINS
       CALL dbcsr_t_write_tensor_dist(t_abc, unit_nr)
       CALL dbcsr_t_destroy(t_int(1, 1))
 
+      DO ic = 2, last_c - first_c + 1
+         CALL dbcsr_create(mat_ab(ic)%matrix, template=mat_ab(1)%matrix)
+         CALL dbcsr_copy(mat_ab(ic)%matrix, mat_ab(1)%matrix)
+         CALL dbcsr_set(mat_ab(ic)%matrix, 0.0_dp)
+      ENDDO
+
       CALL dbcsr_t_iterator_start(iter, t_abc)
 
       DO WHILE (dbcsr_t_iterator_blocks_left(iter))
          CALL dbcsr_t_iterator_next_block(iter, ind_3d, blk)
          CALL dbcsr_t_get_block(t_abc, ind_3d, block_3d, found)
          DO ic = 1, SIZE(block_3d, 1)
-            IF (ic > 1) CALL dbcsr_create(mat_ab(ic)%matrix, template=mat_ab(1)%matrix)
-            IF (ic > 1) CALL dbcsr_copy(mat_ab(ic)%matrix, mat_ab(1)%matrix)
-            IF (ic > 1) CALL dbcsr_set(mat_ab(ic)%matrix, 0.0_dp)
+
             IF (ind_3d(2) > ind_3d(3)) THEN
                CALL dbcsr_get_block_p(mat_ab(ic)%matrix, ind_3d(3), ind_3d(2), block_p, found=found)
                IF (found) CALL dbcsr_put_block(mat_ab(ic)%matrix, ind_3d(3), ind_3d(2), TRANSPOSE(block_3d(ic, :, :)))
