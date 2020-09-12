@@ -36,7 +36,7 @@ MODULE mp2_eri
                         dbcsr_distribution_type, &
                         dbcsr_type_real_8, dbcsr_get_info, dbcsr_distribution_get, &
                         dbcsr_put_block, dbcsr_clear, dbcsr_finalize, dbcsr_type, dbcsr_transposed, dbcsr_release, dbcsr_add, &
-                        dbcsr_type_no_symmetry, dbcsr_create, dbcsr_type_symmetric, dbcsr_copy
+                        dbcsr_type_no_symmetry, dbcsr_create, dbcsr_type_symmetric, dbcsr_copy, dbcsr_set
    USE dbcsr_tensor_api, ONLY: dbcsr_t_pgrid_type, dbcsr_t_distribution_type, &
                  dbcsr_t_iterator_type, dbcsr_t_type, dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, &
               dbcsr_t_pgrid_create, dbcsr_t_mp_environ_pgrid, dbcsr_t_copy, dbcsr_t_distribution_new, dbcsr_t_iterator_next_block, &
@@ -745,6 +745,7 @@ CONTAINS
          DO ic = 1, SIZE(block_3d, 1)
             IF (ic > 1) CALL dbcsr_create(mat_ab(ic)%matrix, template=mat_ab(1)%matrix)
             IF (ic > 1) CALL dbcsr_copy(mat_ab(ic)%matrix, mat_ab(1)%matrix)
+            IF (ic > 1) CALL dbcsr_set(mat_ab(ic)%matrix, 0.0_dp)
             IF (ind_3d(2) > ind_3d(3)) THEN
                CALL dbcsr_get_block_p(mat_ab(ic)%matrix, ind_3d(3), ind_3d(2), block_p, found=found)
                IF (found) CALL dbcsr_put_block(mat_ab(ic)%matrix, ind_3d(3), ind_3d(2), TRANSPOSE(block_3d(ic, :, :)))
