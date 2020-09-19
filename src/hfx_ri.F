@@ -643,7 +643,7 @@ CONTAINS
                                   dbcsr_scalar(0.0_dp), t_3c_2, &
                                   contract_1=[2], notcontract_1=[1], &
                                   contract_2=[1], notcontract_2=[2, 3], &
-                                  map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps_storage, &
+                                  map_1=[1], map_2=[2, 3], filter_eps=ri_data%filter_eps_storage_dbcsr, &
                                   bounds_2=bounds_i, &
                                   bounds_3=bounds_j, &
                                   unit_nr=unit_nr_dbcsr, &

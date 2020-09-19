@@ -372,7 +372,8 @@ MODULE hfx_types
 
    TYPE hfx_ri_type
       ! input parameters (see input_cp2k_hfx)
-      REAL(KIND=dp) :: filter_eps, filter_eps_2c, filter_eps_storage, filter_eps_mo, &
+      REAL(KIND=dp) :: filter_eps, filter_eps_2c, filter_eps_storage, filter_eps_storage_dbcsr, &
+                       filter_eps_mo, &
                        eps_lanczos, eps_pgf_orb, eps_eigval
       INTEGER :: t2c_sqrt_order, max_iter_lanczos, flavor, unit_nr_dbcsr, unit_nr, &
                  min_bsize, min_bsize_MO, t2c_method, nelectron_total
@@ -1117,8 +1118,10 @@ CONTAINS
 
       CALL section_vals_val_get(ri_section, "EPS_FILTER", r_val=ri_data%filter_eps)
       CALL section_vals_val_get(ri_section, "EPS_FILTER_2C", r_val=ri_data%filter_eps_2c)
-      CALL section_vals_val_get(ri_section, "EPS_STORAGE_SCALING", r_val=eps_storage_scaling)
+      CALL section_vals_val_get(ri_section, "EPS_STORAGE_SCALING_COMPRESS", r_val=eps_storage_scaling)
       ri_data%filter_eps_storage = ri_data%filter_eps*eps_storage_scaling
+      CALL section_vals_val_get(ri_section, "EPS_STORAGE_SCALING_DBCSR", r_val=eps_storage_scaling)
+      ri_data%filter_eps_storage_dbcsr = ri_data%filter_eps*eps_storage_scaling
       CALL section_vals_val_get(ri_section, "EPS_FILTER_MO", r_val=ri_data%filter_eps_mo)
 
       ASSOCIATE (ri_metric=>ri_data%ri_metric, hfx_pot=>ri_data%hfx_pot)
@@ -2627,6 +2630,8 @@ CONTAINS
             "HFX_RI_INFO| EPS_FILTER 2-center", ri_data%filter_eps_2c
          WRITE (UNIT=iw, FMT="(T3, A, T73, ES8.1)") &
             "HFX_RI_INFO| EPS_FILTER storage", ri_data%filter_eps_storage
+         WRITE (UNIT=iw, FMT="(T3, A, T73, ES8.1)") &
+            "HFX_RI_INFO| EPS_FILTER storage (dbcsr)", ri_data%filter_eps_storage_dbcsr
          WRITE (UNIT=iw, FMT="(T3, A, T73, ES8.1)") &
             "HFX_RI_INFO| EPS_FILTER MO", ri_data%filter_eps_mo
          WRITE (UNIT=iw, FMT="(T3, A, T73, ES8.1)") &

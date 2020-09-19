@@ -514,6 +514,15 @@ CONTAINS
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
+      CALL keyword_create(keyword, __LOCATION__, &
+                          name="EPS_STORAGE_SCALING_DBCSR", &
+                          description="Scaling factor to scale EPS_FILTER for filtering "// &
+                          "of 3-center integrals. Filtering threshold "// &
+                          "will be EPS_FILTER*EPS_STORAGE_SCALING_DBCSR.", &
+                          default_r_val=0.1_dp)
+      CALL section_add_keyword(section, keyword)
+      CALL keyword_release(keyword)
+
       CALL keyword_create(keyword, __LOCATION__, name="EPS_FILTER_MO", &
                           description="Filter threshold for contraction of 3-center integrals with MOs. "// &
                           "Default should be kept.", &
