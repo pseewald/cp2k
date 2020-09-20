@@ -131,7 +131,7 @@ CONTAINS
                           description="Number of terms in minimax approximation of "// &
                           "reciprocal space potential for integrals screening. This number should be "// &
                           "significantly lower than N_MINIMAX", &
-                          default_i_val=3)
+                          default_i_val=5)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
@@ -207,7 +207,7 @@ CONTAINS
       CALL keyword_create(keyword, __LOCATION__, &
                           name="INT_EPS", &
                           description="Screening criterion for integrals. ", &
-                          default_r_val=1.0E-08_dp)
+                          default_r_val=1.0E-07_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
