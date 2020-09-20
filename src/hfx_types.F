@@ -1118,7 +1118,7 @@ CONTAINS
 
       CALL section_vals_val_get(ri_section, "EPS_FILTER", r_val=ri_data%filter_eps)
       CALL section_vals_val_get(ri_section, "EPS_FILTER_2C", r_val=ri_data%filter_eps_2c)
-      CALL section_vals_val_get(ri_section, "EPS_STORAGE_SCALING_COMPRESS", r_val=eps_storage_scaling)
+      CALL section_vals_val_get(ri_section, "EPS_STORAGE_SCALING", r_val=eps_storage_scaling)
       ri_data%filter_eps_storage = ri_data%filter_eps*eps_storage_scaling
       CALL section_vals_val_get(ri_section, "EPS_STORAGE_SCALING_DBCSR", r_val=eps_storage_scaling)
       ri_data%filter_eps_storage_dbcsr = ri_data%filter_eps*eps_storage_scaling
