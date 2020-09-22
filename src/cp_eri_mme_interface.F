@@ -207,7 +207,7 @@ CONTAINS
       CALL keyword_create(keyword, __LOCATION__, &
                           name="INT_EPS", &
                           description="Screening criterion for integrals. ", &
-                          default_r_val=1.0E-07_dp)
+                          default_r_val=1.0E-11_dp)
       CALL section_add_keyword(section, keyword)
       CALL keyword_release(keyword)
 
