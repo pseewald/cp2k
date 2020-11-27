@@ -113,7 +113,7 @@ CONTAINS
                                                             sizes_AO_split, sizes_MO, sizes_MO_1, &
                                                             sizes_RI, sizes_RI_split, tmp
       INTEGER, DIMENSION(2)                              :: pdims_2d
-      INTEGER, DIMENSION(2, 1)                           :: bounds
+      INTEGER, DIMENSION(1,2, 1)                           :: bounds
       INTEGER, DIMENSION(3)                              :: pdims
       INTEGER, DIMENSION(:), POINTER                     :: distp_1, distp_2, sizes_MO_blocked, &
                                                             sizes_MO_p1, sizes_MO_p2
@@ -243,8 +243,8 @@ CONTAINS
 
       CALL dbcsr_t_copy(mo_coeff_gw_t_tmp, mo_coeff_gw_t)
 
-      bounds(1, 1) = homo - gw_corr_lev_occ + 1
-      bounds(2, 1) = homo + gw_corr_lev_virt
+      bounds(1,1, 1) = homo - gw_corr_lev_occ + 1
+      bounds(1,2, 1) = homo + gw_corr_lev_virt
 
       CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_gw_t, t_3c_overl_int_ao_ao, dbcsr_scalar(0.0_dp), &
                             t_3c_overl_int_ao_mo, contract_1=[1], notcontract_1=[2], &
@@ -321,7 +321,7 @@ CONTAINS
          CALL dbcsr_get_diag(mat_norm, norm)
          CALL mp_sum(norm, para_env%group)
 
-         DO imo = bounds(1, 1), bounds(2, 1)
+         DO imo = bounds(1,1, 1), bounds(1,2, 1)
             norm(imo) = 1.0_dp/SQRT(norm(imo))
          ENDDO
 

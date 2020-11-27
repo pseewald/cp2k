@@ -548,8 +548,8 @@ CONTAINS
       INTEGER                                            :: handle, handle2, i_mem, j_mem, &
                                                             n_dependent, unit_nr, unit_nr_dbcsr
       INTEGER(int_8)                                     :: nflop
-      INTEGER, DIMENSION(2, 1)                           :: bounds_i
-      INTEGER, DIMENSION(2, 2)                           :: bounds_j
+      INTEGER, DIMENSION(1,2, 1)                           :: bounds_i
+      INTEGER, DIMENSION(1,2, 2)                           :: bounds_j
       INTEGER, DIMENSION(3)                              :: dims_3c
       REAL(KIND=dp)                                      :: threshold
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
@@ -631,13 +631,13 @@ CONTAINS
       CALL dbcsr_t_get_info(ri_data%t_3c_int_ctr_3(1, 1), nfull_total=dims_3c)
 
       DO i_mem = 1, ri_data%n_mem
-         bounds_i(:, 1) = [ri_data%starts_array_RI_mem(i_mem), ri_data%ends_array_RI_mem(i_mem)]
+         bounds_i(1,:, 1) = [ri_data%starts_array_RI_mem(i_mem), ri_data%ends_array_RI_mem(i_mem)]
          CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(1, 1))
          CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_ctr_3(1, 1))
          CALL dbcsr_t_batched_contract_init(t_3c_2)
          DO j_mem = 1, ri_data%n_mem
-            bounds_j(:, 1) = [ri_data%starts_array_mem(j_mem), ri_data%ends_array_mem(j_mem)]
-            bounds_j(:, 2) = [1, dims_3c(3)]
+            bounds_j(1,:, 1) = [ri_data%starts_array_mem(j_mem), ri_data%ends_array_mem(j_mem)]
+            bounds_j(1,:, 2) = [1, dims_3c(3)]
             CALL timeset(routineN//"_RIx3C", handle2)
             CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), ri_data%t_2c_int(1, 1), ri_data%t_3c_int_ctr_3(1, 1), &
                                   dbcsr_scalar(0.0_dp), t_3c_2, &
@@ -932,7 +932,7 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:) :: batch_ranges_1, batch_ranges_2, dist1, dist2, dist3, &
          mem_end, mem_end_block_1, mem_end_block_2, mem_size, mem_start, mem_start_block_1, &
          mem_start_block_2, mo_bsizes_1, mo_bsizes_2
-      INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
+      INTEGER, ALLOCATABLE, DIMENSION(:,:, :)              :: bounds
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(3)                              :: pdims
       LOGICAL                                            :: do_initialize
@@ -981,7 +981,7 @@ CONTAINS
 
       CALL get_qs_env(qs_env, para_env=para_env)
 
-      ALLOCATE (bounds(2, 1))
+      ALLOCATE (bounds(1,2, 1))
 
       CALL dbcsr_get_info(ks_matrix(1, 1)%matrix, distribution=ks_dist)
       CALL dbcsr_distribution_get(ks_dist, group=comm_2d, nprows=pdims_2d(1), npcols=pdims_2d(2))
@@ -1122,7 +1122,7 @@ CONTAINS
                ENDIF
             ENDIF
 
-            bounds(:, 1) = [mem_start(i_mem), mem_end(i_mem)]
+            bounds(1,:, 1) = [mem_start(i_mem), mem_end(i_mem)]
 
             CALL dbcsr_t_batched_contract_init(mo_coeff_t_split)
             CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_ctr_1(1, 1))
@@ -1282,8 +1282,8 @@ CONTAINS
                                                             nze_ks, nze_rho
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: batch_ranges_AO, batch_ranges_RI, dist1, &
                                                             dist2
-      INTEGER, DIMENSION(2, 1)                           :: bounds_i
-      INTEGER, DIMENSION(2, 2)                           :: bounds_ij, bounds_j
+      INTEGER, DIMENSION(1,2, 1)                           :: bounds_i
+      INTEGER, DIMENSION(1,2, 2)                           :: bounds_ij, bounds_j
       INTEGER, DIMENSION(2, 3)                           :: bounds_3c
       INTEGER, DIMENSION(3)                              :: dims_3c
       REAL(dp)                                           :: occ, occ_3c, occ_3c_1, occ_3c_2, occ_ks, &
@@ -1377,9 +1377,9 @@ CONTAINS
                CALL timeset(routineN//"_Px3C", handle2)
 
                CALL dbcsr_t_get_info(t_3c_1, nfull_total=dims_3c)
-               bounds_i(:, 1) = [ri_data%starts_array_mem(i_mem), ri_data%ends_array_mem(i_mem)]
-               bounds_j(:, 1) = [1, dims_3c(1)]
-               bounds_j(:, 2) = [ri_data%starts_array_RI_mem(j_mem), ri_data%ends_array_RI_mem(j_mem)]
+               bounds_i(1,:, 1) = [ri_data%starts_array_mem(i_mem), ri_data%ends_array_mem(i_mem)]
+               bounds_j(1,:, 1) = [1, dims_3c(1)]
+               bounds_j(1,:, 2) = [ri_data%starts_array_RI_mem(j_mem), ri_data%ends_array_RI_mem(j_mem)]
 
                CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), rho_ao_t, ri_data%t_3c_int_ctr_2(1, 1), &
                                      dbcsr_scalar(0.0_dp), t_3c_1, &
@@ -1407,8 +1407,8 @@ CONTAINS
                bounds_3c(:, 2) = [ri_data%starts_array_RI_mem(j_mem), ri_data%ends_array_RI_mem(j_mem)]
                bounds_3c(:, 3) = [1, dims_3c(3)]
 
-               bounds_ij(:, 1) = [ri_data%starts_array_mem(i_mem), ri_data%ends_array_mem(i_mem)]
-               bounds_ij(:, 2) = [ri_data%starts_array_RI_mem(j_mem), ri_data%ends_array_RI_mem(j_mem)]
+               bounds_ij(1,:, 1) = [ri_data%starts_array_mem(i_mem), ri_data%ends_array_mem(i_mem)]
+               bounds_ij(1,:, 2) = [ri_data%starts_array_RI_mem(j_mem), ri_data%ends_array_RI_mem(j_mem)]
 
                CALL decompress_tensor(tensor_old, ri_data%blk_indices(i_mem, j_mem)%ind, &
                                       ri_data%store_3c(i_mem, j_mem), ri_data%filter_eps_storage)

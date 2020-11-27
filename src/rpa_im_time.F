@@ -171,8 +171,8 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist_1, dist_2, mc_ranges, size_dm, &
                                                             size_P
       INTEGER, DIMENSION(2)                              :: pdims_2d
-      INTEGER, DIMENSION(2, 1)                           :: ibounds_2, jbounds_2
-      INTEGER, DIMENSION(2, 2)                           :: ibounds_1, jbounds_1
+      INTEGER, DIMENSION(1,2, 1)                           :: ibounds_2, jbounds_2
+      INTEGER, DIMENSION(1,2, 2)                           :: ibounds_1, jbounds_1
       INTEGER, DIMENSION(3)                              :: bounds_3c
       INTEGER, DIMENSION(:, :), POINTER                  :: index_to_cell_dm
       LOGICAL :: do_Gamma_RPA, do_kpoints_cubic_RPA, first_cycle_im_time, first_cycle_omega_loop, &
@@ -315,10 +315,10 @@ CONTAINS
 
                CALL dbcsr_t_get_info(t_3c_O_occ(1, 1), nfull_total=bounds_3c)
 
-               jbounds_1(:, 1) = [1, bounds_3c(1)]
-               jbounds_1(:, 2) = [starts_array_mc(j_mem), ends_array_mc(j_mem)]
+               jbounds_1(1,:, 1) = [1, bounds_3c(1)]
+               jbounds_1(1,:, 2) = [starts_array_mc(j_mem), ends_array_mc(j_mem)]
 
-               jbounds_2(:, 1) = [starts_array_mc(j_mem), ends_array_mc(j_mem)]
+               jbounds_2(1,:, 1) = [starts_array_mc(j_mem), ends_array_mc(j_mem)]
 
                IF (do_Gamma_RPA) CALL dbcsr_t_batched_contract_init(t_dm_virt(1))
 
@@ -326,10 +326,10 @@ CONTAINS
 
                   IF (.NOT. ANY(has_mat_P_blocks(i_cell_T, i_mem, j_mem, :, :))) CYCLE
 
-                  ibounds_1(:, 1) = [1, bounds_3c(1)]
-                  ibounds_1(:, 2) = [starts_array_mc(i_mem), ends_array_mc(i_mem)]
+                  ibounds_1(1,:, 1) = [1, bounds_3c(1)]
+                  ibounds_1(1,:, 2) = [starts_array_mc(i_mem), ends_array_mc(i_mem)]
 
-                  ibounds_2(:, 1) = [starts_array_mc(i_mem), ends_array_mc(i_mem)]
+                  ibounds_2(1,:, 1) = [starts_array_mc(i_mem), ends_array_mc(i_mem)]
 
                   IF (unit_nr_dbcsr > 0) WRITE (UNIT=unit_nr_dbcsr, FMT="(T3,A,I3,1X,I3)") &
                      "RPA_LOW_SCALING_INFO| Memory Cut iteration", i_mem, j_mem

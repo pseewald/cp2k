@@ -4965,15 +4965,15 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'contract_cubic_gw'
 
       INTEGER                                            :: handle
-      INTEGER, DIMENSION(2, 2)                           :: ctr_bounds_mo
+      INTEGER, DIMENSION(1,2, 2)                           :: ctr_bounds_mo
       INTEGER, DIMENSION(3)                              :: bounds_3c
 
       CALL timeset(routineN, handle)
 
       IF (calculate_ctr_RI) THEN
          CALL dbcsr_t_get_info(t_3c_overl_int_gw_RI, nfull_total=bounds_3c)
-         ctr_bounds_mo(:, 1) = [1, bounds_3c(2)]
-         ctr_bounds_mo(:, 2) = mo_bounds
+         ctr_bounds_mo(1,:, 1) = [1, bounds_3c(2)]
+         ctr_bounds_mo(1,:, 2) = mo_bounds
 
          CALL dbcsr_t_contract(dbcsr_scalar(prefac(1)), t_RI, t_3c_overl_int_gw_RI, dbcsr_scalar(0.0_dp), &
                                t_3c_ctr_RI, &
@@ -4986,8 +4986,8 @@ CONTAINS
       ENDIF
 
       CALL dbcsr_t_get_info(t_3c_overl_int_gw_AO, nfull_total=bounds_3c)
-      ctr_bounds_mo(:, 1) = [1, bounds_3c(2)]
-      ctr_bounds_mo(:, 2) = mo_bounds
+      ctr_bounds_mo(1,:, 1) = [1, bounds_3c(2)]
+      ctr_bounds_mo(1,:, 2) = mo_bounds
 
       CALL dbcsr_t_contract(dbcsr_scalar(prefac(2)), t_AO, t_3c_overl_int_gw_AO, dbcsr_scalar(0.0_dp), &
                             t_3c_ctr_AO, &
