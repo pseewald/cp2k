@@ -19,21 +19,21 @@
 ! **************************************************************************************************
 MODULE graph_methods
 
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE graph_utils,                     ONLY: derivative,&
-                                              get_val_res,&
-                                              mep_input_data_type,&
-                                              pbc,&
-                                              point_no_pbc,&
-                                              point_pbc
-   USE kinds,                           ONLY: dp
-   USE memory_utilities,                ONLY: reallocate
-   USE periodic_table,                  ONLY: init_periodic_table,&
-                                              nelem,&
-                                              ptable
-   USE physcon,                         ONLY: bohr
-   USE string_utilities,                ONLY: uppercase
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE graph_utils, ONLY: derivative, &
+                          get_val_res, &
+                          mep_input_data_type, &
+                          pbc, &
+                          point_no_pbc, &
+                          point_pbc
+   USE kinds, ONLY: dp
+   USE memory_utilities, ONLY: reallocate
+   USE periodic_table, ONLY: init_periodic_table, &
+                             nelem, &
+                             ptable
+   USE physcon, ONLY: bohr
+   USE string_utilities, ONLY: uppercase
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -427,7 +427,7 @@ CONTAINS
 
       ELSE
          pos = mep_input_data%minima
-      ENDIF
+      END IF
 
       ! Compute value and derivative in all replicas
       DO irep = 1, nreplica

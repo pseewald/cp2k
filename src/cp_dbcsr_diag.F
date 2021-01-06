@@ -16,28 +16,28 @@
 ! **************************************************************************************************
 MODULE cp_dbcsr_diag
 
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_cfm_diag,                     ONLY: cp_cfm_heevd
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_release,&
-                                              cp_cfm_type
-   USE cp_dbcsr_operations,             ONLY: copy_cfm_to_dbcsr,&
-                                              copy_dbcsr_to_cfm,&
-                                              copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver,&
-                                              cp_fm_power,&
-                                              cp_fm_syevx
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_info,&
-                                              dbcsr_type
-   USE kinds,                           ONLY: dp
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_cfm_diag, ONLY: cp_cfm_heevd
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_release, &
+                           cp_cfm_type
+   USE cp_dbcsr_operations, ONLY: copy_cfm_to_dbcsr, &
+                                  copy_dbcsr_to_cfm, &
+                                  copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr
+   USE cp_fm_diag, ONLY: choose_eigv_solver, &
+                         cp_fm_power, &
+                         cp_fm_syevx
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_get_info, &
+                        dbcsr_type
+   USE kinds, ONLY: dp
 #include "base/base_uses.f90"
 
    IMPLICIT NONE
@@ -162,7 +162,7 @@ CONTAINS
          CALL cp_fm_release(fm_eigenvectors)
       ELSE
          CALL cp_fm_syevx(fm_matrix, eigenvalues=eigenvalues, neig=neig, work_syevx=work_syevx)
-      ENDIF
+      END IF
 
       CALL cp_fm_struct_release(fm_struct)
       CALL cp_fm_release(fm_matrix)

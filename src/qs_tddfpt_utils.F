@@ -10,37 +10,37 @@
 !>      09-JUL-2002, TCH, development started
 ! **************************************************************************************************
 MODULE qs_tddfpt_utils
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              tddfpt_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              cp_dbcsr_sm_fm_multiply
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_scale,&
-                                              cp_fm_scale_and_add,&
-                                              cp_fm_trace
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose,&
-                                              cp_fm_cholesky_invert
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_submatrix,&
-                                              cp_fm_init_random,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_set_submatrix,&
-                                              cp_fm_to_fm
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE kinds,                           ONLY: dp
-   USE physcon,                         ONLY: evolt
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_mo_types,                     ONLY: get_mo_set
-   USE qs_p_env_methods,                ONLY: p_env_create,&
-                                              p_env_psi0_changed
-   USE qs_p_env_types,                  ONLY: p_env_release,&
-                                              qs_p_env_type
-   USE qs_tddfpt_types,                 ONLY: tddfpt_env_allocate,&
-                                              tddfpt_env_deallocate,&
-                                              tddfpt_env_type
+   USE cp_control_types, ONLY: dft_control_type, &
+                               tddfpt_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  cp_dbcsr_sm_fm_multiply
+   USE cp_fm_basic_linalg, ONLY: cp_fm_scale, &
+                                 cp_fm_scale_and_add, &
+                                 cp_fm_trace
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose, &
+                             cp_fm_cholesky_invert
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_submatrix, &
+                          cp_fm_init_random, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_set_submatrix, &
+                          cp_fm_to_fm
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE kinds, ONLY: dp
+   USE physcon, ONLY: evolt
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_mo_types, ONLY: get_mo_set
+   USE qs_p_env_methods, ONLY: p_env_create, &
+                               p_env_psi0_changed
+   USE qs_p_env_types, ONLY: p_env_release, &
+                             qs_p_env_type
+   USE qs_tddfpt_types, ONLY: tddfpt_env_allocate, &
+                              tddfpt_env_deallocate, &
+                              tddfpt_env_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -351,7 +351,7 @@ CONTAINS
       ! punch a checksum for the regs
       IF (output_unit > 0) THEN
          WRITE (output_unit, '(T2,A,E14.6)') ' TDDFPT : CheckSum  =', SQRT(SUM(t_env%evals**2))
-      ENDIF
+      END IF
 
       DO spin = 1, n_spins
          CALL cp_fm_release(S_lumos(spin)%matrix)

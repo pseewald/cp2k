@@ -14,30 +14,30 @@
 ! **************************************************************************************************
 
 MODULE fist_pol_scf
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_environment_type
-   USE ewald_pw_types,                  ONLY: ewald_pw_type
-   USE ewalds_multipole,                ONLY: ewald_multipole_evaluate
-   USE fist_energy_types,               ONLY: fist_energy_type
-   USE fist_nonbond_env_types,          ONLY: fist_nonbond_env_type
-   USE input_constants,                 ONLY: do_fist_pol_cg,&
-                                              do_fist_pol_sc
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE multipole_types,                 ONLY: multipole_type
-   USE particle_types,                  ONLY: particle_type
-   USE pw_poisson_types,                ONLY: do_ewald_ewald,&
-                                              do_ewald_pme,&
-                                              do_ewald_spme
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_environment_type
+   USE ewald_pw_types, ONLY: ewald_pw_type
+   USE ewalds_multipole, ONLY: ewald_multipole_evaluate
+   USE fist_energy_types, ONLY: fist_energy_type
+   USE fist_nonbond_env_types, ONLY: fist_nonbond_env_type
+   USE input_constants, ONLY: do_fist_pol_cg, &
+                              do_fist_pol_sc
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE multipole_types, ONLY: multipole_type
+   USE particle_types, ONLY: particle_type
+   USE pw_poisson_types, ONLY: do_ewald_ewald, &
+                               do_ewald_pme, &
+                               do_ewald_spme
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -609,7 +609,7 @@ CONTAINS
                              atomic_kind_set=atomic_kind_set, mm_section=mm_section, &
                              forces_local=fg_coulomb, forces_glob=f_nonbond, &
                              pv_local=pv_g, pv_glob=pv_nonbond)
-      ENDIF
+      END IF
       pot_nonbond = pot_nonbond + pot_nonbond_local
       CALL mp_sum(pot_nonbond_local, logger%para_env%group)
 

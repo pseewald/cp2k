@@ -20,40 +20,40 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE pw_poisson_types
-   USE bessel_lib,                      ONLY: bessk0,&
-                                              bessk1
-   USE dielectric_types,                ONLY: dielectric_parameters
-   USE dirichlet_bc_types,              ONLY: dirichlet_bc_parameters
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fourpi,&
-                                              twopi
-   USE mt_util,                         ONLY: MT0D,&
-                                              MT1D,&
-                                              MT2D,&
-                                              MTin_create_screen_fn
-   USE ps_implicit_types,               ONLY: MIXED_BC,&
-                                              NEUMANN_BC,&
-                                              ps_implicit_parameters,&
-                                              ps_implicit_release,&
-                                              ps_implicit_type
-   USE ps_wavelet_types,                ONLY: ps_wavelet_release,&
-                                              ps_wavelet_type
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_grids,                        ONLY: pw_grid_release
-   USE pw_pool_types,                   ONLY: pw_pool_create,&
-                                              pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_release,&
-                                              pw_pool_type,&
-                                              pw_pools_dealloc
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA1D,&
-                                              RECIPROCALSPACE,&
-                                              pw_release,&
-                                              pw_type
-   USE realspace_grid_types,            ONLY: realspace_grid_type,&
-                                              rs_grid_release
+   USE bessel_lib, ONLY: bessk0, &
+                         bessk1
+   USE dielectric_types, ONLY: dielectric_parameters
+   USE dirichlet_bc_types, ONLY: dirichlet_bc_parameters
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fourpi, &
+                            twopi
+   USE mt_util, ONLY: MT0D, &
+                      MT1D, &
+                      MT2D, &
+                      MTin_create_screen_fn
+   USE ps_implicit_types, ONLY: MIXED_BC, &
+                                NEUMANN_BC, &
+                                ps_implicit_parameters, &
+                                ps_implicit_release, &
+                                ps_implicit_type
+   USE ps_wavelet_types, ONLY: ps_wavelet_release, &
+                               ps_wavelet_type
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_grids, ONLY: pw_grid_release
+   USE pw_pool_types, ONLY: pw_pool_create, &
+                            pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_release, &
+                            pw_pool_type, &
+                            pw_pools_dealloc
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA1D, &
+                       RECIPROCALSPACE, &
+                       pw_release, &
+                       pw_type
+   USE realspace_grid_types, ONLY: realspace_grid_type, &
+                                   rs_grid_release
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -384,7 +384,7 @@ CONTAINS
             ELSE
                k0g = 0
                k1g = 0
-            ENDIF
+            END IF
             gf%cc(ig) = g3d*(1.0_dp + rlength* &
                              (gxy*j1g*k0g - gz*j0g*k1g))
          END DO
@@ -407,7 +407,7 @@ CONTAINS
          DO ig = grid%first_gne0, grid%ngpts_cut_local
             g2 = grid%gsq(ig)
             g3d = fourpi/g2
-            gf%cc(ig) = g3d+green%screen_fn%cc(ig)
+            gf%cc(ig) = g3d + green%screen_fn%cc(ig)
          END DO
          IF (grid%have_g0) &
             gf%cc(1) = green%screen_fn%cc(1)
@@ -685,12 +685,12 @@ CONTAINS
    SUBROUTINE spme_coeff_calculate(n, coeff)
 
       INTEGER, INTENT(IN)                                :: n
-      REAL(KIND=dp), DIMENSION(-(n-1):n-1, 0:n-1), &
+      REAL(KIND=dp), DIMENSION(-(n - 1):n - 1, 0:n - 1), &
          INTENT(OUT)                                     :: coeff
 
       INTEGER                                            :: i, j, l, m
       REAL(KIND=dp)                                      :: b
-      REAL(KIND=dp), DIMENSION(n, -n:n, 0:n-1)           :: a
+      REAL(KIND=dp), DIMENSION(n, -n:n, 0:n - 1)           :: a
 
       a = 0.0_dp
       a(1, 0, 0) = 1.0_dp

@@ -12,7 +12,7 @@
 ! **************************************************************************************************
 MODULE cp_parser_buffer_types
 
-   USE kinds,                           ONLY: max_line_length
+   USE kinds, ONLY: max_line_length
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

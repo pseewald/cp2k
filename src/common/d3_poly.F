@@ -22,7 +22,7 @@
 ! **************************************************************************************************
 MODULE d3_poly
 
-   USE kinds,                           ONLY: dp
+   USE kinds, ONLY: dp
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
 
@@ -428,7 +428,7 @@ CONTAINS
       LOGICAL, INTENT(in), OPTIONAL                      :: sumUp
 
       INTEGER :: g1, g1g2, g2, grad1, grad2, i, ipoly, iShift, j, msize_p1, myNp1, newGrad, &
-         newSize, shift1, shift2, shiftRes, shiftRes_0, size_p1, size_p2, subG2
+                 newSize, shift1, shift2, shiftRes, shiftRes_0, size_p1, size_p2, subG2
       LOGICAL                                            :: mySumUp
 
       IF (.NOT. module_initialized) CPABORT("module d3_poly not initialized")
@@ -551,8 +551,8 @@ CONTAINS
       LOGICAL, INTENT(in)                                :: sumUp
 
       INTEGER :: g1, g2, i, i1, i2, ipoly, iShift, j, j1, j2, msize_p1, my_size_p1, newSize, &
-         shift1, shift1I, shift1J, shift2, shift2I, shift2J, shiftRes, shiftRes_0, shiftResI, &
-         shiftResI_0, shiftResJ, subG2, subGrad
+                 shift1, shift1I, shift1J, shift2, shift2I, shift2J, shiftRes, shiftRes_0, shiftResI, &
+                 shiftResI_0, shiftResJ, subG2, subGrad
 
       IF (.NOT. module_initialized) CPABORT("module d3_poly not initialized")
       my_size_p1 = size_p1/np1
@@ -654,8 +654,8 @@ CONTAINS
       INTEGER, PARAMETER                                 :: grad2 = 1
 
       INTEGER :: g1, g2, i, i1, i2, ipoly, iShift, j1, j2, msize_p1, my_size_p1, newSize, shift1, &
-         shift1I, shift1J, shift2, shift2I, shift2J, shiftRes, shiftRes_0, shiftResI, shiftResI_0, &
-         shiftResJ, subG2, subGrad
+                 shift1I, shift1J, shift2, shift2I, shift2J, shiftRes, shiftRes_0, shiftResI, shiftResI_0, &
+                 shiftResJ, subG2, subGrad
 
       IF (.NOT. module_initialized) CPABORT("module d3_poly not initialized")
       my_size_p1 = size_p1/np1
@@ -859,8 +859,8 @@ CONTAINS
       INTEGER, INTENT(in), OPTIONAL                      :: npoly
 
       INTEGER :: grad, i, igrad, ii, ii1, ipoly, j, k, minResSize, monoDim1, monoDim2, monoDimAtt, &
-         monoDimAtt2, monoFullDim1, monoFullDim2, monoSize1, monoSize2, my_npoly, pcoeff, pIdx, &
-         pShift, rescoeff, resShift, rest_size_p, size_p, size_res, start_idx1
+                 monoDimAtt2, monoFullDim1, monoFullDim2, monoSize1, monoSize2, my_npoly, pcoeff, pIdx, &
+                 pShift, rescoeff, resShift, rest_size_p, size_p, size_res, start_idx1
       REAL(dp), ALLOCATABLE, DIMENSION(:)                :: monoG1, monoG2
       REAL(dp), DIMENSION(4, 3)                          :: basepoly
 
@@ -1019,8 +1019,8 @@ CONTAINS
       INTEGER, INTENT(in), OPTIONAL                      :: npoly
 
       INTEGER :: grad, i, igrad, ii, ii1, ipoly, j, k, minResSize, monoDim1, monoDim2, monoDimAtt, &
-         monoDimAtt2, monoFullDim1, monoFullDim2, monoSize1, monoSize2, my_npoly, pcoeff, pIdx, &
-         pShift, rescoeff, resShift, rest_size_p, size_p, size_res, start_idx1
+                 monoDimAtt2, monoFullDim1, monoFullDim2, monoSize1, monoSize2, my_npoly, pcoeff, pIdx, &
+                 pShift, rescoeff, resShift, rest_size_p, size_p, size_res, start_idx1
       REAL(dp), ALLOCATABLE, DIMENSION(:)                :: monoG1, monoG2
       REAL(dp), DIMENSION(4, 3)                          :: basepoly
 
@@ -1212,7 +1212,7 @@ CONTAINS
       REAL(dp), DIMENSION(IF_CHECK(size_pRes, *)), &
          INTENT(inout)                                   :: pRes
       INTEGER, INTENT(in)                                :: npoly, grad
-      REAL(dp), DIMENSION(IF_CHECK(grad+1, *)), &
+      REAL(dp), DIMENSION(IF_CHECK(grad + 1, *)), &
          INTENT(inout)                                   :: xi
 
       INTEGER                                            :: i, igrad, ii, ii0, inSize, ipoly, j, &
@@ -1317,7 +1317,7 @@ CONTAINS
       REAL(dp), DIMENSION(IF_CHECK(size_pRes, *)), &
          INTENT(in)                                      :: pRes
       INTEGER, INTENT(in)                                :: npoly, grad
-      REAL(dp), DIMENSION(IF_CHECK(grad+1, *)), &
+      REAL(dp), DIMENSION(IF_CHECK(grad + 1, *)), &
          INTENT(inout)                                   :: xi
 
       INTEGER                                            :: i, igrad, ii, ii0, inSize, ipoly, j, &
@@ -1420,7 +1420,7 @@ CONTAINS
          INTENT(inout)                                   :: pRes
       INTEGER, INTENT(in)                                :: npoly
       INTEGER                                            :: grad
-      REAL(dp), DIMENSION(IF_CHECK(grad+1, *))           :: xi
+      REAL(dp), DIMENSION(IF_CHECK(grad + 1, *))           :: xi
 
       INTEGER                                            :: i, igrad, ii, ii0, ij, inSize, ipoly, &
                                                             msize_p, newSize, pShift, shiftRes
@@ -1519,7 +1519,7 @@ CONTAINS
          INTENT(in)                                      :: pRes
       INTEGER, INTENT(in)                                :: npoly
       INTEGER                                            :: grad
-      REAL(dp), DIMENSION(IF_CHECK(grad+1, *))           :: xi
+      REAL(dp), DIMENSION(IF_CHECK(grad + 1, *))           :: xi
 
       INTEGER                                            :: i, igrad, ii, ii0, ij, inSize, ipoly, &
                                                             msize_p, newSize, pShift, shiftRes, &
@@ -1755,7 +1755,7 @@ CONTAINS
       LOGICAL, INTENT(in), OPTIONAL                      :: sumUp
 
       INTEGER :: grad, i, igrad, ii, ii2, ipoly, j, k, msize_p, my_npoly, newSize, pShift, size_p, &
-         xDerivShift, yDerivShift, yShift, zDerivShift, zShift
+                 xDerivShift, yDerivShift, yShift, zDerivShift, zShift
       LOGICAL                                            :: my_sumUp
 
       IF (.NOT. module_initialized) CPABORT("module d3_poly not initialized")

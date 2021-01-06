@@ -6,32 +6,32 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE qs_tddfpt2_restart
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type,&
-                                              get_blacs_info
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale
-   USE cp_fm_pool_types,                ONLY: cp_fm_pool_p_type,&
-                                              fm_pool_create_fm
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_read_unformatted,&
-                                              cp_fm_write_unformatted
-   USE cp_log_handling,                 ONLY: cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_generate_filename,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE message_passing,                 ONLY: mp_bcast
-   USE qs_tddfpt2_types,                ONLY: tddfpt_ground_state_mos
-   USE string_utilities,                ONLY: integer_to_string
+   USE cp_blacs_env, ONLY: cp_blacs_env_type, &
+                           get_blacs_info
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale
+   USE cp_fm_pool_types, ONLY: cp_fm_pool_p_type, &
+                               fm_pool_create_fm
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_read_unformatted, &
+                          cp_fm_write_unformatted
+   USE cp_log_handling, ONLY: cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_generate_filename, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE message_passing, ONLY: mp_bcast
+   USE qs_tddfpt2_types, ONLY: tddfpt_ground_state_mos
+   USE string_utilities, ONLY: integer_to_string
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

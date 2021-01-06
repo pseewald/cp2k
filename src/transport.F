@@ -17,77 +17,77 @@
 !> \author Mohammad Hossein Bani-Hashemian
 ! **************************************************************************************************
 MODULE transport
-   USE ISO_C_BINDING,                   ONLY: C_ASSOCIATED,&
-                                              C_BOOL,&
-                                              C_DOUBLE,&
-                                              C_F_PROCPOINTER,&
-                                              C_INT,&
-                                              C_LOC,&
-                                              C_NULL_PTR,&
-                                              C_PTR
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE bibliography,                    ONLY: Bruck2014,&
-                                              cite_reference
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_to_csr_screening
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_convert_csr_to_dbcsr, dbcsr_convert_dbcsr_to_csr, dbcsr_copy, &
-        dbcsr_copy_into_existing, dbcsr_create, dbcsr_csr_create, dbcsr_csr_create_from_dbcsr, &
-        dbcsr_csr_dbcsr_blkrow_dist, dbcsr_csr_print_sparsity, dbcsr_csr_type, &
-        dbcsr_deallocate_matrix, dbcsr_desymmetrize, dbcsr_has_symmetry, dbcsr_set, dbcsr_type, &
-        dbcsr_type_no_symmetry, dbcsr_type_real_8
-   USE input_section_types,             ONLY: section_get_ivals,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_allgather,&
-                                              mp_environ
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: boltzmann,&
-                                              e_charge,&
-                                              evolt,&
-                                              h_bar
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_linres_current,               ONLY: calculate_jrho_resp
-   USE qs_linres_types,                 ONLY: current_env_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
-   USE transport_env_types,             ONLY: cp2k_csr_interop_type,&
-                                              cp2k_transport_parameters,&
-                                              csr_interop_matrix_get_info,&
-                                              csr_interop_nullify,&
-                                              transport_env_type
+   USE ISO_C_BINDING, ONLY: C_ASSOCIATED, &
+                            C_BOOL, &
+                            C_DOUBLE, &
+                            C_F_PROCPOINTER, &
+                            C_INT, &
+                            C_LOC, &
+                            C_NULL_PTR, &
+                            C_PTR
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE bibliography, ONLY: Bruck2014, &
+                           cite_reference
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_to_csr_screening
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_realspace_grid_cube, ONLY: cp_pw_to_cube
+   USE dbcsr_api, ONLY: &
+      dbcsr_convert_csr_to_dbcsr, dbcsr_convert_dbcsr_to_csr, dbcsr_copy, &
+      dbcsr_copy_into_existing, dbcsr_create, dbcsr_csr_create, dbcsr_csr_create_from_dbcsr, &
+      dbcsr_csr_dbcsr_blkrow_dist, dbcsr_csr_print_sparsity, dbcsr_csr_type, &
+      dbcsr_deallocate_matrix, dbcsr_desymmetrize, dbcsr_has_symmetry, dbcsr_set, dbcsr_type, &
+      dbcsr_type_no_symmetry, dbcsr_type_real_8
+   USE input_section_types, ONLY: section_get_ivals, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_allgather, &
+                              mp_environ
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: boltzmann, &
+                      e_charge, &
+                      evolt, &
+                      h_bar
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_linres_current, ONLY: calculate_jrho_resp
+   USE qs_linres_types, ONLY: current_env_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
+   USE transport_env_types, ONLY: cp2k_csr_interop_type, &
+                                  cp2k_transport_parameters, &
+                                  csr_interop_matrix_get_info, &
+                                  csr_interop_nullify, &
+                                  transport_env_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -313,7 +313,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       mp_group = logger%para_env%group
       CALL mp_environ(numnodes, mynode, mp_group)
@@ -513,7 +513,7 @@ CONTAINS
       csr_interop_mat%nze_local = csr_mat%nze_local
       IF (csr_mat%nze_total > HUGE(csr_interop_mat%nze_total)) THEN
          CPABORT("overflow in nze")
-      ENDIF
+      END IF
       csr_interop_mat%nze_total = INT(csr_mat%nze_total, KIND=KIND(csr_interop_mat%nze_total))
       csr_interop_mat%nrows_local = csr_mat%nrows_local
       csr_interop_mat%data_type = csr_mat%nzval_local%data_type
@@ -527,10 +527,10 @@ CONTAINS
 !> \param[out] cumsum cumulative sum of the input array
 ! **************************************************************************************************
       SUBROUTINE cumsum_i(arr, cumsum)
-      INTEGER, DIMENSION(:), INTENT(IN)                  :: arr
-      INTEGER, DIMENSION(SIZE(arr)), INTENT(OUT)         :: cumsum
+         INTEGER, DIMENSION(:), INTENT(IN)                  :: arr
+         INTEGER, DIMENSION(SIZE(arr)), INTENT(OUT)         :: cumsum
 
-      INTEGER                                            :: i
+         INTEGER                                            :: i
 
          cumsum(1) = arr(1)
          DO i = 2, SIZE(arr)

@@ -10,43 +10,43 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE qmmm_tb_coulomb
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE atprop_types,                    ONLY: atprop_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_get_block_p,&
-                                              dbcsr_iterator_blocks_left,&
-                                              dbcsr_iterator_next_block,&
-                                              dbcsr_iterator_start,&
-                                              dbcsr_iterator_stop,&
-                                              dbcsr_iterator_type,&
-                                              dbcsr_p_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_environment_type
-   USE ewald_methods_tb,                ONLY: tb_spme_evaluate
-   USE ewald_pw_types,                  ONLY: ewald_pw_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: oorootpi,&
-                                              pi
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE pw_poisson_types,                ONLY: do_ewald_ewald,&
-                                              do_ewald_none,&
-                                              do_ewald_pme,&
-                                              do_ewald_spme
-   USE qmmm_types_low,                  ONLY: qmmm_env_qm_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE atprop_types, ONLY: atprop_type
+   USE cell_types, ONLY: cell_type, &
+                         get_cell
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_get_block_p, &
+                        dbcsr_iterator_blocks_left, &
+                        dbcsr_iterator_next_block, &
+                        dbcsr_iterator_start, &
+                        dbcsr_iterator_stop, &
+                        dbcsr_iterator_type, &
+                        dbcsr_p_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_environment_type
+   USE ewald_methods_tb, ONLY: tb_spme_evaluate
+   USE ewald_pw_types, ONLY: ewald_pw_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: oorootpi, &
+                            pi
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE pw_poisson_types, ONLY: do_ewald_ewald, &
+                               do_ewald_none, &
+                               do_ewald_pme, &
+                               do_ewald_spme
+   USE qmmm_types_low, ONLY: qmmm_env_qm_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

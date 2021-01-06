@@ -6,31 +6,31 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE qs_tddfpt2_fhxc
-   USE cp_control_types,                ONLY: stda_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr,&
-                                              cp_dbcsr_sm_fm_multiply
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_p_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE dbcsr_api,                       ONLY: dbcsr_p_type,&
-                                              dbcsr_set
-   USE kinds,                           ONLY: dp
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_scale,&
-                                              pw_zero
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_environment_types,            ONLY: qs_environment_type
-   USE qs_integrate_potential,          ONLY: integrate_v_rspace
-   USE qs_rho_methods,                  ONLY: qs_rho_update_rho
-   USE qs_rho_types,                    ONLY: qs_rho_get
-   USE qs_tddfpt2_densities,            ONLY: tddfpt_construct_aux_fit_density
-   USE qs_tddfpt2_operators,            ONLY: tddfpt_apply_coulomb,&
-                                              tddfpt_apply_xc
-   USE qs_tddfpt2_stda_types,           ONLY: stda_env_type
-   USE qs_tddfpt2_stda_utils,           ONLY: stda_calculate_kernel
-   USE qs_tddfpt2_subgroups,            ONLY: tddfpt_subgroup_env_type
-   USE qs_tddfpt2_types,                ONLY: full_kernel_env_type,&
-                                              tddfpt_work_matrices
+   USE cp_control_types, ONLY: stda_control_type
+   USE cp_dbcsr_operations, ONLY: copy_fm_to_dbcsr, &
+                                  cp_dbcsr_sm_fm_multiply
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_p_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE dbcsr_api, ONLY: dbcsr_p_type, &
+                        dbcsr_set
+   USE kinds, ONLY: dp
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_scale, &
+                         pw_zero
+   USE pw_types, ONLY: pw_p_type
+   USE qs_environment_types, ONLY: qs_environment_type
+   USE qs_integrate_potential, ONLY: integrate_v_rspace
+   USE qs_rho_methods, ONLY: qs_rho_update_rho
+   USE qs_rho_types, ONLY: qs_rho_get
+   USE qs_tddfpt2_densities, ONLY: tddfpt_construct_aux_fit_density
+   USE qs_tddfpt2_operators, ONLY: tddfpt_apply_coulomb, &
+                                   tddfpt_apply_xc
+   USE qs_tddfpt2_stda_types, ONLY: stda_env_type
+   USE qs_tddfpt2_stda_utils, ONLY: stda_calculate_kernel
+   USE qs_tddfpt2_subgroups, ONLY: tddfpt_subgroup_env_type
+   USE qs_tddfpt2_types, ONLY: full_kernel_env_type, &
+                               tddfpt_work_matrices
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

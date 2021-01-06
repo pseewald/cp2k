@@ -13,62 +13,62 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE qs_ks_types
-   USE admm_dm_types,                   ONLY: admm_dm_release,&
-                                              admm_dm_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE atprop_types,                    ONLY: atprop_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_release,&
-                                              cp_blacs_env_retain,&
-                                              cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_release,&
-                                              dft_control_retain,&
-                                              dft_control_type
-   USE cp_dbcsr_operations,             ONLY: dbcsr_deallocate_matrix_set
-   USE cp_para_env,                     ONLY: cp_para_env_release,&
-                                              cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_result_types,                 ONLY: cp_result_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_type
-   USE dbcsr_api,                       ONLY: dbcsr_distribution_release,&
-                                              dbcsr_distribution_type,&
-                                              dbcsr_p_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE distribution_2d_types,           ONLY: distribution_2d_release,&
-                                              distribution_2d_retain,&
-                                              distribution_2d_type
-   USE kpoint_transitional,             ONLY: get_1d_pointer,&
-                                              get_2d_pointer,&
-                                              kpoint_transitional_release,&
-                                              kpoint_transitional_type,&
-                                              set_1d_pointer,&
-                                              set_2d_pointer
-   USE kpoint_types,                    ONLY: kpoint_release,&
-                                              kpoint_type
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_release,&
-                                              pw_env_retain,&
-                                              pw_env_type
-   USE pw_types,                        ONLY: pw_p_type,&
-                                              pw_release,&
-                                              pw_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type,&
-                                              release_neighbor_list_sets
-   USE qs_rho_types,                    ONLY: qs_rho_create,&
-                                              qs_rho_release,&
-                                              qs_rho_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_release,&
-                                              qs_subsys_retain,&
-                                              qs_subsys_type
-   USE task_list_types,                 ONLY: deallocate_task_list,&
-                                              task_list_type
-   USE virial_types,                    ONLY: virial_type
+   USE admm_dm_types, ONLY: admm_dm_release, &
+                            admm_dm_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE atprop_types, ONLY: atprop_type
+   USE cell_types, ONLY: cell_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_release, &
+                           cp_blacs_env_retain, &
+                           cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_release, &
+                               dft_control_retain, &
+                               dft_control_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_deallocate_matrix_set
+   USE cp_para_env, ONLY: cp_para_env_release, &
+                          cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_result_types, ONLY: cp_result_type
+   USE cp_subsys_types, ONLY: cp_subsys_type
+   USE dbcsr_api, ONLY: dbcsr_distribution_release, &
+                        dbcsr_distribution_type, &
+                        dbcsr_p_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE distribution_2d_types, ONLY: distribution_2d_release, &
+                                    distribution_2d_retain, &
+                                    distribution_2d_type
+   USE kpoint_transitional, ONLY: get_1d_pointer, &
+                                  get_2d_pointer, &
+                                  kpoint_transitional_release, &
+                                  kpoint_transitional_type, &
+                                  set_1d_pointer, &
+                                  set_2d_pointer
+   USE kpoint_types, ONLY: kpoint_release, &
+                           kpoint_type
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: molecule_type
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_release, &
+                           pw_env_retain, &
+                           pw_env_type
+   USE pw_types, ONLY: pw_p_type, &
+                       pw_release, &
+                       pw_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type, &
+                                     release_neighbor_list_sets
+   USE qs_rho_types, ONLY: qs_rho_create, &
+                           qs_rho_release, &
+                           qs_rho_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_release, &
+                              qs_subsys_retain, &
+                              qs_subsys_type
+   USE task_list_types, ONLY: deallocate_task_list, &
+                              task_list_type
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -374,9 +374,9 @@ CONTAINS
       LOGICAL, OPTIONAL                                  :: s_mstruct_changed, rho_changed, &
                                                             potential_changed, forces_up_to_date
       TYPE(dbcsr_p_type), DIMENSION(:), OPTIONAL, POINTER :: matrix_h, matrix_ks, matrix_ks_im, &
-         matrix_vxc, matrix_ks_aux_fit, matrix_ks_aux_fit_im, matrix_ks_aux_fit_dft, &
-         matrix_ks_aux_fit_hfx, kinetic, matrix_s, matrix_s_aux_fit, matrix_s_aux_fit_vs_orb, &
-         matrix_s_RI_aux, matrix_w, matrix_w_mp2, matrix_p_mp2
+                                                       matrix_vxc, matrix_ks_aux_fit, matrix_ks_aux_fit_im, matrix_ks_aux_fit_dft, &
+                                              matrix_ks_aux_fit_hfx, kinetic, matrix_s, matrix_s_aux_fit, matrix_s_aux_fit_vs_orb, &
+                                                             matrix_s_RI_aux, matrix_w, matrix_w_mp2, matrix_p_mp2
       TYPE(dbcsr_p_type), DIMENSION(:, :), OPTIONAL, &
          POINTER                                         :: matrix_h_kp, matrix_ks_kp, &
                                                             matrix_vxc_kp, kinetic_kp, &
@@ -387,9 +387,9 @@ CONTAINS
       TYPE(pw_p_type), OPTIONAL, POINTER                 :: vppl, rho_core, rho_nlcc, rho_nlcc_g, vee
       INTEGER, OPTIONAL                                  :: neighbor_list_id
       TYPE(neighbor_list_set_p_type), DIMENSION(:), OPTIONAL, POINTER :: sab_orb, sab_aux_fit, &
-         sab_aux_fit_asymm, sab_aux_fit_vs_orb, sab_all, sac_ae, sac_ppl, sac_lri, sap_ppnl, &
-         sap_oce, sab_lrc, sab_se, sab_tbe, sab_core, sab_xb, sab_xtb_nonbond, sab_vdw, sab_scp, &
-         sab_almo, sab_kp
+                                               sab_aux_fit_asymm, sab_aux_fit_vs_orb, sab_all, sac_ae, sac_ppl, sac_lri, sap_ppnl, &
+                                           sap_oce, sab_lrc, sab_se, sab_tbe, sab_core, sab_xb, sab_xtb_nonbond, sab_vdw, sab_scp, &
+                                                                         sab_almo, sab_kp
       TYPE(task_list_type), OPTIONAL, POINTER            :: task_list, task_list_aux_fit, &
                                                             task_list_soft
       TYPE(kpoint_type), OPTIONAL, POINTER               :: kpoints
@@ -628,9 +628,9 @@ CONTAINS
       LOGICAL, OPTIONAL                                  :: s_mstruct_changed, rho_changed, &
                                                             potential_changed, forces_up_to_date
       TYPE(dbcsr_p_type), DIMENSION(:), OPTIONAL, POINTER :: matrix_h, matrix_ks, matrix_ks_im, &
-         matrix_vxc, matrix_ks_aux_fit, matrix_ks_aux_fit_im, matrix_ks_aux_fit_dft, &
-         matrix_ks_aux_fit_hfx, kinetic, matrix_s, matrix_s_aux_fit, matrix_s_aux_fit_vs_orb, &
-         matrix_s_RI_aux, matrix_w, matrix_w_mp2, matrix_p_mp2
+                                                       matrix_vxc, matrix_ks_aux_fit, matrix_ks_aux_fit_im, matrix_ks_aux_fit_dft, &
+                                              matrix_ks_aux_fit_hfx, kinetic, matrix_s, matrix_s_aux_fit, matrix_s_aux_fit_vs_orb, &
+                                                             matrix_s_RI_aux, matrix_w, matrix_w_mp2, matrix_p_mp2
       TYPE(dbcsr_p_type), DIMENSION(:, :), OPTIONAL, &
          POINTER                                         :: matrix_h_kp, matrix_ks_kp, &
                                                             matrix_vxc_kp, kinetic_kp, &
@@ -640,9 +640,9 @@ CONTAINS
       INTEGER, OPTIONAL                                  :: neighbor_list_id
       TYPE(kpoint_type), OPTIONAL, POINTER               :: kpoints
       TYPE(neighbor_list_set_p_type), DIMENSION(:), OPTIONAL, POINTER :: sab_orb, sab_aux_fit, &
-         sab_aux_fit_asymm, sab_aux_fit_vs_orb, sab_all, sac_ae, sac_ppl, sac_lri, sap_ppnl, &
-         sap_oce, sab_lrc, sab_se, sab_tbe, sab_core, sab_xb, sab_xtb_nonbond, sab_vdw, sab_scp, &
-         sab_almo, sab_kp
+                                               sab_aux_fit_asymm, sab_aux_fit_vs_orb, sab_all, sac_ae, sac_ppl, sac_lri, sap_ppnl, &
+                                           sap_oce, sab_lrc, sab_se, sab_tbe, sab_core, sab_xb, sab_xtb_nonbond, sab_vdw, sab_scp, &
+                                                                         sab_almo, sab_kp
       TYPE(task_list_type), OPTIONAL, POINTER            :: task_list, task_list_aux_fit, &
                                                             task_list_soft
       TYPE(qs_subsys_type), OPTIONAL, POINTER            :: subsys
@@ -743,14 +743,14 @@ CONTAINS
          IF (ASSOCIATED(ks_env%dbcsr_dist)) THEN
             CALL dbcsr_distribution_release(ks_env%dbcsr_dist)
             DEALLOCATE (ks_env%dbcsr_dist)
-         ENDIF
+         END IF
          ks_env%dbcsr_dist => dbcsr_dist
-      ENDIF
+      END IF
       IF (PRESENT(distribution_2d)) THEN
          CALL distribution_2d_retain(distribution_2d)
          CALL distribution_2d_release(ks_env%distribution_2d)
          ks_env%distribution_2d => distribution_2d
-      ENDIF
+      END IF
       IF (PRESENT(pw_env)) THEN
          CALL pw_env_retain(pw_env)
          CALL pw_env_release(ks_env%pw_env)
@@ -760,12 +760,12 @@ CONTAINS
          CALL cp_para_env_retain(para_env)
          CALL cp_para_env_release(ks_env%para_env)
          ks_env%para_env => para_env
-      ENDIF
+      END IF
       IF (PRESENT(blacs_env)) THEN
          CALL cp_blacs_env_retain(blacs_env)
          CALL cp_blacs_env_release(ks_env%blacs_env)
          ks_env%blacs_env => blacs_env
-      ENDIF
+      END IF
    END SUBROUTINE set_ks_env
 
 ! **************************************************************************************************
@@ -834,27 +834,27 @@ CONTAINS
             IF (ASSOCIATED(ks_env%rho_nlcc_g)) THEN
                CALL pw_release(ks_env%rho_nlcc_g%pw)
                DEALLOCATE (ks_env%rho_nlcc_g)
-            ENDIF
+            END IF
             IF (ASSOCIATED(ks_env%rho_nlcc)) THEN
                CALL pw_release(ks_env%rho_nlcc%pw)
                DEALLOCATE (ks_env%rho_nlcc)
-            ENDIF
+            END IF
             IF (ASSOCIATED(ks_env%rho_core)) THEN
                CALL pw_release(ks_env%rho_core%pw)
                DEALLOCATE (ks_env%rho_core)
-            ENDIF
+            END IF
             IF (ASSOCIATED(ks_env%vppl)) THEN
                CALL pw_release(ks_env%vppl%pw)
                DEALLOCATE (ks_env%vppl)
-            ENDIF
+            END IF
             IF (ASSOCIATED(ks_env%vee)) THEN
                CALL pw_release(ks_env%vee%pw)
                DEALLOCATE (ks_env%vee)
-            ENDIF
+            END IF
             IF (ASSOCIATED(ks_env%dbcsr_dist)) THEN
                CALL dbcsr_distribution_release(ks_env%dbcsr_dist)
                DEALLOCATE (ks_env%dbcsr_dist)
-            ENDIF
+            END IF
 
             CALL release_neighbor_list_sets(ks_env%sab_orb)
             CALL release_neighbor_list_sets(ks_env%sac_ae)
@@ -953,7 +953,7 @@ CONTAINS
          IF (full_reset) THEN
             ks_env%potential_changed = .TRUE.
             my_mstruct_chg = .TRUE.
-         ENDIF
+         END IF
       END IF
 
       IF (my_mstruct_chg) THEN
@@ -964,7 +964,7 @@ CONTAINS
          !TODO: deallocate imaginary parts as well
          !CALL dbcsr_deallocate_matrix_set(ks_env%matrix_ks_im)
          !CALL dbcsr_deallocate_matrix_set(ks_env%matrix_ks_aux_fit_im)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 

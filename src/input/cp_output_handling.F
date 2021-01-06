@@ -23,39 +23,39 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE cp_output_handling
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_iter_types,                   ONLY: cp_iteration_info_release,&
-                                              cp_iteration_info_retain,&
-                                              cp_iteration_info_type,&
-                                              each_desc_labels,&
-                                              each_possible_labels
-   USE cp_log_handling,                 ONLY: cp_logger_generate_filename,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_get_unit_nr,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length
-   USE machine,                         ONLY: m_mov
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_file_close,&
-                                              mp_file_delete,&
-                                              mp_file_get_amode,&
-                                              mp_file_open
-   USE string_utilities,                ONLY: compress,&
-                                              s2a
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_iter_types, ONLY: cp_iteration_info_release, &
+                            cp_iteration_info_retain, &
+                            cp_iteration_info_type, &
+                            each_desc_labels, &
+                            each_possible_labels
+   USE cp_log_handling, ONLY: cp_logger_generate_filename, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_get_unit_nr, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length
+   USE machine, ONLY: m_mov
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_file_close, &
+                              mp_file_delete, &
+                              mp_file_get_amode, &
+                              mp_file_open
+   USE string_utilities, ONLY: compress, &
+                               s2a
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -756,7 +756,7 @@ CONTAINS
          ELSE
             my_middle_name = ""
          END IF
-      ENDIF
+      END IF
 
       IF (.NOT. has_root) THEN
          root = TRIM(logger%iter_info%project_name)//TRIM(my_middle_name)
@@ -1058,7 +1058,7 @@ CONTAINS
             unit_nr = -1
          ELSE
             unit_nr = -1
-         ENDIF
+         END IF
       END IF
       CPASSERT(unit_nr == -1)
       unit_nr = -1

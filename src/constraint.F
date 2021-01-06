@@ -10,54 +10,54 @@
 !>      Teodoro Laino [tlaino] 2007 - Extension to Intermolecular constraints
 ! **************************************************************************************************
 MODULE constraint
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type
-   USE colvar_types,                    ONLY: colvar_counters
-   USE constraint_3x3,                  ONLY: rattle_3x3_ext,&
-                                              rattle_3x3_int,&
-                                              rattle_roll_3x3_ext,&
-                                              rattle_roll_3x3_int,&
-                                              shake_3x3_ext,&
-                                              shake_3x3_int,&
-                                              shake_roll_3x3_ext,&
-                                              shake_roll_3x3_int
-   USE constraint_4x6,                  ONLY: rattle_4x6_ext,&
-                                              rattle_4x6_int,&
-                                              rattle_roll_4x6_ext,&
-                                              rattle_roll_4x6_int,&
-                                              shake_4x6_ext,&
-                                              shake_4x6_int,&
-                                              shake_roll_4x6_ext,&
-                                              shake_roll_4x6_int
-   USE constraint_clv,                  ONLY: &
-        rattle_colv_ext, rattle_colv_int, rattle_roll_colv_ext, rattle_roll_colv_int, &
-        shake_colv_ext, shake_colv_int, shake_roll_colv_ext, shake_roll_colv_int, &
-        shake_update_colv_ext, shake_update_colv_int
-   USE constraint_util,                 ONLY: check_tol,&
-                                              get_roll_matrix,&
-                                              restore_temporary_set,&
-                                              update_temporary_set
-   USE constraint_vsite,                ONLY: shake_vsite_ext,&
-                                              shake_vsite_int
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE input_constants,                 ONLY: npt_f_ensemble,&
-                                              npt_i_ensemble
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_sum
-   USE molecule_kind_types,             ONLY: get_molecule_kind,&
-                                              get_molecule_kind_set,&
-                                              molecule_kind_type
-   USE molecule_types,                  ONLY: global_constraint_type,&
-                                              molecule_type
-   USE particle_types,                  ONLY: particle_type
-   USE simpar_types,                    ONLY: simpar_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type
+   USE colvar_types, ONLY: colvar_counters
+   USE constraint_3x3, ONLY: rattle_3x3_ext, &
+                             rattle_3x3_int, &
+                             rattle_roll_3x3_ext, &
+                             rattle_roll_3x3_int, &
+                             shake_3x3_ext, &
+                             shake_3x3_int, &
+                             shake_roll_3x3_ext, &
+                             shake_roll_3x3_int
+   USE constraint_4x6, ONLY: rattle_4x6_ext, &
+                             rattle_4x6_int, &
+                             rattle_roll_4x6_ext, &
+                             rattle_roll_4x6_int, &
+                             shake_4x6_ext, &
+                             shake_4x6_int, &
+                             shake_roll_4x6_ext, &
+                             shake_roll_4x6_int
+   USE constraint_clv, ONLY: &
+      rattle_colv_ext, rattle_colv_int, rattle_roll_colv_ext, rattle_roll_colv_int, &
+      shake_colv_ext, shake_colv_int, shake_roll_colv_ext, shake_roll_colv_int, &
+      shake_update_colv_ext, shake_update_colv_int
+   USE constraint_util, ONLY: check_tol, &
+                              get_roll_matrix, &
+                              restore_temporary_set, &
+                              update_temporary_set
+   USE constraint_vsite, ONLY: shake_vsite_ext, &
+                               shake_vsite_int
+   USE cp_log_handling, ONLY: cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE input_constants, ONLY: npt_f_ensemble, &
+                              npt_i_ensemble
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_sum
+   USE molecule_kind_types, ONLY: get_molecule_kind, &
+                                  get_molecule_kind_set, &
+                                  molecule_kind_type
+   USE molecule_types, ONLY: global_constraint_type, &
+                             molecule_type
+   USE particle_types, ONLY: particle_type
+   USE simpar_types, ONLY: simpar_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -363,7 +363,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'shake_roll_control'
 
       INTEGER :: handle, i, ikind, imol, ishake_ext, ishake_int, k, lagrange_mult, log_unit, &
-         n3x3con, n4x6con, nconstraint, nkind, nmol_per_kind, nvsitecon
+                 n3x3con, n4x6con, nconstraint, nkind, nmol_per_kind, nvsitecon
       LOGICAL                                            :: do_ext_constraint, dump_lm
       REAL(KIND=dp)                                      :: int_max_sigma, mass, max_sigma, shake_tol
       REAL(KIND=dp), DIMENSION(3, 3)                     :: r_shake, v_shake
@@ -508,7 +508,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'rattle_roll_control'
 
       INTEGER :: handle, i, ikind, imol, irattle_ext, irattle_int, k, lagrange_mult, log_unit, &
-         n3x3con, n4x6con, nconstraint, nkind, nmol_per_kind
+                 n3x3con, n4x6con, nconstraint, nkind, nmol_per_kind
       LOGICAL                                            :: do_ext_constraint, dump_lm
       REAL(KIND=dp)                                      :: int_max_sigma, mass, max_sigma, &
                                                             rattle_tol

@@ -7,30 +7,30 @@
 
 ! **************************************************************************************************
 MODULE topology_gromos
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object,&
-                                              parser_search_string
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE input_cp2k_restarts_util,        ONLY: section_velocity_val_set
-   USE input_section_types,             ONLY: section_get_rval,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE string_table,                    ONLY: s2s,&
-                                              str2id
-   USE topology_types,                  ONLY: atom_info_type,&
-                                              connectivity_info_type,&
-                                              topology_parameters_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object, &
+                                parser_search_string
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE input_cp2k_restarts_util, ONLY: section_velocity_val_set
+   USE input_section_types, ONLY: section_get_rval, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE string_table, ONLY: s2s, &
+                           str2id
+   USE topology_types, ONLY: atom_info_type, &
+                             connectivity_info_type, &
+                             topology_parameters_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -63,8 +63,8 @@ CONTAINS
          DIMENSION(21)                                   :: avail_section
       CHARACTER(LEN=default_string_length), POINTER      :: namearray1(:), namearray2(:)
       INTEGER :: begin, handle, i, iatom, ibond, icon, ii(50), index_now, iresid, isolvent, itemp, &
-         itype, iw, jatom, natom, natom_prev, nbond, nbond_prev, ncon, nsolute, nsolvent, ntype, &
-         offset, offset2, stat
+                 itype, iw, jatom, natom, natom_prev, nbond, nbond_prev, ncon, nsolute, nsolvent, ntype, &
+                 offset, offset2, stat
       INTEGER, POINTER                                   :: ba(:), bb(:), na(:)
       LOGICAL                                            :: found
       REAL(KIND=dp)                                      :: ftemp

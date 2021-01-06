@@ -12,46 +12,46 @@
 !> \author Hossam Elgabarty
 ! **************************************************************************************************
 MODULE qs_chargemol
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm
-   USE cp_files,                        ONLY: open_file
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_get_submatrix
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_generate_filename
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE machine,                         ONLY: m_datum
-   USE orbital_pointers,                ONLY: nco,&
-                                              nso
-   USE orbital_symbols,                 ONLY: cgf_symbol,&
-                                              sgf_symbol
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cell_types, ONLY: cell_type, &
+                         get_cell
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm
+   USE cp_files, ONLY: open_file
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_get_submatrix
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_generate_filename
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE machine, ONLY: m_datum
+   USE orbital_pointers, ONLY: nco, &
+                               nso
+   USE orbital_symbols, ONLY: cgf_symbol, &
+                              sgf_symbol
    USE orbital_transformation_matrices, ONLY: orbtramat
-   USE particle_types,                  ONLY: particle_type
-   USE periodic_table,                  ONLY: get_ptable_info
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_mo_types,                     ONLY: mo_set_p_type
-   USE qs_scf_types,                    ONLY: qs_scf_env_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_type
-   USE scf_control_types,               ONLY: scf_control_type
+   USE particle_types, ONLY: particle_type
+   USE periodic_table, ONLY: get_ptable_info
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_mo_types, ONLY: mo_set_p_type
+   USE qs_scf_types, ONLY: qs_scf_env_type
+   USE qs_subsys_types, ONLY: qs_subsys_type
+   USE scf_control_types, ONLY: scf_control_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -90,8 +90,8 @@ CONTAINS
       CHARACTER(LEN=6), DIMENSION(:), POINTER            :: bsgf_symbol
       CHARACTER(len=default_string_length)               :: filename
       INTEGER :: handle, i, iatom, icgf, ico, ikind, iloop, imo, ipgf, irow, iset, isgf, ishell, &
-         ispin, iwfx, lshell, max_l, ncgf, ncol_global, nelec_alpha, nelec_beta, noccup, &
-         nrow_global, nset, nsgf, nspins, num_atoms, output_unit, roks_high, roks_low, tot_npgf
+                 ispin, iwfx, lshell, max_l, ncgf, ncol_global, nelec_alpha, nelec_beta, noccup, &
+                 nrow_global, nset, nsgf, nspins, num_atoms, output_unit, roks_high, roks_low, tot_npgf
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, atomic_numbers, kind_of
       INTEGER, DIMENSION(:), POINTER                     :: lmax, npgf, nshell
       INTEGER, DIMENSION(:, :), POINTER                  :: l
@@ -643,11 +643,11 @@ CONTAINS
             DO ispin = 1, SIZE(mos)
                IF (.NOT. ASSOCIATED(mos(ispin)%mo_set%mo_coeff_b)) THEN
                   CPASSERT(.FALSE.)
-               ENDIF
+               END IF
                CALL copy_dbcsr_to_fm(mos(ispin)%mo_set%mo_coeff_b, &
                                      mos(ispin)%mo_set%mo_coeff)
-            ENDDO
-         ENDIF
+            END DO
+         END IF
 
          DO ispin = 1, nspins
             CALL cp_fm_get_info(mos(ispin)%mo_set%mo_coeff, &

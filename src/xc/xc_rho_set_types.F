@@ -12,35 +12,35 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE xc_rho_set_types
-   USE cp_array_utils,                  ONLY: cp_3d_r_p_type
-   USE kinds,                           ONLY: dp
-   USE pw_methods,                      ONLY: pw_copy,&
-                                              pw_derive,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_cr3d,&
-                                              pw_pool_create_pw,&
-                                              pw_pool_give_back_cr3d,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_spline_utils,                 ONLY: &
-        nn10_coeffs, nn10_deriv_coeffs, nn50_coeffs, nn50_deriv_coeffs, pw_nn_deriv_r, &
-        pw_nn_smear_r, pw_spline2_deriv_g, pw_spline2_interpolate_values_g, pw_spline3_deriv_g, &
-        pw_spline3_interpolate_values_g, pw_spline_scale_deriv, spline2_coeffs, &
-        spline2_deriv_coeffs, spline3_coeffs, spline3_deriv_coeffs
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
-   USE xc_input_constants,              ONLY: &
-        xc_deriv_collocate, xc_deriv_nn10_smooth, xc_deriv_nn50_smooth, xc_deriv_pw, &
-        xc_deriv_spline2, xc_deriv_spline2_smooth, xc_deriv_spline3, xc_deriv_spline3_smooth, &
-        xc_rho_nn10, xc_rho_nn50, xc_rho_no_smooth, xc_rho_spline2_smooth, xc_rho_spline3_smooth
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_equal,&
-                                              xc_rho_cflags_setall,&
-                                              xc_rho_cflags_type
+   USE cp_array_utils, ONLY: cp_3d_r_p_type
+   USE kinds, ONLY: dp
+   USE pw_methods, ONLY: pw_copy, &
+                         pw_derive, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_cr3d, &
+                            pw_pool_create_pw, &
+                            pw_pool_give_back_cr3d, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_spline_utils, ONLY: &
+      nn10_coeffs, nn10_deriv_coeffs, nn50_coeffs, nn50_deriv_coeffs, pw_nn_deriv_r, &
+      pw_nn_smear_r, pw_spline2_deriv_g, pw_spline2_interpolate_values_g, pw_spline3_deriv_g, &
+      pw_spline3_interpolate_values_g, pw_spline_scale_deriv, spline2_coeffs, &
+      spline2_deriv_coeffs, spline3_coeffs, spline3_deriv_coeffs
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_type
+   USE xc_input_constants, ONLY: &
+      xc_deriv_collocate, xc_deriv_nn10_smooth, xc_deriv_nn50_smooth, xc_deriv_pw, &
+      xc_deriv_spline2, xc_deriv_spline2_smooth, xc_deriv_spline3, xc_deriv_spline3_smooth, &
+      xc_rho_nn10, xc_rho_nn50, xc_rho_no_smooth, xc_rho_spline2_smooth, xc_rho_spline3_smooth
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_equal, &
+                                  xc_rho_cflags_setall, &
+                                  xc_rho_cflags_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -319,8 +319,8 @@ CONTAINS
       TYPE(cp_3d_r_p_type), DIMENSION(:), OPTIONAL, &
          POINTER                                         :: drho
       REAL(KIND=dp), DIMENSION(:, :, :), OPTIONAL, POINTER :: norm_drho, rhoa, rhob, norm_drhoa, &
-         norm_drhob, drhoa_drhob, rho_1_3, rhoa_1_3, rhob_1_3, laplace_rho, laplace_rhoa, &
-         laplace_rhob
+                                                  norm_drhob, drhoa_drhob, rho_1_3, rhoa_1_3, rhob_1_3, laplace_rho, laplace_rhoa, &
+                                                              laplace_rhob
       TYPE(cp_3d_r_p_type), DIMENSION(:), OPTIONAL, &
          POINTER                                         :: drhoa, drhob
       REAL(kind=dp), INTENT(out), OPTIONAL               :: rho_cutoff, drho_cutoff, tau_cutoff

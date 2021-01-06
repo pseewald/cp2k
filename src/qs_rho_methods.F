@@ -13,56 +13,56 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE qs_rho_methods
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_create,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set,&
-                                              dbcsr_type,&
-                                              dbcsr_type_symmetric
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE lri_environment_methods,         ONLY: calculate_lri_densities
-   USE lri_environment_types,           ONLY: lri_density_type,&
-                                              lri_environment_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_release
-   USE qs_collocate_density,            ONLY: calculate_drho_elec,&
-                                              calculate_rho_elec
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_ks_types,                     ONLY: get_ks_env,&
-                                              qs_ks_env_type
-   USE qs_local_rho_types,              ONLY: local_rho_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_oce_types,                    ONLY: oce_matrix_type
-   USE qs_rho_atom_methods,             ONLY: calculate_rho_atom_coeff
-   USE qs_rho_atom_types,               ONLY: rho_atom_type
-   USE qs_rho_types,                    ONLY: qs_rho_clear,&
-                                              qs_rho_get,&
-                                              qs_rho_set,&
-                                              qs_rho_type
-   USE ri_environment_methods,          ONLY: calculate_ri_densities
-   USE task_list_types,                 ONLY: task_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_log_handling, ONLY: cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_create, &
+                        dbcsr_p_type, &
+                        dbcsr_set, &
+                        dbcsr_type, &
+                        dbcsr_type_symmetric
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE lri_environment_methods, ONLY: calculate_lri_densities
+   USE lri_environment_types, ONLY: lri_density_type, &
+                                    lri_environment_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_release
+   USE qs_collocate_density, ONLY: calculate_drho_elec, &
+                                   calculate_rho_elec
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_ks_types, ONLY: get_ks_env, &
+                          qs_ks_env_type
+   USE qs_local_rho_types, ONLY: local_rho_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_oce_types, ONLY: oce_matrix_type
+   USE qs_rho_atom_methods, ONLY: calculate_rho_atom_coeff
+   USE qs_rho_atom_types, ONLY: rho_atom_type
+   USE qs_rho_types, ONLY: qs_rho_clear, &
+                           qs_rho_get, &
+                           qs_rho_set, &
+                           qs_rho_type
+   USE ri_environment_methods, ONLY: calculate_ri_densities
+   USE task_list_types, ONLY: task_list_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -459,7 +459,7 @@ CONTAINS
                                         qs_env=qs_env, soft_valid=gapw)
             END DO
             CALL qs_rho_set(rho_struct, drho_r_valid=.TRUE., drho_g_valid=.TRUE.)
-         ENDIF
+         END IF
 
          ! if needed compute also the kinetic energy density
          IF (dft_control%use_kinetic_energy_density) THEN
@@ -476,7 +476,7 @@ CONTAINS
                                        pw_env_external=pw_env)
             END DO
             CALL qs_rho_set(rho_struct, tau_r_valid=.TRUE., tau_g_valid=.TRUE.)
-         ENDIF
+         END IF
       END IF
 
       ! GAPW o GAPW_XC require the calculation of hard and soft local densities
@@ -491,7 +491,7 @@ CONTAINS
          CPASSERT(ASSOCIATED(rho_atom_set))
          CALL qs_rho_get(rho_struct, rho_ao_kp=rho_ao_kp)
          CALL calculate_rho_atom_coeff(qs_env, rho_ao_kp, rho_atom_set, qs_kind_set, oce, sab, para_env)
-      ENDIF
+      END IF
       IF (gapw_xc) THEN
          CPASSERT(.NOT. PRESENT(task_list_external))
          CPASSERT(.NOT. PRESENT(pw_env_external))
@@ -533,7 +533,7 @@ CONTAINS
                                         qs_env=qs_env, soft_valid=gapw_xc)
             END DO
             CALL qs_rho_set(rho_xc, drho_r_valid=.TRUE., drho_g_valid=.TRUE.)
-         ENDIF
+         END IF
          ! if needed compute also the kinetic energy density
          IF (dft_control%use_kinetic_energy_density) THEN
             DO ispin = 1, nspins
@@ -546,8 +546,8 @@ CONTAINS
                                        compute_tau=.TRUE.)
             END DO
             CALL qs_rho_set(rho_xc, tau_r_valid=.TRUE., tau_g_valid=.TRUE.)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       CALL timestop(handle)
 
@@ -574,14 +574,14 @@ CONTAINS
 
       INTEGER                                            :: handle, i, nspins, rebuild_each_in
       LOGICAL :: drho_g_valid_in, drho_r_valid_in, rho_g_valid_in, rho_r_valid_in, soft_valid_in, &
-         tau_g_valid_in, tau_r_valid_in
+                 tau_g_valid_in, tau_r_valid_in
       REAL(KIND=dp), DIMENSION(:), POINTER               :: tot_rho_g_in, tot_rho_g_out, &
                                                             tot_rho_r_in, tot_rho_r_out
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: rho_ao_in, rho_ao_out
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_p_type), DIMENSION(:), POINTER :: drho_g_in, drho_g_out, drho_r_in, drho_r_out, &
-         rho_g_in, rho_g_out, rho_r_in, rho_r_out, tau_g_in, tau_g_out, tau_r_in, tau_r_out
+                                                rho_g_in, rho_g_out, rho_r_in, rho_r_out, tau_g_in, tau_g_out, tau_r_in, tau_r_out
       TYPE(pw_p_type), POINTER                           :: rho_r_sccs_in, rho_r_sccs_out
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
 

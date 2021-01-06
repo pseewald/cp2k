@@ -5,37 +5,37 @@
 !   SPDX-License-Identifier: GPL-2.0-or-later                                                      !
 !--------------------------------------------------------------------------------------------------!
 MODULE optimize_basis_utils
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_object,&
-                                              parser_search_string
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE input_constants,                 ONLY: do_opt_all,&
-                                              do_opt_coeff,&
-                                              do_opt_exps,&
-                                              do_opt_none
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE machine,                         ONLY: default_output_unit,&
-                                              m_getcwd
-   USE optimize_basis_types,            ONLY: basis_optimization_type,&
-                                              derived_basis_info,&
-                                              flex_basis_type,&
-                                              subset_type
-   USE powell,                          ONLY: opt_state_type
-   USE string_utilities,                ONLY: uppercase
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_object, &
+                                parser_search_string
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE input_constants, ONLY: do_opt_all, &
+                              do_opt_coeff, &
+                              do_opt_exps, &
+                              do_opt_none
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE machine, ONLY: default_output_unit, &
+                      m_getcwd
+   USE optimize_basis_types, ONLY: basis_optimization_type, &
+                                   derived_basis_info, &
+                                   flex_basis_type, &
+                                   subset_type
+   USE powell, ONLY: opt_state_type
+   USE string_utilities, ONLY: uppercase
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -1030,8 +1030,8 @@ CONTAINS
 
       CHARACTER(LEN=240)                                 :: line
       CHARACTER(LEN=242)                                 :: line2
-      CHARACTER(LEN=LEN(basis_name)+2)                   :: basis_name2
-      CHARACTER(LEN=LEN(element)+2)                      :: element2
+      CHARACTER(LEN=LEN(basis_name) + 2)                   :: basis_name2
+      CHARACTER(LEN=LEN(element) + 2)                      :: element2
       INTEGER                                            :: iset, strlen1, strlen2
       LOGICAL                                            :: basis_found, found, match
       TYPE(cp_parser_type), POINTER                      :: parser

@@ -11,14 +11,14 @@
 !>      01.2005 created [fawzi and ale]
 ! **************************************************************************************************
 MODULE metadynamics_types
-   USE cp_para_env,                     ONLY: cp_para_env_release,&
-                                              cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE parallel_rng_types,              ONLY: rng_stream_type
+   USE cp_para_env, ONLY: cp_para_env_release, &
+                          cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE parallel_rng_types, ONLY: rng_stream_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -225,7 +225,7 @@ CONTAINS
       CALL section_vals_val_get(metadyn_section, "LANGEVIN", l_val=do_langevin)
       IF (do_langevin) THEN
          ALLOCATE (meta_env%rng(meta_env%n_colvar))
-      ENDIF
+      END IF
    END SUBROUTINE metadyn_create
 
 ! **************************************************************************************************

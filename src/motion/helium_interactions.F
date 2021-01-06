@@ -12,26 +12,26 @@
 ! **************************************************************************************************
 MODULE helium_interactions
 
-   USE helium_common,                   ONLY: helium_eval_chain,&
-                                              helium_eval_expansion,&
-                                              helium_pbc,&
-                                              helium_spline
-   USE helium_types,                    ONLY: e_id_interact,&
-                                              e_id_kinetic,&
-                                              e_id_potential,&
-                                              e_id_thermo,&
-                                              e_id_total,&
-                                              e_id_virial,&
-                                              helium_solvent_p_type,&
-                                              helium_solvent_type
-   USE input_constants,                 ONLY: helium_sampling_worm,&
-                                              helium_solute_intpot_mwater,&
-                                              helium_solute_intpot_none
-   USE kinds,                           ONLY: dp
-   USE physcon,                         ONLY: angstrom,&
-                                              kelvin
-   USE pint_types,                      ONLY: pint_env_type
-   USE splines_types,                   ONLY: spline_data_type
+   USE helium_common, ONLY: helium_eval_chain, &
+                            helium_eval_expansion, &
+                            helium_pbc, &
+                            helium_spline
+   USE helium_types, ONLY: e_id_interact, &
+                           e_id_kinetic, &
+                           e_id_potential, &
+                           e_id_thermo, &
+                           e_id_total, &
+                           e_id_virial, &
+                           helium_solvent_p_type, &
+                           helium_solvent_type
+   USE input_constants, ONLY: helium_sampling_worm, &
+                              helium_solute_intpot_mwater, &
+                              helium_solute_intpot_none
+   USE kinds, ONLY: dp
+   USE physcon, ONLY: angstrom, &
+                      kelvin
+   USE pint_types, ONLY: pint_env_type
+   USE splines_types, ONLY: spline_data_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

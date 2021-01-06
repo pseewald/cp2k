@@ -21,17 +21,17 @@
 !> - 08.2014 moevd qs-related stuff into new qs_kind_types.F [Ole Schuett]
 ! **************************************************************************************************
 MODULE atomic_kind_types
-   USE damping_dipole_types,            ONLY: damping_p_release,&
-                                              damping_p_type
-   USE external_potential_types,        ONLY: deallocate_potential,&
-                                              fist_potential_type,&
-                                              get_potential
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE periodic_table,                  ONLY: get_ptable_info
-   USE shell_potential_types,           ONLY: shell_kind_type,&
-                                              shell_release,&
-                                              shell_retain
+   USE damping_dipole_types, ONLY: damping_p_release, &
+                                   damping_p_type
+   USE external_potential_types, ONLY: deallocate_potential, &
+                                       fist_potential_type, &
+                                       get_potential
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE periodic_table, ONLY: get_ptable_info
+   USE shell_potential_types, ONLY: shell_kind_type, &
+                                    shell_release, &
+                                    shell_retain
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

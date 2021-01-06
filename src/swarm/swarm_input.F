@@ -10,21 +10,21 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE swarm_input
-   USE cp_output_handling,              ONLY: add_last_numeric,&
-                                              cp_print_key_section_create,&
-                                              low_print_level
-   USE glbopt_input,                    ONLY: glbopt_declare_input
-   USE input_constants,                 ONLY: swarm_do_glbopt
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: integer_t
-   USE string_utilities,                ONLY: s2a
+   USE cp_output_handling, ONLY: add_last_numeric, &
+                                 cp_print_key_section_create, &
+                                 low_print_level
+   USE glbopt_input, ONLY: glbopt_declare_input
+   USE input_constants, ONLY: swarm_do_glbopt
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: integer_t
+   USE string_utilities, ONLY: s2a
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

@@ -9,20 +9,20 @@
 !> \brief Set of routines handling the localization for molecular properties
 ! **************************************************************************************************
 MODULE qs_loc_molecules
-   USE cell_types,                      ONLY: pbc
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE kinds,                           ONLY: dp
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_max,&
-                                              mp_minloc
-   USE molecule_kind_types,             ONLY: get_molecule_kind,&
-                                              molecule_kind_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_types,                  ONLY: particle_type
-   USE qs_loc_types,                    ONLY: qs_loc_env_new_type
+   USE cell_types, ONLY: pbc
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE kinds, ONLY: dp
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_max, &
+                              mp_minloc
+   USE molecule_kind_types, ONLY: get_molecule_kind, &
+                                  molecule_kind_type
+   USE molecule_types, ONLY: molecule_type
+   USE particle_types, ONLY: particle_type
+   USE qs_loc_types, ONLY: qs_loc_env_new_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -51,7 +51,7 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: ispin, nspins
 
       INTEGER :: counter, first_atom, i, iatom, ikind, imol, imol_now, istate, k, local_location, &
-         natom, natom_loc, natom_max, nkind, nmol, nstate
+                 natom, natom_loc, natom_max, nkind, nmol, nstate
       INTEGER, POINTER                                   :: wfc_to_atom_map(:)
       REAL(KIND=dp)                                      :: dr(3), mydist(2), ria(3)
       REAL(KIND=dp), POINTER                             :: distance(:), r(:, :)
@@ -85,7 +85,7 @@ CONTAINS
                DO k = 1, nspins
                   NULLIFY (molecule_set(i)%lmi(k)%states)
                END DO
-            ENDIF
+            END IF
             molecule_set(i)%lmi(ispin)%nstates = 0
             IF (ASSOCIATED(molecule_set(i)%lmi(ispin)%states)) THEN
                DEALLOCATE (molecule_set(i)%lmi(ispin)%states)

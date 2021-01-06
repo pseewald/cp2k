@@ -14,52 +14,52 @@
 ! **************************************************************************************************
 MODULE cp_ddapc_util
 
-   USE atomic_charges,                  ONLY: print_atomic_charges
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: ddapc_restraint_type,&
-                                              dft_control_type
-   USE cp_ddapc_forces,                 ONLY: evaluate_restraint_functional
-   USE cp_ddapc_methods,                ONLY: build_A_matrix,&
-                                              build_b_vector,&
-                                              build_der_A_matrix_rows,&
-                                              build_der_b_vector,&
-                                              cleanup_g_dot_rvec_sin_cos,&
-                                              prep_g_dot_rvec_sin_cos
-   USE cp_ddapc_types,                  ONLY: cp_ddapc_create,&
-                                              cp_ddapc_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_constants,                 ONLY: do_full_density,&
-                                              do_spin_density
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_transfer
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
-   USE qs_charges_types,                ONLY: qs_charges_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
+   USE atomic_charges, ONLY: print_atomic_charges
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: ddapc_restraint_type, &
+                               dft_control_type
+   USE cp_ddapc_forces, ONLY: evaluate_restraint_functional
+   USE cp_ddapc_methods, ONLY: build_A_matrix, &
+                               build_b_vector, &
+                               build_der_A_matrix_rows, &
+                               build_der_b_vector, &
+                               cleanup_g_dot_rvec_sin_cos, &
+                               prep_g_dot_rvec_sin_cos
+   USE cp_ddapc_types, ONLY: cp_ddapc_create, &
+                             cp_ddapc_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_constants, ONLY: do_full_density, &
+                              do_spin_density
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_transfer
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_type
+   USE qs_charges_types, ONLY: qs_charges_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -455,7 +455,7 @@ CONTAINS
                IF (pmin > 1) THEN
                   dAmj_qv(:pmin - 1) = MATMUL(TRANSPOSE(dAm(pmin:pmax, :pmin - 1, j)), qv(pmin:pmax))
                   cvT_AmI_dAmj(:pmin - 1) = MATMUL(TRANSPOSE(dAm(pmin:pmax, :pmin - 1, j)), cvT_AmI(pmin:pmax))
-               ENDIF
+               END IF
                !NB multiply by block of rows that are explicitly in dAm
                dAmj_qv(pmin:pmax) = MATMUL(dAm(pmin:pmax, :, j), qv(:))
                cvT_AmI_dAmj(pmin:pmax) = MATMUL(dAm(pmin:pmax, :, j), cvT_AmI(:))
@@ -464,7 +464,7 @@ CONTAINS
                IF (pmax < SIZE(particle_set)*SIZE(radii)) THEN
                   dAmj_qv(pmax + 1:) = MATMUL(TRANSPOSE(dAm(pmin:pmax, pmax + 1:, j)), qv(pmin:pmax))
                   cvT_AmI_dAmj(pmax + 1:) = MATMUL(TRANSPOSE(dAm(pmin:pmax, pmax + 1:, j)), cvT_AmI(pmin:pmax))
-               ENDIF
+               END IF
                dAmj_qv(:) = dAmj_qv(:)/(Vol*Vol)
                cvT_AmI_dAmj(:) = cvT_AmI_dAmj(:)/(Vol*Vol)
                c3 = DOT_PRODUCT(cvT_AmI_dAmj, AmI_bv) - DOT_PRODUCT(cvT_AmI, dbv(:, j)) - c1*DOT_PRODUCT(cvT_AmI_dAmj, AmI_cv)

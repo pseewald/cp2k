@@ -12,38 +12,38 @@
 !> \author Teodoro Laino - Zurich University (2007) [tlaino]
 ! **************************************************************************************************
 MODULE colvar_utils
-   USE cell_types,                      ONLY: cell_type
-   USE colvar_methods,                  ONLY: colvar_eval_mol_f
-   USE colvar_types,                    ONLY: &
-        colvar_counters, colvar_setup, colvar_type, coord_colvar_id, distance_from_path_colvar_id, &
-        gyration_colvar_id, mindist_colvar_id, population_colvar_id, reaction_path_colvar_id, &
-        rmsd_colvar_id
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE input_constants,                 ONLY: rmsd_all,&
-                                              rmsd_list
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: invert_matrix
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_sum
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: colvar_constraint_type,&
-                                              fixd_constraint_type,&
-                                              get_molecule_kind,&
-                                              molecule_kind_type
-   USE molecule_list_types,             ONLY: molecule_list_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              global_constraint_type,&
-                                              local_colvar_constraint_type,&
-                                              molecule_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE rmsd,                            ONLY: rmsd3
-   USE string_utilities,                ONLY: uppercase
-   USE util,                            ONLY: sort
+   USE cell_types, ONLY: cell_type
+   USE colvar_methods, ONLY: colvar_eval_mol_f
+   USE colvar_types, ONLY: &
+      colvar_counters, colvar_setup, colvar_type, coord_colvar_id, distance_from_path_colvar_id, &
+      gyration_colvar_id, mindist_colvar_id, population_colvar_id, reaction_path_colvar_id, &
+      rmsd_colvar_id
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE input_constants, ONLY: rmsd_all, &
+                              rmsd_list
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: invert_matrix
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_sum
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_type
+   USE molecule_kind_types, ONLY: colvar_constraint_type, &
+                                  fixd_constraint_type, &
+                                  get_molecule_kind, &
+                                  molecule_kind_type
+   USE molecule_list_types, ONLY: molecule_list_type
+   USE molecule_types, ONLY: get_molecule, &
+                             global_constraint_type, &
+                             local_colvar_constraint_type, &
+                             molecule_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE rmsd, ONLY: rmsd3
+   USE string_utilities, ONLY: uppercase
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -173,7 +173,7 @@ CONTAINS
                ind = colv_list(i)%inp_seq_num
                colv_list(i)%expected_value = targets(ind)
             END DO
-         ENDIF
+         END IF
       END IF
       CALL timestop(handle)
 
@@ -259,7 +259,7 @@ CONTAINS
                IF (ncolv%ntot /= 0) THEN
                   CALL eval_colv_int(molecule, particle_set, coords, cell, cvalues, &
                                      Bmatrix, offset, n_tot, map)
-               ENDIF
+               END IF
             END DO
          END DO MOL
          CALL mp_sum(n_tot, force_env%para_env%group)
@@ -272,7 +272,7 @@ CONTAINS
          IF (gci%ncolv%ntot /= 0) THEN
             CALL eval_colv_ext(gci, particle_set, coords, cell, cvalues, &
                                Bmatrix, offset, n_tot, map)
-         ENDIF
+         END IF
       END IF
       CPASSERT(n_tot == SIZE(cvalues))
       ! Sort values of Collective Variables according the order of the input

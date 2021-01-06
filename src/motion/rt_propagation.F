@@ -11,71 +11,71 @@
 ! **************************************************************************************************
 
 MODULE rt_propagation
-   USE bibliography,                    ONLY: Andermatt2016,&
-                                              cite_reference
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              rtp_control_type
-   USE cp_external_control,             ONLY: external_control
-   USE cp_fm_pool_types,                ONLY: cp_fm_pool_p_type
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_add_iter_level,&
-                                              cp_iterate,&
-                                              cp_rm_iter_level
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_p_type
-   USE efield_utils,                    ONLY: calculate_ecore_efield
-   USE force_env_methods,               ONLY: force_env_calc_energy_force
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE input_constants,                 ONLY: real_time_propagation,&
-                                              use_restart_wfn,&
-                                              use_rt_restart,&
-                                              use_scf_wfn
-   USE input_cp2k_restarts,             ONLY: write_restart
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: dp
-   USE machine,                         ONLY: m_walltime
-   USE md_environment_types,            ONLY: md_environment_type
-   USE pw_env_types,                    ONLY: pw_env_type
-   USE qs_dftb_matrices,                ONLY: build_dftb_overlap
-   USE qs_energy_init,                  ONLY: qs_energies_init
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_external_potential,           ONLY: external_c_potential,&
-                                              external_e_potential
-   USE qs_ks_methods,                   ONLY: qs_ks_update_qs_env
-   USE qs_ks_types,                     ONLY: qs_ks_did_change
-   USE qs_matrix_pools,                 ONLY: mpools_get
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              init_mo_set,&
-                                              mo_set_p_type
-   USE rt_delta_pulse,                  ONLY: apply_delta_pulse,&
-                                              apply_delta_pulse_periodic
-   USE rt_hfx_utils,                    ONLY: rtp_hfx_rebuild
-   USE rt_propagation_methods,          ONLY: propagation_step
-   USE rt_propagation_output,           ONLY: rt_prop_output
-   USE rt_propagation_types,            ONLY: get_rtp,&
-                                              rt_prop_create,&
-                                              rt_prop_type,&
-                                              rtp_history_create
-   USE rt_propagation_utils,            ONLY: calc_S_derivs,&
-                                              calc_update_rho,&
-                                              calc_update_rho_sparse,&
-                                              get_restart_wfn
-   USE rt_propagator_init,              ONLY: init_propagators,&
-                                              rt_initialize_rho_from_mos
+   USE bibliography, ONLY: Andermatt2016, &
+                           cite_reference
+   USE cp_control_types, ONLY: dft_control_type, &
+                               rtp_control_type
+   USE cp_external_control, ONLY: external_control
+   USE cp_fm_pool_types, ONLY: cp_fm_pool_p_type
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_add_iter_level, &
+                                 cp_iterate, &
+                                 cp_rm_iter_level
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_p_type
+   USE efield_utils, ONLY: calculate_ecore_efield
+   USE force_env_methods, ONLY: force_env_calc_energy_force
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE global_types, ONLY: global_environment_type
+   USE input_constants, ONLY: real_time_propagation, &
+                              use_restart_wfn, &
+                              use_rt_restart, &
+                              use_scf_wfn
+   USE input_cp2k_restarts, ONLY: write_restart
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: dp
+   USE machine, ONLY: m_walltime
+   USE md_environment_types, ONLY: md_environment_type
+   USE pw_env_types, ONLY: pw_env_type
+   USE qs_dftb_matrices, ONLY: build_dftb_overlap
+   USE qs_energy_init, ONLY: qs_energies_init
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_external_potential, ONLY: external_c_potential, &
+                                    external_e_potential
+   USE qs_ks_methods, ONLY: qs_ks_update_qs_env
+   USE qs_ks_types, ONLY: qs_ks_did_change
+   USE qs_matrix_pools, ONLY: mpools_get
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          init_mo_set, &
+                          mo_set_p_type
+   USE rt_delta_pulse, ONLY: apply_delta_pulse, &
+                             apply_delta_pulse_periodic
+   USE rt_hfx_utils, ONLY: rtp_hfx_rebuild
+   USE rt_propagation_methods, ONLY: propagation_step
+   USE rt_propagation_output, ONLY: rt_prop_output
+   USE rt_propagation_types, ONLY: get_rtp, &
+                                   rt_prop_create, &
+                                   rt_prop_type, &
+                                   rtp_history_create
+   USE rt_propagation_utils, ONLY: calc_S_derivs, &
+                                   calc_update_rho, &
+                                   calc_update_rho_sparse, &
+                                   get_restart_wfn
+   USE rt_propagator_init, ONLY: init_propagators, &
+                                 rt_initialize_rho_from_mos
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -214,13 +214,13 @@ CONTAINS
                   CALL apply_delta_pulse_periodic(qs_env, mos_old, mos_new)
                ELSE
                   CALL apply_delta_pulse(qs_env, mos_old, mos_new)
-               ENDIF
+               END IF
             ELSE
                DO i = 1, SIZE(mos)
                   CALL cp_fm_to_fm(mos(i)%mo_set%mo_coeff, mos_old(2*i - 1)%matrix)
                   CALL cp_fm_set_all(mos_old(2*i)%matrix, zero, zero)
                END DO
-            ENDIF
+            END IF
          END IF
 
          DO i = 1, SIZE(mos_old)
@@ -244,8 +244,8 @@ CONTAINS
                   CALL dbcsr_copy(rho_old(re)%matrix, qs_env%ls_scf_env%matrix_p(ispin))
                   CALL dbcsr_copy(rho_new(re)%matrix, qs_env%ls_scf_env%matrix_p(ispin))
                END DO
-            ENDIF
-         ENDIF
+            END IF
+         END IF
          CALL calc_update_rho_sparse(qs_env)
       END IF
 
@@ -376,7 +376,7 @@ CONTAINS
       ! coming from RTP
       IF (.NOT. PRESENT(md_env)) THEN
          CALL section_vals_val_set(motion_section, "MD%STEP_START_VAL", i_val=force_env%qs_env%sim_step)
-      ENDIF
+      END IF
 
       CALL write_restart(md_env=md_env, root_section=root_section)
 
@@ -446,7 +446,7 @@ CONTAINS
                   END IF
                END DO
             END IF
-         ENDIF
+         END IF
          ALLOCATE (qs_env%rtp)
          CALL get_qs_env(qs_env, matrix_s=matrix_s)
          CALL rt_prop_create(qs_env%rtp, qs_env%mos, qs_env%mpools, dft_control, matrix_s(1)%matrix, &

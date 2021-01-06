@@ -9,73 +9,73 @@
 !> \brief Environment for NEGF based quantum transport calculations
 ! **************************************************************************************************
 MODULE negf_env_types
-   USE cell_types,                      ONLY: cell_type,&
-                                              real_to_scaled
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_deallocate_matrix,&
-                                              dbcsr_init_p,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set,&
-                                              dbcsr_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_p_type,&
-                                              force_env_type,&
-                                              use_qs_force
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE kpoint_types,                    ONLY: get_kpoint_env,&
-                                              get_kpoint_info,&
-                                              kpoint_env_p_type,&
-                                              kpoint_type
-   USE message_passing,                 ONLY: mp_sum
-   USE negf_atom_map,                   ONLY: negf_atom_map_type,&
-                                              negf_map_atomic_indices
-   USE negf_control_types,              ONLY: negf_control_contact_type,&
-                                              negf_control_type
-   USE negf_matrix_utils,               ONLY: invert_cell_to_index,&
-                                              negf_copy_contact_matrix,&
-                                              negf_copy_sym_dbcsr_to_fm_submat,&
-                                              negf_reference_contact_matrix,&
-                                              number_of_atomic_orbitals
-   USE negf_subgroup_types,             ONLY: negf_subgroup_env_type
-   USE negf_vectors,                    ONLY: contact_direction_vector,&
-                                              projection_on_direction_vector
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
-   USE qs_density_mixing_types,         ONLY: mixing_storage_create,&
-                                              mixing_storage_release,&
-                                              mixing_storage_type
-   USE qs_energy,                       ONLY: qs_energies
-   USE qs_energy_init,                  ONLY: qs_energies_init
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_integrate_potential,          ONLY: integrate_v_rspace
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
+   USE cell_types, ONLY: cell_type, &
+                         real_to_scaled
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_deallocate_matrix, &
+                        dbcsr_init_p, &
+                        dbcsr_p_type, &
+                        dbcsr_set, &
+                        dbcsr_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_p_type, &
+                              force_env_type, &
+                              use_qs_force
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE kpoint_types, ONLY: get_kpoint_env, &
+                           get_kpoint_info, &
+                           kpoint_env_p_type, &
+                           kpoint_type
+   USE message_passing, ONLY: mp_sum
+   USE negf_atom_map, ONLY: negf_atom_map_type, &
+                            negf_map_atomic_indices
+   USE negf_control_types, ONLY: negf_control_contact_type, &
+                                 negf_control_type
+   USE negf_matrix_utils, ONLY: invert_cell_to_index, &
+                                negf_copy_contact_matrix, &
+                                negf_copy_sym_dbcsr_to_fm_submat, &
+                                negf_reference_contact_matrix, &
+                                number_of_atomic_orbitals
+   USE negf_subgroup_types, ONLY: negf_subgroup_env_type
+   USE negf_vectors, ONLY: contact_direction_vector, &
+                           projection_on_direction_vector
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE, &
+                       pw_p_type, &
+                       pw_type
+   USE qs_density_mixing_types, ONLY: mixing_storage_create, &
+                                      mixing_storage_release, &
+                                      mixing_storage_type
+   USE qs_energy, ONLY: qs_energies
+   USE qs_energy_init, ONLY: qs_energies_init
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_integrate_potential, ONLY: integrate_v_rspace
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

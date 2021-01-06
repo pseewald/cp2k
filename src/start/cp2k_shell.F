@@ -31,41 +31,41 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE cp2k_shell
-   USE ISO_FORTRAN_ENV,                 ONLY: IOSTAT_END
-   USE cp2k_info,                       ONLY: compile_arch,&
-                                              compile_date,&
-                                              compile_host,&
-                                              compile_revision,&
-                                              cp2k_home,&
-                                              cp2k_version,&
-                                              id_cp2k_version,&
-                                              print_cp2k_license
-   USE cp2k_runs,                       ONLY: run_input
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE f77_interface,                   ONLY: &
-        calc_energy_force, calc_force, create_force_env, destroy_force_env, get_cell, get_energy, &
-        get_force, get_natom, get_pos, get_stress_tensor, set_cell, set_pos
-   USE input_constants,                 ONLY: id_development_version
-   USE input_cp2k_read,                 ONLY: empty_initial_variables
-   USE input_section_types,             ONLY: section_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE machine,                         ONLY: m_chdir,&
-                                              m_flush,&
-                                              m_getcwd,&
-                                              m_getlog,&
-                                              m_getpid,&
-                                              m_hostnm
-   USE message_passing,                 ONLY: mp_bcast
-   USE physcon,                         ONLY: angstrom,&
-                                              evolt
-   USE string_utilities,                ONLY: uppercase
+   USE ISO_FORTRAN_ENV, ONLY: IOSTAT_END
+   USE cp2k_info, ONLY: compile_arch, &
+                        compile_date, &
+                        compile_host, &
+                        compile_revision, &
+                        cp2k_home, &
+                        cp2k_version, &
+                        id_cp2k_version, &
+                        print_cp2k_license
+   USE cp2k_runs, ONLY: run_input
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE f77_interface, ONLY: &
+      calc_energy_force, calc_force, create_force_env, destroy_force_env, get_cell, get_energy, &
+      get_force, get_natom, get_pos, get_stress_tensor, set_cell, set_pos
+   USE input_constants, ONLY: id_development_version
+   USE input_cp2k_read, ONLY: empty_initial_variables
+   USE input_section_types, ONLY: section_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE machine, ONLY: m_chdir, &
+                      m_flush, &
+                      m_getcwd, &
+                      m_getlog, &
+                      m_getpid, &
+                      m_hostnm
+   USE message_passing, ONLY: mp_bcast
+   USE physcon, ONLY: angstrom, &
+                      evolt
+   USE string_utilities, ONLY: uppercase
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -210,7 +210,7 @@ CONTAINS
       line = TRIM(line)
       DO i = 1, LEN_TRIM(line)
          IF (line(i:i) == ' ') EXIT
-      ENDDO
+      END DO
       cmd = line(1:i)
       CALL uppercase(cmd)
       line = ADJUSTL(line(i:)) ! shift
@@ -218,14 +218,14 @@ CONTAINS
       ! extract first arg
       DO i = 1, LEN_TRIM(line)
          IF (line(i:i) == ' ') EXIT
-      ENDDO
+      END DO
       arg1 = line(1:i)
       line = ADJUSTL(line(i:)) ! shift
 
       ! extract second arg
       DO i = 1, LEN_TRIM(line)
          IF (line(i:i) == ' ') EXIT
-      ENDDO
+      END DO
       arg2 = line(1:i)
 
       ! ignore remaining line
@@ -251,11 +251,11 @@ CONTAINS
             shell%env_id = -1
             success = .FALSE.
             CALL print_error("parse_env_id failed", shell)
-         ENDIF
+         END IF
       ELSE IF (shell%env_id < 1) THEN
          CALL print_error("last env_id not set", shell)
          success = .FALSE.
-      ENDIF
+      END IF
       ! fallback: reuse last env_id
    END FUNCTION parse_env_id
 
@@ -275,7 +275,7 @@ CONTAINS
       success = condition
       IF (.NOT. success) THEN
          CALL print_error(message, shell)
-      ENDIF
+      END IF
    END FUNCTION my_assert
 
 ! **************************************************************************************************
@@ -483,7 +483,7 @@ CONTAINS
       IF (ierr /= 0) THEN
          shell%env_id = -1
          CALL print_error("create_force_env failed", shell)
-      ENDIF
+      END IF
    END SUBROUTINE bg_load_command
 
 ! **************************************************************************************************

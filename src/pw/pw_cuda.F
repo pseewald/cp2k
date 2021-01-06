@@ -20,22 +20,22 @@
 !> \author Benjamin G. Levine
 ! **************************************************************************************************
 MODULE pw_cuda
-   USE ISO_C_BINDING,                   ONLY: C_DOUBLE,&
-                                              C_INT,&
-                                              C_LOC,&
-                                              C_PTR
-   USE fast,                            ONLY: zero_c
-   USE fft_tools,                       ONLY: &
-        cube_transpose_1, cube_transpose_2, fft_scratch_sizes, fft_scratch_type, get_fft_scratch, &
-        release_fft_scratch, x_to_yz, xz_to_yz, yz_to_x, yz_to_xz
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_comm_compare,&
-                                              mp_environ,&
-                                              mp_rank_compare
-   USE pw_grid_types,                   ONLY: FULLSPACE
-   USE pw_types,                        ONLY: REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_type
+   USE ISO_C_BINDING, ONLY: C_DOUBLE, &
+                            C_INT, &
+                            C_LOC, &
+                            C_PTR
+   USE fast, ONLY: zero_c
+   USE fft_tools, ONLY: &
+      cube_transpose_1, cube_transpose_2, fft_scratch_sizes, fft_scratch_type, get_fft_scratch, &
+      release_fft_scratch, x_to_yz, xz_to_yz, yz_to_x, yz_to_xz
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_comm_compare, &
+                              mp_environ, &
+                              mp_rank_compare
+   USE pw_grid_types, ONLY: FULLSPACE
+   USE pw_types, ONLY: REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -552,7 +552,7 @@ CONTAINS
 
             CALL release_fft_scratch(fft_scratch)
 
-         ENDIF
+         END IF
 
          DEALLOCATE (p2p)
 
@@ -744,7 +744,7 @@ CONTAINS
 
             CALL release_fft_scratch(fft_scratch)
 
-         ENDIF
+         END IF
 
          DEALLOCATE (p2p)
 

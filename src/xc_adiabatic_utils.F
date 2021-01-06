@@ -15,28 +15,28 @@
 ! **************************************************************************************************
 MODULE xc_adiabatic_utils
 
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE hfx_communication,               ONLY: scale_and_add_fock_to_ks_matrix
-   USE hfx_derivatives,                 ONLY: derivatives_four_center
-   USE input_constants,                 ONLY: do_adiabatic_hybrid_mcy3,&
-                                              do_adiabatic_model_pade
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_vxc,                          ONLY: qs_vxc_create
-   USE qs_vxc_atom,                     ONLY: calculate_vxc_atom
-   USE xc_adiabatic_methods,            ONLY: rescale_MCY3_pade
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE hfx_communication, ONLY: scale_and_add_fock_to_ks_matrix
+   USE hfx_derivatives, ONLY: derivatives_four_center
+   USE input_constants, ONLY: do_adiabatic_hybrid_mcy3, &
+                              do_adiabatic_model_pade
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE pw_types, ONLY: pw_p_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_vxc, ONLY: qs_vxc_create
+   USE qs_vxc_atom, ONLY: calculate_vxc_atom
+   USE xc_adiabatic_methods, ONLY: rescale_MCY3_pade
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

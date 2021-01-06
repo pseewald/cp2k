@@ -12,37 +12,37 @@
 !>      - full rewrite [jhu, 2009-01-23]
 ! **************************************************************************************************
 MODULE core_ppnl
-   USE ai_overlap,                      ONLY: overlap
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_get_block_p,&
-                                              dbcsr_p_type
-   USE external_potential_types,        ONLY: gth_potential_p_type,&
-                                              gth_potential_type,&
-                                              sgp_potential_p_type,&
-                                              sgp_potential_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE orbital_pointers,                ONLY: init_orbital_pointers,&
-                                              nco,&
-                                              ncoset
-   USE particle_types,                  ONLY: particle_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE sap_kind_types,                  ONLY: alist_type,&
-                                              clist_type,&
-                                              get_alist,&
-                                              release_sap_int,&
-                                              sap_int_type,&
-                                              sap_sort
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
+   USE ai_overlap, ONLY: overlap
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_get_block_p, &
+                        dbcsr_p_type
+   USE external_potential_types, ONLY: gth_potential_p_type, &
+                                       gth_potential_type, &
+                                       sgp_potential_p_type, &
+                                       sgp_potential_type
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE orbital_pointers, ONLY: init_orbital_pointers, &
+                               nco, &
+                               ncoset
+   USE particle_types, ONLY: particle_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE sap_kind_types, ONLY: alist_type, &
+                             clist_type, &
+                             get_alist, &
+                             release_sap_int, &
+                             sap_int_type, &
+                             sap_sort
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
 
 !$ USE OMP_LIB, ONLY: omp_lock_kind, &
 !$                    omp_init_lock, omp_set_lock, &
@@ -102,9 +102,9 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'build_core_ppnl'
 
       INTEGER :: atom_a, first_col, handle, i, iab, iac, iatom, ibc, icol, ikind, ilist, img, &
-         irow, iset, j, jatom, jkind, jneighbor, kac, katom, kbc, kkind, l, lc_max, lc_min, ldai, &
-         ldsab, lppnl, maxco, maxder, maxl, maxlgto, maxlppnl, maxppnl, maxsgf, na, natom, nb, &
-         ncoa, ncoc, nkind, nlist, nneighbor, nnl, np, nppnl, nprjc, nseta, nsgfa, prjc, sgfa, slot
+                 irow, iset, j, jatom, jkind, jneighbor, kac, katom, kbc, kkind, l, lc_max, lc_min, ldai, &
+                 ldsab, lppnl, maxco, maxder, maxl, maxlgto, maxlppnl, maxppnl, maxsgf, na, natom, nb, &
+                 ncoa, ncoc, nkind, nlist, nneighbor, nnl, np, nppnl, nprjc, nseta, nsgfa, prjc, sgfa, slot
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, kind_of
       INTEGER, DIMENSION(3)                              :: cell_b, cell_c
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, npgfa, nprj_ppnl, &
@@ -146,7 +146,7 @@ CONTAINS
          CALL timeset(routineN//"_forces", handle)
       ELSE
          CALL timeset(routineN, handle)
-      ENDIF
+      END IF
 
       ppnl_present = ASSOCIATED(sap_ppnl)
 
@@ -555,14 +555,14 @@ CONTAINS
                                     CALL virial_pair_force(pv_thread, f0, fa, rac)
                                     CALL virial_pair_force(pv_thread, f0, fb, rbc)
                                  END IF
-                              ENDIF
+                              END IF
                            END IF
                            EXIT ! We have found a match and there can be only one single match
                         END IF
                      END DO
                   END DO
                END DO
-            ENDIF
+            END IF
          END DO
 
 !$OMP DO

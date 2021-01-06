@@ -13,9 +13,9 @@
 ! **************************************************************************************************
 
 MODULE arnoldi_types
-   USE dbcsr_api,                       ONLY: dbcsr_type
-   USE kinds,                           ONLY: real_4,&
-                                              real_8
+   USE dbcsr_api, ONLY: dbcsr_type
+   USE kinds, ONLY: real_4, &
+                    real_8
 
    IMPLICIT NONE
 

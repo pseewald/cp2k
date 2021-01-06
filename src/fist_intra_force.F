@@ -13,27 +13,27 @@
 ! **************************************************************************************************
 MODULE fist_intra_force
 
-   USE atprop_types,                    ONLY: atprop_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE kinds,                           ONLY: dp
-   USE mol_force,                       ONLY: force_bends,&
-                                              force_bonds,&
-                                              force_imp_torsions,&
-                                              force_opbends,&
-                                              force_torsions,&
-                                              get_pv_bend,&
-                                              get_pv_bond,&
-                                              get_pv_torsion
-   USE molecule_kind_types,             ONLY: &
-        bend_type, bond_type, get_molecule_kind, impr_type, molecule_kind_type, opbend_type, &
-        shell_type, torsion_type, ub_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              molecule_type
-   USE particle_types,                  ONLY: particle_type
+   USE atprop_types, ONLY: atprop_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE kinds, ONLY: dp
+   USE mol_force, ONLY: force_bends, &
+                        force_bonds, &
+                        force_imp_torsions, &
+                        force_opbends, &
+                        force_torsions, &
+                        get_pv_bend, &
+                        get_pv_bond, &
+                        get_pv_torsion
+   USE molecule_kind_types, ONLY: &
+      bend_type, bond_type, get_molecule_kind, impr_type, molecule_kind_type, opbend_type, &
+      shell_type, torsion_type, ub_type
+   USE molecule_types, ONLY: get_molecule, &
+                             molecule_type
+   USE particle_types, ONLY: particle_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -105,8 +105,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'force_intra_control'
 
       INTEGER :: first_atom, handle, i, ibend, ibond, ikind, imol, imul, index_a, index_b, &
-         index_c, index_d, iopbend, ishell, itorsion, nbends, nbonds, nimptors, nkind, &
-         nmol_per_kind, nopbends, nshell, ntorsions, nub
+                 index_c, index_d, iopbend, ishell, itorsion, nbends, nbonds, nimptors, nkind, &
+                 nmol_per_kind, nopbends, nshell, ntorsions, nub
       LOGICAL                                            :: atener, atstress
       REAL(KIND=dp)                                      :: d12, d32, dist, dist1, dist2, energy, &
                                                             fscalar, id12, id32, is32, ism, isn, &

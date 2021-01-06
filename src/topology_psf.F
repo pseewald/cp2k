@@ -12,43 +12,43 @@
 !>      tlaino 10.2006
 ! **************************************************************************************************
 MODULE topology_psf
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_generate_filename,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object,&
-                                              parser_search_string,&
-                                              parser_test_next_token
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE force_fields_input,              ONLY: read_chrg_section
-   USE input_constants,                 ONLY: do_conn_psf,&
-                                              do_conn_psf_u
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE qmmm_ff_fist,                    ONLY: qmmm_ff_precond_only_qm
-   USE string_table,                    ONLY: id2str,&
-                                              s2s,&
-                                              str2id
-   USE string_utilities,                ONLY: uppercase
-   USE topology_types,                  ONLY: atom_info_type,&
-                                              connectivity_info_type,&
-                                              topology_parameters_type
-   USE topology_util,                   ONLY: array1_list_type,&
-                                              reorder_structure,&
-                                              tag_molecule
-   USE util,                            ONLY: sort
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_generate_filename, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object, &
+                                parser_search_string, &
+                                parser_test_next_token
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE force_fields_input, ONLY: read_chrg_section
+   USE input_constants, ONLY: do_conn_psf, &
+                              do_conn_psf_u
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE qmmm_ff_fist, ONLY: qmmm_ff_precond_only_qm
+   USE string_table, ONLY: id2str, &
+                           s2s, &
+                           str2id
+   USE string_utilities, ONLY: uppercase
+   USE topology_types, ONLY: atom_info_type, &
+                             connectivity_info_type, &
+                             topology_parameters_type
+   USE topology_util, ONLY: array1_list_type, &
+                            reorder_structure, &
+                            tag_molecule
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -90,7 +90,7 @@ CONTAINS
       CHARACTER(LEN=default_string_length)               :: dummy_field, field, label, strtmp1, &
                                                             strtmp2, strtmp3
       INTEGER :: handle, i, iatom, ibond, idum, index_now, iphi, itheta, iw, natom, natom_prev, &
-         nbond, nbond_prev, nphi, nphi_prev, ntheta, ntheta_prev, output_unit
+                 nbond, nbond_prev, nphi, nphi_prev, ntheta, ntheta_prev, output_unit
       LOGICAL                                            :: found
       TYPE(atom_info_type), POINTER                      :: atom_info
       TYPE(connectivity_info_type), POINTER              :: conn_info
@@ -125,7 +125,7 @@ CONTAINS
             IF (psf_type == do_conn_psf) THEN
                ! X-PLOR PSF format "similar" to the plain CHARMM PSF format
                psf_format = '(I8,1X,A4,I5,1X,A4,1X,A4,1X,A4,1X,2G14.6,I8)'
-            ENDIF
+            END IF
          CASE ("EXT")
             IF (psf_type == do_conn_psf) THEN
                ! EXTEnded CHARMM31 format
@@ -133,7 +133,7 @@ CONTAINS
                c_int = 'I10'
             ELSE
                CPABORT("PSF_INFO| "//field(1:3)//" :: not available for UPSF format!")
-            ENDIF
+            END IF
          CASE DEFAULT
             CPABORT("PSF_INFO| "//field(1:3)//" :: Unimplemented keyword in CP2K PSF/UPSF format!")
          END SELECT
@@ -489,7 +489,7 @@ CONTAINS
       ALLOCATE (ex_bond_list(natom))
       DO I = 1, natom
          ALLOCATE (ex_bond_list(I)%array1(0))
-      ENDDO
+      END DO
       N = 0
       IF (ASSOCIATED(conn_info%bond_a)) N = SIZE(conn_info%bond_a)
       CALL reorder_structure(ex_bond_list, conn_info%bond_a, conn_info%bond_b, N)
@@ -497,7 +497,7 @@ CONTAINS
       ALLOCATE (ex_bend_list(natom))
       DO I = 1, natom
          ALLOCATE (ex_bend_list(I)%array1(0))
-      ENDDO
+      END DO
       N = 0
       IF (ASSOCIATED(conn_info%theta_a)) N = SIZE(conn_info%theta_a)
       CALL reorder_structure(ex_bend_list, conn_info%theta_a, conn_info%theta_c, N)
@@ -512,18 +512,18 @@ CONTAINS
       ! deallocate bends
       DO I = 1, natom
          DEALLOCATE (ex_bend_list(I)%array1)
-      ENDDO
+      END DO
       DEALLOCATE (ex_bend_list)
       ! deallocate bonds
       DO I = 1, natom
          DEALLOCATE (ex_bond_list(I)%array1)
-      ENDDO
+      END DO
       DEALLOCATE (ex_bond_list)
       ! Get unique onfo
       ALLOCATE (ex_bond_list(natom))
       DO I = 1, natom
          ALLOCATE (ex_bond_list(I)%array1(0))
-      ENDDO
+      END DO
       N = 0
       IF (ASSOCIATED(conn_info%onfo_a)) N = nonfo
       CALL reorder_structure(ex_bond_list, conn_info%onfo_a, conn_info%onfo_b, N)
@@ -542,7 +542,7 @@ CONTAINS
       END DO
       DO I = 1, natom
          DEALLOCATE (ex_bond_list(I)%array1)
-      ENDDO
+      END DO
       DEALLOCATE (ex_bond_list)
       CALL reallocate(conn_info%onfo_a, 1, nonfo)
       CALL reallocate(conn_info%onfo_b, 1, nonfo)
@@ -613,7 +613,7 @@ CONTAINS
             ALLOCATE (wrk(natom))
             DO j = 1, natom
                ALLOCATE (ex_bond_list(j)%array1(0))
-            ENDDO
+            END DO
             CALL reorder_structure(ex_bond_list, conn_info%bond_a, conn_info%bond_b, nbond + n_rep)
             ! Loop over atoms to possiblyt change molecule name
             tag_mols = -1
@@ -649,7 +649,7 @@ CONTAINS
             ! Deallocate bonds
             DO i = 1, natom
                DEALLOCATE (ex_bond_list(i)%array1)
-            ENDDO
+            END DO
             DEALLOCATE (ex_bond_list)
             DEALLOCATE (tag_mols)
             DEALLOCATE (wrk)
@@ -775,7 +775,7 @@ CONTAINS
       ! fixup for topology output
       DO j = 1, topology%natoms
          IF (charges(j) .EQ. -HUGE(0.0_dp)) charges(j) = -99.0_dp
-      ENDDO
+      END DO
       record = cp_print_key_generate_filename(logger, print_key, &
                                               extension=".psf", my_local=.FALSE.)
       ! build the EXT format

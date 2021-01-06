@@ -11,17 +11,17 @@
 !> \author Joost VandeVondele (27.02.02)
 ! **************************************************************************************************
 MODULE gaussian_gridlevels
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_section_types,             ONLY: section_vals_release,&
-                                              section_vals_retain,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE message_passing,                 ONLY: mp_sum
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_section_types, ONLY: section_vals_release, &
+                                  section_vals_retain, &
+                                  section_vals_type
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE message_passing, ONLY: mp_sum
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -72,7 +72,7 @@ CONTAINS
       DO i = 1, ngrid_levels
          gridlevel_info%cutoff(i) = cutoff(i)
          gridlevel_info%count(i) = 0
-      ENDDO
+      END DO
       gridlevel_info%print_section => print_section
       CALL section_vals_retain(print_section)
    END SUBROUTINE init_gaussian_gridlevel
@@ -150,8 +150,8 @@ CONTAINS
       DO i = 1, gridlevel_info%ngrid_levels
          IF ((gridlevel_info%cutoff(i) + 1E-6_dp) .GE. needed_cutoff) THEN
             gridlevel = i
-         ENDIF
-      ENDDO
+         END IF
+      END DO
       gridlevel_info%total_count = gridlevel_info%total_count + 1
       gridlevel_info%count(gridlevel) = gridlevel_info%count(gridlevel) + 1
 

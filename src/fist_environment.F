@@ -10,69 +10,69 @@
 !> \author CJM
 ! **************************************************************************************************
 MODULE fist_environment
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE bibliography,                    ONLY: Devynck2012,&
-                                              Dick1958,&
-                                              Mitchell1993,&
-                                              cite_reference
-   USE cell_methods,                    ONLY: read_cell,&
-                                              write_cell
-   USE cell_types,                      ONLY: cell_release,&
-                                              cell_type,&
-                                              get_cell
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_methods,               ONLY: cp_subsys_create
-   USE cp_subsys_types,                 ONLY: cp_subsys_release,&
-                                              cp_subsys_set,&
-                                              cp_subsys_type
-   USE cp_symmetry,                     ONLY: write_symmetry
-   USE distribution_1d_types,           ONLY: distribution_1d_release,&
-                                              distribution_1d_type
-   USE distribution_methods,            ONLY: distribute_molecules_1d
-   USE ewald_environment_types,         ONLY: ewald_env_create,&
-                                              ewald_env_get,&
-                                              ewald_env_release,&
-                                              ewald_env_set,&
-                                              ewald_environment_type,&
-                                              read_ewald_section
-   USE ewald_pw_methods,                ONLY: ewald_pw_grid_update
-   USE ewald_pw_types,                  ONLY: ewald_pw_create,&
-                                              ewald_pw_release,&
-                                              ewald_pw_type
-   USE exclusion_types,                 ONLY: exclusion_type
-   USE fist_efield_types,               ONLY: fist_efield_type,&
-                                              read_efield_section
-   USE fist_energy_types,               ONLY: allocate_fist_energy,&
-                                              fist_energy_type
-   USE fist_environment_types,          ONLY: fist_env_get,&
-                                              fist_env_set,&
-                                              fist_environment_type
-   USE fist_nonbond_env_types,          ONLY: fist_nonbond_env_release,&
-                                              fist_nonbond_env_type
-   USE force_fields,                    ONLY: force_field_control
-   USE header,                          ONLY: fist_header
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE molecule_kind_types,             ONLY: molecule_kind_type,&
-                                              write_molecule_kind_set
-   USE molecule_types,                  ONLY: molecule_type
-   USE multipole_types,                 ONLY: create_multipole_type,&
-                                              multipole_type,&
-                                              release_multipole_type
-   USE particle_list_types,             ONLY: particle_list_create,&
-                                              particle_list_release,&
-                                              particle_list_type
-   USE particle_methods,                ONLY: write_fist_particle_coordinates,&
-                                              write_particle_distances,&
-                                              write_structure_data
-   USE particle_types,                  ONLY: particle_type
-   USE qmmm_types_low,                  ONLY: qmmm_env_mm_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE bibliography, ONLY: Devynck2012, &
+                           Dick1958, &
+                           Mitchell1993, &
+                           cite_reference
+   USE cell_methods, ONLY: read_cell, &
+                           write_cell
+   USE cell_types, ONLY: cell_release, &
+                         cell_type, &
+                         get_cell
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_methods, ONLY: cp_subsys_create
+   USE cp_subsys_types, ONLY: cp_subsys_release, &
+                              cp_subsys_set, &
+                              cp_subsys_type
+   USE cp_symmetry, ONLY: write_symmetry
+   USE distribution_1d_types, ONLY: distribution_1d_release, &
+                                    distribution_1d_type
+   USE distribution_methods, ONLY: distribute_molecules_1d
+   USE ewald_environment_types, ONLY: ewald_env_create, &
+                                      ewald_env_get, &
+                                      ewald_env_release, &
+                                      ewald_env_set, &
+                                      ewald_environment_type, &
+                                      read_ewald_section
+   USE ewald_pw_methods, ONLY: ewald_pw_grid_update
+   USE ewald_pw_types, ONLY: ewald_pw_create, &
+                             ewald_pw_release, &
+                             ewald_pw_type
+   USE exclusion_types, ONLY: exclusion_type
+   USE fist_efield_types, ONLY: fist_efield_type, &
+                                read_efield_section
+   USE fist_energy_types, ONLY: allocate_fist_energy, &
+                                fist_energy_type
+   USE fist_environment_types, ONLY: fist_env_get, &
+                                     fist_env_set, &
+                                     fist_environment_type
+   USE fist_nonbond_env_types, ONLY: fist_nonbond_env_release, &
+                                     fist_nonbond_env_type
+   USE force_fields, ONLY: force_field_control
+   USE header, ONLY: fist_header
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE molecule_kind_types, ONLY: molecule_kind_type, &
+                                  write_molecule_kind_set
+   USE molecule_types, ONLY: molecule_type
+   USE multipole_types, ONLY: create_multipole_type, &
+                              multipole_type, &
+                              release_multipole_type
+   USE particle_list_types, ONLY: particle_list_create, &
+                                  particle_list_release, &
+                                  particle_list_type
+   USE particle_methods, ONLY: write_fist_particle_coordinates, &
+                               write_particle_distances, &
+                               write_structure_data
+   USE particle_types, ONLY: particle_type
+   USE qmmm_types_low, ONLY: qmmm_env_mm_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -266,7 +266,7 @@ CONTAINS
       ELSE
          NULLIFY (prev_molecule_kind_set)
          NULLIFY (prev_local_molecules)
-      ENDIF
+      END IF
 
       ! Create the fist_energy_type
       CALL allocate_fist_energy(thermo)

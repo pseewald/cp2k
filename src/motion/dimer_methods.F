@@ -13,30 +13,30 @@
 !> \author Luca Bellucci and Teodoro Laino - created [tlaino] - 01.2008
 ! **************************************************************************************************
 MODULE dimer_methods
-   USE bibliography,                    ONLY: Henkelman2014,&
-                                              cite_reference
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE dimer_types,                     ONLY: dimer_env_type,&
-                                              dimer_fixed_atom_control
-   USE dimer_utils,                     ONLY: get_theta
-   USE force_env_methods,               ONLY: force_env_calc_energy_force
-   USE force_env_types,                 ONLY: force_env_get
-   USE geo_opt,                         ONLY: cp_rot_opt
-   USE gopt_f_types,                    ONLY: gopt_f_type
-   USE input_constants,                 ONLY: do_first_rotation_step,&
-                                              do_second_rotation_step,&
-                                              do_third_rotation_step
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE motion_utils,                    ONLY: rot_ana,&
-                                              thrs_motion
-   USE particle_list_types,             ONLY: particle_list_type
+   USE bibliography, ONLY: Henkelman2014, &
+                           cite_reference
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE dimer_types, ONLY: dimer_env_type, &
+                          dimer_fixed_atom_control
+   USE dimer_utils, ONLY: get_theta
+   USE force_env_methods, ONLY: force_env_calc_energy_force
+   USE force_env_types, ONLY: force_env_get
+   USE geo_opt, ONLY: cp_rot_opt
+   USE gopt_f_types, ONLY: gopt_f_type
+   USE input_constants, ONLY: do_first_rotation_step, &
+                              do_second_rotation_step, &
+                              do_third_rotation_step
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE motion_utils, ONLY: rot_ana, &
+                           thrs_motion
+   USE particle_list_types, ONLY: particle_list_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

@@ -16,50 +16,50 @@
 !> \author MI
 ! **************************************************************************************************
 MODULE hfx_pw_methods
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE dbcsr_api,                       ONLY: dbcsr_type
-   USE input_constants,                 ONLY: do_potential_coulomb,&
-                                              do_potential_short,&
-                                              do_potential_truncated
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fourpi
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_type
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_methods,                      ONLY: pw_copy,&
-                                              pw_transfer
-   USE pw_poisson_methods,              ONLY: pw_poisson_solve
-   USE pw_poisson_types,                ONLY: pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_create,&
-                                              pw_p_type,&
-                                              pw_release,&
-                                              pw_type
-   USE qs_collocate_density,            ONLY: calculate_wavefunction
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE dbcsr_api, ONLY: dbcsr_type
+   USE input_constants, ONLY: do_potential_coulomb, &
+                              do_potential_short, &
+                              do_potential_truncated
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fourpi
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_type
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_methods, ONLY: pw_copy, &
+                         pw_transfer
+   USE pw_poisson_methods, ONLY: pw_poisson_solve
+   USE pw_poisson_types, ONLY: pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_create, &
+                       pw_p_type, &
+                       pw_release, &
+                       pw_type
+   USE qs_collocate_density, ONLY: calculate_wavefunction
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -158,7 +158,7 @@ CONTAINS
          potential_type = do_potential_coulomb
          IF (explicit) THEN
             CALL section_vals_val_get(ip_section, "POTENTIAL_TYPE", i_val=potential_type)
-         ENDIF
+         END IF
          IF (potential_type == do_potential_coulomb) THEN
             CALL pw_copy(poisson_env%green_fft%influence_fn, greenfn)
          ELSEIF (potential_type == do_potential_truncated) THEN
@@ -196,7 +196,7 @@ CONTAINS
             CALL pw_create(rho_j(iorb_block)%pw, rho_r%pw%pw_grid, &
                            use_data=REALDATA3D, &
                            in_space=REALSPACE)
-         ENDDO
+         END DO
 
          exchange_energy = 0.0_dp
 
@@ -205,7 +205,7 @@ CONTAINS
 
             IF (mo_array(ispin)%mo_set%use_mo_coeff_b) THEN !fm->dbcsr
                CALL copy_dbcsr_to_fm(mo_coeff_b, mo_coeff) !fm->dbcsr
-            ENDIF !fm->dbcsr
+            END IF !fm->dbcsr
 
             CALL cp_fm_get_info(mo_coeff, ncol_global=norb)
 
@@ -218,7 +218,7 @@ CONTAINS
                                               atomic_kind_set, qs_kind_set, cell, dft_control, particle_set, &
                                               pw_env)
 
-               ENDDO
+               END DO
 
                DO jorb_block = iorb_block, norb, blocksize
 
@@ -229,7 +229,7 @@ CONTAINS
                                                  atomic_kind_set, qs_kind_set, cell, dft_control, particle_set, &
                                                  pw_env)
 
-                  ENDDO
+                  END DO
 
                   DO iorb = iorb_block, MIN(iorb_block + blocksize - 1, norb)
                      iloc = iorb - iorb_block + 1
@@ -252,17 +252,17 @@ CONTAINS
 
                         exchange_energy = exchange_energy - scaling*pair_energy
 
-                     ENDDO
-                  ENDDO
+                     END DO
+                  END DO
 
-               ENDDO
-            ENDDO
-         ENDDO
+               END DO
+            END DO
+         END DO
 
          DO iorb_block = 1, blocksize
             CALL pw_release(rho_i(iorb_block)%pw)
             CALL pw_release(rho_j(iorb_block)%pw)
-         ENDDO
+         END DO
 
          CALL pw_pool_give_back_pw(auxbas_pw_pool, rho_r%pw)
          CALL pw_pool_give_back_pw(auxbas_pw_pool, rho_g%pw)
@@ -277,11 +277,11 @@ CONTAINS
                "HF_PW_HFX| PW exchange energy:", exchange_energy
             WRITE (UNIT=iw, FMT="((T3,A,T61,F20.10),/)") &
                "HF_PW_HFX| Gaussian exchange energy:", ehfx
-         ENDIF
+         END IF
 
          CALL cp_print_key_finished_output(iw, logger, hfx_section, "HF_INFO")
 
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 

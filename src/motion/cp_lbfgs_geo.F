@@ -11,33 +11,33 @@
 !>      none
 ! **************************************************************************************************
 MODULE cp_lbfgs_geo
-   USE cell_types,                      ONLY: cell_type
-   USE cp_external_control,             ONLY: external_control
-   USE cp_lbfgs_optimizer_gopt,         ONLY: cp_lbfgs_opt_gopt_type,&
-                                              cp_opt_gopt_create,&
-                                              cp_opt_gopt_next,&
-                                              cp_opt_gopt_release,&
-                                              cp_opt_gopt_stop
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_iterate,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE gopt_f_methods,                  ONLY: gopt_f_ii,&
-                                              gopt_f_io_finalize,&
-                                              print_geo_opt_header,&
-                                              print_geo_opt_nc
-   USE gopt_f_types,                    ONLY: gopt_f_type
-   USE gopt_param_types,                ONLY: gopt_param_type
-   USE input_constants,                 ONLY: default_ts_method_id
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: dp
+   USE cell_types, ONLY: cell_type
+   USE cp_external_control, ONLY: external_control
+   USE cp_lbfgs_optimizer_gopt, ONLY: cp_lbfgs_opt_gopt_type, &
+                                      cp_opt_gopt_create, &
+                                      cp_opt_gopt_next, &
+                                      cp_opt_gopt_release, &
+                                      cp_opt_gopt_stop
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_iterate, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE global_types, ONLY: global_environment_type
+   USE gopt_f_methods, ONLY: gopt_f_ii, &
+                             gopt_f_io_finalize, &
+                             print_geo_opt_header, &
+                             print_geo_opt_nc
+   USE gopt_f_types, ONLY: gopt_f_type
+   USE gopt_param_types, ONLY: gopt_param_type
+   USE input_constants, ONLY: default_ts_method_id
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: dp
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

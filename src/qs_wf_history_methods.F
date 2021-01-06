@@ -19,80 +19,80 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE qs_wf_history_methods
-   USE bibliography,                    ONLY: Kolafa2004,&
-                                              Kuhne2007,&
-                                              VandeVondele2005a,&
-                                              cite_reference
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_scale,&
-                                              cp_fm_scale_and_add
-   USE cp_fm_pool_types,                ONLY: cp_fm_pool_p_type,&
-                                              cp_fm_pool_type,&
-                                              fm_pools_create_fm_vect,&
-                                              fm_pools_give_back_fm_vect
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr,&
-                                              low_print_level
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_copy,&
-                                              dbcsr_deallocate_matrix,&
-                                              dbcsr_p_type
-   USE input_constants,                 ONLY: &
-        wfi_aspc_nr, wfi_frozen_method_nr, wfi_linear_p_method_nr, wfi_linear_ps_method_nr, &
-        wfi_linear_wf_method_nr, wfi_ps_method_nr, wfi_use_guess_method_nr, &
-        wfi_use_prev_p_method_nr, wfi_use_prev_rho_r_method_nr, wfi_use_prev_wf_method_nr
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: binomial
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_copy
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_ks_types,                     ONLY: qs_ks_did_change
-   USE qs_matrix_pools,                 ONLY: mpools_get,&
-                                              qs_matrix_pools_type
-   USE qs_mo_methods,                   ONLY: calculate_density_matrix,&
-                                              make_basis_cholesky,&
-                                              make_basis_lowdin,&
-                                              make_basis_simple,&
-                                              make_basis_sm
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_rho_methods,                  ONLY: qs_rho_update_rho
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_set,&
-                                              qs_rho_type
-   USE qs_scf_types,                    ONLY: ot_method_nr,&
-                                              qs_scf_env_type
-   USE qs_wf_history_types,             ONLY: qs_wf_history_type,&
-                                              qs_wf_snapshot_type,&
-                                              wfi_get_snapshot,&
-                                              wfi_release
-   USE scf_control_types,               ONLY: scf_control_type
+   USE bibliography, ONLY: Kolafa2004, &
+                           Kuhne2007, &
+                           VandeVondele2005a, &
+                           cite_reference
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_sm_fm_multiply, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_scale, &
+                                 cp_fm_scale_and_add
+   USE cp_fm_pool_types, ONLY: cp_fm_pool_p_type, &
+                               cp_fm_pool_type, &
+                               fm_pools_create_fm_vect, &
+                               fm_pools_give_back_fm_vect
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr, &
+                                 low_print_level
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_copy, &
+                        dbcsr_deallocate_matrix, &
+                        dbcsr_p_type
+   USE input_constants, ONLY: &
+      wfi_aspc_nr, wfi_frozen_method_nr, wfi_linear_p_method_nr, wfi_linear_ps_method_nr, &
+      wfi_linear_wf_method_nr, wfi_ps_method_nr, wfi_use_guess_method_nr, &
+      wfi_use_prev_p_method_nr, wfi_use_prev_rho_r_method_nr, wfi_use_prev_wf_method_nr
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: binomial
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_copy
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_ks_types, ONLY: qs_ks_did_change
+   USE qs_matrix_pools, ONLY: mpools_get, &
+                              qs_matrix_pools_type
+   USE qs_mo_methods, ONLY: calculate_density_matrix, &
+                            make_basis_cholesky, &
+                            make_basis_lowdin, &
+                            make_basis_simple, &
+                            make_basis_sm
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_rho_methods, ONLY: qs_rho_update_rho
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_set, &
+                           qs_rho_type
+   USE qs_scf_types, ONLY: ot_method_nr, &
+                           qs_scf_env_type
+   USE qs_wf_history_types, ONLY: qs_wf_history_type, &
+                                  qs_wf_snapshot_type, &
+                                  wfi_get_snapshot, &
+                                  wfi_release
+   USE scf_control_types, ONLY: scf_control_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -527,7 +527,7 @@ CONTAINS
                actual_extrapolation_method_nr = wfi_use_guess_method_nr
             ELSE
                actual_extrapolation_method_nr = wfi_use_prev_wf_method_nr
-            ENDIF
+            END IF
          END IF
       CASE (wfi_linear_ps_method_nr)
          IF (wf_history%snapshot_count < 2) THEN
@@ -839,7 +839,7 @@ CONTAINS
                CALL cp_gemm('N', 'N', n, k, k, 1.0_dp, t0_state%wf(ispin)%matrix, csc, 0.0_dp, fm_tmp)
                alpha = -1.0_dp*alpha*REAL(nvec - i + 1, dp)/REAL(i, dp)
                CALL cp_fm_scale_and_add(1.0_dp, mo_coeff, alpha, fm_tmp)
-            ENDDO
+            END DO
 
             CALL cp_fm_release(csc)
             CALL cp_fm_release(fm_tmp)

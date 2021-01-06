@@ -10,7 +10,7 @@
 ! **************************************************************************************************
 MODULE qmmm_ff_fist
 
-   USE kinds,                           ONLY: default_string_length
+   USE kinds, ONLY: default_string_length
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -12,64 +12,64 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE qmmm_init
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              set_atomic_kind
-   USE cell_methods,                    ONLY: read_cell
-   USE cell_types,                      ONLY: cell_type,&
-                                              use_perd_xyz
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_eri_mme_interface,            ONLY: cp_eri_mme_init_read_input,&
-                                              cp_eri_mme_set_params
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k,&
-                                              cp_unit_to_cp2k
-   USE external_potential_types,        ONLY: fist_potential_type,&
-                                              get_potential,&
-                                              set_potential
-   USE force_field_types,               ONLY: input_info_type
-   USE force_fields_input,              ONLY: read_gd_section,&
-                                              read_gp_section,&
-                                              read_lj_section,&
-                                              read_wl_section
-   USE input_constants,                 ONLY: &
-        RADIUS_QMMM_DEFAULT, calc_always, calc_once, do_eri_mme, do_qmmm_gauss, &
-        do_qmmm_image_calcmatrix, do_qmmm_image_iter, do_qmmm_link_gho, do_qmmm_link_imomm, &
-        do_qmmm_link_pseudo, do_qmmm_pcharge, do_qmmm_swave
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE pair_potential_types,            ONLY: pair_potential_reallocate
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_type
-   USE qmmm_elpot,                      ONLY: qmmm_potential_init
-   USE qmmm_ff_fist,                    ONLY: qmmm_ff_precond_only_qm
-   USE qmmm_gaussian_init,              ONLY: qmmm_gaussian_initialize
-   USE qmmm_per_elpot,                  ONLY: qmmm_ewald_potential_init,&
-                                              qmmm_per_potential_init
-   USE qmmm_types_low,                  ONLY: add_set_type,&
-                                              add_shell_type,&
-                                              create_add_set_type,&
-                                              create_add_shell_type,&
-                                              qmmm_env_mm_type,&
-                                              qmmm_env_qm_type,&
-                                              qmmm_links_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE shell_potential_types,           ONLY: get_shell,&
-                                              shell_kind_type
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                set_atomic_kind
+   USE cell_methods, ONLY: read_cell
+   USE cell_types, ONLY: cell_type, &
+                         use_perd_xyz
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_eri_mme_interface, ONLY: cp_eri_mme_init_read_input, &
+                                   cp_eri_mme_set_params
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE cp_units, ONLY: cp_unit_from_cp2k, &
+                       cp_unit_to_cp2k
+   USE external_potential_types, ONLY: fist_potential_type, &
+                                       get_potential, &
+                                       set_potential
+   USE force_field_types, ONLY: input_info_type
+   USE force_fields_input, ONLY: read_gd_section, &
+                                 read_gp_section, &
+                                 read_lj_section, &
+                                 read_wl_section
+   USE input_constants, ONLY: &
+      RADIUS_QMMM_DEFAULT, calc_always, calc_once, do_eri_mme, do_qmmm_gauss, &
+      do_qmmm_image_calcmatrix, do_qmmm_image_iter, do_qmmm_link_gho, do_qmmm_link_imomm, &
+      do_qmmm_link_pseudo, do_qmmm_pcharge, do_qmmm_swave
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE pair_potential_types, ONLY: pair_potential_reallocate
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_type
+   USE qmmm_elpot, ONLY: qmmm_potential_init
+   USE qmmm_ff_fist, ONLY: qmmm_ff_precond_only_qm
+   USE qmmm_gaussian_init, ONLY: qmmm_gaussian_initialize
+   USE qmmm_per_elpot, ONLY: qmmm_ewald_potential_init, &
+                             qmmm_per_potential_init
+   USE qmmm_types_low, ONLY: add_set_type, &
+                             add_shell_type, &
+                             create_add_set_type, &
+                             create_add_shell_type, &
+                             qmmm_env_mm_type, &
+                             qmmm_env_qm_type, &
+                             qmmm_links_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE shell_potential_types, ONLY: get_shell, &
+                                    shell_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -757,7 +757,7 @@ CONTAINS
 
       ELSE
          CPABORT("QMMM section not present in input file!")
-      ENDIF
+      END IF
       !
       ! Build MM atoms list
       !
@@ -830,7 +830,7 @@ CONTAINS
                                        l_max=0, &
                                        para_env=para_env)
 
-         ENDIF
+         END IF
       END IF
 
    END SUBROUTINE setup_qmmm_vars_qm
@@ -1435,7 +1435,7 @@ CONTAINS
          qmmm_env%utrasl = dr
       ELSE
          qmmm_env%utrasl = 1.0_dp
-      ENDIF
+      END IF
       CALL section_vals_val_get(qmmm_section, "INITIAL_TRANSLATION_VECTOR", r_vals=vec)
       qmmm_env%transl_v = vec
    END SUBROUTINE setup_origin_mm_cell
@@ -1505,13 +1505,13 @@ CONTAINS
          atom_a = qmmm_env%image_charge_pot%image_mm_list(i)
          IF (ANY(qm_atom_index == atom_a)) THEN
             CPABORT("Image atom list must only contain MM atoms")
-         ENDIF
+         END IF
          DO j = i + 1, num_image_mm_atom
             atom_b = qmmm_env%image_charge_pot%image_mm_list(j)
             IF (atom_a == atom_b) &
                CPABORT("There are atoms doubled in image list.")
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       ! check if molecules in list carry constraints
       num_const_atom = 0
@@ -1531,13 +1531,13 @@ CONTAINS
                         IF (molecule_kind(i)%fixd_list(j)%itype /= use_perd_xyz) THEN
                            fix_xyz = .FALSE.
                            EXIT
-                        ENDIF
-                     ENDIF
-                  ENDDO
-               ENDDO
-            ENDDO
-         ENDIF
-      ENDIF
+                        END IF
+                     END IF
+                  END DO
+               END DO
+            END DO
+         END IF
+      END IF
 
       ! if all image atoms are constrained, calculate image matrix only
       ! once for the first MD or GEO_OPT step (for non-iterative case)
@@ -1545,7 +1545,7 @@ CONTAINS
          qmmm_env%image_charge_pot%state_image_matrix = calc_once
       ELSE
          qmmm_env%image_charge_pot%state_image_matrix = calc_always
-      ENDIF
+      END IF
 
    END SUBROUTINE setup_image_atom_list
 

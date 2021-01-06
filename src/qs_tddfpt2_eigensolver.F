@@ -6,52 +6,52 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE qs_tddfpt2_eigensolver
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: tddfpt2_control_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_contracted_trace,&
-                                              cp_fm_scale,&
-                                              cp_fm_scale_and_add,&
-                                              cp_fm_trace
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver
-   USE cp_fm_pool_types,                ONLY: fm_pool_create_fm,&
-                                              fm_pool_give_back_fm
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: &
-        cp_fm_copy_general, cp_fm_create, cp_fm_get_info, cp_fm_get_submatrix, cp_fm_maxabsval, &
-        cp_fm_p_type, cp_fm_release, cp_fm_set_all, cp_fm_set_submatrix, cp_fm_to_fm, cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_logger_type
-   USE cp_output_handling,              ONLY: cp_iterate
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_info,&
-                                              dbcsr_p_type,&
-                                              dbcsr_type
-   USE input_constants,                 ONLY: tddfpt_kernel_full,&
-                                              tddfpt_kernel_stda
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE machine,                         ONLY: m_flush,&
-                                              m_walltime
-   USE memory_utilities,                ONLY: reallocate
-   USE physcon,                         ONLY: evolt
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_scf_methods,                  ONLY: eigensolver
-   USE qs_tddfpt2_fhxc,                 ONLY: fhxc_kernel,&
-                                              stda_kernel
-   USE qs_tddfpt2_operators,            ONLY: tddfpt_apply_energy_diff,&
-                                              tddfpt_apply_hfx
-   USE qs_tddfpt2_restart,              ONLY: tddfpt_write_restart
-   USE qs_tddfpt2_subgroups,            ONLY: tddfpt_subgroup_env_type
-   USE qs_tddfpt2_types,                ONLY: full_kernel_env_type,&
-                                              tddfpt_ground_state_mos,&
-                                              tddfpt_kernel_env_type,&
-                                              tddfpt_work_matrices
-   USE qs_tddfpt2_utils,                ONLY: tddfpt_total_number_of_states
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: tddfpt2_control_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_sm_fm_multiply
+   USE cp_fm_basic_linalg, ONLY: cp_fm_contracted_trace, &
+                                 cp_fm_scale, &
+                                 cp_fm_scale_and_add, &
+                                 cp_fm_trace
+   USE cp_fm_diag, ONLY: choose_eigv_solver
+   USE cp_fm_pool_types, ONLY: fm_pool_create_fm, &
+                               fm_pool_give_back_fm
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: &
+      cp_fm_copy_general, cp_fm_create, cp_fm_get_info, cp_fm_get_submatrix, cp_fm_maxabsval, &
+      cp_fm_p_type, cp_fm_release, cp_fm_set_all, cp_fm_set_submatrix, cp_fm_to_fm, cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_logger_type
+   USE cp_output_handling, ONLY: cp_iterate
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_get_info, &
+                        dbcsr_p_type, &
+                        dbcsr_type
+   USE input_constants, ONLY: tddfpt_kernel_full, &
+                              tddfpt_kernel_stda
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE machine, ONLY: m_flush, &
+                      m_walltime
+   USE memory_utilities, ONLY: reallocate
+   USE physcon, ONLY: evolt
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_scf_methods, ONLY: eigensolver
+   USE qs_tddfpt2_fhxc, ONLY: fhxc_kernel, &
+                              stda_kernel
+   USE qs_tddfpt2_operators, ONLY: tddfpt_apply_energy_diff, &
+                                   tddfpt_apply_hfx
+   USE qs_tddfpt2_restart, ONLY: tddfpt_write_restart
+   USE qs_tddfpt2_subgroups, ONLY: tddfpt_subgroup_env_type
+   USE qs_tddfpt2_types, ONLY: full_kernel_env_type, &
+                               tddfpt_ground_state_mos, &
+                               tddfpt_kernel_env_type, &
+                               tddfpt_work_matrices
+   USE qs_tddfpt2_utils, ONLY: tddfpt_total_number_of_states
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

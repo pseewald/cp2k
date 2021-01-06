@@ -10,14 +10,14 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE cp_realspace_grid_cube
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE cp_output_handling,              ONLY: cp_mpi_io_get
-   USE kinds,                           ONLY: dp
-   USE particle_list_types,             ONLY: particle_list_type
-   USE pw_types,                        ONLY: pw_type
-   USE realspace_grid_cube,             ONLY: cube_to_pw,&
-                                              pw_to_cube,&
-                                              pw_to_simple_volumetric
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE cp_output_handling, ONLY: cp_mpi_io_get
+   USE kinds, ONLY: dp
+   USE particle_list_types, ONLY: particle_list_type
+   USE pw_types, ONLY: pw_type
+   USE realspace_grid_cube, ONLY: cube_to_pw, &
+                                  pw_to_cube, &
+                                  pw_to_simple_volumetric
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -95,7 +95,7 @@ CONTAINS
          CALL pw_to_simple_volumetric(pw, unit_nr, stride)
       ELSE
          CALL pw_to_simple_volumetric(pw, unit_nr, stride, pw2)
-      ENDIF
+      END IF
 
    END SUBROUTINE cp_pw_to_simple_volumetric
 

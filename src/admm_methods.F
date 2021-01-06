@@ -13,106 +13,106 @@
 !> \author Manuel Guidon
 ! **************************************************************************************************
 MODULE admm_methods
-   USE admm_types,                      ONLY: admm_gapw_type,&
-                                              admm_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE bibliography,                    ONLY: Merlot2014,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              cp_dbcsr_plus_fm_fm_t
-   USE cp_dbcsr_output,                 ONLY: cp_dbcsr_write_sparse_matrix
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_scale,&
-                                              cp_fm_scale_and_add,&
-                                              cp_fm_schur_product,&
-                                              cp_fm_upper_to_full
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose,&
-                                              cp_fm_cholesky_invert,&
-                                              cp_fm_cholesky_reduce,&
-                                              cp_fm_cholesky_restore
-   USE cp_fm_diag,                      ONLY: cp_fm_syevd
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_set_all,&
-                                              cp_fm_set_element,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_deallocate_matrix, dbcsr_desymmetrize, &
-        dbcsr_dot, dbcsr_get_block_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
-        dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, dbcsr_scale, &
-        dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_symmetric
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE distribution_2d_types,           ONLY: distribution_2d_type
-   USE input_constants,                 ONLY: do_admm_exch_scaling_merlot,&
-                                              do_admm_exch_scaling_none,&
-                                              do_admm_purify_cauchy,&
-                                              do_admm_purify_cauchy_subspace,&
-                                              do_admm_purify_mo_diag,&
-                                              do_admm_purify_mo_no_diag,&
-                                              do_admm_purify_none
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_types,                  ONLY: particle_type
-   USE paw_proj_set_types,              ONLY: get_paw_proj_set,&
-                                              paw_proj_set_type
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_collocate_density,            ONLY: calculate_rho_elec
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: add_qs_force,&
-                                              qs_force_type
-   USE qs_gapw_densities,               ONLY: prepare_gapw_den
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_atom,                      ONLY: update_ks_atom
-   USE qs_ks_types,                     ONLY: get_ks_env,&
-                                              qs_ks_env_type
-   USE qs_local_rho_types,              ONLY: local_rho_set_create,&
-                                              local_rho_set_release,&
-                                              local_rho_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type,&
-                                              mo_set_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type,&
-                                              release_neighbor_list_sets
-   USE qs_neighbor_lists,               ONLY: atom2d_build,&
-                                              atom2d_cleanup,&
-                                              build_neighbor_lists,&
-                                              local_atoms_type,&
-                                              pair_radius_setup
-   USE qs_oce_methods,                  ONLY: build_oce_matrices
-   USE qs_oce_types,                    ONLY: allocate_oce_set,&
-                                              create_oce_set
-   USE qs_overlap,                      ONLY: build_overlap_force
-   USE qs_rho_atom_methods,             ONLY: allocate_rho_atom_internals,&
-                                              calculate_rho_atom_coeff
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_set,&
-                                              qs_rho_type
-   USE qs_vxc,                          ONLY: qs_vxc_create
-   USE qs_vxc_atom,                     ONLY: calculate_vxc_atom
-   USE task_list_methods,               ONLY: generate_qs_task_list
-   USE task_list_types,                 ONLY: allocate_task_list,&
-                                              deallocate_task_list,&
-                                              task_list_type
+   USE admm_types, ONLY: admm_gapw_type, &
+                         admm_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE bibliography, ONLY: Merlot2014, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  cp_dbcsr_plus_fm_fm_t
+   USE cp_dbcsr_output, ONLY: cp_dbcsr_write_sparse_matrix
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_scale, &
+                                 cp_fm_scale_and_add, &
+                                 cp_fm_schur_product, &
+                                 cp_fm_upper_to_full
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose, &
+                             cp_fm_cholesky_invert, &
+                             cp_fm_cholesky_reduce, &
+                             cp_fm_cholesky_restore
+   USE cp_fm_diag, ONLY: cp_fm_syevd
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_set_all, &
+                          cp_fm_set_element, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_deallocate_matrix, dbcsr_desymmetrize, &
+      dbcsr_dot, dbcsr_get_block_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
+      dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, dbcsr_scale, &
+      dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_symmetric
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE distribution_2d_types, ONLY: distribution_2d_type
+   USE input_constants, ONLY: do_admm_exch_scaling_merlot, &
+                              do_admm_exch_scaling_none, &
+                              do_admm_purify_cauchy, &
+                              do_admm_purify_cauchy_subspace, &
+                              do_admm_purify_mo_diag, &
+                              do_admm_purify_mo_no_diag, &
+                              do_admm_purify_none
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE molecule_types, ONLY: molecule_type
+   USE particle_types, ONLY: particle_type
+   USE paw_proj_set_types, ONLY: get_paw_proj_set, &
+                                 paw_proj_set_type
+   USE pw_types, ONLY: pw_p_type
+   USE qs_collocate_density, ONLY: calculate_rho_elec
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: add_qs_force, &
+                             qs_force_type
+   USE qs_gapw_densities, ONLY: prepare_gapw_den
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_atom, ONLY: update_ks_atom
+   USE qs_ks_types, ONLY: get_ks_env, &
+                          qs_ks_env_type
+   USE qs_local_rho_types, ONLY: local_rho_set_create, &
+                                 local_rho_set_release, &
+                                 local_rho_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type, &
+                          mo_set_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type, &
+                                     release_neighbor_list_sets
+   USE qs_neighbor_lists, ONLY: atom2d_build, &
+                                atom2d_cleanup, &
+                                build_neighbor_lists, &
+                                local_atoms_type, &
+                                pair_radius_setup
+   USE qs_oce_methods, ONLY: build_oce_matrices
+   USE qs_oce_types, ONLY: allocate_oce_set, &
+                           create_oce_set
+   USE qs_overlap, ONLY: build_overlap_force
+   USE qs_rho_atom_methods, ONLY: allocate_rho_atom_internals, &
+                                  calculate_rho_atom_coeff
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_set, &
+                           qs_rho_type
+   USE qs_vxc, ONLY: qs_vxc_create
+   USE qs_vxc_atom, ONLY: calculate_vxc_atom
+   USE task_list_methods, ONLY: generate_qs_task_list
+   USE task_list_types, ONLY: allocate_task_list, &
+                              deallocate_task_list, &
+                              task_list_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -191,8 +191,8 @@ CONTAINS
       DO ispin = 1, dft_control%nspins
          IF (mos(ispin)%mo_set%use_mo_coeff_b) THEN
             CALL copy_dbcsr_to_fm(mos(ispin)%mo_set%mo_coeff_b, mos(ispin)%mo_set%mo_coeff)
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       ! fit mo coeffcients
       CALL admm_fit_mo_coeffs(admm_env, matrix_s_aux_fit, matrix_s_aux_fit_vs_orb, &
@@ -220,7 +220,7 @@ CONTAINS
                                          density_matrix_large=rho_ao(ispin)%matrix, &
                                          ispin=ispin)
 
-         ENDIF
+         END IF
 
          IF (admm_env%purification_method == do_admm_purify_cauchy) &
             CALL purify_dm_cauchy(admm_env, &
@@ -609,7 +609,7 @@ CONTAINS
             CALL dbcsr_iterator_stop(iter)
             CALL copy_dbcsr_to_fm(matrix_s_tilde, admm_env%S_inv)
             CALL dbcsr_deallocate_matrix(matrix_s_tilde)
-         ENDIF
+         END IF
 
          CALL cp_fm_upper_to_full(admm_env%S_inv, admm_env%work_aux_aux)
          CALL cp_fm_to_fm(admm_env%S_inv, admm_env%S)
@@ -635,7 +635,7 @@ CONTAINS
             CALL cp_gemm('T', 'N', nao_orb, nao_orb, nao_aux_fit, &
                          1.0_dp, admm_env%Q, admm_env%A, 0.0_dp, &
                          admm_env%B)
-         ENDIF
+         END IF
       END IF
 
       CALL timestop(handle)
@@ -859,7 +859,7 @@ CONTAINS
          CALL cp_gemm('N', 'T', nao_aux_fit, nao_aux_fit, nmo, &
                       1.0_dp, mo_coeff_aux_fit, mo_coeff_aux_fit, 0.0_dp, &
                       admm_env%P_to_be_purified(ispin)%matrix)
-      ENDIF
+      END IF
 
       CALL cp_fm_to_fm(admm_env%S, admm_env%work_aux_aux)
       CALL cp_fm_to_fm(admm_env%P_to_be_purified(ispin)%matrix, admm_env%work_aux_aux2)
@@ -963,7 +963,7 @@ CONTAINS
                          1.0_dp, admm_env%work_aux_orb2, admm_env%A, 0.0_dp, &
                          admm_env%P_to_be_purified(ispin)%matrix)
 
-         ENDIF
+         END IF
 
          CALL cp_fm_to_fm(admm_env%S, admm_env%work_aux_aux)
          CALL cp_fm_to_fm(admm_env%P_to_be_purified(ispin)%matrix, admm_env%work_aux_aux2)
@@ -1057,7 +1057,7 @@ CONTAINS
                END IF
             END DO
             CALL dbcsr_iterator_stop(iter)
-         ENDIF
+         END IF
 
          CALL dbcsr_add(matrix_ks(ispin)%matrix, matrix_k_tilde, 1.0_dp, 1.0_dp)
 
@@ -1201,7 +1201,7 @@ CONTAINS
 
          CALL dbcsr_deallocate_matrix(matrix_k_tilde)
 
-      ENDDO !spin loop
+      END DO !spin loop
       CALL timestop(handle)
 
    END SUBROUTINE merge_ks_matrix_cauchy_subspace
@@ -1378,8 +1378,8 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_iterator_type)                          :: iter
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER :: matrix_ks, matrix_ks_aux_fit, &
-         matrix_ks_aux_fit_dft, matrix_ks_aux_fit_hfx, matrix_s, matrix_s_aux_fit, rho_ao, &
-         rho_ao_aux
+                                                 matrix_ks_aux_fit_dft, matrix_ks_aux_fit_hfx, matrix_s, matrix_s_aux_fit, rho_ao, &
+                                                   rho_ao_aux
       TYPE(dbcsr_type), POINTER                          :: matrix_k_tilde, &
                                                             matrix_ks_aux_fit_admms_tmp, &
                                                             matrix_TtsT
@@ -1506,7 +1506,7 @@ CONTAINS
                   admm_env%lambda_merlot(ispin) = 2.0_dp*(admm_env%gsi(ispin))**2* &
                                                   (energy%ex + energy%exc_aux_fit + energy%exc1_aux_fit) &
                                                   /(admm_env%n_large_basis(ispin))
-               ENDIF
+               END IF
 
             ELSE IF (admm_env%charge_constrain .AND. &
                      (admm_env%scaling_model == do_admm_exch_scaling_merlot)) THEN
@@ -1574,8 +1574,8 @@ CONTAINS
 
             CALL dbcsr_deallocate_matrix(matrix_k_tilde)
 
-         ENDIF
-      ENDDO !spin loop
+         END IF
+      END DO !spin loop
 
       ! Scale energy for ADMMP and ADMMS
       IF (admm_env%scaling_model == do_admm_exch_scaling_merlot) THEN
@@ -2024,12 +2024,12 @@ CONTAINS
       ! *** forces are only implemented for mo_diag or none and basis_projection ***
       IF (admm_env%block_dm) THEN
          CPABORT("")
-      ENDIF
+      END IF
 
       IF (.NOT. (admm_env%purification_method == do_admm_purify_mo_diag .OR. &
                  admm_env%purification_method == do_admm_purify_none)) THEN
          CPABORT("")
-      ENDIF
+      END IF
 
       ! *** Create sparse work matrices
 
@@ -2271,7 +2271,7 @@ CONTAINS
                                               "DFT%PRINT%AO_MATRICES/W_MATRIX_AUX_FIT")
          END IF
 
-      ENDDO !spin loop
+      END DO !spin loop
 
       ! *** Deallocated weighted density matrices
       CALL dbcsr_deallocate_matrix(matrix_w_s)
@@ -2335,7 +2335,7 @@ CONTAINS
                                     matrix_g=admm_env%work_aux_nmo2(ispin)%matrix, &
                                     ncol=mo_set%homo, &
                                     alpha=alpha)
-      ENDIF
+      END IF
 
       !  The following IF checks whether gsi needs to be calculated. This is the case if
       !   the auxiliary density matrix gets scaled
@@ -2357,9 +2357,9 @@ CONTAINS
          IF (admm_env%charge_constrain) THEN
             ! multiply aux. DM with gsi to get the scaled DM (Merlot, Eq. 21)
             CALL dbcsr_scale(density_matrix, admm_env%gsi(ispin))
-         ENDIF
+         END IF
 
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 

@@ -13,33 +13,33 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE kpoint_types
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_release,&
-                                              cp_blacs_env_type
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_release
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_env,                     ONLY: cp_cart_release,&
-                                              cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_cart_type,&
-                                              cp_para_env_type
-   USE input_cp2k_kpoints,              ONLY: use_complex_wfn,&
-                                              use_real_wfn
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: twopi
-   USE physcon,                         ONLY: angstrom
-   USE qs_matrix_pools,                 ONLY: mpools_release,&
-                                              qs_matrix_pools_type
-   USE qs_mo_types,                     ONLY: deallocate_mo_set,&
-                                              mo_set_p_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE string_utilities,                ONLY: uppercase
+   USE cp_blacs_env, ONLY: cp_blacs_env_release, &
+                           cp_blacs_env_type
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_release
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_env, ONLY: cp_cart_release, &
+                          cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_cart_type, &
+                            cp_para_env_type
+   USE input_cp2k_kpoints, ONLY: use_complex_wfn, &
+                                 use_real_wfn
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: twopi
+   USE physcon, ONLY: angstrom
+   USE qs_matrix_pools, ONLY: mpools_release, &
+                              qs_matrix_pools_type
+   USE qs_mo_types, ONLY: deallocate_mo_set, &
+                          mo_set_p_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE string_utilities, ONLY: uppercase
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -243,7 +243,7 @@ CONTAINS
          END IF
          IF (ASSOCIATED(kpoint%kp_dist)) THEN
             DEALLOCATE (kpoint%kp_dist)
-         ENDIF
+         END IF
 
          CALL mpools_release(kpoint%mpools)
          CALL cp_blacs_env_release(kpoint%blacs_env)
@@ -483,7 +483,7 @@ CONTAINS
       IF (PRESENT(cell_to_index)) THEN
          IF (ASSOCIATED(kpoint%cell_to_index)) DEALLOCATE (kpoint%cell_to_index)
          kpoint%cell_to_index => cell_to_index
-      ENDIF
+      END IF
 
    END SUBROUTINE set_kpoint_info
 

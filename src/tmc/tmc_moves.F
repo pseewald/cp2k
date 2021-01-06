@@ -13,29 +13,29 @@
 ! **************************************************************************************************
 
 MODULE tmc_moves
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell,&
-                                              pbc
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE mathlib,                         ONLY: dihedral_angle,&
-                                              rotate_vector
-   USE parallel_rng_types,              ONLY: rng_stream_type
-   USE physcon,                         ONLY: boltzmann,&
-                                              joule
-   USE tmc_calculations,                ONLY: center_of_mass,&
-                                              geometrical_center,&
-                                              get_scaled_cell,&
-                                              nearest_distance
-   USE tmc_move_types,                  ONLY: &
-        mv_type_MD, mv_type_atom_swap, mv_type_atom_trans, mv_type_gausian_adapt, mv_type_mol_rot, &
-        mv_type_mol_trans, mv_type_proton_reorder, mv_type_volume_move, tmc_move_type
-   USE tmc_tree_types,                  ONLY: status_frozen,&
-                                              status_ok,&
-                                              tree_type
-   USE tmc_types,                       ONLY: tmc_atom_type,&
-                                              tmc_param_type
+   USE cell_types, ONLY: cell_type, &
+                         get_cell, &
+                         pbc
+   USE cp_log_handling, ONLY: cp_to_string
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE mathlib, ONLY: dihedral_angle, &
+                      rotate_vector
+   USE parallel_rng_types, ONLY: rng_stream_type
+   USE physcon, ONLY: boltzmann, &
+                      joule
+   USE tmc_calculations, ONLY: center_of_mass, &
+                               geometrical_center, &
+                               get_scaled_cell, &
+                               nearest_distance
+   USE tmc_move_types, ONLY: &
+      mv_type_MD, mv_type_atom_swap, mv_type_atom_trans, mv_type_gausian_adapt, mv_type_mol_rot, &
+      mv_type_mol_trans, mv_type_proton_reorder, mv_type_volume_move, tmc_move_type
+   USE tmc_tree_types, ONLY: status_frozen, &
+                             status_ok, &
+                             tree_type
+   USE tmc_types, ONLY: tmc_atom_type, &
+                        tmc_param_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -726,7 +726,7 @@ CONTAINS
          WRITE (tmp_chr, *) mol_arr(1:counter)
          CPWARN("selected molecules:"//TRIM(tmp_chr))
          short_loop = .TRUE.
-      ENDIF
+      END IF
 
       ! rotate the molecule along the not involved O-H bond
       !   (about the angle in of the neighboring chain elements)

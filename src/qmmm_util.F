@@ -11,29 +11,29 @@
 !> \author Teodoro Laino
 ! **************************************************************************************************
 MODULE qmmm_util
-   USE cell_types,                      ONLY: cell_type
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE cp_subsys_types,                 ONLY: cp_subsys_type
-   USE fist_environment_types,          ONLY: fist_env_get
-   USE force_env_types,                 ONLY: force_env_type,&
-                                              use_qmmm,&
-                                              use_qmmmx
-   USE input_constants,                 ONLY: do_qmmm_wall_none,&
-                                              do_qmmm_wall_quadratic,&
-                                              do_qmmm_wall_reflective
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE particle_methods,                ONLY: write_fist_particle_coordinates,&
-                                              write_qs_particle_coordinates
-   USE particle_types,                  ONLY: particle_type
-   USE qmmm_types,                      ONLY: qmmm_env_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env
-   USE qs_kind_types,                   ONLY: qs_kind_type
+   USE cell_types, ONLY: cell_type
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE cp_subsys_types, ONLY: cp_subsys_type
+   USE fist_environment_types, ONLY: fist_env_get
+   USE force_env_types, ONLY: force_env_type, &
+                              use_qmmm, &
+                              use_qmmmx
+   USE input_constants, ONLY: do_qmmm_wall_none, &
+                              do_qmmm_wall_quadratic, &
+                              do_qmmm_wall_reflective
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE particle_methods, ONLY: write_fist_particle_coordinates, &
+                               write_qs_particle_coordinates
+   USE particle_types, ONLY: particle_type
+   USE qmmm_types, ONLY: qmmm_env_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env
+   USE qs_kind_types, ONLY: qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -79,11 +79,11 @@ CONTAINS
                             "force mixing is active.  Skipping!")
             ELSE
                CALL apply_qmmm_walls_quadratic(qmmm_env, walls_section)
-            ENDIF
+            END IF
          CASE (do_qmmm_wall_reflective)
             ! Do nothing.. reflective walls are applied directly in the integrator
          END SELECT
-      ENDIF
+      END IF
 
    END SUBROUTINE apply_qmmm_walls
 
@@ -184,7 +184,7 @@ CONTAINS
                         particles_mm(qm_index)%v(3) = -ABS(particles_mm(qm_index)%v(3))
                      END IF
                   END IF
-               ENDIF
+               END IF
             ELSE
                ! Otherwise print a warning and continue crossing cp2k's finger..
                CALL cp_warn(__LOCATION__, &
@@ -256,42 +256,42 @@ CONTAINS
                particles_mm(qm_index)%f(1) = particles_mm(qm_index)%f(1) + &
                                              wallforce
                wallenergy = wallenergy + wallforce*(skin(1) - coord(1))*0.5_dp
-            ENDIF
+            END IF
             IF (is_x(2)) THEN
                wallforce = 2.0_dp*k*((qm_cell_diag(1) - skin(1)) - coord(1))
                particles_mm(qm_index)%f(1) = particles_mm(qm_index)%f(1) + &
                                              wallforce
                wallenergy = wallenergy + wallforce*((qm_cell_diag(1) - skin(1)) - &
                                                     coord(1))*0.5_dp
-            ENDIF
+            END IF
             IF (is_y(1)) THEN
                wallforce = 2.0_dp*k*(skin(2) - coord(2))
                particles_mm(qm_index)%f(2) = particles_mm(qm_index)%f(2) + &
                                              wallforce
                wallenergy = wallenergy + wallforce*(skin(2) - coord(2))*0.5_dp
-            ENDIF
+            END IF
             IF (is_y(2)) THEN
                wallforce = 2.0_dp*k*((qm_cell_diag(2) - skin(2)) - coord(2))
                particles_mm(qm_index)%f(2) = particles_mm(qm_index)%f(2) + &
                                              wallforce
                wallenergy = wallenergy + wallforce*((qm_cell_diag(2) - skin(2)) - &
                                                     coord(2))*0.5_dp
-            ENDIF
+            END IF
             IF (is_z(1)) THEN
                wallforce = 2.0_dp*k*(skin(3) - coord(3))
                particles_mm(qm_index)%f(3) = particles_mm(qm_index)%f(3) + &
                                              wallforce
                wallenergy = wallenergy + wallforce*(skin(3) - coord(3))*0.5_dp
-            ENDIF
+            END IF
             IF (is_z(2)) THEN
                wallforce = 2.0_dp*k*((qm_cell_diag(3) - skin(3)) - coord(3))
                particles_mm(qm_index)%f(3) = particles_mm(qm_index)%f(3) + &
                                              wallforce
                wallenergy = wallenergy + wallforce*((qm_cell_diag(3) - skin(3)) - &
                                                     coord(3))*0.5_dp
-            ENDIF
-         ENDIF
-      ENDDO
+            END IF
+         END IF
+      END DO
 
       CALL get_qs_env(qs_env=qmmm_env%qs_env, energy=energy)
       energy%total = energy%total + wallenergy
@@ -379,7 +379,7 @@ CONTAINS
       INTEGER, DIMENSION(:), POINTER                     :: qm_atom_index
       LOGICAL, ALLOCATABLE                               :: avoid(:)
       REAL(DP) :: bigger_lat_dv, center_p(3), lat_dv, lat_dv3(3), lat_min(3), lat_p(3), &
-         max_coord_lat(3), min_coord_lat(3), smaller_lat_dv
+                  max_coord_lat(3), min_coord_lat(3), smaller_lat_dv
       REAL(DP), POINTER                                  :: charges(:)
       REAL(KIND=dp), DIMENSION(3)                        :: max_coord, min_coord, transl_v
       TYPE(cell_type), POINTER                           :: mm_cell, qm_cell
@@ -439,7 +439,7 @@ CONTAINS
                      tmp_ip = min_ip
                      min_ip = max_ip
                      max_ip = tmp_ip
-                  ENDIF
+                  END IF
                   ! loop over all other atoms
                   DO WHILE (.NOT. ALL(avoid))
                      ! find smaller below min, bigger after max
@@ -595,13 +595,13 @@ CONTAINS
             IF (ABS(lat_dv_shifted) < ABS(my_closest_dv) .AND. (dir*lat_dv_shifted >= 0.0)) THEN
                my_closest_dv = lat_dv_shifted
                closest_ip = ip
-            ENDIF
+            END IF
          END DO
       END DO
 
       IF (PRESENT(closest_dv)) THEN
          closest_dv = my_closest_dv
-      ENDIF
+      END IF
 
    END FUNCTION qmmm_find_closest
 

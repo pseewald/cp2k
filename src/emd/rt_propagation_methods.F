@@ -10,69 +10,69 @@
 !> \author Florian Schiffmann (02.09)
 ! **************************************************************************************************
 MODULE rt_propagation_methods
-   USE bibliography,                    ONLY: Kolafa2004,&
-                                              Kuhne2007,&
-                                              cite_reference
-   USE cp_cfm_basic_linalg,             ONLY: cp_cfm_cholesky_decompose,&
-                                              cp_cfm_gemm,&
-                                              cp_cfm_triangular_multiply
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_release,&
-                                              cp_cfm_type
-   USE cp_control_types,                ONLY: rtp_control_type
-   USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose,&
-                                              cp_dbcsr_cholesky_invert
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_scale_and_add
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_double,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_fm_vect,                      ONLY: cp_fm_vect_dealloc
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_deallocate_matrix, dbcsr_desymmetrize, &
-        dbcsr_filter, dbcsr_frobenius_norm, dbcsr_get_block_p, dbcsr_init_p, &
-        dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
-        dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, dbcsr_p_type, dbcsr_release, &
-        dbcsr_scale, dbcsr_set, dbcsr_transposed, dbcsr_type
-   USE input_constants,                 ONLY: do_arnoldi,&
-                                              do_bch,&
-                                              do_em,&
-                                              do_pade,&
-                                              do_taylor
-   USE iterate_matrix,                  ONLY: matrix_sqrt_Newton_Schulz
-   USE kinds,                           ONLY: dp
-   USE ls_matrix_exp,                   ONLY: cp_complex_dbcsr_gemm_3
-   USE mathlib,                         ONLY: binomial
-   USE qs_energy_init,                  ONLY: qs_energies_init
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_ks_methods,                   ONLY: qs_ks_update_qs_env
-   USE rt_make_propagators,             ONLY: propagate_arnoldi,&
-                                              propagate_bch,&
-                                              propagate_exp,&
-                                              propagate_exp_density
-   USE rt_propagation_output,           ONLY: report_density_occupation,&
-                                              rt_convergence,&
-                                              rt_convergence_density
-   USE rt_propagation_types,            ONLY: get_rtp,&
-                                              rt_prop_type
-   USE rt_propagation_utils,            ONLY: calc_S_derivs,&
-                                              calc_update_rho,&
-                                              calc_update_rho_sparse
+   USE bibliography, ONLY: Kolafa2004, &
+                           Kuhne2007, &
+                           cite_reference
+   USE cp_cfm_basic_linalg, ONLY: cp_cfm_cholesky_decompose, &
+                                  cp_cfm_gemm, &
+                                  cp_cfm_triangular_multiply
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_release, &
+                           cp_cfm_type
+   USE cp_control_types, ONLY: rtp_control_type
+   USE cp_dbcsr_cholesky, ONLY: cp_dbcsr_cholesky_decompose, &
+                                cp_dbcsr_cholesky_invert
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_sm_fm_multiply, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_scale_and_add
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_double, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_fm_vect, ONLY: cp_fm_vect_dealloc
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_deallocate_matrix, dbcsr_desymmetrize, &
+      dbcsr_filter, dbcsr_frobenius_norm, dbcsr_get_block_p, dbcsr_init_p, &
+      dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
+      dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, dbcsr_p_type, dbcsr_release, &
+      dbcsr_scale, dbcsr_set, dbcsr_transposed, dbcsr_type
+   USE input_constants, ONLY: do_arnoldi, &
+                              do_bch, &
+                              do_em, &
+                              do_pade, &
+                              do_taylor
+   USE iterate_matrix, ONLY: matrix_sqrt_Newton_Schulz
+   USE kinds, ONLY: dp
+   USE ls_matrix_exp, ONLY: cp_complex_dbcsr_gemm_3
+   USE mathlib, ONLY: binomial
+   USE qs_energy_init, ONLY: qs_energies_init
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_ks_methods, ONLY: qs_ks_update_qs_env
+   USE rt_make_propagators, ONLY: propagate_arnoldi, &
+                                  propagate_bch, &
+                                  propagate_exp, &
+                                  propagate_exp_density
+   USE rt_propagation_output, ONLY: report_density_occupation, &
+                                    rt_convergence, &
+                                    rt_convergence_density
+   USE rt_propagation_types, ONLY: get_rtp, &
+                                   rt_prop_type
+   USE rt_propagation_utils, ONLY: calc_S_derivs, &
+                                   calc_update_rho, &
+                                   calc_update_rho_sparse
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -119,7 +119,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       NULLIFY (delta_P, rho_new, delta_mos, mos_new)
       NULLIFY (ks_mix, ks_mix_im)
@@ -140,7 +140,7 @@ CONTAINS
             CALL calc_update_rho_sparse(qs_env)
          ELSE
             CALL calc_update_rho(qs_env)
-         ENDIF
+         END IF
          CALL qs_ks_update_qs_env(qs_env, calculate_forces=.FALSE.)
       END IF
       IF (.NOT. rtp_control%fixed_ions) THEN
@@ -168,7 +168,7 @@ CONTAINS
                               name="delta_mos"//TRIM(ADJUSTL(cp_to_string(i))))
             CALL cp_fm_to_fm(mos_new(i)%matrix, delta_mos(i)%matrix)
          END DO
-      ENDIF
+      END IF
 
       CALL get_qs_env(qs_env, &
                       matrix_ks=matrix_ks, &
@@ -178,7 +178,7 @@ CONTAINS
       IF (rtp%mixing) THEN
          IF (unit_nr > 0) THEN
             WRITE (unit_nr, '(t3,a,2f16.8)') "Mixing the Hamiltonians to improve robustness, mixing factor: ", rtp%mixing_factor
-         ENDIF
+         END IF
          CALL dbcsr_allocate_matrix_set(ks_mix, SIZE(matrix_ks))
          CALL dbcsr_allocate_matrix_set(ks_mix_im, SIZE(matrix_ks))
          DO i = 1, SIZE(matrix_ks)
@@ -186,7 +186,7 @@ CONTAINS
             CALL dbcsr_create(ks_mix(i)%matrix, template=matrix_ks(1)%matrix)
             CALL dbcsr_init_p(ks_mix_im(i)%matrix)
             CALL dbcsr_create(ks_mix_im(i)%matrix, template=matrix_ks(1)%matrix)
-         ENDDO
+         END DO
          DO i = 1, SIZE(matrix_ks)
             re = 2*i - 1
             im = 2*i
@@ -195,8 +195,8 @@ CONTAINS
             IF (rtp%do_hfx) THEN
                CALL dbcsr_add(ks_mix_im(i)%matrix, matrix_ks_im(i)%matrix, 0.0_dp, rtp%mixing_factor)
                CALL dbcsr_add(ks_mix_im(i)%matrix, H_last_iter(im)%matrix, 1.0_dp, 1.0_dp - rtp%mixing_factor)
-            ENDIF
-         ENDDO
+            END IF
+         END DO
          CALL calc_SinvH(rtp, ks_mix, ks_mix_im, rtp_control)
          DO i = 1, SIZE(matrix_ks)
             re = 2*i - 1
@@ -204,8 +204,8 @@ CONTAINS
             CALL dbcsr_copy(H_last_iter(re)%matrix, ks_mix(i)%matrix)
             IF (rtp%do_hfx) THEN
                CALL dbcsr_copy(H_last_iter(im)%matrix, ks_mix_im(i)%matrix)
-            ENDIF
-         ENDDO
+            END IF
+         END DO
          CALL dbcsr_deallocate_matrix_set(ks_mix)
          CALL dbcsr_deallocate_matrix_set(ks_mix_im)
       ELSE
@@ -216,9 +216,9 @@ CONTAINS
             CALL dbcsr_copy(H_last_iter(re)%matrix, matrix_ks(i)%matrix)
             IF (rtp%do_hfx) THEN
                CALL dbcsr_copy(H_last_iter(im)%matrix, matrix_ks_im(i)%matrix)
-            ENDIF
-         ENDDO
-      ENDIF
+            END IF
+         END DO
+      END IF
 
       CALL compute_propagator_matrix(rtp, rtp_control%propagator)
 
@@ -243,7 +243,7 @@ CONTAINS
          CALL dbcsr_deallocate_matrix_set(delta_P)
       ELSE
          CALL cp_fm_vect_dealloc(delta_mos)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -297,8 +297,8 @@ CONTAINS
             IF (rtp%delta_iter/rtp%delta_iter_old > 0.9) THEN
                rtp%mixing_factor = MAX(rtp%mixing_factor/2.0_dp, 0.125_dp)
                rtp%mixing = .TRUE.
-            ENDIF
-         ENDIF
+            END IF
+         END IF
       END IF
 
       IF (rtp%converged) THEN
@@ -316,7 +316,7 @@ CONTAINS
             DO i = 1, SIZE(mos_new)
                CALL cp_fm_to_fm(mos_new(i)%matrix, mos_old(i)%matrix)
             END DO
-         ENDIF
+         END IF
          IF (rtp_control%propagator == do_em) CALL calc_SinvH(rtp, matrix_ks, matrix_ks_im, rtp_control)
          DO i = 1, SIZE(exp_H_new)
             CALL dbcsr_copy(exp_H_old(i)%matrix, exp_H_new(i)%matrix)
@@ -439,7 +439,7 @@ CONTAINS
             re = ispin*2 - 1
             im = ispin*2
             CALL dbcsr_set(exp_H(re)%matrix, zero)
-         ENDDO
+         END DO
       END IF
       CALL dbcsr_release(matrix_ks_nosym)
       CALL timestop(handle)
@@ -480,7 +480,7 @@ CONTAINS
                                           blacs_env=rtp%ao_ao_fmstruct%context)
          CALL cp_dbcsr_cholesky_invert(S_inv, para_env=rtp%ao_ao_fmstruct%para_env, &
                                        blacs_env=rtp%ao_ao_fmstruct%context, upper_to_full=.TRUE.)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
    END SUBROUTINE s_matrices_create
@@ -523,11 +523,11 @@ CONTAINS
          CALL dbcsr_get_block_p(mat_re, row_atom, col_atom, block_values2, found=found)
          IF (found) THEN
             block_values = block_values2*block_values2
-         ENDIF
+         END IF
          CALL dbcsr_get_block_p(mat_im, row_atom, col_atom, block_values2, found=found)
          IF (found) THEN
             block_values = block_values + block_values2*block_values2
-         ENDIF
+         END IF
          block_values = SQRT(block_values)
       END DO
       CALL dbcsr_iterator_stop(iter)
@@ -572,7 +572,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       NULLIFY (tmp, PS, PSP)
       CALL dbcsr_allocate_matrix_set(tmp, SIZE(P))
@@ -585,11 +585,11 @@ CONTAINS
          CALL dbcsr_create(PSP(i)%matrix, template=P(1)%matrix)
          CALL dbcsr_init_p(tmp(i)%matrix)
          CALL dbcsr_create(tmp(i)%matrix, template=P(1)%matrix)
-      ENDDO
+      END DO
       IF (SIZE(P) == 2) THEN
          CALL dbcsr_scale(P(1)%matrix, one/2)
          CALL dbcsr_scale(P(2)%matrix, one/2)
-      ENDIF
+      END IF
       DO ispin = 1, SIZE(P)/2
          re = 2*ispin - 1
          im = 2*ispin
@@ -634,7 +634,7 @@ CONTAINS
       IF (SIZE(P) == 2) THEN
          CALL dbcsr_scale(P(1)%matrix, one*2)
          CALL dbcsr_scale(P(2)%matrix, one*2)
-      ENDIF
+      END IF
       CALL dbcsr_deallocate_matrix_set(tmp)
       CALL dbcsr_deallocate_matrix_set(PS)
       CALL dbcsr_deallocate_matrix_set(PSP)
@@ -680,7 +680,7 @@ CONTAINS
          CALL get_rtp(rtp=rtp, rho_new=rho_new)
       ELSE
          CALL get_rtp(rtp=rtp, mos_new=mos_new)
-      ENDIF
+      END IF
 
       naspc = MIN(rtp%istep, aspc_order)
       IF (rtp%linear_scaling) THEN

@@ -10,39 +10,39 @@
 ! **************************************************************************************************
 MODULE thermostat_mapping
 
-   USE cell_types,                      ONLY: use_perd_x,&
-                                              use_perd_xy,&
-                                              use_perd_xyz,&
-                                              use_perd_xz,&
-                                              use_perd_y,&
-                                              use_perd_yz,&
-                                              use_perd_z
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE extended_system_types,           ONLY: map_info_type
-   USE input_constants,                 ONLY: do_region_defined,&
-                                              do_region_global,&
-                                              do_region_massive,&
-                                              do_region_molecule,&
-                                              do_thermo_communication,&
-                                              do_thermo_no_communication
-   USE kinds,                           ONLY: dp
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_allgather,&
-                                              mp_bcast,&
-                                              mp_sum
-   USE molecule_kind_types,             ONLY: colvar_constraint_type,&
-                                              fixd_constraint_type,&
-                                              g3x3_constraint_type,&
-                                              g4x6_constraint_type,&
-                                              get_molecule_kind,&
-                                              molecule_kind_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              global_constraint_type,&
-                                              molecule_type
-   USE simpar_types,                    ONLY: simpar_type
-   USE util,                            ONLY: locate,&
-                                              sort
+   USE cell_types, ONLY: use_perd_x, &
+                         use_perd_xy, &
+                         use_perd_xyz, &
+                         use_perd_xz, &
+                         use_perd_y, &
+                         use_perd_yz, &
+                         use_perd_z
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE extended_system_types, ONLY: map_info_type
+   USE input_constants, ONLY: do_region_defined, &
+                              do_region_global, &
+                              do_region_massive, &
+                              do_region_molecule, &
+                              do_thermo_communication, &
+                              do_thermo_no_communication
+   USE kinds, ONLY: dp
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_allgather, &
+                              mp_bcast, &
+                              mp_sum
+   USE molecule_kind_types, ONLY: colvar_constraint_type, &
+                                  fixd_constraint_type, &
+                                  g3x3_constraint_type, &
+                                  g4x6_constraint_type, &
+                                  get_molecule_kind, &
+                                  molecule_kind_type
+   USE molecule_types, ONLY: get_molecule, &
+                             global_constraint_type, &
+                             molecule_type
+   USE simpar_types, ONLY: simpar_type
+   USE util, ONLY: locate, &
+                   sort
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -188,7 +188,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'adiabatic_mapping_region_low'
 
       INTEGER :: first_atom, first_shell, glob_therm_num, handle, icount, ielement, ii, ikind, &
-         imol, imol_local, ipart, jj, k, kk, last_atom, last_shell, nglob_cns, nmol_local, number
+                 imol, imol_local, ipart, jj, k, kk, last_atom, last_shell, nglob_cns, nmol_local, number
       LOGICAL                                            :: check, global_constraints, &
                                                             have_thermostat
       REAL(dp), SAVE, TARGET                             :: unity
@@ -219,7 +219,7 @@ CONTAINS
                      NULLIFY (map_info%p_kin(ii, jj)%point)
                      map_info%p_scale(ii, jj)%point => unity
                   END DO
-               ENDIF
+               END IF
             END DO
             deg_of_freedom(1) = deg_of_freedom(1) + tot_const(ikind)
             map_info%index(1) = 1
@@ -243,7 +243,7 @@ CONTAINS
                      IF (map_loc_thermo_gen(kk) == HUGE(0)) THEN
                         have_thermostat = .FALSE.
                         EXIT
-                     ENDIF
+                     END IF
                   END DO
 ! If molecule has a thermostat, then map
                   IF (have_thermostat) THEN
@@ -399,7 +399,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'adiabatic_region_evaluate'
 
       INTEGER :: atm_offset, first_atom, handle, icount, ikind, ilist, imol, imol_local, katom, &
-         last_atom, natom, nc, nfixd, nkind, nmol_per_kind, nmolecule, nshell
+                 last_atom, natom, nc, nfixd, nkind, nmol_per_kind, nmolecule, nshell
       TYPE(fixd_constraint_type), DIMENSION(:), POINTER  :: fixd_list
       TYPE(molecule_kind_type), POINTER                  :: molecule_kind
       TYPE(molecule_type), POINTER                       :: molecule
@@ -500,7 +500,7 @@ CONTAINS
             point(2, ikind) = atm_offset + natom*nmol_per_kind
             atm_offset = point(2, ikind)
          END DO
-      ENDIF
+      END IF
       IF ((.NOT. simpar%constraint) .OR. shell) THEN
          const_mol = 0
          tot_const = 0
@@ -638,7 +638,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'thermostat_mapping_region_low'
 
       INTEGER :: first_atom, first_shell, handle, i, icount, ielement, ii, ikind, imap, imol, &
-         imol_local, ipart, itmp, jj, k, kk, last_atom, last_shell, nglob_cns, nmol_local
+                 imol_local, ipart, itmp, jj, k, kk, last_atom, last_shell, nglob_cns, nmol_local
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: tmp, wrk
       LOGICAL                                            :: check, global_constraints
       TYPE(molecule_type), POINTER                       :: molecule
@@ -828,8 +828,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'mapping_region_evaluate'
 
       INTEGER :: atm_offset, first_atom, handle, i, iatm, icount, id_region, ikind, ilist, imol, &
-         imol_local, j, jatm, katom, last_atom, natom, nc, nfixd, nkind, nmol_per_kind, nmolecule, &
-         nshell
+                 imol_local, j, jatm, katom, last_atom, natom, nc, nfixd, nkind, nmol_per_kind, nmolecule, &
+                 nshell
       TYPE(colvar_constraint_type), DIMENSION(:), &
          POINTER                                         :: colv_list
       TYPE(fixd_constraint_type), DIMENSION(:), POINTER  :: fixd_list
@@ -1066,7 +1066,7 @@ CONTAINS
                atm_offset = point(2, ikind)
             END DO
          END IF
-      ENDIF
+      END IF
       IF ((.NOT. simpar%constraint) .OR. shell) THEN
          const_mol = 0
          tot_const = 0
@@ -1100,7 +1100,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'massive_list_generate'
 
       INTEGER :: first_atom, first_shell, handle, i, ikind, imol, iproc, j, natom, ncount, nkind, &
-         nmol_per_kind, nshell, num_massive_atm, num_massive_atm_local, offset
+                 nmol_per_kind, nshell, num_massive_atm, num_massive_atm_local, offset
       INTEGER, DIMENSION(:), POINTER                     :: array_num_massive_atm, local_atm_list, &
                                                             work
       TYPE(molecule_kind_type), POINTER                  :: molecule_kind

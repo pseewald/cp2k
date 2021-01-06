@@ -12,22 +12,22 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE qs_gamma2kp
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp
-   USE kpoint_types,                    ONLY: kpoint_create,&
-                                              kpoint_type
-   USE qs_energy_init,                  ONLY: qs_energies_init
-   USE qs_environment,                  ONLY: qs_init
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_env_create,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_ks_methods,                   ONLY: qs_ks_update_qs_env
-   USE qs_scf_initialization,           ONLY: qs_scf_env_init_basic
-   USE qs_scf_types,                    ONLY: qs_scf_env_type,&
-                                              scf_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp
+   USE kpoint_types, ONLY: kpoint_create, &
+                           kpoint_type
+   USE qs_energy_init, ONLY: qs_energies_init
+   USE qs_environment, ONLY: qs_init
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_env_create, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_ks_methods, ONLY: qs_ks_update_qs_env
+   USE qs_scf_initialization, ONLY: qs_scf_env_init_basic
+   USE qs_scf_types, ONLY: qs_scf_env_type, &
+                           scf_env_release
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -13,62 +13,62 @@
 !> \author Mauro Del Ben
 ! **************************************************************************************************
 MODULE mp2_ri_libint
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type,&
-                                              init_aux_basis_set
-   USE cell_types,                      ONLY: cell_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_triangular_invert
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_submatrix,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_set_submatrix,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE gamma,                           ONLY: init_md_ftable
-   USE hfx_energy_potential,            ONLY: coulomb4
-   USE hfx_pair_list_methods,           ONLY: build_pair_list_mp2
-   USE hfx_screening_methods,           ONLY: calc_pair_dist_radii,&
-                                              calc_screening_functions
-   USE hfx_types,                       ONLY: &
-        hfx_basis_info_type, hfx_basis_type, hfx_create_neighbor_cells, hfx_pgf_list, &
-        hfx_pgf_product_list, hfx_potential_type, hfx_screen_coeff_type, hfx_type, log_zero, &
-        pair_set_list_type
-   USE input_constants,                 ONLY: do_potential_TShPSC,&
-                                              do_potential_long
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE libint_wrapper,                  ONLY: cp_libint_t
-   USE message_passing,                 ONLY: mp_sum
-   USE mp2_types,                       ONLY: init_TShPSC_lmax,&
-                                              mp2_biel_type,&
-                                              mp2_type,&
-                                              pair_list_type_mp2
-   USE orbital_pointers,                ONLY: nco,&
-                                              ncoset,&
-                                              nso
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE t_sh_p_s_c,                      ONLY: free_C0,&
-                                              init
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type, &
+                              init_aux_basis_set
+   USE cell_types, ONLY: cell_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_create, &
+                           cp_blacs_env_release, &
+                           cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_fm_basic_linalg, ONLY: cp_fm_triangular_invert
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose
+   USE cp_fm_diag, ONLY: choose_eigv_solver
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_submatrix, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_set_submatrix, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE gamma, ONLY: init_md_ftable
+   USE hfx_energy_potential, ONLY: coulomb4
+   USE hfx_pair_list_methods, ONLY: build_pair_list_mp2
+   USE hfx_screening_methods, ONLY: calc_pair_dist_radii, &
+                                    calc_screening_functions
+   USE hfx_types, ONLY: &
+      hfx_basis_info_type, hfx_basis_type, hfx_create_neighbor_cells, hfx_pgf_list, &
+      hfx_pgf_product_list, hfx_potential_type, hfx_screen_coeff_type, hfx_type, log_zero, &
+      pair_set_list_type
+   USE input_constants, ONLY: do_potential_TShPSC, &
+                              do_potential_long
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE libint_wrapper, ONLY: cp_libint_t
+   USE message_passing, ONLY: mp_sum
+   USE mp2_types, ONLY: init_TShPSC_lmax, &
+                        mp2_biel_type, &
+                        mp2_type, &
+                        pair_list_type_mp2
+   USE orbital_pointers, ONLY: nco, &
+                               ncoset, &
+                               nso
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE t_sh_p_s_c, ONLY: free_C0, &
+                         init
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -170,8 +170,8 @@ CONTAINS
       TYPE(hfx_basis_type), DIMENSION(:), POINTER        :: basis_S0
 
       INTEGER :: co_counter, counter, i, iatom, ikind, ipgf, iset, j, k, la, max_am_kind, &
-         max_coeff, max_nsgfl, max_pgf, max_pgf_kind, max_set, nl_count, nset, nseta, offset_a, &
-         offset_a1, s_offset_nl_a, sgfa, so_counter
+                 max_coeff, max_nsgfl, max_pgf, max_pgf_kind, max_set, nl_count, nset, nseta, offset_a, &
+                 offset_a1, s_offset_nl_a, sgfa, so_counter
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, npgfa, nshell
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, nl_a
       REAL(dp), DIMENSION(:, :), POINTER                 :: sphi_a
@@ -428,12 +428,12 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'calc_lai_libint'
 
       INTEGER :: counter_L_blocks, handle, i, i_list_kl, i_set_list_kl, i_set_list_kl_start, &
-         i_set_list_kl_stop, iatom, iatom_end, iatom_start, iiB, ikind, info_chol, iset, jatom, &
-         jatom_end, jatom_start, jjB, jkind, jset, katom, katom_end, katom_start, kkB, kkind, &
-         kset, kset_start, L_B_i_end, L_B_i_start, L_B_k_end, L_B_k_start, latom, latom_end, &
-         latom_start, lkind, llB, lset, max_pgf, max_set, natom, ncob, nints, nseta, nsetb, nsetc, &
-         nsetd, nsgf_max, nspins, orb_k_end, orb_k_start, orb_l_end, orb_l_start, &
-         primitive_counter, sphi_a_u1, sphi_a_u2, sphi_a_u3, sphi_b_u1, sphi_b_u2, sphi_b_u3
+                 i_set_list_kl_stop, iatom, iatom_end, iatom_start, iiB, ikind, info_chol, iset, jatom, &
+                 jatom_end, jatom_start, jjB, jkind, jset, katom, katom_end, katom_start, kkB, kkind, &
+                 kset, kset_start, L_B_i_end, L_B_i_start, L_B_k_end, L_B_k_start, latom, latom_end, &
+                 latom_start, lkind, llB, lset, max_pgf, max_set, natom, ncob, nints, nseta, nsetb, nsetc, &
+                 nsetd, nsgf_max, nspins, orb_k_end, orb_k_start, orb_l_end, orb_l_start, &
+                 primitive_counter, sphi_a_u1, sphi_a_u2, sphi_a_u3, sphi_b_u1, sphi_b_u2, sphi_b_u3
       INTEGER :: sphi_c_u1, sphi_c_u2, sphi_c_u3, sphi_d_u1, sphi_d_u2, sphi_d_u3, virtual
       INTEGER(int_8)                                     :: estimate_to_store_int, neris_tmp, &
                                                             neris_total, nprim_ints
@@ -446,8 +446,8 @@ CONTAINS
       LOGICAL                                            :: do_periodic
       LOGICAL, DIMENSION(:, :), POINTER                  :: shm_atomic_pair_list
       REAL(KIND=dp) :: cartesian_estimate, coeffs_kind_max0, eps_schwarz, ln_10, &
-         log10_eps_schwarz, log10_pmax, max_contraction_val, pmax_atom, pmax_entry, ra(3), rb(3), &
-         rc(3), rd(3)
+                       log10_eps_schwarz, log10_pmax, max_contraction_val, pmax_atom, pmax_entry, ra(3), rb(3), &
+                       rc(3), rd(3)
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: ee_buffer1, ee_buffer2, &
                                                             ee_primitives_tmp, ee_work, ee_work2, &
                                                             primitive_integrals
@@ -1063,11 +1063,11 @@ CONTAINS
       l_max = 0
       DO ikind = 1, nkind
          l_max = MAX(l_max, MAXVAL(qs_env%x_data(1, 1)%basis_parameter(ikind)%lmax))
-      ENDDO
+      END DO
       IF (PRESENT(RI_basis_parameter)) THEN
          DO ikind = 1, nkind
             l_max = MAX(l_max, MAXVAL(RI_basis_parameter(ikind)%lmax))
-         ENDDO
+         END DO
       END IF
       l_max = 4*l_max
       CALL init_md_ftable(l_max)
@@ -1249,8 +1249,8 @@ CONTAINS
          DO iset = 1, nseta
             ncos_max = MAX(ncos_max, ncoset(la_max(iset)))
             nsgf_max = MAX(nsgf_max, nsgfa(iset))
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
    END SUBROUTINE get_ncos_and_ncsgf
 
@@ -1297,8 +1297,8 @@ CONTAINS
             ! the maximum value after multiplication with sphi_b
             max_contraction(jset, jatom) = MAXVAL((/(SUM(ABS(sphi_b(1:ncob, i))), i=sgfb, sgfb + nsgfb(jset) - 1)/))
             max_pgf = MAX(max_pgf, npgfb(jset))
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
    END SUBROUTINE get_max_contraction
 

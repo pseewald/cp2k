@@ -11,50 +11,50 @@
 !> \author AB (11.2017)
 !> *************************************************************************************************
 MODULE xas_tdp_types
-   USE cp_array_utils,                  ONLY: cp_1d_i_p_type,&
-                                              cp_1d_r_p_type,&
-                                              cp_2d_i_p_type,&
-                                              cp_2d_r_p_type,&
-                                              cp_3d_r_p_type
-   USE cp_files,                        ONLY: file_exists
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_para_env,                     ONLY: cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_distribution_release,&
-                                              dbcsr_distribution_type,&
-                                              dbcsr_p_type,&
-                                              dbcsr_release,&
-                                              dbcsr_release_p,&
-                                              dbcsr_type
-   USE dbcsr_tensor_api,                ONLY: dbcsr_t_destroy,&
-                                              dbcsr_t_type
-   USE distribution_2d_types,           ONLY: distribution_2d_release,&
-                                              distribution_2d_type
-   USE input_constants,                 ONLY: &
-        do_potential_coulomb, do_potential_short, do_potential_truncated, ot_mini_cg, &
-        ot_mini_diis, tddfpt_singlet, tddfpt_spin_cons, tddfpt_spin_flip, tddfpt_triplet, &
-        xas_dip_vel, xas_tdp_by_index, xas_tdp_by_kind, xc_none
-   USE input_section_types,             ONLY: section_vals_release,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE libint_2c_3c,                    ONLY: libint_potential_type
-   USE libint_wrapper,                  ONLY: cp_libint_static_cleanup
-   USE mathlib,                         ONLY: erfc_cutoff
-   USE memory_utilities,                ONLY: reallocate
-   USE physcon,                         ONLY: bohr,&
-                                              evolt
-   USE qs_grid_atom,                    ONLY: deallocate_grid_atom,&
-                                              grid_atom_type
-   USE qs_harmonics_atom,               ONLY: deallocate_harmonics_atom,&
-                                              harmonics_atom_type
-   USE qs_loc_types,                    ONLY: qs_loc_env_new_type,&
-                                              qs_loc_env_release
-   USE qs_ot_types,                     ONLY: qs_ot_settings_init,&
-                                              qs_ot_settings_type
+   USE cp_array_utils, ONLY: cp_1d_i_p_type, &
+                             cp_1d_r_p_type, &
+                             cp_2d_i_p_type, &
+                             cp_2d_r_p_type, &
+                             cp_3d_r_p_type
+   USE cp_files, ONLY: file_exists
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE cp_para_env, ONLY: cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_distribution_release, &
+                        dbcsr_distribution_type, &
+                        dbcsr_p_type, &
+                        dbcsr_release, &
+                        dbcsr_release_p, &
+                        dbcsr_type
+   USE dbcsr_tensor_api, ONLY: dbcsr_t_destroy, &
+                               dbcsr_t_type
+   USE distribution_2d_types, ONLY: distribution_2d_release, &
+                                    distribution_2d_type
+   USE input_constants, ONLY: &
+      do_potential_coulomb, do_potential_short, do_potential_truncated, ot_mini_cg, &
+      ot_mini_diis, tddfpt_singlet, tddfpt_spin_cons, tddfpt_spin_flip, tddfpt_triplet, &
+      xas_dip_vel, xas_tdp_by_index, xas_tdp_by_kind, xc_none
+   USE input_section_types, ONLY: section_vals_release, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE libint_2c_3c, ONLY: libint_potential_type
+   USE libint_wrapper, ONLY: cp_libint_static_cleanup
+   USE mathlib, ONLY: erfc_cutoff
+   USE memory_utilities, ONLY: reallocate
+   USE physcon, ONLY: bohr, &
+                      evolt
+   USE qs_grid_atom, ONLY: deallocate_grid_atom, &
+                           grid_atom_type
+   USE qs_harmonics_atom, ONLY: deallocate_harmonics_atom, &
+                                harmonics_atom_type
+   USE qs_loc_types, ONLY: qs_loc_env_new_type, &
+                           qs_loc_env_release
+   USE qs_ot_types, ONLY: qs_ot_settings_init, &
+                          qs_ot_settings_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -12,29 +12,29 @@
 !>      05.2019 Refactored from rpa_ri_gpw [Frederick Stein]
 ! **************************************************************************************************
 MODULE mp2_grids
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_type
-   USE cp_para_env,                     ONLY: cp_para_env_create,&
-                                              cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: dp
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_env_type,&
-                                              kpoint_type
-   USE machine,                         ONLY: m_flush
-   USE mathconstants,                   ONLY: pi
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_comm_split_direct,&
-                                              mp_sum
-   USE minimax_exp,                     ONLY: get_exp_minimax_coeff
-   USE minimax_exp_gw,                  ONLY: get_exp_minimax_coeff_gw
-   USE minimax_rpa,                     ONLY: get_rpa_minimax_coeff,&
-                                              get_rpa_minimax_coeff_larger_grid
-   USE mp2_types,                       ONLY: mp2_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_type
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_type
+   USE cp_para_env, ONLY: cp_para_env_create, &
+                          cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: dp
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_env_type, &
+                           kpoint_type
+   USE machine, ONLY: m_flush
+   USE mathconstants, ONLY: pi
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_comm_split_direct, &
+                              mp_sum
+   USE minimax_exp, ONLY: get_exp_minimax_coeff
+   USE minimax_exp_gw, ONLY: get_exp_minimax_coeff_gw
+   USE minimax_rpa, ONLY: get_rpa_minimax_coeff, &
+                          get_rpa_minimax_coeff_larger_grid
+   USE mp2_types, ONLY: mp2_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -422,7 +422,7 @@ CONTAINS
                                                             nrow_local_beta
       LOGICAL                                            :: my_open_shell
       REAL(KIND=dp) :: a_high, a_low, a_scaling, conv_param, eps, first_deriv, left_term, &
-         right_term, right_term_ref, right_term_ref_beta, step
+                       right_term, right_term_ref, right_term_ref_beta, step
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: cottj, D_ia, D_ia_beta, iaia_RI, &
                                                             iaia_RI_beta, M_ia, M_ia_beta
       TYPE(cp_para_env_type), POINTER                    :: para_env_row, para_env_row_beta

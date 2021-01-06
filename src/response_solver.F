@@ -14,118 +14,118 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE response_solver
-   USE admm_types,                      ONLY: admm_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE core_ppl,                        ONLY: build_core_ppl
-   USE core_ppnl,                       ONLY: build_core_ppnl
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              cp_dbcsr_plus_fm_fm_t,&
-                                              cp_dbcsr_sm_fm_multiply,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_deallocate_matrix, dbcsr_distribution_type, &
-        dbcsr_p_type, dbcsr_release, dbcsr_scale, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry
-   USE hfx_derivatives,                 ONLY: derivatives_four_center
-   USE hfx_energy_potential,            ONLY: integrate_four_center
-   USE hfx_types,                       ONLY: hfx_type
-   USE input_constants,                 ONLY: do_admm_aux_exch_func_none,&
-                                              kg_tnadd_atomic,&
-                                              kg_tnadd_embed,&
-                                              ot_precond_full_single_inverse
-   USE input_section_types,             ONLY: section_get_ival,&
-                                              section_get_rval,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kg_correction,                   ONLY: kg_ekin_subset
-   USE kg_environment_types,            ONLY: kg_environment_type
-   USE kg_tnadd_mat,                    ONLY: build_tnadd_mat
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_scale,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_poisson_methods,              ONLY: pw_poisson_solve
-   USE pw_poisson_types,                ONLY: pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_create,&
-                                              pw_p_type,&
-                                              pw_release
-   USE qs_collocate_density,            ONLY: calculate_rho_elec
-   USE qs_core_energies,                ONLY: calculate_ecore_overlap,&
-                                              calculate_ecore_self
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_force_types,                  ONLY: add_qs_force,&
-                                              qs_force_type,&
-                                              total_qs_force
-   USE qs_integrate_potential,          ONLY: integrate_v_core_rspace,&
-                                              integrate_v_rspace
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_kinetic,                      ONLY: build_kinetic_matrix
-   USE qs_ks_methods,                   ONLY: calc_rho_tot_gspace
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_linres_methods,               ONLY: build_dm_response,&
-                                              linres_solver
-   USE qs_linres_types,                 ONLY: linres_control_create,&
-                                              linres_control_release,&
-                                              linres_control_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type,&
-                                              mo_set_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_overlap,                      ONLY: build_overlap_force,&
-                                              build_overlap_matrix
-   USE qs_p_env_methods,                ONLY: p_env_create,&
-                                              p_env_psi0_changed
-   USE qs_p_env_types,                  ONLY: p_env_release,&
-                                              qs_p_env_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_vxc,                          ONLY: qs_vxc_create
-   USE virial_types,                    ONLY: virial_type
-   USE xc,                              ONLY: xc_calc_2nd_deriv,&
-                                              xc_prep_2nd_deriv
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_release
-   USE xc_derivatives,                  ONLY: xc_functionals_get_needs
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_create,&
-                                              xc_rho_set_release,&
-                                              xc_rho_set_type,&
-                                              xc_rho_set_update
+   USE admm_types, ONLY: admm_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE core_ppl, ONLY: build_core_ppl
+   USE core_ppnl, ONLY: build_core_ppnl
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  cp_dbcsr_plus_fm_fm_t, &
+                                  cp_dbcsr_sm_fm_multiply, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_deallocate_matrix, dbcsr_distribution_type, &
+      dbcsr_p_type, dbcsr_release, dbcsr_scale, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry
+   USE hfx_derivatives, ONLY: derivatives_four_center
+   USE hfx_energy_potential, ONLY: integrate_four_center
+   USE hfx_types, ONLY: hfx_type
+   USE input_constants, ONLY: do_admm_aux_exch_func_none, &
+                              kg_tnadd_atomic, &
+                              kg_tnadd_embed, &
+                              ot_precond_full_single_inverse
+   USE input_section_types, ONLY: section_get_ival, &
+                                  section_get_rval, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kg_correction, ONLY: kg_ekin_subset
+   USE kg_environment_types, ONLY: kg_environment_type
+   USE kg_tnadd_mat, ONLY: build_tnadd_mat
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_scale, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_poisson_methods, ONLY: pw_poisson_solve
+   USE pw_poisson_types, ONLY: pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_create, &
+                       pw_p_type, &
+                       pw_release
+   USE qs_collocate_density, ONLY: calculate_rho_elec
+   USE qs_core_energies, ONLY: calculate_ecore_overlap, &
+                               calculate_ecore_self
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_force_types, ONLY: add_qs_force, &
+                             qs_force_type, &
+                             total_qs_force
+   USE qs_integrate_potential, ONLY: integrate_v_core_rspace, &
+                                     integrate_v_rspace
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_kinetic, ONLY: build_kinetic_matrix
+   USE qs_ks_methods, ONLY: calc_rho_tot_gspace
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_linres_methods, ONLY: build_dm_response, &
+                                linres_solver
+   USE qs_linres_types, ONLY: linres_control_create, &
+                              linres_control_release, &
+                              linres_control_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type, &
+                          mo_set_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_overlap, ONLY: build_overlap_force, &
+                         build_overlap_matrix
+   USE qs_p_env_methods, ONLY: p_env_create, &
+                               p_env_psi0_changed
+   USE qs_p_env_types, ONLY: p_env_release, &
+                             qs_p_env_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_vxc, ONLY: qs_vxc_create
+   USE virial_types, ONLY: virial_type
+   USE xc, ONLY: xc_calc_2nd_deriv, &
+                 xc_prep_2nd_deriv
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_release
+   USE xc_derivatives, ONLY: xc_functionals_get_needs
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_create, &
+                               xc_rho_set_release, &
+                               xc_rho_set_type, &
+                               xc_rho_set_update
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -179,7 +179,7 @@ CONTAINS
          iounit = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          iounit = -1
-      ENDIF
+      END IF
 
       ! initialized linres_control
       NULLIFY (linres_control)
@@ -224,7 +224,7 @@ CONTAINS
          NULLIFY (psi1(ispin)%matrix)
          CALL cp_fm_create(psi1(ispin)%matrix, fm_struct)
          CALL cp_fm_set_all(psi1(ispin)%matrix, 0.0_dp)
-      ENDDO
+      END DO
 
       CALL get_qs_env(qs_env, matrix_s=matrix_s, sab_orb=sab_orb)
       CALL dbcsr_allocate_matrix_set(p_env%p1, nspins)
@@ -280,10 +280,10 @@ CONTAINS
       DO ispin = 1, nspins
          CALL calculate_wz_matrix(mos(ispin)%mo_set, psi1(ispin)%matrix, matrix_ks(ispin)%matrix, &
                                   p_env%w1(ispin)%matrix)
-      ENDDO
+      END DO
       DO ispin = 1, nspins
          CALL cp_fm_release(psi1(ispin)%matrix)
-      ENDDO
+      END DO
       DEALLOCATE (psi0, psi1)
       CALL linres_control_release(linres_control)
 
@@ -340,7 +340,7 @@ CONTAINS
       TYPE(pw_p_type)                                    :: rhoz_tot_gspace, vhxc_rspace, &
                                                             zv_hartree_gspace, zv_hartree_rspace
       TYPE(pw_p_type), DIMENSION(:), POINTER :: rho_g, rho_g_aux, rho_r, rho_r_aux, rhoz_g, &
-         rhoz_g_aux, rhoz_r, rhoz_r_aux, tau_r, tau_r_aux, v_rspace, v_tau_rspace, v_xc
+                                                rhoz_g_aux, rhoz_r, rhoz_r_aux, tau_r, tau_r_aux, v_rspace, v_tau_rspace, v_xc
       TYPE(pw_poisson_type), POINTER                     :: poisson_env
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(qs_force_type), DIMENSION(:), POINTER         :: force
@@ -511,7 +511,7 @@ CONTAINS
                                 use_data=REALDATA3D, in_space=REALSPACE)
          CALL pw_pool_create_pw(auxbas_pw_pool, rhoz_g(ispin)%pw, &
                                 use_data=COMPLEXDATA1D, in_space=RECIPROCALSPACE)
-      ENDDO
+      END DO
       CALL pw_pool_create_pw(auxbas_pw_pool, rhoz_tot_gspace%pw, &
                              use_data=COMPLEXDATA1D, in_space=RECIPROCALSPACE)
       CALL pw_pool_create_pw(auxbas_pw_pool, zv_hartree_rspace%pw, &
@@ -690,7 +690,7 @@ CONTAINS
                                       use_data=REALDATA3D, in_space=REALSPACE)
                CALL pw_pool_create_pw(auxbas_pw_pool, rhoz_g_aux(ispin)%pw, &
                                       use_data=COMPLEXDATA1D, in_space=RECIPROCALSPACE)
-            ENDDO
+            END DO
             DO ispin = 1, nspins
                CALL calculate_rho_elec(ks_env=ks_env, matrix_p=mpz(ispin, 1)%matrix, &
                                        rho=rhoz_r_aux(ispin), rho_gspace=rhoz_g_aux(ispin), &
@@ -1246,7 +1246,7 @@ CONTAINS
             IF (ASSOCIATED(v_tau_rspace)) THEN
                CALL pw_pool_give_back_pw(auxbas_pw_pool, v_tau_rspace(ispin)%pw)
             END IF
-         ENDDO
+         END DO
          DEALLOCATE (v_rspace)
       END IF
       IF (ASSOCIATED(v_tau_rspace)) DEALLOCATE (v_tau_rspace)

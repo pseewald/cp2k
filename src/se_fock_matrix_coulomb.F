@@ -17,82 +17,82 @@
 !>
 ! **************************************************************************************************
 MODULE se_fock_matrix_coulomb
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE atprop_types,                    ONLY: atprop_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              semi_empirical_control_type
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_distribute,&
-                                              dbcsr_get_block_diag,&
-                                              dbcsr_get_block_p,&
-                                              dbcsr_p_type,&
-                                              dbcsr_replicate_all,&
-                                              dbcsr_set,&
-                                              dbcsr_sum_replicated
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_environment_type
-   USE ewald_pw_types,                  ONLY: ewald_pw_get,&
-                                              ewald_pw_type
-   USE ewalds_multipole,                ONLY: ewald_multipole_evaluate
-   USE fist_neighbor_list_control,      ONLY: list_control
-   USE fist_nonbond_env_types,          ONLY: fist_nonbond_env_type
-   USE input_constants,                 ONLY: &
-        do_method_am1, do_method_mndo, do_method_mndod, do_method_pdg, do_method_pm3, &
-        do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_rm1, do_se_IS_slater
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE multipole_types,                 ONLY: do_multipole_charge,&
-                                              do_multipole_dipole,&
-                                              do_multipole_none,&
-                                              do_multipole_quadrupole
-   USE particle_types,                  ONLY: particle_type
-   USE pw_poisson_types,                ONLY: do_ewald_ewald
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE se_fock_matrix_integrals,        ONLY: &
-        dfock2C, dfock2C_r3, dfock2_1el, dfock2_1el_r3, fock2C, fock2C_ew, fock2C_r3, fock2_1el, &
-        fock2_1el_ew, fock2_1el_r3, se_coulomb_ij_interaction
-   USE semi_empirical_int_arrays,       ONLY: rij_threshold,&
-                                              se_orbital_pointer
-   USE semi_empirical_integrals,        ONLY: corecore_el,&
-                                              dcorecore_el
-   USE semi_empirical_mpole_methods,    ONLY: quadrupole_sph_to_cart
-   USE semi_empirical_mpole_types,      ONLY: nddo_mpole_type,&
-                                              semi_empirical_mpole_type
-   USE semi_empirical_store_int_types,  ONLY: semi_empirical_si_type
-   USE semi_empirical_types,            ONLY: get_se_param,&
-                                              se_int_control_type,&
-                                              se_taper_type,&
-                                              semi_empirical_p_type,&
-                                              semi_empirical_type,&
-                                              setup_se_int_control_type
-   USE semi_empirical_utils,            ONLY: finalize_se_taper,&
-                                              get_se_type,&
-                                              initialize_se_taper
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE atprop_types, ONLY: atprop_type
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type, &
+                               semi_empirical_control_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_distribute, &
+                        dbcsr_get_block_diag, &
+                        dbcsr_get_block_p, &
+                        dbcsr_p_type, &
+                        dbcsr_replicate_all, &
+                        dbcsr_set, &
+                        dbcsr_sum_replicated
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_environment_type
+   USE ewald_pw_types, ONLY: ewald_pw_get, &
+                             ewald_pw_type
+   USE ewalds_multipole, ONLY: ewald_multipole_evaluate
+   USE fist_neighbor_list_control, ONLY: list_control
+   USE fist_nonbond_env_types, ONLY: fist_nonbond_env_type
+   USE input_constants, ONLY: &
+      do_method_am1, do_method_mndo, do_method_mndod, do_method_pdg, do_method_pm3, &
+      do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_rm1, do_se_IS_slater
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE multipole_types, ONLY: do_multipole_charge, &
+                              do_multipole_dipole, &
+                              do_multipole_none, &
+                              do_multipole_quadrupole
+   USE particle_types, ONLY: particle_type
+   USE pw_poisson_types, ONLY: do_ewald_ewald
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE se_fock_matrix_integrals, ONLY: &
+      dfock2C, dfock2C_r3, dfock2_1el, dfock2_1el_r3, fock2C, fock2C_ew, fock2C_r3, fock2_1el, &
+      fock2_1el_ew, fock2_1el_r3, se_coulomb_ij_interaction
+   USE semi_empirical_int_arrays, ONLY: rij_threshold, &
+                                        se_orbital_pointer
+   USE semi_empirical_integrals, ONLY: corecore_el, &
+                                       dcorecore_el
+   USE semi_empirical_mpole_methods, ONLY: quadrupole_sph_to_cart
+   USE semi_empirical_mpole_types, ONLY: nddo_mpole_type, &
+                                         semi_empirical_mpole_type
+   USE semi_empirical_store_int_types, ONLY: semi_empirical_si_type
+   USE semi_empirical_types, ONLY: get_se_param, &
+                                   se_int_control_type, &
+                                   se_taper_type, &
+                                   semi_empirical_p_type, &
+                                   semi_empirical_type, &
+                                   setup_se_int_control_type
+   USE semi_empirical_utils, ONLY: finalize_se_taper, &
+                                   get_se_type, &
+                                   initialize_se_taper
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -128,7 +128,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'build_fock_matrix_coulomb'
 
       INTEGER :: atom_a, atom_b, handle, iatom, ikind, inode, ispin, itype, jatom, jkind, natom, &
-         natorb_a, natorb_a2, natorb_b, natorb_b2, nkind, nspins
+                 natorb_a, natorb_a2, natorb_b, natorb_b2, nkind, nspins
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: se_natorb
       INTEGER, DIMENSION(:), POINTER                     :: atom_of_kind
       LOGICAL                                            :: anag, atener, check, defined, found, &
@@ -265,7 +265,7 @@ CONTAINS
                pa_b(1:natorb_a2) = RESHAPE(pa_block_b, (/natorb_a2/))
             END IF
 
-         ENDIF
+         END IF
 
          dr1 = DOT_PRODUCT(rij, rij)
          IF (dr1 > rij_threshold) THEN
@@ -492,8 +492,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'build_fock_matrix_coulomb_lr'
 
       INTEGER :: atom_a, ewald_type, forces_g_size, handle, iatom, ikind, ilist, indi, indj, &
-         ispin, itype, iw, jint, natoms, natorb_a, nkind, nlocal_particles, node, nparticle_local, &
-         nspins, size_1c_int
+                 ispin, itype, iw, jint, natoms, natorb_a, nkind, nlocal_particles, node, nparticle_local, &
+                 nspins, size_1c_int
       INTEGER, DIMENSION(:), POINTER                     :: atom_of_kind
       LOGICAL                                            :: anag, atener, defined, found, use_virial
       LOGICAL, DIMENSION(3)                              :: task
@@ -856,7 +856,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'build_fock_matrix_coul_lrc'
 
       INTEGER :: atom_a, atom_b, handle, iatom, ikind, inode, itype, jatom, jkind, natom, &
-         natorb_a, natorb_a2, natorb_b, natorb_b2, nkind, nspins, size1, size2
+                 natorb_a, natorb_a2, natorb_b, natorb_b2, nkind, nspins, size1, size2
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: se_natorb
       INTEGER, DIMENSION(:), POINTER                     :: atom_of_kind
       LOGICAL                                            :: anag, atener, check, defined, found, &
@@ -872,7 +872,7 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(45, 45)                   :: p_block_tot_a, p_block_tot_b
       REAL(KIND=dp), DIMENSION(:), POINTER               :: efield0
       REAL(KIND=dp), DIMENSION(:, :), POINTER :: efield1, efield2, ksa_block_a, ksa_block_b, &
-         ksb_block_a, ksb_block_b, pa_block_a, pa_block_b, pb_block_a, pb_block_b
+                                                 ksb_block_a, ksb_block_b, pa_block_a, pa_block_b, pb_block_a, pb_block_b
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(atprop_type), POINTER                         :: atprop
       TYPE(cell_type), POINTER                           :: cell
@@ -999,7 +999,7 @@ CONTAINS
                pa_b(1:natorb_a2) = RESHAPE(pa_block_b, (/natorb_a2/))
             END IF
 
-         ENDIF
+         END IF
 
          dr1 = DOT_PRODUCT(rij, rij)
          IF (dr1 > rij_threshold) THEN
@@ -1223,7 +1223,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'build_fock_matrix_coul_lr_r3'
 
       INTEGER :: atom_a, atom_b, ewald_type, handle, iatom, ikind, inode, ispin, itype, jatom, &
-         jkind, natoms, natorb_a, natorb_a2, natorb_b, natorb_b2, nkind, nlocal_particles, nspins
+                 jkind, natoms, natorb_a, natorb_a2, natorb_b, natorb_b2, nkind, nlocal_particles, nspins
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: se_natorb
       INTEGER, DIMENSION(:), POINTER                     :: atom_of_kind
       LOGICAL                                            :: anag, atener, check, defined, found, &

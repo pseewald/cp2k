@@ -6,18 +6,18 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE input_restart_rng
-   USE cp_linked_list_input,            ONLY: cp_sll_val_create,&
-                                              cp_sll_val_get_length,&
-                                              cp_sll_val_type
-   USE input_section_types,             ONLY: section_get_keyword_index,&
-                                              section_type,&
-                                              section_vals_add_values,&
-                                              section_vals_type
-   USE input_val_types,                 ONLY: val_create,&
-                                              val_release,&
-                                              val_type
-   USE parallel_rng_types,              ONLY: rng_record_length
-   USE string_utilities,                ONLY: ascii_to_string
+   USE cp_linked_list_input, ONLY: cp_sll_val_create, &
+                                   cp_sll_val_get_length, &
+                                   cp_sll_val_type
+   USE input_section_types, ONLY: section_get_keyword_index, &
+                                  section_type, &
+                                  section_vals_add_values, &
+                                  section_vals_type
+   USE input_val_types, ONLY: val_create, &
+                              val_release, &
+                              val_type
+   USE parallel_rng_types, ONLY: rng_record_length
+   USE string_utilities, ONLY: ascii_to_string
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

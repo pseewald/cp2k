@@ -13,54 +13,54 @@
 !> \author Joost VandeVondele 7.2008, MI 02.2009
 ! **************************************************************************************************
 MODULE stm_images
-   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_plus_fm_fm_t
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_deallocate_matrix,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set,&
-                                              dbcsr_type
-   USE input_section_types,             ONLY: section_get_ivals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE particle_list_types,             ONLY: particle_list_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_collocate_density,            ONLY: calculate_rho_elec
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
+   USE cp_array_utils, ONLY: cp_1d_r_p_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_plus_fm_fm_t
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_realspace_grid_cube, ONLY: cp_pw_to_cube
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_deallocate_matrix, &
+                        dbcsr_p_type, &
+                        dbcsr_set, &
+                        dbcsr_type
+   USE input_section_types, ONLY: section_get_ivals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE particle_list_types, ONLY: particle_list_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_collocate_density, ONLY: calculate_rho_elec
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -203,7 +203,7 @@ CONTAINS
             CALL cp_fm_to_fm(unoccupied_orbs(ispin)%matrix, mo_arrays(ispin)%matrix, &
                              nadd_unocc(ispin), 1, nmo + 1)
          END IF
-      ENDDO
+      END DO
       IF (use_ref_energy) efermi = ref_energy
 
       CALL stm_cubes(ks_env, stm_section, stm_density_ao, wf_r, wf_g, mo_arrays, evals, &
@@ -329,9 +329,9 @@ CONTAINS
                END DO
                IF ((output_unit > 0) .AND. evals(ispin)%array(nmo) < efermi + stm_biases(ibias)) &
                   WRITE (output_unit, '(T4,A)') "Warning: E-Fermi+bias above highest computed unoccupied MO"
-            ENDIF
+            END IF
             istates = istates + nstates(ispin)
-         ENDDO
+         END DO
          IF ((output_unit > 0)) WRITE (output_unit, '(T4,A,I0,A)') "Using a total of ", istates, " states"
          IF (istates == 0) CYCLE
 
@@ -358,7 +358,7 @@ CONTAINS
                   alpha - occupation(ispin)%array(state_start(ispin):state_start(ispin) - 1 + nstates(ispin))
             END IF
             istates = istates + nstates(ispin)
-         ENDDO
+         END DO
 
          CALL cp_fm_column_scale(matrix_vf, occ_tot(1:istates))
          alpha = 1.0_dp
@@ -397,7 +397,7 @@ CONTAINS
          CALL cp_fm_release(matrix_vf)
          DEALLOCATE (occ_tot)
 
-      ENDDO
+      END DO
 
       CALL timestop(handle)
 

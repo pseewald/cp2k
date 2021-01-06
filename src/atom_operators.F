@@ -13,28 +13,28 @@
 !>
 ! **************************************************************************************************
 MODULE atom_operators
-   USE ai_onecenter,                    ONLY: &
-        sg_coulomb, sg_erf, sg_erfc, sg_exchange, sg_gpot, sg_kinetic, sg_kinnuc, sg_nuclear, &
-        sg_overlap, sg_proj_ol, sto_kinetic, sto_nuclear, sto_overlap
-   USE atom_types,                      ONLY: &
-        atom_basis_gridrep, atom_basis_type, atom_compare_grids, atom_integrals, &
-        atom_potential_type, atom_state, cgto_basis, ecp_pseudo, gth_pseudo, gto_basis, lmat, &
-        no_pseudo, num_basis, release_atom_basis, sgp_pseudo, sto_basis, upf_pseudo
-   USE atom_utils,                      ONLY: &
-        atom_solve, contract2, contract2add, contract4, coulomb_potential_numeric, integrate_grid, &
-        numpot_matrix, slater_density, wigner_slater_functional
-   USE dkh_main,                        ONLY: dkh_atom_transformation
-   USE input_constants,                 ONLY: &
-        barrier_conf, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_nonrel_atom, &
-        do_sczoramp_atom, do_zoramp_atom, poly_conf
-   USE kinds,                           ONLY: dp
-   USE lapack,                          ONLY: lapack_sgesv
-   USE mathconstants,                   ONLY: gamma1,&
-                                              sqrt2
-   USE mathlib,                         ONLY: jacobi
-   USE periodic_table,                  ONLY: ptable
-   USE physcon,                         ONLY: c_light_au
-   USE qs_grid_atom,                    ONLY: grid_atom_type
+   USE ai_onecenter, ONLY: &
+      sg_coulomb, sg_erf, sg_erfc, sg_exchange, sg_gpot, sg_kinetic, sg_kinnuc, sg_nuclear, &
+      sg_overlap, sg_proj_ol, sto_kinetic, sto_nuclear, sto_overlap
+   USE atom_types, ONLY: &
+      atom_basis_gridrep, atom_basis_type, atom_compare_grids, atom_integrals, &
+      atom_potential_type, atom_state, cgto_basis, ecp_pseudo, gth_pseudo, gto_basis, lmat, &
+      no_pseudo, num_basis, release_atom_basis, sgp_pseudo, sto_basis, upf_pseudo
+   USE atom_utils, ONLY: &
+      atom_solve, contract2, contract2add, contract4, coulomb_potential_numeric, integrate_grid, &
+      numpot_matrix, slater_density, wigner_slater_functional
+   USE dkh_main, ONLY: dkh_atom_transformation
+   USE input_constants, ONLY: &
+      barrier_conf, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_nonrel_atom, &
+      do_sczoramp_atom, do_zoramp_atom, poly_conf
+   USE kinds, ONLY: dp
+   USE lapack, ONLY: lapack_sgesv
+   USE mathconstants, ONLY: gamma1, &
+                            sqrt2
+   USE mathlib, ONLY: jacobi
+   USE periodic_table, ONLY: ptable
+   USE physcon, ONLY: c_light_au
+   USE qs_grid_atom, ONLY: grid_atom_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -314,7 +314,7 @@ CONTAINS
                   omat(1:ii, 1:ii) = MATMUL(TRANSPOSE(integrals%utrans(1:n, 1:ii, l)), integrals%utrans(1:n, 1:ii, l))
                   DO i = 1, ii
                      integrals%uptrans(i, i, l) = 1._dp
-                  ENDDO
+                  END DO
                   CALL lapack_sgesv(ii, ii, omat(1:ii, 1:ii), ii, ipiv, integrals%uptrans(1:ii, 1:ii, l), ii, info)
                   CPASSERT(info == 0)
                END IF

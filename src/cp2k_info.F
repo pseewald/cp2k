@@ -15,16 +15,16 @@
 ! **************************************************************************************************
 MODULE cp2k_info
 
-   USE input_constants,                 ONLY: id_development_version,&
-                                              id_release_version
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length
-   USE machine,                         ONLY: m_datum,&
-                                              m_getcwd,&
-                                              m_getlog,&
-                                              m_getpid,&
-                                              m_hostnm
-   USE string_utilities,                ONLY: integer_to_string
+   USE input_constants, ONLY: id_development_version, &
+                              id_release_version
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length
+   USE machine, ONLY: m_datum, &
+                      m_getcwd, &
+                      m_getlog, &
+                      m_getpid, &
+                      m_hostnm
+   USE string_utilities, ONLY: integer_to_string
 
    IMPLICIT NONE
    PRIVATE

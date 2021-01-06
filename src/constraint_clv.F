@@ -12,26 +12,26 @@
 !> \author Teodoro Laino [tlaino]
 ! **************************************************************************************************
 MODULE constraint_clv
-   USE cell_types,                      ONLY: cell_type
-   USE colvar_methods,                  ONLY: colvar_eval_mol_f
-   USE colvar_types,                    ONLY: colvar_type,&
-                                              diff_colvar
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: matvec_3x3
-   USE molecule_kind_types,             ONLY: colvar_constraint_type,&
-                                              fixd_constraint_type,&
-                                              get_molecule_kind,&
-                                              molecule_kind_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              global_constraint_type,&
-                                              local_colvar_constraint_type,&
-                                              molecule_type
-   USE particle_types,                  ONLY: particle_type
+   USE cell_types, ONLY: cell_type
+   USE colvar_methods, ONLY: colvar_eval_mol_f
+   USE colvar_types, ONLY: colvar_type, &
+                           diff_colvar
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: matvec_3x3
+   USE molecule_kind_types, ONLY: colvar_constraint_type, &
+                                  fixd_constraint_type, &
+                                  get_molecule_kind, &
+                                  molecule_kind_type
+   USE molecule_types, ONLY: get_molecule, &
+                             global_constraint_type, &
+                             local_colvar_constraint_type, &
+                             molecule_type
+   USE particle_types, ONLY: particle_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -586,7 +586,7 @@ CONTAINS
                      ELSE IF (new_clv_target <= limit) THEN
                         new_clv_target = limit
                      END IF
-                  ENDIF
+                  END IF
                END IF
                IF (do_update_colvar) THEN
                   CALL section_vals_val_set(collective_sections, "TARGET", r_val=new_clv_target, &

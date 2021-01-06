@@ -11,78 +11,78 @@
 !>      01.2006 [created] Teodoro Laino
 ! **************************************************************************************************
 MODULE input_cp2k_restarts
-   USE al_system_types,                 ONLY: al_system_type
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE averages_types,                  ONLY: average_quantities_type
-   USE cp2k_info,                       ONLY: write_restart_header
-   USE cp_linked_list_input,            ONLY: cp_sll_val_create,&
-                                              cp_sll_val_get_length,&
-                                              cp_sll_val_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE csvr_system_types,               ONLY: csvr_system_type
-   USE extended_system_types,           ONLY: lnhc_parameters_type,&
-                                              map_info_type,&
-                                              npt_info_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type,&
-                                              multiple_fe_list
-   USE gle_system_types,                ONLY: gle_type
-   USE helium_types,                    ONLY: helium_solvent_p_type
-   USE input_constants,                 ONLY: &
-        do_band_collective, do_thermo_al, do_thermo_csvr, do_thermo_gle, &
-        do_thermo_no_communication, do_thermo_nose, mol_dyn_run, mon_car_run, pint_run
-   USE input_restart_force_eval,        ONLY: update_force_eval
-   USE input_restart_rng,               ONLY: section_rng_val_set
-   USE input_section_types,             ONLY: &
-        section_get_keyword_index, section_type, section_vals_add_values, section_vals_get, &
-        section_vals_get_subs_vals, section_vals_get_subs_vals3, section_vals_remove_values, &
-        section_vals_type, section_vals_val_get, section_vals_val_set, section_vals_val_unset, &
-        section_vals_write
-   USE input_val_types,                 ONLY: val_create,&
-                                              val_release,&
-                                              val_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp,&
-                                              dp_size,&
-                                              int_size
-   USE md_environment_types,            ONLY: get_md_env,&
-                                              md_environment_type
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_allgather,&
-                                              mp_bcast,&
-                                              mp_sum
-   USE metadynamics_types,              ONLY: meta_env_type
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_type
-   USE molecule_list_types,             ONLY: molecule_list_type
-   USE neb_types,                       ONLY: neb_var_type
-   USE parallel_rng_types,              ONLY: rng_record_length
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: get_particle_pos_or_vel,&
-                                              particle_type
-   USE physcon,                         ONLY: angstrom
-   USE pint_transformations,            ONLY: pint_u2x
-   USE pint_types,                      ONLY: pint_env_type,&
-                                              thermostat_gle,&
-                                              thermostat_nose,&
-                                              thermostat_piglet,&
-                                              thermostat_pile,&
-                                              thermostat_qtb
-   USE simpar_types,                    ONLY: simpar_type
-   USE string_utilities,                ONLY: string_to_ascii
-   USE thermostat_types,                ONLY: thermostat_type
-   USE thermostat_utils,                ONLY: communication_thermo_low2,&
-                                              get_kin_energies
+   USE al_system_types, ONLY: al_system_type
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE averages_types, ONLY: average_quantities_type
+   USE cp2k_info, ONLY: write_restart_header
+   USE cp_linked_list_input, ONLY: cp_sll_val_create, &
+                                   cp_sll_val_get_length, &
+                                   cp_sll_val_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE csvr_system_types, ONLY: csvr_system_type
+   USE extended_system_types, ONLY: lnhc_parameters_type, &
+                                    map_info_type, &
+                                    npt_info_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type, &
+                              multiple_fe_list
+   USE gle_system_types, ONLY: gle_type
+   USE helium_types, ONLY: helium_solvent_p_type
+   USE input_constants, ONLY: &
+      do_band_collective, do_thermo_al, do_thermo_csvr, do_thermo_gle, &
+      do_thermo_no_communication, do_thermo_nose, mol_dyn_run, mon_car_run, pint_run
+   USE input_restart_force_eval, ONLY: update_force_eval
+   USE input_restart_rng, ONLY: section_rng_val_set
+   USE input_section_types, ONLY: &
+      section_get_keyword_index, section_type, section_vals_add_values, section_vals_get, &
+      section_vals_get_subs_vals, section_vals_get_subs_vals3, section_vals_remove_values, &
+      section_vals_type, section_vals_val_get, section_vals_val_set, section_vals_val_unset, &
+      section_vals_write
+   USE input_val_types, ONLY: val_create, &
+                              val_release, &
+                              val_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp, &
+                    dp_size, &
+                    int_size
+   USE md_environment_types, ONLY: get_md_env, &
+                                   md_environment_type
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_allgather, &
+                              mp_bcast, &
+                              mp_sum
+   USE metadynamics_types, ONLY: meta_env_type
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_type
+   USE molecule_list_types, ONLY: molecule_list_type
+   USE neb_types, ONLY: neb_var_type
+   USE parallel_rng_types, ONLY: rng_record_length
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: get_particle_pos_or_vel, &
+                             particle_type
+   USE physcon, ONLY: angstrom
+   USE pint_transformations, ONLY: pint_u2x
+   USE pint_types, ONLY: pint_env_type, &
+                         thermostat_gle, &
+                         thermostat_nose, &
+                         thermostat_piglet, &
+                         thermostat_pile, &
+                         thermostat_qtb
+   USE simpar_types, ONLY: simpar_type
+   USE string_utilities, ONLY: string_to_ascii
+   USE thermostat_types, ONLY: thermostat_type
+   USE thermostat_utils, ONLY: communication_thermo_low2, &
+                               get_kin_energies
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -465,8 +465,8 @@ CONTAINS
                CALL get_md_env(md_env=md_env, simpar=simpar)
                IF (simpar%do_respa) THEN
                   do_respa = .TRUE.
-               ENDIF
-            ENDIF
+               END IF
+            END IF
 
             CALL update_force_eval(force_env=my_force_env, &
                                    root_section=root_section, &
@@ -2315,8 +2315,8 @@ CONTAINS
       CHARACTER(LEN=default_path_length)                 :: binary_restart_file_name
       CHARACTER(LEN=default_string_length)               :: section_label
       INTEGER :: handle, iatom, icore, ikind, imolecule, ishell, istat, n_char_size, n_dp_size, &
-         n_int_size, natom, natomkind, ncore, nhc_size, nmolecule, nmoleculekind, nshell, &
-         print_level, run_type
+                 n_int_size, natom, natomkind, ncore, nhc_size, nmolecule, nmoleculekind, nshell, &
+                 print_level, run_type
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ibuf, imol
       LOGICAL                                            :: print_info, write_velocities
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: rbuf
@@ -2590,7 +2590,7 @@ CONTAINS
             IF (istat /= 0) CALL stop_write(TRIM(section_label)//", nhc_size "// &
                                             "(IOSTAT = "//TRIM(ADJUSTL(cp_to_string(istat)))//")", &
                                             output_unit)
-         ENDIF
+         END IF
          n_char_size = n_char_size + LEN(section_label)
          n_int_size = n_int_size + 1
          IF (output_unit > 0 .AND. log_unit > 0) THEN ! only ionode
@@ -2618,7 +2618,7 @@ CONTAINS
             IF (istat /= 0) CALL stop_write("nhc_size "// &
                                             "(IOSTAT = "//TRIM(ADJUSTL(cp_to_string(istat)))//")", &
                                             output_unit)
-         ENDIF
+         END IF
          n_char_size = n_char_size + LEN(section_label)
          n_int_size = n_int_size + 1
          IF (output_unit > 0 .AND. log_unit > 0) THEN ! only ionode
@@ -2639,7 +2639,7 @@ CONTAINS
             IF (istat /= 0) CALL stop_write(TRIM(section_label)//", write_velocities "// &
                                             "(IOSTAT = "//TRIM(ADJUSTL(cp_to_string(istat)))//")", &
                                             output_unit)
-         ENDIF
+         END IF
          n_char_size = n_char_size + LEN(section_label)
          n_int_size = n_int_size + 1
          IF (print_info .AND. log_unit > 0) THEN
@@ -2855,7 +2855,7 @@ CONTAINS
          INQUIRE (UNIT=unit_number, EXIST=file_exists)
       ELSE
          file_exists = .FALSE.
-      ENDIF
+      END IF
       IF (file_exists) THEN
          INQUIRE (UNIT=unit_number, NAME=file_name)
          WRITE (UNIT=message, FMT="(A)") &

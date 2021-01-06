@@ -15,18 +15,18 @@
 !> \author MI
 ! **************************************************************************************************
 MODULE qs_linres_nmr_epr_common_utils
-   USE cell_types,                      ONLY: cell_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: gaussi
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_methods,                      ONLY: pw_transfer
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
+   USE cell_types, ONLY: cell_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: gaussi
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_methods, ONLY: pw_transfer
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

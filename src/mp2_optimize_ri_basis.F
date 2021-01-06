@@ -15,49 +15,49 @@
 !> \author Mauro Del Ben
 ! **************************************************************************************************
 MODULE mp2_optimize_ri_basis
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE basis_set_container_types,       ONLY: add_basis_set_to_container,&
-                                              remove_basis_from_container
-   USE basis_set_types,                 ONLY: allocate_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cp_log_handling,                 ONLY: cp_add_default_logger,&
-                                              cp_get_default_logger,&
-                                              cp_logger_create,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_release,&
-                                              cp_logger_set,&
-                                              cp_logger_type,&
-                                              cp_rm_default_logger
-   USE cp_para_env,                     ONLY: cp_para_env_create,&
-                                              cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE basis_set_container_types, ONLY: add_basis_set_to_container, &
+                                        remove_basis_from_container
+   USE basis_set_types, ONLY: allocate_gto_basis_set, &
+                              gto_basis_set_type
+   USE cp_log_handling, ONLY: cp_add_default_logger, &
+                              cp_get_default_logger, &
+                              cp_logger_create, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_release, &
+                              cp_logger_set, &
+                              cp_logger_type, &
+                              cp_rm_default_logger
+   USE cp_para_env, ONLY: cp_para_env_create, &
+                          cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
 !
-   USE hfx_types,                       ONLY: hfx_basis_info_type,&
-                                              hfx_basis_type
-   USE kinds,                           ONLY: dp
-   USE libint_wrapper,                  ONLY: build_eri_size
-   USE machine,                         ONLY: default_output_unit
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_comm_split_direct,&
-                                              mp_sum
-   USE mp2_direct_method,               ONLY: mp2_canonical_direct_single_batch
-   USE mp2_ri_libint,                   ONLY: libint_ri_mp2,&
-                                              read_RI_basis_set,&
-                                              release_RI_basis_set
-   USE mp2_types,                       ONLY: mp2_biel_type,&
-                                              mp2_type
-   USE orbital_pointers,                ONLY: indco,&
-                                              init_orbital_pointers,&
-                                              nco,&
-                                              ncoset,&
-                                              nso
-   USE orbital_symbols,                 ONLY: cgf_symbol,&
-                                              sgf_symbol
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE util,                            ONLY: sort
+   USE hfx_types, ONLY: hfx_basis_info_type, &
+                        hfx_basis_type
+   USE kinds, ONLY: dp
+   USE libint_wrapper, ONLY: build_eri_size
+   USE machine, ONLY: default_output_unit
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_comm_split_direct, &
+                              mp_sum
+   USE mp2_direct_method, ONLY: mp2_canonical_direct_single_batch
+   USE mp2_ri_libint, ONLY: libint_ri_mp2, &
+                            read_RI_basis_set, &
+                            release_RI_basis_set
+   USE mp2_types, ONLY: mp2_biel_type, &
+                        mp2_type
+   USE orbital_pointers, ONLY: indco, &
+                               init_orbital_pointers, &
+                               nco, &
+                               ncoset, &
+                               nso
+   USE orbital_symbols, ONLY: cgf_symbol, &
+                              sgf_symbol
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -116,14 +116,14 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'optimize_ri_basis_main'
 
       INTEGER :: color_sub, comm_sub, dimen_RI, elements_ij_proc, handle, i, iiter, ikind, ipgf, &
-         iset, ishell, j, local_unit_nr, max_l_am, max_num_iter, ndof, nkind, number_groups, &
-         virtual, virtual_beta
+                 iset, ishell, j, local_unit_nr, max_l_am, max_num_iter, ndof, nkind, number_groups, &
+                 virtual, virtual_beta
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: ij_list_proc, index_table_RI
       LOGICAL                                            :: hess_up, open_shell_case, reset_boundary
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: basis_was_assoc
       REAL(KIND=dp) :: DI, DI_new, DRI, DRI_new, Emp2_AA, Emp2_AA_Cou, Emp2_AA_ex, Emp2_AB, &
-         Emp2_AB_Cou, Emp2_AB_ex, Emp2_BB, Emp2_BB_Cou, Emp2_BB_ex, Emp2_RI, Emp2_RI_new, &
-         eps_DI_rel, eps_DRI, eps_step, expon, fac, fad, fae, reset_edge, sumdg, sumxi
+                       Emp2_AB_Cou, Emp2_AB_ex, Emp2_BB, Emp2_BB_Cou, Emp2_BB_ex, Emp2_RI, Emp2_RI_new, &
+                       eps_DI_rel, eps_DRI, eps_step, expon, fac, fad, fae, reset_edge, sumdg, sumxi
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: deriv, dg, g, hdg, lower_B, max_dev, &
                                                             max_rel_dev, p, pnew, xi
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: exp_limits, hessin
@@ -242,7 +242,7 @@ CONTAINS
          local_unit_nr = cp_logger_get_default_unit_nr(logger, local=.FALSE.)
       ELSE
          local_unit_nr = default_output_unit
-      ENDIF
+      END IF
       NULLIFY (logger_sub)
       CALL cp_logger_create(logger_sub, para_env=para_env_sub, &
                             default_global_unit_nr=local_unit_nr, close_global_unit_on_dealloc=.FALSE.)
@@ -1177,8 +1177,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'generate_RI_init_basis'
 
       INTEGER :: basis_quality, handle, iexpo, iii, ikind, ipgf, iset, ishell, jexpo, jjj, la, &
-         max_am, nexpo_shell, nseta, nsgfa, nsgfa_RI, prog_func, prog_l, RI_max_am, RI_nset, &
-         RI_prev_size
+                 max_am, nexpo_shell, nseta, nsgfa, nsgfa_RI, prog_func, prog_l, RI_max_am, RI_nset, &
+                 RI_prev_size
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: l_expo, num_sgf_per_l, ordered_pos, &
                                                             RI_l_expo, RI_num_sgf_per_l, &
                                                             tot_num_exp_per_l

@@ -14,48 +14,48 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE cp_subsys_types
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_release,&
-                                              atomic_kind_list_retain,&
-                                              atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE atprop_types,                    ONLY: atprop_release,&
-                                              atprop_type
-   USE cell_types,                      ONLY: cell_release,&
-                                              cell_retain,&
-                                              cell_type,&
-                                              real_to_scaled,&
-                                              scaled_to_real
-   USE colvar_types,                    ONLY: colvar_p_release,&
-                                              colvar_p_type
-   USE cp_para_env,                     ONLY: cp_para_env_release,&
-                                              cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_result_types,                 ONLY: cp_result_release,&
-                                              cp_result_retain,&
-                                              cp_result_type
-   USE distribution_1d_types,           ONLY: distribution_1d_release,&
-                                              distribution_1d_retain,&
-                                              distribution_1d_type
-   USE kinds,                           ONLY: dp
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_release,&
-                                              molecule_kind_list_retain,&
-                                              molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_list_types,             ONLY: molecule_list_release,&
-                                              molecule_list_retain,&
-                                              molecule_list_type
-   USE molecule_types,                  ONLY: deallocate_global_constraint,&
-                                              global_constraint_type,&
-                                              molecule_type
-   USE multipole_types,                 ONLY: multipole_type,&
-                                              release_multipole_type,&
-                                              retain_multipole_type
-   USE particle_list_types,             ONLY: particle_list_release,&
-                                              particle_list_retain,&
-                                              particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE virial_types,                    ONLY: virial_release,&
-                                              virial_type
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_release, &
+                                     atomic_kind_list_retain, &
+                                     atomic_kind_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE atprop_types, ONLY: atprop_release, &
+                           atprop_type
+   USE cell_types, ONLY: cell_release, &
+                         cell_retain, &
+                         cell_type, &
+                         real_to_scaled, &
+                         scaled_to_real
+   USE colvar_types, ONLY: colvar_p_release, &
+                           colvar_p_type
+   USE cp_para_env, ONLY: cp_para_env_release, &
+                          cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_result_types, ONLY: cp_result_release, &
+                              cp_result_retain, &
+                              cp_result_type
+   USE distribution_1d_types, ONLY: distribution_1d_release, &
+                                    distribution_1d_retain, &
+                                    distribution_1d_type
+   USE kinds, ONLY: dp
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_release, &
+                                       molecule_kind_list_retain, &
+                                       molecule_kind_list_type
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_list_types, ONLY: molecule_list_release, &
+                                  molecule_list_retain, &
+                                  molecule_list_type
+   USE molecule_types, ONLY: deallocate_global_constraint, &
+                             global_constraint_type, &
+                             molecule_type
+   USE multipole_types, ONLY: multipole_type, &
+                              release_multipole_type, &
+                              retain_multipole_type
+   USE particle_list_types, ONLY: particle_list_release, &
+                                  particle_list_retain, &
+                                  particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE virial_types, ONLY: virial_release, &
+                           virial_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -264,7 +264,7 @@ CONTAINS
       IF (PRESENT(colvar_p)) THEN
          CPASSERT(.NOT. ASSOCIATED(subsys%colvar_p))
          subsys%colvar_p => colvar_p
-      ENDIF
+      END IF
       IF (PRESENT(shell_particles)) THEN
          IF (ASSOCIATED(shell_particles)) THEN
             CALL particle_list_retain(shell_particles)
@@ -282,7 +282,7 @@ CONTAINS
       IF (PRESENT(gci)) THEN
          CPASSERT(.NOT. ASSOCIATED(subsys%gci))
          subsys%gci => gci
-      ENDIF
+      END IF
       IF (PRESENT(results)) THEN
          IF (ASSOCIATED(results)) THEN
             CALL cp_result_retain(results)

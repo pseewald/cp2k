@@ -17,129 +17,129 @@
 ! **************************************************************************************************
 MODULE pint_methods
 
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE bibliography,                    ONLY: Brieuc2016,&
-                                              Ceriotti2010,&
-                                              Ceriotti2012,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type
-   USE constraint,                      ONLY: rattle_control,&
-                                              shake_control,&
-                                              shake_update_targets
-   USE constraint_util,                 ONLY: getold
-   USE cp_external_control,             ONLY: external_control
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_add_iter_level,&
-                                              cp_iterate,&
-                                              cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr,&
-                                              cp_rm_iter_level
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k,&
-                                              cp_unit_to_cp2k
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE f77_interface,                   ONLY: f_env_add_defaults,&
-                                              f_env_rm_defaults,&
-                                              f_env_type
-   USE force_env_types,                 ONLY: force_env_get
-   USE gle_system_dynamics,             ONLY: gle_cholesky_stab,&
-                                              gle_matrix_exp,&
-                                              restart_gle
-   USE gle_system_types,                ONLY: gle_dealloc,&
-                                              gle_init,&
-                                              gle_thermo_create
-   USE global_types,                    ONLY: global_environment_type
-   USE helium_interactions,             ONLY: helium_intpot_scan
-   USE helium_io,                       ONLY: helium_write_cubefile
-   USE helium_methods,                  ONLY: helium_create,&
-                                              helium_init,&
-                                              helium_release
-   USE helium_sampling,                 ONLY: helium_do_run,&
-                                              helium_step
-   USE helium_types,                    ONLY: helium_solvent_p_type
-   USE input_constants,                 ONLY: integrate_exact,&
-                                              integrate_numeric,&
-                                              propagator_rpmd,&
-                                              transformation_normal,&
-                                              transformation_stage
-   USE input_cp2k_restarts,             ONLY: write_restart
-   USE input_section_types,             ONLY: &
-        section_type, section_vals_get, section_vals_get_subs_vals, section_vals_release, &
-        section_vals_retain, section_vals_type, section_vals_val_get, section_vals_val_set, &
-        section_vals_val_unset
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE machine,                         ONLY: m_flush,&
-                                              m_walltime
-   USE mathconstants,                   ONLY: twopi
-   USE mathlib,                         ONLY: gcd
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_comm_self
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_list_types,             ONLY: molecule_list_type
-   USE molecule_types,                  ONLY: global_constraint_type,&
-                                              molecule_type
-   USE parallel_rng_types,              ONLY: GAUSSIAN,&
-                                              rng_stream_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE pint_gle,                        ONLY: pint_calc_gle_energy,&
-                                              pint_gle_init,&
-                                              pint_gle_step
-   USE pint_io,                         ONLY: pint_write_action,&
-                                              pint_write_centroids,&
-                                              pint_write_com,&
-                                              pint_write_ener,&
-                                              pint_write_line,&
-                                              pint_write_rgyr,&
-                                              pint_write_step_info,&
-                                              pint_write_trajectory
-   USE pint_normalmode,                 ONLY: normalmode_calc_uf_h,&
-                                              normalmode_env_create,&
-                                              normalmode_init_masses,&
-                                              normalmode_release
-   USE pint_piglet,                     ONLY: pint_calc_piglet_energy,&
-                                              pint_piglet_create,&
-                                              pint_piglet_init,&
-                                              pint_piglet_release,&
-                                              pint_piglet_step
-   USE pint_pile,                       ONLY: pint_calc_pile_energy,&
-                                              pint_pile_init,&
-                                              pint_pile_release,&
-                                              pint_pile_step
-   USE pint_public,                     ONLY: pint_levy_walk
-   USE pint_qtb,                        ONLY: pint_calc_qtb_energy,&
-                                              pint_qtb_init,&
-                                              pint_qtb_release,&
-                                              pint_qtb_step
-   USE pint_staging,                    ONLY: staging_calc_uf_h,&
-                                              staging_env_create,&
-                                              staging_init_masses,&
-                                              staging_release
-   USE pint_transformations,            ONLY: pint_f2uf,&
-                                              pint_u2x,&
-                                              pint_x2u
-   USE pint_types,                      ONLY: &
-        e_conserved_id, e_kin_thermo_id, e_kin_virial_id, e_potential_id, pint_env_type, &
-        thermostat_gle, thermostat_none, thermostat_nose, thermostat_piglet, thermostat_pile, &
-        thermostat_qtb
-   USE replica_methods,                 ONLY: rep_env_calc_e_f,&
-                                              rep_env_create
-   USE replica_types,                   ONLY: rep_env_release,&
-                                              replica_env_type
-   USE simpar_types,                    ONLY: create_simpar_type,&
-                                              release_simpar_type
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE bibliography, ONLY: Brieuc2016, &
+                           Ceriotti2010, &
+                           Ceriotti2012, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type
+   USE constraint, ONLY: rattle_control, &
+                         shake_control, &
+                         shake_update_targets
+   USE constraint_util, ONLY: getold
+   USE cp_external_control, ONLY: external_control
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_add_iter_level, &
+                                 cp_iterate, &
+                                 cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr, &
+                                 cp_rm_iter_level
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE cp_units, ONLY: cp_unit_from_cp2k, &
+                       cp_unit_to_cp2k
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE f77_interface, ONLY: f_env_add_defaults, &
+                            f_env_rm_defaults, &
+                            f_env_type
+   USE force_env_types, ONLY: force_env_get
+   USE gle_system_dynamics, ONLY: gle_cholesky_stab, &
+                                  gle_matrix_exp, &
+                                  restart_gle
+   USE gle_system_types, ONLY: gle_dealloc, &
+                               gle_init, &
+                               gle_thermo_create
+   USE global_types, ONLY: global_environment_type
+   USE helium_interactions, ONLY: helium_intpot_scan
+   USE helium_io, ONLY: helium_write_cubefile
+   USE helium_methods, ONLY: helium_create, &
+                             helium_init, &
+                             helium_release
+   USE helium_sampling, ONLY: helium_do_run, &
+                              helium_step
+   USE helium_types, ONLY: helium_solvent_p_type
+   USE input_constants, ONLY: integrate_exact, &
+                              integrate_numeric, &
+                              propagator_rpmd, &
+                              transformation_normal, &
+                              transformation_stage
+   USE input_cp2k_restarts, ONLY: write_restart
+   USE input_section_types, ONLY: &
+      section_type, section_vals_get, section_vals_get_subs_vals, section_vals_release, &
+      section_vals_retain, section_vals_type, section_vals_val_get, section_vals_val_set, &
+      section_vals_val_unset
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE machine, ONLY: m_flush, &
+                      m_walltime
+   USE mathconstants, ONLY: twopi
+   USE mathlib, ONLY: gcd
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_comm_self
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_type
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_list_types, ONLY: molecule_list_type
+   USE molecule_types, ONLY: global_constraint_type, &
+                             molecule_type
+   USE parallel_rng_types, ONLY: GAUSSIAN, &
+                                 rng_stream_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE pint_gle, ONLY: pint_calc_gle_energy, &
+                       pint_gle_init, &
+                       pint_gle_step
+   USE pint_io, ONLY: pint_write_action, &
+                      pint_write_centroids, &
+                      pint_write_com, &
+                      pint_write_ener, &
+                      pint_write_line, &
+                      pint_write_rgyr, &
+                      pint_write_step_info, &
+                      pint_write_trajectory
+   USE pint_normalmode, ONLY: normalmode_calc_uf_h, &
+                              normalmode_env_create, &
+                              normalmode_init_masses, &
+                              normalmode_release
+   USE pint_piglet, ONLY: pint_calc_piglet_energy, &
+                          pint_piglet_create, &
+                          pint_piglet_init, &
+                          pint_piglet_release, &
+                          pint_piglet_step
+   USE pint_pile, ONLY: pint_calc_pile_energy, &
+                        pint_pile_init, &
+                        pint_pile_release, &
+                        pint_pile_step
+   USE pint_public, ONLY: pint_levy_walk
+   USE pint_qtb, ONLY: pint_calc_qtb_energy, &
+                       pint_qtb_init, &
+                       pint_qtb_release, &
+                       pint_qtb_step
+   USE pint_staging, ONLY: staging_calc_uf_h, &
+                           staging_env_create, &
+                           staging_init_masses, &
+                           staging_release
+   USE pint_transformations, ONLY: pint_f2uf, &
+                                   pint_u2x, &
+                                   pint_x2u
+   USE pint_types, ONLY: &
+      e_conserved_id, e_kin_thermo_id, e_kin_virial_id, e_potential_id, pint_env_type, &
+      thermostat_gle, thermostat_none, thermostat_nose, thermostat_piglet, thermostat_pile, &
+      thermostat_qtb
+   USE replica_methods, ONLY: rep_env_calc_e_f, &
+                              rep_env_create
+   USE replica_types, ONLY: rep_env_release, &
+                            replica_env_type
+   USE simpar_types, ONLY: create_simpar_type, &
+                           release_simpar_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -189,7 +189,7 @@ CONTAINS
       TYPE(particle_list_type), POINTER                  :: particles
       TYPE(replica_env_type), POINTER                    :: rep_env
       TYPE(section_vals_type), POINTER :: constraint_section, gle_section, nose_section, &
-         piglet_section, pile_section, pint_section, qtb_section, transform_section
+                                          piglet_section, pile_section, pint_section, qtb_section, transform_section
 
       CALL timeset(routineN, handle)
 
@@ -458,7 +458,7 @@ CONTAINS
             CPASSERT(stat == 0)
             DO itmp = 1, pint_env%gle%loc_num_gle
                pint_env%gle%map_info%index(itmp) = itmp
-            ENDDO
+            END DO
             CALL gle_thermo_create(pint_env%gle, pint_env%gle%loc_num_gle)
 
             ! here we should have read a_mat and c_mat;

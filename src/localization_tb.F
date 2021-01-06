@@ -11,52 +11,52 @@
 !> \author JHU (03.2019)
 ! **************************************************************************************************
 MODULE localization_tb
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_p_type,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_fm_vect,                      ONLY: cp_fm_vect_dealloc
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_loc_dipole,                   ONLY: loc_dipole
-   USE qs_loc_states,                   ONLY: get_localization_info
-   USE qs_loc_types,                    ONLY: qs_loc_env_create,&
-                                              qs_loc_env_destroy,&
-                                              qs_loc_env_new_type
-   USE qs_loc_utils,                    ONLY: loc_write_restart,&
-                                              qs_loc_control_init,&
-                                              qs_loc_init,&
-                                              retain_history
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cp_array_utils, ONLY: cp_1d_r_p_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_p_type, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_fm_vect, ONLY: cp_fm_vect_dealloc
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_loc_dipole, ONLY: loc_dipole
+   USE qs_loc_states, ONLY: get_localization_info
+   USE qs_loc_types, ONLY: qs_loc_env_create, &
+                           qs_loc_env_destroy, &
+                           qs_loc_env_new_type
+   USE qs_loc_utils, ONLY: loc_write_restart, &
+                           qs_loc_control_init, &
+                           qs_loc_init, &
+                           retain_history
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -200,7 +200,7 @@ CONTAINS
             IF (qs_loc_env_homo%localized_wfn_control%use_history) THEN
                CALL retain_history(mo_loc_history, homo_localized)
                CALL set_qs_env(qs_env, mo_loc_history=mo_loc_history)
-            ENDIF
+            END IF
 
             !write restart for localization of occupied orbitals
             CALL loc_write_restart(qs_loc_env_homo, loc_print_section, mos, &
@@ -218,7 +218,7 @@ CONTAINS
             IF (ASSOCIATED(marked_states)) THEN
                DEALLOCATE (marked_states)
             END IF
-         ENDIF
+         END IF
 
       END IF
 

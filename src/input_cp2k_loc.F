@@ -5,31 +5,31 @@
 !   SPDX-License-Identifier: GPL-2.0-or-later                                                      !
 !--------------------------------------------------------------------------------------------------!
 MODULE input_cp2k_loc
-   USE bibliography,                    ONLY: Hunt2003
-   USE cp_output_handling,              ONLY: add_last_numeric,&
-                                              cp_print_key_section_create,&
-                                              debug_print_level,&
-                                              high_print_level,&
-                                              low_print_level
-   USE input_constants,                 ONLY: &
-        do_loc_both, do_loc_crazy, do_loc_direct, do_loc_homo, do_loc_jacobi, do_loc_l1_norm_sd, &
-        do_loc_lumo, do_loc_max, do_loc_min, do_loc_none, do_loc_scdm, op_loc_berry, op_loc_boys, &
-        op_loc_pipek
-   USE input_cp2k_mm,                   ONLY: create_dipoles_section
-   USE input_cp2k_motion_print,         ONLY: add_format_keyword
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: integer_t,&
-                                              lchar_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: s2a
+   USE bibliography, ONLY: Hunt2003
+   USE cp_output_handling, ONLY: add_last_numeric, &
+                                 cp_print_key_section_create, &
+                                 debug_print_level, &
+                                 high_print_level, &
+                                 low_print_level
+   USE input_constants, ONLY: &
+      do_loc_both, do_loc_crazy, do_loc_direct, do_loc_homo, do_loc_jacobi, do_loc_l1_norm_sd, &
+      do_loc_lumo, do_loc_max, do_loc_min, do_loc_none, do_loc_scdm, op_loc_berry, op_loc_boys, &
+      op_loc_pipek
+   USE input_cp2k_mm, ONLY: create_dipoles_section
+   USE input_cp2k_motion_print, ONLY: add_format_keyword
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: integer_t, &
+                              lchar_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

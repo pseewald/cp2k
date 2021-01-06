@@ -17,24 +17,24 @@
 !> \author Martin Haeufel
 ! **************************************************************************************************
 MODULE kg_vertex_coloring_methods
-   USE bibliography,                    ONLY: Andermatt2016,&
-                                              Brelaz1979,&
-                                              cite_reference
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_min_heap,                     ONLY: cp_heap_fill,&
-                                              cp_heap_new,&
-                                              cp_heap_pop,&
-                                              cp_heap_release,&
-                                              cp_heap_reset_node,&
-                                              cp_heap_type,&
-                                              valt
-   USE input_constants,                 ONLY: kg_color_dsatur,&
-                                              kg_color_greedy
-   USE kg_environment_types,            ONLY: kg_environment_type
-   USE kinds,                           ONLY: int_4,&
-                                              int_8
+   USE bibliography, ONLY: Andermatt2016, &
+                           Brelaz1979, &
+                           cite_reference
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_min_heap, ONLY: cp_heap_fill, &
+                          cp_heap_new, &
+                          cp_heap_pop, &
+                          cp_heap_release, &
+                          cp_heap_reset_node, &
+                          cp_heap_type, &
+                          valt
+   USE input_constants, ONLY: kg_color_dsatur, &
+                              kg_color_greedy
+   USE kg_environment_types, ONLY: kg_environment_type
+   USE kinds, ONLY: int_4, &
+                    int_8
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -646,7 +646,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       CALL timeset(routineN, handle)
 
@@ -687,7 +687,7 @@ CONTAINS
             WRITE (unit_nr, '()')
             CALL print_subsets(graph, ncolors, unit_nr)
             WRITE (unit_nr, '()')
-         ENDIF
+         END IF
          WRITE (unit_nr, '(T2, A16,50X,I6,1X,A6)') 'Number of colors', ncolors, 'colors'
          IF (valid) WRITE (unit_nr, '(T2, A17,59X,A3)') 'Coloring verified', 'yes'
          WRITE (unit_nr, '(T2,A)') REPEAT("-", 79)

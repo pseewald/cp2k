@@ -10,76 +10,76 @@
 !> \author teo [tlaino] - University of Zurich - 10.2007
 ! **************************************************************************************************
 MODULE thermostat_methods
-   USE al_system_dynamics,              ONLY: al_particles
-   USE al_system_init,                  ONLY: initialize_al_part
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE bibliography,                    ONLY: VandeVondele2002,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE csvr_system_dynamics,            ONLY: csvr_barostat,&
-                                              csvr_particles,&
-                                              csvr_shells
-   USE csvr_system_init,                ONLY: initialize_csvr_baro,&
-                                              initialize_csvr_part,&
-                                              initialize_csvr_shell
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE extended_system_dynamics,        ONLY: lnhc_barostat,&
-                                              lnhc_particles,&
-                                              lnhc_shells
-   USE extended_system_init,            ONLY: initialize_nhc_baro,&
-                                              initialize_nhc_fast,&
-                                              initialize_nhc_part,&
-                                              initialize_nhc_shell,&
-                                              initialize_nhc_slow
-   USE extended_system_types,           ONLY: npt_info_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE gle_system_dynamics,             ONLY: gle_particles,&
-                                              initialize_gle_part
-   USE global_types,                    ONLY: global_environment_type
-   USE input_constants,                 ONLY: &
-        do_region_global, do_thermo_al, do_thermo_csvr, do_thermo_gle, do_thermo_nose, &
-        do_thermo_same_as_part, npe_f_ensemble, npe_i_ensemble, npt_f_ensemble, npt_i_ensemble, &
-        nve_ensemble, nvt_adiabatic_ensemble, nvt_ensemble
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_remove_values,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_list_types,             ONLY: molecule_list_type
-   USE molecule_types,                  ONLY: global_constraint_type,&
-                                              molecule_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE qmmm_types,                      ONLY: qmmm_env_type
-   USE simpar_types,                    ONLY: simpar_type
-   USE thermostat_types,                ONLY: allocate_thermostats,&
-                                              create_thermostat_type,&
-                                              release_thermostat_info,&
-                                              release_thermostat_type,&
-                                              release_thermostats,&
-                                              thermostat_type,&
-                                              thermostats_type
-   USE thermostat_utils,                ONLY: compute_degrees_of_freedom,&
-                                              compute_nfree,&
-                                              get_thermostat_energies,&
-                                              setup_adiabatic_thermostat_info,&
-                                              setup_thermostat_info
+   USE al_system_dynamics, ONLY: al_particles
+   USE al_system_init, ONLY: initialize_al_part
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE bibliography, ONLY: VandeVondele2002, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE csvr_system_dynamics, ONLY: csvr_barostat, &
+                                   csvr_particles, &
+                                   csvr_shells
+   USE csvr_system_init, ONLY: initialize_csvr_baro, &
+                               initialize_csvr_part, &
+                               initialize_csvr_shell
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE extended_system_dynamics, ONLY: lnhc_barostat, &
+                                       lnhc_particles, &
+                                       lnhc_shells
+   USE extended_system_init, ONLY: initialize_nhc_baro, &
+                                   initialize_nhc_fast, &
+                                   initialize_nhc_part, &
+                                   initialize_nhc_shell, &
+                                   initialize_nhc_slow
+   USE extended_system_types, ONLY: npt_info_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE gle_system_dynamics, ONLY: gle_particles, &
+                                  initialize_gle_part
+   USE global_types, ONLY: global_environment_type
+   USE input_constants, ONLY: &
+      do_region_global, do_thermo_al, do_thermo_csvr, do_thermo_gle, do_thermo_nose, &
+      do_thermo_same_as_part, npe_f_ensemble, npe_i_ensemble, npt_f_ensemble, npt_i_ensemble, &
+      nve_ensemble, nvt_adiabatic_ensemble, nvt_ensemble
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_remove_values, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_type
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_list_types, ONLY: molecule_list_type
+   USE molecule_types, ONLY: global_constraint_type, &
+                             molecule_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE qmmm_types, ONLY: qmmm_env_type
+   USE simpar_types, ONLY: simpar_type
+   USE thermostat_types, ONLY: allocate_thermostats, &
+                               create_thermostat_type, &
+                               release_thermostat_info, &
+                               release_thermostat_type, &
+                               release_thermostats, &
+                               thermostat_type, &
+                               thermostats_type
+   USE thermostat_utils, ONLY: compute_degrees_of_freedom, &
+                               compute_nfree, &
+                               get_thermostat_energies, &
+                               setup_adiabatic_thermostat_info, &
+                               setup_thermostat_info
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -120,9 +120,9 @@ CONTAINS
       CHARACTER(LEN=default_path_length)                 :: binary_restart_file_name
       INTEGER                                            :: n_rep, region, thermostat_type
       LOGICAL :: apply_general_thermo, apply_thermo_adiabatic, apply_thermo_baro, &
-         apply_thermo_shell, explicit_adiabatic_fast, explicit_adiabatic_slow, explicit_baro, &
-         explicit_barostat_section, explicit_part, explicit_shell, save_mem, shell_adiabatic, &
-         shell_present
+                 apply_thermo_shell, explicit_adiabatic_fast, explicit_adiabatic_slow, explicit_baro, &
+                 explicit_barostat_section, explicit_part, explicit_shell, save_mem, shell_adiabatic, &
+                 shell_present
       TYPE(atomic_kind_list_type), POINTER               :: atomic_kinds
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_subsys_type), POINTER                      :: subsys
@@ -133,9 +133,9 @@ CONTAINS
       TYPE(particle_list_type), POINTER                  :: particles
       TYPE(qmmm_env_type), POINTER                       :: qmmm_env
       TYPE(section_vals_type), POINTER :: adiabatic_fast_section, adiabatic_slow_section, &
-         barostat_section, print_section, region_section_fast, region_section_slow, &
-         region_sections, thermo_baro_section, thermo_part_section, thermo_shell_section, &
-         work_section
+                                          barostat_section, print_section, region_section_fast, region_section_slow, &
+                                          region_sections, thermo_baro_section, thermo_part_section, thermo_shell_section, &
+                                          work_section
 
       NULLIFY (qmmm_env, cell)
       CALL allocate_thermostats(thermostats)
@@ -216,7 +216,7 @@ CONTAINS
                                         molecules%els, molecule_kinds%els, para_env, globenv, &
                                         thermostats%thermostat_slow%nhc, nose_section=work_section, gci=gci, &
                                         save_mem=save_mem)
-            ENDIF
+            END IF
          ELSE
             CALL cp_warn(__LOCATION__, &
                          "Adiabatic Thermostat has been defined but the ensemble provided "// &
@@ -391,7 +391,7 @@ CONTAINS
          CALL release_thermostat_info(thermostats%thermostat_info_part)
          CALL release_thermostat_info(thermostats%thermostat_info_shell)
 
-      ENDIF ! Adiabitic_NVT screening
+      END IF ! Adiabitic_NVT screening
       ! If no thermostats have been allocated deallocate the full structure
       IF ((.NOT. ASSOCIATED(thermostats%thermostat_part)) .AND. &
           (.NOT. ASSOCIATED(thermostats%thermostat_shell)) .AND. &

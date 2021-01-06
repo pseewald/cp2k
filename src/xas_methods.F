@@ -14,114 +14,114 @@
 ! **************************************************************************************************
 MODULE xas_methods
 
-   USE ai_contraction,                  ONLY: block_add,&
-                                              contraction
-   USE ai_overlap,                      ONLY: overlap_ab
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: &
-        allocate_sto_basis_set, create_gto_from_sto_basis, deallocate_sto_basis_set, &
-        get_gto_basis_set, gto_basis_set_type, init_orb_basis_set, set_sto_basis_set, srules, &
-        sto_basis_set_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_array_utils,                  ONLY: cp_2d_r_p_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr,&
-                                              cp_dbcsr_sm_fm_multiply,&
-                                              dbcsr_allocate_matrix_set
-   USE cp_external_control,             ONLY: external_control
-   USE cp_fm_pool_types,                ONLY: fm_pool_create_fm
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: &
-        cp_fm_create, cp_fm_get_element, cp_fm_get_submatrix, cp_fm_p_type, cp_fm_release, &
-        cp_fm_set_all, cp_fm_set_submatrix, cp_fm_to_fm, cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_convert_offsets_to_sizes,&
-                                              dbcsr_copy,&
-                                              dbcsr_create,&
-                                              dbcsr_distribution_type,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set,&
-                                              dbcsr_type,&
-                                              dbcsr_type_antisymmetric
-   USE input_constants,                 ONLY: &
-        do_loc_none, state_loc_list, state_loc_range, xas_1s_type, xas_2p_type, xas_2s_type, &
-        xas_3d_type, xas_3p_type, xas_3s_type, xas_4d_type, xas_4f_type, xas_4p_type, xas_4s_type, &
-        xas_dip_len, xas_dip_vel, xas_dscf, xas_tp_fh, xas_tp_flex, xas_tp_hh, xas_tp_xfh, &
-        xas_tp_xhh, xes_tp_val
-   USE input_section_types,             ONLY: section_get_lval,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE orbital_pointers,                ONLY: ncoset
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE periodic_table,                  ONLY: ptable
-   USE physcon,                         ONLY: evolt
-   USE qs_diis,                         ONLY: qs_diis_b_clear,&
-                                              qs_diis_b_create
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_loc_methods,                  ONLY: qs_loc_driver,&
-                                              qs_print_cubes
-   USE qs_loc_types,                    ONLY: localized_wfn_control_type,&
-                                              qs_loc_env_create,&
-                                              qs_loc_env_new_type,&
-                                              qs_loc_env_release
-   USE qs_loc_utils,                    ONLY: qs_loc_control_init,&
-                                              qs_loc_env_init,&
-                                              set_loc_centers,&
-                                              set_loc_wfn_lists
-   USE qs_matrix_pools,                 ONLY: mpools_get,&
-                                              qs_matrix_pools_type
-   USE qs_mo_io,                        ONLY: write_mo_set
-   USE qs_mo_methods,                   ONLY: calculate_subspace_eigenvalues
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type,&
-                                              set_mo_set
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_operators_ao,                 ONLY: p_xyz_ao,&
-                                              rRc_xyz_ao
-   USE qs_pdos,                         ONLY: calculate_projected_dos
-   USE qs_scf,                          ONLY: scf_env_cleanup
-   USE qs_scf_initialization,           ONLY: qs_scf_env_initialize
-   USE qs_scf_types,                    ONLY: qs_scf_env_type,&
-                                              scf_env_release
-   USE scf_control_types,               ONLY: scf_c_create,&
-                                              scf_c_read_parameters,&
-                                              scf_c_release,&
-                                              scf_control_type
-   USE xas_control,                     ONLY: read_xas_control,&
-                                              write_xas_control,&
-                                              xas_control_create,&
-                                              xas_control_type
-   USE xas_env_types,                   ONLY: get_xas_env,&
-                                              set_xas_env,&
-                                              xas_env_create,&
-                                              xas_env_release,&
-                                              xas_environment_type
-   USE xas_restart,                     ONLY: xas_read_restart
-   USE xas_tp_scf,                      ONLY: xas_do_tp_scf,&
-                                              xes_scf_once
+   USE ai_contraction, ONLY: block_add, &
+                             contraction
+   USE ai_overlap, ONLY: overlap_ab
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: &
+      allocate_sto_basis_set, create_gto_from_sto_basis, deallocate_sto_basis_set, &
+      get_gto_basis_set, gto_basis_set_type, init_orb_basis_set, set_sto_basis_set, srules, &
+      sto_basis_set_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_array_utils, ONLY: cp_2d_r_p_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: copy_fm_to_dbcsr, &
+                                  cp_dbcsr_sm_fm_multiply, &
+                                  dbcsr_allocate_matrix_set
+   USE cp_external_control, ONLY: external_control
+   USE cp_fm_pool_types, ONLY: fm_pool_create_fm
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: &
+      cp_fm_create, cp_fm_get_element, cp_fm_get_submatrix, cp_fm_p_type, cp_fm_release, &
+      cp_fm_set_all, cp_fm_set_submatrix, cp_fm_to_fm, cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_convert_offsets_to_sizes, &
+                        dbcsr_copy, &
+                        dbcsr_create, &
+                        dbcsr_distribution_type, &
+                        dbcsr_p_type, &
+                        dbcsr_set, &
+                        dbcsr_type, &
+                        dbcsr_type_antisymmetric
+   USE input_constants, ONLY: &
+      do_loc_none, state_loc_list, state_loc_range, xas_1s_type, xas_2p_type, xas_2s_type, &
+      xas_3d_type, xas_3p_type, xas_3s_type, xas_4d_type, xas_4f_type, xas_4p_type, xas_4s_type, &
+      xas_dip_len, xas_dip_vel, xas_dscf, xas_tp_fh, xas_tp_flex, xas_tp_hh, xas_tp_xfh, &
+      xas_tp_xhh, xes_tp_val
+   USE input_section_types, ONLY: section_get_lval, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE orbital_pointers, ONLY: ncoset
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE periodic_table, ONLY: ptable
+   USE physcon, ONLY: evolt
+   USE qs_diis, ONLY: qs_diis_b_clear, &
+                      qs_diis_b_create
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_loc_methods, ONLY: qs_loc_driver, &
+                             qs_print_cubes
+   USE qs_loc_types, ONLY: localized_wfn_control_type, &
+                           qs_loc_env_create, &
+                           qs_loc_env_new_type, &
+                           qs_loc_env_release
+   USE qs_loc_utils, ONLY: qs_loc_control_init, &
+                           qs_loc_env_init, &
+                           set_loc_centers, &
+                           set_loc_wfn_lists
+   USE qs_matrix_pools, ONLY: mpools_get, &
+                              qs_matrix_pools_type
+   USE qs_mo_io, ONLY: write_mo_set
+   USE qs_mo_methods, ONLY: calculate_subspace_eigenvalues
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type, &
+                          set_mo_set
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_operators_ao, ONLY: p_xyz_ao, &
+                              rRc_xyz_ao
+   USE qs_pdos, ONLY: calculate_projected_dos
+   USE qs_scf, ONLY: scf_env_cleanup
+   USE qs_scf_initialization, ONLY: qs_scf_env_initialize
+   USE qs_scf_types, ONLY: qs_scf_env_type, &
+                           scf_env_release
+   USE scf_control_types, ONLY: scf_c_create, &
+                                scf_c_read_parameters, &
+                                scf_c_release, &
+                                scf_control_type
+   USE xas_control, ONLY: read_xas_control, &
+                          write_xas_control, &
+                          xas_control_create, &
+                          xas_control_type
+   USE xas_env_types, ONLY: get_xas_env, &
+                            set_xas_env, &
+                            xas_env_create, &
+                            xas_env_release, &
+                            xas_environment_type
+   USE xas_restart, ONLY: xas_read_restart
+   USE xas_tp_scf, ONLY: xas_do_tp_scf, &
+                         xes_scf_once
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -163,7 +163,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'xas'
 
       INTEGER :: handle, homo, i, iat, iatom, ispin, istate, my_homo(2), my_nelectron(2), my_spin, &
-         nao, nexc_atoms, nexc_search, nmo, nspins, output_unit, state_to_be_excited
+                 nao, nexc_atoms, nexc_search, nmo, nspins, output_unit, state_to_be_excited
       INTEGER, DIMENSION(2)                              :: added_mos
       INTEGER, DIMENSION(:), POINTER                     :: nexc_states
       INTEGER, DIMENSION(:, :), POINTER                  :: state_of_atom
@@ -475,14 +475,14 @@ CONTAINS
                      CALL get_xas_env(xas_env=xas_env, scf_env=scf_env)
                   ELSE
                      CALL qs_scf_env_initialize(qs_env, scf_env, scf_control, scf_section)
-                  ENDIF
+                  END IF
 
                   DO ispin = 1, SIZE(mos)
                      IF (ASSOCIATED(mos(ispin)%mo_set%mo_coeff_b)) THEN !fm->dbcsr
                         CALL copy_fm_to_dbcsr(mos(ispin)%mo_set%mo_coeff, &
                                               mos(ispin)%mo_set%mo_coeff_b) !fm->dbcsr
-                     ENDIF !fm->dbcsr
-                  ENDDO !fm->dbcsr
+                     END IF !fm->dbcsr
+                  END DO !fm->dbcsr
 
                   IF (.NOT. scf_env%skip_diis) THEN
                      IF (.NOT. ASSOCIATED(scf_env%scf_diis_buffer)) THEN
@@ -508,7 +508,7 @@ CONTAINS
                DO ispin = 1, nspins
                   CALL write_mo_set(mos(ispin)%mo_set, atomic_kind_set, qs_kind_set, particle_set, 4, &
                                     dft_section)
-               ENDDO
+               END DO
 
             ELSE
                ! Core level spectroscopy by TDDFT is not yet implemented
@@ -592,8 +592,8 @@ CONTAINS
 
       CHARACTER(LEN=default_string_length)               :: name_sto
       INTEGER :: homo, i, iat, iatom, ik, ikind, ispin, j, l, lfomo, my_spin, n_mo(2), n_rep, nao, &
-         natom, ncubes, nelectron, nexc_atoms, nexc_search, nj, nk, nkind, nmo, nmoloc(2), &
-         nsgf_gto, nsgf_sto, nspins, nvirtual, nvirtual2
+                 natom, ncubes, nelectron, nexc_atoms, nexc_search, nj, nk, nkind, nmo, nmoloc(2), &
+                 nsgf_gto, nsgf_sto, nspins, nvirtual, nvirtual2
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: first_sgf, kind_type_tmp, kind_z_tmp, &
                                                             last_sgf
       INTEGER, DIMENSION(4, 7)                           :: ne
@@ -740,7 +740,7 @@ CONTAINS
          occ_estate = REAL(xas_control%xas_core_occupation, dp)
          IF (nele < 0.0_dp) nele = REAL(nelectron, dp) - (1.0_dp - occ_estate)
          occ_homo = 1.0_dp
-      ENDIF
+      END IF
       CALL set_xas_env(xas_env=xas_env, occ_estate=occ_estate, xas_nelectron=nele, &
                        nvirtual2=nvirtual2, nvirtual=nvirtual, homo_occ=occ_homo)
 
@@ -790,7 +790,7 @@ CONTAINS
          END IF
       ELSE
          NULLIFY (xas_control%list_cubes)
-      ENDIF
+      END IF
 
       NULLIFY (tmp_fm_struct)
       ALLOCATE (xas_env%groundstate_coeff(nspins))

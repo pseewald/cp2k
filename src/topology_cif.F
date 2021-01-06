@@ -11,41 +11,41 @@
 !> \date   12.2008
 ! **************************************************************************************************
 MODULE topology_cif
-   USE cell_methods,                    ONLY: read_cell_cif,&
-                                              write_cell
-   USE cell_types,                      ONLY: cell_create,&
-                                              cell_release,&
-                                              cell_type,&
-                                              pbc,&
-                                              real_to_scaled,&
-                                              scaled_to_real
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object,&
-                                              parser_search_string
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE fparser,                         ONLY: evalf,&
-                                              finalizef,&
-                                              initf,&
-                                              parsef
-   USE input_section_types,             ONLY: section_get_rval,&
-                                              section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE string_table,                    ONLY: id2str,&
-                                              s2s,&
-                                              str2id
-   USE string_utilities,                ONLY: s2a
-   USE topology_types,                  ONLY: atom_info_type,&
-                                              topology_parameters_type
+   USE cell_methods, ONLY: read_cell_cif, &
+                           write_cell
+   USE cell_types, ONLY: cell_create, &
+                         cell_release, &
+                         cell_type, &
+                         pbc, &
+                         real_to_scaled, &
+                         scaled_to_real
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object, &
+                                parser_search_string
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE fparser, ONLY: evalf, &
+                      finalizef, &
+                      initf, &
+                      parsef
+   USE input_section_types, ONLY: section_get_rval, &
+                                  section_vals_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE string_table, ONLY: id2str, &
+                           s2s, &
+                           str2id
+   USE string_utilities, ONLY: s2a
+   USE topology_types, ONLY: atom_info_type, &
+                             topology_parameters_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

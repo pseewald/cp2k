@@ -11,19 +11,19 @@
 !> \author  MI 07.2009
 ! **************************************************************************************************
 MODULE gle_system_types
-   USE bibliography,                    ONLY: Ceriotti2009,&
-                                              Ceriotti2009b,&
-                                              cite_reference
-   USE extended_system_types,           ONLY: create_map_info_type,&
-                                              map_info_type,&
-                                              release_map_info_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE parallel_rng_types,              ONLY: GAUSSIAN,&
-                                              next_rng_seed,&
-                                              rng_stream_type
-   USE string_utilities,                ONLY: compress
+   USE bibliography, ONLY: Ceriotti2009, &
+                           Ceriotti2009b, &
+                           cite_reference
+   USE extended_system_types, ONLY: create_map_info_type, &
+                                    map_info_type, &
+                                    release_map_info_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE parallel_rng_types, ONLY: GAUSSIAN, &
+                                 next_rng_seed, &
+                                 rng_stream_type
+   USE string_utilities, ONLY: compress
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -236,14 +236,14 @@ CONTAINS
                DEALLOCATE (gle%nvt(i)%s)
             END DO
             DEALLOCATE (gle%nvt)
-         ENDIF
+         END IF
          IF (ASSOCIATED(gle%mal)) THEN
             DEALLOCATE (gle%mal)
          END IF
 
          CALL release_map_info_type(gle%map_info)
          DEALLOCATE (gle)
-      ENDIF
+      END IF
 
    END SUBROUTINE gle_dealloc
 

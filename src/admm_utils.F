@@ -13,22 +13,22 @@
 !> \author Manuel Guidon
 ! **************************************************************************************************
 MODULE admm_utils
-   USE admm_types,                      ONLY: admm_type
-   USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_copy,&
-                                              dbcsr_create,&
-                                              dbcsr_deallocate_matrix,&
-                                              dbcsr_set,&
-                                              dbcsr_type,&
-                                              dbcsr_type_symmetric
-   USE input_constants,                 ONLY: do_admm_purify_cauchy,&
-                                              do_admm_purify_cauchy_subspace,&
-                                              do_admm_purify_mo_diag,&
-                                              do_admm_purify_mo_no_diag,&
-                                              do_admm_purify_none
-   USE kinds,                           ONLY: dp
+   USE admm_types, ONLY: admm_type
+   USE cp_dbcsr_operations, ONLY: copy_fm_to_dbcsr
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_copy, &
+                        dbcsr_create, &
+                        dbcsr_deallocate_matrix, &
+                        dbcsr_set, &
+                        dbcsr_type, &
+                        dbcsr_type_symmetric
+   USE input_constants, ONLY: do_admm_purify_cauchy, &
+                              do_admm_purify_cauchy_subspace, &
+                              do_admm_purify_mo_diag, &
+                              do_admm_purify_mo_no_diag, &
+                              do_admm_purify_none
+   USE kinds, ONLY: dp
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -113,7 +113,7 @@ CONTAINS
          CASE (do_admm_purify_mo_no_diag, do_admm_purify_none, do_admm_purify_cauchy)
             ! do nothing
          END SELECT
-      ENDIF
+      END IF
 
    END SUBROUTINE admm_correct_for_eigenvalues
 
@@ -172,7 +172,7 @@ CONTAINS
          CASE (do_admm_purify_mo_no_diag, do_admm_purify_none, do_admm_purify_cauchy)
             ! do nothing
          END SELECT
-      ENDIF
+      END IF
    END SUBROUTINE admm_uncorrect_for_eigenvalues
 
 END MODULE admm_utils

@@ -12,43 +12,43 @@
 !> \author JHU
 ! **************************************************************************************************
 MODULE pwdft_environment
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_symmetry,                     ONLY: write_symmetry
-   USE distribution_1d_types,           ONLY: distribution_1d_release,&
-                                              distribution_1d_type
-   USE distribution_methods,            ONLY: distribute_molecules_1d
-   USE header,                          ONLY: sirius_header
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE machine,                         ONLY: m_flush
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_methods,                ONLY: write_particle_distances,&
-                                              write_qs_particle_coordinates,&
-                                              write_structure_data
-   USE particle_types,                  ONLY: particle_type
-   USE pwdft_environment_types,         ONLY: pwdft_env_get,&
-                                              pwdft_env_set,&
-                                              pwdft_environment_type
-   USE qs_energy_types,                 ONLY: allocate_qs_energy,&
-                                              qs_energy_type
-   USE qs_kind_types,                   ONLY: qs_kind_type,&
-                                              write_qs_kind_set
-   USE qs_subsys_methods,               ONLY: qs_subsys_create
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_release,&
-                                              qs_subsys_set,&
-                                              qs_subsys_type
-   USE sirius_interface,                ONLY: cp_sirius_create_env,&
-                                              cp_sirius_energy_force,&
-                                              cp_sirius_update_context
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cell_types, ONLY: cell_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_symmetry, ONLY: write_symmetry
+   USE distribution_1d_types, ONLY: distribution_1d_release, &
+                                    distribution_1d_type
+   USE distribution_methods, ONLY: distribute_molecules_1d
+   USE header, ONLY: sirius_header
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE machine, ONLY: m_flush
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: molecule_type
+   USE particle_methods, ONLY: write_particle_distances, &
+                               write_qs_particle_coordinates, &
+                               write_structure_data
+   USE particle_types, ONLY: particle_type
+   USE pwdft_environment_types, ONLY: pwdft_env_get, &
+                                      pwdft_env_set, &
+                                      pwdft_environment_type
+   USE qs_energy_types, ONLY: allocate_qs_energy, &
+                              qs_energy_type
+   USE qs_kind_types, ONLY: qs_kind_type, &
+                            write_qs_kind_set
+   USE qs_subsys_methods, ONLY: qs_subsys_create
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_release, &
+                              qs_subsys_set, &
+                              qs_subsys_type
+   USE sirius_interface, ONLY: cp_sirius_create_env, &
+                               cp_sirius_energy_force, &
+                               cp_sirius_update_context
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

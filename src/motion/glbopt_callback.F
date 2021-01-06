@@ -10,16 +10,16 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE glbopt_callback
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type,&
-                                              pack_subsys_particles
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE kinds,                           ONLY: dp
-   USE md_ener_types,                   ONLY: md_ener_type
-   USE md_environment_types,            ONLY: get_md_env,&
-                                              md_environment_type
-   USE mdctrl_types,                    ONLY: glbopt_mdctrl_data_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type, &
+                              pack_subsys_particles
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE kinds, ONLY: dp
+   USE md_ener_types, ONLY: md_ener_type
+   USE md_environment_types, ONLY: get_md_env, &
+                                   md_environment_type
+   USE mdctrl_types, ONLY: glbopt_mdctrl_data_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

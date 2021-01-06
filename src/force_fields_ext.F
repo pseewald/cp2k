@@ -20,31 +20,31 @@
 !> \author CJM
 ! **************************************************************************************************
 MODULE force_fields_ext
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object,&
-                                              parser_search_string,&
-                                              parser_test_next_token
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE force_field_kind_types,          ONLY: do_ff_g96
-   USE force_field_types,               ONLY: amber_info_type,&
-                                              charmm_info_type,&
-                                              force_field_type,&
-                                              gromos_info_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE particle_types,                  ONLY: particle_type
-   USE string_utilities,                ONLY: uppercase
-   USE topology_amber,                  ONLY: rdparm_amber_8
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object, &
+                                parser_search_string, &
+                                parser_test_next_token
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE force_field_kind_types, ONLY: do_ff_g96
+   USE force_field_types, ONLY: amber_info_type, &
+                                charmm_info_type, &
+                                force_field_type, &
+                                gromos_info_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE particle_types, ONLY: particle_type
+   USE string_utilities, ONLY: uppercase
+   USE topology_amber, ONLY: rdparm_amber_8
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

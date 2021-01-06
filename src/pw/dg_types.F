@@ -11,10 +11,10 @@
 ! **************************************************************************************************
 MODULE dg_types
 
-   USE dg_rho0_types,                   ONLY: dg_rho0_create,&
-                                              dg_rho0_release,&
-                                              dg_rho0_retain,&
-                                              dg_rho0_type
+   USE dg_rho0_types, ONLY: dg_rho0_create, &
+                            dg_rho0_release, &
+                            dg_rho0_retain, &
+                            dg_rho0_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

@@ -9,98 +9,98 @@
 !> \brief Calculate the saop potential
 ! **************************************************************************************************
 MODULE xc_pot_saop
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_plus_fm_fm_t,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_get_submatrix,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_set_submatrix,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_deallocate_matrix,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set
-   USE input_constants,                 ONLY: do_method_gapw,&
-                                              oe_gllb,&
-                                              oe_lb,&
-                                              oe_saop,&
-                                              xc_funct_no_shortcut
-   USE input_section_types,             ONLY: &
-        section_vals_create, section_vals_duplicate, section_vals_get_subs_vals, &
-        section_vals_release, section_vals_retain, section_vals_set_subs_vals, section_vals_type, &
-        section_vals_val_get, section_vals_val_set
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_release
-   USE qs_collocate_density,            ONLY: calculate_rho_elec
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_gapw_densities,               ONLY: prepare_gapw_den
-   USE qs_grid_atom,                    ONLY: grid_atom_type
-   USE qs_harmonics_atom,               ONLY: harmonics_atom_type
-   USE qs_integrate_potential,          ONLY: integrate_v_rspace
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_atom,                      ONLY: update_ks_atom
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_local_rho_types,              ONLY: local_rho_set_create,&
-                                              local_rho_set_release,&
-                                              local_rho_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_oce_types,                    ONLY: oce_matrix_type
-   USE qs_rho_atom_methods,             ONLY: allocate_rho_atom_internals,&
-                                              calculate_rho_atom_coeff
-   USE qs_rho_atom_types,               ONLY: get_rho_atom,&
-                                              rho_atom_coeff,&
-                                              rho_atom_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_vxc_atom,                     ONLY: calc_rho_angular,&
-                                              gaVxcgb_noGC
-   USE util,                            ONLY: get_limit
-   USE virial_types,                    ONLY: virial_type
-   USE xc,                              ONLY: xc_vxc_pw_create1
-   USE xc_atom,                         ONLY: fill_rho_set,&
-                                              vxc_of_r_new,&
-                                              xc_rho_set_atom_update
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_create,&
-                                              xc_dset_get_derivative,&
-                                              xc_dset_release,&
-                                              xc_dset_zero_all
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_derivatives,                  ONLY: xc_functionals_eval
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_setall,&
-                                              xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_create,&
-                                              xc_rho_set_release,&
-                                              xc_rho_set_type,&
-                                              xc_rho_set_update
-   USE xc_xbecke88,                     ONLY: xb88_lda_info,&
-                                              xb88_lsd_info
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cp_array_utils, ONLY: cp_1d_r_p_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_plus_fm_fm_t, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_get_submatrix, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_set_submatrix, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_deallocate_matrix, &
+                        dbcsr_p_type, &
+                        dbcsr_set
+   USE input_constants, ONLY: do_method_gapw, &
+                              oe_gllb, &
+                              oe_lb, &
+                              oe_saop, &
+                              xc_funct_no_shortcut
+   USE input_section_types, ONLY: &
+      section_vals_create, section_vals_duplicate, section_vals_get_subs_vals, &
+      section_vals_release, section_vals_retain, section_vals_set_subs_vals, section_vals_type, &
+      section_vals_val_get, section_vals_val_set
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_release
+   USE qs_collocate_density, ONLY: calculate_rho_elec
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_gapw_densities, ONLY: prepare_gapw_den
+   USE qs_grid_atom, ONLY: grid_atom_type
+   USE qs_harmonics_atom, ONLY: harmonics_atom_type
+   USE qs_integrate_potential, ONLY: integrate_v_rspace
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_atom, ONLY: update_ks_atom
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_local_rho_types, ONLY: local_rho_set_create, &
+                                 local_rho_set_release, &
+                                 local_rho_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_oce_types, ONLY: oce_matrix_type
+   USE qs_rho_atom_methods, ONLY: allocate_rho_atom_internals, &
+                                  calculate_rho_atom_coeff
+   USE qs_rho_atom_types, ONLY: get_rho_atom, &
+                                rho_atom_coeff, &
+                                rho_atom_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_vxc_atom, ONLY: calc_rho_angular, &
+                          gaVxcgb_noGC
+   USE util, ONLY: get_limit
+   USE virial_types, ONLY: virial_type
+   USE xc, ONLY: xc_vxc_pw_create1
+   USE xc_atom, ONLY: fill_rho_set, &
+                      vxc_of_r_new, &
+                      xc_rho_set_atom_update
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_create, &
+                                      xc_dset_get_derivative, &
+                                      xc_dset_release, &
+                                      xc_dset_zero_all
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_derivatives, ONLY: xc_functionals_eval
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_setall, &
+                                  xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_create, &
+                               xc_rho_set_release, &
+                               xc_rho_set_type, &
+                               xc_rho_set_update
+   USE xc_xbecke88, ONLY: xb88_lda_info, &
+                          xb88_lsd_info
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -270,13 +270,13 @@ CONTAINS
                              compute_virial=.FALSE., virial_xc=virial_xc_tmp)
 
       DO ispin = 1, nspins
-         vxc_LB(ispin)%pw%cr3d = vxc_LB(ispin)%pw%cr3d+alpha*vxc_tmp(ispin)%pw%cr3d
+         vxc_LB(ispin)%pw%cr3d = vxc_LB(ispin)%pw%cr3d + alpha*vxc_tmp(ispin)%pw%cr3d
       END DO
 
       DO ispin = 1, nspins
          dummy => vxc_tmp(ispin)%pw%cr3d
          CALL add_lb_pot(dummy, rho_set, lsd, ispin)
-         vxc_LB(ispin)%pw%cr3d = vxc_LB(ispin)%pw%cr3d-vxc_tmp(ispin)%pw%cr3d
+         vxc_LB(ispin)%pw%cr3d = vxc_LB(ispin)%pw%cr3d - vxc_tmp(ispin)%pw%cr3d
       END DO
       NULLIFY (dummy)
 
@@ -353,7 +353,7 @@ CONTAINS
                                     rho=orbital, rho_gspace=orbital_g, &
                                     total_rho=tot_rho_psi, ks_env=ks_env)
 
-            vxc_tmp(ispin)%pw%cr3d = vxc_tmp(ispin)%pw%cr3d+ &
+            vxc_tmp(ispin)%pw%cr3d = vxc_tmp(ispin)%pw%cr3d + &
                                      efac*orbital%pw%cr3d
 
          END DO
@@ -372,7 +372,7 @@ CONTAINS
             END DO
          END DO
 
-         vxc_GLLB(ispin)%pw%cr3d = vxc_GLLB(ispin)%pw%cr3d+vxc_tmp(ispin)%pw%cr3d
+         vxc_GLLB(ispin)%pw%cr3d = vxc_GLLB(ispin)%pw%cr3d + vxc_tmp(ispin)%pw%cr3d
 
       END DO
 
@@ -402,7 +402,7 @@ CONTAINS
                we_GLLB = 2.0_dp*we_GLLB
             END IF
 
-            vxc_tmp(ispin)%pw%cr3d = we_LB*vxc_LB(ispin)%pw%cr3d+ &
+            vxc_tmp(ispin)%pw%cr3d = we_LB*vxc_LB(ispin)%pw%cr3d + &
                                      we_GLLB*vxc_GLLB(ispin)%pw%cr3d
 
             CALL cp_fm_set_all(single_mo_coeff(ispin)%matrix, 0.0_dp)
@@ -425,7 +425,7 @@ CONTAINS
 !TC          CALL calculate_wavefunction(mo_coeff,orb,orbital2,orbital2_g,qs_env)
 !TC          write (*,*) orb, maxval(abs(orbital2%pw%cr3d-orbital%pw%cr3d))
 
-            vxc_SAOP(ispin)%pw%cr3d = vxc_SAOP(ispin)%pw%cr3d+ &
+            vxc_SAOP(ispin)%pw%cr3d = vxc_SAOP(ispin)%pw%cr3d + &
                                       orbital%pw%cr3d*vxc_tmp(ispin)%pw%cr3d
 
          END DO

@@ -12,83 +12,83 @@
 ! **************************************************************************************************
 MODULE qs_loc_utils
 
-   USE ai_moments,                      ONLY: contract_cossin,&
-                                              cossin
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE block_p_types,                   ONLY: block_p_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: &
-        cp_fm_create, cp_fm_get_element, cp_fm_get_info, cp_fm_get_submatrix, cp_fm_maxabsval, &
-        cp_fm_p_type, cp_fm_release, cp_fm_set_all, cp_fm_set_submatrix, cp_fm_to_fm, cp_fm_type, &
-        cp_fm_write_unformatted
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_generate_filename,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_get_block_p,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set,&
-                                              dbcsr_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE input_constants,                 ONLY: &
-        do_loc_crazy, do_loc_direct, do_loc_jacobi, do_loc_l1_norm_sd, do_loc_none, do_loc_scdm, &
-        energy_loc_range, op_loc_berry, op_loc_boys, op_loc_pipek, state_loc_all, state_loc_list, &
-        state_loc_none, state_loc_range
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi,&
-                                              twopi
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_bcast
-   USE orbital_pointers,                ONLY: ncoset
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_loc_types,                    ONLY: get_qs_loc_env,&
-                                              localized_wfn_control_create,&
-                                              localized_wfn_control_release,&
-                                              localized_wfn_control_type,&
-                                              qs_loc_env_new_type,&
-                                              set_qs_loc_env
-   USE qs_localization_methods,         ONLY: initialize_weights,&
-                                              rotate_orbitals
-   USE qs_mo_methods,                   ONLY: make_mo_eig
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE qs_scf_types,                    ONLY: ot_method_nr
-   USE scf_control_types,               ONLY: scf_control_type
+   USE ai_moments, ONLY: contract_cossin, &
+                         cossin
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE block_p_types, ONLY: block_p_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_array_utils, ONLY: cp_1d_r_p_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_sm_fm_multiply
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale
+   USE cp_fm_diag, ONLY: choose_eigv_solver
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: &
+      cp_fm_create, cp_fm_get_element, cp_fm_get_info, cp_fm_get_submatrix, cp_fm_maxabsval, &
+      cp_fm_p_type, cp_fm_release, cp_fm_set_all, cp_fm_set_submatrix, cp_fm_to_fm, cp_fm_type, &
+      cp_fm_write_unformatted
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_generate_filename, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_get_block_p, &
+                        dbcsr_p_type, &
+                        dbcsr_set, &
+                        dbcsr_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE input_constants, ONLY: &
+      do_loc_crazy, do_loc_direct, do_loc_jacobi, do_loc_l1_norm_sd, do_loc_none, do_loc_scdm, &
+      energy_loc_range, op_loc_berry, op_loc_boys, op_loc_pipek, state_loc_all, state_loc_list, &
+      state_loc_none, state_loc_range
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi, &
+                            twopi
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_bcast
+   USE orbital_pointers, ONLY: ncoset
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_loc_types, ONLY: get_qs_loc_env, &
+                           localized_wfn_control_create, &
+                           localized_wfn_control_release, &
+                           localized_wfn_control_type, &
+                           qs_loc_env_new_type, &
+                           set_qs_loc_env
+   USE qs_localization_methods, ONLY: initialize_weights, &
+                                      rotate_orbitals
+   USE qs_mo_methods, ONLY: make_mo_eig
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE qs_scf_types, ONLY: ot_method_nr
+   USE scf_control_types, ONLY: scf_control_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -125,15 +125,15 @@ CONTAINS
          ALLOCATE (mo_loc_history(SIZE(mo_loc)))
          DO i = 1, SIZE(mo_loc_history)
             CALL cp_fm_create(mo_loc_history(i)%matrix, mo_loc(i)%matrix%matrix_struct)
-         ENDDO
-      ENDIF
+         END DO
+      END IF
 
       DO i = 1, SIZE(mo_loc_history)
          CALL cp_fm_get_info(mo_loc_history(i)%matrix, ncol_global=ncol_hist)
          CALL cp_fm_get_info(mo_loc(i)%matrix, ncol_global=ncol_loc)
          CPASSERT(ncol_hist == ncol_loc)
          CALL cp_fm_to_fm(mo_loc(i)%matrix, mo_loc_history(i)%matrix)
-      ENDDO
+      END DO
 
       CALL timestop(handle)
 
@@ -569,8 +569,8 @@ CONTAINS
                IF (localized_wfn_control%use_history .AND. ASSOCIATED(mo_loc_history)) THEN
                   CALL rotate_state_to_ref(moloc_coeff(ispin)%matrix, &
                                            mo_loc_history(ispin)%matrix, matrix_s(1)%matrix)
-               ENDIF
-            ENDIF
+               END IF
+            END IF
 
          END DO
 
@@ -600,7 +600,7 @@ CONTAINS
                   CALL dbcsr_copy(qs_loc_env%op_sm_set(j, i)%matrix, matrix_s(1)%matrix, &
                                   name="qs_loc_env%op_sm_"//TRIM(ADJUSTL(cp_to_string(j)))//"-"//TRIM(ADJUSTL(cp_to_string(i))))
                   CALL dbcsr_set(qs_loc_env%op_sm_set(j, i)%matrix, 0.0_dp)
-               ENDDO
+               END DO
             END DO
 
          ELSEIF (localized_wfn_control%operator_type == op_loc_pipek) THEN
@@ -621,7 +621,7 @@ CONTAINS
             END DO ! ispin
          ELSE
             CPABORT("Type of operator not implemented")
-         ENDIF
+         END IF
          CALL cp_fm_struct_release(tmp_fm_struct)
 
          IF (localized_wfn_control%operator_type == op_loc_berry) THEN
@@ -635,7 +635,7 @@ CONTAINS
             !!    here we don't have to do anything
             !!    CALL get_pipek_mezey_operator ( qs_loc_env, qs_env )
 
-         ENDIF
+         END IF
 
          qs_loc_env%molecular_states = .FALSE.
          qs_loc_env%wannier_states = .FALSE.
@@ -702,7 +702,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'compute_berry_operator'
 
       INTEGER :: handle, i, iatom, icol, ikind, inode, irow, iset, jatom, jkind, jset, last_jatom, &
-         ldab, ldsa, ldsb, ldwork, maxl, ncoa, ncob, nkind, nrow, nseta, nsetb, sgfa, sgfb
+                 ldab, ldsa, ldsb, ldwork, maxl, ncoa, ncob, nkind, nrow, nseta, nsetb, sgfa, sgfb
       INTEGER, DIMENSION(3)                              :: perd0
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, lb_min, npgfa, &
                                                             npgfb, nsgfa, nsgfb
@@ -1032,7 +1032,7 @@ CONTAINS
       CHARACTER(LEN=default_path_length)                 :: filename
       CHARACTER(LEN=default_string_length)               :: my_middle
       INTEGER :: group, handle, homo_read, i, ispin, lfomo_read, max_nloc, n_rep_val, nao, &
-         nelectron_read, nloc, nmo, nmo_read, nspin, output_unit, rst_unit, source
+                 nelectron_read, nloc, nmo, nmo_read, nspin, output_unit, rst_unit, source
       LOGICAL                                            :: file_exists
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: eig_read, occ_read
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: vecbuffer
@@ -1386,8 +1386,8 @@ CONTAINS
                         END IF
                      END DO
                   END IF
-               ENDIF
-            ENDDO ! ispin
+               END IF
+            END DO ! ispin
             n_mos(:) = nao - n_mo(:)
             IF (my_do_homo) n_mos = n_mo
             CALL set_loc_wfn_lists(localized_wfn_control, nmoloc, n_mos, nspin)

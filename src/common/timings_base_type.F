@@ -16,9 +16,9 @@
 ! **************************************************************************************************
 MODULE timings_base_type
 
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp,&
-                                              int_8
+   USE kinds, ONLY: default_string_length, &
+                    dp, &
+                    int_8
 
    IMPLICIT NONE
    PRIVATE

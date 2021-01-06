@@ -7,32 +7,32 @@
 
 MODULE qs_fb_distribution_methods
 
-   USE cell_types,                      ONLY: cell_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_distribution_get,&
-                                              dbcsr_distribution_type,&
-                                              dbcsr_get_info,&
-                                              dbcsr_nblkcols_total,&
-                                              dbcsr_p_type,&
-                                              dbcsr_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_fb_atomic_halo_types,         ONLY: &
-        fb_atomic_halo_build_halo_atoms, fb_atomic_halo_cost, fb_atomic_halo_create, &
-        fb_atomic_halo_init, fb_atomic_halo_nullify, fb_atomic_halo_obj, fb_atomic_halo_release, &
-        fb_atomic_halo_set, fb_build_pair_radii
-   USE qs_fb_env_types,                 ONLY: fb_env_get,&
-                                              fb_env_obj,&
-                                              fb_env_set
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE util,                            ONLY: sort
+   USE cell_types, ONLY: cell_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_distribution_get, &
+                        dbcsr_distribution_type, &
+                        dbcsr_get_info, &
+                        dbcsr_nblkcols_total, &
+                        dbcsr_p_type, &
+                        dbcsr_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_fb_atomic_halo_types, ONLY: &
+      fb_atomic_halo_build_halo_atoms, fb_atomic_halo_cost, fb_atomic_halo_create, &
+      fb_atomic_halo_init, fb_atomic_halo_nullify, fb_atomic_halo_obj, fb_atomic_halo_release, &
+      fb_atomic_halo_set, fb_build_pair_radii
+   USE qs_fb_env_types, ONLY: fb_env_get, &
+                              fb_env_obj, &
+                              fb_env_set
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -125,7 +125,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'fb_distribution_build'
 
       INTEGER :: handle, i_common_set, iatom, ii, ipe, lb, lowest_cost_ind, my_pe, n_common_sets, &
-         natoms, nhalo_atoms, nkinds, nprocs, owner_id_in_halo, pref_pe, ub
+                 natoms, nhalo_atoms, nkinds, nprocs, owner_id_in_halo, pref_pe, ub
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: common_set_ids, local_atoms_all, &
                                                             local_atoms_sizes, local_atoms_starts, &
                                                             pe, pos_in_preferred_list

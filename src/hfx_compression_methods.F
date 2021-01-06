@@ -12,14 +12,14 @@
 !> \author Manuel Guidon
 ! **************************************************************************************************
 MODULE hfx_compression_methods
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE hfx_compression_core_methods,    ONLY: bits2ints_specific,&
-                                              ints2bits_specific
-   USE hfx_types,                       ONLY: hfx_cache_type,&
-                                              hfx_container_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE hfx_compression_core_methods, ONLY: bits2ints_specific, &
+                                           ints2bits_specific
+   USE hfx_types, ONLY: hfx_cache_type, &
+                        hfx_container_type
+   USE kinds, ONLY: dp, &
+                    int_8
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

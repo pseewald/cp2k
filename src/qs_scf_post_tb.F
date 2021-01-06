@@ -12,135 +12,135 @@
 !> \author JHU (03.2013)
 ! **************************************************************************************************
 MODULE qs_scf_post_tb
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose,&
-                                              cp_fm_cholesky_reduce,&
-                                              cp_fm_cholesky_restore
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_init_random,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm_submat,&
-                                              cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE cp_result_methods,               ONLY: cp_results_erase,&
-                                              put_results
-   USE cp_result_types,                 ONLY: cp_result_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type,&
-                                              dbcsr_type
-   USE input_constants,                 ONLY: ot_precond_full_all
-   USE input_section_types,             ONLY: section_get_ival,&
-                                              section_get_ivals,&
-                                              section_get_lval,&
-                                              section_get_rval,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE kpoint_types,                    ONLY: kpoint_type
-   USE machine,                         ONLY: m_flush
-   USE mathconstants,                   ONLY: twopi
-   USE memory_utilities,                ONLY: reallocate
-   USE molden_utils,                    ONLY: write_mos_molden
-   USE moments_utils,                   ONLY: get_reference_point
-   USE mulliken,                        ONLY: mulliken_charges
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: debye
-   USE population_analyses,             ONLY: lowdin_population_analysis
-   USE preconditioner_types,            ONLY: preconditioner_type
-   USE pw_env_methods,                  ONLY: pw_env_create,&
-                                              pw_env_rebuild
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_release,&
-                                              pw_env_type
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_derive,&
-                                              pw_scale,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_poisson_types,                ONLY: do_ewald_none,&
-                                              greens_fn_type,&
-                                              pw_green_create,&
-                                              pw_green_release,&
-                                              pw_poisson_analytic,&
-                                              pw_poisson_parameter_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_collocate_density,            ONLY: calculate_rho_core,&
-                                              calculate_rho_elec,&
-                                              calculate_wavefunction
-   USE qs_dftb_types,                   ONLY: qs_dftb_atom_type
-   USE qs_dftb_utils,                   ONLY: get_dftb_atom_param
-   USE qs_dos,                          ONLY: calculate_dos,&
-                                              calculate_dos_kp
-   USE qs_elf_methods,                  ONLY: qs_elf_calc
-   USE qs_energy_window,                ONLY: energy_windows
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_types,                     ONLY: get_ks_env,&
-                                              qs_ks_env_type,&
-                                              set_ks_env
-   USE qs_mo_io,                        ONLY: write_mo_set
-   USE qs_mo_methods,                   ONLY: calculate_subspace_eigenvalues,&
-                                              make_mo_eig
-   USE qs_mo_occupation,                ONLY: set_mo_occupation
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_ot_eigensolver,               ONLY: ot_eigensolver
-   USE qs_pdos,                         ONLY: calculate_projected_dos
-   USE qs_rho_methods,                  ONLY: qs_rho_rebuild
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_set,&
-                                              qs_rho_type
-   USE qs_scf_csr_write,                ONLY: write_ks_matrix_csr,&
-                                              write_s_matrix_csr
-   USE qs_scf_types,                    ONLY: ot_method_nr,&
-                                              qs_scf_env_type
-   USE qs_scf_wfn_mix,                  ONLY: wfn_mix
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
-   USE scf_control_types,               ONLY: scf_control_type
-   USE stm_images,                      ONLY: th_stm_image
-   USE task_list_methods,               ONLY: generate_qs_task_list
-   USE task_list_types,                 ONLY: allocate_task_list,&
-                                              task_list_type
-   USE xtb_types,                       ONLY: get_xtb_atom_param,&
-                                              xtb_atom_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_array_utils, ONLY: cp_1d_r_p_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose, &
+                             cp_fm_cholesky_reduce, &
+                             cp_fm_cholesky_restore
+   USE cp_fm_diag, ONLY: choose_eigv_solver
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_init_random, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_to_fm_submat, &
+                          cp_fm_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_realspace_grid_cube, ONLY: cp_pw_to_cube
+   USE cp_result_methods, ONLY: cp_results_erase, &
+                                put_results
+   USE cp_result_types, ONLY: cp_result_type
+   USE dbcsr_api, ONLY: dbcsr_p_type, &
+                        dbcsr_type
+   USE input_constants, ONLY: ot_precond_full_all
+   USE input_section_types, ONLY: section_get_ival, &
+                                  section_get_ivals, &
+                                  section_get_lval, &
+                                  section_get_rval, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE kpoint_types, ONLY: kpoint_type
+   USE machine, ONLY: m_flush
+   USE mathconstants, ONLY: twopi
+   USE memory_utilities, ONLY: reallocate
+   USE molden_utils, ONLY: write_mos_molden
+   USE moments_utils, ONLY: get_reference_point
+   USE mulliken, ONLY: mulliken_charges
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: debye
+   USE population_analyses, ONLY: lowdin_population_analysis
+   USE preconditioner_types, ONLY: preconditioner_type
+   USE pw_env_methods, ONLY: pw_env_create, &
+                             pw_env_rebuild
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_release, &
+                           pw_env_type
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_derive, &
+                         pw_scale, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_poisson_types, ONLY: do_ewald_none, &
+                               greens_fn_type, &
+                               pw_green_create, &
+                               pw_green_release, &
+                               pw_poisson_analytic, &
+                               pw_poisson_parameter_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_collocate_density, ONLY: calculate_rho_core, &
+                                   calculate_rho_elec, &
+                                   calculate_wavefunction
+   USE qs_dftb_types, ONLY: qs_dftb_atom_type
+   USE qs_dftb_utils, ONLY: get_dftb_atom_param
+   USE qs_dos, ONLY: calculate_dos, &
+                     calculate_dos_kp
+   USE qs_elf_methods, ONLY: qs_elf_calc
+   USE qs_energy_window, ONLY: energy_windows
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_types, ONLY: get_ks_env, &
+                          qs_ks_env_type, &
+                          set_ks_env
+   USE qs_mo_io, ONLY: write_mo_set
+   USE qs_mo_methods, ONLY: calculate_subspace_eigenvalues, &
+                            make_mo_eig
+   USE qs_mo_occupation, ONLY: set_mo_occupation
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_ot_eigensolver, ONLY: ot_eigensolver
+   USE qs_pdos, ONLY: calculate_projected_dos
+   USE qs_rho_methods, ONLY: qs_rho_rebuild
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_set, &
+                           qs_rho_type
+   USE qs_scf_csr_write, ONLY: write_ks_matrix_csr, &
+                               write_s_matrix_csr
+   USE qs_scf_types, ONLY: ot_method_nr, &
+                           qs_scf_env_type
+   USE qs_scf_wfn_mix, ONLY: wfn_mix
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
+   USE scf_control_types, ONLY: scf_control_type
+   USE stm_images, ONLY: th_stm_image
+   USE task_list_methods, ONLY: generate_qs_task_list
+   USE task_list_types, ONLY: allocate_task_list, &
+                              task_list_type
+   USE xtb_types, ONLY: get_xtb_atom_param, &
+                        xtb_atom_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -393,9 +393,9 @@ CONTAINS
             ELSE
                CALL get_qs_env(qs_env, mos=mos)
                CALL calculate_dos(mos, qs_env, dft_section)
-            ENDIF
-         ENDIF
-      ENDIF
+            END IF
+         END IF
+      END IF
 
       ! PDOS
       IF (.NOT. no_mos) THEN
@@ -413,7 +413,7 @@ CONTAINS
                         mo_coeff_deriv => qs_env%mo_derivs(ispin)%matrix
                      ELSE
                         mo_coeff_deriv => NULL()
-                     ENDIF
+                     END IF
                      CALL calculate_subspace_eigenvalues(mo_coeff, ks_rmpv(ispin)%matrix, mo_eigenvalues, &
                                                          do_rotation=.TRUE., &
                                                          co_rotate_dbcsr=mo_coeff_deriv)
@@ -426,8 +426,8 @@ CONTAINS
                      CALL calculate_projected_dos(mos(ispin)%mo_set, atomic_kind_set, &
                                                   qs_kind_set, particle_set, qs_env, dft_section)
                   END IF
-               ENDDO
-            ENDIF
+               END DO
+            END IF
          END IF
       END IF
 
@@ -459,7 +459,7 @@ CONTAINS
          ELSE
             CPWARN("Energy Windows not implemented for TB methods.")
          END IF
-      ENDIF
+      END IF
 
       ! DENSITY CUBE FILE
       print_key => section_vals_get_subs_vals(print_section, "E_DENSITY_CUBE")
@@ -585,7 +585,7 @@ CONTAINS
                      DO ispin = 1, dft_control%nspins
                         DEALLOCATE (unoccupied_evals_stm(ispin)%array)
                         CALL cp_fm_release(unoccupied_orbs_stm(ispin)%matrix)
-                     ENDDO
+                     END DO
                      DEALLOCATE (unoccupied_evals_stm)
                      DEALLOCATE (unoccupied_orbs_stm)
                   END IF
@@ -677,7 +677,7 @@ CONTAINS
       INTEGER                                            :: i, iat, ikind, j, nat, reference
       LOGICAL                                            :: do_berry
       REAL(KIND=dp) :: charge_tot, ci(3), dci(3), dipole(3), dipole_deriv(3), drcc(3), dria(3), &
-         dtheta, gvec(3), q, rcc(3), ria(3), theta, tmp(3), via(3)
+                       dtheta, gvec(3), q, rcc(3), ria(3), theta, tmp(3), via(3)
       REAL(KIND=dp), DIMENSION(:), POINTER               :: ref_point
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cell_type), POINTER                           :: cell
@@ -730,7 +730,7 @@ CONTAINS
                   dggamma(j) = dggamma(j)*zeta + ggamma(j)*dzeta
                   ggamma(j) = ggamma(j)*zeta
                END DO
-            ENDDO
+            END DO
          END DO
          dggamma = dggamma*zphase + ggamma*dzphase
          ggamma = ggamma*zphase
@@ -998,8 +998,8 @@ CONTAINS
             ! this one can for sure not be right (as it has to match a given C0)
             IF (local_preconditioner%in_use == ot_precond_full_all) THEN
                NULLIFY (local_preconditioner)
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          CALL ot_eigensolver(matrix_h=ks_rmpv(ispin)%matrix, matrix_s=matrix_s(1)%matrix, &
                              matrix_c_fm=unoccupied_orbs(ispin)%matrix, &
@@ -1038,7 +1038,7 @@ CONTAINS
          CALL pw_env_create(new_pw_env)
          CALL set_ks_env(ks_env, pw_env=new_pw_env)
          CALL pw_env_release(new_pw_env)
-      ENDIF
+      END IF
       CALL get_qs_env(qs_env, pw_env=new_pw_env, dft_control=dft_control, cell=cell)
 
       new_pw_env%cell_hmat = cell%hmat
@@ -1049,7 +1049,7 @@ CONTAINS
       IF (.NOT. ASSOCIATED(task_list)) THEN
          CALL allocate_task_list(task_list)
          CALL set_ks_env(ks_env, task_list=task_list)
-      ENDIF
+      END IF
       skip_load_balance_distributed = dft_control%qs_control%skip_load_balance_distributed
       CALL generate_qs_task_list(ks_env, task_list, &
                                  reorder_rs_grid_ranks=.TRUE., soft_valid=.FALSE., &
@@ -1615,10 +1615,10 @@ CONTAINS
                   CALL cp_pw_to_cube(wf_r%pw, unit_nr, title, particles=particles, &
                                      stride=section_get_ivals(cube_section, "STRIDE"), mpi_io=mpi_io)
                   CALL cp_print_key_finished_output(unit_nr, logger, cube_section, '', mpi_io=mpi_io)
-               ENDDO
-            ENDIF
+               END DO
+            END IF
          END DO
-      ENDIF
+      END IF
 
       IF (nlumo /= 0) THEN
          DO ispin = 1, dft_control%nspins
@@ -1645,7 +1645,7 @@ CONTAINS
                   CALL cp_pw_to_cube(wf_r%pw, unit_nr, title, particles=particles, &
                                      stride=section_get_ivals(cube_section, "STRIDE"), mpi_io=mpi_io)
                   CALL cp_print_key_finished_output(unit_nr, logger, cube_section, '', mpi_io=mpi_io)
-               ENDDO
+               END DO
             END IF
          END DO
       END IF

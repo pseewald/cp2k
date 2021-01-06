@@ -7,8 +7,8 @@
 
 !******************************************************************************
 MODULE powell
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: twopi
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: twopi
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -72,17 +72,17 @@ CONTAINS
       CASE (3)
          IF (optstate%unit > 0) THEN
             WRITE (optstate%unit, *) "POWELL| Exceeding maximum number of steps"
-         ENDIF
+         END IF
          optstate%state = -1
       CASE (4)
          IF (optstate%unit > 0) THEN
             WRITE (optstate%unit, *) "POWELL| Error in trust region"
-         ENDIF
+         END IF
          optstate%state = -1
       CASE (5)
          IF (optstate%unit > 0) THEN
             WRITE (optstate%unit, *) "POWELL| N out of range"
-         ENDIF
+         END IF
          optstate%state = -1
       CASE (6, 7)
          optstate%state = -1
@@ -1881,7 +1881,7 @@ CONTAINS
 !> \brief ...
 ! **************************************************************************************************
       SUBROUTINE updatehd
-      INTEGER                                            :: i, ih, j, k
+         INTEGER                                            :: i, ih, j, k
 
          DO i = 1, n
             hd(i) = zero

@@ -12,56 +12,56 @@
 !> \author MK (29.10.2002)
 ! **************************************************************************************************
 MODULE qs_energy_init
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set,&
-                                              dbcsr_type
-   USE efield_utils,                    ONLY: calculate_ecore_efield
-   USE input_constants,                 ONLY: kg_tnadd_atomic,&
-                                              kg_tnadd_embed,&
-                                              kg_tnadd_embed_ri,&
-                                              kg_tnadd_none
-   USE input_section_types,             ONLY: section_vals_type
-   USE kg_environment,                  ONLY: kg_build_neighborlist,&
-                                              kg_build_subsets
-   USE kg_environment_types,            ONLY: kg_environment_type
-   USE kinds,                           ONLY: dp
-   USE kpoint_methods,                  ONLY: kpoint_init_cell_index
-   USE kpoint_types,                    ONLY: kpoint_type
-   USE lri_environment_methods,         ONLY: build_lri_matrices,&
-                                              calculate_lri_integrals
-   USE lri_environment_types,           ONLY: lri_environment_type
-   USE molecule_types,                  ONLY: molecule_of_atom,&
-                                              molecule_type
-   USE optimize_embedding_potential,    ONLY: given_embed_pot
-   USE qs_core_energies,                ONLY: calculate_ecore_overlap,&
-                                              calculate_ecore_self
-   USE qs_core_hamiltonian,             ONLY: build_core_hamiltonian_matrix
-   USE qs_dftb_dispersion,              ONLY: calculate_dftb_dispersion
-   USE qs_dftb_matrices,                ONLY: build_dftb_matrices
-   USE qs_dispersion_pairpot,           ONLY: calculate_dispersion_pairpot
-   USE qs_dispersion_types,             ONLY: qs_dispersion_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_external_density,             ONLY: external_read_density
-   USE qs_external_potential,           ONLY: external_c_potential,&
-                                              external_e_potential
-   USE qs_gcp_method,                   ONLY: calculate_gcp_pairpot
-   USE qs_gcp_types,                    ONLY: qs_gcp_type
-   USE qs_ks_methods,                   ONLY: qs_ks_allocate_basics
-   USE qs_ks_types,                     ONLY: qs_ks_env_type,&
-                                              set_ks_env
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_neighbor_lists,               ONLY: build_qs_neighbor_lists
-   USE qs_update_s_mstruct,             ONLY: qs_env_update_s_mstruct
-   USE ri_environment_methods,          ONLY: build_ri_matrices
-   USE se_core_core,                    ONLY: se_core_core_interaction
-   USE se_core_matrix,                  ONLY: build_se_core_matrix
-   USE xtb_matrices,                    ONLY: build_xtb_matrices
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_p_type, &
+                        dbcsr_set, &
+                        dbcsr_type
+   USE efield_utils, ONLY: calculate_ecore_efield
+   USE input_constants, ONLY: kg_tnadd_atomic, &
+                              kg_tnadd_embed, &
+                              kg_tnadd_embed_ri, &
+                              kg_tnadd_none
+   USE input_section_types, ONLY: section_vals_type
+   USE kg_environment, ONLY: kg_build_neighborlist, &
+                             kg_build_subsets
+   USE kg_environment_types, ONLY: kg_environment_type
+   USE kinds, ONLY: dp
+   USE kpoint_methods, ONLY: kpoint_init_cell_index
+   USE kpoint_types, ONLY: kpoint_type
+   USE lri_environment_methods, ONLY: build_lri_matrices, &
+                                      calculate_lri_integrals
+   USE lri_environment_types, ONLY: lri_environment_type
+   USE molecule_types, ONLY: molecule_of_atom, &
+                             molecule_type
+   USE optimize_embedding_potential, ONLY: given_embed_pot
+   USE qs_core_energies, ONLY: calculate_ecore_overlap, &
+                               calculate_ecore_self
+   USE qs_core_hamiltonian, ONLY: build_core_hamiltonian_matrix
+   USE qs_dftb_dispersion, ONLY: calculate_dftb_dispersion
+   USE qs_dftb_matrices, ONLY: build_dftb_matrices
+   USE qs_dispersion_pairpot, ONLY: calculate_dispersion_pairpot
+   USE qs_dispersion_types, ONLY: qs_dispersion_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_external_density, ONLY: external_read_density
+   USE qs_external_potential, ONLY: external_c_potential, &
+                                    external_e_potential
+   USE qs_gcp_method, ONLY: calculate_gcp_pairpot
+   USE qs_gcp_types, ONLY: qs_gcp_type
+   USE qs_ks_methods, ONLY: qs_ks_allocate_basics
+   USE qs_ks_types, ONLY: qs_ks_env_type, &
+                          set_ks_env
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_neighbor_lists, ONLY: build_qs_neighbor_lists
+   USE qs_update_s_mstruct, ONLY: qs_env_update_s_mstruct
+   USE ri_environment_methods, ONLY: build_ri_matrices
+   USE se_core_core, ONLY: se_core_core_interaction
+   USE se_core_matrix, ONLY: build_se_core_matrix
+   USE xtb_matrices, ONLY: build_xtb_matrices
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -138,7 +138,7 @@ CONTAINS
             END DO
             CALL set_ks_env(ks_env, matrix_w_mp2=matrix_w_mp2)
          END IF
-      ENDIF
+      END IF
 
    END SUBROUTINE qs_energies_init
 
@@ -280,7 +280,7 @@ CONTAINS
       IF (do_kpoints) THEN
          CALL get_qs_env(qs_env, sab_kp=sab_nl)
          CALL kpoint_init_cell_index(kpoints, sab_nl, para_env, dft_control)
-      ENDIF
+      END IF
       IF (dft_control%qs_control%cdft) THEN
          IF (.NOT. (dft_control%qs_control%cdft_control%external_control)) &
             dft_control%qs_control%cdft_control%need_pot = .TRUE.
@@ -330,7 +330,7 @@ CONTAINS
          ELSE IF (dft_control%qs_control%rigpw) THEN
             CALL get_qs_env(qs_env=qs_env, lri_env=lri_env)
             CALL build_ri_matrices(lri_env, qs_env, calculate_forces=.FALSE.)
-         ENDIF
+         END IF
 
          ! ZMP addition to read external density
          CALL external_read_density(qs_env)
@@ -351,11 +351,11 @@ CONTAINS
       IF (dft_control%qs_control%dfet_embedded) THEN
          dft_control%apply_embed_pot = .TRUE.
          CALL given_embed_pot(qs_env)
-      ENDIF
+      END IF
       ! Matrix embedding potential
       IF (dft_control%qs_control%dmfet_embedded) THEN
          dft_control%apply_dmfet_pot = .TRUE.
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 

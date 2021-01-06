@@ -12,31 +12,31 @@
 ! **************************************************************************************************
 MODULE geo_opt
 
-   USE bfgs_optimizer,                  ONLY: geoopt_bfgs
-   USE cg_optimizer,                    ONLY: geoopt_cg
-   USE cp_lbfgs_geo,                    ONLY: geoopt_lbfgs
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_add_iter_level,&
-                                              cp_iterate,&
-                                              cp_rm_iter_level
-   USE force_env_types,                 ONLY: force_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE gopt_f_methods,                  ONLY: gopt_f_create_x0
-   USE gopt_f_types,                    ONLY: gopt_f_create,&
-                                              gopt_f_release,&
-                                              gopt_f_type
-   USE gopt_param_types,                ONLY: gopt_param_read,&
-                                              gopt_param_release,&
-                                              gopt_param_type
-   USE input_constants,                 ONLY: default_bfgs_method_id,&
-                                              default_cg_method_id,&
-                                              default_lbfgs_method_id
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: dp
+   USE bfgs_optimizer, ONLY: geoopt_bfgs
+   USE cg_optimizer, ONLY: geoopt_cg
+   USE cp_lbfgs_geo, ONLY: geoopt_lbfgs
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_add_iter_level, &
+                                 cp_iterate, &
+                                 cp_rm_iter_level
+   USE force_env_types, ONLY: force_env_type
+   USE global_types, ONLY: global_environment_type
+   USE gopt_f_methods, ONLY: gopt_f_create_x0
+   USE gopt_f_types, ONLY: gopt_f_create, &
+                           gopt_f_release, &
+                           gopt_f_type
+   USE gopt_param_types, ONLY: gopt_param_read, &
+                               gopt_param_release, &
+                               gopt_param_type
+   USE input_constants, ONLY: default_bfgs_method_id, &
+                              default_cg_method_id, &
+                              default_lbfgs_method_id
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: dp
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

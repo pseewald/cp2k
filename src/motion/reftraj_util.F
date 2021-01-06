@@ -14,49 +14,49 @@
 ! **************************************************************************************************
 MODULE reftraj_util
 
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE machine,                         ONLY: m_flush
-   USE md_environment_types,            ONLY: get_md_env,&
-                                              md_environment_type
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_sum
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: get_molecule_kind,&
-                                              molecule_kind_type
-   USE molecule_list_types,             ONLY: molecule_list_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              molecule_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: angstrom,&
-                                              femtoseconds
-   USE reftraj_types,                   ONLY: reftraj_msd_type,&
-                                              reftraj_type
-   USE simpar_types,                    ONLY: simpar_type
-   USE util,                            ONLY: get_limit
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE machine, ONLY: m_flush
+   USE md_environment_types, ONLY: get_md_env, &
+                                   md_environment_type
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_sum
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_type
+   USE molecule_kind_types, ONLY: get_molecule_kind, &
+                                  molecule_kind_type
+   USE molecule_list_types, ONLY: molecule_list_type
+   USE molecule_types, ONLY: get_molecule, &
+                             molecule_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: angstrom, &
+                      femtoseconds
+   USE reftraj_types, ONLY: reftraj_msd_type, &
+                            reftraj_type
+   USE simpar_types, ONLY: simpar_type
+   USE util, ONLY: get_limit
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -284,12 +284,12 @@ CONTAINS
                   com(2) = com(2) + msd%ref0_pos(2, iatom)*mass
                   com(3) = com(3) + msd%ref0_pos(3, iatom)*mass
                   mass_mol = mass_mol + mass
-               ENDDO  ! iatom
+               END DO  ! iatom
                msd%ref0_com_molecule(1, molecule_kind%molecule_list(imol)) = com(1)/mass_mol
                msd%ref0_com_molecule(2, molecule_kind%molecule_list(imol)) = com(2)/mass_mol
                msd%ref0_com_molecule(3, molecule_kind%molecule_list(imol)) = com(3)/mass_mol
             END DO  ! imol
-         ENDDO ! ikind
+         END DO ! ikind
       END IF
 
       IF (msd%msd_region) THEN
@@ -320,7 +320,7 @@ CONTAINS
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
 
       INTEGER :: atom, bo(2), first_atom, iatom, ikind, imol, imol_global, last_atom, mepos, &
-         natom_kind, nmol_per_kind, nmolecule, nmolkind, num_pe
+                 natom_kind, nmol_per_kind, nmolecule, nmolkind, num_pe
       INTEGER, DIMENSION(:), POINTER                     :: atom_list
       REAL(KIND=dp)                                      :: com(3), diff2_com(4), dr2, dx, dy, dz, &
                                                             mass, mass_mol, msd_mkind(4), rcom(3)
@@ -411,7 +411,7 @@ CONTAINS
                reftraj%msd%val_msd_kind(1:4, ikind)/REAL(natom_kind, KIND=dp)
 
          END DO  ! ikind
-      ENDIF
+      END IF
       CALL mp_sum(reftraj%msd%val_msd_kind, para_env%group)
       CALL mp_sum(reftraj%msd%num_disp_atom, para_env%group)
       CALL mp_sum(reftraj%msd%disp_atom_dr, para_env%group)
@@ -443,7 +443,7 @@ CONTAINS
                   com(2) = com(2) + particle_set(iatom)%r(2)*mass
                   com(3) = com(3) + particle_set(iatom)%r(3)*mass
                   mass_mol = mass_mol + mass
-               ENDDO  ! iatom
+               END DO  ! iatom
                com(1) = com(1)/mass_mol
                com(2) = com(2)/mass_mol
                com(3) = com(3)/mass_mol
@@ -458,7 +458,7 @@ CONTAINS
                msd_mkind(2) = msd_mkind(2) + diff2_com(2)
                msd_mkind(3) = msd_mkind(3) + diff2_com(3)
                msd_mkind(4) = msd_mkind(4) + diff2_com(4)
-            ENDDO ! imol
+            END DO ! imol
 
             reftraj%msd%val_msd_molecule(1, ikind) = msd_mkind(1)/REAL(nmolecule, KIND=dp)
             reftraj%msd%val_msd_molecule(2, ikind) = msd_mkind(2)/REAL(nmolecule, KIND=dp)
@@ -567,11 +567,11 @@ CONTAINS
                         reftraj%msd%disp_atom_dr(3, iat)*angstrom
                   END IF
                END DO
-            ENDIF
+            END IF
             CALL cp_print_key_finished_output(out_msd, logger, reftraj_section, &
                                               "PRINT%DISPLACED_ATOM")
          END IF
-      ENDIF ! msd
+      END IF ! msd
       reftraj%init = .FALSE.
 
    END SUBROUTINE write_output_reftraj

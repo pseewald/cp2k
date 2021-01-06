@@ -11,16 +11,16 @@
 ! **************************************************************************************************
 
 MODULE negf_atom_map
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              real_to_scaled
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE particle_types,                  ONLY: particle_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         real_to_scaled
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE particle_types, ONLY: particle_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

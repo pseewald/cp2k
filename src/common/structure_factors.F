@@ -11,9 +11,9 @@
 ! **************************************************************************************************
 MODULE structure_factors
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: twopi
-   USE structure_factor_types,          ONLY: structure_factor_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: twopi
+   USE structure_factor_types, ONLY: structure_factor_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

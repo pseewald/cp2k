@@ -12,18 +12,18 @@
 ! **************************************************************************************************
 MODULE manybody_tersoff
 
-   USE cell_types,                      ONLY: cell_type
-   USE fist_neighbor_list_types,        ONLY: fist_neighbor_type,&
-                                              neighbor_kind_pairs_type
-   USE fist_nonbond_env_types,          ONLY: pos_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE mathlib,                         ONLY: matvec_3x3
-   USE pair_potential_types,            ONLY: pair_potential_pp_type,&
-                                              pair_potential_single_type,&
-                                              tersoff_pot_type,&
-                                              tersoff_type
-   USE util,                            ONLY: sort
+   USE cell_types, ONLY: cell_type
+   USE fist_neighbor_list_types, ONLY: fist_neighbor_type, &
+                                       neighbor_kind_pairs_type
+   USE fist_nonbond_env_types, ONLY: pos_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE mathlib, ONLY: matvec_3x3
+   USE pair_potential_types, ONLY: pair_potential_pp_type, &
+                                   pair_potential_single_type, &
+                                   tersoff_pot_type, &
+                                   tersoff_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

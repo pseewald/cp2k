@@ -10,31 +10,31 @@
 !> \author fschiff
 ! **************************************************************************************************
 MODULE mixed_environment
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cell_methods,                    ONLY: read_cell,&
-                                              write_cell
-   USE cell_types,                      ONLY: cell_release,&
-                                              cell_type,&
-                                              get_cell
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_methods,               ONLY: cp_subsys_create
-   USE cp_subsys_types,                 ONLY: cp_subsys_release,&
-                                              cp_subsys_set,&
-                                              cp_subsys_type
-   USE distribution_1d_types,           ONLY: distribution_1d_release,&
-                                              distribution_1d_type
-   USE distribution_methods,            ONLY: distribute_molecules_1d
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE mixed_energy_types,              ONLY: allocate_mixed_energy,&
-                                              mixed_energy_type
-   USE mixed_environment_types,         ONLY: mixed_environment_type,&
-                                              set_mixed_env
-   USE molecule_kind_types,             ONLY: molecule_kind_type,&
-                                              write_molecule_kind_set
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_types,                  ONLY: particle_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cell_methods, ONLY: read_cell, &
+                           write_cell
+   USE cell_types, ONLY: cell_release, &
+                         cell_type, &
+                         get_cell
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_methods, ONLY: cp_subsys_create
+   USE cp_subsys_types, ONLY: cp_subsys_release, &
+                              cp_subsys_set, &
+                              cp_subsys_type
+   USE distribution_1d_types, ONLY: distribution_1d_release, &
+                                    distribution_1d_type
+   USE distribution_methods, ONLY: distribute_molecules_1d
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE mixed_energy_types, ONLY: allocate_mixed_energy, &
+                                 mixed_energy_type
+   USE mixed_environment_types, ONLY: mixed_environment_type, &
+                                      set_mixed_env
+   USE molecule_kind_types, ONLY: molecule_kind_type, &
+                                  write_molecule_kind_set
+   USE molecule_types, ONLY: molecule_type
+   USE particle_types, ONLY: particle_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

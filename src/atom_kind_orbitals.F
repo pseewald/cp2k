@@ -9,50 +9,50 @@
 !> \brief calculate the orbitals for a given atomic kind type
 ! **************************************************************************************************
 MODULE atom_kind_orbitals
-   USE ai_onecenter,                    ONLY: sg_erfc
-   USE atom_electronic_structure,       ONLY: calculate_atom
-   USE atom_fit,                        ONLY: atom_fit_density
-   USE atom_operators,                  ONLY: atom_int_release,&
-                                              atom_int_setup,&
-                                              atom_ppint_release,&
-                                              atom_ppint_setup,&
-                                              atom_relint_release,&
-                                              atom_relint_setup
-   USE atom_types,                      ONLY: &
-        CGTO_BASIS, Clementi_geobas, GTO_BASIS, atom_basis_type, atom_gthpot_type, atom_integrals, &
-        atom_orbitals, atom_potential_type, atom_sgppot_type, atom_type, create_atom_orbs, &
-        create_atom_type, lmat, release_atom_basis, release_atom_potential, release_atom_type, &
-        set_atom
-   USE atom_utils,                      ONLY: atom_density,&
-                                              get_maxl_occ,&
-                                              get_maxn_occ
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE external_potential_types,        ONLY: all_potential_type,&
-                                              get_potential,&
-                                              gth_potential_type,&
-                                              sgp_potential_type
-   USE input_constants,                 ONLY: &
-        barrier_conf, do_analytic, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, &
-        do_gapw_log, do_nonrel_atom, do_numeric, do_rks_atom, do_sczoramp_atom, do_uks_atom, &
-        do_zoramp_atom, gth_pseudo, no_pseudo, poly_conf, rel_dkh, rel_none, rel_sczora_mp, &
-        rel_zora, rel_zora_full, rel_zora_mp, sgp_pseudo
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              pi
-   USE periodic_table,                  ONLY: ptable
-   USE physcon,                         ONLY: bohr
-   USE qs_grid_atom,                    ONLY: allocate_grid_atom,&
-                                              create_grid_atom,&
-                                              grid_atom_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              init_atom_electronic_state,&
-                                              qs_kind_type,&
-                                              set_pseudo_state
-   USE rel_control_types,               ONLY: rel_control_type
+   USE ai_onecenter, ONLY: sg_erfc
+   USE atom_electronic_structure, ONLY: calculate_atom
+   USE atom_fit, ONLY: atom_fit_density
+   USE atom_operators, ONLY: atom_int_release, &
+                             atom_int_setup, &
+                             atom_ppint_release, &
+                             atom_ppint_setup, &
+                             atom_relint_release, &
+                             atom_relint_setup
+   USE atom_types, ONLY: &
+      CGTO_BASIS, Clementi_geobas, GTO_BASIS, atom_basis_type, atom_gthpot_type, atom_integrals, &
+      atom_orbitals, atom_potential_type, atom_sgppot_type, atom_type, create_atom_orbs, &
+      create_atom_type, lmat, release_atom_basis, release_atom_potential, release_atom_type, &
+      set_atom
+   USE atom_utils, ONLY: atom_density, &
+                         get_maxl_occ, &
+                         get_maxn_occ
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE external_potential_types, ONLY: all_potential_type, &
+                                       get_potential, &
+                                       gth_potential_type, &
+                                       sgp_potential_type
+   USE input_constants, ONLY: &
+      barrier_conf, do_analytic, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, &
+      do_gapw_log, do_nonrel_atom, do_numeric, do_rks_atom, do_sczoramp_atom, do_uks_atom, &
+      do_zoramp_atom, gth_pseudo, no_pseudo, poly_conf, rel_dkh, rel_none, rel_sczora_mp, &
+      rel_zora, rel_zora_full, rel_zora_mp, sgp_pseudo
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: dfac, &
+                            pi
+   USE periodic_table, ONLY: ptable
+   USE physcon, ONLY: bohr
+   USE qs_grid_atom, ONLY: allocate_grid_atom, &
+                           create_grid_atom, &
+                           grid_atom_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            init_atom_electronic_state, &
+                            qs_kind_type, &
+                            set_pseudo_state
+   USE rel_control_types, ONLY: rel_control_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -479,7 +479,7 @@ CONTAINS
                   END IF
                END DO
             END DO
-         ENDDO
+         END DO
          IF (uks) THEN
             pmat(:, :, 1) = pmat(:, :, 1) + pmat(:, :, 2)
             pmat(:, :, 2) = pmat(:, :, 1) - 2.0_dp*pmat(:, :, 2)
@@ -506,7 +506,7 @@ CONTAINS
                END DO
             END DO
             END DO
-         ENDDO
+         END DO
       END IF
 
       IF (PRESENT(density)) THEN
@@ -577,7 +577,7 @@ CONTAINS
       INTEGER, DIMENSION(0:lmat, 10)                     :: ncalc, ncore, nelem
       INTEGER, DIMENSION(:), POINTER                     :: econf
       REAL(KIND=dp)                                      :: al, aval, cc, cval, ear, rk, xx, zeff
-      REAL(KIND=dp), DIMENSION(num_gto+2)                :: results
+      REAL(KIND=dp), DIMENSION(num_gto + 2)                :: results
       TYPE(all_potential_type), POINTER                  :: all_potential
       TYPE(atom_basis_type), POINTER                     :: basis
       TYPE(atom_integrals), POINTER                      :: integrals
@@ -1127,7 +1127,7 @@ CONTAINS
                   END SELECT
                END DO
             END DO
-         ENDDO
+         END DO
          DO k1 = 1, nsgf
             DO k2 = k1, nsgf
                rtmat(k1, k2) = 0.5_dp*(rtmat(k1, k2) + rtmat(k2, k1))

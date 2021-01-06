@@ -12,33 +12,33 @@
 ! **************************************************************************************************
 
 MODULE input_cp2k_neb
-   USE bibliography,                    ONLY: Elber1987,&
-                                              Jonsson1998,&
-                                              Jonsson2000_1,&
-                                              Jonsson2000_2,&
-                                              Wales2004
-   USE cp_output_handling,              ONLY: add_last_numeric,&
-                                              cp_print_key_section_create,&
-                                              high_print_level,&
-                                              low_print_level,&
-                                              medium_print_level
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE input_constants,                 ONLY: &
-        band_diis_opt, band_md_opt, do_b_neb, do_ci_neb, do_d_neb, do_eb, do_it_neb, &
-        do_rep_blocked, do_rep_interleaved, do_sm, pot_neb_fe, pot_neb_full, pot_neb_me
-   USE input_cp2k_thermostats,          ONLY: create_coord_section,&
-                                              create_velocity_section
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: real_t
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: s2a
+   USE bibliography, ONLY: Elber1987, &
+                           Jonsson1998, &
+                           Jonsson2000_1, &
+                           Jonsson2000_2, &
+                           Wales2004
+   USE cp_output_handling, ONLY: add_last_numeric, &
+                                 cp_print_key_section_create, &
+                                 high_print_level, &
+                                 low_print_level, &
+                                 medium_print_level
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE input_constants, ONLY: &
+      band_diis_opt, band_md_opt, do_b_neb, do_ci_neb, do_d_neb, do_eb, do_it_neb, &
+      do_rep_blocked, do_rep_interleaved, do_sm, pot_neb_fe, pot_neb_full, pot_neb_me
+   USE input_cp2k_thermostats, ONLY: create_coord_section, &
+                                     create_velocity_section
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: real_t
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

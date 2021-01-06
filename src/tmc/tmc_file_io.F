@@ -18,27 +18,27 @@
 ! **************************************************************************************************
 
 MODULE tmc_file_io
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE physcon,                         ONLY: au2a => angstrom
-   USE tmc_analysis_types,              ONLY: tmc_analysis_env
-   USE tmc_calculations,                ONLY: get_cell_scaling,&
-                                              get_scaled_cell
-   USE tmc_move_types,                  ONLY: nr_mv_types
-   USE tmc_stati,                       ONLY: TMC_STATUS_FAILED,&
-                                              TMC_STATUS_OK,&
-                                              TMC_STATUS_WAIT_FOR_NEW_TASK,&
-                                              tmc_default_restart_in_file_name,&
-                                              tmc_default_restart_out_file_name,&
-                                              tmc_default_trajectory_file_name
-   USE tmc_tree_types,                  ONLY: elem_array_type,&
-                                              tree_type
-   USE tmc_types,                       ONLY: tmc_env_type,&
-                                              tmc_param_type
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_to_string
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE physcon, ONLY: au2a => angstrom
+   USE tmc_analysis_types, ONLY: tmc_analysis_env
+   USE tmc_calculations, ONLY: get_cell_scaling, &
+                               get_scaled_cell
+   USE tmc_move_types, ONLY: nr_mv_types
+   USE tmc_stati, ONLY: TMC_STATUS_FAILED, &
+                        TMC_STATUS_OK, &
+                        TMC_STATUS_WAIT_FOR_NEW_TASK, &
+                        tmc_default_restart_in_file_name, &
+                        tmc_default_restart_out_file_name, &
+                        tmc_default_trajectory_file_name
+   USE tmc_tree_types, ONLY: elem_array_type, &
+                             tree_type
+   USE tmc_types, ONLY: tmc_env_type, &
+                        tmc_param_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

@@ -10,41 +10,41 @@
 !> \author Teodoro Laino (01.2007) [tlaino]
 ! **************************************************************************************************
 MODULE free_energy_methods
-   USE colvar_methods,                  ONLY: colvar_eval_glob_f
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_subsys_types,                 ONLY: cp_subsys_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE fparser,                         ONLY: evalf,&
-                                              evalfd,&
-                                              finalizef,&
-                                              initf,&
-                                              parsef
-   USE free_energy_types,               ONLY: free_energy_type,&
-                                              ui_var_type
-   USE input_constants,                 ONLY: do_fe_ac,&
-                                              do_fe_ui
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mathlib,                         ONLY: diamat_all
-   USE md_environment_types,            ONLY: get_md_env,&
-                                              md_environment_type
-   USE memory_utilities,                ONLY: reallocate
-   USE simpar_types,                    ONLY: simpar_type
-   USE statistical_methods,             ONLY: k_test,&
-                                              min_sample_size,&
-                                              sw_test,&
-                                              vn_test
-   USE string_utilities,                ONLY: compress
+   USE colvar_methods, ONLY: colvar_eval_glob_f
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_subsys_types, ONLY: cp_subsys_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE fparser, ONLY: evalf, &
+                      evalfd, &
+                      finalizef, &
+                      initf, &
+                      parsef
+   USE free_energy_types, ONLY: free_energy_type, &
+                                ui_var_type
+   USE input_constants, ONLY: do_fe_ac, &
+                              do_fe_ui
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mathlib, ONLY: diamat_all
+   USE md_environment_types, ONLY: get_md_env, &
+                                   md_environment_type
+   USE memory_utilities, ONLY: reallocate
+   USE simpar_types, ONLY: simpar_type
+   USE statistical_methods, ONLY: k_test, &
+                                  min_sample_size, &
+                                  sw_test, &
+                                  vn_test
+   USE string_utilities, ONLY: compress
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

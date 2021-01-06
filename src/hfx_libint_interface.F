@@ -14,29 +14,29 @@
 ! **************************************************************************************************
 MODULE hfx_libint_interface
 
-   USE cell_types,                      ONLY: cell_type,&
-                                              real_to_scaled
-   USE gamma,                           ONLY: fgamma => fgamma_0
-   USE hfx_contraction_methods,         ONLY: contract
-   USE hfx_types,                       ONLY: hfx_pgf_product_list,&
-                                              hfx_potential_type
-   USE input_constants,                 ONLY: &
-        do_potential_coulomb, do_potential_gaussian, do_potential_id, do_potential_long, &
-        do_potential_mix_cl, do_potential_mix_cl_trunc, do_potential_mix_lg, do_potential_short, &
-        do_potential_truncated
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE libint_wrapper,                  ONLY: cp_libint_get_derivs,&
-                                              cp_libint_get_eris,&
-                                              cp_libint_set_params_eri,&
-                                              cp_libint_set_params_eri_deriv,&
-                                              cp_libint_set_params_eri_screen,&
-                                              cp_libint_t,&
-                                              get_ssss_f_val,&
-                                              prim_data_f_size
-   USE mathconstants,                   ONLY: pi
-   USE orbital_pointers,                ONLY: nco
-   USE t_c_g0,                          ONLY: t_c_g0_n
+   USE cell_types, ONLY: cell_type, &
+                         real_to_scaled
+   USE gamma, ONLY: fgamma => fgamma_0
+   USE hfx_contraction_methods, ONLY: contract
+   USE hfx_types, ONLY: hfx_pgf_product_list, &
+                        hfx_potential_type
+   USE input_constants, ONLY: &
+      do_potential_coulomb, do_potential_gaussian, do_potential_id, do_potential_long, &
+      do_potential_mix_cl, do_potential_mix_cl_trunc, do_potential_mix_lg, do_potential_short, &
+      do_potential_truncated
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE libint_wrapper, ONLY: cp_libint_get_derivs, &
+                             cp_libint_get_eris, &
+                             cp_libint_set_params_eri, &
+                             cp_libint_set_params_eri_deriv, &
+                             cp_libint_set_params_eri_screen, &
+                             cp_libint_t, &
+                             get_ssss_f_val, &
+                             prim_data_f_size
+   USE mathconstants, ONLY: pi
+   USE orbital_pointers, ONLY: nco
+   USE t_c_g0, ONLY: t_c_g0_n
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -90,8 +90,8 @@ CONTAINS
       INTEGER                                            :: i
       LOGICAL                                            :: use_gamma
       REAL(KIND=dp) :: AB(3), AB2, CD(3), CD2, den, Eta, EtaInv, factor, G(3), num, omega2, &
-         omega_corr, omega_corr2, P(3), PQ(3), PQ2, Q(3), R, R1, R2, Rho, RhoInv, S1234, ssss, T, &
-         tmp, W(3), Zeta, ZetaInv, ZetapEtaInv
+                       omega_corr, omega_corr2, P(3), PQ(3), PQ2, Q(3), R, R1, R2, Rho, RhoInv, S1234, ssss, T, &
+                       tmp, W(3), Zeta, ZetaInv, ZetapEtaInv
       REAL(KIND=dp), DIMENSION(prim_data_f_size)         :: F, Fm
 
       Zeta = Zeta_A + Zeta_B
@@ -195,7 +195,7 @@ CONTAINS
          DO i = 1, m_max + 1
             F(i) = F(i)*(potential_parameter%scale_coulomb + potential_parameter%scale_longrange) - &
                    Fm(i)*potential_parameter%scale_longrange
-         ENDDO
+         END DO
 
          ! longrange
          omega2 = potential_parameter%omega**2
@@ -260,7 +260,7 @@ CONTAINS
 
       DO i = 1, m_max + 1
          F(i) = F(i)*factor
-      ENDDO
+      END DO
 
       CALL cp_libint_set_params_eri_screen(libint, A, B, C, D, P, Q, W, ZetaInv, EtaInv, ZetapEtaInv, Rho, m_max, F)
 
@@ -408,15 +408,15 @@ CONTAINS
       REAL(dp), DIMENSION(ncoc, nsoc*nl_c)               :: sphi_c
       REAL(dp), DIMENSION(ncod, nsod*nl_d)               :: sphi_d
       REAL(dp) :: work(ncoa*ncob*ncoc*ncod, 12), work2(ncoa, ncob, ncoc, ncod, 12), &
-         work_forces(ncoa*ncob*ncoc*ncod, 12)
+                  work_forces(ncoa*ncob*ncoc*ncod, 12)
       REAL(dp), DIMENSION(ncoa*ncob*ncoc*ncod)           :: buffer1, buffer2
-      REAL(dp), DIMENSION(nsoa*nl_a, nsob*nl_b, nsoc*&
-         nl_c, nsod*nl_d)                                :: primitives_tmp
+      REAL(dp), DIMENSION(nsoa*nl_a, nsob*nl_b, nsoc* &
+                          nl_c, nsod*nl_d)                                :: primitives_tmp
       LOGICAL, INTENT(IN)                                :: use_virial
       REAL(dp) :: work_virial(ncoa*ncob*ncoc*ncod, 12, 3), &
-         work2_virial(ncoa, ncob, ncoc, ncod, 12, 3)
-      REAL(dp), DIMENSION(nsoa*nl_a, nsob*nl_b, nsoc*&
-         nl_c, nsod*nl_d)                                :: primitives_tmp_virial
+                  work2_virial(ncoa, ncob, ncoc, ncod, 12, 3)
+      REAL(dp), DIMENSION(nsoa*nl_a, nsob*nl_b, nsoc* &
+                          nl_c, nsod*nl_d)                                :: primitives_tmp_virial
       REAL(dp), &
          DIMENSION(nsgfa, nsgfb, nsgfc, nsgfd, 12, 3)    :: primitives_virial
       TYPE(cell_type), POINTER                           :: cell
@@ -574,7 +574,7 @@ CONTAINS
                   work_forces(j, k) = -1.0_dp*(work_forces(j, k - 3) + &
                                                work_forces(j, k + 3) + &
                                                work_forces(j, k + 6))
-               ENDDO
+               END DO
             END DO
             DO k = 1, 12
                DO j = 1, mysize
@@ -1481,8 +1481,8 @@ CONTAINS
       REAL(dp)                                           :: work(ncoa*ncob*ncoc*ncod), &
                                                             work2(ncoa, ncob, ncoc, ncod)
       REAL(dp), DIMENSION(ncoa*ncob*ncoc*ncod)           :: buffer1, buffer2
-      REAL(dp), DIMENSION(nsoa*nl_a, nsob*nl_b, nsoc*&
-         nl_c, nsod*nl_d)                                :: primitives_tmp
+      REAL(dp), DIMENSION(nsoa*nl_a, nsob*nl_b, nsoc* &
+                          nl_c, nsod*nl_d)                                :: primitives_tmp
       REAL(dp), DIMENSION(:), POINTER                    :: p_work
 
       INTEGER                                            :: a_mysize(1), i, j, k, l, m_max, mysize, &

@@ -11,80 +11,80 @@
 ! **************************************************************************************************
 
 MODULE rt_propagation_output
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_scale_and_add
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_double,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_iter_string,&
-                                              cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_binary_write, dbcsr_checksum, dbcsr_copy, dbcsr_create, &
-        dbcsr_deallocate_matrix, dbcsr_desymmetrize, dbcsr_filter, dbcsr_get_info, &
-        dbcsr_get_occupation, dbcsr_init_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
-        dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, dbcsr_scale, &
-        dbcsr_set, dbcsr_type
-   USE input_constants,                 ONLY: ehrenfest,&
-                                              real_time_propagation
-   USE input_section_types,             ONLY: section_get_ivals,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kahan_sum,                       ONLY: accurate_sum
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE machine,                         ONLY: m_flush
-   USE message_passing,                 ONLY: mp_max
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_linres_current,               ONLY: calculate_jrho_resp
-   USE qs_linres_types,                 ONLY: current_env_type
-   USE qs_mo_io,                        ONLY: write_rt_mos_to_restart
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf_post_gpw,                 ONLY: qs_scf_post_moments,&
-                                              write_available_results,&
-                                              write_mo_free_results
-   USE qs_scf_post_tb,                  ONLY: scf_post_calculation_tb
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
-   USE rt_propagation_types,            ONLY: get_rtp,&
-                                              rt_prop_type
-   USE rt_propagation_utils,            ONLY: calculate_P_imaginary
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_sm_fm_multiply, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_scale_and_add
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_double, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_iter_string, &
+                                 cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_realspace_grid_cube, ONLY: cp_pw_to_cube
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_binary_write, dbcsr_checksum, dbcsr_copy, dbcsr_create, &
+      dbcsr_deallocate_matrix, dbcsr_desymmetrize, dbcsr_filter, dbcsr_get_info, &
+      dbcsr_get_occupation, dbcsr_init_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
+      dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, dbcsr_scale, &
+      dbcsr_set, dbcsr_type
+   USE input_constants, ONLY: ehrenfest, &
+                              real_time_propagation
+   USE input_section_types, ONLY: section_get_ivals, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kahan_sum, ONLY: accurate_sum
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE machine, ONLY: m_flush
+   USE message_passing, ONLY: mp_max
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_linres_current, ONLY: calculate_jrho_resp
+   USE qs_linres_types, ONLY: current_env_type
+   USE qs_mo_io, ONLY: write_rt_mos_to_restart
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf_post_gpw, ONLY: qs_scf_post_moments, &
+                              write_available_results, &
+                              write_mo_free_results
+   USE qs_scf_post_tb, ONLY: scf_post_calculation_tb
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
+   USE rt_propagation_types, ONLY: get_rtp, &
+                                   rt_prop_type
+   USE rt_propagation_utils, ONLY: calculate_P_imaginary
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -187,7 +187,7 @@ CONTAINS
             IF (output_unit > 0) &
                WRITE (output_unit, FMT="(/,(T3,A,T60,F20.10))") &
                "Max deviation from orthonormalization:", orthonormality
-         ENDIF
+         END IF
       END IF
 
       IF (output_unit > 0) &
@@ -203,11 +203,11 @@ CONTAINS
             IF (BTEST(cp_print_key_should_output(logger%iter_info, &
                                                  dft_section, "REAL_TIME_PROPAGATION%PRINT%RESTART"), cp_p_file)) THEN
                CALL write_rt_p_to_restart(rho_new, .FALSE.)
-            ENDIF
+            END IF
             IF (BTEST(cp_print_key_should_output(logger%iter_info, &
                                                  dft_section, "REAL_TIME_PROPAGATION%PRINT%RESTART_HISTORY"), cp_p_file)) THEN
                CALL write_rt_p_to_restart(rho_new, .TRUE.)
-            ENDIF
+            END IF
             IF (.NOT. dft_control%qs_control%dftb) THEN
                !Not sure if these things could also work with dftb or not
                CALL write_mo_free_results(qs_env)
@@ -216,8 +216,8 @@ CONTAINS
                   DO spin = 1, SIZE(rho_new)/2
                      CALL rt_current(qs_env, rho_new(2*spin)%matrix, dft_section, spin, SIZE(rho_new)/2)
                   END DO
-               ENDIF
-            ENDIF
+               END IF
+            END IF
          ELSE
             CALL get_rtp(rtp=rtp, mos_new=mos_new)
             IF (.NOT. dft_control%qs_control%dftb) THEN
@@ -236,12 +236,12 @@ CONTAINS
                      CALL rt_current(qs_env, P_im(spin)%matrix, dft_section, spin, nspin)
                   END DO
                   CALL dbcsr_deallocate_matrix_set(P_im)
-               ENDIF
-            ENDIF
+               END IF
+            END IF
             CALL write_rt_mos_to_restart(qs_env%mos, mos_new, particle_set, &
                                          dft_section, qs_kind_set)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       rtp%energy_old = rtp%energy_new
 
@@ -316,10 +316,10 @@ CONTAINS
                alpha = overlap_re%local_data(i, j)
                IF (row_indices(i) .EQ. col_indices(j)) alpha = alpha - 1.0_dp
                max_alpha = MAX(max_alpha, ABS(alpha))
-            ENDDO
-         ENDDO
+            END DO
+         END DO
          CALL cp_fm_release(overlap_re)
-      ENDDO
+      END DO
       CALL mp_max(max_alpha, mos_new(1)%matrix%matrix_struct%para_env%group)
       CALL mp_max(max_beta, mos_new(1)%matrix%matrix_struct%para_env%group)
       orthonormality = max_alpha
@@ -422,8 +422,8 @@ CONTAINS
                alpha = SQRT((work%local_data(i, j) + work2%local_data(i, j + lcol))**2 + &
                             (work%local_data(i, j + lcol) - work2%local_data(i, j))**2)
                max_alpha = MAX(max_alpha, ABS(alpha))
-            ENDDO
-         ENDDO
+            END DO
+         END DO
 
          CALL cp_fm_release(work)
          CALL cp_fm_release(work1)
@@ -432,7 +432,7 @@ CONTAINS
          CALL cp_fm_struct_release(newstruct)
          CALL cp_fm_struct_release(newstruct1)
 
-      ENDDO
+      END DO
 
       CALL mp_max(max_alpha, delta_mos(1)%matrix%matrix_struct%para_env%group)
       delta_eps = SQRT(max_alpha)
@@ -472,7 +472,7 @@ CONTAINS
 
       DO i = 1, SIZE(rho_new)
          CALL dbcsr_add(delta_P(i)%matrix, rho_new(i)%matrix, one, -one)
-      ENDDO
+      END DO
       !get the maximum value of delta_P
       DO i = 1, SIZE(delta_P)
          !square all entries of both matrices
@@ -572,7 +572,7 @@ CONTAINS
          CALL dbcsr_init_p(tmp(i)%matrix)
          CALL dbcsr_create(tmp(i)%matrix, template=rho(i)%matrix)
          CALL dbcsr_copy(tmp(i)%matrix, rho(i)%matrix)
-      ENDDO
+      END DO
       DO ispin = 1, SIZE(rho)/2
          re = 2*ispin - 1
          im = 2*ispin
@@ -583,7 +583,7 @@ CONTAINS
             IF (unit_nr > 0) WRITE (unit_nr, FMT="((T3,A,I1,A,F15.12,A,T61,F20.10))") "Occupation of rho spin ", &
                ispin, " eps ", eps, " real: ", occ
             eps = eps*10
-         ENDDO
+         END DO
          eps = MAX(filter_eps, 10E-12_dp)
          DO WHILE (eps < 1.1_dp)
             CALL dbcsr_filter(tmp(im)%matrix, eps)
@@ -591,8 +591,8 @@ CONTAINS
             IF (unit_nr > 0) WRITE (unit_nr, FMT="((T3,A,I1,A,F15.12,A,T61,F20.10))") "Occupation of rho spin ", &
                ispin, " eps ", eps, " imag: ", occ
             eps = eps*10
-         ENDDO
-      ENDDO
+         END DO
+      END DO
       CALL dbcsr_deallocate_matrix_set(tmp)
       CALL timestop(handle)
 
@@ -623,7 +623,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       project_name = logger%iter_info%project_name
       DO ispin = 1, SIZE(rho_new)/2
@@ -634,24 +634,24 @@ CONTAINS
                TRIM(project_name)//"_LS_DM_SPIN_RE", ispin, "_"//TRIM(cp_iter_string(logger%iter_info))//"_RESTART.dm"
          ELSE
             WRITE (file_name, '(A,I0,A)') TRIM(project_name)//"_LS_DM_SPIN_RE", ispin, "_RESTART.dm"
-         ENDIF
+         END IF
          cs_pos = dbcsr_checksum(rho_new(re)%matrix, pos=.TRUE.)
          IF (unit_nr > 0) THEN
             WRITE (unit_nr, '(T2,A,E20.8)') "Writing restart DM "//TRIM(file_name)//" with checksum: ", cs_pos
-         ENDIF
+         END IF
          CALL dbcsr_binary_write(rho_new(re)%matrix, file_name)
          IF (history) THEN
             WRITE (file_name, '(A,I0,A)') &
                TRIM(project_name)//"_LS_DM_SPIN_IM", ispin, "_"//TRIM(cp_iter_string(logger%iter_info))//"_RESTART.dm"
          ELSE
             WRITE (file_name, '(A,I0,A)') TRIM(project_name)//"_LS_DM_SPIN_IM", ispin, "_RESTART.dm"
-         ENDIF
+         END IF
          cs_pos = dbcsr_checksum(rho_new(im)%matrix, pos=.TRUE.)
          IF (unit_nr > 0) THEN
             WRITE (unit_nr, '(T2,A,E20.8)') "Writing restart DM "//TRIM(file_name)//" with checksum: ", cs_pos
-         ENDIF
+         END IF
          CALL dbcsr_binary_write(rho_new(im)%matrix, file_name)
-      ENDDO
+      END DO
 
       CALL timestop(handle)
 
@@ -707,7 +707,7 @@ CONTAINS
       CALL dbcsr_copy(tmp, P_im)
       IF (nspin == 1) THEN
          CALL dbcsr_scale(tmp, 0.5_dp)
-      ENDIF
+      END IF
       current_env%gauge = -1
       current_env%gauge_init = .FALSE.
       CALL pw_pool_create_pw(auxbas_pw_pool, rs%pw, use_data=REALDATA3D, in_space=REALSPACE)
@@ -731,7 +731,7 @@ CONTAINS
             sdir = "-y"
          ELSE
             sdir = "-z"
-         ENDIF
+         END IF
          WRITE (char_spin, "(I1)") spin
 
          ext = "-SPIN-"//char_spin//sdir//".cube"

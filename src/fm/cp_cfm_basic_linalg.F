@@ -14,17 +14,17 @@
 !> \author Joost VandeVondele
 ! **************************************************************************************************
 MODULE cp_cfm_basic_linalg
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_cfm_types,                    ONLY: cp_cfm_get_info,&
-                                              cp_cfm_type
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_equivalent
-   USE cp_fm_types,                     ONLY: cp_fm_type
-   USE kahan_sum,                       ONLY: accurate_dot_product
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: z_one,&
-                                              z_zero
-   USE message_passing,                 ONLY: mp_prod,&
-                                              mp_sum
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_cfm_types, ONLY: cp_cfm_get_info, &
+                           cp_cfm_type
+   USE cp_fm_struct, ONLY: cp_fm_struct_equivalent
+   USE cp_fm_types, ONLY: cp_fm_type
+   USE kahan_sum, ONLY: accurate_dot_product
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: z_one, &
+                            z_zero
+   USE message_passing, ONLY: mp_prod, &
+                              mp_sum
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -442,7 +442,7 @@ CONTAINS
       DO irow = 1, nrow_global
          IF (ipivot(irow) .NE. irow) counter = counter + 1
          determinant = determinant*a(irow, irow)
-      ENDDO
+      END DO
       IF (MOD(counter, 2) == 1) determinant = -1.0_dp*determinant
 #endif
 
@@ -742,7 +742,7 @@ CONTAINS
          DO irow = 1, nrow_global
             IF (ipivot(irow) .NE. irow) counter = counter + 1
             determinant = determinant*a(irow, irow)
-         ENDDO
+         END DO
          IF (MOD(counter, 2) == 1) determinant = -1.0_dp*determinant
       END IF
       CALL zgetrs("N", nrow_global, nrow_global, a(1, 1), lda, ipivot, a_general(1, 1), ldb, info)

@@ -12,39 +12,39 @@
 
 MODULE matrix_exp
 
-   USE cp_cfm_basic_linalg,             ONLY: cp_cfm_gemm,&
-                                              cp_cfm_scale_and_add,&
-                                              cp_cfm_solve
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_p_type,&
-                                              cp_cfm_release,&
-                                              cp_cfm_set_all,&
-                                              cp_cfm_to_cfm,&
-                                              cp_cfm_type
-   USE cp_fm_basic_linalg,              ONLY: cp_complex_fm_gemm,&
-                                              cp_fm_scale_and_add,&
-                                              cp_fm_solve
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_double,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fac,&
-                                              z_one,&
-                                              z_zero
-   USE message_passing,                 ONLY: mp_comm_free,&
-                                              mp_max,&
-                                              mp_reordering,&
-                                              mp_sum
+   USE cp_cfm_basic_linalg, ONLY: cp_cfm_gemm, &
+                                  cp_cfm_scale_and_add, &
+                                  cp_cfm_solve
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_p_type, &
+                           cp_cfm_release, &
+                           cp_cfm_set_all, &
+                           cp_cfm_to_cfm, &
+                           cp_cfm_type
+   USE cp_fm_basic_linalg, ONLY: cp_complex_fm_gemm, &
+                                 cp_fm_scale_and_add, &
+                                 cp_fm_solve
+   USE cp_fm_struct, ONLY: cp_fm_struct_double, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fac, &
+                            z_one, &
+                            z_zero
+   USE message_passing, ONLY: mp_comm_free, &
+                              mp_max, &
+                              mp_reordering, &
+                              mp_sum
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -529,7 +529,7 @@ CONTAINS
                   Npq%local_data(:, k) = Npq%local_data(:, k) + scaleN*CMPLX(rzero, T2%local_data(:, k), dp)
                   Dpq%local_data(:, k) = Dpq%local_data(:, k) + scaleD*CMPLX(rzero, T2%local_data(:, k), dp)
                END DO
-            ENDIF
+            END IF
          END DO
       END IF
 

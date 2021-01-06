@@ -15,19 +15,19 @@
 ! **************************************************************************************************
 
 MODULE xc_xpbe_hole_t_c_lr
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: euler,&
-                                              pi
-   USE mathlib,                         ONLY: expint
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: euler, &
+                            pi
+   USE mathlib, ONLY: expint
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -479,21 +479,21 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: order
 
       REAL(KIND=dp) :: p, pndrho, prho, q, qndrho, qrho, sndrho, srho, ssval, t1, t103, t104, &
-         t105, t106, t107, t108, t109, t11, t113, t115, t116, t117, t118, t119, t12, t121, t123, &
-         t125, t126, t129, t13, t133, t136, t14, t140, t142, t143, t144, t147, t150, t152, t155, &
-         t156, t159, t162, t163, t164, t167, t17, t170, t173, t175, t176, t177, t178, t181, t183, &
-         t187, t19, t190, t194, t195, t196, t199, t2, t202, t209, t21, t214, t216, t217, t218, &
-         t22, t222, t223, t224, t227, t228, t229, t232, t234, t235, t236, t237, t240, t244, t248, &
-         t25, t251, t255, t256, t257, t261, t262, t265, t269, t27, t273, t276
+                       t105, t106, t107, t108, t109, t11, t113, t115, t116, t117, t118, t119, t12, t121, t123, &
+                       t125, t126, t129, t13, t133, t136, t14, t140, t142, t143, t144, t147, t150, t152, t155, &
+                       t156, t159, t162, t163, t164, t167, t17, t170, t173, t175, t176, t177, t178, t181, t183, &
+                       t187, t19, t190, t194, t195, t196, t199, t2, t202, t209, t21, t214, t216, t217, t218, &
+                       t22, t222, t223, t224, t227, t228, t229, t232, t234, t235, t236, t237, t240, t244, t248, &
+                       t25, t251, t255, t256, t257, t261, t262, t265, t269, t27, t273, t276
       REAL(KIND=dp) :: t279, t280, t281, t29, t292, t3, t308, t31, t312, t314, t318, t320, t322, &
-         t33, t331, t334, t339, t34, t341, t347, t349, t35, t359, t362, t368, t37, t370, t373, &
-         t38, t382, t385, t39, t393, t4, t40, t401, t402, t404, t405, t409, t41, t42, t420, t421, &
-         t424, t425, t426, t429, t430, t431, t437, t44, t445, t446, t45, t451, t46, t473, t475, &
-         t479, t48, t484, t497, t498, t5, t50, t503, t504, t51, t517, t52, t523, t524, t527, t53, &
-         t533, t534, t54, t541, t56, t568, t57, t58, t581, t590, t6, t60, t603, t604, t61, t611, &
-         t612, t64, t640, t65, t653, t667, t675, t677, t69, t7, t71, t716
+                       t33, t331, t334, t339, t34, t341, t347, t349, t35, t359, t362, t368, t37, t370, t373, &
+                       t38, t382, t385, t39, t393, t4, t40, t401, t402, t404, t405, t409, t41, t42, t420, t421, &
+                       t424, t425, t426, t429, t430, t431, t437, t44, t445, t446, t45, t451, t46, t473, t475, &
+                       t479, t48, t484, t497, t498, t5, t50, t503, t504, t51, t517, t52, t523, t524, t527, t53, &
+                       t533, t534, t54, t541, t56, t568, t57, t58, t581, t590, t6, t60, t603, t604, t61, t611, &
+                       t612, t64, t640, t65, t653, t667, t675, t677, t69, t7, t71, t716
       REAL(KIND=dp) :: t717, t720, t723, t73, t739, t758, t762, t77, t8, t800, t803, t808, t85, &
-         t86, t87, t88, t91, t92, t93, t94, t95, t98, t99
+                       t86, t87, t88, t91, t92, t93, t94, t95, t98, t99
 
       IF (order >= 0) THEN
          t1 = 3**(0.1e1_dp/0.3e1_dp)
@@ -846,17 +846,17 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: order
 
       REAL(KIND=dp) :: p, pndrho, prho, q, qndrho, qrho, sndrho, srho, ssval, t1, t102, t106, t11, &
-         t110, t113, t115, t117, t118, t119, t12, t122, t125, t126, t127, t128, t13, t130, t133, &
-         t135, t138, t14, t140, t142, t143, t146, t150, t151, t152, t155, t158, t165, t17, t170, &
-         t172, t173, t174, t178, t179, t180, t183, t184, t185, t188, t19, t190, t191, t192, t193, &
-         t196, t197, t2, t200, t204, t207, t21, t211, t212, t213, t217, t22, t221, t225, t229, &
-         t232, t235, t236, t242, t248, t25, t264, t268, t27, t272, t276, t278, t280, t287, t289, &
-         t29, t292, t297, t299, t3, t305, t307, t31, t317, t320, t324
+                       t110, t113, t115, t117, t118, t119, t12, t122, t125, t126, t127, t128, t13, t130, t133, &
+                       t135, t138, t14, t140, t142, t143, t146, t150, t151, t152, t155, t158, t165, t17, t170, &
+                       t172, t173, t174, t178, t179, t180, t183, t184, t185, t188, t19, t190, t191, t192, t193, &
+                       t196, t197, t2, t200, t204, t207, t21, t211, t212, t213, t217, t22, t221, t225, t229, &
+                       t232, t235, t236, t242, t248, t25, t264, t268, t27, t272, t276, t278, t280, t287, t289, &
+                       t29, t292, t297, t299, t3, t305, t307, t31, t317, t320, t324
       REAL(KIND=dp) :: t327, t33, t330, t333, t334, t338, t34, t340, t344, t35, t352, t353, t358, &
-         t37, t38, t380, t39, t394, t398, t399, t4, t40, t401, t406, t407, t408, t41, t415, t435, &
-         t44, t45, t454, t46, t461, t48, t485, t496, t498, t5, t50, t51, t512, t52, t524, t525, &
-         t529, t53, t531, t54, t545, t56, t579, t58, t581, t586, t6, t60, t61, t64, t65, t7, t74, &
-         t75, t77, t79, t8, t81, t83, t84, t85, t86, t89, t91, t93, t94, t95, t97
+                       t37, t38, t380, t39, t394, t398, t399, t4, t40, t401, t406, t407, t408, t41, t415, t435, &
+                       t44, t45, t454, t46, t461, t48, t485, t496, t498, t5, t50, t51, t512, t52, t524, t525, &
+                       t529, t53, t531, t54, t545, t56, t579, t58, t581, t586, t6, t60, t61, t64, t65, t7, t74, &
+                       t75, t77, t79, t8, t81, t83, t84, t85, t86, t89, t91, t93, t94, t95, t97
 
       IF (order >= 0) THEN
          t1 = 3**(0.1e1_dp/0.3e1_dp)

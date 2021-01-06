@@ -13,120 +13,120 @@
 !>        orbital basis
 ! **************************************************************************************************
 MODULE xas_tdp_atom
-   USE ai_contraction_sphi,             ONLY: ab_contract
-   USE atom_operators,                  ONLY: calculate_model_potential
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_array_utils,                  ONLY: cp_1d_i_p_type,&
-                                              cp_1d_r_p_type,&
-                                              cp_2d_r_p_type,&
-                                              cp_3d_r_p_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              qs_control_type
-   USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose,&
-                                              cp_dbcsr_cholesky_invert
-   USE cp_dbcsr_operations,             ONLY: dbcsr_deallocate_matrix_set
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE cp_para_env,                     ONLY: cp_para_env_create
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_create, dbcsr_distribution_get, dbcsr_distribution_new, dbcsr_distribution_release, &
-        dbcsr_distribution_type, dbcsr_filter, dbcsr_finalize, dbcsr_get_block_p, &
-        dbcsr_get_stored_coordinates, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
-        dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, &
-        dbcsr_put_block, dbcsr_release, dbcsr_replicate_all, dbcsr_type, dbcsr_type_antisymmetric, &
-        dbcsr_type_symmetric
-   USE dbcsr_tensor_api,                ONLY: dbcsr_t_destroy,&
-                                              dbcsr_t_get_block,&
-                                              dbcsr_t_iterator_blocks_left,&
-                                              dbcsr_t_iterator_next_block,&
-                                              dbcsr_t_iterator_start,&
-                                              dbcsr_t_iterator_stop,&
-                                              dbcsr_t_iterator_type,&
-                                              dbcsr_t_type
-   USE input_constants,                 ONLY: do_potential_id
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE lebedev,                         ONLY: deallocate_lebedev_grids,&
-                                              get_number_of_lebedev_grid,&
-                                              init_lebedev_grids,&
-                                              lebedev_grid
-   USE libint_2c_3c,                    ONLY: libint_potential_type
-   USE mathconstants,                   ONLY: dfac,&
-                                              pi
-   USE mathlib,                         ONLY: get_diag,&
-                                              invmat_symm
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_comm_split_direct,&
-                                              mp_irecv,&
-                                              mp_isend,&
-                                              mp_sum,&
-                                              mp_sync,&
-                                              mp_waitall
-   USE orbital_pointers,                ONLY: indco,&
-                                              indso,&
-                                              nco,&
-                                              ncoset,&
-                                              nso,&
-                                              nsoset
+   USE ai_contraction_sphi, ONLY: ab_contract
+   USE atom_operators, ONLY: calculate_model_potential
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_array_utils, ONLY: cp_1d_i_p_type, &
+                             cp_1d_r_p_type, &
+                             cp_2d_r_p_type, &
+                             cp_3d_r_p_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type, &
+                               qs_control_type
+   USE cp_dbcsr_cholesky, ONLY: cp_dbcsr_cholesky_decompose, &
+                                cp_dbcsr_cholesky_invert
+   USE cp_dbcsr_operations, ONLY: dbcsr_deallocate_matrix_set
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE cp_para_env, ONLY: cp_para_env_create
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_create, dbcsr_distribution_get, dbcsr_distribution_new, dbcsr_distribution_release, &
+      dbcsr_distribution_type, dbcsr_filter, dbcsr_finalize, dbcsr_get_block_p, &
+      dbcsr_get_stored_coordinates, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
+      dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, &
+      dbcsr_put_block, dbcsr_release, dbcsr_replicate_all, dbcsr_type, dbcsr_type_antisymmetric, &
+      dbcsr_type_symmetric
+   USE dbcsr_tensor_api, ONLY: dbcsr_t_destroy, &
+                               dbcsr_t_get_block, &
+                               dbcsr_t_iterator_blocks_left, &
+                               dbcsr_t_iterator_next_block, &
+                               dbcsr_t_iterator_start, &
+                               dbcsr_t_iterator_stop, &
+                               dbcsr_t_iterator_type, &
+                               dbcsr_t_type
+   USE input_constants, ONLY: do_potential_id
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE lebedev, ONLY: deallocate_lebedev_grids, &
+                      get_number_of_lebedev_grid, &
+                      init_lebedev_grids, &
+                      lebedev_grid
+   USE libint_2c_3c, ONLY: libint_potential_type
+   USE mathconstants, ONLY: dfac, &
+                            pi
+   USE mathlib, ONLY: get_diag, &
+                      invmat_symm
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_comm_split_direct, &
+                              mp_irecv, &
+                              mp_isend, &
+                              mp_sum, &
+                              mp_sync, &
+                              mp_waitall
+   USE orbital_pointers, ONLY: indco, &
+                               indso, &
+                               nco, &
+                               ncoset, &
+                               nso, &
+                               nsoset
    USE orbital_transformation_matrices, ONLY: orbtramat
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: c_light_au
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_grid_atom,                    ONLY: allocate_grid_atom,&
-                                              create_grid_atom,&
-                                              grid_atom_type
-   USE qs_harmonics_atom,               ONLY: allocate_harmonics_atom,&
-                                              create_harmonics_atom,&
-                                              get_maxl_CG,&
-                                              get_none0_cg_list,&
-                                              harmonics_atom_type
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type,&
-                                              release_neighbor_list_sets
-   USE qs_overlap,                      ONLY: build_overlap_matrix_simple
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE spherical_harmonics,             ONLY: clebsch_gordon,&
-                                              clebsch_gordon_deallocate,&
-                                              clebsch_gordon_init
-   USE util,                            ONLY: get_limit,&
-                                              sort_unique
-   USE xas_tdp_integrals,               ONLY: build_xas_tdp_3c_nl,&
-                                              build_xas_tdp_ovlp_nl,&
-                                              create_pqX_tensor,&
-                                              fill_pqx_tensor
-   USE xas_tdp_types,                   ONLY: batch_info_type,&
-                                              get_proc_batch_sizes,&
-                                              release_batch_info,&
-                                              xas_atom_env_type,&
-                                              xas_tdp_control_type,&
-                                              xas_tdp_env_type
-   USE xc,                              ONLY: divide_by_norm_drho
-   USE xc_atom,                         ONLY: xc_rho_set_atom_update
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_create,&
-                                              xc_dset_get_derivative,&
-                                              xc_dset_release
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_derivatives,                  ONLY: xc_functionals_eval,&
-                                              xc_functionals_get_needs
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_create,&
-                                              xc_rho_set_release,&
-                                              xc_rho_set_type
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: c_light_au
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_grid_atom, ONLY: allocate_grid_atom, &
+                           create_grid_atom, &
+                           grid_atom_type
+   USE qs_harmonics_atom, ONLY: allocate_harmonics_atom, &
+                                create_harmonics_atom, &
+                                get_maxl_CG, &
+                                get_none0_cg_list, &
+                                harmonics_atom_type
+   USE qs_integral_utils, ONLY: basis_set_list_setup
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type, &
+                                     release_neighbor_list_sets
+   USE qs_overlap, ONLY: build_overlap_matrix_simple
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE spherical_harmonics, ONLY: clebsch_gordon, &
+                                  clebsch_gordon_deallocate, &
+                                  clebsch_gordon_init
+   USE util, ONLY: get_limit, &
+                   sort_unique
+   USE xas_tdp_integrals, ONLY: build_xas_tdp_3c_nl, &
+                                build_xas_tdp_ovlp_nl, &
+                                create_pqX_tensor, &
+                                fill_pqx_tensor
+   USE xas_tdp_types, ONLY: batch_info_type, &
+                            get_proc_batch_sizes, &
+                            release_batch_info, &
+                            xas_atom_env_type, &
+                            xas_tdp_control_type, &
+                            xas_tdp_env_type
+   USE xc, ONLY: divide_by_norm_drho
+   USE xc_atom, ONLY: xc_rho_set_atom_update
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_create, &
+                                      xc_dset_get_derivative, &
+                                      xc_dset_release
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_derivatives, ONLY: xc_functionals_eval, &
+                             xc_functionals_get_needs
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_create, &
+                               xc_rho_set_release, &
+                               xc_rho_set_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"
@@ -232,7 +232,7 @@ CONTAINS
 
       CHARACTER(LEN=default_string_length)               :: kind_name
       INTEGER :: igrid, ikind, il, iso, iso1, iso2, l1, l1l2, l2, la, lc1, lc2, lcleb, ll, llmax, &
-         lp, m1, m2, max_s_harm, max_s_set, maxl, maxlgto, maxs, mm, mp, na, nr, quadrature, stat
+                 lp, m1, m2, max_s_harm, max_s_set, maxl, maxlgto, maxs, mm, mp, na, nr, quadrature, stat
       REAL(dp)                                           :: kind_radius
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: rga
       REAL(dp), DIMENSION(:, :, :), POINTER              :: my_CG
@@ -297,7 +297,7 @@ CONTAINS
                         iso = nsoset(lp - 1) + lp + 1 - ABS(mp)
                      END IF
                      my_CG(iso1, iso2, iso) = rga(il, 1)
-                     ENDIF
+                     END IF
                      IF (mp /= mm .AND. ABS(mm) <= lp) THEN
                      IF (mm >= 0) THEN
                         iso = nsoset(lp - 1) + lp + 1 + mm
@@ -305,12 +305,12 @@ CONTAINS
                         iso = nsoset(lp - 1) + lp + 1 - ABS(mm)
                      END IF
                      my_CG(iso1, iso2, iso) = rga(il, 2)
-                     ENDIF
+                     END IF
                   END DO
-               ENDDO ! iso2
-            ENDDO ! lc2
-         ENDDO ! iso1
-      ENDDO ! lc1
+               END DO ! iso2
+            END DO ! lc2
+         END DO ! iso1
+      END DO ! lc1
       DEALLOCATE (rga)
       CALL clebsch_gordon_deallocate()
 
@@ -1858,7 +1858,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'integrate_fxc_atoms'
 
       INTEGER :: batch_size, dir, er, ex_bo(2), handle, i, iatom, ibatch, iex, ikind, inb, ipe, &
-         mepos, na, natom, nb, nb_bo(2), nbatch, nbk, nex_atom, nr, num_pe, sr, subcomm
+                 mepos, na, natom, nb, nb_bo(2), nbatch, nbk, nex_atom, nr, num_pe, sr, subcomm
       INTEGER, DIMENSION(2, 3)                           :: bounds
       INTEGER, DIMENSION(:), POINTER                     :: exat_neighbors
       LOGICAL                                            :: do_gga, do_sc, do_sf
@@ -3060,8 +3060,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'integrate_so_prod'
 
       INTEGER :: handle, ia, ic, icg, ipgf1, ipgf2, iset1, iset2, iso, iso1, iso2, l, ld, lmax12, &
-         lmin12, m1, m2, max_iso_not0, max_iso_not0_local, max_s_harm, maxl, maxso, n1, n2, na, &
-         ngau1, ngau2, nngau1, nr, nset, size1
+                 lmin12, m1, m2, max_iso_not0, max_iso_not0_local, max_s_harm, maxl, maxso, n1, n2, na, &
+                 ngau1, ngau2, nngau1, nr, nset, size1
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: cg_n_list
       INTEGER, ALLOCATABLE, DIMENSION(:, :, :)           :: cg_list
       INTEGER, DIMENSION(:), POINTER                     :: lmax, lmin, npgf

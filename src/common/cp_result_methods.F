@@ -15,15 +15,15 @@
 !>                   - module more lean
 ! **************************************************************************************************
 MODULE cp_result_methods
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_result_types,                 ONLY: &
-        cp_result_clean, cp_result_copy, cp_result_create, cp_result_release, cp_result_type, &
-        cp_result_value_copy, cp_result_value_create, cp_result_value_init, &
-        cp_result_value_p_reallocate, result_type_integer, result_type_logical, result_type_real
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_bcast
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_result_types, ONLY: &
+      cp_result_clean, cp_result_copy, cp_result_create, cp_result_release, cp_result_type, &
+      cp_result_value_copy, cp_result_value_create, cp_result_value_init, &
+      cp_result_value_p_reallocate, result_type_integer, result_type_logical, result_type_real
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_bcast
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

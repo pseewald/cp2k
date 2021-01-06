@@ -10,34 +10,34 @@
 !> \author jgh
 ! **************************************************************************************************
 MODULE input_cp2k_atom
-   USE cp_output_handling,              ONLY: cp_print_key_section_create,&
-                                              debug_print_level,&
-                                              high_print_level,&
-                                              medium_print_level,&
-                                              silent_print_level
-   USE input_constants,                 ONLY: &
-        atom_basis_run, atom_energy_run, atom_no_run, atom_pseudo_run, barrier_conf, &
-        contracted_gto, do_analytic, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, &
-        do_gapw_gcs, do_gapw_gct, do_gapw_log, do_nonrel_atom, do_numeric, do_rhf_atom, &
-        do_rks_atom, do_rohf_atom, do_sczoramp_atom, do_semi_analytic, do_uhf_atom, do_uks_atom, &
-        do_zoramp_atom, ecp_pseudo, gaussian, geometrical_gto, gth_pseudo, no_conf, no_pseudo, &
-        numerical, poly_conf, sgp_pseudo, slater, upf_pseudo
-   USE input_cp2k_xc,                   ONLY: create_xc_section
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: char_t,&
-                                              integer_t,&
-                                              lchar_t,&
-                                              logical_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: s2a
+   USE cp_output_handling, ONLY: cp_print_key_section_create, &
+                                 debug_print_level, &
+                                 high_print_level, &
+                                 medium_print_level, &
+                                 silent_print_level
+   USE input_constants, ONLY: &
+      atom_basis_run, atom_energy_run, atom_no_run, atom_pseudo_run, barrier_conf, &
+      contracted_gto, do_analytic, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, &
+      do_gapw_gcs, do_gapw_gct, do_gapw_log, do_nonrel_atom, do_numeric, do_rhf_atom, &
+      do_rks_atom, do_rohf_atom, do_sczoramp_atom, do_semi_analytic, do_uhf_atom, do_uks_atom, &
+      do_zoramp_atom, ecp_pseudo, gaussian, geometrical_gto, gth_pseudo, no_conf, no_pseudo, &
+      numerical, poly_conf, sgp_pseudo, slater, upf_pseudo
+   USE input_cp2k_xc, ONLY: create_xc_section
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: char_t, &
+                              integer_t, &
+                              lchar_t, &
+                              logical_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

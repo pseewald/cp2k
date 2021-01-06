@@ -10,67 +10,67 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE qs_dftb_coulomb
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set,&
-                                              is_hydrogen
-   USE atprop_types,                    ONLY: atprop_array_init,&
-                                              atprop_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              dftb_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_get_block_p,&
-                                              dbcsr_iterator_blocks_left,&
-                                              dbcsr_iterator_next_block,&
-                                              dbcsr_iterator_start,&
-                                              dbcsr_iterator_stop,&
-                                              dbcsr_iterator_type,&
-                                              dbcsr_p_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_environment_type
-   USE ewald_methods_tb,                ONLY: tb_ewald_overlap,&
-                                              tb_spme_evaluate
-   USE ewald_pw_types,                  ONLY: ewald_pw_type
-   USE kinds,                           ONLY: dp
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE mathconstants,                   ONLY: oorootpi,&
-                                              pi
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE pw_poisson_types,                ONLY: do_ewald_ewald,&
-                                              do_ewald_none,&
-                                              do_ewald_pme,&
-                                              do_ewald_spme
-   USE qmmm_tb_coulomb,                 ONLY: build_tb_coulomb_qmqm
-   USE qs_dftb3_methods,                ONLY: build_dftb3_diagonal
-   USE qs_dftb_types,                   ONLY: qs_dftb_atom_type,&
-                                              qs_dftb_pairpot_type
-   USE qs_dftb_utils,                   ONLY: compute_block_sk,&
-                                              get_dftb_atom_param
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE sap_kind_types,                  ONLY: clist_type,&
-                                              release_sap_int,&
-                                              sap_int_type
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set, &
+                                is_hydrogen
+   USE atprop_types, ONLY: atprop_array_init, &
+                           atprop_type
+   USE cell_types, ONLY: cell_type, &
+                         get_cell, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type, &
+                               dftb_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_get_block_p, &
+                        dbcsr_iterator_blocks_left, &
+                        dbcsr_iterator_next_block, &
+                        dbcsr_iterator_start, &
+                        dbcsr_iterator_stop, &
+                        dbcsr_iterator_type, &
+                        dbcsr_p_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_environment_type
+   USE ewald_methods_tb, ONLY: tb_ewald_overlap, &
+                               tb_spme_evaluate
+   USE ewald_pw_types, ONLY: ewald_pw_type
+   USE kinds, ONLY: dp
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE mathconstants, ONLY: oorootpi, &
+                            pi
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE pw_poisson_types, ONLY: do_ewald_ewald, &
+                               do_ewald_none, &
+                               do_ewald_pme, &
+                               do_ewald_spme
+   USE qmmm_tb_coulomb, ONLY: build_tb_coulomb_qmqm
+   USE qs_dftb3_methods, ONLY: build_dftb3_diagonal
+   USE qs_dftb_types, ONLY: qs_dftb_atom_type, &
+                            qs_dftb_pairpot_type
+   USE qs_dftb_utils, ONLY: compute_block_sk, &
+                            get_dftb_atom_param
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE sap_kind_types, ONLY: clist_type, &
+                             release_sap_int, &
+                             sap_int_type
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -111,7 +111,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'build_dftb_coulomb'
 
       INTEGER :: atom_i, atom_j, blk, ewald_type, handle, i, ia, iac, iatom, ic, icol, ikind, img, &
-         irow, is, jatom, jkind, natom, natorb_a, natorb_b, nimg, nkind, nmat
+                 irow, is, jatom, jkind, natom, natorb_a, natorb_b, nimg, nkind, nmat
       INTEGER, DIMENSION(3)                              :: cellind, periodic
       INTEGER, DIMENSION(:), POINTER                     :: atom_of_kind, kind_of
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
@@ -405,7 +405,7 @@ CONTAINS
                      fij(i) = fi
                   END DO
                END IF
-            ENDDO
+            END DO
             CALL dbcsr_iterator_stop(iter)
             !
             IF (do_gamma_stress) THEN
@@ -617,7 +617,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'dftb_dsint_list'
 
       INTEGER :: handle, i, iac, iatom, ikind, ilist, jatom, jkind, jneighbor, llm, lmaxi, lmaxj, &
-         n1, n2, natorb_a, natorb_b, ngrd, ngrdcut, nkind, nlist, nneighbor
+                 n1, n2, natorb_a, natorb_b, ngrd, ngrdcut, nkind, nlist, nneighbor
       INTEGER, DIMENSION(3)                              :: cell
       LOGICAL                                            :: defined
       REAL(KIND=dp)                                      :: ddr, dgrd, dr
@@ -744,7 +744,7 @@ CONTAINS
                   dsblock = dsblock/(2.0_dp*ddr)
 
                   clist%acint(1:n1, 1:n2, i) = -dsblock(1:n1, 1:n2)
-               ENDDO
+               END DO
                DEALLOCATE (dsblock, dsblockm)
             END IF
          END IF

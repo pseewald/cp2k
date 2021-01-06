@@ -12,69 +12,69 @@
 !> \author Nico Holmberg [03.2017]
 ! **************************************************************************************************
 MODULE qs_cdft_utils
-   USE ao_util,                         ONLY: exp_radius_very_extended
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE bibliography,                    ONLY: Becke1988b,&
-                                              Holmberg2017,&
-                                              Holmberg2018,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              qs_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE grid_api,                        ONLY: GRID_FUNC_AB,&
-                                              collocate_pgf_product
-   USE hirshfeld_methods,               ONLY: create_shape_function
-   USE hirshfeld_types,                 ONLY: create_hirshfeld_type,&
-                                              hirshfeld_type,&
-                                              set_hirshfeld_info
-   USE input_constants,                 ONLY: &
-        becke_cutoff_element, becke_cutoff_global, cdft_charge_constraint, &
-        outer_scf_becke_constraint, outer_scf_cdft_constraint, outer_scf_hirshfeld_constraint, &
-        outer_scf_none, radius_user, shape_function_gaussian
-   USE input_section_types,             ONLY: section_get_ivals,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE outer_scf_control_types,         ONLY: outer_scf_read_parameters
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE
-   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
-                                              cdft_control_type,&
-                                              cdft_group_type,&
-                                              hirshfeld_constraint_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_scf_output,                   ONLY: qs_scf_cdft_constraint_info
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
-   USE realspace_grid_types,            ONLY: realspace_grid_type,&
-                                              rs2pw,&
-                                              rs_grid_release,&
-                                              rs_grid_retain,&
-                                              rs_grid_zero,&
-                                              rs_pw_transfer
+   USE ao_util, ONLY: exp_radius_very_extended
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE bibliography, ONLY: Becke1988b, &
+                           Holmberg2017, &
+                           Holmberg2018, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type, &
+                               qs_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_realspace_grid_cube, ONLY: cp_pw_to_cube
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE grid_api, ONLY: GRID_FUNC_AB, &
+                       collocate_pgf_product
+   USE hirshfeld_methods, ONLY: create_shape_function
+   USE hirshfeld_types, ONLY: create_hirshfeld_type, &
+                              hirshfeld_type, &
+                              set_hirshfeld_info
+   USE input_constants, ONLY: &
+      becke_cutoff_element, becke_cutoff_global, cdft_charge_constraint, &
+      outer_scf_becke_constraint, outer_scf_cdft_constraint, outer_scf_hirshfeld_constraint, &
+      outer_scf_none, radius_user, shape_function_gaussian
+   USE input_section_types, ONLY: section_get_ivals, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE outer_scf_control_types, ONLY: outer_scf_read_parameters
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE
+   USE qs_cdft_types, ONLY: becke_constraint_type, &
+                            cdft_control_type, &
+                            cdft_group_type, &
+                            hirshfeld_constraint_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_scf_output, ONLY: qs_scf_cdft_constraint_info
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
+   USE realspace_grid_types, ONLY: realspace_grid_type, &
+                                   rs2pw, &
+                                   rs_grid_release, &
+                                   rs_grid_retain, &
+                                   rs_grid_zero, &
+                                   rs_pw_transfer
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -104,7 +104,7 @@ CONTAINS
 
       CHARACTER(len=2)                                   :: element_symbol
       INTEGER :: atom_a, bounds(2), handle, i, iatom, iex, igroup, ikind, ip, ithread, iw, j, &
-         jatom, katom, natom, nkind, npme, nthread, numexp, unit_nr
+                 jatom, katom, natom, nkind, npme, nthread, numexp, unit_nr
       INTEGER, DIMENSION(2, 3)                           :: bo
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
       LOGICAL                                            :: build, in_memory, mpi_io
@@ -360,11 +360,11 @@ CONTAINS
                      IF (MODULO(iatom, rs_cavity%desc%group_size) == rs_cavity%desc%my_pos) THEN
                         npme = npme + 1
                         cores(npme) = iatom
-                     ENDIF
+                     END IF
                   ELSE
                      npme = npme + 1
                      cores(npme) = iatom
-                  ENDIF
+                  END IF
                END DO
                DO j = 1, npme
                   iatom = cores(j)
@@ -387,7 +387,7 @@ CONTAINS
                                                 pab, 0, 0, rs_cavity, cell, pw_env%cube_info(1), &
                                                 radius=radius, ga_gb_function=GRID_FUNC_AB, &
                                                 use_subpatch=.TRUE., subpatch_pattern=0)
-                  ENDIF
+                  END IF
                END DO
             END DO
             DEALLOCATE (cores)

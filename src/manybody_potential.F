@@ -15,43 +15,43 @@
 ! **************************************************************************************************
 MODULE manybody_potential
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE fist_neighbor_list_types,        ONLY: fist_neighbor_type,&
-                                              neighbor_kind_pairs_type
-   USE fist_nonbond_env_types,          ONLY: eam_type,&
-                                              fist_nonbond_env_get,&
-                                              fist_nonbond_env_type,&
-                                              pos_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp
-   USE manybody_eam,                    ONLY: get_force_eam
-   USE manybody_gal,                    ONLY: destroy_gal_arrays,&
-                                              gal_energy,&
-                                              gal_forces,&
-                                              setup_gal_arrays
-   USE manybody_quip,                   ONLY: quip_add_force_virial,&
-                                              quip_energy_store_force_virial
-   USE manybody_siepmann,               ONLY: destroy_siepmann_arrays,&
-                                              print_nr_ions_siepmann,&
-                                              setup_siepmann_arrays,&
-                                              siepmann_energy,&
-                                              siepmann_forces_v2,&
-                                              siepmann_forces_v3
-   USE manybody_tersoff,                ONLY: destroy_tersoff_arrays,&
-                                              setup_tersoff_arrays,&
-                                              tersoff_energy,&
-                                              tersoff_forces
-   USE mathlib,                         ONLY: matvec_3x3
-   USE message_passing,                 ONLY: mp_sum
-   USE pair_potential_types,            ONLY: &
-        ea_type, eam_pot_type, gal_pot_type, gal_type, pair_potential_pp_type, &
-        pair_potential_single_type, quip_type, siepmann_pot_type, siepmann_type, tersoff_pot_type, &
-        tersoff_type
-   USE particle_types,                  ONLY: particle_type
-   USE util,                            ONLY: sort
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cell_types, ONLY: cell_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE fist_neighbor_list_types, ONLY: fist_neighbor_type, &
+                                       neighbor_kind_pairs_type
+   USE fist_nonbond_env_types, ONLY: eam_type, &
+                                     fist_nonbond_env_get, &
+                                     fist_nonbond_env_type, &
+                                     pos_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp
+   USE manybody_eam, ONLY: get_force_eam
+   USE manybody_gal, ONLY: destroy_gal_arrays, &
+                           gal_energy, &
+                           gal_forces, &
+                           setup_gal_arrays
+   USE manybody_quip, ONLY: quip_add_force_virial, &
+                            quip_energy_store_force_virial
+   USE manybody_siepmann, ONLY: destroy_siepmann_arrays, &
+                                print_nr_ions_siepmann, &
+                                setup_siepmann_arrays, &
+                                siepmann_energy, &
+                                siepmann_forces_v2, &
+                                siepmann_forces_v3
+   USE manybody_tersoff, ONLY: destroy_tersoff_arrays, &
+                               setup_tersoff_arrays, &
+                               tersoff_energy, &
+                               tersoff_forces
+   USE mathlib, ONLY: matvec_3x3
+   USE message_passing, ONLY: mp_sum
+   USE pair_potential_types, ONLY: &
+      ea_type, eam_pot_type, gal_pot_type, gal_type, pair_potential_pp_type, &
+      pair_potential_single_type, quip_type, siepmann_pot_type, siepmann_type, tersoff_pot_type, &
+      tersoff_type
+   USE particle_types, ONLY: particle_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -92,8 +92,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'energy_manybody'
 
       INTEGER :: atom_a, atom_b, handle, i, iend, ifirst, igrp, ikind, ilast, ilist, indexa, &
-         ipair, iparticle, iparticle_local, istart, iunique, jkind, junique, mpair, nkinds, &
-         nloc_size, npairs, nparticle, nparticle_local, nr_h3O, nr_o, nr_oh, nunique
+                 ipair, iparticle, iparticle_local, istart, iunique, jkind, junique, mpair, nkinds, &
+                 nloc_size, npairs, nparticle, nparticle_local, nr_h3O, nr_o, nr_oh, nunique
       INTEGER, DIMENSION(:), POINTER                     :: glob_loc_list_a, work_list
       INTEGER, DIMENSION(:, :), POINTER                  :: glob_loc_list, list, sort_list
       LOGICAL                                            :: any_gal, any_quip, any_siepmann, &
@@ -172,7 +172,7 @@ CONTAINS
          CALL quip_energy_store_force_virial(particle_set, cell, atomic_kind_set, potparm, &
                                              fist_nonbond_env, pot_quip, para_env)
          pot_manybody = pot_manybody + pot_quip
-      ENDIF
+      END IF
       ! TERSOFF
       IF (any_tersoff) THEN
          NULLIFY (glob_loc_list, glob_cell_v, glob_loc_list_a)
@@ -448,15 +448,15 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'force_nonbond_manybody'
 
       INTEGER :: atom_a, atom_b, handle, i, i_a, i_b, iend, ifirst, igrp, ikind, ilast, ilist, &
-         ipair, istart, iunique, jkind, junique, kind_a, kind_b, mpair, nkinds, nloc_size, npairs, &
-         nunique
+                 ipair, istart, iunique, jkind, junique, kind_a, kind_b, mpair, nkinds, nloc_size, npairs, &
+                 nunique
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: eam_kinds_index
       INTEGER, DIMENSION(:), POINTER                     :: glob_loc_list_a, work_list
       INTEGER, DIMENSION(:, :), POINTER                  :: glob_loc_list, list, sort_list
       LOGICAL                                            :: any_gal, any_quip, any_siepmann, &
                                                             any_tersoff
       REAL(KIND=dp) :: f_eam, fac, fr(3), ptens11, ptens12, ptens13, ptens21, ptens22, ptens23, &
-         ptens31, ptens32, ptens33, rab(3), rab2, rab2_max, rtmp(3)
+                       ptens31, ptens32, ptens33, rab(3), rab2, rab2_max, rtmp(3)
       REAL(KIND=dp), DIMENSION(3)                        :: cell_v, cvi
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: glob_cell_v
       TYPE(eam_pot_type), POINTER                        :: eam_a, eam_b
@@ -573,7 +573,7 @@ CONTAINS
                      ptens23 = ptens23 + rab(2)*fr(3)
                      ptens33 = ptens33 + rab(3)*fr(3)
                   END IF
-               ENDIF
+               END IF
             END DO
          END DO Kind_Group_Loop1
       END DO

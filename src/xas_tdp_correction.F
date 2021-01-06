@@ -11,76 +11,76 @@
 ! **************************************************************************************************
 
 MODULE xas_tdp_correction
-   USE admm_types,                      ONLY: admm_type
-   USE admm_utils,                      ONLY: admm_correct_for_eigenvalues
-   USE bibliography,                    ONLY: Shigeta2001,&
-                                              cite_reference
-   USE cp_array_utils,                  ONLY: cp_1d_i_p_type,&
-                                              cp_1d_r_p_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_cfm_diag,                     ONLY: cp_cfm_heevd
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_get_submatrix,&
-                                              cp_cfm_release,&
-                                              cp_cfm_type,&
-                                              cp_fm_to_cfm
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr,&
-                                              cp_dbcsr_sm_fm_multiply,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_p_type,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_diag,&
-                                              cp_fm_get_submatrix,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_to_fm_submat,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_copy, dbcsr_create, dbcsr_distribution_get, dbcsr_distribution_new, &
-        dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_get_info, dbcsr_p_type, &
-        dbcsr_release, dbcsr_scalar, dbcsr_type
-   USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_create, &
-        dbcsr_t_default_distvec, dbcsr_t_destroy, dbcsr_t_distribution_destroy, &
-        dbcsr_t_distribution_new, dbcsr_t_distribution_type, dbcsr_t_finalize, dbcsr_t_get_block, &
-        dbcsr_t_get_info, dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_next_block, &
-        dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_iterator_type, &
-        dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_put_block, &
-        dbcsr_t_type
-   USE hfx_admm_utils,                  ONLY: create_admm_xc_section
-   USE input_section_types,             ONLY: section_vals_create,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_release,&
-                                              section_vals_retain,&
-                                              section_vals_set_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE machine,                         ONLY: m_flush
-   USE message_passing,                 ONLY: mp_sum
-   USE physcon,                         ONLY: evolt
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_ks_methods,                   ONLY: qs_ks_build_kohn_sham_matrix
-   USE qs_mo_types,                     ONLY: deallocate_mo_set,&
-                                              duplicate_mo_set,&
-                                              get_mo_set,&
-                                              mo_set_p_type,&
-                                              reassign_allocated_mos
-   USE util,                            ONLY: get_limit
-   USE xas_tdp_kernel,                  ONLY: contract2_AO_to_doMO,&
-                                              ri_all_blocks_mm
-   USE xas_tdp_types,                   ONLY: donor_state_type,&
-                                              xas_tdp_control_type,&
-                                              xas_tdp_env_type
+   USE admm_types, ONLY: admm_type
+   USE admm_utils, ONLY: admm_correct_for_eigenvalues
+   USE bibliography, ONLY: Shigeta2001, &
+                           cite_reference
+   USE cp_array_utils, ONLY: cp_1d_i_p_type, &
+                             cp_1d_r_p_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_cfm_diag, ONLY: cp_cfm_heevd
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_get_submatrix, &
+                           cp_cfm_release, &
+                           cp_cfm_type, &
+                           cp_fm_to_cfm
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_fm_to_dbcsr, &
+                                  cp_dbcsr_sm_fm_multiply, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_fm_diag, ONLY: choose_eigv_solver
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_p_type, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_diag, &
+                          cp_fm_get_submatrix, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_to_fm_submat, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_copy, dbcsr_create, dbcsr_distribution_get, dbcsr_distribution_new, &
+      dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_get_info, dbcsr_p_type, &
+      dbcsr_release, dbcsr_scalar, dbcsr_type
+   USE dbcsr_tensor_api, ONLY: &
+      dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_create, &
+      dbcsr_t_default_distvec, dbcsr_t_destroy, dbcsr_t_distribution_destroy, &
+      dbcsr_t_distribution_new, dbcsr_t_distribution_type, dbcsr_t_finalize, dbcsr_t_get_block, &
+      dbcsr_t_get_info, dbcsr_t_iterator_blocks_left, dbcsr_t_iterator_next_block, &
+      dbcsr_t_iterator_start, dbcsr_t_iterator_stop, dbcsr_t_iterator_type, &
+      dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_put_block, &
+      dbcsr_t_type
+   USE hfx_admm_utils, ONLY: create_admm_xc_section
+   USE input_section_types, ONLY: section_vals_create, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_release, &
+                                  section_vals_retain, &
+                                  section_vals_set_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE machine, ONLY: m_flush
+   USE message_passing, ONLY: mp_sum
+   USE physcon, ONLY: evolt
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_ks_methods, ONLY: qs_ks_build_kohn_sham_matrix
+   USE qs_mo_types, ONLY: deallocate_mo_set, &
+                          duplicate_mo_set, &
+                          get_mo_set, &
+                          mo_set_p_type, &
+                          reassign_allocated_mos
+   USE util, ONLY: get_limit
+   USE xas_tdp_kernel, ONLY: contract2_AO_to_doMO, &
+                             ri_all_blocks_mm
+   USE xas_tdp_types, ONLY: donor_state_type, &
+                            xas_tdp_control_type, &
+                            xas_tdp_env_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"
@@ -112,7 +112,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'GW2X_shift', routineP = moduleN//':'//routineN
 
       INTEGER :: ex_idx, exat, first_domo(2), handle, i, ido_mo, iloc, ilocat, ispin, jspin, &
-         locat, nao, natom, ndo_mo, nhomo(2), nlumo(2), nonloc, nspins, start_sgf
+                 locat, nao, natom, ndo_mo, nhomo(2), nlumo(2), nonloc, nspins, start_sgf
       INTEGER, DIMENSION(:), POINTER                     :: nsgf_blk
       LOGICAL                                            :: pseudo_canonical
       REAL(dp)                                           :: og_hfx_frac
@@ -464,8 +464,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'GW2X_rcs_iterations'
 
       INTEGER :: batch_size, bounds_1d(2), bounds_2d(2, 2), handle, i, ibatch, ido_mo, iloop, &
-         max_iter, nbatch_occ, nbatch_virt, nblk_occ, nblk_virt, nblks(3), ndo_mo, nhomo, nlumo, &
-         occ_bo(2), output_unit, tmp_sum, virt_bo(2)
+                 max_iter, nbatch_occ, nbatch_virt, nblk_occ, nblk_virt, nblks(3), ndo_mo, nhomo, nlumo, &
+                 occ_bo(2), output_unit, tmp_sum, virt_bo(2)
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: mo_blk_size
       REAL(dp)                                           :: c_os, c_ss, dg, diff, ds1, ds2, eps_I, &
                                                             eps_iter, g, omega_k, parts(4), s1, s2
@@ -689,8 +689,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'GW2X_os_iterations'
 
       INTEGER :: batch_size, bounds_1d(2), bounds_2d(2, 2), handle, i, ibatch, ido_mo, iloop, &
-         ispin, max_iter, nbatch_occ, nbatch_virt, nblk_occ, nblk_virt, nblks(3), ndo_mo, &
-         nhomo(2), nlumo(2), nspins, occ_bo(2), other_spin, output_unit, tmp_sum, virt_bo(2)
+                 ispin, max_iter, nbatch_occ, nbatch_virt, nblk_occ, nblk_virt, nblks(3), ndo_mo, &
+                 nhomo(2), nlumo(2), nspins, occ_bo(2), other_spin, output_unit, tmp_sum, virt_bo(2)
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: mo_blk_size
       REAL(dp)                                           :: c_os, c_ss, dg, diff, ds1, ds2, eps_I, &
                                                             eps_iter, g, omega_k, parts(4), s1, s2
@@ -951,7 +951,7 @@ CONTAINS
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
       CHARACTER(len=*), PARAMETER :: routineN = 'get_full_pqX_from_3c_ex', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: blk, i, ind(3), natom, nblk_ri, nsgf_x
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: orb_blk_size, proc_dist_1, proc_dist_2, &
@@ -1065,7 +1065,7 @@ CONTAINS
       TYPE(qs_environment_type), POINTER                 :: qs_env
 
       CHARACTER(len=*), PARAMETER :: routineN = 'contract_AOs_to_MOs', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: bo(2), handle, i, ispin, jspin, &
                                                             nblk_aos, nblk_mos(2), nblk_occ(2), &
@@ -1409,7 +1409,7 @@ CONTAINS
       REAL(dp), INTENT(in)                               :: omega, c_ss
 
       CHARACTER(len=*), PARAMETER :: routineN = 'calc_ss_oov_contrib', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: a, blk, boff(3), bsize(3), handle, idx1, &
                                                             idx2, idx3, ind(3), j, k, nocc
@@ -1487,7 +1487,7 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: a_offset
 
       CHARACTER(len=*), PARAMETER :: routineN = 'calc_os_oov_contrib', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: a, blk, boff(3), bsize(3), handle, idx1, &
                                                             idx2, idx3, ind(3), j, k
@@ -1564,7 +1564,7 @@ CONTAINS
       REAL(dp), INTENT(in)                               :: omega, c_ss
 
       CHARACTER(len=*), PARAMETER :: routineN = 'calc_ss_ovv_contrib', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: a, b, blk, boff(3), bsize(3), handle, &
                                                             idx1, idx2, idx3, ind(3), j, nocc
@@ -1644,7 +1644,7 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: a_offset, b_offset
 
       CHARACTER(len=*), PARAMETER :: routineN = 'calc_os_ovv_contrib', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: a, b, blk, boff(3), bsize(3), handle, &
                                                             idx1, idx2, idx3, ind(3), j

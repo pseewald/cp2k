@@ -14,9 +14,9 @@
 ! **************************************************************************************************
 MODULE gamma
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: ifac,&
-                                              pi
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: ifac, &
+                            pi
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -430,7 +430,7 @@ CONTAINS
 
       INTEGER                                            :: j, k, n
       REAL(KIND=dp)                                      :: expt, factor, p, sumterm, sumtot, term
-      REAL(KIND=dp), DIMENSION(kmax+10)                  :: r
+      REAL(KIND=dp), DIMENSION(kmax + 10)                  :: r
 
 !   ------------------------------------------------------------------
 !   *** Initialization ***

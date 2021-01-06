@@ -10,10 +10,10 @@
 ! **************************************************************************************************
 
 MODULE negf_vectors
-   USE kinds,                           ONLY: dp
-   USE particle_types,                  ONLY: particle_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
+   USE kinds, ONLY: dp
+   USE particle_types, ONLY: particle_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

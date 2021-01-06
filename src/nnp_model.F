@@ -12,16 +12,16 @@
 ! **************************************************************************************************
 MODULE nnp_model
 
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE nnp_environment_types,           ONLY: &
-        nnp_actfnct_cos, nnp_actfnct_exp, nnp_actfnct_gaus, nnp_actfnct_invsig, nnp_actfnct_lin, &
-        nnp_actfnct_quad, nnp_actfnct_sig, nnp_actfnct_softplus, nnp_actfnct_tanh, nnp_arc_type, &
-        nnp_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE nnp_environment_types, ONLY: &
+      nnp_actfnct_cos, nnp_actfnct_exp, nnp_actfnct_gaus, nnp_actfnct_invsig, nnp_actfnct_lin, &
+      nnp_actfnct_quad, nnp_actfnct_sig, nnp_actfnct_softplus, nnp_actfnct_tanh, nnp_arc_type, &
+      nnp_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -12,52 +12,52 @@
 ! **************************************************************************************************
 MODULE rpa_im_time
 
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_scale
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_clear, dbcsr_copy, dbcsr_create, dbcsr_distribution_get, &
-        dbcsr_distribution_type, dbcsr_filter, dbcsr_get_info, dbcsr_init_p, dbcsr_p_type, &
-        dbcsr_release_p, dbcsr_reserve_all_blocks, dbcsr_scalar, dbcsr_scale, dbcsr_set, &
-        dbcsr_type, dbcsr_type_no_symmetry
-   USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_batched_contract_finalize, dbcsr_t_batched_contract_init, dbcsr_t_contract, &
-        dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_copy_tensor_to_matrix, &
-        dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, dbcsr_t_get_info, dbcsr_t_nblks_total, &
-        dbcsr_t_nd_mp_comm, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_type
-   USE hfx_types,                       ONLY: block_ind_type,&
-                                              hfx_compression_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_env_type,&
-                                              kpoint_type
-   USE machine,                         ONLY: m_walltime
-   USE mathconstants,                   ONLY: twopi
-   USE message_passing,                 ONLY: mp_sync
-   USE mp2_types,                       ONLY: mp2_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type,&
-                                              mo_set_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_tensors,                      ONLY: decompress_tensor,&
-                                              get_tensor_occupancy
-   USE qs_tensors_types,                ONLY: create_2c_tensor
+   USE cell_types, ONLY: cell_type, &
+                         get_cell
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_fm_to_dbcsr, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_scale
+   USE cp_fm_struct, ONLY: cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_clear, dbcsr_copy, dbcsr_create, dbcsr_distribution_get, &
+      dbcsr_distribution_type, dbcsr_filter, dbcsr_get_info, dbcsr_init_p, dbcsr_p_type, &
+      dbcsr_release_p, dbcsr_reserve_all_blocks, dbcsr_scalar, dbcsr_scale, dbcsr_set, &
+      dbcsr_type, dbcsr_type_no_symmetry
+   USE dbcsr_tensor_api, ONLY: &
+      dbcsr_t_batched_contract_finalize, dbcsr_t_batched_contract_init, dbcsr_t_contract, &
+      dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_copy_tensor_to_matrix, &
+      dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, dbcsr_t_get_info, dbcsr_t_nblks_total, &
+      dbcsr_t_nd_mp_comm, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_type
+   USE hfx_types, ONLY: block_ind_type, &
+                        hfx_compression_type
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_env_type, &
+                           kpoint_type
+   USE machine, ONLY: m_walltime
+   USE mathconstants, ONLY: twopi
+   USE message_passing, ONLY: mp_sync
+   USE mp2_types, ONLY: mp2_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type, &
+                          mo_set_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_tensors, ONLY: decompress_tensor, &
+                         get_tensor_occupancy
+   USE qs_tensors_types, ONLY: create_2c_tensor
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -134,7 +134,7 @@ CONTAINS
                                   dbcsr_time, dbcsr_nflop)
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: mat_P_omega
       TYPE(cp_fm_type), POINTER :: fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, fm_mo_coeff_occ, &
-         fm_mo_coeff_virt, fm_mo_coeff_occ_scaled, fm_mo_coeff_virt_scaled
+                                   fm_mo_coeff_virt, fm_mo_coeff_occ_scaled, fm_mo_coeff_virt_scaled
       TYPE(dbcsr_p_type), INTENT(INOUT)                  :: mat_P_global
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s
       INTEGER, INTENT(IN)                                :: ispin
@@ -172,8 +172,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'compute_mat_P_omega'
 
       INTEGER :: comm_2d, handle, handle2, handle3, i, i_cell, i_cell_R_1, i_cell_R_1_minus_S, &
-         i_cell_R_1_minus_T, i_cell_R_2, i_cell_R_2_minus_S_minus_T, i_cell_S, i_cell_T, i_mem, &
-         iquad, j, j_mem, jquad, num_3c_repl, num_cells_dm, unit_nr_dbcsr
+                 i_cell_R_1_minus_T, i_cell_R_2, i_cell_R_2_minus_S_minus_T, i_cell_S, i_cell_T, i_mem, &
+                 iquad, j, j_mem, jquad, num_3c_repl, num_cells_dm, unit_nr_dbcsr
       INTEGER(int_8)                                     :: nze, nze_dm_occ, nze_dm_virt, nze_M_occ, &
                                                             nze_M_virt, nze_O
       INTEGER(KIND=int_8)                                :: flops_1_occ, flops_1_virt, flops_2
@@ -185,7 +185,7 @@ CONTAINS
       INTEGER, DIMENSION(3)                              :: bounds_3c
       INTEGER, DIMENSION(:, :), POINTER                  :: index_to_cell_dm
       LOGICAL :: do_Gamma_RPA, do_kpoints_cubic_RPA, first_cycle_im_time, first_cycle_omega_loop, &
-         memory_info, R_1_minus_S_needed, R_1_minus_T_needed, R_2_minus_S_minus_T_needed
+                 memory_info, R_1_minus_S_needed, R_1_minus_T_needed, R_2_minus_S_minus_T_needed
       REAL(dp)                                           :: occ, occ_dm_occ, occ_dm_virt, occ_M_occ, &
                                                             occ_M_virt, occ_O, t1_flop
       REAL(KIND=dp)                                      :: omega, omega_old, t1, t2, tau, weight, &
@@ -207,7 +207,7 @@ CONTAINS
          unit_nr_dbcsr = unit_nr
       ELSE
          unit_nr_dbcsr = 0
-      ENDIF
+      END IF
 
       do_kpoints_cubic_RPA = qs_env%mp2_env%ri_rpa_im_time%do_im_time_kpoints
       do_Gamma_RPA = .NOT. do_kpoints_cubic_RPA
@@ -218,8 +218,8 @@ CONTAINS
          DO j = 1, SIZE(t_3c_O, 2)
             CALL dbcsr_t_create(t_3c_O(i, j), t_3c_O_occ(i, j))
             CALL dbcsr_t_create(t_3c_O(i, j), t_3c_O_virt(i, j))
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       CALL dbcsr_t_create(t_3c_M, t_3c_M_occ, name="M occ (RI | AO AO)")
       CALL dbcsr_t_create(t_3c_M, t_3c_M_virt, name="M virt (RI | AO AO)")
@@ -273,7 +273,7 @@ CONTAINS
             CALL dbcsr_t_copy(t_dm_tmp, t_dm_occ(i_cell), move_data=.TRUE.)
             CALL dbcsr_t_destroy(t_dm_tmp)
             CALL dbcsr_clear(mat_dm_occ_global(jquad, i_cell)%matrix)
-         ENDDO
+         END DO
 
          CALL get_tensor_occupancy(t_dm_occ(1), nze_dm_occ, occ_dm_occ)
          CALL get_tensor_occupancy(t_dm_virt(1), nze_dm_virt, occ_dm_virt)
@@ -291,13 +291,13 @@ CONTAINS
          DO i = 1, SIZE(t_3c_O_occ, 1)
             DO j = 1, SIZE(t_3c_O_occ, 2)
                CALL dbcsr_t_batched_contract_init(t_3c_O_occ(i, j), batch_range_2=mc_ranges, batch_range_3=mc_ranges)
-            ENDDO
-         ENDDO
+            END DO
+         END DO
          DO i = 1, SIZE(t_3c_O_virt, 1)
             DO j = 1, SIZE(t_3c_O_virt, 2)
                CALL dbcsr_t_batched_contract_init(t_3c_O_virt(i, j), batch_range_2=mc_ranges, batch_range_3=mc_ranges)
-            ENDDO
-         ENDDO
+            END DO
+         END DO
          CALL dbcsr_t_batched_contract_init(t_3c_M_occ_tmp, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
          CALL dbcsr_t_batched_contract_init(t_3c_M_virt_tmp, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
          CALL dbcsr_t_batched_contract_init(t_3c_M_occ, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
@@ -316,7 +316,7 @@ CONTAINS
                occ_M_virt = 0.0_dp
                occ_M_occ = 0.0_dp
                occ_O = 0.0_dp
-            ENDIF
+            END IF
 
             DO j_mem = 1, cut_memory
 
@@ -388,8 +388,8 @@ CONTAINS
 
                               dbcsr_nflop = dbcsr_nflop + flops_1_occ
 
-                           ENDIF
-                        ENDDO
+                           END IF
+                        END DO
 
                         IF (do_Gamma_RPA) CALL dbcsr_t_batched_contract_finalize(t_dm_occ(1))
 
@@ -405,7 +405,7 @@ CONTAINS
                            CALL get_tensor_occupancy(t_3c_M_occ, nze, occ)
                            nze_M_occ = nze_M_occ + nze
                            occ_M_occ = occ_M_occ + occ
-                        ENDIF
+                        END IF
 
                         DO i_cell_S = 1, num_cells_dm
                            CALL get_diff_diff_index_3c(i_cell_R_2, i_cell_S, i_cell_T, i_cell_R_2_minus_S_minus_T, &
@@ -438,8 +438,8 @@ CONTAINS
 
                               dbcsr_nflop = dbcsr_nflop + flops_1_virt
 
-                           ENDIF
-                        ENDDO
+                           END IF
+                        END DO
 
                         CALL timeset(routineN//"_copy_M_virt_t", handle3)
                         CALL dbcsr_t_copy(t_3c_M_virt_tmp, t_3c_M_virt, move_data=.TRUE.)
@@ -450,7 +450,7 @@ CONTAINS
                            CALL get_tensor_occupancy(t_3c_M_virt, nze, occ)
                            nze_M_virt = nze_M_virt + nze
                            occ_M_virt = occ_M_virt + occ
-                        ENDIF
+                        END IF
 
                         flops_2 = 0
 
@@ -475,11 +475,11 @@ CONTAINS
                         IF (jquad == 1 .AND. flops_2 == 0) &
                            has_mat_P_blocks(i_cell_T, i_mem, j_mem, i_cell_R_1, i_cell_R_2) = .FALSE.
 
-                     ENDDO
-                  ENDDO
-               ENDDO
+                     END DO
+                  END DO
+               END DO
                IF (do_Gamma_RPA) CALL dbcsr_t_batched_contract_finalize(t_dm_virt(1))
-            ENDDO
+            END DO
 
             CALL dbcsr_t_batched_contract_finalize(t_P, unit_nr=unit_nr_dbcsr)
 
@@ -524,9 +524,9 @@ CONTAINS
                END DO
 
                CALL timestop(handle3)
-            ENDIF
+            END IF
 
-         ENDDO
+         END DO
 
          CALL timestop(handle2)
 
@@ -538,20 +538,20 @@ CONTAINS
          DO i = 1, SIZE(t_3c_O_occ, 1)
             DO j = 1, SIZE(t_3c_O_occ, 2)
                CALL dbcsr_t_batched_contract_finalize(t_3c_O_occ(i, j))
-            ENDDO
-         ENDDO
+            END DO
+         END DO
 
          DO i = 1, SIZE(t_3c_O_virt, 1)
             DO j = 1, SIZE(t_3c_O_virt, 2)
                CALL dbcsr_t_batched_contract_finalize(t_3c_O_virt(i, j))
-            ENDDO
-         ENDDO
+            END DO
+         END DO
 
          CALL dbcsr_t_destroy(t_P)
          DO i_cell = 1, num_cells_dm
             CALL dbcsr_t_destroy(t_dm_virt(i_cell))
             CALL dbcsr_t_destroy(t_dm_occ(i_cell))
-         ENDDO
+         END DO
 
          CALL dbcsr_t_destroy(t_3c_M_occ_tmp)
          CALL dbcsr_t_destroy(t_3c_M_virt_tmp)
@@ -579,9 +579,9 @@ CONTAINS
                   'Occupancy of M occ:', REAL(nze_M_occ, dp), '/', occ_M_occ*100, '%'
                WRITE (unit_nr, '(T6,A,T63,ES7.1,1X,A1,1X,F7.3,A1)') &
                   'Occupancy of M virt:', REAL(nze_M_virt, dp), '/', occ_M_virt*100, '%'
-            ENDIF
+            END IF
             WRITE (unit_nr, *)
-         ENDIF
+         END IF
 
       END DO ! time points
 
@@ -592,8 +592,8 @@ CONTAINS
          DO j = 1, SIZE(t_3c_O, 2)
             CALL dbcsr_t_destroy(t_3c_O_occ(i, j))
             CALL dbcsr_t_destroy(t_3c_O_virt(i, j))
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       CALL clean_up(mat_dm_occ_global, mat_dm_virt_global)
 
@@ -1336,7 +1336,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'get_diff_index_3c'
 
       INTEGER :: handle, x_cell_R, x_cell_R_minus_S, x_cell_S, y_cell_R, y_cell_R_minus_S, &
-         y_cell_S, z_cell_R, z_cell_R_minus_S, z_cell_S
+                 y_cell_S, z_cell_R, z_cell_R_minus_S, z_cell_S
 
       CALL timeset(routineN, handle)
 
@@ -1422,8 +1422,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'get_diff_diff_index_3c'
 
       INTEGER :: handle, x_cell_R, x_cell_R_minus_S_minus_T, x_cell_S, x_cell_T, y_cell_R, &
-         y_cell_R_minus_S_minus_T, y_cell_S, y_cell_T, z_cell_R, z_cell_R_minus_S_minus_T, &
-         z_cell_S, z_cell_T
+                 y_cell_R_minus_S_minus_T, y_cell_S, y_cell_T, z_cell_R, z_cell_R_minus_S_minus_T, &
+                 z_cell_S, z_cell_T
 
       CALL timeset(routineN, handle)
 

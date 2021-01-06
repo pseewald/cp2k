@@ -17,9 +17,9 @@
 !> \author CJM, MK
 ! **************************************************************************************************
 MODULE particle_types
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

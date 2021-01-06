@@ -10,25 +10,25 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE fist_efield_methods
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_result_methods,               ONLY: cp_results_erase,&
-                                              put_results
-   USE cp_result_types,                 ONLY: cp_result_type
-   USE fist_efield_types,               ONLY: fist_efield_type
-   USE fist_environment_types,          ONLY: fist_env_get,&
-                                              fist_environment_type
-   USE input_section_types,             ONLY: section_get_ival,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: twopi
-   USE moments_utils,                   ONLY: get_reference_point
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: debye
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_result_methods, ONLY: cp_results_erase, &
+                                put_results
+   USE cp_result_types, ONLY: cp_result_type
+   USE fist_efield_types, ONLY: fist_efield_type
+   USE fist_environment_types, ONLY: fist_env_get, &
+                                     fist_environment_type
+   USE input_section_types, ONLY: section_get_ival, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: twopi
+   USE moments_utils, ONLY: get_reference_point
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: debye
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -124,7 +124,7 @@ CONTAINS
                ggamma(j) = ggamma(j)*zeta
             END DO
             qforce(1:3, ii) = q
-         ENDDO
+         END DO
       END DO
 
       IF (ALL(REAL(ggamma, KIND=dp) /= 0.0_dp)) THEN
@@ -205,7 +205,7 @@ CONTAINS
       INTEGER, DIMENSION(:), POINTER                     :: atom_list
       LOGICAL                                            :: do_berry, use_charges
       REAL(KIND=dp) :: charge_tot, ci(3), dci(3), dipole(3), dipole_deriv(3), drcc(3), dria(3), &
-         dtheta, gvec(3), q, rcc(3), ria(3), theta, tmp(3), via(3)
+                       dtheta, gvec(3), q, rcc(3), ria(3), theta, tmp(3), via(3)
       REAL(KIND=dp), DIMENSION(:), POINTER               :: ref_point
       TYPE(atomic_kind_type), POINTER                    :: atomic_kind
       TYPE(cp_result_type), POINTER                      :: results
@@ -266,7 +266,7 @@ CONTAINS
                   dggamma(j) = dggamma(j)*zeta + ggamma(j)*dzeta
                   ggamma(j) = ggamma(j)*zeta
                END DO
-            ENDDO
+            END DO
          END DO
          dggamma = dggamma*zphase + ggamma*dzphase
          ggamma = ggamma*zphase

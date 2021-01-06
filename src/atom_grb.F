@@ -6,50 +6,50 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE atom_grb
-   USE ai_onecenter,                    ONLY: sg_conf,&
-                                              sg_kinetic,&
-                                              sg_nuclear,&
-                                              sg_overlap
-   USE atom_electronic_structure,       ONLY: calculate_atom
-   USE atom_operators,                  ONLY: atom_int_release,&
-                                              atom_int_setup,&
-                                              atom_ppint_release,&
-                                              atom_ppint_setup,&
-                                              atom_relint_release,&
-                                              atom_relint_setup
-   USE atom_types,                      ONLY: &
-        CGTO_BASIS, GTO_BASIS, atom_basis_type, atom_integrals, atom_orbitals, atom_p_type, &
-        atom_potential_type, atom_state, atom_type, create_atom_orbs, create_atom_type, lmat, &
-        release_atom_basis, release_atom_type, set_atom
-   USE atom_utils,                      ONLY: atom_basis_condnum,&
-                                              atom_density
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE input_constants,                 ONLY: barrier_conf,&
-                                              do_analytic,&
-                                              do_rhf_atom,&
-                                              do_rks_atom,&
-                                              do_rohf_atom,&
-                                              do_uhf_atom,&
-                                              do_uks_atom
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE lapack,                          ONLY: lapack_ssygv
-   USE mathconstants,                   ONLY: dfac,&
-                                              pi
-   USE orbital_pointers,                ONLY: deallocate_orbital_pointers,&
-                                              init_orbital_pointers
-   USE orbital_transformation_matrices, ONLY: deallocate_spherical_harmonics,&
+   USE ai_onecenter, ONLY: sg_conf, &
+                           sg_kinetic, &
+                           sg_nuclear, &
+                           sg_overlap
+   USE atom_electronic_structure, ONLY: calculate_atom
+   USE atom_operators, ONLY: atom_int_release, &
+                             atom_int_setup, &
+                             atom_ppint_release, &
+                             atom_ppint_setup, &
+                             atom_relint_release, &
+                             atom_relint_setup
+   USE atom_types, ONLY: &
+      CGTO_BASIS, GTO_BASIS, atom_basis_type, atom_integrals, atom_orbitals, atom_p_type, &
+      atom_potential_type, atom_state, atom_type, create_atom_orbs, create_atom_type, lmat, &
+      release_atom_basis, release_atom_type, set_atom
+   USE atom_utils, ONLY: atom_basis_condnum, &
+                         atom_density
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE input_constants, ONLY: barrier_conf, &
+                              do_analytic, &
+                              do_rhf_atom, &
+                              do_rks_atom, &
+                              do_rohf_atom, &
+                              do_uhf_atom, &
+                              do_uks_atom
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE lapack, ONLY: lapack_ssygv
+   USE mathconstants, ONLY: dfac, &
+                            pi
+   USE orbital_pointers, ONLY: deallocate_orbital_pointers, &
+                               init_orbital_pointers
+   USE orbital_transformation_matrices, ONLY: deallocate_spherical_harmonics, &
                                               init_spherical_harmonics
-   USE periodic_table,                  ONLY: ptable
-   USE physcon,                         ONLY: bohr
-   USE powell,                          ONLY: opt_state_type,&
-                                              powell_optimize
-   USE qs_grid_atom,                    ONLY: allocate_grid_atom,&
-                                              create_grid_atom
+   USE periodic_table, ONLY: ptable
+   USE physcon, ONLY: bohr
+   USE powell, ONLY: opt_state_type, &
+                     powell_optimize
+   USE qs_grid_atom, ONLY: allocate_grid_atom, &
+                           create_grid_atom
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -91,8 +91,8 @@ CONTAINS
       INTEGER, DIMENSION(0:lmat)                         :: next_bas, next_prim
       INTEGER, DIMENSION(:), POINTER                     :: num_bas
       REAL(KIND=dp) :: al, amin, aval, cnum, crad, cradx, cval, delta, dene, ear, emax, &
-         energy_ex(0:lmat), energy_ref, energy_vb(0:lmat), expzet, fhomo, o, prefac, rconf, rk, &
-         rmax, scon, zeta, zval
+                       energy_ex(0:lmat), energy_ref, energy_vb(0:lmat), expzet, fhomo, o, prefac, rconf, rk, &
+                       rmax, scon, zeta, zval
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: ale, alp, rho
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: amat
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: ebasis, pbasis, qbasis, rbasis
@@ -304,10 +304,10 @@ CONTAINS
             DO j = 1, i - 1
                o = DOT_PRODUCT(rbasis(1:m, j, l), RESHAPE(MATMUL(ovlp(1:m, 1:m, l), rbasis(1:m, i:i, l)), (/m/)))
                rbasis(1:m, i, l) = rbasis(1:m, i, l) - o*rbasis(1:m, j, l)
-            ENDDO
+            END DO
             o = DOT_PRODUCT(rbasis(1:m, i, l), RESHAPE(MATMUL(ovlp(1:m, 1:m, l), rbasis(1:m, i:i, l)), (/m/)))
             rbasis(1:m, i, l) = rbasis(1:m, i, l)/SQRT(o)
-         ENDDO
+         END DO
 
          ! check
          ALLOCATE (amat(n, n))

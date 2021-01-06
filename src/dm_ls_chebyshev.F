@@ -12,28 +12,28 @@
 !> \author Jinwoong Cha
 ! **************************************************************************************************
 MODULE dm_ls_chebyshev
-   USE arnoldi_api,                     ONLY: arnoldi_extremal
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_frobenius_norm, &
-        dbcsr_get_info, dbcsr_get_occupation, dbcsr_multiply, dbcsr_release, dbcsr_scale, &
-        dbcsr_set, dbcsr_trace, dbcsr_type, dbcsr_type_no_symmetry
-   USE dm_ls_scf_qs,                    ONLY: write_matrix_to_cube
-   USE dm_ls_scf_types,                 ONLY: ls_scf_env_type
-   USE input_section_types,             ONLY: section_get_ivals,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE machine,                         ONLY: m_flush,&
-                                              m_walltime
-   USE mathconstants,                   ONLY: pi
-   USE qs_environment_types,            ONLY: qs_environment_type
+   USE arnoldi_api, ONLY: arnoldi_extremal
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_frobenius_norm, &
+      dbcsr_get_info, dbcsr_get_occupation, dbcsr_multiply, dbcsr_release, dbcsr_scale, &
+      dbcsr_set, dbcsr_trace, dbcsr_type, dbcsr_type_no_symmetry
+   USE dm_ls_scf_qs, ONLY: write_matrix_to_cube
+   USE dm_ls_scf_types, ONLY: ls_scf_env_type
+   USE input_section_types, ONLY: section_get_ivals, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE machine, ONLY: m_flush, &
+                      m_walltime
+   USE mathconstants, ONLY: pi
+   USE qs_environment_types, ONLY: qs_environment_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -113,7 +113,7 @@ CONTAINS
                                                             unit_dos, unit_nr
       LOGICAL                                            :: converged, write_cubes
       REAL(KIND=dp) :: chev_T, chev_T_dos, dummy1, final, frob_matrix, initial, interval_a, &
-         interval_b, max_ev, min_ev, occ, orbital_occ, summa, t1, t2
+                       interval_b, max_ev, min_ev, occ, orbital_occ, summa, t1, t2
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: chev_E, chev_Es_dos, dos, dummy2, ev1, &
                                                             ev2, kernel_g, mu, sev1, sev2, trace_dm
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: aitchev_T, E_inte, gdensity, sqrt_vec
@@ -133,7 +133,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       ncheb = ls_scf_env%chebyshev%n_chebyshev
       ninte = 2*ncheb
@@ -154,7 +154,7 @@ CONTAINS
          nwindow = SIZE(ls_scf_env%chebyshev%min_energy)
       ELSE
          nwindow = 0
-      ENDIF
+      END IF
 
       ALLOCATE (ev1(1:nwindow))
       ALLOCATE (ev2(1:nwindow))
@@ -171,7 +171,7 @@ CONTAINS
       IF (unit_nr > 0) THEN
          WRITE (unit_nr, '()')
          WRITE (unit_nr, '(T2,A)') "STARTING CHEBYSHEV CALCULATION"
-      ENDIF
+      END IF
 
       ! create 3 temporary matrices
       CALL dbcsr_create(matrix_tmp1, template=ls_scf_env%matrix_s, matrix_type=dbcsr_type_no_symmetry)
@@ -200,7 +200,7 @@ CONTAINS
          IF (nwindow > 0) THEN
             IF (unit_nr > 0) WRITE (unit_nr, '(T2,A,1000F16.8)') "requested interval-min_energy", ev1(:)
             IF (unit_nr > 0) WRITE (unit_nr, '(T2,A,1000F16.8)') "requested interval-max_energy", ev2(:)
-         ENDIF
+         END IF
          interval_a = (max_ev - min_ev)*scale_evals/2
          interval_b = (max_ev + min_ev)/2
 
@@ -297,16 +297,16 @@ CONTAINS
                ELSE
                   WRITE (unit_nr, '(T2,A,I5,1X,A,1X,F8.3,1X,A,1X,F8.6)') &
                      "Iter.", icheb, "time=", t2 - t1, "occ=", occ
-               ENDIF
-            ENDIF
-         ENDDO
+               END IF
+            END IF
+         END DO
 
          DO iwindow = 1, nwindow
             IF (SIZE(ls_scf_env%matrix_ks) == 1) THEN
                orbital_occ = 2.0_dp
             ELSE
                orbital_occ = 1.0_dp
-            ENDIF
+            END IF
             CALL dbcsr_multiply("N", "N", 1.0_dp, ls_scf_env%matrix_s_sqrt_inv, matrix_dummy2(iwindow), &
                                 0.0_dp, matrix_tmp1, filter_eps=ls_scf_env%eps_filter)
             CALL dbcsr_multiply("N", "N", orbital_occ, matrix_tmp1, ls_scf_env%matrix_s_sqrt_inv, &
@@ -319,7 +319,7 @@ CONTAINS
                CALL dbcsr_add(matrix_tmp1, ls_scf_env%matrix_p(ispin), 1.0_dp, -1.0_dp) !comparison
                frob_matrix = dbcsr_frobenius_norm(matrix_tmp1)
                IF (unit_nr > 0) WRITE (unit_nr, *) "Difference between Chebyshev DM and LS DM", frob_matrix
-            ENDIF
+            END IF
          END DO
 
          write_cubes = BTEST(cp_print_key_should_output(logger%iter_info, &
@@ -335,9 +335,9 @@ CONTAINS
                                          section_get_ivals(ls_scf_env%chebyshev%print_key_cube, "STRIDE"))
                CALL cp_print_key_finished_output(unit_cube, logger, ls_scf_env%chebyshev%print_key_cube, "")
             END DO
-         ENDIF
+         END IF
 
-      ENDDO
+      END DO
 
       ! Chebyshev expansion with calculated coefficient
       ! grid construction and rescaling (by J)
@@ -372,7 +372,7 @@ CONTAINS
             WRITE (unit_dos, '(1000F16.8)') chev_E(igrid), dos(igrid), gdensity(igrid, :)
          END DO
          DEALLOCATE (chev_Es_dos, chev_E, dos, gdensity)
-      ENDIF
+      END IF
       CALL cp_print_key_finished_output(unit_dos, logger, ls_scf_env%chebyshev%print_key_dos, "")
 
       ! free the matrices

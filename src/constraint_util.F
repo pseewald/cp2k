@@ -11,28 +11,28 @@
 !>      none
 ! **************************************************************************************************
 MODULE constraint_util
-   USE cell_types,                      ONLY: cell_type
-   USE colvar_methods,                  ONLY: colvar_eval_mol_f
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: matmul_3x3,&
-                                              transpose_3d
-   USE message_passing,                 ONLY: mp_sum
-   USE molecule_kind_types,             ONLY: colvar_constraint_type,&
-                                              fixd_constraint_type,&
-                                              g3x3_constraint_type,&
-                                              g4x6_constraint_type,&
-                                              get_molecule_kind,&
-                                              molecule_kind_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              global_constraint_type,&
-                                              local_colvar_constraint_type,&
-                                              local_constraint_type,&
-                                              local_g3x3_constraint_type,&
-                                              local_g4x6_constraint_type,&
-                                              molecule_type
-   USE particle_types,                  ONLY: particle_type
-   USE virial_types,                    ONLY: virial_type
+   USE cell_types, ONLY: cell_type
+   USE colvar_methods, ONLY: colvar_eval_mol_f
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: matmul_3x3, &
+                      transpose_3d
+   USE message_passing, ONLY: mp_sum
+   USE molecule_kind_types, ONLY: colvar_constraint_type, &
+                                  fixd_constraint_type, &
+                                  g3x3_constraint_type, &
+                                  g4x6_constraint_type, &
+                                  get_molecule_kind, &
+                                  molecule_kind_type
+   USE molecule_types, ONLY: get_molecule, &
+                             global_constraint_type, &
+                             local_colvar_constraint_type, &
+                             local_constraint_type, &
+                             local_g3x3_constraint_type, &
+                             local_g4x6_constraint_type, &
+                             molecule_type
+   USE particle_types, ONLY: particle_type
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -158,7 +158,7 @@ CONTAINS
          DO iconst = 1, SIZE(colv_list)
             CALL colvar_eval_mol_f(lcolv(iconst)%colvar_old, cell, &
                                    particles=particle_set, fixd_list=fixd_list)
-         ENDDO
+         END DO
       END IF
       ! 3x3 constraints
       DO iconst = 1, n3x3con
@@ -168,7 +168,7 @@ CONTAINS
          lg3x3(iconst)%rb_old = particle_set(index)%r
          index = g3x3_list(iconst)%c + first_atom - 1
          lg3x3(iconst)%rc_old = particle_set(index)%r
-      ENDDO
+      END DO
       ! 4x6 constraints
       DO iconst = 1, n4x6con
          index = g4x6_list(iconst)%a + first_atom - 1
@@ -179,7 +179,7 @@ CONTAINS
          lg4x6(iconst)%rc_old = particle_set(index)%r
          index = g4x6_list(iconst)%d + first_atom - 1
          lg4x6(iconst)%rd_old = particle_set(index)%r
-      ENDDO
+      END DO
 
    END SUBROUTINE getold_low
 

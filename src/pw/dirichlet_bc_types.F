@@ -14,11 +14,11 @@
 ! **************************************************************************************************
 MODULE dirichlet_bc_types
 
-   USE kinds,                           ONLY: dp
-   USE pw_pool_types,                   ONLY: pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: pw_release,&
-                                              pw_type
+   USE kinds, ONLY: dp
+   USE pw_pool_types, ONLY: pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: pw_release, &
+                       pw_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

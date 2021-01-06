@@ -12,57 +12,57 @@
 ! **************************************************************************************************
 MODULE nnp_environment
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE bibliography,                    ONLY: Behler2007,&
-                                              Behler2011,&
-                                              Schran2020a,&
-                                              Schran2020b,&
-                                              cite_reference
-   USE cell_methods,                    ONLY: read_cell,&
-                                              write_cell
-   USE cell_types,                      ONLY: cell_release,&
-                                              cell_type,&
-                                              get_cell
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_read_line,&
-                                              parser_search_string
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release,&
-                                              parser_reset
-   USE cp_subsys_methods,               ONLY: cp_subsys_create
-   USE cp_subsys_types,                 ONLY: cp_subsys_release,&
-                                              cp_subsys_set,&
-                                              cp_subsys_type
-   USE distribution_1d_types,           ONLY: distribution_1d_release,&
-                                              distribution_1d_type
-   USE distribution_methods,            ONLY: distribute_molecules_1d
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE molecule_kind_types,             ONLY: molecule_kind_type,&
-                                              write_molecule_kind_set
-   USE molecule_types,                  ONLY: molecule_type
-   USE nnp_acsf,                        ONLY: nnp_init_acsf_groups,&
-                                              nnp_sort_acsf,&
-                                              nnp_sort_ele,&
-                                              nnp_write_acsf
-   USE nnp_environment_types,           ONLY: &
-        nnp_actfnct_cos, nnp_actfnct_exp, nnp_actfnct_gaus, nnp_actfnct_invsig, nnp_actfnct_lin, &
-        nnp_actfnct_quad, nnp_actfnct_sig, nnp_actfnct_softplus, nnp_actfnct_tanh, nnp_env_set, &
-        nnp_type
-   USE nnp_model,                       ONLY: nnp_write_arc
-   USE particle_methods,                ONLY: write_fist_particle_coordinates,&
-                                              write_particle_distances,&
-                                              write_structure_data
-   USE particle_types,                  ONLY: particle_type
-   USE periodic_table,                  ONLY: get_ptable_info
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE bibliography, ONLY: Behler2007, &
+                           Behler2011, &
+                           Schran2020a, &
+                           Schran2020b, &
+                           cite_reference
+   USE cell_methods, ONLY: read_cell, &
+                           write_cell
+   USE cell_types, ONLY: cell_release, &
+                         cell_type, &
+                         get_cell
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_read_line, &
+                                parser_search_string
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release, &
+                              parser_reset
+   USE cp_subsys_methods, ONLY: cp_subsys_create
+   USE cp_subsys_types, ONLY: cp_subsys_release, &
+                              cp_subsys_set, &
+                              cp_subsys_type
+   USE distribution_1d_types, ONLY: distribution_1d_release, &
+                                    distribution_1d_type
+   USE distribution_methods, ONLY: distribute_molecules_1d
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE molecule_kind_types, ONLY: molecule_kind_type, &
+                                  write_molecule_kind_set
+   USE molecule_types, ONLY: molecule_type
+   USE nnp_acsf, ONLY: nnp_init_acsf_groups, &
+                       nnp_sort_acsf, &
+                       nnp_sort_ele, &
+                       nnp_write_acsf
+   USE nnp_environment_types, ONLY: &
+      nnp_actfnct_cos, nnp_actfnct_exp, nnp_actfnct_gaus, nnp_actfnct_invsig, nnp_actfnct_lin, &
+      nnp_actfnct_quad, nnp_actfnct_sig, nnp_actfnct_softplus, nnp_actfnct_tanh, nnp_env_set, &
+      nnp_type
+   USE nnp_model, ONLY: nnp_write_arc
+   USE particle_methods, ONLY: write_fist_particle_coordinates, &
+                               write_particle_distances, &
+                               write_structure_data
+   USE particle_types, ONLY: particle_type
+   USE periodic_table, ONLY: get_ptable_info
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -167,7 +167,7 @@ CONTAINS
       TYPE(section_vals_type), INTENT(IN), POINTER       :: subsys_section
 
       CHARACTER(len=*), PARAMETER :: routineN = 'nnp_init_subsys', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, natom
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set

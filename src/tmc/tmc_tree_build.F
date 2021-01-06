@@ -33,43 +33,43 @@
 ! **************************************************************************************************
 
 MODULE tmc_tree_build
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE kinds,                           ONLY: dp
-   USE tmc_calculations,                ONLY: calc_e_kin,&
-                                              init_vel
-   USE tmc_dot_tree,                    ONLY: create_dot,&
-                                              create_dot_color,&
-                                              create_global_tree_dot,&
-                                              create_global_tree_dot_color
-   USE tmc_file_io,                     ONLY: read_restart_file,&
-                                              write_result_list_element
-   USE tmc_move_handle,                 ONLY: select_random_move_type
-   USE tmc_move_types,                  ONLY: &
-        mv_type_MD, mv_type_NMC_moves, mv_type_atom_swap, mv_type_atom_trans, &
-        mv_type_gausian_adapt, mv_type_mol_rot, mv_type_mol_trans, mv_type_none, &
-        mv_type_proton_reorder, mv_type_swap_conf, mv_type_volume_move
-   USE tmc_moves,                       ONLY: change_pos,&
-                                              elements_in_new_subbox
-   USE tmc_stati,                       ONLY: TMC_STATUS_FAILED,&
-                                              TMC_STATUS_WAIT_FOR_NEW_TASK,&
-                                              task_type_MC,&
-                                              task_type_gaussian_adaptation
-   USE tmc_tree_references,             ONLY: add_to_references,&
-                                              remove_gt_references,&
-                                              remove_subtree_element_of_all_references,&
-                                              search_and_remove_reference_in_list
-   USE tmc_tree_search,                 ONLY: most_prob_end,&
-                                              search_end_of_clean_g_tree,&
-                                              search_end_of_clean_tree,&
-                                              search_parent_element
-   USE tmc_tree_types,                  ONLY: &
-        add_to_list, elem_array_type, global_tree_type, status_accepted, status_accepted_result, &
-        status_calc_approx_ener, status_calculate_MD, status_calculate_NMC_steps, &
-        status_calculate_energy, status_calculated, status_cancel_ener, status_cancel_nmc, &
-        status_canceled_ener, status_canceled_nmc, status_created, status_deleted, &
-        status_deleted_result, status_ok, status_rejected, status_rejected_result, tree_type
-   USE tmc_types,                       ONLY: tmc_env_type,&
-                                              tmc_param_type
+   USE cp_log_handling, ONLY: cp_to_string
+   USE kinds, ONLY: dp
+   USE tmc_calculations, ONLY: calc_e_kin, &
+                               init_vel
+   USE tmc_dot_tree, ONLY: create_dot, &
+                           create_dot_color, &
+                           create_global_tree_dot, &
+                           create_global_tree_dot_color
+   USE tmc_file_io, ONLY: read_restart_file, &
+                          write_result_list_element
+   USE tmc_move_handle, ONLY: select_random_move_type
+   USE tmc_move_types, ONLY: &
+      mv_type_MD, mv_type_NMC_moves, mv_type_atom_swap, mv_type_atom_trans, &
+      mv_type_gausian_adapt, mv_type_mol_rot, mv_type_mol_trans, mv_type_none, &
+      mv_type_proton_reorder, mv_type_swap_conf, mv_type_volume_move
+   USE tmc_moves, ONLY: change_pos, &
+                        elements_in_new_subbox
+   USE tmc_stati, ONLY: TMC_STATUS_FAILED, &
+                        TMC_STATUS_WAIT_FOR_NEW_TASK, &
+                        task_type_MC, &
+                        task_type_gaussian_adaptation
+   USE tmc_tree_references, ONLY: add_to_references, &
+                                  remove_gt_references, &
+                                  remove_subtree_element_of_all_references, &
+                                  search_and_remove_reference_in_list
+   USE tmc_tree_search, ONLY: most_prob_end, &
+                              search_end_of_clean_g_tree, &
+                              search_end_of_clean_tree, &
+                              search_parent_element
+   USE tmc_tree_types, ONLY: &
+      add_to_list, elem_array_type, global_tree_type, status_accepted, status_accepted_result, &
+      status_calc_approx_ener, status_calculate_MD, status_calculate_NMC_steps, &
+      status_calculate_energy, status_calculated, status_cancel_ener, status_cancel_nmc, &
+      status_canceled_ener, status_canceled_nmc, status_created, status_deleted, &
+      status_deleted_result, status_ok, status_rejected, status_rejected_result, tree_type
+   USE tmc_types, ONLY: tmc_env_type, &
+                        tmc_param_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

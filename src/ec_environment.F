@@ -12,36 +12,36 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE ec_environment
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE basis_set_container_types,       ONLY: add_basis_set_to_container,&
-                                              remove_basis_from_container
-   USE basis_set_types,                 ONLY: copy_gto_basis_set,&
-                                              create_primitive_basis_set,&
-                                              gto_basis_set_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE ec_env_types,                    ONLY: energy_correction_type
-   USE input_constants,                 ONLY: ec_functional_harris,&
-                                              xc_vdw_fun_nonloc,&
-                                              xc_vdw_fun_pairpot
-   USE input_cp2k_check,                ONLY: xc_functionals_expand
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE orbital_pointers,                ONLY: init_orbital_pointers
-   USE qs_dispersion_nonloc,            ONLY: qs_dispersion_nonloc_init
-   USE qs_dispersion_pairpot,           ONLY: qs_dispersion_pairpot_init
-   USE qs_dispersion_types,             ONLY: qs_dispersion_type
-   USE qs_dispersion_utils,             ONLY: qs_dispersion_env_set
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_interactions,                 ONLY: init_interaction_radii_orb_basis
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE string_utilities,                ONLY: uppercase
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE basis_set_container_types, ONLY: add_basis_set_to_container, &
+                                        remove_basis_from_container
+   USE basis_set_types, ONLY: copy_gto_basis_set, &
+                              create_primitive_basis_set, &
+                              gto_basis_set_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE ec_env_types, ONLY: energy_correction_type
+   USE input_constants, ONLY: ec_functional_harris, &
+                              xc_vdw_fun_nonloc, &
+                              xc_vdw_fun_pairpot
+   USE input_cp2k_check, ONLY: xc_functionals_expand
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE orbital_pointers, ONLY: init_orbital_pointers
+   USE qs_dispersion_nonloc, ONLY: qs_dispersion_nonloc_init
+   USE qs_dispersion_pairpot, ONLY: qs_dispersion_pairpot_init
+   USE qs_dispersion_types, ONLY: qs_dispersion_type
+   USE qs_dispersion_utils, ONLY: qs_dispersion_env_set
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_interactions, ONLY: init_interaction_radii_orb_basis
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE string_utilities, ONLY: uppercase
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -24,15 +24,15 @@
 ! **************************************************************************************************
 
 MODULE tmc_cancelation
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE tmc_dot_tree,                    ONLY: create_dot_color
-   USE tmc_tree_types,                  ONLY: &
-        add_to_list, elem_list_type, status_accepted, status_accepted_result, &
-        status_calc_approx_ener, status_calculate_MD, status_calculate_NMC_steps, &
-        status_calculate_energy, status_calculated, status_cancel_ener, status_cancel_nmc, &
-        status_canceled_ener, status_canceled_nmc, status_created, status_deleted, &
-        status_deleted_result, status_rejected, status_rejected_result, tree_type
-   USE tmc_types,                       ONLY: tmc_env_type
+   USE cp_log_handling, ONLY: cp_to_string
+   USE tmc_dot_tree, ONLY: create_dot_color
+   USE tmc_tree_types, ONLY: &
+      add_to_list, elem_list_type, status_accepted, status_accepted_result, &
+      status_calc_approx_ener, status_calculate_MD, status_calculate_NMC_steps, &
+      status_calculate_energy, status_calculated, status_cancel_ener, status_cancel_nmc, &
+      status_canceled_ener, status_canceled_nmc, status_created, status_deleted, &
+      status_deleted_result, status_rejected, status_rejected_result, tree_type
+   USE tmc_types, ONLY: tmc_env_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

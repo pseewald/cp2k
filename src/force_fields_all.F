@@ -13,77 +13,77 @@
 ! **************************************************************************************************
 MODULE force_fields_all
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set,&
-                                              set_atomic_kind
-   USE atoms_input,                     ONLY: read_shell_coord_input
-   USE cell_types,                      ONLY: cell_type
-   USE cp_linked_list_input,            ONLY: cp_sll_val_next,&
-                                              cp_sll_val_type
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE damping_dipole_types,            ONLY: damping_p_create,&
-                                              damping_p_type,&
-                                              tang_toennies
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_env_set,&
-                                              ewald_environment_type
-   USE external_potential_types,        ONLY: fist_potential_type,&
-                                              get_potential,&
-                                              set_potential
-   USE force_field_kind_types,          ONLY: &
-        allocate_bend_kind_set, allocate_bond_kind_set, allocate_impr_kind_set, &
-        allocate_opbend_kind_set, allocate_torsion_kind_set, allocate_ub_kind_set, bend_kind_type, &
-        bond_kind_type, do_ff_amber, do_ff_charmm, do_ff_g87, do_ff_g96, do_ff_undef, &
-        impr_kind_type, opbend_kind_type, torsion_kind_type, ub_kind_type
-   USE force_field_types,               ONLY: amber_info_type,&
-                                              charmm_info_type,&
-                                              force_field_type,&
-                                              gromos_info_type,&
-                                              input_info_type
-   USE input_constants,                 ONLY: do_qmmm_none
-   USE input_cp2k_binary_restarts,      ONLY: read_binary_cs_coordinates
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_list_get,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE input_val_types,                 ONLY: val_get,&
-                                              val_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: sqrthalf
-   USE memory_utilities,                ONLY: reallocate
-   USE molecule_kind_types,             ONLY: &
-        bend_type, bond_type, get_molecule_kind, impr_type, molecule_kind_type, opbend_type, &
-        set_molecule_kind, shell_type, torsion_type, ub_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              molecule_type
-   USE pair_potential,                  ONLY: get_nonbond_storage,&
-                                              spline_nonbond_control
-   USE pair_potential_coulomb,          ONLY: potential_coulomb
-   USE pair_potential_types,            ONLY: &
-        ea_type, lj_charmm_type, lj_type, nn_type, nosh_nosh, nosh_sh, pair_potential_lj_create, &
-        pair_potential_pp_create, pair_potential_pp_type, pair_potential_single_add, &
-        pair_potential_single_clean, pair_potential_single_copy, pair_potential_single_type, &
-        quip_type, sh_sh, siepmann_type, tersoff_type
-   USE particle_types,                  ONLY: allocate_particle_set,&
-                                              particle_type
-   USE physcon,                         ONLY: bohr
-   USE qmmm_ff_fist,                    ONLY: qmmm_ff_precond_only_qm
-   USE qmmm_types_low,                  ONLY: qmmm_env_mm_type
-   USE shell_potential_types,           ONLY: shell_create,&
-                                              shell_kind_type,&
-                                              shell_release
-   USE splines_types,                   ONLY: spline_data_p_release,&
-                                              spline_data_p_retain,&
-                                              spline_data_p_type,&
-                                              spline_env_release,&
-                                              spline_environment_type
-   USE string_utilities,                ONLY: compress,&
-                                              integer_to_string,&
-                                              uppercase
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set, &
+                                set_atomic_kind
+   USE atoms_input, ONLY: read_shell_coord_input
+   USE cell_types, ONLY: cell_type
+   USE cp_linked_list_input, ONLY: cp_sll_val_next, &
+                                   cp_sll_val_type
+   USE cp_log_handling, ONLY: cp_to_string
+   USE damping_dipole_types, ONLY: damping_p_create, &
+                                   damping_p_type, &
+                                   tang_toennies
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_env_set, &
+                                      ewald_environment_type
+   USE external_potential_types, ONLY: fist_potential_type, &
+                                       get_potential, &
+                                       set_potential
+   USE force_field_kind_types, ONLY: &
+      allocate_bend_kind_set, allocate_bond_kind_set, allocate_impr_kind_set, &
+      allocate_opbend_kind_set, allocate_torsion_kind_set, allocate_ub_kind_set, bend_kind_type, &
+      bond_kind_type, do_ff_amber, do_ff_charmm, do_ff_g87, do_ff_g96, do_ff_undef, &
+      impr_kind_type, opbend_kind_type, torsion_kind_type, ub_kind_type
+   USE force_field_types, ONLY: amber_info_type, &
+                                charmm_info_type, &
+                                force_field_type, &
+                                gromos_info_type, &
+                                input_info_type
+   USE input_constants, ONLY: do_qmmm_none
+   USE input_cp2k_binary_restarts, ONLY: read_binary_cs_coordinates
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_list_get, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE input_val_types, ONLY: val_get, &
+                              val_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mathconstants, ONLY: sqrthalf
+   USE memory_utilities, ONLY: reallocate
+   USE molecule_kind_types, ONLY: &
+      bend_type, bond_type, get_molecule_kind, impr_type, molecule_kind_type, opbend_type, &
+      set_molecule_kind, shell_type, torsion_type, ub_type
+   USE molecule_types, ONLY: get_molecule, &
+                             molecule_type
+   USE pair_potential, ONLY: get_nonbond_storage, &
+                             spline_nonbond_control
+   USE pair_potential_coulomb, ONLY: potential_coulomb
+   USE pair_potential_types, ONLY: &
+      ea_type, lj_charmm_type, lj_type, nn_type, nosh_nosh, nosh_sh, pair_potential_lj_create, &
+      pair_potential_pp_create, pair_potential_pp_type, pair_potential_single_add, &
+      pair_potential_single_clean, pair_potential_single_copy, pair_potential_single_type, &
+      quip_type, sh_sh, siepmann_type, tersoff_type
+   USE particle_types, ONLY: allocate_particle_set, &
+                             particle_type
+   USE physcon, ONLY: bohr
+   USE qmmm_ff_fist, ONLY: qmmm_ff_precond_only_qm
+   USE qmmm_types_low, ONLY: qmmm_env_mm_type
+   USE shell_potential_types, ONLY: shell_create, &
+                                    shell_kind_type, &
+                                    shell_release
+   USE splines_types, ONLY: spline_data_p_release, &
+                            spline_data_p_retain, &
+                            spline_data_p_type, &
+                            spline_env_release, &
+                            spline_environment_type
+   USE string_utilities, ONLY: compress, &
+                               integer_to_string, &
+                               uppercase
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -2289,7 +2289,7 @@ CONTAINS
                         damping%damp(k)%order = inp_info%damping_list(i)%order
                         damping%damp(k)%bij = inp_info%damping_list(i)%bij
                         damping%damp(k)%cij = inp_info%damping_list(i)%cij
-                     ENDIF
+                     END IF
 
                   END DO
                   IF (.NOT. found) &
@@ -2297,10 +2297,10 @@ CONTAINS
                                   "Atom "//TRIM(my_atm_name2)// &
                                   " in damping parameters for atom "//TRIM(my_atm_name1)// &
                                   " not found! ")
-               ENDIF
+               END IF
             END DO
 
-         ENDIF
+         END IF
 
          CALL set_atomic_kind(atomic_kind=atomic_kind, damping=damping)
          NULLIFY (damping)
@@ -2346,7 +2346,7 @@ CONTAINS
                                                             nshell_tot
       INTEGER, DIMENSION(:), POINTER                     :: molecule_list, shell_list_tmp
       LOGICAL :: core_coord_read, found_shell, is_a_shell, is_link_atom, null_massfrac, only_qm, &
-         save_mem, shell_adiabatic, shell_coord_read
+                 save_mem, shell_adiabatic, shell_coord_read
       REAL(KIND=dp)                                      :: atmmass
       TYPE(atomic_kind_type), POINTER                    :: atomic_kind
       TYPE(molecule_kind_type), POINTER                  :: molecule_kind
@@ -3436,7 +3436,7 @@ CONTAINS
             END SELECT
             IF (found) EXIT
          END DO
-      ENDIF
+      END IF
       IF (.NOT. found) THEN
          nsize = nsize + 1
          CALL reallocate(array, 1, nsize)

@@ -11,45 +11,45 @@
 !>      06.2019 Split from rpa_ri_gpw [Frederick Stein]
 ! **************************************************************************************************
 MODULE rpa_kpoints
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell,&
-                                              pbc
-   USE cp_cfm_basic_linalg,             ONLY: cp_cfm_cholesky_decompose,&
-                                              cp_cfm_gemm,&
-                                              cp_cfm_scale_and_add_fm
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_get_info,&
-                                              cp_cfm_p_type,&
-                                              cp_cfm_release,&
-                                              cp_cfm_set_all,&
-                                              cp_cfm_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm
-   USE cp_fm_types,                     ONLY: cp_fm_copy_general,&
-                                              cp_fm_create,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_copy, dbcsr_create, dbcsr_filter, dbcsr_get_block_p, dbcsr_iterator_blocks_left, &
-        dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
-        dbcsr_p_type, dbcsr_release, dbcsr_reserve_all_blocks, dbcsr_set, dbcsr_transposed, &
-        dbcsr_type, dbcsr_type_no_symmetry
-   USE kinds,                           ONLY: dp
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE mathconstants,                   ONLY: gaussi,&
-                                              twopi,&
-                                              z_one,&
-                                              z_zero
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE rpa_gw_kpoints,                  ONLY: compute_Wc_kp_tau_GW,&
-                                              compute_Wc_real_space_tau_GW
-   USE rpa_im_time,                     ONLY: init_cell_index_rpa
+   USE cell_types, ONLY: cell_type, &
+                         get_cell, &
+                         pbc
+   USE cp_cfm_basic_linalg, ONLY: cp_cfm_cholesky_decompose, &
+                                  cp_cfm_gemm, &
+                                  cp_cfm_scale_and_add_fm
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_get_info, &
+                           cp_cfm_p_type, &
+                           cp_cfm_release, &
+                           cp_cfm_set_all, &
+                           cp_cfm_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm
+   USE cp_fm_types, ONLY: cp_fm_copy_general, &
+                          cp_fm_create, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_copy, dbcsr_create, dbcsr_filter, dbcsr_get_block_p, dbcsr_iterator_blocks_left, &
+      dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
+      dbcsr_p_type, dbcsr_release, dbcsr_reserve_all_blocks, dbcsr_set, dbcsr_transposed, &
+      dbcsr_type, dbcsr_type_no_symmetry
+   USE kinds, ONLY: dp
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE mathconstants, ONLY: gaussi, &
+                            twopi, &
+                            z_one, &
+                            z_zero
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE rpa_gw_kpoints, ONLY: compute_Wc_kp_tau_GW, &
+                             compute_Wc_real_space_tau_GW
+   USE rpa_im_time, ONLY: init_cell_index_rpa
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

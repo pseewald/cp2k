@@ -12,54 +12,54 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE qs_band_structure
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_retain,&
-                                              cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_fm_pool_types,                ONLY: cp_fm_pool_p_type
-   USE cp_fm_types,                     ONLY: cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE cp_para_env,                     ONLY: cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: read_float_object
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp,&
-                                              max_line_length
-   USE kpoint_methods,                  ONLY: kpoint_env_initialize,&
-                                              kpoint_init_cell_index,&
-                                              kpoint_initialize_mos
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_create,&
-                                              kpoint_env_type,&
-                                              kpoint_release,&
-                                              kpoint_sym_create,&
-                                              kpoint_type
-   USE machine,                         ONLY: m_walltime
-   USE mathconstants,                   ONLY: twopi
-   USE message_passing,                 ONLY: mp_sum
-   USE physcon,                         ONLY: angstrom,&
-                                              evolt
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_env_release,&
-                                              qs_environment_type
-   USE qs_gamma2kp,                     ONLY: create_kp_from_gamma
-   USE qs_matrix_pools,                 ONLY: mpools_get
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              init_mo_set,&
-                                              mo_set_p_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_scf_diagonalization,          ONLY: do_general_diag_kp
-   USE qs_scf_types,                    ONLY: qs_scf_env_type
-   USE scf_control_types,               ONLY: scf_control_type
-   USE string_utilities,                ONLY: uppercase
+   USE cell_types, ONLY: cell_type, &
+                         get_cell
+   USE cp_blacs_env, ONLY: cp_blacs_env_retain, &
+                           cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_fm_pool_types, ONLY: cp_fm_pool_p_type
+   USE cp_fm_types, ONLY: cp_fm_type
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE cp_para_env, ONLY: cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: read_float_object
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp, &
+                    max_line_length
+   USE kpoint_methods, ONLY: kpoint_env_initialize, &
+                             kpoint_init_cell_index, &
+                             kpoint_initialize_mos
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_create, &
+                           kpoint_env_type, &
+                           kpoint_release, &
+                           kpoint_sym_create, &
+                           kpoint_type
+   USE machine, ONLY: m_walltime
+   USE mathconstants, ONLY: twopi
+   USE message_passing, ONLY: mp_sum
+   USE physcon, ONLY: angstrom, &
+                      evolt
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_env_release, &
+                                   qs_environment_type
+   USE qs_gamma2kp, ONLY: create_kp_from_gamma
+   USE qs_matrix_pools, ONLY: mpools_get
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          init_mo_set, &
+                          mo_set_p_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_scf_diagonalization, ONLY: do_general_diag_kp
+   USE qs_scf_types, ONLY: qs_scf_env_type
+   USE scf_control_types, ONLY: scf_control_type
+   USE string_utilities, ONLY: uppercase
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

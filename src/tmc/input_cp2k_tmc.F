@@ -11,22 +11,22 @@
 !> \author Mandes
 ! **************************************************************************************************
 MODULE input_cp2k_tmc
-   USE bibliography,                    ONLY: Schonherr2014
-   USE input_cp2k_mm,                   ONLY: create_CHARGE_section
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: char_t,&
-                                              integer_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE tmc_stati,                       ONLY: tmc_default_dot_file_name,&
-                                              tmc_default_unspecified_name
+   USE bibliography, ONLY: Schonherr2014
+   USE input_cp2k_mm, ONLY: create_CHARGE_section
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: char_t, &
+                              integer_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE tmc_stati, ONLY: tmc_default_dot_file_name, &
+                        tmc_default_unspecified_name
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

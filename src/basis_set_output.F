@@ -11,26 +11,26 @@
 !> \author JGH (12.2017)
 ! **************************************************************************************************
 MODULE basis_set_output
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cp2k_info,                       ONLY: compile_revision,&
-                                              cp2k_version,&
-                                              r_datx,&
-                                              r_host_name,&
-                                              r_user_name
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cp2k_info, ONLY: compile_revision, &
+                        cp2k_version, &
+                        r_datx, &
+                        r_host_name, &
+                        r_user_name
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -82,7 +82,7 @@ CONTAINS
             "# TITLE ", "Basis set file created by "//TRIM(cp2k_version)//" (revision "//TRIM(compile_revision)//")", &
             "# AUTHOR", TRIM(r_user_name)//"@"//TRIM(r_host_name)//" "//r_datx(1:19)
 
-      ENDIF
+      END IF
 
       CALL get_qs_env(qs_env, qs_kind_set=qs_kind_set, nkind=nkind)
       DO ikind = 1, nkind
@@ -124,13 +124,13 @@ CONTAINS
             IF (ASSOCIATED(ri_hfx_basis)) THEN
                bname = "local_ri_hfx"
                CALL basis_out(ri_hfx_basis, element_symbol, bname, iunit)
-            ENDIF
-         ENDIF
+            END IF
+         END IF
       END DO
 
       IF (ounit > 0) THEN
          CALL close_file(iunit)
-      ENDIF
+      END IF
 
    END SUBROUTINE print_basis_set_file
 

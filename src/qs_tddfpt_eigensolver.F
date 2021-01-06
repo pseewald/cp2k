@@ -7,51 +7,51 @@
 
 ! **************************************************************************************************
 MODULE qs_tddfpt_eigensolver
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              tddfpt_control_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_plus_fm_fm_t,&
-                                              cp_dbcsr_sm_fm_multiply
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_scale_and_add,&
-                                              cp_fm_symm,&
-                                              cp_fm_trace
-   USE cp_fm_diag,                      ONLY: cp_fm_syevd
-   USE cp_fm_pool_types,                ONLY: cp_fm_pool_p_type,&
-                                              fm_pools_create_fm_vect,&
-                                              fm_pools_give_back_fm_vect
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_p_type,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_element,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_set_element,&
-                                              cp_fm_to_fm
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit,&
-                                              cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type,&
-                                              dbcsr_set
-   USE input_constants,                 ONLY: tddfpt_davidson,&
-                                              tddfpt_lanczos
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE physcon,                         ONLY: evolt
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_matrix_pools,                 ONLY: mpools_get
-   USE qs_p_env_methods,                ONLY: p_op_l1,&
-                                              p_op_l2,&
-                                              p_postortho,&
-                                              p_preortho
-   USE qs_p_env_types,                  ONLY: qs_p_env_type
-   USE qs_tddfpt_types,                 ONLY: tddfpt_env_type
-   USE qs_tddfpt_utils,                 ONLY: co_initial_guess,&
-                                              normalize,&
-                                              reorthogonalize
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type, &
+                               tddfpt_control_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_plus_fm_fm_t, &
+                                  cp_dbcsr_sm_fm_multiply
+   USE cp_fm_basic_linalg, ONLY: cp_fm_scale_and_add, &
+                                 cp_fm_symm, &
+                                 cp_fm_trace
+   USE cp_fm_diag, ONLY: cp_fm_syevd
+   USE cp_fm_pool_types, ONLY: cp_fm_pool_p_type, &
+                               fm_pools_create_fm_vect, &
+                               fm_pools_give_back_fm_vect
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_p_type, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_element, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_set_element, &
+                          cp_fm_to_fm
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit, &
+                              cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_p_type, &
+                        dbcsr_set
+   USE input_constants, ONLY: tddfpt_davidson, &
+                              tddfpt_lanczos
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE physcon, ONLY: evolt
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_matrix_pools, ONLY: mpools_get
+   USE qs_p_env_methods, ONLY: p_op_l1, &
+                               p_op_l2, &
+                               p_postortho, &
+                               p_preortho
+   USE qs_p_env_types, ONLY: qs_p_env_type
+   USE qs_tddfpt_types, ONLY: tddfpt_env_type
+   USE qs_tddfpt_utils, ONLY: co_initial_guess, &
+                              normalize, &
+                              reorthogonalize
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -175,7 +175,7 @@ CONTAINS
       LOGICAL                                            :: res
 
       CHARACTER(len=*), PARAMETER :: routineN = 'iterative_solver', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       CHARACTER                                          :: mode
       INTEGER                                            :: col, handle, i, iev, iter, j, k, &
@@ -614,7 +614,7 @@ CONTAINS
       TYPE(cp_fm_struct_p_type), DIMENSION(:), POINTER   :: fm_struct
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'allocate_krylov_vectors', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       CHARACTER(LEN=default_string_length)               :: mat_name
       INTEGER                                            :: index, spin

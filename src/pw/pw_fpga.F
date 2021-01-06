@@ -15,14 +15,14 @@
 ! **************************************************************************************************
 
 MODULE pw_fpga
-   USE ISO_C_BINDING,                   ONLY: C_CHAR,&
-                                              C_DOUBLE_COMPLEX,&
-                                              C_FLOAT_COMPLEX,&
-                                              C_INT,&
-                                              C_NULL_CHAR
-   USE cp_files,                        ONLY: get_data_dir
-   USE kinds,                           ONLY: dp,&
-                                              sp
+   USE ISO_C_BINDING, ONLY: C_CHAR, &
+                            C_DOUBLE_COMPLEX, &
+                            C_FLOAT_COMPLEX, &
+                            C_INT, &
+                            C_NULL_CHAR
+   USE cp_files, ONLY: get_data_dir
+   USE kinds, ONLY: dp, &
+                    sp
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

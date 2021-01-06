@@ -10,118 +10,118 @@
 ! **************************************************************************************************
 
 MODULE negf_methods
-   USE bibliography,                    ONLY: Bailey2006,&
-                                              Papior2017,&
-                                              cite_reference
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_cfm_basic_linalg,             ONLY: cp_cfm_gemm,&
-                                              cp_cfm_scale,&
-                                              cp_cfm_scale_and_add,&
-                                              cp_cfm_trace
-   USE cp_cfm_types,                    ONLY: &
-        copy_cfm_info_type, cp_cfm_cleanup_copy_general, cp_cfm_create, &
-        cp_cfm_finish_copy_general, cp_cfm_get_info, cp_cfm_get_submatrix, cp_cfm_p_type, &
-        cp_cfm_release, cp_cfm_retain, cp_cfm_set_submatrix, cp_cfm_start_copy_general, &
-        cp_cfm_to_fm, cp_cfm_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_scale,&
-                                              cp_fm_scale_and_add,&
-                                              cp_fm_trace
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: &
-        cp_fm_copy_general, cp_fm_create, cp_fm_get_info, cp_fm_p_type, cp_fm_release, &
-        cp_fm_retain, cp_fm_set_all, cp_fm_to_fm, cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr,&
-                                              debug_print_level,&
-                                              high_print_level
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_deallocate_matrix,&
-                                              dbcsr_dot,&
-                                              dbcsr_init_p,&
-                                              dbcsr_p_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_p_type,&
-                                              force_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE input_constants,                 ONLY: negfint_method_cc,&
-                                              negfint_method_simpson
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE machine,                         ONLY: m_walltime
-   USE mathconstants,                   ONLY: pi,&
-                                              twopi,&
-                                              z_one,&
-                                              z_zero
-   USE message_passing,                 ONLY: mp_sum
-   USE negf_control_types,              ONLY: negf_control_create,&
-                                              negf_control_release,&
-                                              negf_control_type,&
-                                              read_negf_control
-   USE negf_env_types,                  ONLY: negf_env_create,&
-                                              negf_env_release,&
-                                              negf_env_type
-   USE negf_green_cache,                ONLY: green_functions_cache_expand,&
-                                              green_functions_cache_release,&
-                                              green_functions_cache_reorder,&
-                                              green_functions_cache_type
-   USE negf_green_methods,              ONLY: do_sancho,&
-                                              negf_contact_broadening_matrix,&
-                                              negf_contact_self_energy,&
-                                              negf_retarded_green_function,&
-                                              sancho_work_matrices_create,&
-                                              sancho_work_matrices_release,&
-                                              sancho_work_matrices_type
-   USE negf_integr_cc,                  ONLY: &
-        cc_interval_full, cc_interval_half, cc_shape_arc, cc_shape_linear, &
-        ccquad_double_number_of_points, ccquad_init, ccquad_reduce_and_append_zdata, &
-        ccquad_refine_integral, ccquad_release, ccquad_type
-   USE negf_integr_simpson,             ONLY: simpsonrule_get_next_nodes,&
-                                              simpsonrule_init,&
-                                              simpsonrule_refine_integral,&
-                                              simpsonrule_release,&
-                                              simpsonrule_type,&
-                                              sr_shape_arc,&
-                                              sr_shape_linear
-   USE negf_matrix_utils,               ONLY: invert_cell_to_index,&
-                                              negf_copy_fm_submat_to_dbcsr,&
-                                              negf_copy_sym_dbcsr_to_fm_submat
-   USE negf_subgroup_types,             ONLY: negf_sub_env_create,&
-                                              negf_sub_env_release,&
-                                              negf_subgroup_env_type
-   USE physcon,                         ONLY: e_charge,&
-                                              evolt,&
-                                              kelvin,&
-                                              seconds
-   USE qs_density_mixing_types,         ONLY: direct_mixing_nr,&
-                                              gspace_mixing_nr
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_gspace_mixing,                ONLY: gspace_mixing
-   USE qs_ks_methods,                   ONLY: qs_ks_build_kohn_sham_matrix
-   USE qs_mixing_utils,                 ONLY: mixing_allocate,&
-                                              mixing_init
-   USE qs_rho_methods,                  ONLY: qs_rho_update_rho
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf_methods,                  ONLY: scf_env_density_mixing
-   USE qs_subsys_types,                 ONLY: qs_subsys_type
-   USE string_utilities,                ONLY: integer_to_string
+   USE bibliography, ONLY: Bailey2006, &
+                           Papior2017, &
+                           cite_reference
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_cfm_basic_linalg, ONLY: cp_cfm_gemm, &
+                                  cp_cfm_scale, &
+                                  cp_cfm_scale_and_add, &
+                                  cp_cfm_trace
+   USE cp_cfm_types, ONLY: &
+      copy_cfm_info_type, cp_cfm_cleanup_copy_general, cp_cfm_create, &
+      cp_cfm_finish_copy_general, cp_cfm_get_info, cp_cfm_get_submatrix, cp_cfm_p_type, &
+      cp_cfm_release, cp_cfm_retain, cp_cfm_set_submatrix, cp_cfm_start_copy_general, &
+      cp_cfm_to_fm, cp_cfm_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_scale, &
+                                 cp_fm_scale_and_add, &
+                                 cp_fm_trace
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: &
+      cp_fm_copy_general, cp_fm_create, cp_fm_get_info, cp_fm_p_type, cp_fm_release, &
+      cp_fm_retain, cp_fm_set_all, cp_fm_to_fm, cp_fm_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr, &
+                                 debug_print_level, &
+                                 high_print_level
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_deallocate_matrix, &
+                        dbcsr_dot, &
+                        dbcsr_init_p, &
+                        dbcsr_p_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_p_type, &
+                              force_env_type
+   USE global_types, ONLY: global_environment_type
+   USE input_constants, ONLY: negfint_method_cc, &
+                              negfint_method_simpson
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE machine, ONLY: m_walltime
+   USE mathconstants, ONLY: pi, &
+                            twopi, &
+                            z_one, &
+                            z_zero
+   USE message_passing, ONLY: mp_sum
+   USE negf_control_types, ONLY: negf_control_create, &
+                                 negf_control_release, &
+                                 negf_control_type, &
+                                 read_negf_control
+   USE negf_env_types, ONLY: negf_env_create, &
+                             negf_env_release, &
+                             negf_env_type
+   USE negf_green_cache, ONLY: green_functions_cache_expand, &
+                               green_functions_cache_release, &
+                               green_functions_cache_reorder, &
+                               green_functions_cache_type
+   USE negf_green_methods, ONLY: do_sancho, &
+                                 negf_contact_broadening_matrix, &
+                                 negf_contact_self_energy, &
+                                 negf_retarded_green_function, &
+                                 sancho_work_matrices_create, &
+                                 sancho_work_matrices_release, &
+                                 sancho_work_matrices_type
+   USE negf_integr_cc, ONLY: &
+      cc_interval_full, cc_interval_half, cc_shape_arc, cc_shape_linear, &
+      ccquad_double_number_of_points, ccquad_init, ccquad_reduce_and_append_zdata, &
+      ccquad_refine_integral, ccquad_release, ccquad_type
+   USE negf_integr_simpson, ONLY: simpsonrule_get_next_nodes, &
+                                  simpsonrule_init, &
+                                  simpsonrule_refine_integral, &
+                                  simpsonrule_release, &
+                                  simpsonrule_type, &
+                                  sr_shape_arc, &
+                                  sr_shape_linear
+   USE negf_matrix_utils, ONLY: invert_cell_to_index, &
+                                negf_copy_fm_submat_to_dbcsr, &
+                                negf_copy_sym_dbcsr_to_fm_submat
+   USE negf_subgroup_types, ONLY: negf_sub_env_create, &
+                                  negf_sub_env_release, &
+                                  negf_subgroup_env_type
+   USE physcon, ONLY: e_charge, &
+                      evolt, &
+                      kelvin, &
+                      seconds
+   USE qs_density_mixing_types, ONLY: direct_mixing_nr, &
+                                      gspace_mixing_nr
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_gspace_mixing, ONLY: gspace_mixing
+   USE qs_ks_methods, ONLY: qs_ks_build_kohn_sham_matrix
+   USE qs_mixing_utils, ONLY: mixing_allocate, &
+                              mixing_init
+   USE qs_rho_methods, ONLY: qs_rho_update_rho
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf_methods, ONLY: scf_env_density_mixing
+   USE qs_subsys_types, ONLY: qs_subsys_type
+   USE string_utilities, ONLY: integer_to_string
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -379,8 +379,8 @@ CONTAINS
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL                                            :: do_kpoints
       REAL(kind=dp) :: delta_au, energy_ubound_minus_fermi, fermi_level_guess, fermi_level_max, &
-         fermi_level_min, nelectrons_guess, nelectrons_max, nelectrons_min, nelectrons_qs_cell0, &
-         nelectrons_qs_cell1, offset_au, rscale, t1, t2, trace
+                       fermi_level_min, nelectrons_guess, nelectrons_max, nelectrons_min, nelectrons_qs_cell0, &
+                       nelectrons_qs_cell1, offset_au, rscale, t1, t2, trace
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env_global
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct
       TYPE(cp_fm_type), POINTER                          :: matrix_s_fm, rho_ao_fm, work_fm
@@ -664,7 +664,7 @@ CONTAINS
                                                             ncontacts, nspins
       LOGICAL                                            :: do_kpoints
       REAL(kind=dp) :: mu_base, nelectrons_guess, nelectrons_max, nelectrons_min, nelectrons_ref, &
-         t1, t2, temperature, trace, v_shift_guess, v_shift_max, v_shift_min
+                       t1, t2, temperature, trace, v_shift_guess, v_shift_max, v_shift_min
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_fm_p_type), ALLOCATABLE, DIMENSION(:)      :: rho_ao_fm
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct
@@ -2074,7 +2074,7 @@ CONTAINS
 
       COMPLEX(kind=dp), ALLOCATABLE, DIMENSION(:)        :: xnodes, zscale
       INTEGER :: handle, icontact, interval_id, ipoint, max_points, min_points, ncontacts, &
-         npoints, npoints_exist, npoints_tmp, npoints_total, shape_id
+                 npoints, npoints_exist, npoints_tmp, npoints_total, shape_id
       LOGICAL                                            :: do_surface_green
       REAL(kind=dp)                                      :: conv_integr, mu_base, temperature, &
                                                             v_external
@@ -2633,7 +2633,7 @@ CONTAINS
                                                             min_points, ncontacts, npoints, &
                                                             npoints_total
       REAL(kind=dp) :: conv_density, energy, eta, ln_conv_density, mu_contact1, mu_contact2, &
-         temperature_contact1, temperature_contact2, v_contact1, v_contact2
+                       temperature_contact1, temperature_contact2, v_contact1, v_contact2
       TYPE(cp_cfm_p_type), ALLOCATABLE, DIMENSION(:)     :: zdata
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_single
       TYPE(cp_fm_type), POINTER                          :: weights

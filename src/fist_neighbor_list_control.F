@@ -14,34 +14,34 @@
 ! **************************************************************************************************
 MODULE fist_neighbor_list_control
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE cell_types,                      ONLY: cell_clone,&
-                                              cell_create,&
-                                              cell_release,&
-                                              cell_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE exclusion_types,                 ONLY: exclusion_type
-   USE fist_neighbor_list_types,        ONLY: fist_neighbor_type
-   USE fist_neighbor_lists,             ONLY: build_fist_neighbor_lists
-   USE fist_nonbond_env_types,          ONLY: fist_nonbond_env_get,&
-                                              fist_nonbond_env_set,&
-                                              fist_nonbond_env_type,&
-                                              pos_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_max
-   USE pair_potential_types,            ONLY: gal_type,&
-                                              pair_potential_pp_type,&
-                                              siepmann_type,&
-                                              tersoff_type
-   USE particle_types,                  ONLY: particle_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE cell_types, ONLY: cell_clone, &
+                         cell_create, &
+                         cell_release, &
+                         cell_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE exclusion_types, ONLY: exclusion_type
+   USE fist_neighbor_list_types, ONLY: fist_neighbor_type
+   USE fist_neighbor_lists, ONLY: build_fist_neighbor_lists
+   USE fist_nonbond_env_types, ONLY: fist_nonbond_env_get, &
+                                     fist_nonbond_env_set, &
+                                     fist_nonbond_env_type, &
+                                     pos_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_max
+   USE pair_potential_types, ONLY: gal_type, &
+                                   pair_potential_pp_type, &
+                                   siepmann_type, &
+                                   tersoff_type
+   USE particle_types, ONLY: particle_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -94,8 +94,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'list_control'
 
       INTEGER :: counter, handle, ikind, iparticle, iparticle_kind, iparticle_local, ishell, &
-         jkind, last_update, nparticle, nparticle_kind, nparticle_local, nshell, num_update, &
-         output_unit
+                 jkind, last_update, nparticle, nparticle_kind, nparticle_local, nshell, num_update, &
+                 output_unit
       LOGICAL                                            :: build_from_scratch, geo_check, &
                                                             shell_adiabatic, shell_present, &
                                                             update_neighbor_lists

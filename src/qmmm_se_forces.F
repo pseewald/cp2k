@@ -11,44 +11,44 @@
 !> \author Teodoro Laino - 04.2007 [tlaino]
 ! **************************************************************************************************
 MODULE qmmm_se_forces
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_p_type
-   USE input_constants,                 ONLY: &
-        do_method_am1, do_method_mndo, do_method_mndod, do_method_pchg, do_method_pdg, &
-        do_method_pm3, do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_rm1
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE multipole_types,                 ONLY: do_multipole_none
-   USE particle_types,                  ONLY: particle_type
-   USE qmmm_types_low,                  ONLY: qmmm_env_qm_type,&
-                                              qmmm_pot_p_type,&
-                                              qmmm_pot_type
-   USE qmmm_util,                       ONLY: spherical_cutoff_factor
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_qmmm_types,                ONLY: qs_ks_qmmm_env_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE semi_empirical_int_arrays,       ONLY: se_orbital_pointer
-   USE semi_empirical_integrals,        ONLY: dcorecore,&
-                                              drotnuc
-   USE semi_empirical_types,            ONLY: get_se_param,&
-                                              se_int_control_type,&
-                                              se_taper_type,&
-                                              semi_empirical_create,&
-                                              semi_empirical_release,&
-                                              semi_empirical_type,&
-                                              setup_se_int_control_type
-   USE semi_empirical_utils,            ONLY: get_se_type,&
-                                              se_param_set_default
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_get_block_p, &
+                        dbcsr_p_type
+   USE input_constants, ONLY: &
+      do_method_am1, do_method_mndo, do_method_mndod, do_method_pchg, do_method_pdg, &
+      do_method_pm3, do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_rm1
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE multipole_types, ONLY: do_multipole_none
+   USE particle_types, ONLY: particle_type
+   USE qmmm_types_low, ONLY: qmmm_env_qm_type, &
+                             qmmm_pot_p_type, &
+                             qmmm_pot_type
+   USE qmmm_util, ONLY: spherical_cutoff_factor
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_qmmm_types, ONLY: qs_ks_qmmm_env_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE semi_empirical_int_arrays, ONLY: se_orbital_pointer
+   USE semi_empirical_integrals, ONLY: dcorecore, &
+                                       drotnuc
+   USE semi_empirical_types, ONLY: get_se_param, &
+                                   se_int_control_type, &
+                                   se_taper_type, &
+                                   semi_empirical_create, &
+                                   semi_empirical_release, &
+                                   semi_empirical_type, &
+                                   setup_se_int_control_type
+   USE semi_empirical_utils, ONLY: get_se_type, &
+                                   se_param_set_default
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

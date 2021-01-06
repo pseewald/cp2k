@@ -13,48 +13,48 @@
 !> \author Florian Schiffmann
 ! **************************************************************************************************
 MODULE rtp_admm_methods
-   USE admm_types,                      ONLY: admm_env_create,&
-                                              admm_type
-   USE cp_control_types,                ONLY: admm_control_type,&
-                                              dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              cp_dbcsr_plus_fm_fm_t
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_upper_to_full
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose,&
-                                              cp_fm_cholesky_invert
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_deallocate_matrix, dbcsr_desymmetrize, &
-        dbcsr_get_info, dbcsr_p_type, dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry
-   USE hfx_admm_utils,                  ONLY: create_admm_xc_section
-   USE input_constants,                 ONLY: do_admm_basis_projection,&
-                                              do_admm_purify_none
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: one,&
-                                              zero
-   USE particle_types,                  ONLY: particle_type
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_collocate_density,            ONLY: calculate_rho_elec
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_set,&
-                                              qs_rho_type
-   USE rt_propagation_types,            ONLY: get_rtp,&
-                                              rt_prop_type
-   USE task_list_types,                 ONLY: task_list_type
+   USE admm_types, ONLY: admm_env_create, &
+                         admm_type
+   USE cp_control_types, ONLY: admm_control_type, &
+                               dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  cp_dbcsr_plus_fm_fm_t
+   USE cp_fm_basic_linalg, ONLY: cp_fm_upper_to_full
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose, &
+                             cp_fm_cholesky_invert
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_deallocate_matrix, dbcsr_desymmetrize, &
+      dbcsr_get_info, dbcsr_p_type, dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry
+   USE hfx_admm_utils, ONLY: create_admm_xc_section
+   USE input_constants, ONLY: do_admm_basis_projection, &
+                              do_admm_purify_none
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: one, &
+                            zero
+   USE particle_types, ONLY: particle_type
+   USE pw_types, ONLY: pw_p_type
+   USE qs_collocate_density, ONLY: calculate_rho_elec
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_set, &
+                           qs_rho_type
+   USE rt_propagation_types, ONLY: get_rtp, &
+                                   rt_prop_type
+   USE task_list_types, ONLY: task_list_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -455,7 +455,7 @@ CONTAINS
             CPWARN("only purification NONE possible with RTP/EMD at the moment")
          END SELECT
 
-      ENDDO !spin loop
+      END DO !spin loop
       CALL timestop(handle)
 
    END SUBROUTINE rtp_admm_merge_ks_matrix

@@ -9,35 +9,35 @@
 !> \brief Set of routines to apply restraints to the KS hamiltonian
 ! **************************************************************************************************
 MODULE qs_ks_apply_restraints
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_p_type,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE input_constants,                 ONLY: cdft_charge_constraint,&
-                                              outer_scf_becke_constraint,&
-                                              outer_scf_hirshfeld_constraint
-   USE kinds,                           ONLY: dp
-   USE mulliken,                        ONLY: mulliken_restraint
-   USE pw_methods,                      ONLY: pw_scale
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE
-   USE qs_cdft_methods,                 ONLY: becke_constraint,&
-                                              hirshfeld_constraint
-   USE qs_cdft_types,                   ONLY: cdft_control_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE s_square_methods,                ONLY: s2_restraint
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_p_type, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE input_constants, ONLY: cdft_charge_constraint, &
+                              outer_scf_becke_constraint, &
+                              outer_scf_hirshfeld_constraint
+   USE kinds, ONLY: dp
+   USE mulliken, ONLY: mulliken_restraint
+   USE pw_methods, ONLY: pw_scale
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE
+   USE qs_cdft_methods, ONLY: becke_constraint, &
+                              hirshfeld_constraint
+   USE qs_cdft_types, ONLY: cdft_control_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE s_square_methods, ONLY: s2_restraint
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -169,9 +169,9 @@ CONTAINS
             CALL mulliken_restraint(dft_control%qs_control%mulliken_restraint_control, &
                                     para_env, matrix_s(1, 1)%matrix, rho_ao, energy=energy%mulliken, &
                                     ks_matrix=ksmat, order_p=mulliken_order_p)
-         ENDIF
+         END IF
 
-      ENDIF
+      END IF
 
    END SUBROUTINE qs_ks_mulliken_restraint
 
@@ -217,7 +217,7 @@ CONTAINS
             CALL get_mo_set(mo_set=mo_array(i)%mo_set, mo_coeff=mo_coeff) !fm->dbcsr
             CALL cp_fm_create(fm_mo_derivs(i)%matrix, mo_coeff%matrix_struct) !fm->dbcsr
             CALL copy_dbcsr_to_fm(mo_derivs(i)%matrix, fm_mo_derivs(i)%matrix) !fm->dbcsr
-         ENDDO !fm->dbcsr
+         END DO !fm->dbcsr
 
          smat => matrix_s(:, 1)
          CALL s2_restraint(mo_array, smat, fm_mo_derivs, energy%s2_restraint, &
@@ -225,12 +225,12 @@ CONTAINS
 
          DO i = 1, SIZE(mo_derivs, 1) !fm->dbcsr
             CALL copy_fm_to_dbcsr(fm_mo_derivs(i)%matrix, mo_derivs(i)%matrix) !fm->dbcsr
-         ENDDO !fm->dbcsr
+         END DO !fm->dbcsr
          DEALLOCATE (fm_mo_derivs) !fm->dbcsr
 
       ELSE
          energy%s2_restraint = 0.0_dp
-      ENDIF
+      END IF
    END SUBROUTINE qs_ks_s2_restraint
 
 END MODULE qs_ks_apply_restraints

@@ -12,32 +12,32 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE qs_density_mixing_types
-   USE ao_util,                         ONLY: exp_radius
-   USE cp_dbcsr_operations,             ONLY: dbcsr_deallocate_matrix_set
-   USE dbcsr_api,                       ONLY: dbcsr_deallocate_matrix,&
-                                              dbcsr_p_type,&
-                                              dbcsr_type
-   USE input_constants,                 ONLY: broy_mix,&
-                                              broy_mix_new,&
-                                              direct_p_mix,&
-                                              gaussian,&
-                                              kerker_mix,&
-                                              multisec_mix,&
-                                              no_mix,&
-                                              pulay_mix
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_create,&
-                                              section_type,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE input_val_types,                 ONLY: real_t
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE qs_rho_atom_types,               ONLY: rho_atom_coeff
-   USE string_utilities,                ONLY: s2a
+   USE ao_util, ONLY: exp_radius
+   USE cp_dbcsr_operations, ONLY: dbcsr_deallocate_matrix_set
+   USE dbcsr_api, ONLY: dbcsr_deallocate_matrix, &
+                        dbcsr_p_type, &
+                        dbcsr_type
+   USE input_constants, ONLY: broy_mix, &
+                              broy_mix_new, &
+                              direct_p_mix, &
+                              gaussian, &
+                              kerker_mix, &
+                              multisec_mix, &
+                              no_mix, &
+                              pulay_mix
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_create, &
+                                  section_type, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE input_val_types, ONLY: real_t
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE qs_rho_atom_types, ONLY: rho_atom_coeff
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -239,15 +239,15 @@ CONTAINS
 
             IF (ASSOCIATED(mixing_store%kerker_factor)) THEN
                DEALLOCATE (mixing_store%kerker_factor)
-            ENDIF
+            END IF
 
             IF (ASSOCIATED(mixing_store%special_metric)) THEN
                DEALLOCATE (mixing_store%special_metric)
-            ENDIF
+            END IF
 
             IF (ASSOCIATED(mixing_store%pulay_matrix)) THEN
                DEALLOCATE (mixing_store%pulay_matrix)
-            ENDIF
+            END IF
 
             IF (ASSOCIATED(mixing_store%rhoin_buffer)) THEN
                DO i = 1, SIZE(mixing_store%rhoin_buffer, 2)
@@ -256,7 +256,7 @@ CONTAINS
                   END DO
                END DO
                DEALLOCATE (mixing_store%rhoin_buffer)
-            ENDIF
+            END IF
 
             IF (ASSOCIATED(mixing_store%paw)) THEN
                DEALLOCATE (mixing_store%paw)
@@ -339,7 +339,7 @@ CONTAINS
                END DO
                DEALLOCATE (mixing_store%cpc_h_lastres)
                DEALLOCATE (mixing_store%cpc_s_lastres)
-            ENDIF
+            END IF
 
             IF (ASSOCIATED(mixing_store%res_buffer)) THEN
                DO i = 1, SIZE(mixing_store%res_buffer, 2)
@@ -348,15 +348,15 @@ CONTAINS
                   END DO
                END DO
                DEALLOCATE (mixing_store%res_buffer)
-            ENDIF
+            END IF
 
             IF (ASSOCIATED(mixing_store%norm_res_buffer)) THEN
                DEALLOCATE (mixing_store%norm_res_buffer)
-            ENDIF
+            END IF
 
             IF (ASSOCIATED(mixing_store%ig_global_index)) THEN
                DEALLOCATE (mixing_store%ig_global_index)
-            ENDIF
+            END IF
 
             IF (ASSOCIATED(mixing_store%drho_buffer)) THEN
                DO i = 1, SIZE(mixing_store%drho_buffer, 2)
@@ -365,7 +365,7 @@ CONTAINS
                   END DO
                END DO
                DEALLOCATE (mixing_store%drho_buffer)
-            ENDIF
+            END IF
 
             IF (ASSOCIATED(mixing_store%last_res)) THEN
                DO i = 1, SIZE(mixing_store%last_res)
@@ -507,16 +507,16 @@ CONTAINS
             ls = .TRUE.
          ELSE
             ls = .FALSE.
-         ENDIF
+         END IF
       ELSE
          ls = .FALSE.
-      ENDIF
+      END IF
 
       IF (ls) THEN
          section_name = "RHO_MIXING"
       ELSE
          section_name = "MIXING"
-      ENDIF
+      END IF
 
       CALL section_create(section, __LOCATION__, &
                           name=section_name, &
@@ -545,7 +545,7 @@ CONTAINS
          default_mix = direct_p_mix
       ELSE
          default_mix = broy_mix
-      ENDIF
+      END IF
 
       CALL keyword_create(keyword, __LOCATION__, &
                           name="METHOD", &

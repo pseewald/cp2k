@@ -15,68 +15,68 @@
 !>                                       (patch by Marcel Baer)
 ! **************************************************************************************************
 MODULE md_vel_utils
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE bibliography,                    ONLY: West2006,&
-                                              cite_reference
-   USE cell_types,                      ONLY: &
-        cell_type, use_perd_none, use_perd_x, use_perd_xy, use_perd_xyz, use_perd_xz, use_perd_y, &
-        use_perd_yz, use_perd_z
-   USE cp_linked_list_input,            ONLY: cp_sll_val_next,&
-                                              cp_sll_val_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE extended_system_types,           ONLY: npt_info_type
-   USE force_env_methods,               ONLY: force_env_calc_energy_force
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE force_env_utils,                 ONLY: force_env_rattle,&
-                                              force_env_shake
-   USE global_types,                    ONLY: global_environment_type
-   USE input_constants,                 ONLY: &
-        md_init_default, md_init_vib, npe_f_ensemble, npe_i_ensemble, &
-        nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, npt_f_ensemble, npt_i_ensemble, &
-        reftraj_ensemble
-   USE input_cp2k_binary_restarts,      ONLY: read_binary_velocities
-   USE input_restart_force_eval,        ONLY: update_subsys
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_list_get,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE input_val_types,                 ONLY: val_get,&
-                                              val_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi
-   USE mathlib,                         ONLY: diamat_all
-   USE md_ener_types,                   ONLY: md_ener_type
-   USE md_environment_types,            ONLY: get_md_env,&
-                                              md_environment_type
-   USE md_util,                         ONLY: read_vib_eigs_unformatted
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: fixd_constraint_type,&
-                                              get_molecule_kind,&
-                                              get_molecule_kind_set,&
-                                              molecule_kind_type
-   USE parallel_rng_types,              ONLY: UNIFORM,&
-                                              rng_stream_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: kelvin
-   USE shell_opt,                       ONLY: optimize_shell_core
-   USE shell_potential_types,           ONLY: shell_kind_type
-   USE simpar_types,                    ONLY: simpar_type
-   USE thermal_region_types,            ONLY: thermal_region_type,&
-                                              thermal_regions_type
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE bibliography, ONLY: West2006, &
+                           cite_reference
+   USE cell_types, ONLY: &
+      cell_type, use_perd_none, use_perd_x, use_perd_xy, use_perd_xyz, use_perd_xz, use_perd_y, &
+      use_perd_yz, use_perd_z
+   USE cp_linked_list_input, ONLY: cp_sll_val_next, &
+                                   cp_sll_val_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE extended_system_types, ONLY: npt_info_type
+   USE force_env_methods, ONLY: force_env_calc_energy_force
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE force_env_utils, ONLY: force_env_rattle, &
+                              force_env_shake
+   USE global_types, ONLY: global_environment_type
+   USE input_constants, ONLY: &
+      md_init_default, md_init_vib, npe_f_ensemble, npe_i_ensemble, &
+      nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, npt_f_ensemble, npt_i_ensemble, &
+      reftraj_ensemble
+   USE input_cp2k_binary_restarts, ONLY: read_binary_velocities
+   USE input_restart_force_eval, ONLY: update_subsys
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_list_get, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE input_val_types, ONLY: val_get, &
+                              val_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi
+   USE mathlib, ONLY: diamat_all
+   USE md_ener_types, ONLY: md_ener_type
+   USE md_environment_types, ONLY: get_md_env, &
+                                   md_environment_type
+   USE md_util, ONLY: read_vib_eigs_unformatted
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_type
+   USE molecule_kind_types, ONLY: fixd_constraint_type, &
+                                  get_molecule_kind, &
+                                  get_molecule_kind_set, &
+                                  molecule_kind_type
+   USE parallel_rng_types, ONLY: UNIFORM, &
+                                 rng_stream_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: kelvin
+   USE shell_opt, ONLY: optimize_shell_core
+   USE shell_potential_types, ONLY: shell_kind_type
+   USE simpar_types, ONLY: simpar_type
+   USE thermal_region_types, ONLY: thermal_region_type, &
+                                   thermal_regions_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -282,7 +282,7 @@ CONTAINS
          factor = my_temp/(2.0_dp*ekin)*REAL(my_nfree, KIND=dp)
       ELSE
          factor = 0.0_dp
-      ENDIF
+      END IF
       ! Note:
       ! this rescaling is still wrong, it should take the masses into account
       ! rescaling is generally not correct, so needs fixing
@@ -703,7 +703,7 @@ CONTAINS
 
       INTEGER                                            :: i, natoms, nshell, shell_index
       LOGICAL :: atomvel_explicit, atomvel_read, corevel_explicit, corevel_read, is_ok, &
-         rescale_regions, shellvel_explicit, shellvel_read
+                 rescale_regions, shellvel_explicit, shellvel_read
       REAL(KIND=dp)                                      :: ecom, ekin, fac_massc, fac_masss, mass
       REAL(KIND=dp), DIMENSION(3)                        :: vc, vcom, vs
       REAL(KIND=dp), DIMENSION(:), POINTER               :: vel
@@ -1224,7 +1224,7 @@ CONTAINS
       ! copied so that the initial relative core-shell velocity is zero.
       IF (shell_present) THEN
          CALL optimize_shell_core(force_env, part, shell_part, core_part, globenv)
-      ENDIF
+      END IF
    END SUBROUTINE generate_velocities
 
 ! **************************************************************************************************

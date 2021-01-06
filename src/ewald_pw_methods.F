@@ -10,37 +10,37 @@
 !> \author CJM
 ! **************************************************************************************************
 MODULE ewald_pw_methods
-   USE dg_rho0_types,                   ONLY: dg_rho0_get,&
-                                              dg_rho0_init,&
-                                              dg_rho0_set,&
-                                              dg_rho0_type
-   USE dg_types,                        ONLY: dg_get,&
-                                              dg_set,&
-                                              dg_type
-   USE dgs,                             ONLY: dg_grid_change
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_env_set,&
-                                              ewald_environment_type
-   USE ewald_pw_types,                  ONLY: ewald_pw_get,&
-                                              ewald_pw_set,&
-                                              ewald_pw_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_grids,                        ONLY: pw_grid_change
-   USE pw_poisson_methods,              ONLY: pw_poisson_set
+   USE dg_rho0_types, ONLY: dg_rho0_get, &
+                            dg_rho0_init, &
+                            dg_rho0_set, &
+                            dg_rho0_type
+   USE dg_types, ONLY: dg_get, &
+                       dg_set, &
+                       dg_type
+   USE dgs, ONLY: dg_grid_change
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_env_set, &
+                                      ewald_environment_type
+   USE ewald_pw_types, ONLY: ewald_pw_get, &
+                             ewald_pw_set, &
+                             ewald_pw_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_grids, ONLY: pw_grid_change
+   USE pw_poisson_methods, ONLY: pw_poisson_set
 ! CJM, pw_poisson_rebuild
-   USE pw_poisson_read_input,           ONLY: pw_poisson_read_parameters
-   USE pw_poisson_types,                ONLY: do_ewald_ewald,&
-                                              do_ewald_none,&
-                                              do_ewald_pme,&
-                                              do_ewald_spme,&
-                                              pw_poisson_create,&
-                                              pw_poisson_parameter_type,&
-                                              pw_poisson_release,&
-                                              pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_p_type,&
-                                              pw_pool_type
+   USE pw_poisson_read_input, ONLY: pw_poisson_read_parameters
+   USE pw_poisson_types, ONLY: do_ewald_ewald, &
+                               do_ewald_none, &
+                               do_ewald_pme, &
+                               do_ewald_spme, &
+                               pw_poisson_create, &
+                               pw_poisson_parameter_type, &
+                               pw_poisson_release, &
+                               pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_p_type, &
+                            pw_pool_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -168,7 +168,7 @@ CONTAINS
 
       IF (.NOT. ASSOCIATED(zet)) THEN
          ALLOCATE (zet(1))
-      ENDIF
+      END IF
 
 ! No contracted Gaussians are used here
       NULLIFY (gcc)

@@ -12,23 +12,23 @@
 !> \author Nico Holmberg [01.2017]
 ! **************************************************************************************************
 MODULE mixed_cdft_types
-   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_release,&
-                                              cp_blacs_env_type
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_release
-   USE cp_log_handling,                 ONLY: cp_logger_p_type,&
-                                              cp_logger_release
-   USE dbcsr_api,                       ONLY: dbcsr_p_type,&
-                                              dbcsr_release_p,&
-                                              dbcsr_type
-   USE kinds,                           ONLY: dp
-   USE pw_env_types,                    ONLY: pw_env_release,&
-                                              pw_env_type
-   USE qs_cdft_types,                   ONLY: cdft_control_release,&
-                                              cdft_control_type
-   USE qs_kind_types,                   ONLY: deallocate_qs_kind_set,&
-                                              qs_kind_type
+   USE cp_array_utils, ONLY: cp_1d_r_p_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_release, &
+                           cp_blacs_env_type
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_release
+   USE cp_log_handling, ONLY: cp_logger_p_type, &
+                              cp_logger_release
+   USE dbcsr_api, ONLY: dbcsr_p_type, &
+                        dbcsr_release_p, &
+                        dbcsr_type
+   USE kinds, ONLY: dp
+   USE pw_env_types, ONLY: pw_env_release, &
+                           pw_env_type
+   USE qs_cdft_types, ONLY: cdft_control_release, &
+                            cdft_control_type
+   USE qs_kind_types, ONLY: deallocate_qs_kind_set, &
+                            qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

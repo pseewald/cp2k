@@ -12,58 +12,58 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE hirshfeld_methods
-   USE ao_util,                         ONLY: exp_radius_very_extended
-   USE atom_kind_orbitals,              ONLY: calculate_atomic_density
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE cube_utils,                      ONLY: cube_info_type
-   USE grid_api,                        ONLY: GRID_FUNC_AB,&
-                                              collocate_pgf_product,&
-                                              integrate_pgf_product
-   USE hirshfeld_types,                 ONLY: get_hirshfeld_info,&
-                                              hirshfeld_type,&
-                                              set_hirshfeld_info
-   USE input_constants,                 ONLY: radius_covalent,&
-                                              radius_default,&
-                                              radius_single,&
-                                              radius_user,&
-                                              radius_vdw,&
-                                              shape_function_density,&
-                                              shape_function_gaussian
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE periodic_table,                  ONLY: get_ptable_info
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_integrate_function
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE,&
-                                              pw_p_type,&
-                                              pw_release
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE realspace_grid_types,            ONLY: pw2rs,&
-                                              realspace_grid_desc_type,&
-                                              realspace_grid_type,&
-                                              rs2pw,&
-                                              rs_grid_release,&
-                                              rs_grid_retain,&
-                                              rs_grid_zero,&
-                                              rs_pw_transfer
+   USE ao_util, ONLY: exp_radius_very_extended
+   USE atom_kind_orbitals, ONLY: calculate_atomic_density
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE cube_utils, ONLY: cube_info_type
+   USE grid_api, ONLY: GRID_FUNC_AB, &
+                       collocate_pgf_product, &
+                       integrate_pgf_product
+   USE hirshfeld_types, ONLY: get_hirshfeld_info, &
+                              hirshfeld_type, &
+                              set_hirshfeld_info
+   USE input_constants, ONLY: radius_covalent, &
+                              radius_default, &
+                              radius_single, &
+                              radius_user, &
+                              radius_vdw, &
+                              shape_function_density, &
+                              shape_function_gaussian
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE periodic_table, ONLY: get_ptable_info
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_integrate_function
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE, &
+                       pw_p_type, &
+                       pw_release
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE realspace_grid_types, ONLY: pw2rs, &
+                                   realspace_grid_desc_type, &
+                                   realspace_grid_type, &
+                                   rs2pw, &
+                                   rs_grid_release, &
+                                   rs_grid_retain, &
+                                   rs_grid_zero, &
+                                   rs_pw_transfer
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -457,11 +457,11 @@ CONTAINS
                   IF (MODULO(iatom, rs_rho%desc%group_size) == rs_rho%desc%my_pos) THEN
                      npme = npme + 1
                      cores(npme) = iatom
-                  ENDIF
+                  END IF
                ELSE
                   npme = npme + 1
                   cores(npme) = iatom
-               ENDIF
+               END IF
             END DO
             DO j = 1, npme
                iatom = cores(j)
@@ -491,7 +491,7 @@ CONTAINS
       IF (ASSOCIATED(fnorm)) THEN
          CALL pw_release(fnorm%pw)
          DEALLOCATE (fnorm)
-      ENDIF
+      END IF
       ALLOCATE (fnorm)
       CALL pw_pool_create_pw(auxbas_pw_pool, fnorm%pw, use_data=REALDATA3D)
       fnorm%pw%in_space = REALSPACE
@@ -581,11 +581,11 @@ CONTAINS
                   IF (MODULO(iatom, rs_v%desc%group_size) == rs_v%desc%my_pos) THEN
                      npme = npme + 1
                      cores(npme) = iatom
-                  ENDIF
+                  END IF
                ELSE
                   npme = npme + 1
                   cores(npme) = iatom
-               ENDIF
+               END IF
             END DO
 
             DO j = 1, npme

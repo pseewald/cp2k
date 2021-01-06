@@ -12,21 +12,21 @@
 !> \author Manuel Guidon
 ! **************************************************************************************************
 MODULE xc_xbecke88_long_range
-   USE bibliography,                    ONLY: Becke1988,&
-                                              cite_reference
-   USE cp_array_utils,                  ONLY: cp_3d_r_p_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi,&
-                                              rootpi
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
+   USE bibliography, ONLY: Becke1988, &
+                           cite_reference
+   USE cp_array_utils, ONLY: cp_3d_r_p_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi, &
+                            rootpi
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -125,8 +125,8 @@ CONTAINS
       INTEGER, DIMENSION(:, :), POINTER                  :: bo
       REAL(kind=dp)                                      :: epsilon_rho, omega, sx
       REAL(kind=dp), DIMENSION(:, :, :), POINTER :: dummy, e_0, e_ndrho, e_ndrho_ndrho, &
-         e_ndrho_ndrho_ndrho, e_ndrho_ndrho_rho, e_ndrho_rho, e_ndrho_rho_rho, e_rho, e_rho_rho, &
-         e_rho_rho_rho, norm_drho, rho
+                                           e_ndrho_ndrho_ndrho, e_ndrho_ndrho_rho, e_ndrho_rho, e_ndrho_rho_rho, e_rho, e_rho_rho, &
+                                                    e_rho_rho_rho, norm_drho, rho
       TYPE(xc_derivative_type), POINTER                  :: deriv
 
       CALL timeset(routineN, handle)
@@ -257,33 +257,33 @@ CONTAINS
                                omega)
       INTEGER, INTENT(in)                                :: npoints, grad_deriv
       REAL(kind=dp), DIMENSION(1:npoints), INTENT(inout) :: e_ndrho_ndrho_ndrho, &
-         e_ndrho_ndrho_rho, e_ndrho_rho_rho, e_rho_rho_rho, e_ndrho_ndrho, e_ndrho_rho, e_rho_rho, &
-         e_ndrho, e_rho, e_0
+                                         e_ndrho_ndrho_rho, e_ndrho_rho_rho, e_rho_rho_rho, e_ndrho_ndrho, e_ndrho_rho, e_rho_rho, &
+                                                            e_ndrho, e_rho, e_0
       REAL(kind=dp), DIMENSION(1:npoints), INTENT(in)    :: norm_drho, rho
       REAL(kind=dp), INTENT(in)                          :: epsilon_rho, sx, omega
 
       INTEGER                                            :: ii
       REAL(kind=dp) :: Cx, epsilon_rho43, my_epsilon_rho, my_ndrho, my_rho, t1, t10, t100, t1002, &
-         t1009, t101, t1013, t103, t104, t1044, t105, t1069, t109, t1091, t11, t1102, t112, t113, &
-         t1136, t1141, t1146, t1153, t1156, t116, t1163, t1167, t117, t1177, t118, t12, t122, &
-         t1220, t126, t127, t128, t1284, t130, t132, t133, t1334, t1341, t1345, t135, t136, t137, &
-         t1370, t1396, t140, t1400, t1404, t1405, t141, t1412, t143, t1449, t1456, t146, t1467, &
-         t147, t1472, t148, t151, t155, t1553, t16, t168, t169, t17, t172, t173, t176, t177, t18, &
-         t185, t186, t190, t196, t2, t200, t207, t21, t211, t212, t213
+                       t1009, t101, t1013, t103, t104, t1044, t105, t1069, t109, t1091, t11, t1102, t112, t113, &
+                       t1136, t1141, t1146, t1153, t1156, t116, t1163, t1167, t117, t1177, t118, t12, t122, &
+                       t1220, t126, t127, t128, t1284, t130, t132, t133, t1334, t1341, t1345, t135, t136, t137, &
+                       t1370, t1396, t140, t1400, t1404, t1405, t141, t1412, t143, t1449, t1456, t146, t1467, &
+                       t147, t1472, t148, t151, t155, t1553, t16, t168, t169, t17, t172, t173, t176, t177, t18, &
+                       t185, t186, t190, t196, t2, t200, t207, t21, t211, t212, t213
       REAL(kind=dp) :: t216, t219, t22, t221, t222, t225, t226, t23, t230, t231, t232, t233, t237, &
-         t24, t241, t244, t245, t250, t251, t254, t255, t258, t259, t26, t264, t265, t27, t270, &
-         t271, t28, t281, t284, t285, t289, t29, t293, t297, t3, t30, t304, t31, t311, t312, t313, &
-         t316, t319, t321, t323, t325, t326, t328, t330, t335, t339, t34, t343, t346, t347, t351, &
-         t354, t358, t36, t365, t368, t37, t372, t377, t38, t382, t383, t384, t39, t393, t397, &
-         t40, t400, t401, t404, t405, t408, t41, t412, t413, t417, t418, t42, t428, t429, t43, &
-         t435, t44, t451, t452, t455, t457, t46, t460, t462, t463, t464
+                       t24, t241, t244, t245, t250, t251, t254, t255, t258, t259, t26, t264, t265, t27, t270, &
+                       t271, t28, t281, t284, t285, t289, t29, t293, t297, t3, t30, t304, t31, t311, t312, t313, &
+                       t316, t319, t321, t323, t325, t326, t328, t330, t335, t339, t34, t343, t346, t347, t351, &
+                       t354, t358, t36, t365, t368, t37, t372, t377, t38, t382, t383, t384, t39, t393, t397, &
+                       t40, t400, t401, t404, t405, t408, t41, t412, t413, t417, t418, t42, t428, t429, t43, &
+                       t435, t44, t451, t452, t455, t457, t46, t460, t462, t463, t464
       REAL(kind=dp) :: t465, t466, t467, t47, t470, t473, t478, t479, t48, t482, t486, t489, t49, &
-         t492, t496, t5, t501, t502, t505, t508, t51, t513, t514, t519, t52, t521, t525, t526, &
-         t529, t530, t533, t534, t536, t537, t539, t55, t562, t566, t570, t571, t572, t573, t574, &
-         t575, t576, t580, t586, t59, t590, t6, t60, t601, t605, t606, t613, t624, t628, t632, &
-         t639, t64, t640, t641, t657, t667, t669, t677, t68, t687, t69, t7, t71, t716, t72, t722, &
-         t735, t739, t746, t75, t76, t769, t77, t79, t791, t793, t8, t838, t84, t842, t846, t85, &
-         t857, t86, t860, t867, t87, t880, t90, t91, t933, t94, t95, t961
+                       t492, t496, t5, t501, t502, t505, t508, t51, t513, t514, t519, t52, t521, t525, t526, &
+                       t529, t530, t533, t534, t536, t537, t539, t55, t562, t566, t570, t571, t572, t573, t574, &
+                       t575, t576, t580, t586, t59, t590, t6, t60, t601, t605, t606, t613, t624, t628, t632, &
+                       t639, t64, t640, t641, t657, t667, t669, t677, t68, t687, t69, t7, t71, t716, t72, t722, &
+                       t735, t739, t746, t75, t76, t769, t77, t79, t791, t793, t8, t838, t84, t842, t846, t85, &
+                       t857, t86, t860, t867, t87, t880, t90, t91, t933, t94, t95, t961
       REAL(kind=dp) :: t98, t99, xx
 
       my_epsilon_rho = epsilon_rho
@@ -846,8 +846,8 @@ CONTAINS
       REAL(kind=dp)                                      :: epsilon_rho, omega, sx
       REAL(kind=dp), DIMENSION(:, :, :), POINTER         :: dummy, e_0
       TYPE(cp_3d_r_p_type), DIMENSION(2) :: e_ndrho, e_ndrho_ndrho, e_ndrho_ndrho_ndrho, &
-         e_ndrho_ndrho_rho, e_ndrho_rho, e_ndrho_rho_rho, e_rho, e_rho_rho, e_rho_rho_rho, &
-         norm_drho, rho
+                                            e_ndrho_ndrho_rho, e_ndrho_rho, e_ndrho_rho_rho, e_rho, e_rho_rho, e_rho_rho_rho, &
+                                            norm_drho, rho
       TYPE(xc_derivative_type), POINTER                  :: deriv
 
       CALL timeset(routineN, handle)
@@ -1028,33 +1028,33 @@ CONTAINS
                                omega)
       REAL(kind=dp), DIMENSION(*), INTENT(in)            :: rho_spin, norm_drho_spin
       REAL(kind=dp), DIMENSION(*), INTENT(inout) :: e_0, e_rho_spin, e_ndrho_spin, e_rho_rho_spin, &
-         e_ndrho_rho_spin, e_ndrho_ndrho_spin, e_rho_rho_rho_spin, e_ndrho_rho_rho_spin, &
-         e_ndrho_ndrho_rho_spin, e_ndrho_ndrho_ndrho_spin
+                                                   e_ndrho_rho_spin, e_ndrho_ndrho_spin, e_rho_rho_rho_spin, e_ndrho_rho_rho_spin, &
+                                                    e_ndrho_ndrho_rho_spin, e_ndrho_ndrho_ndrho_spin
       INTEGER, INTENT(in)                                :: grad_deriv, npoints
       REAL(kind=dp), INTENT(in)                          :: epsilon_rho, sx, omega
 
       INTEGER                                            :: ii
       REAL(kind=dp) :: Cx, epsilon_rho43, my_epsilon_rho, ndrho, rho, t1, t10, t100, t1002, t1009, &
-         t101, t1013, t103, t104, t1044, t105, t1069, t109, t1091, t11, t1102, t112, t113, t1136, &
-         t1141, t1146, t1153, t1156, t116, t1163, t1167, t117, t1177, t118, t12, t122, t1220, &
-         t126, t127, t128, t1284, t130, t132, t133, t1334, t1341, t1345, t135, t136, t137, t1370, &
-         t1396, t140, t1400, t1404, t1405, t141, t1412, t143, t1449, t1456, t146, t1467, t147, &
-         t1472, t148, t151, t155, t1553, t16, t168, t169, t17, t172, t173, t176, t177, t18, t185, &
-         t186, t190, t196, t2, t200, t207, t21, t211, t212, t213, t216
+                       t101, t1013, t103, t104, t1044, t105, t1069, t109, t1091, t11, t1102, t112, t113, t1136, &
+                       t1141, t1146, t1153, t1156, t116, t1163, t1167, t117, t1177, t118, t12, t122, t1220, &
+                       t126, t127, t128, t1284, t130, t132, t133, t1334, t1341, t1345, t135, t136, t137, t1370, &
+                       t1396, t140, t1400, t1404, t1405, t141, t1412, t143, t1449, t1456, t146, t1467, t147, &
+                       t1472, t148, t151, t155, t1553, t16, t168, t169, t17, t172, t173, t176, t177, t18, t185, &
+                       t186, t190, t196, t2, t200, t207, t21, t211, t212, t213, t216
       REAL(kind=dp) :: t219, t22, t221, t222, t225, t226, t23, t230, t231, t232, t233, t237, t24, &
-         t241, t244, t245, t250, t251, t254, t255, t258, t259, t26, t264, t265, t27, t270, t271, &
-         t28, t281, t284, t285, t289, t29, t293, t297, t3, t30, t304, t31, t311, t312, t313, t316, &
-         t319, t321, t323, t325, t326, t328, t330, t335, t339, t34, t343, t346, t347, t351, t354, &
-         t358, t36, t365, t368, t37, t372, t377, t38, t382, t383, t384, t39, t393, t397, t40, &
-         t400, t401, t404, t405, t408, t41, t412, t413, t417, t418, t42, t428, t429, t43, t435, &
-         t44, t451, t452, t455, t457, t46, t460, t462, t463, t464, t465
+                       t241, t244, t245, t250, t251, t254, t255, t258, t259, t26, t264, t265, t27, t270, t271, &
+                       t28, t281, t284, t285, t289, t29, t293, t297, t3, t30, t304, t31, t311, t312, t313, t316, &
+                       t319, t321, t323, t325, t326, t328, t330, t335, t339, t34, t343, t346, t347, t351, t354, &
+                       t358, t36, t365, t368, t37, t372, t377, t38, t382, t383, t384, t39, t393, t397, t40, &
+                       t400, t401, t404, t405, t408, t41, t412, t413, t417, t418, t42, t428, t429, t43, t435, &
+                       t44, t451, t452, t455, t457, t46, t460, t462, t463, t464, t465
       REAL(kind=dp) :: t466, t467, t47, t470, t473, t478, t479, t48, t482, t486, t489, t49, t492, &
-         t496, t5, t501, t502, t505, t508, t51, t513, t514, t519, t52, t521, t525, t526, t529, &
-         t530, t533, t534, t536, t537, t539, t55, t562, t566, t570, t571, t572, t573, t574, t575, &
-         t576, t580, t586, t59, t590, t6, t60, t601, t605, t606, t613, t624, t628, t632, t639, &
-         t64, t640, t641, t657, t667, t669, t677, t68, t687, t69, t7, t71, t716, t72, t722, t735, &
-         t739, t746, t75, t76, t769, t77, t79, t791, t793, t8, t838, t84, t842, t846, t85, t857, &
-         t86, t860, t867, t87, t880, t90, t91, t933, t94, t95, t961, t98
+                       t496, t5, t501, t502, t505, t508, t51, t513, t514, t519, t52, t521, t525, t526, t529, &
+                       t530, t533, t534, t536, t537, t539, t55, t562, t566, t570, t571, t572, t573, t574, t575, &
+                       t576, t580, t586, t59, t590, t6, t60, t601, t605, t606, t613, t624, t628, t632, t639, &
+                       t64, t640, t641, t657, t667, t669, t677, t68, t687, t69, t7, t71, t716, t72, t722, t735, &
+                       t739, t746, t75, t76, t769, t77, t79, t791, t793, t8, t838, t84, t842, t846, t85, t857, &
+                       t86, t860, t867, t87, t880, t90, t91, t933, t94, t95, t961, t98
       REAL(kind=dp) :: t99, xx
 
       my_epsilon_rho = 0.5_dp*epsilon_rho

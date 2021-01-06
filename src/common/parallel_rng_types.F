@@ -50,9 +50,9 @@
 ! **************************************************************************************************
 MODULE parallel_rng_types
 
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE string_utilities,                ONLY: compress
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE string_utilities, ONLY: compress
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

@@ -17,19 +17,19 @@
 !> \author Manuel Guidon
 ! **************************************************************************************************
 MODULE xc_lyp_adiabatic
-   USE bibliography,                    ONLY: Lee1988,&
-                                              cite_reference
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
+   USE bibliography, ONLY: Lee1988, &
+                           cite_reference
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -211,9 +211,9 @@ CONTAINS
 
       INTEGER                                            :: ii
       REAL(kind=dp) :: cf, my_ndrho, my_rho, t10, t107, t11, t117, t12, t122, t125, t13, t14, t15, &
-         t153, t16, t17, t180, t189, t19, t195, t2, t20, t25, t28, t29, t3, t34, t36, t37, t38, &
-         t4, t40, t41, t42, t43, t45, t46, t47, t50, t51, t52, t57, t58, t59, t6, t63, t65, t7, &
-         t71, t77, t78, t87, t9, t94
+                       t153, t16, t17, t180, t189, t19, t195, t2, t20, t25, t28, t29, t3, t34, t36, t37, t38, &
+                       t4, t40, t41, t42, t43, t45, t46, t47, t50, t51, t52, t57, t58, t59, t6, t63, t65, t7, &
+                       t71, t77, t78, t87, t9, t94
 
       cf = 0.3_dp*(3._dp*pi*pi)**(2._dp/3._dp)
 
@@ -334,9 +334,9 @@ CONTAINS
       INTEGER, DIMENSION(:, :), POINTER                  :: bo
       REAL(kind=dp)                                      :: epsilon_rho, lambda
       REAL(kind=dp), DIMENSION(:, :, :), POINTER :: dummy, e_0, e_ndr, e_ndr_ndr, e_ndr_ra, &
-         e_ndr_rb, e_ndra, e_ndra_ndra, e_ndra_ra, e_ndra_rb, e_ndrb, e_ndrb_ndrb, e_ndrb_ra, &
-         e_ndrb_rb, e_ra, e_ra_ra, e_ra_rb, e_rb, e_rb_rb, norm_drho, norm_drhoa, norm_drhob, &
-         rhoa, rhob
+                                              e_ndr_rb, e_ndra, e_ndra_ndra, e_ndra_ra, e_ndra_rb, e_ndrb, e_ndrb_ndrb, e_ndrb_ra, &
+                                              e_ndrb_rb, e_ra, e_ra_ra, e_ra_rb, e_rb, e_rb_rb, norm_drho, norm_drhoa, norm_drhob, &
+                                                    rhoa, rhob
       TYPE(xc_derivative_type), POINTER                  :: deriv
 
       CALL timeset(routineN, handle)
@@ -455,14 +455,14 @@ CONTAINS
 
       INTEGER                                            :: ii
       REAL(KIND=dp) :: cf, my_ndrho, my_ndrhoa, my_ndrhob, my_rhoa, my_rhob, t1, t10, t100, t102, &
-         t103, t106, t108, t113, t115, t118, t119, t124, t125, t128, t129, t132, t135, t138, t14, &
-         t140, t141, t143, t145, t146, t15, t151, t153, t157, t16, t162, t165, t169, t17, t171, &
-         t174, t179, t18, t183, t186, t187, t188, t19, t194, t196, t199, t2, t200, t202, t21, &
-         t212, t216, t220, t222, t223, t225, t23, t231, t237, t24, t246, t25, t250, t259, t26, &
-         t266, t27, t270, t273, t276, t28, t280, t285, t288, t294, t3, t30, t300, t307, t31, t316, &
-         t32, t325, t348, t351, t355, t362, t387, t39, t394, t4, t41, t42
+                       t103, t106, t108, t113, t115, t118, t119, t124, t125, t128, t129, t132, t135, t138, t14, &
+                       t140, t141, t143, t145, t146, t15, t151, t153, t157, t16, t162, t165, t169, t17, t171, &
+                       t174, t179, t18, t183, t186, t187, t188, t19, t194, t196, t199, t2, t200, t202, t21, &
+                       t212, t216, t220, t222, t223, t225, t23, t231, t237, t24, t246, t25, t250, t259, t26, &
+                       t266, t27, t270, t273, t276, t28, t280, t285, t288, t294, t3, t30, t300, t307, t31, t316, &
+                       t32, t325, t348, t351, t355, t362, t387, t39, t394, t4, t41, t42
       REAL(KIND=dp) :: t421, t46, t47, t48, t49, t5, t51, t55, t58, t6, t62, t63, t65, t67, t7, &
-         t73, t74, t76, t77, t78, t80, t83, t84, t85, t86, t87, t9, t90, t91, t94, t95, t96, t97
+                       t73, t74, t76, t77, t78, t80, t83, t84, t85, t86, t87, t9, t90, t91, t94, t95, t96, t97
 
       cf = 0.3_dp*(3._dp*pi*pi)**(2._dp/3._dp)
 

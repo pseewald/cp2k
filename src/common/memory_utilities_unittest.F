@@ -6,8 +6,8 @@
 !--------------------------------------------------------------------------------------------------!
 
 PROGRAM memory_utilities_TEST
-   USE kinds,                           ONLY: dp
-   USE memory_utilities,                ONLY: reallocate
+   USE kinds, ONLY: dp
+   USE memory_utilities, ONLY: reallocate
 
    IMPLICIT NONE
 

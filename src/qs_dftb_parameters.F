@@ -10,46 +10,46 @@
 ! **************************************************************************************************
 MODULE qs_dftb_parameters
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cp_control_types,                ONLY: dftb_control_type
-   USE cp_files,                        ONLY: close_file,&
-                                              get_unit_number,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE external_potential_types,        ONLY: set_potential
-   USE input_constants,                 ONLY: dispersion_uff
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi
-   USE message_passing,                 ONLY: mp_bcast
-   USE physcon,                         ONLY: angstrom,&
-                                              kcalmol
-   USE qmmm_ff_fist,                    ONLY: qmmm_ff_precond_only_qm
-   USE qs_dftb_types,                   ONLY: qs_dftb_atom_type,&
-                                              qs_dftb_pairpot_create,&
-                                              qs_dftb_pairpot_init,&
-                                              qs_dftb_pairpot_type
-   USE qs_dftb_utils,                   ONLY: allocate_dftb_atom_param,&
-                                              get_dftb_atom_param,&
-                                              set_dftb_atom_param
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type,&
-                                              set_qs_kind
-   USE string_utilities,                ONLY: uppercase
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cp_control_types, ONLY: dftb_control_type
+   USE cp_files, ONLY: close_file, &
+                       get_unit_number, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE external_potential_types, ONLY: set_potential
+   USE input_constants, ONLY: dispersion_uff
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi
+   USE message_passing, ONLY: mp_bcast
+   USE physcon, ONLY: angstrom, &
+                      kcalmol
+   USE qmmm_ff_fist, ONLY: qmmm_ff_precond_only_qm
+   USE qs_dftb_types, ONLY: qs_dftb_atom_type, &
+                            qs_dftb_pairpot_create, &
+                            qs_dftb_pairpot_init, &
+                            qs_dftb_pairpot_type
+   USE qs_dftb_utils, ONLY: allocate_dftb_atom_param, &
+                            get_dftb_atom_param, &
+                            set_dftb_atom_param
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type, &
+                            set_qs_kind
+   USE string_utilities, ONLY: uppercase
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

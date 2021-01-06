@@ -10,19 +10,19 @@
 !>      settings for the DFT-based calculations.
 ! **************************************************************************************************
 MODULE cp_control_types
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_release
-   USE input_constants,                 ONLY: do_full_density
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE pair_potential_types,            ONLY: pair_potential_p_release,&
-                                              pair_potential_p_type
-   USE qs_cdft_types,                   ONLY: cdft_control_create,&
-                                              cdft_control_release,&
-                                              cdft_control_type
-   USE xas_control,                     ONLY: xas_control_release,&
-                                              xas_control_type
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_release
+   USE input_constants, ONLY: do_full_density
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE pair_potential_types, ONLY: pair_potential_p_release, &
+                                   pair_potential_p_type
+   USE qs_cdft_types, ONLY: cdft_control_create, &
+                            cdft_control_release, &
+                            cdft_control_type
+   USE xas_control, ONLY: xas_control_release, &
+                          xas_control_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -642,7 +642,7 @@ CONTAINS
          mulliken_restraint_control%target = 0.0_dp
          mulliken_restraint_control%natoms = 0
          DEALLOCATE (mulliken_restraint_control)
-      ENDIF
+      END IF
    END SUBROUTINE mulliken_control_release
 
 ! **************************************************************************************************
@@ -705,7 +705,7 @@ CONTAINS
          ddapc_restraint_control%target = 0.0_dp
          ddapc_restraint_control%natoms = 0
          DEALLOCATE (ddapc_restraint_control)
-      ENDIF
+      END IF
    END SUBROUTINE ddapc_control_release
 
 ! **************************************************************************************************
@@ -758,7 +758,7 @@ CONTAINS
          s2_restraint_control%strength = 0.0_dp
          s2_restraint_control%target = 0.0_dp
          DEALLOCATE (s2_restraint_control)
-      ENDIF
+      END IF
    END SUBROUTINE s2_control_release
 
 ! **************************************************************************************************

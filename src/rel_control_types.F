@@ -14,13 +14,13 @@
 ! **************************************************************************************************
 MODULE rel_control_types
 
-   USE input_constants,                 ONLY: rel_none,&
-                                              rel_pot_full,&
-                                              rel_trans_full,&
-                                              rel_zora_full
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
+   USE input_constants, ONLY: rel_none, &
+                              rel_pot_full, &
+                              rel_trans_full, &
+                              rel_zora_full
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

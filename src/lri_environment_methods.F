@@ -16,67 +16,67 @@
 !>          Dorothea Golze
 ! **************************************************************************************************
 MODULE lri_environment_methods
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type
-   USE core_ppl,                        ONLY: build_core_ppl_ri
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_create,&
-                                              dbcsr_dot,&
-                                              dbcsr_get_block_diag,&
-                                              dbcsr_get_block_p,&
-                                              dbcsr_p_type,&
-                                              dbcsr_release,&
-                                              dbcsr_replicate_all,&
-                                              dbcsr_type
-   USE generic_os_integrals,            ONLY: int_overlap_aabb_os
-   USE input_constants,                 ONLY: do_lri_inv,&
-                                              do_lri_inv_auto,&
-                                              do_lri_pseudoinv_diag,&
-                                              do_lri_pseudoinv_svd
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp
-   USE lri_compression,                 ONLY: lri_comp,&
-                                              lri_cont_mem,&
-                                              lri_decomp_i
-   USE lri_environment_types,           ONLY: &
-        allocate_lri_coefs, allocate_lri_ints, allocate_lri_ints_rho, allocate_lri_ppl_ints, &
-        allocate_lri_rhos, deallocate_lri_ints, deallocate_lri_ints_rho, deallocate_lri_ppl_ints, &
-        lri_density_create, lri_density_release, lri_density_type, lri_environment_type, &
-        lri_int_rho_type, lri_int_type, lri_kind_type, lri_list_type, lri_rhoab_type
-   USE lri_integrals,                   ONLY: allocate_int_type,&
-                                              deallocate_int_type,&
-                                              int_type,&
-                                              lri_int2
-   USE mathlib,                         ONLY: get_pseudo_inverse_diag,&
-                                              get_pseudo_inverse_svd,&
-                                              invmat_symm
-   USE message_passing,                 ONLY: mp_max,&
-                                              mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_collocate_density,            ONLY: calculate_lri_rho_elec
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_set,&
-                                              qs_rho_type
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: gto_basis_set_type
+   USE cell_types, ONLY: cell_type
+   USE core_ppl, ONLY: build_core_ppl_ri
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_create, &
+                        dbcsr_dot, &
+                        dbcsr_get_block_diag, &
+                        dbcsr_get_block_p, &
+                        dbcsr_p_type, &
+                        dbcsr_release, &
+                        dbcsr_replicate_all, &
+                        dbcsr_type
+   USE generic_os_integrals, ONLY: int_overlap_aabb_os
+   USE input_constants, ONLY: do_lri_inv, &
+                              do_lri_inv_auto, &
+                              do_lri_pseudoinv_diag, &
+                              do_lri_pseudoinv_svd
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp
+   USE lri_compression, ONLY: lri_comp, &
+                              lri_cont_mem, &
+                              lri_decomp_i
+   USE lri_environment_types, ONLY: &
+      allocate_lri_coefs, allocate_lri_ints, allocate_lri_ints_rho, allocate_lri_ppl_ints, &
+      allocate_lri_rhos, deallocate_lri_ints, deallocate_lri_ints_rho, deallocate_lri_ppl_ints, &
+      lri_density_create, lri_density_release, lri_density_type, lri_environment_type, &
+      lri_int_rho_type, lri_int_type, lri_kind_type, lri_list_type, lri_rhoab_type
+   USE lri_integrals, ONLY: allocate_int_type, &
+                            deallocate_int_type, &
+                            int_type, &
+                            lri_int2
+   USE mathlib, ONLY: get_pseudo_inverse_diag, &
+                      get_pseudo_inverse_svd, &
+                      invmat_symm
+   USE message_passing, ONLY: mp_max, &
+                              mp_sum
+   USE particle_types, ONLY: particle_type
+   USE pw_types, ONLY: pw_p_type
+   USE qs_collocate_density, ONLY: calculate_lri_rho_elec
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_set, &
+                           qs_rho_type
+   USE virial_types, ONLY: virial_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"
@@ -222,8 +222,8 @@ CONTAINS
                   lrii%calc_force_pair = .FALSE.
                ELSE
                   lrii%calc_force_pair = .TRUE.
-               ENDIF
-            ENDIF
+               END IF
+            END IF
 
             IF (e1c .AND. lri_env%exact_1c_terms) THEN
                ! nothing to do
@@ -279,7 +279,7 @@ CONTAINS
                      CALL dgemv("N", nn, nn, 1.0_dp, lrii%sinv(1, 1), nn, &
                                 lrii%n(1), 1, 0.0_dp, lrii%sn, 1)
                      lrii%nsn = SUM(lrii%sn(1:nn)*lrii%n(1:nn))
-                  ENDIF
+                  END IF
                   IF (lri_env%store_integrals) THEN
                      IF (ALLOCATED(lrii%sab)) DEALLOCATE (lrii%sab)
                      ALLOCATE (lrii%sab(nfa, nfb))
@@ -321,7 +321,7 @@ CONTAINS
 
          IF (lri_env%debug) THEN
             CALL output_debug_info(lri_env, qs_env, lri_ints, soo_list)
-         ENDIF
+         END IF
 
       END IF
 
@@ -371,7 +371,7 @@ CONTAINS
          CALL calculate_lri_rho_elec(rho_g(ispin), rho_r(ispin), qs_env, &
                                      lri_density%lri_coefs(ispin)%lri_kinds, tot_rho_r(ispin), &
                                      "LRI_AUX", lri_env%exact_1c_terms, pmat=pmat_diag, atomlist=atomlist)
-      ENDDO
+      END DO
 
       CALL qs_rho_set(rho_struct, rho_r_valid=.TRUE., rho_g_valid=.TRUE.)
 
@@ -545,7 +545,7 @@ CONTAINS
 
          CALL neighbor_list_iterator_release(nl_iterator)
 
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -601,7 +601,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'calculate_avec_lri'
 
       INTEGER :: handle, i, iac, iatom, ic, ikind, ilist, ispin, jatom, jkind, jneighbor, mepos, &
-         nba, nbb, nfa, nfb, nkind, nlist, nn, nneighbor, nspin, nthread
+                 nba, nbb, nfa, nfb, nkind, nlist, nn, nneighbor, nspin, nthread
       INTEGER, DIMENSION(3)                              :: cell
       LOGICAL                                            :: found, trans, use_cell_mapping
       REAL(KIND=dp)                                      :: dab, rab(3), threshold
@@ -707,13 +707,13 @@ CONTAINS
                         CALL lri_decomp_i(int3, lrii%cabbi, i)
                         lrho%tvec(nfa + i) = SUM(pab(1:nba, 1:nbb)*int3(1:nba, 1:nbb))
                      END DO
-                  ENDIF
+                  END IF
                   !
                   IF (iatom == jatom .AND. dab < lri_env%delta) THEN
                      lrho%nst = SUM(lrho%tvec(1:nfa)*lrii%sn(1:nfa))
                   ELSE
                      lrho%nst = SUM(lrho%tvec(1:nn)*lrii%sn(1:nn))
-                  ENDIF
+                  END IF
                   lrho%lambda = (lrho%charge - lrho%nst)/lrii%nsn
                   !
                   ! solve the linear system of equations
@@ -727,9 +727,9 @@ CONTAINS
                      m(1:nn) = lrho%tvec(1:nn) + lrho%lambda*lrii%n(1:nn)
                      CALL dgemv("N", nn, nn, 1.0_dp, lrii%sinv(1, 1), nn, &
                                 m(1), 1, 0.0_dp, lrho%avec, 1)
-                  ENDIF
+                  END IF
                   DEALLOCATE (m)
-               ENDIF
+               END IF
 
                IF (lrii%lriff) THEN
                   ! distant pair approximations
@@ -775,7 +775,7 @@ CONTAINS
                   DEALLOCATE (m)
                   !
                   DEALLOCATE (paa, pbb)
-               ENDIF
+               END IF
 
                DEALLOCATE (pab, int3)
 
@@ -890,24 +890,24 @@ CONTAINS
                      ELSE
                         !pairs ab
                         fw = 2.0_dp*lrii%wsr
-                     ENDIF
+                     END IF
                      aci(1:nfa) = aci(1:nfa) + fw*lrho%avec(1:nfa)
                      acj(1:nfb) = acj(1:nfb) + fw*lrho%avec(nfa + 1:nfa + nfb)
                      lri_env%stat%rho_sr = lri_env%stat%rho_sr + fw*SUM(lrho%avec(:)*lrii%n(:))
-                  ENDIF
-               ENDIF
+                  END IF
+               END IF
                !
                IF (lrii%lriff) THEN
                   IF (iatom == jatom) THEN
                      fw = lrii%wff
                   ELSE
                      fw = 2.0_dp*lrii%wff
-                  ENDIF
+                  END IF
                   aci(1:nfa) = aci(1:nfa) + fw*lrho%aveca(1:nfa)
                   acj(1:nfb) = acj(1:nfb) + fw*lrho%avecb(1:nfb)
                   lri_env%stat%rho_sr = lri_env%stat%rho_sr + fw*SUM(lrho%aveca(:)*lrii%na(:))
                   lri_env%stat%rho_sr = lri_env%stat%rho_sr + fw*SUM(lrho%avecb(:)*lrii%nb(:))
-               ENDIF
+               END IF
 
             END DO
             CALL neighbor_list_iterator_release(nl_iterator)
@@ -947,7 +947,7 @@ CONTAINS
             lri_env%stat%rho_tt = lri_env%stat%rho_tt + tot_rho_r(ispin)
             !
             IF (lri_env%exact_1c_terms) CALL dbcsr_release(pmat_diag)
-         ENDDO
+         END DO
 
          DEALLOCATE (atom_of_kind)
 
@@ -1015,12 +1015,12 @@ CONTAINS
             CALL dpocon('U', n, sinv, n, anorm, rcond, work, iwork, info)
             IF (info /= 0) THEN
                CPABORT("DPOCON failed")
-            ENDIF
+            END IF
             IF (LOG(1._dp/rcond) > lri_env%cond_max) THEN
                CALL get_pseudo_inverse_svd(s, sinv, rskip)
             ELSE
                CALL invmat_symm(sinv, "U")
-            ENDIF
+            END IF
          ELSE
             CALL get_pseudo_inverse_svd(s, sinv, rskip)
          END IF
@@ -1120,7 +1120,7 @@ CONTAINS
          IF (dft_control%qs_control%lri_optbas) THEN
             lriir => lri_env%lri_ints_rho%lri_atom(iac)%lri_node(ilist)%lri_int_rho(jneighbor)
             dmax_aabb = MAX(dmax_aabb, lriir%dmax_aabb)
-         ENDIF
+         END IF
 
       END DO
 
@@ -1149,8 +1149,8 @@ CONTAINS
             WRITE (iunit, FMT="(T2,A,T69,ES12.5,/)") "Maximal deviation of integrals "// &
                "[aa|bb]; orbital basis", &
                dmax_aabb
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       CALL cp_print_key_finished_output(iunit, logger, input, &
                                         "PRINT%PROGRAM_RUN_INFO")
@@ -1227,7 +1227,7 @@ CONTAINS
 
       INTEGER                                            :: iunit
       REAL(KIND=dp) :: abai_mem, coef_mem, oint_mem, overlap_error, pairs_ff, pairs_sr, pairs_tt, &
-         ppli_mem, ppx, rho_1c, rho_ff, rho_sr, rho_tt, rhos_mem
+                       ppli_mem, ppx, rho_1c, rho_ff, rho_sr, rho_tt, rhos_mem
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(lri_environment_type), POINTER                :: lri_env

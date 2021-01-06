@@ -10,26 +10,26 @@
 !> \author Teodoro Laino [tlaino] - 03.2008 - University of Zurich
 ! **************************************************************************************************
 MODULE averages_types
-   USE cell_types,                      ONLY: cell_type
-   USE colvar_utils,                    ONLY: get_clv_force,&
-                                              number_of_colvar
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE force_env_types,                 ONLY: force_env_type
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_remove_values,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE md_ener_types,                   ONLY: md_ener_type
-   USE virial_types,                    ONLY: virial_create,&
-                                              virial_release,&
-                                              virial_type
+   USE cell_types, ONLY: cell_type
+   USE colvar_utils, ONLY: get_clv_force, &
+                           number_of_colvar
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE force_env_types, ONLY: force_env_type
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_remove_values, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE md_ener_types, ONLY: md_ener_type
+   USE virial_types, ONLY: virial_create, &
+                           virial_release, &
+                           virial_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

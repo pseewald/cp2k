@@ -13,18 +13,18 @@
 ! **************************************************************************************************
 MODULE cg_test
 
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE kinds,                           ONLY: dp
-   USE lebedev,                         ONLY: deallocate_lebedev_grids,&
-                                              get_number_of_lebedev_grid,&
-                                              init_lebedev_grids,&
-                                              lebedev_grid
-   USE machine,                         ONLY: m_walltime
-   USE mathconstants,                   ONLY: pi
-   USE spherical_harmonics,             ONLY: clebsch_gordon,&
-                                              clebsch_gordon_deallocate,&
-                                              clebsch_gordon_init,&
-                                              y_lm
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE kinds, ONLY: dp
+   USE lebedev, ONLY: deallocate_lebedev_grids, &
+                      get_number_of_lebedev_grid, &
+                      init_lebedev_grids, &
+                      lebedev_grid
+   USE machine, ONLY: m_walltime
+   USE mathconstants, ONLY: pi
+   USE spherical_harmonics, ONLY: clebsch_gordon, &
+                                  clebsch_gordon_deallocate, &
+                                  clebsch_gordon_init, &
+                                  y_lm
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

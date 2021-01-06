@@ -16,18 +16,18 @@
 ! **************************************************************************************************
 MODULE orbital_transformation_matrices
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              fac,&
-                                              pi
-   USE mathlib,                         ONLY: binomial
-   USE orbital_pointers,                ONLY: co,&
-                                              nco,&
-                                              ncoset,&
-                                              nso,&
-                                              nsoset
-   USE orbital_symbols,                 ONLY: cgf_symbol,&
-                                              sgf_symbol
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: dfac, &
+                            fac, &
+                            pi
+   USE mathlib, ONLY: binomial
+   USE orbital_pointers, ONLY: co, &
+                               nco, &
+                               ncoset, &
+                               nso, &
+                               nsoset
+   USE orbital_symbols, ONLY: cgf_symbol, &
+                              sgf_symbol
 
 !$ USE OMP_LIB, ONLY: omp_get_level
 

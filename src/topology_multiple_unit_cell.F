@@ -10,17 +10,17 @@
 !> \author Teodoro Laino [tlaino] - 05.2009
 ! **************************************************************************************************
 MODULE topology_multiple_unit_cell
-   USE cell_types,                      ONLY: cell_type
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_remove_values,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE topology_types,                  ONLY: topology_parameters_type
+   USE cell_types, ONLY: cell_type
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_remove_values, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE topology_types, ONLY: topology_parameters_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -11,33 +11,33 @@
 ! **************************************************************************************************
 MODULE constraint_fxd
 
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: get_atomic_kind_set
-   USE cell_types,                      ONLY: use_perd_x,&
-                                              use_perd_xy,&
-                                              use_perd_xyz,&
-                                              use_perd_xz,&
-                                              use_perd_y,&
-                                              use_perd_yz,&
-                                              use_perd_z
-   USE colvar_types,                    ONLY: colvar_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: fixd_constraint_type,&
-                                              get_molecule_kind,&
-                                              local_fixd_constraint_type,&
-                                              molecule_kind_type
-   USE molecule_types,                  ONLY: local_g3x3_constraint_type,&
-                                              local_g4x6_constraint_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE util,                            ONLY: sort
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE atomic_kind_types, ONLY: get_atomic_kind_set
+   USE cell_types, ONLY: use_perd_x, &
+                         use_perd_xy, &
+                         use_perd_xyz, &
+                         use_perd_xz, &
+                         use_perd_y, &
+                         use_perd_yz, &
+                         use_perd_z
+   USE colvar_types, ONLY: colvar_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_type
+   USE molecule_kind_types, ONLY: fixd_constraint_type, &
+                                  get_molecule_kind, &
+                                  local_fixd_constraint_type, &
+                                  molecule_kind_type
+   USE molecule_types, ONLY: local_g3x3_constraint_type, &
+                             local_g4x6_constraint_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -69,7 +69,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'fix_atom_control'
 
       INTEGER :: handle, i, ifixd, ii, ikind, iparticle, iparticle_local, my_atm_fixed, natom, &
-         ncore, nfixed_atoms, nkind, nparticle, nparticle_local, nshell, shell_index
+                 ncore, nfixed_atoms, nkind, nparticle, nparticle_local, nshell, shell_index
       LOGICAL                                            :: shell_present
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: force
       TYPE(atomic_kind_list_type), POINTER               :: atomic_kinds

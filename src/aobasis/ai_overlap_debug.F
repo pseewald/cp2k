@@ -15,8 +15,8 @@
 ! **************************************************************************************************
 MODULE ai_overlap_debug
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -103,8 +103,8 @@ CONTAINS
                   0.5_dp*(an(3) - 1)/xsi*os_overlap2(an - i3 - i3, bn)
          ELSE
             CPABORT("I(0000)")
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
    END FUNCTION os_overlap2
 

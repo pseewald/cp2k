@@ -10,53 +10,53 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE ewald_methods_tb
-   USE atprop_types,                    ONLY: atprop_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dgs,                             ONLY: dg_sum_patch,&
-                                              dg_sum_patch_force_1d,&
-                                              dg_sum_patch_force_3d
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_environment_type
-   USE ewald_pw_types,                  ONLY: ewald_pw_get,&
-                                              ewald_pw_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fourpi,&
-                                              oorootpi
-   USE particle_types,                  ONLY: particle_type
-   USE pme_tools,                       ONLY: get_center,&
-                                              set_list
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_grids,                        ONLY: get_pw_grid_info
-   USE pw_methods,                      ONLY: pw_copy,&
-                                              pw_derive,&
-                                              pw_integral_a2b,&
-                                              pw_transfer
-   USE pw_poisson_methods,              ONLY: pw_poisson_rebuild,&
-                                              pw_poisson_solve
-   USE pw_poisson_types,                ONLY: greens_fn_type,&
-                                              pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE realspace_grid_types,            ONLY: &
-        pw2rs, realspace_grid_desc_type, realspace_grid_p_type, realspace_grid_type, rs2pw, &
-        rs_grid_create, rs_grid_release, rs_grid_set_box, rs_grid_zero, rs_pw_transfer
-   USE spme,                            ONLY: get_patch
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
+   USE atprop_types, ONLY: atprop_type
+   USE cell_types, ONLY: cell_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dgs, ONLY: dg_sum_patch, &
+                  dg_sum_patch_force_1d, &
+                  dg_sum_patch_force_3d
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_environment_type
+   USE ewald_pw_types, ONLY: ewald_pw_get, &
+                             ewald_pw_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fourpi, &
+                            oorootpi
+   USE particle_types, ONLY: particle_type
+   USE pme_tools, ONLY: get_center, &
+                        set_list
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_grids, ONLY: get_pw_grid_info
+   USE pw_methods, ONLY: pw_copy, &
+                         pw_derive, &
+                         pw_integral_a2b, &
+                         pw_transfer
+   USE pw_poisson_methods, ONLY: pw_poisson_rebuild, &
+                                 pw_poisson_solve
+   USE pw_poisson_types, ONLY: greens_fn_type, &
+                               pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE realspace_grid_types, ONLY: &
+      pw2rs, realspace_grid_desc_type, realspace_grid_p_type, realspace_grid_type, rs2pw, &
+      rs_grid_create, rs_grid_release, rs_grid_set_box, rs_grid_zero, rs_pw_transfer
+   USE spme, ONLY: get_patch
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

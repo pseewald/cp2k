@@ -6,15 +6,15 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE se_fock_matrix_dbg
-   USE dbcsr_api,                       ONLY: dbcsr_dot,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set
-   USE kinds,                           ONLY: dp
-   USE qs_energy_types,                 ONLY: init_qs_energy,&
-                                              qs_energy_type
-   USE qs_environment_types,            ONLY: qs_environment_type
-   USE se_fock_matrix_coulomb,          ONLY: build_fock_matrix_coulomb_lr
-   USE semi_empirical_store_int_types,  ONLY: semi_empirical_si_type
+   USE dbcsr_api, ONLY: dbcsr_dot, &
+                        dbcsr_p_type, &
+                        dbcsr_set
+   USE kinds, ONLY: dp
+   USE qs_energy_types, ONLY: init_qs_energy, &
+                              qs_energy_type
+   USE qs_environment_types, ONLY: qs_environment_type
+   USE se_fock_matrix_coulomb, ONLY: build_fock_matrix_coulomb_lr
+   USE semi_empirical_store_int_types, ONLY: semi_empirical_si_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

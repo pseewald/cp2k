@@ -16,37 +16,37 @@
 ! **************************************************************************************************
 MODULE core_ppl
 
-   USE ai_overlap_ppl,                  ONLY: ppl_integral,&
-                                              ppl_integral_ri
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_get_block_p,&
-                                              dbcsr_p_type
-   USE external_potential_types,        ONLY: get_potential,&
-                                              gth_potential_type,&
-                                              sgp_potential_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE lri_environment_types,           ONLY: lri_kind_type
-   USE orbital_pointers,                ONLY: init_orbital_pointers,&
-                                              ncoset
-   USE particle_types,                  ONLY: particle_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type,&
-                                              nl_set_sub_iterator,&
-                                              nl_sub_iterate
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
+   USE ai_overlap_ppl, ONLY: ppl_integral, &
+                             ppl_integral_ri
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_get_block_p, &
+                        dbcsr_p_type
+   USE external_potential_types, ONLY: get_potential, &
+                                       gth_potential_type, &
+                                       sgp_potential_type
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE lri_environment_types, ONLY: lri_kind_type
+   USE orbital_pointers, ONLY: init_orbital_pointers, &
+                               ncoset
+   USE particle_types, ONLY: particle_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type, &
+                                     nl_set_sub_iterator, &
+                                     nl_sub_iterate
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
 !$ USE OMP_LIB, ONLY: omp_lock_kind, &
@@ -106,9 +106,9 @@ CONTAINS
       INTEGER, PARAMETER                                 :: nexp_max = 30
 
       INTEGER :: atom_a, handle, i, iatom, icol, ikind, img, irow, iset, jatom, jkind, jset, &
-         katom, kkind, ldai, ldsab, maxco, maxder, maxl, maxlgto, maxlppl, maxnset, maxsgf, mepos, &
-         n_local, natom, ncoa, ncob, nexp_lpot, nexp_ppl, nkind, nloc, nseta, nsetb, nthread, &
-         sgfa, sgfb, slot
+                 katom, kkind, ldai, ldsab, maxco, maxder, maxl, maxlgto, maxlppl, maxnset, maxsgf, mepos, &
+                 n_local, natom, ncoa, ncob, nexp_lpot, nexp_ppl, nkind, nloc, nseta, nsetb, nthread, &
+                 sgfa, sgfb, slot
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, kind_of
       INTEGER, DIMENSION(1:10)                           :: nrloc
       INTEGER, DIMENSION(3)                              :: cellind
@@ -150,7 +150,7 @@ CONTAINS
          CALL timeset(routineN//"_forces", handle)
       ELSE
          CALL timeset(routineN, handle)
-      ENDIF
+      END IF
 
       nkind = SIZE(atomic_kind_set)
       natom = SIZE(particle_set)
@@ -332,7 +332,7 @@ CONTAINS
                                                               TRANSPOSE(sphi_b(1:ncob, sgfb:sgfb + nsgfb(jset) - 1)))
                   END DO
                END DO
-            ENDIF
+            END IF
          END IF
 
          hab = 0._dp
@@ -575,7 +575,7 @@ CONTAINS
       INTEGER, PARAMETER                                 :: nexp_max = 30
 
       INTEGER :: atom_a, handle, i, iatom, ikind, iset, katom, kkind, maxco, maxsgf, n_local, &
-         natom, ncoa, nexp_lpot, nexp_ppl, nfun, nkind, nloc, nseta, sgfa, sgfb, slot
+                 natom, ncoa, nexp_lpot, nexp_ppl, nfun, nkind, nloc, nseta, sgfa, sgfb, slot
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, kind_of
       INTEGER, DIMENSION(1:10)                           :: nrloc
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, nct_lpot, npgfa, nsgfa
@@ -608,7 +608,7 @@ CONTAINS
          CALL timeset(routineN//"_forces", handle)
       ELSE
          CALL timeset(routineN, handle)
-      ENDIF
+      END IF
 
       nkind = SIZE(atomic_kind_set)
       natom = SIZE(particle_set)

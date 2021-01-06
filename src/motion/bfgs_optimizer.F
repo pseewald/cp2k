@@ -10,68 +10,68 @@
 ! **************************************************************************************************
 MODULE bfgs_optimizer
 
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE constraint_fxd,                  ONLY: fix_atom_control
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_type
-   USE cp_external_control,             ONLY: external_control
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_transpose
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_read_unformatted,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type,&
-                                              cp_fm_write_unformatted
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_iterate,&
-                                              cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE gopt_f_methods,                  ONLY: gopt_f_ii,&
-                                              gopt_f_io,&
-                                              gopt_f_io_finalize,&
-                                              gopt_f_io_init,&
-                                              print_geo_opt_header,&
-                                              print_geo_opt_nc
-   USE gopt_f_types,                    ONLY: gopt_f_type
-   USE gopt_param_types,                ONLY: gopt_param_type
-   USE input_constants,                 ONLY: default_cell_method_id,&
-                                              default_ts_method_id
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE machine,                         ONLY: m_flush,&
-                                              m_walltime
-   USE message_passing,                 ONLY: mp_min,&
-                                              mp_sum
-   USE particle_list_types,             ONLY: particle_list_type
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE atomic_kind_types, ONLY: get_atomic_kind, &
+                                get_atomic_kind_set
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE constraint_fxd, ONLY: fix_atom_control
+   USE cp_blacs_env, ONLY: cp_blacs_env_create, &
+                           cp_blacs_env_release, &
+                           cp_blacs_env_type
+   USE cp_external_control, ONLY: external_control
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_transpose
+   USE cp_fm_diag, ONLY: choose_eigv_solver
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_read_unformatted, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_type, &
+                          cp_fm_write_unformatted
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_iterate, &
+                                 cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE global_types, ONLY: global_environment_type
+   USE gopt_f_methods, ONLY: gopt_f_ii, &
+                             gopt_f_io, &
+                             gopt_f_io_finalize, &
+                             gopt_f_io_init, &
+                             print_geo_opt_header, &
+                             print_geo_opt_nc
+   USE gopt_f_types, ONLY: gopt_f_type
+   USE gopt_param_types, ONLY: gopt_param_type
+   USE input_constants, ONLY: default_cell_method_id, &
+                              default_ts_method_id
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE machine, ONLY: m_flush, &
+                      m_walltime
+   USE message_passing, ONLY: mp_min, &
+                              mp_sum
+   USE particle_list_types, ONLY: particle_list_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -234,7 +234,7 @@ CONTAINS
             CALL cp_fm_to_fm(eigvec_mat, hess_tmp)
             CALL cp_fm_column_scale(eigvec_mat, eigval)
             CALL cp_gemm("N", "T", ndf, ndf, ndf, one, hess_tmp, eigvec_mat, zero, hess_mat)
-         ENDIF
+         END IF
       ELSE
          CALL cp_fm_set_all(hess_mat, alpha=zero, beta=one)
       END IF
@@ -300,8 +300,8 @@ CONTAINS
                !Possibly dump the Hessian file
                IF (BTEST(cp_print_key_should_output(logger%iter_info, print_key), cp_p_file)) THEN
                   CALL write_bfgs_hessian(geo_section, hess_mat, logger)
-               ENDIF
-            ENDIF
+               END IF
+            END IF
          END IF
 
          ! Setting the present positions & gradients as old
@@ -547,7 +547,7 @@ CONTAINS
 
          IF (.NOT. set) THEN
             work(1:ndf) = one
-         ENDIF
+         END IF
 
          DO indf = 1, ndf
             eigval(indf) = eigval(indf) - ln
@@ -768,7 +768,7 @@ CONTAINS
             WRITE (unit=output_unit, FMT="(/,T2,A,F8.5)") &
                " Step is scaled; Scaling factor = ", rat
             CALL m_flush(output_unit)
-         ENDIF
+         END IF
       END IF
       CALL timestop(handle)
 

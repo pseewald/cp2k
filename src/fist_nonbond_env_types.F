@@ -11,18 +11,18 @@
 !> \author HAF
 ! **************************************************************************************************
 MODULE fist_nonbond_env_types
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cell_types,                      ONLY: cell_release,&
-                                              cell_type
-   USE fist_neighbor_list_types,        ONLY: fist_neighbor_deallocate,&
-                                              fist_neighbor_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE pair_potential_types,            ONLY: gal_type,&
-                                              pair_potential_pp_release,&
-                                              pair_potential_pp_type,&
-                                              siepmann_type,&
-                                              tersoff_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cell_types, ONLY: cell_release, &
+                         cell_type
+   USE fist_neighbor_list_types, ONLY: fist_neighbor_deallocate, &
+                                       fist_neighbor_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE pair_potential_types, ONLY: gal_type, &
+                                   pair_potential_pp_release, &
+                                   pair_potential_pp_type, &
+                                   siepmann_type, &
+                                   tersoff_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -466,43 +466,43 @@ CONTAINS
             CALL pair_potential_pp_release(fist_nonbond_env%potparm14)
             IF (ASSOCIATED(fist_nonbond_env%r_last_update)) THEN
                DEALLOCATE (fist_nonbond_env%r_last_update)
-            ENDIF
+            END IF
             IF (ASSOCIATED(fist_nonbond_env%r_last_update_pbc)) THEN
                DEALLOCATE (fist_nonbond_env%r_last_update_pbc)
-            ENDIF
+            END IF
             IF (ASSOCIATED(fist_nonbond_env%charges)) THEN
                DEALLOCATE (fist_nonbond_env%charges)
-            ENDIF
+            END IF
             IF (ASSOCIATED(fist_nonbond_env%eam_data)) THEN
                DEALLOCATE (fist_nonbond_env%eam_data)
-            ENDIF
+            END IF
             IF (ASSOCIATED(fist_nonbond_env%quip_data)) THEN
                IF (ASSOCIATED(fist_nonbond_env%quip_data%force)) THEN
                   DEALLOCATE (fist_nonbond_env%quip_data%force)
-               ENDIF
+               END IF
                IF (ASSOCIATED(fist_nonbond_env%quip_data%use_indices)) THEN
                   DEALLOCATE (fist_nonbond_env%quip_data%use_indices)
-               ENDIF
+               END IF
                DEALLOCATE (fist_nonbond_env%quip_data)
-            ENDIF
+            END IF
             IF (ASSOCIATED(fist_nonbond_env%rshell_last_update_pbc)) THEN
                DEALLOCATE (fist_nonbond_env%rshell_last_update_pbc)
-            ENDIF
+            END IF
             IF (ASSOCIATED(fist_nonbond_env%rcore_last_update_pbc)) THEN
                DEALLOCATE (fist_nonbond_env%rcore_last_update_pbc)
-            ENDIF
+            END IF
             IF (ASSOCIATED(fist_nonbond_env%cell_last_update)) THEN
                CALL cell_release(fist_nonbond_env%cell_last_update)
-            ENDIF
+            END IF
             IF (ASSOCIATED(fist_nonbond_env%ij_kind_full_fac)) THEN
                DEALLOCATE (fist_nonbond_env%ij_kind_full_fac)
-            ENDIF
+            END IF
             IF (ASSOCIATED(fist_nonbond_env%rlist_cut)) THEN
                DEALLOCATE (fist_nonbond_env%rlist_cut)
-            ENDIF
+            END IF
             IF (ASSOCIATED(fist_nonbond_env%rlist_lowsq)) THEN
                DEALLOCATE (fist_nonbond_env%rlist_lowsq)
-            ENDIF
+            END IF
             DEALLOCATE (fist_nonbond_env)
          END IF
       END IF

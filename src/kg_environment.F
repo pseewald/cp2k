@@ -12,66 +12,66 @@
 !> \author Martin Haeufel
 ! **************************************************************************************************
 MODULE kg_environment
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE bibliography,                    ONLY: Andermatt2016,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE distribution_2d_types,           ONLY: distribution_2d_type
-   USE external_potential_types,        ONLY: get_potential,&
-                                              local_potential_type
-   USE input_constants,                 ONLY: kg_tnadd_atomic,&
-                                              kg_tnadd_embed,&
-                                              kg_tnadd_embed_ri,&
-                                              kg_tnadd_none
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE integration_grid_types,          ONLY: allocate_intgrid,&
-                                              integration_grid_type
-   USE kg_environment_types,            ONLY: kg_environment_type
-   USE kg_vertex_coloring_methods,      ONLY: kg_vertex_coloring
-   USE kinds,                           ONLY: dp,&
-                                              int_4,&
-                                              int_4_size,&
-                                              int_8
-   USE lri_environment_init,            ONLY: lri_env_basis,&
-                                              lri_env_init
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_gather,&
-                                              mp_max
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_grid_atom,                    ONLY: initialize_atomic_grid
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type,&
-                                              release_neighbor_list_sets
-   USE qs_neighbor_lists,               ONLY: atom2d_build,&
-                                              atom2d_cleanup,&
-                                              build_neighbor_lists,&
-                                              local_atoms_type,&
-                                              pair_radius_setup,&
-                                              write_neighbor_lists
-   USE string_utilities,                ONLY: uppercase
-   USE task_list_types,                 ONLY: deallocate_task_list
-   USE util,                            ONLY: sort
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE bibliography, ONLY: Andermatt2016, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE distribution_2d_types, ONLY: distribution_2d_type
+   USE external_potential_types, ONLY: get_potential, &
+                                       local_potential_type
+   USE input_constants, ONLY: kg_tnadd_atomic, &
+                              kg_tnadd_embed, &
+                              kg_tnadd_embed_ri, &
+                              kg_tnadd_none
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE integration_grid_types, ONLY: allocate_intgrid, &
+                                     integration_grid_type
+   USE kg_environment_types, ONLY: kg_environment_type
+   USE kg_vertex_coloring_methods, ONLY: kg_vertex_coloring
+   USE kinds, ONLY: dp, &
+                    int_4, &
+                    int_4_size, &
+                    int_8
+   USE lri_environment_init, ONLY: lri_env_basis, &
+                                   lri_env_init
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_gather, &
+                              mp_max
+   USE molecule_types, ONLY: molecule_type
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_grid_atom, ONLY: initialize_atomic_grid
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type, &
+                                     release_neighbor_list_sets
+   USE qs_neighbor_lists, ONLY: atom2d_build, &
+                                atom2d_cleanup, &
+                                build_neighbor_lists, &
+                                local_atoms_type, &
+                                pair_radius_setup, &
+                                write_neighbor_lists
+   USE string_utilities, ONLY: uppercase
+   USE task_list_types, ONLY: deallocate_task_list
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -640,7 +640,7 @@ CONTAINS
          ALLOCATE (msg_gather(2, npairs*para_env%num_pe))
       ELSE
          ALLOCATE (msg_gather(2, 1))
-      ENDIF
+      END IF
 
       msg_gather = 0
 
@@ -674,7 +674,7 @@ CONTAINS
          ! write to file, nnodes = number of molecules
          IF (.FALSE.) THEN
             CALL write_to_file(pairs, SIZE(kg_env%molecule_set))
-         ENDIF
+         END IF
 
          ! vertex coloring algorithm
          CALL kg_vertex_coloring(kg_env, pairs, ncolors, color_of_node)

@@ -25,15 +25,15 @@
 !> \author Matthias Krack (04.10.2000)
 ! **************************************************************************************************
 MODULE ai_overlap_ppl
-   USE ai_oneelectron,                  ONLY: os_2center,&
-                                              os_3center
-   USE ai_overlap_debug,                ONLY: init_os_overlap2,&
-                                              os_overlap2
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fac,&
-                                              pi
-   USE orbital_pointers,                ONLY: indco,&
-                                              ncoset
+   USE ai_oneelectron, ONLY: os_2center, &
+                             os_3center
+   USE ai_overlap_debug, ONLY: init_os_overlap2, &
+                               os_overlap2
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fac, &
+                            pi
+   USE orbital_pointers, ONLY: indco, &
+                               ncoset
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -458,7 +458,7 @@ CONTAINS
          choose = REAL(NINT(fac(n)/(fac(k)*fac(n - k))), KIND=dp)
       ELSE
          choose = 0.0_dp
-      ENDIF
+      END IF
 
    END FUNCTION choose
 ! **************************************************************************************************

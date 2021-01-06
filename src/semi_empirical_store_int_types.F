@@ -12,19 +12,19 @@
 ! **************************************************************************************************
 MODULE semi_empirical_store_int_types
 
-   USE hfx_compression_methods,         ONLY: hfx_decompress_first_cache,&
-                                              hfx_flush_last_cache,&
-                                              hfx_reset_cache_and_container
-   USE hfx_types,                       ONLY: hfx_cache_type,&
-                                              hfx_container_type,&
-                                              hfx_init_container,&
-                                              hfx_memory_type,&
-                                              parse_memory_section
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE memory_utilities,                ONLY: reallocate
+   USE hfx_compression_methods, ONLY: hfx_decompress_first_cache, &
+                                      hfx_flush_last_cache, &
+                                      hfx_reset_cache_and_container
+   USE hfx_types, ONLY: hfx_cache_type, &
+                        hfx_container_type, &
+                        hfx_init_container, &
+                        hfx_memory_type, &
+                        parse_memory_section
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE memory_utilities, ONLY: reallocate
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

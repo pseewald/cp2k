@@ -15,94 +15,94 @@
 !> \author JGH,MK
 ! **************************************************************************************************
 MODULE environment
-   USE bibliography,                    ONLY: Frigo2005,&
-                                              Marek2014,&
-                                              cite_reference
-   USE cp2k_info,                       ONLY: &
-        compile_arch, compile_date, compile_host, compile_revision, cp2k_flags, cp2k_home, &
-        cp2k_version, cp2k_year, get_runtime_info, id_cp2k_version, r_host_name, r_pid, r_user_name
-   USE cp_error_handling,               ONLY: warning_counter
-   USE cp_files,                        ONLY: close_file,&
-                                              get_data_dir,&
-                                              open_file
-   USE cp_fm_diag,                      ONLY: diag_finalize,&
-                                              diag_init
-   USE cp_fm_diag_utils,                ONLY: cp_fm_redistribute_init
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_config
-   USE cp_fm_types,                     ONLY: cp_fm_setup
-   USE cp_log_handling,                 ONLY: &
-        cp_add_default_logger, cp_get_default_logger, cp_logger_create, &
-        cp_logger_get_default_unit_nr, cp_logger_release, cp_logger_set, cp_logger_type, &
-        cp_rm_default_logger, cp_to_string
-   USE cp_output_handling,              ONLY: cp_mpi_io_set,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr,&
-                                              debug_print_level,&
-                                              high_print_level,&
-                                              low_print_level,&
-                                              medium_print_level,&
-                                              silent_print_level
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE fft_tools,                       ONLY: fft3d,&
-                                              finalize_fft,&
-                                              init_fft
-   USE force_env_types,                 ONLY: multiple_fe_list
-   USE gamma,                           ONLY: deallocate_md_ftable
-   USE global_types,                    ONLY: global_environment_type
-   USE header,                          ONLY: cp2k_footer,&
-                                              cp2k_header
-   USE input_constants,                 ONLY: &
-        callgraph_all, callgraph_none, do_cp2k, do_diag_elpa, do_diag_sl, do_eip, do_farming, &
-        do_fft_fftw3, do_fft_sg, do_fist, do_qs, do_sirius, do_test, energy_run, &
-        id_development_version, mol_dyn_run, none_run
-   USE input_cp2k_global,               ONLY: create_global_section
-   USE input_enumeration_types,         ONLY: enum_i2c,&
-                                              enumeration_type
-   USE input_keyword_types,             ONLY: keyword_get,&
-                                              keyword_type
-   USE input_section_types,             ONLY: &
-        section_get_ival, section_get_keyword, section_get_lval, section_get_rval, &
-        section_release, section_type, section_vals_get, section_vals_get_subs_vals, &
-        section_vals_get_subs_vals3, section_vals_type, section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp,&
-                                              int_8,&
-                                              print_kind_info
-   USE machine,                         ONLY: &
-        flush_should_flush, m_cpuid, m_cpuid_name, m_cpuid_static, m_cpuinfo, m_energy, &
-        m_flush_internal, m_memory_details, m_procrun
-   USE message_passing,                 ONLY: add_mp_perf_env,&
-                                              describe_mp_perf_env,&
-                                              mp_collect_timings,&
-                                              mp_max,&
-                                              mp_sum,&
-                                              rm_mp_perf_env
-   USE orbital_pointers,                ONLY: deallocate_orbital_pointers,&
-                                              init_orbital_pointers
-   USE orbital_transformation_matrices, ONLY: deallocate_spherical_harmonics,&
+   USE bibliography, ONLY: Frigo2005, &
+                           Marek2014, &
+                           cite_reference
+   USE cp2k_info, ONLY: &
+      compile_arch, compile_date, compile_host, compile_revision, cp2k_flags, cp2k_home, &
+      cp2k_version, cp2k_year, get_runtime_info, id_cp2k_version, r_host_name, r_pid, r_user_name
+   USE cp_error_handling, ONLY: warning_counter
+   USE cp_files, ONLY: close_file, &
+                       get_data_dir, &
+                       open_file
+   USE cp_fm_diag, ONLY: diag_finalize, &
+                         diag_init
+   USE cp_fm_diag_utils, ONLY: cp_fm_redistribute_init
+   USE cp_fm_struct, ONLY: cp_fm_struct_config
+   USE cp_fm_types, ONLY: cp_fm_setup
+   USE cp_log_handling, ONLY: &
+      cp_add_default_logger, cp_get_default_logger, cp_logger_create, &
+      cp_logger_get_default_unit_nr, cp_logger_release, cp_logger_set, cp_logger_type, &
+      cp_rm_default_logger, cp_to_string
+   USE cp_output_handling, ONLY: cp_mpi_io_set, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr, &
+                                 debug_print_level, &
+                                 high_print_level, &
+                                 low_print_level, &
+                                 medium_print_level, &
+                                 silent_print_level
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE fft_tools, ONLY: fft3d, &
+                        finalize_fft, &
+                        init_fft
+   USE force_env_types, ONLY: multiple_fe_list
+   USE gamma, ONLY: deallocate_md_ftable
+   USE global_types, ONLY: global_environment_type
+   USE header, ONLY: cp2k_footer, &
+                     cp2k_header
+   USE input_constants, ONLY: &
+      callgraph_all, callgraph_none, do_cp2k, do_diag_elpa, do_diag_sl, do_eip, do_farming, &
+      do_fft_fftw3, do_fft_sg, do_fist, do_qs, do_sirius, do_test, energy_run, &
+      id_development_version, mol_dyn_run, none_run
+   USE input_cp2k_global, ONLY: create_global_section
+   USE input_enumeration_types, ONLY: enum_i2c, &
+                                      enumeration_type
+   USE input_keyword_types, ONLY: keyword_get, &
+                                  keyword_type
+   USE input_section_types, ONLY: &
+      section_get_ival, section_get_keyword, section_get_lval, section_get_rval, &
+      section_release, section_type, section_vals_get, section_vals_get_subs_vals, &
+      section_vals_get_subs_vals3, section_vals_type, section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp, &
+                    int_8, &
+                    print_kind_info
+   USE machine, ONLY: &
+      flush_should_flush, m_cpuid, m_cpuid_name, m_cpuid_static, m_cpuinfo, m_energy, &
+      m_flush_internal, m_memory_details, m_procrun
+   USE message_passing, ONLY: add_mp_perf_env, &
+                              describe_mp_perf_env, &
+                              mp_collect_timings, &
+                              mp_max, &
+                              mp_sum, &
+                              rm_mp_perf_env
+   USE orbital_pointers, ONLY: deallocate_orbital_pointers, &
+                               init_orbital_pointers
+   USE orbital_transformation_matrices, ONLY: deallocate_spherical_harmonics, &
                                               init_spherical_harmonics
-   USE parallel_rng_types,              ONLY: GAUSSIAN,&
-                                              check_rng,&
-                                              rng_stream_type,&
-                                              write_rng_matrices
-   USE physcon,                         ONLY: write_physcon
-   USE reference_manager,               ONLY: collect_citations_from_ranks,&
-                                              print_all_references,&
-                                              print_format_journal
-   USE string_utilities,                ONLY: ascii_to_string,&
-                                              integer_to_string,&
-                                              string_to_ascii
-   USE timings,                         ONLY: add_timer_env,&
-                                              global_timings_level,&
-                                              rm_timer_env,&
-                                              root_cp2k_name,&
-                                              timings_setup_tracing
-   USE timings_report,                  ONLY: cost_type_energy,&
-                                              cost_type_time,&
-                                              timings_report_callgraph,&
-                                              timings_report_print
-   USE voronoi_interface,               ONLY: finalize_libvori
+   USE parallel_rng_types, ONLY: GAUSSIAN, &
+                                 check_rng, &
+                                 rng_stream_type, &
+                                 write_rng_matrices
+   USE physcon, ONLY: write_physcon
+   USE reference_manager, ONLY: collect_citations_from_ranks, &
+                                print_all_references, &
+                                print_format_journal
+   USE string_utilities, ONLY: ascii_to_string, &
+                               integer_to_string, &
+                               string_to_ascii
+   USE timings, ONLY: add_timer_env, &
+                      global_timings_level, &
+                      rm_timer_env, &
+                      root_cp2k_name, &
+                      timings_setup_tracing
+   USE timings_report, ONLY: cost_type_energy, &
+                             cost_type_time, &
+                             timings_report_callgraph, &
+                             timings_report_print
+   USE voronoi_interface, ONLY: finalize_libvori
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
 #include "./base/base_uses.f90"
@@ -285,7 +285,7 @@ CONTAINS
       IF (m_procrun(r_pid) .EQ. 1) THEN
          CALL string_to_ascii(r_host_name, all_host(:, para_env%mepos + 1))
          CALL mp_sum(all_host, para_env%group)
-      ENDIF
+      END IF
 
       IF (output_unit > 0) THEN
          ALLOCATE (all_pid(para_env%num_pe))
@@ -301,7 +301,7 @@ CONTAINS
                   IF (string .EQ. string_sec) THEN
                      nr_occu = nr_occu + 1
                      all_pid(jpe) = -1
-                  ENDIF
+                  END IF
                END DO
                WRITE (UNIT=output_unit, FMT="(T2,A,T63,I8,A)") &
                   TRIM(r_user_name)//"@"//TRIM(string)// &
@@ -487,12 +487,12 @@ CONTAINS
       CHARACTER(LEN=default_string_length), &
          DIMENSION(:), POINTER                           :: trace_routines
       INTEGER :: cpuid, cpuid_static, i_diag, i_fft, iforce_eval, method_name_id, n_rep_val, &
-         nforce_eval, num_threads, output_unit, print_level, trace_max, unit_nr
+                 nforce_eval, num_threads, output_unit, print_level, trace_max, unit_nr
       INTEGER(kind=int_8) :: Buffers, Buffers_avr, Buffers_max, Buffers_min, Cached, Cached_avr, &
-         Cached_max, Cached_min, MemFree, MemFree_avr, MemFree_max, MemFree_min, MemLikelyFree, &
-         MemLikelyFree_avr, MemLikelyFree_max, MemLikelyFree_min, MemTotal, MemTotal_avr, &
-         MemTotal_max, MemTotal_min, Slab, Slab_avr, Slab_max, Slab_min, SReclaimable, &
-         SReclaimable_avr, SReclaimable_max, SReclaimable_min
+                             Cached_max, Cached_min, MemFree, MemFree_avr, MemFree_max, MemFree_min, MemLikelyFree, &
+                             MemLikelyFree_avr, MemLikelyFree_max, MemLikelyFree_min, MemTotal, MemTotal_avr, &
+                             MemTotal_max, MemTotal_min, Slab, Slab_avr, Slab_max, Slab_min, SReclaimable, &
+                             SReclaimable_avr, SReclaimable_max, SReclaimable_min
       INTEGER, DIMENSION(:), POINTER                     :: i_force_eval
       LOGICAL                                            :: ata, do_echo_all_hosts, efl, explicit, &
                                                             flag, report_maxloc, trace, &
@@ -539,7 +539,7 @@ CONTAINS
          CALL section_vals_val_get(global_section, "TRACE_ROUTINES", c_vals=trace_routines)
       ELSE
          NULLIFY (trace_routines)
-      ENDIF
+      END IF
       CALL section_vals_val_get(global_section, "FLUSH_SHOULD_FLUSH", l_val=flush_should_flush)
       CALL section_vals_val_get(global_section, "ECHO_ALL_HOSTS", l_val=do_echo_all_hosts)
       report_maxloc = section_get_lval(global_section, "TIMINGS%REPORT_MAXLOC")
@@ -563,7 +563,7 @@ CONTAINS
          ELSE
             CALL timings_setup_tracing(trace_max, unit_nr, tracing_string)
          END IF
-      ENDIF
+      END IF
 
       CALL section_vals_val_get(global_section, "TIMINGS%TIME_MPI", l_val=mp_collect_timings)
 
@@ -614,7 +614,7 @@ CONTAINS
 
       IF (globenv%prog_name_id == do_farming .AND. globenv%run_type_id /= none_run) THEN
          CPABORT("FARMING program supports only NONE as run type")
-      ENDIF
+      END IF
 
       IF (globenv%prog_name_id == do_test .AND. globenv%run_type_id /= none_run) &
          CPABORT("TEST program supports only NONE as run type")
@@ -679,7 +679,7 @@ CONTAINS
 
          ! *** Print the number of processes per host ***
          CALL echo_all_process_host(para_env, output_unit)
-      ENDIF
+      END IF
 
       num_threads = 1
 !$    num_threads = omp_get_max_threads()
@@ -895,7 +895,7 @@ CONTAINS
          try_fftw = .FALSE.
       ELSE
          try_fftw = .TRUE.
-      ENDIF
+      END IF
 
       !   *** Initialize FFT library with the user's preferred FFT library ***
       CALL init_fft(fftlib=TRIM(globenv%default_fft_library), &
@@ -914,7 +914,7 @@ CONTAINS
                WRITE (output_unit, '(A,A,T55,A)') &
                   " WARNING : FFT library "//TRIM(globenv%default_fft_library)// &
                   " is not available ", " Trying FFTW3"
-            ENDIF
+            END IF
             globenv%default_fft_library = "FFTW3"
             CALL init_fft(fftlib=TRIM(globenv%default_fft_library), &
                           alltoall=section_get_lval(global_section, "ALLTOALL_SGL"), &
@@ -924,7 +924,7 @@ CONTAINS
                           plan_style=globenv%fftw_plan_type)
 
             CALL fft3d(1, n, zz, status=stat)
-         ENDIF
+         END IF
 
          IF (stat /= 0) THEN
 
@@ -932,7 +932,7 @@ CONTAINS
                WRITE (output_unit, '(A,A,T55,A)') &
                   " WARNING : FFT library "//TRIM(globenv%default_fft_library)// &
                   " is not available ", " Trying FFTSG as a default"
-            ENDIF
+            END IF
 
             globenv%default_fft_library = "FFTSG"
             CALL init_fft(fftlib=TRIM(globenv%default_fft_library), &
@@ -945,9 +945,9 @@ CONTAINS
             CALL fft3d(1, n, zz, status=stat)
             IF (stat /= 0) THEN
                CPABORT("FFTSG not functional....")
-            ENDIF
+            END IF
 
-         ENDIF
+         END IF
 
       END IF
 
@@ -977,7 +977,7 @@ CONTAINS
             WRITE (output_unit, '(A,A,T55,A)') &
                " WARNING : DIAGONALIZATION library "//TRIM(globenv%diag_library)// &
                " is not available, fallback to SCALAPACK"
-         ENDIF
+         END IF
 
       END IF
 
@@ -1119,7 +1119,7 @@ CONTAINS
          ! finalize the fft (i.e. writes the wisdom if FFTW3 )
          CALL finalize_fft(para_env, globenv%fftw_wisdom_file_name)
          CALL finalize_libvori()
-      ENDIF
+      END IF
 
       ! Write message passing performance info
 
@@ -1145,7 +1145,7 @@ CONTAINS
 
          CALL print_all_references(sorted=.TRUE., cited_only=.TRUE., &
                                    FORMAT=print_format_journal, unit=iw)
-      ENDIF
+      END IF
       CALL cp_print_key_finished_output(iw, logger, root_section, &
                                         "GLOBAL%REFERENCES")
 
@@ -1158,7 +1158,7 @@ CONTAINS
       report_maxloc = section_get_lval(root_section, "GLOBAL%TIMINGS%REPORT_MAXLOC")
       IF (m_energy() .NE. 0.0_dp) THEN
          CALL timings_report_print(iw, r_timings, sort_by_self_time, cost_type_energy, report_maxloc, para_env)
-      ENDIF
+      END IF
       CALL timings_report_print(iw, r_timings, sort_by_self_time, cost_type_time, report_maxloc, para_env)
 
       !Write the callgraph, if desired by user
@@ -1172,7 +1172,7 @@ CONTAINS
             WRITE (UNIT=iw, FMT="(T2,3X,A)") "Writing callgraph to: "//TRIM(cg_filename)//".callgraph"
             WRITE (UNIT=iw, FMT="()")
             WRITE (UNIT=iw, FMT="(T2,A)") "-------------------------------------------------------------------------------"
-         ENDIF
+         END IF
          IF (cg_mode == CALLGRAPH_ALL .OR. para_env%ionode) &
             CALL timings_report_callgraph(TRIM(cg_filename)//".callgraph")
       END IF
@@ -1207,7 +1207,7 @@ CONTAINS
             WRITE (iw, "(T2,A,I0)") "The number of warnings for this run is : ", warning_counter
             WRITE (iw, *) ""
             WRITE (UNIT=iw, FMT="(T2,A)") REPEAT("-", 79)
-         ENDIF
+         END IF
 
          ! update the runtime environment variables
          CALL get_runtime_info()

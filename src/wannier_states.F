@@ -10,33 +10,33 @@
 !> \author Alin M Elena
 ! **************************************************************************************************
 MODULE wannier_states
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_element,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE dbcsr_api,                       ONLY: dbcsr_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE wannier_states_types,            ONLY: wannier_centres_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_sm_fm_multiply
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_element, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE dbcsr_api, ONLY: dbcsr_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE wannier_states_types, ONLY: wannier_centres_type
 !!!! this ones are needed to mapping
 #include "./base/base_uses.f90"
 
@@ -140,7 +140,7 @@ CONTAINS
       IF (unit_mat > 0) THEN
          WRITE (unit_mat, '(a16,1(i0,1x))') "Wannier states: ", ns
          WRITE (unit_mat, '(a16)') "#No x y z energy "
-      ENDIF
+      END IF
       DO i = 1, ns
          CALL cp_fm_to_fm(mo_localized, b, 1, states(i), 1)
          CALL cp_dbcsr_sm_fm_multiply(Hks, b, c, 1)
@@ -161,8 +161,8 @@ CONTAINS
          WRITE (output_unit, *) "ENERGY      original MO-index"
          DO i = 1, ns
             WRITE (output_unit, '(f16.8,2x,i0)') WannierCentres%WannierHamDiag(i), states(i)
-         ENDDO
-      ENDIF
+         END DO
+      END IF
       CALL cp_fm_release(b)
       CALL cp_fm_release(c)
       CALL cp_fm_release(d)

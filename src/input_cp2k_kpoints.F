@@ -12,18 +12,18 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE input_cp2k_kpoints
-   USE bibliography,                    ONLY: MacDonald1978,&
-                                              Monkhorst1976
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_create,&
-                                              section_type
-   USE input_val_types,                 ONLY: char_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: s2a
+   USE bibliography, ONLY: MacDonald1978, &
+                           Monkhorst1976
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_create, &
+                                  section_type
+   USE input_val_types, ONLY: char_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -6,111 +6,111 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE qs_tddfpt2_properties
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE bibliography,                    ONLY: Martin2003,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_cfm_basic_linalg,             ONLY: cp_cfm_solve
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_p_type,&
-                                              cp_cfm_release,&
-                                              cp_cfm_set_all,&
-                                              cp_cfm_to_fm,&
-                                              cp_fm_to_cfm
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              tddfpt2_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              cp_dbcsr_plus_fm_fm_t,&
-                                              cp_dbcsr_sm_fm_multiply,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_scale,&
-                                              cp_fm_scale_and_add,&
-                                              cp_fm_trace
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type,&
-                                              cp_fm_vectorsnorm
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_filter, dbcsr_get_block_p, &
-        dbcsr_get_info, dbcsr_init_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
-        dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, &
-        dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry
-   USE dbcsr_vector,                    ONLY: create_col_vec_from_matrix,&
-                                              create_replicated_col_vec_from_matrix,&
-                                              create_replicated_row_vec_from_matrix,&
-                                              dbcsr_matrix_colvec_multiply
-   USE input_constants,                 ONLY: tddfpt_dipole_berry,&
-                                              tddfpt_dipole_length,&
-                                              tddfpt_dipole_velocity
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kahan_sum,                       ONLY: accurate_dot_product
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp,&
-                                              int_8
-   USE mathconstants,                   ONLY: twopi,&
-                                              z_one,&
-                                              z_zero
-   USE message_passing,                 ONLY: mp_irecv,&
-                                              mp_isend,&
-                                              mp_sum,&
-                                              mp_wait
-   USE molden_utils,                    ONLY: write_mos_molden
-   USE moments_utils,                   ONLY: get_reference_point
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: evolt
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_poisson_types,                ONLY: pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_collocate_density,            ONLY: calculate_wavefunction
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_mo_types,                     ONLY: allocate_mo_set,&
-                                              deallocate_mo_set,&
-                                              get_mo_set,&
-                                              init_mo_set,&
-                                              mo_set_p_type,&
-                                              set_mo_set
-   USE qs_moments,                      ONLY: build_berry_moment_matrix
-   USE qs_operators_ao,                 ONLY: rRc_xyz_ao
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
-   USE qs_tddfpt2_types,                ONLY: tddfpt_ground_state_mos
-   USE string_utilities,                ONLY: integer_to_string
-   USE util,                            ONLY: sort
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE bibliography, ONLY: Martin2003, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_cfm_basic_linalg, ONLY: cp_cfm_solve
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_p_type, &
+                           cp_cfm_release, &
+                           cp_cfm_set_all, &
+                           cp_cfm_to_fm, &
+                           cp_fm_to_cfm
+   USE cp_control_types, ONLY: dft_control_type, &
+                               tddfpt2_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  cp_dbcsr_plus_fm_fm_t, &
+                                  cp_dbcsr_sm_fm_multiply, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_scale, &
+                                 cp_fm_scale_and_add, &
+                                 cp_fm_trace
+   USE cp_fm_diag, ONLY: choose_eigv_solver
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_type, &
+                          cp_fm_vectorsnorm
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_realspace_grid_cube, ONLY: cp_pw_to_cube
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_filter, dbcsr_get_block_p, &
+      dbcsr_get_info, dbcsr_init_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
+      dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, &
+      dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry
+   USE dbcsr_vector, ONLY: create_col_vec_from_matrix, &
+                           create_replicated_col_vec_from_matrix, &
+                           create_replicated_row_vec_from_matrix, &
+                           dbcsr_matrix_colvec_multiply
+   USE input_constants, ONLY: tddfpt_dipole_berry, &
+                              tddfpt_dipole_length, &
+                              tddfpt_dipole_velocity
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kahan_sum, ONLY: accurate_dot_product
+   USE kinds, ONLY: default_path_length, &
+                    dp, &
+                    int_8
+   USE mathconstants, ONLY: twopi, &
+                            z_one, &
+                            z_zero
+   USE message_passing, ONLY: mp_irecv, &
+                              mp_isend, &
+                              mp_sum, &
+                              mp_wait
+   USE molden_utils, ONLY: write_mos_molden
+   USE moments_utils, ONLY: get_reference_point
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: evolt
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_poisson_types, ONLY: pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_collocate_density, ONLY: calculate_wavefunction
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_mo_types, ONLY: allocate_mo_set, &
+                          deallocate_mo_set, &
+                          get_mo_set, &
+                          init_mo_set, &
+                          mo_set_p_type, &
+                          set_mo_set
+   USE qs_moments, ONLY: build_berry_moment_matrix
+   USE qs_operators_ao, ONLY: rRc_xyz_ao
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
+   USE qs_tddfpt2_types, ONLY: tddfpt_ground_state_mos
+   USE string_utilities, ONLY: integer_to_string
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -639,7 +639,7 @@ CONTAINS
 
       CHARACTER(len=5)                                   :: spin_label
       INTEGER :: handle, icol, iproc, irow, ispin, istate, nao, ncols_local, nrows_local, nspins, &
-         nstates, send_handler, send_handler2, state_spin
+                 nstates, send_handler, send_handler2, state_spin
       INTEGER(kind=int_8)                                :: iexc, imo_occ, imo_virt, ind, nexcs, &
                                                             nexcs_local, nexcs_max_local, &
                                                             nmo_virt_occ, nmo_virt_occ_alpha
@@ -1218,7 +1218,7 @@ CONTAINS
          CALL dbcsr_get_block_p(vb, row=irow, col=icol, block=vbb, found=found)
          res = res + SUM(vba*vbb)
          CPASSERT(found)
-      ENDDO
+      END DO
       CALL dbcsr_iterator_stop(iter)
       CALL mp_sum(res, group)
 
@@ -1308,7 +1308,7 @@ CONTAINS
             CALL cp_pw_to_cube(wf_r%pw, unit_nr, title, particles=particles, stride=stride, mpi_io=mpi_io)
             CALL cp_print_key_finished_output(unit_nr, logger, print_section, '', &
                                               ignore_should_output=.TRUE., mpi_io=mpi_io)
-         ENDDO
+         END DO
       END DO
 
       CALL pw_pool_give_back_pw(auxbas_pw_pool, wf_g%pw)

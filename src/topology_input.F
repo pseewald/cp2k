@@ -12,26 +12,26 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE topology_input
-   USE colvar_types,                    ONLY: colvar_clone,&
-                                              colvar_p_type
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit,&
-                                              cp_to_string
-   USE input_constants,                 ONLY: do_conn_generate,&
-                                              do_conn_mol_set,&
-                                              do_conn_off,&
-                                              do_conn_user,&
-                                              do_constr_none,&
-                                              do_coord_off
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_unset
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE topology_types,                  ONLY: constraint_info_type,&
-                                              topology_parameters_type
+   USE colvar_types, ONLY: colvar_clone, &
+                           colvar_p_type
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit, &
+                              cp_to_string
+   USE input_constants, ONLY: do_conn_generate, &
+                              do_conn_mol_set, &
+                              do_conn_off, &
+                              do_conn_user, &
+                              do_constr_none, &
+                              do_coord_off
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_unset
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE topology_types, ONLY: constraint_info_type, &
+                             topology_parameters_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

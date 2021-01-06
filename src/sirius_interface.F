@@ -13,63 +13,63 @@
 !***************************************************************************************************
 #if defined(__SIRIUS)
 MODULE sirius_interface
-   USE ISO_C_BINDING,                   ONLY: C_DOUBLE,&
-                                              C_INT,&
-                                              C_NULL_PTR,&
-                                              C_PTR
-   USE atom_kind_orbitals,              ONLY: calculate_atomic_orbitals,&
-                                              gth_potential_conversion
-   USE atom_types,                      ONLY: atom_gthpot_type
-   USE atom_upf,                        ONLY: atom_upfpot_type
-   USE atom_utils,                      ONLY: atom_local_potential
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              real_to_scaled
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE external_potential_types,        ONLY: gth_potential_type
-   USE input_constants,                 ONLY: do_gapw_log
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_get_subs_vals2,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: fourpi,&
-                                              gamma1
-   USE particle_types,                  ONLY: particle_type
-   USE pwdft_environment_types,         ONLY: pwdft_energy_type,&
-                                              pwdft_env_get,&
-                                              pwdft_env_set,&
-                                              pwdft_environment_type
-   USE qs_grid_atom,                    ONLY: allocate_grid_atom,&
-                                              create_grid_atom,&
-                                              deallocate_grid_atom,&
-                                              grid_atom_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
-   USE sirius,                          ONLY: &
-        sirius_add_atom, sirius_add_atom_type, sirius_add_atom_type_radial_function, &
-        sirius_create_context, sirius_create_ground_state, sirius_create_kset_from_grid, &
-        sirius_dump_runtime_setup, sirius_finalize, sirius_find_ground_state, &
-        sirius_get_band_energies, sirius_get_band_occupancies, sirius_get_energy, &
-        sirius_get_forces, sirius_get_kpoint_properties, sirius_get_num_bands, &
-        sirius_get_num_kpoints, sirius_get_num_spin_components, sirius_get_stress_tensor, &
-        sirius_import_parameters, sirius_initialize, sirius_initialize_context, &
-        sirius_option_add_string_to, sirius_option_get_length, sirius_option_get_name_and_type, &
-        sirius_option_set_double, sirius_option_set_int, sirius_option_set_logical, &
-        sirius_option_set_string, sirius_set_atom_position, sirius_set_atom_type_dion, &
-        sirius_set_atom_type_radial_grid, sirius_set_lattice_vectors, sirius_update_ground_state
+   USE ISO_C_BINDING, ONLY: C_DOUBLE, &
+                            C_INT, &
+                            C_NULL_PTR, &
+                            C_PTR
+   USE atom_kind_orbitals, ONLY: calculate_atomic_orbitals, &
+                                 gth_potential_conversion
+   USE atom_types, ONLY: atom_gthpot_type
+   USE atom_upf, ONLY: atom_upfpot_type
+   USE atom_utils, ONLY: atom_local_potential
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         real_to_scaled
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE external_potential_types, ONLY: gth_potential_type
+   USE input_constants, ONLY: do_gapw_log
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_get_subs_vals2, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: fourpi, &
+                            gamma1
+   USE particle_types, ONLY: particle_type
+   USE pwdft_environment_types, ONLY: pwdft_energy_type, &
+                                      pwdft_env_get, &
+                                      pwdft_env_set, &
+                                      pwdft_environment_type
+   USE qs_grid_atom, ONLY: allocate_grid_atom, &
+                           create_grid_atom, &
+                           deallocate_grid_atom, &
+                           grid_atom_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
+   USE sirius, ONLY: &
+      sirius_add_atom, sirius_add_atom_type, sirius_add_atom_type_radial_function, &
+      sirius_create_context, sirius_create_ground_state, sirius_create_kset_from_grid, &
+      sirius_dump_runtime_setup, sirius_finalize, sirius_find_ground_state, &
+      sirius_get_band_energies, sirius_get_band_occupancies, sirius_get_energy, &
+      sirius_get_forces, sirius_get_kpoint_properties, sirius_get_num_bands, &
+      sirius_get_num_kpoints, sirius_get_num_spin_components, sirius_get_stress_tensor, &
+      sirius_import_parameters, sirius_initialize, sirius_initialize_context, &
+      sirius_option_add_string_to, sirius_option_get_length, sirius_option_get_name_and_type, &
+      sirius_option_set_double, sirius_option_set_int, sirius_option_set_logical, &
+      sirius_option_set_string, sirius_set_atom_position, sirius_set_atom_type_dion, &
+      sirius_set_atom_type_radial_grid, sirius_set_lattice_vectors, sirius_update_ground_state
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -183,15 +183,15 @@ CONTAINS
                   CALL section_vals_val_get(xc_fun, "FUNCTIONAL", i_rep_section=i, c_val=section_name)
                   CALL sirius_option_add_string_to(sctx, 'parameters', 'xc_functionals', section_name)
                END DO
-            ENDIF
+            END IF
          END DO
-      ENDIF
+      END IF
 
 !     import control section
       pwdft_sub_section => section_vals_get_subs_vals(pwdft_section, "control")
       IF (ASSOCIATED(pwdft_sub_section)) THEN
          CALL cp_sirius_fill_in_section(sctx, pwdft_sub_section, "control")
-      ENDIF
+      END IF
 
 !     import parameters section
       pwdft_sub_section => section_vals_get_subs_vals(pwdft_section, "parameters")
@@ -208,19 +208,19 @@ CONTAINS
          k_shift(3) = kk(3)
          CALL section_vals_val_get(pwdft_sub_section, "num_mag_dims", i_val=num_mag_dims)
          CALL section_vals_val_get(pwdft_sub_section, "use_symmetry", l_val=use_symmetry)
-      ENDIF
+      END IF
 
 !     import mixer section
       pwdft_sub_section => section_vals_get_subs_vals(pwdft_section, "mixer")
       IF (ASSOCIATED(pwdft_sub_section)) THEN
          CALL cp_sirius_fill_in_section(sctx, pwdft_sub_section, "mixer")
-      ENDIF
+      END IF
 
       !     import solver section
       pwdft_sub_section => section_vals_get_subs_vals(pwdft_section, "iterative_solver")
       IF (ASSOCIATED(pwdft_sub_section)) THEN
          CALL cp_sirius_fill_in_section(sctx, pwdft_sub_section, "iterative_solver")
-      ENDIF
+      END IF
 
       CALL sirius_dump_runtime_setup(sctx, "runtime.json")
       CALL sirius_import_parameters(sctx)
@@ -410,10 +410,10 @@ CONTAINS
          ELSE
             v1 = 0._dp
             v1(3) = zeff*magnetization
-         ENDIF
+         END IF
          v2(1:3) = vs(1:3)
          CALL sirius_add_atom(sctx, label, v2(1), v1(1))
-      ENDDO
+      END DO
 ! initialize global variables/indices/arrays/etc. of the simulation
       CALL sirius_initialize_context(sctx)
 
@@ -423,7 +423,7 @@ CONTAINS
          CALL sirius_create_kset_from_grid(sctx, k_grid(1), k_shift(1), use_symmetry=.TRUE., kset_handler=ks_handler)
       ELSE
          CALL sirius_create_kset_from_grid(sctx, k_grid(1), k_shift(1), use_symmetry=.FALSE., kset_handler=ks_handler)
-      ENDIF
+      END IF
 ! create ground-state class
       CALL sirius_create_ground_state(ks_handler, gs_handler)
 
@@ -471,7 +471,7 @@ CONTAINS
          CALL real_to_scaled(vs, vr, my_cell)
          v2(1:3) = vs(1:3)
          CALL sirius_set_atom_position(sctx, iatom, v2(1))
-      ENDDO
+      END DO
 
 ! update ground-state class
       CALL sirius_update_ground_state(gs_handler)
@@ -533,7 +533,7 @@ CONTAINS
                      CALL sirius_option_set_logical(sctx, section_name, option_name, 1, 0)
                   ELSE
                      CALL sirius_option_set_logical(sctx, section_name, option_name, 0, 0)
-                  ENDIF
+                  END IF
                CASE (13)
                   CALL section_vals_val_get(section, option_name, l_vals=lvals)
                   length = SIZE(lvals)
@@ -542,7 +542,7 @@ CONTAINS
                         lvalsi(i) = 1
                      ELSE
                         lvalsi(i) = 0
-                     ENDIF
+                     END IF
                   END DO
                   CALL sirius_option_set_logical(sctx, section_name, option_name, lvalsi(1), length)
                CASE (4)         ! string nightmare
@@ -615,14 +615,14 @@ CONTAINS
          ! cp2k : forces(atoms, coordinates)
          forces = -TRANSPOSE(cforces(:, :))
          DEALLOCATE (cforces)
-      ENDIF
+      END IF
 
       IF (calculate_stress_tensor) THEN
          cstress = 0.0_C_DOUBLE
          CALL sirius_get_stress_tensor(gs_handler, 'total', cstress(1, 1))
          stress(1:3, 1:3) = cstress(1:3, 1:3)
          CALL pwdft_env_set(pwdft_env=pwdft_env, stress=stress)
-      ENDIF
+      END IF
 
       CALL pwdft_env_get(pwdft_env=pwdft_env, pwdft_input=pwdft_input)
       print_section => section_vals_get_subs_vals(pwdft_input, "PRINT")

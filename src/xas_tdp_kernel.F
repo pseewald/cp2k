@@ -11,39 +11,39 @@
 ! **************************************************************************************************
 
 MODULE xas_tdp_kernel
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_dist2d_to_dist,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_complete_redistribute, dbcsr_copy, dbcsr_create, dbcsr_desymmetrize, &
-        dbcsr_distribution_get, dbcsr_distribution_new, dbcsr_distribution_release, &
-        dbcsr_distribution_type, dbcsr_filter, dbcsr_finalize, dbcsr_get_block_p, dbcsr_get_info, &
-        dbcsr_get_stored_coordinates, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
-        dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, &
-        dbcsr_p_type, dbcsr_put_block, dbcsr_release, dbcsr_reserve_block2d, dbcsr_set, &
-        dbcsr_transposed, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_symmetric
-   USE dbcsr_tensor_api,                ONLY: dbcsr_t_get_block,&
-                                              dbcsr_t_iterator_blocks_left,&
-                                              dbcsr_t_iterator_next_block,&
-                                              dbcsr_t_iterator_start,&
-                                              dbcsr_t_iterator_stop,&
-                                              dbcsr_t_iterator_type,&
-                                              dbcsr_t_type
-   USE distribution_2d_types,           ONLY: distribution_2d_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_bcast
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE util,                            ONLY: get_limit
-   USE xas_tdp_types,                   ONLY: donor_state_type,&
-                                              get_proc_batch_sizes,&
-                                              xas_tdp_control_type,&
-                                              xas_tdp_env_type
+   USE basis_set_types, ONLY: gto_basis_set_p_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_dist2d_to_dist, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_complete_redistribute, dbcsr_copy, dbcsr_create, dbcsr_desymmetrize, &
+      dbcsr_distribution_get, dbcsr_distribution_new, dbcsr_distribution_release, &
+      dbcsr_distribution_type, dbcsr_filter, dbcsr_finalize, dbcsr_get_block_p, dbcsr_get_info, &
+      dbcsr_get_stored_coordinates, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
+      dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, &
+      dbcsr_p_type, dbcsr_put_block, dbcsr_release, dbcsr_reserve_block2d, dbcsr_set, &
+      dbcsr_transposed, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_symmetric
+   USE dbcsr_tensor_api, ONLY: dbcsr_t_get_block, &
+                               dbcsr_t_iterator_blocks_left, &
+                               dbcsr_t_iterator_next_block, &
+                               dbcsr_t_iterator_start, &
+                               dbcsr_t_iterator_stop, &
+                               dbcsr_t_iterator_type, &
+                               dbcsr_t_type
+   USE distribution_2d_types, ONLY: distribution_2d_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_bcast
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_integral_utils, ONLY: basis_set_list_setup
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE util, ONLY: get_limit
+   USE xas_tdp_types, ONLY: donor_state_type, &
+                            get_proc_batch_sizes, &
+                            xas_tdp_control_type, &
+                            xas_tdp_env_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"

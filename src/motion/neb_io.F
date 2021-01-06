@@ -18,56 +18,56 @@
 !> \author Teodoro Laino 10.2006
 ! **************************************************************************************************
 MODULE neb_io
-   USE cell_types,                      ONLY: cell_type
-   USE cp2k_info,                       ONLY: get_runtime_info
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_add_default_logger,&
-                                              cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_rm_default_logger,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE f77_interface,                   ONLY: f_env_add_defaults,&
-                                              f_env_rm_defaults,&
-                                              f_env_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              use_mixed_force
-   USE header,                          ONLY: cp2k_footer
-   USE input_constants,                 ONLY: band_md_opt,&
-                                              do_sm,&
-                                              dump_xmol,&
-                                              pot_neb_fe,&
-                                              pot_neb_full,&
-                                              pot_neb_me
-   USE input_cp2k_neb,                  ONLY: create_band_section
-   USE input_cp2k_restarts,             ONLY: write_restart
-   USE input_enumeration_types,         ONLY: enum_i2c,&
-                                              enumeration_type
-   USE input_keyword_types,             ONLY: keyword_get,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_get_keyword,&
-                                              section_release,&
-                                              section_type,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE machine,                         ONLY: m_flush
-   USE neb_md_utils,                    ONLY: get_temperatures
-   USE neb_types,                       ONLY: neb_type,&
-                                              neb_var_type
-   USE particle_methods,                ONLY: write_particle_coordinates
-   USE particle_types,                  ONLY: get_particle_pos_or_vel,&
-                                              particle_type
-   USE physcon,                         ONLY: angstrom
-   USE replica_types,                   ONLY: replica_env_type
+   USE cell_types, ONLY: cell_type
+   USE cp2k_info, ONLY: get_runtime_info
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_add_default_logger, &
+                              cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_rm_default_logger, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE f77_interface, ONLY: f_env_add_defaults, &
+                            f_env_rm_defaults, &
+                            f_env_type
+   USE force_env_types, ONLY: force_env_get, &
+                              use_mixed_force
+   USE header, ONLY: cp2k_footer
+   USE input_constants, ONLY: band_md_opt, &
+                              do_sm, &
+                              dump_xmol, &
+                              pot_neb_fe, &
+                              pot_neb_full, &
+                              pot_neb_me
+   USE input_cp2k_neb, ONLY: create_band_section
+   USE input_cp2k_restarts, ONLY: write_restart
+   USE input_enumeration_types, ONLY: enum_i2c, &
+                                      enumeration_type
+   USE input_keyword_types, ONLY: keyword_get, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_get_keyword, &
+                                  section_release, &
+                                  section_type, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE machine, ONLY: m_flush
+   USE neb_md_utils, ONLY: get_temperatures
+   USE neb_types, ONLY: neb_type, &
+                        neb_var_type
+   USE particle_methods, ONLY: write_particle_coordinates
+   USE particle_types, ONLY: get_particle_pos_or_vel, &
+                             particle_type
+   USE physcon, ONLY: angstrom
+   USE replica_types, ONLY: replica_env_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

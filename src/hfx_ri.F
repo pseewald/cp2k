@@ -11,90 +11,90 @@
 
 MODULE hfx_ri
 
-   USE arnoldi_api,                     ONLY: arnoldi_extremal
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose,&
-                                              cp_dbcsr_cholesky_invert
-   USE cp_dbcsr_diag,                   ONLY: cp_dbcsr_power
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              cp_dbcsr_dist2d_to_dist
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_distribution_get, &
-        dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_dot, dbcsr_filter, &
-        dbcsr_frobenius_norm, dbcsr_get_info, dbcsr_get_num_blocks, dbcsr_multiply, dbcsr_p_type, &
-        dbcsr_release, dbcsr_scalar, dbcsr_scale, dbcsr_type, dbcsr_type_no_symmetry, &
-        dbcsr_type_symmetric
-   USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_batched_contract_finalize, dbcsr_t_batched_contract_init, dbcsr_t_clear, &
-        dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
-        dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
-        dbcsr_t_get_info, dbcsr_t_get_num_blocks, dbcsr_t_get_num_blocks_total, &
-        dbcsr_t_mp_environ_pgrid, dbcsr_t_nd_mp_comm, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, &
-        dbcsr_t_pgrid_type, dbcsr_t_reserved_block_indices, dbcsr_t_type
-   USE distribution_2d_types,           ONLY: distribution_2d_type
-   USE hfx_types,                       ONLY: hfx_ri_type
-   USE input_constants,                 ONLY: hfx_ri_do_2c_cholesky,&
-                                              hfx_ri_do_2c_diag,&
-                                              hfx_ri_do_2c_iter
-   USE input_cp2k_hfx,                  ONLY: ri_mo,&
-                                              ri_pmat
-   USE iterate_matrix,                  ONLY: invert_hotelling,&
-                                              matrix_sqrt_newton_schulz
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp,&
-                                              int_8
-   USE machine,                         ONLY: m_walltime
-   USE message_passing,                 ONLY: mp_cart_create,&
-                                              mp_environ,&
-                                              mp_sum,&
-                                              mp_sync
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
-   USE qs_interactions,                 ONLY: init_interaction_radii_orb_basis
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_loc_methods,                  ONLY: qs_loc_driver
-   USE qs_loc_types,                    ONLY: get_qs_loc_env,&
-                                              qs_loc_env_create,&
-                                              qs_loc_env_release
-   USE qs_loc_utils,                    ONLY: qs_loc_control_init,&
-                                              qs_loc_init
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type,&
-                                              mo_set_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type,&
-                                              release_neighbor_list_sets
-   USE qs_tensors,                      ONLY: build_2c_integrals,&
-                                              build_2c_neighbor_lists,&
-                                              build_3c_integrals,&
-                                              build_3c_neighbor_lists,&
-                                              compress_tensor,&
-                                              decompress_tensor,&
-                                              get_tensor_occupancy,&
-                                              neighbor_list_3c_destroy
-   USE qs_tensors_types,                ONLY: create_2c_tensor,&
-                                              create_3c_tensor,&
-                                              create_tensor_batches,&
-                                              distribution_3d_create,&
-                                              distribution_3d_type,&
-                                              neighbor_list_3c_type,&
-                                              split_block_sizes
-   USE util,                            ONLY: sort
+   USE arnoldi_api, ONLY: arnoldi_extremal
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cp_array_utils, ONLY: cp_1d_r_p_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cholesky, ONLY: cp_dbcsr_cholesky_decompose, &
+                                cp_dbcsr_cholesky_invert
+   USE cp_dbcsr_diag, ONLY: cp_dbcsr_power
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  cp_dbcsr_dist2d_to_dist
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_distribution_get, &
+      dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_dot, dbcsr_filter, &
+      dbcsr_frobenius_norm, dbcsr_get_info, dbcsr_get_num_blocks, dbcsr_multiply, dbcsr_p_type, &
+      dbcsr_release, dbcsr_scalar, dbcsr_scale, dbcsr_type, dbcsr_type_no_symmetry, &
+      dbcsr_type_symmetric
+   USE dbcsr_tensor_api, ONLY: &
+      dbcsr_t_batched_contract_finalize, dbcsr_t_batched_contract_init, dbcsr_t_clear, &
+      dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, &
+      dbcsr_t_copy_tensor_to_matrix, dbcsr_t_create, dbcsr_t_destroy, dbcsr_t_filter, &
+      dbcsr_t_get_info, dbcsr_t_get_num_blocks, dbcsr_t_get_num_blocks_total, &
+      dbcsr_t_mp_environ_pgrid, dbcsr_t_nd_mp_comm, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, &
+      dbcsr_t_pgrid_type, dbcsr_t_reserved_block_indices, dbcsr_t_type
+   USE distribution_2d_types, ONLY: distribution_2d_type
+   USE hfx_types, ONLY: hfx_ri_type
+   USE input_constants, ONLY: hfx_ri_do_2c_cholesky, &
+                              hfx_ri_do_2c_diag, &
+                              hfx_ri_do_2c_iter
+   USE input_cp2k_hfx, ONLY: ri_mo, &
+                             ri_pmat
+   USE iterate_matrix, ONLY: invert_hotelling, &
+                             matrix_sqrt_newton_schulz
+   USE kinds, ONLY: default_string_length, &
+                    dp, &
+                    int_8
+   USE machine, ONLY: m_walltime
+   USE message_passing, ONLY: mp_cart_create, &
+                              mp_environ, &
+                              mp_sum, &
+                              mp_sync
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_integral_utils, ONLY: basis_set_list_setup
+   USE qs_interactions, ONLY: init_interaction_radii_orb_basis
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_loc_methods, ONLY: qs_loc_driver
+   USE qs_loc_types, ONLY: get_qs_loc_env, &
+                           qs_loc_env_create, &
+                           qs_loc_env_release
+   USE qs_loc_utils, ONLY: qs_loc_control_init, &
+                           qs_loc_init
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type, &
+                          mo_set_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type, &
+                                     release_neighbor_list_sets
+   USE qs_tensors, ONLY: build_2c_integrals, &
+                         build_2c_neighbor_lists, &
+                         build_3c_integrals, &
+                         build_3c_neighbor_lists, &
+                         compress_tensor, &
+                         decompress_tensor, &
+                         get_tensor_occupancy, &
+                         neighbor_list_3c_destroy
+   USE qs_tensors_types, ONLY: create_2c_tensor, &
+                               create_3c_tensor, &
+                               create_tensor_batches, &
+                               distribution_3d_create, &
+                               distribution_3d_type, &
+                               neighbor_list_3c_type, &
+                               split_block_sizes
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -165,7 +165,7 @@ CONTAINS
 
          IF (ri_data%check_2c_inv) THEN
             CALL check_inverse(t_2c_op_RI_inv(1), t_2c_op_RI(1), unit_nr=unit_nr)
-         ENDIF
+         END IF
 
          CALL dbcsr_release(t_2c_op_RI(1))
 
@@ -185,7 +185,7 @@ CONTAINS
          END SELECT
          IF (ri_data%check_2c_inv) THEN
             CALL check_sqrt(t_2c_op_pot(1), matrix_sqrt=t_2c_op_pot_sqrt(1), unit_nr=unit_nr)
-         ENDIF
+         END IF
          CALL dbcsr_create(t_2c_int_mat(1), template=t_2c_op_pot(1), matrix_type=dbcsr_type_no_symmetry)
          CALL dbcsr_multiply("N", "N", 1.0_dp, t_2c_op_RI_inv(1), t_2c_op_pot_sqrt(1), &
                              0.0_dp, t_2c_int_mat(1), filter_eps=ri_data%filter_eps)
@@ -207,8 +207,8 @@ CONTAINS
          END SELECT
          IF (ri_data%check_2c_inv) THEN
             CALL check_sqrt(t_2c_op_pot(1), matrix_sqrt_inv=t_2c_int_mat(1), unit_nr=unit_nr)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       CALL dbcsr_release(t_2c_op_pot(1))
 
@@ -218,7 +218,7 @@ CONTAINS
       DO ispin = 1, nspins
          IF (ispin > 1) CALL dbcsr_t_create(ri_data%t_2c_int(1, 1), ri_data%t_2c_int(ispin, 1))
          CALL dbcsr_t_copy(t_2c_int(1), ri_data%t_2c_int(ispin, 1))
-      ENDDO
+      END DO
       CALL dbcsr_t_destroy(t_2c_int(1))
       CALL timestop(handle2)
 
@@ -254,7 +254,7 @@ CONTAINS
          name_prv = name
       ELSE
          CALL dbcsr_get_info(matrix_1, name=name_prv)
-      ENDIF
+      END IF
 
       CALL dbcsr_create(matrix_tmp, template=matrix_1)
       CALL dbcsr_multiply("N", "N", 1.0_dp, matrix_1, matrix_2, &
@@ -266,7 +266,7 @@ CONTAINS
       IF (unit_nr > 0) THEN
          WRITE (UNIT=unit_nr, FMT="(T3,A,A,A,T73,ES8.1)") &
             "HFX_RI_INFO| Error for INV(", TRIM(name_prv), "):", error
-      ENDIF
+      END IF
 
       CALL dbcsr_release(matrix_tmp)
    END SUBROUTINE
@@ -293,7 +293,7 @@ CONTAINS
          name_prv = name
       ELSE
          CALL dbcsr_get_info(matrix, name=name_prv)
-      ENDIF
+      END IF
       IF (PRESENT(matrix_sqrt)) THEN
          CALL dbcsr_create(matrix_tmp, template=matrix)
          CALL dbcsr_copy(matrix_copy, matrix_sqrt)
@@ -304,10 +304,10 @@ CONTAINS
          IF (unit_nr > 0) THEN
             WRITE (UNIT=unit_nr, FMT="(T3,A,A,A,T73,ES8.1)") &
                "HFX_RI_INFO| Error for SQRT(", TRIM(name_prv), "):", frob_matrix
-         ENDIF
+         END IF
          CALL dbcsr_release(matrix_tmp)
          CALL dbcsr_release(matrix_copy)
-      ENDIF
+      END IF
 
       IF (PRESENT(matrix_sqrt_inv)) THEN
          CALL dbcsr_create(matrix_tmp, template=matrix)
@@ -317,7 +317,7 @@ CONTAINS
          CALL check_inverse(matrix_tmp, matrix, name="SQRT("//TRIM(name_prv)//")", unit_nr=unit_nr)
          CALL dbcsr_release(matrix_tmp)
          CALL dbcsr_release(matrix_copy)
-      ENDIF
+      END IF
 
    END SUBROUTINE
 
@@ -344,8 +344,8 @@ CONTAINS
       INTEGER                                            :: handle, i_mem, ibasis, mp_comm_t3c, &
                                                             n_mem, natom, nkind
       INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_AO_1, dist_AO_2, dist_RI, &
-         ends_array_mc_block_int, ends_array_mc_int, sizes_AO, sizes_RI, &
-         starts_array_mc_block_int, starts_array_mc_int
+                                            ends_array_mc_block_int, ends_array_mc_int, sizes_AO, sizes_RI, &
+                                            starts_array_mc_block_int, starts_array_mc_int
       INTEGER, DIMENSION(3)                              :: pcoord, pdims
       INTEGER, DIMENSION(:), POINTER                     :: col_bsize, row_bsize
       LOGICAL                                            :: converged
@@ -388,7 +388,7 @@ CONTAINS
          ! (since hartree-fock needs very tight eps_pgf_orb for Kohn-Sham/Fock matrix but eps_pgf_orb
          ! can be much looser in RI HFX since no systematic error is introduced with tensor sparsity)
          CALL init_interaction_radii_orb_basis(orb_basis, ri_data%eps_pgf_orb)
-      ENDDO
+      END DO
 
       n_mem = ri_data%n_mem
       CALL create_tensor_batches(sizes_AO, n_mem, starts_array_mc_int, ends_array_mc_int, &
@@ -426,7 +426,7 @@ CONTAINS
                                  bounds_j=[starts_array_mc_block_int(i_mem), ends_array_mc_block_int(i_mem)])
          CALL dbcsr_t_copy(t_3c_int_batched(1, 1), t_3c_int(1, 1), summation=.TRUE., move_data=.TRUE.)
          CALL dbcsr_t_filter(t_3c_int(1, 1), ri_data%filter_eps/2)
-      ENDDO
+      END DO
 
       CALL dbcsr_t_destroy(t_3c_int_batched(1, 1))
 
@@ -444,7 +444,7 @@ CONTAINS
          CALL dbcsr_t_filter(t_3c_int(1, 1), ri_data%filter_eps)
       ELSE
          CALL dbcsr_t_filter(t_3c_int(1, 1), ri_data%filter_eps_storage/2)
-      ENDIF
+      END IF
 
       CALL dbcsr_t_destroy(t_3c_tmp)
 
@@ -480,13 +480,13 @@ CONTAINS
                                  ri_data%ri_metric)
 
          CALL release_neighbor_list_sets(nl_2c_RI)
-      ENDIF
+      END IF
 
       DO ibasis = 1, SIZE(basis_set_AO)
          orb_basis => basis_set_AO(ibasis)%gto_basis_set
          ! reset interaction radii of orb basis
          CALL init_interaction_radii_orb_basis(orb_basis, dft_control%qs_control%eps_pgf_orb)
-      ENDDO
+      END DO
 
       IF (ri_data%calc_condnum) THEN
          CALL arnoldi_extremal(t_2c_int_pot(1), max_ev, min_ev, threshold=ri_data%eps_lanczos, &
@@ -494,7 +494,7 @@ CONTAINS
 
          IF (.NOT. converged) THEN
             CPWARN("Condition number estimate of (P|Q) (HFX potential) is not reliable (not converged).")
-         ENDIF
+         END IF
 
          IF (ri_data%unit_nr > 0) THEN
             WRITE (ri_data%unit_nr, '(T2,A)') "2-Norm Condition Number of (P|Q) integrals (HFX potential)"
@@ -504,8 +504,8 @@ CONTAINS
             ELSE
                WRITE (ri_data%unit_nr, '(T4,A,ES11.3E3,T32,A,ES11.3E3,T63,A)') &
                   "CN : max/min ev: ", max_ev, " / ", min_ev, "Log(CN): infinity"
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          IF (.NOT. ri_data%same_op) THEN
             CALL arnoldi_extremal(t_2c_int_RI(1), max_ev, min_ev, threshold=ri_data%eps_lanczos, &
@@ -513,7 +513,7 @@ CONTAINS
 
             IF (.NOT. converged) THEN
                CPWARN("Condition number estimate of (P|Q) matrix (RI metric) is not reliable (not converged).")
-            ENDIF
+            END IF
 
             IF (ri_data%unit_nr > 0) THEN
                WRITE (ri_data%unit_nr, '(T2,A)') "2-Norm Condition Number of (P|Q) integrals (RI metric)"
@@ -523,10 +523,10 @@ CONTAINS
                ELSE
                   WRITE (ri_data%unit_nr, '(T4,A,ES11.3E3,T32,A,ES11.3E3,T63,A)') &
                      "CN : max/min ev: ", max_ev, " / ", min_ev, "Log(CN): infinity"
-               ENDIF
-            ENDIF
-         ENDIF
-      ENDIF
+               END IF
+            END IF
+         END IF
+      END IF
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -599,7 +599,7 @@ CONTAINS
 
       IF (ri_data%check_2c_inv) THEN
          CALL check_inverse(t_2c_int_mat(1), t_2c_op_RI(1), unit_nr=unit_nr)
-      ENDIF
+      END IF
 
       IF (ri_data%same_op) THEN
          CALL dbcsr_release(t_2c_op_pot(1))
@@ -616,7 +616,7 @@ CONTAINS
          CALL dbcsr_release(t_2c_tmp(1))
          CALL dbcsr_release(t_2c_int_mat(1))
          t_2c_int_mat(1) = t_2c_tmp_2(1)
-      ENDIF
+      END IF
 
       CALL dbcsr_t_create(t_2c_int_mat(1), t_2c_int(1), name="(RI|RI)")
       CALL dbcsr_t_copy_matrix_to_tensor(t_2c_int_mat(1), t_2c_int(1))
@@ -669,11 +669,11 @@ CONTAINS
                                  memory_3c)
 
             CALL timestop(handle2)
-         ENDDO
+         END DO
          CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(1, 1))
          CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_int_ctr_3(1, 1))
          CALL dbcsr_t_batched_contract_finalize(t_3c_2)
-      ENDDO
+      END DO
 
       CALL mp_sum(memory_3c, para_env%group)
       compression_factor = REAL(nze_O, dp)*1.0E-06*8.0_dp/memory_3c
@@ -727,8 +727,8 @@ CONTAINS
          DO WHILE (blk_ind(end_ind + 1, 1) == irow)
             end_ind = end_ind + 1
             IF (end_ind + 1 > nblk) EXIT
-         ENDDO
-         ENDIF
+         END DO
+         END IF
 
          ncols = end_ind - start_ind + 1
          ALLOCATE (sort_2(ncols))
@@ -741,7 +741,7 @@ CONTAINS
          start_ind = end_ind + 1
 
          DEALLOCATE (sort_2, ind_2)
-      ENDDO
+      END DO
 
       ALLOCATE (blk_ind_tmp(nblk, 2))
       blk_ind_tmp = 0
@@ -751,11 +751,11 @@ CONTAINS
          IF (iblk >= 1) THEN
             IF (ALL(blk_ind_tmp(iblk, :) == blk_ind(iblk_all, :))) THEN
                CYCLE
-            ENDIF
-         ENDIF
+            END IF
+         END IF
          iblk = iblk + 1
          blk_ind_tmp(iblk, :) = blk_ind(iblk_all, :)
-      ENDDO
+      END DO
       nblk = iblk
 
       DEALLOCATE (blk_ind)
@@ -823,7 +823,7 @@ CONTAINS
             ALLOCATE (occupied_orbs(nspins))
             ALLOCATE (occupied_evals(nspins))
             ALLOCATE (homo_localized(nspins))
-         ENDIF
+         END IF
          DO ispin = 1, nspins
             NULLIFY (mo_coeff_b_tmp)
             mo_set => mos(ispin)%mo_set
@@ -836,15 +836,15 @@ CONTAINS
             ELSE
                IF (mo_set%use_mo_coeff_b) CALL copy_dbcsr_to_fm(mo_coeff_b_tmp, mo_coeff)
                CALL dbcsr_create(mo_coeff_b(ispin), template=mo_coeff_b_tmp)
-            ENDIF
+            END IF
 
             IF (ri_data%do_loc) THEN
                occupied_orbs(ispin)%matrix => mo_coeff
                occupied_evals(ispin)%array => mo_eigenvalues
                CALL cp_fm_create(homo_localized(ispin)%matrix, occupied_orbs(ispin)%matrix%matrix_struct)
                CALL cp_fm_to_fm(occupied_orbs(ispin)%matrix, homo_localized(ispin)%matrix)
-            ENDIF
-         ENDDO
+            END IF
+         END DO
 
          IF (ri_data%do_loc) THEN
             CALL qs_loc_env_create(ri_data%qs_loc_env)
@@ -853,25 +853,25 @@ CONTAINS
             DO ispin = 1, nspins
                CALL qs_loc_driver(qs_env, ri_data%qs_loc_env, ri_data%print_loc_subsection, ispin, &
                                   ext_mo_coeff=homo_localized(ispin)%matrix)
-            ENDDO
+            END DO
             CALL get_qs_loc_env(qs_loc_env=ri_data%qs_loc_env, moloc_coeff=moloc_coeff)
 
             DO ispin = 1, nspins
                CALL cp_fm_release(homo_localized(ispin)%matrix)
-            ENDDO
+            END DO
 
             DEALLOCATE (occupied_orbs, occupied_evals, homo_localized)
 
-         ENDIF
+         END IF
 
          DO ispin = 1, nspins
             mo_set => mos(ispin)%mo_set
             IF (ri_data%do_loc) THEN
                CALL copy_fm_to_dbcsr(moloc_coeff(ispin)%matrix, mo_coeff_b(ispin))
-            ENDIF
+            END IF
             CALL dbcsr_scale(mo_coeff_b(ispin), SQRT(mo_set%maxocc))
             homo(ispin) = mo_set%homo
-         ENDDO
+         END DO
 
          IF (ri_data%do_loc) CALL qs_loc_env_release(ri_data%qs_loc_env)
          CALL timestop(handle2)
@@ -887,8 +887,8 @@ CONTAINS
             CALL mp_sum(nblks, para_env%group)
             IF (nblks == 0) THEN
                CPABORT("received empty density matrix")
-            ENDIF
-         ENDDO
+            END IF
+         END DO
 
          CALL hfx_ri_update_ks_pmat(qs_env, ri_data, ks_matrix, rho_ao, &
                                     geometry_did_change, nspins)
@@ -897,12 +897,12 @@ CONTAINS
 
       DO ispin = 1, nspins
          CALL dbcsr_release(mo_coeff_b(ispin))
-      ENDDO
+      END DO
 
       DO ispin = 1, nspins
          CALL dbcsr_scale(ks_matrix(ispin, 1)%matrix, -fac)
          CALL dbcsr_filter(ks_matrix(ispin, 1)%matrix, ri_data%filter_eps)
-      ENDDO
+      END DO
 
       CALL timeset(routineN//"_energy", handle2)
       ! Calculate the exchange energy
@@ -912,7 +912,7 @@ CONTAINS
                         etmp)
          ehfx = ehfx + 0.5_dp*etmp
 
-      ENDDO
+      END DO
       CALL timestop(handle2)
 
       CALL timestop(handle)
@@ -949,8 +949,8 @@ CONTAINS
                                                             n_mos, nblock, nproc, unit_nr_dbcsr
       INTEGER(int_8)                                     :: nblks, nflop
       INTEGER, ALLOCATABLE, DIMENSION(:) :: batch_ranges_1, batch_ranges_2, dist1, dist2, dist3, &
-         mem_end, mem_end_block_1, mem_end_block_2, mem_size, mem_start, mem_start_block_1, &
-         mem_start_block_2, mo_bsizes_1, mo_bsizes_2
+                                            mem_end, mem_end_block_1, mem_end_block_2, mem_size, mem_start, mem_start_block_1, &
+                                            mem_start_block_2, mo_bsizes_1, mo_bsizes_2
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: bounds
       INTEGER, DIMENSION(2)                              :: pdims_2d
       INTEGER, DIMENSION(3)                              :: pdims
@@ -971,19 +971,19 @@ CONTAINS
 
       IF (geometry_did_change) THEN
          CALL hfx_ri_pre_scf_mo(qs_env, ri_data, nspins)
-      ENDIF
+      END IF
 
       nblks = dbcsr_t_get_num_blocks_total(ri_data%t_3c_int_ctr_1(1, 1))
       IF (nblks == 0) THEN
          CPABORT("3-center integrals are not available (first call requires geometry_did_change=.TRUE.)")
-      ENDIF
+      END IF
 
       DO ispin = 1, nspins
          nblks = dbcsr_t_get_num_blocks_total(ri_data%t_2c_int(ispin, 1))
          IF (nblks == 0) THEN
             CPABORT("2-center integrals are not available (first call requires geometry_did_change=.TRUE.)")
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       IF (.NOT. ALLOCATED(ri_data%t_3c_int_mo)) THEN
          do_initialize = .TRUE.
@@ -996,7 +996,7 @@ CONTAINS
          ALLOCATE (ri_data%t_3c_ctr_KS_copy(nspins, 1, 1))
       ELSE
          do_initialize = .FALSE.
-      ENDIF
+      END IF
 
       CALL get_qs_env(qs_env, para_env=para_env)
 
@@ -1029,7 +1029,7 @@ CONTAINS
          DO i_mem = 1, n_mem
             bsize = SUM(mo_bsizes_2(mem_start_block_2(i_mem):mem_end_block_2(i_mem)))
             mem_size(i_mem) = bsize
-         ENDDO
+         END DO
 
          CALL split_block_sizes(mem_size, mo_bsizes_1, ri_data%min_bsize_MO)
          ALLOCATE (mem_start_block_1(n_mem))
@@ -1047,12 +1047,12 @@ CONTAINS
                      mem_start_block_1(i_mem) = 1
                   ELSE
                      mem_start_block_1(i_mem) = mem_end_block_1(i_mem - 1) + 1
-                  ENDIF
+                  END IF
                   mem_end_block_1(i_mem) = iblock
                   EXIT
-               ENDIF
-            ENDDO
-         ENDDO
+               END IF
+            END DO
+         END DO
 
          ALLOCATE (batch_ranges_1(ri_data%n_mem + 1))
          batch_ranges_1(:ri_data%n_mem) = mem_start_block_1(:)
@@ -1108,7 +1108,7 @@ CONTAINS
 
             CALL dbcsr_t_create(ri_data%t_3c_int_mo(ispin, 1, 1), ri_data%t_3c_ctr_RI(ispin, 1, 1), name="(RI | MO AO)")
             CALL dbcsr_t_create(ri_data%t_3c_ctr_KS(ispin, 1, 1), ri_data%t_3c_ctr_KS_copy(ispin, 1, 1))
-         ENDIF
+         END IF
 
          CALL dbcsr_t_create(mo_coeff(ispin), mo_coeff_t, name="MO coeffs")
          CALL dbcsr_t_copy_matrix_to_tensor(mo_coeff(ispin), mo_coeff_t)
@@ -1124,8 +1124,8 @@ CONTAINS
                      CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_int_mo(ispin, 1, 1))
                      CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_ctr_RI(ispin, 1, 1))
                      CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(ispin, 1))
-                  ENDIF
-               ENDIF
+                  END IF
+               END IF
                CALL dbcsr_t_batched_contract_init(ks_t)
                CALL dbcsr_t_batched_contract_init(ri_data%t_3c_ctr_KS(ispin, 1, 1), &
                                                   batch_range_2=batch_ranges_2)
@@ -1138,8 +1138,8 @@ CONTAINS
                                                      batch_range_2=batch_ranges_2)
                   CALL dbcsr_t_batched_contract_init(ri_data%t_3c_ctr_RI(ispin, 1, 1), &
                                                      batch_range_2=batch_ranges_2)
-               ENDIF
-            ENDIF
+               END IF
+            END IF
 
             bounds(:, 1) = [mem_start(i_mem), mem_end(i_mem)]
 
@@ -1235,7 +1235,7 @@ CONTAINS
             ri_data%dbcsr_nflop = ri_data%dbcsr_nflop + nflop
 
             CALL timestop(handle2)
-         ENDDO
+         END DO
 
          !CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(1))
          CALL dbcsr_t_batched_contract_finalize(ks_t, unit_nr=unit_nr_dbcsr)
@@ -1258,7 +1258,7 @@ CONTAINS
          DEALLOCATE (mem_end, mem_start, mo_bsizes_2, mem_size, mem_start_block_1, mem_end_block_1, &
                      mem_start_block_2, mem_end_block_2, batch_ranges_1, batch_ranges_2)
 
-      ENDDO
+      END DO
 
       CALL dbcsr_t_pgrid_destroy(pgrid_2d)
       CALL dbcsr_t_destroy(ks_t)
@@ -1326,12 +1326,12 @@ CONTAINS
 
       IF (geometry_did_change) THEN
          CALL hfx_ri_pre_scf_Pmat(qs_env, ri_data)
-      ENDIF
+      END IF
 
       nblks = dbcsr_t_get_num_blocks_total(ri_data%t_3c_int_ctr_2(1, 1))
       IF (nblks == 0) THEN
          CPABORT("3-center integrals are not available (first call requires geometry_did_change=.TRUE.)")
-      ENDIF
+      END IF
 
       n_mem = ri_data%n_mem
 
@@ -1453,18 +1453,18 @@ CONTAINS
 
                ri_data%dbcsr_nflop = ri_data%dbcsr_nflop + nflop
 
-            ENDDO
+            END DO
             CALL dbcsr_t_batched_contract_finalize(rho_ao_t, unit_nr=unit_nr_dbcsr)
             CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_int_ctr_2(1, 1))
             CALL dbcsr_t_batched_contract_finalize(t_3c_1)
-         ENDDO
+         END DO
          CALL dbcsr_t_batched_contract_finalize(ks_t, unit_nr=unit_nr_dbcsr)
          CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_int_ctr_1(1, 1))
          CALL dbcsr_t_batched_contract_finalize(t_3c_3)
 
          DO i_mem = 1, n_mem
             DO j_mem = 1, n_mem
-               ASSOCIATE (blk_indices=>ri_data%blk_indices(i_mem, j_mem), t_3c=>ri_data%t_3c_int_ctr_1(1, 1))
+               ASSOCIATE (blk_indices => ri_data%blk_indices(i_mem, j_mem), t_3c => ri_data%t_3c_int_ctr_1(1, 1))
                   CALL decompress_tensor(tensor_old, blk_indices%ind, &
                                          ri_data%store_3c(i_mem, j_mem), ri_data%filter_eps_storage)
                   CALL dbcsr_t_copy(tensor_old, t_3c, move_data=.TRUE.)
@@ -1478,8 +1478,8 @@ CONTAINS
                   CALL compress_tensor(t_3c, ri_data%store_3c(i_mem, j_mem), ri_data%filter_eps_storage, &
                                        unused)
                END ASSOCIATE
-            ENDDO
-         ENDDO
+            END DO
+         END DO
 
          CALL dbcsr_t_destroy(tensor_old)
 
@@ -1502,9 +1502,9 @@ CONTAINS
                'Occupancy after contraction with P:', REAL(nze_3c_1, dp), '/', occ_3c_1*100, '%'
             WRITE (unit_nr, '(T6,A,T63,ES7.1,1X,A1,1X,F7.3,A1)') &
                'Occupancy of Kohn-Sham matrix:', REAL(nze_ks, dp), '/', occ_ks*100, '%'
-         ENDIF
+         END IF
 
-      ENDDO
+      END DO
 
       CALL mp_sync(para_env%group)
       t2 = m_walltime()

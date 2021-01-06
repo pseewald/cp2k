@@ -14,26 +14,26 @@
 ! **************************************************************************************************
 MODULE xas_env_types
 
-   USE basis_set_types,                 ONLY: deallocate_gto_basis_set,&
-                                              gto_basis_set_p_type
-   USE cp_array_utils,                  ONLY: cp_2d_r_p_type
-   USE cp_dbcsr_operations,             ONLY: dbcsr_deallocate_matrix_set
-   USE cp_fm_pool_types,                ONLY: cp_fm_pool_p_type,&
-                                              fm_pool_give_back_fm
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE kinds,                           ONLY: dp
-   USE qs_loc_types,                    ONLY: qs_loc_env_new_type,&
-                                              qs_loc_env_release,&
-                                              qs_loc_env_retain
-   USE qs_scf_types,                    ONLY: qs_scf_env_type,&
-                                              scf_env_release,&
-                                              scf_env_retain
-   USE scf_control_types,               ONLY: scf_c_release,&
-                                              scf_c_retain,&
-                                              scf_control_type
+   USE basis_set_types, ONLY: deallocate_gto_basis_set, &
+                              gto_basis_set_p_type
+   USE cp_array_utils, ONLY: cp_2d_r_p_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_deallocate_matrix_set
+   USE cp_fm_pool_types, ONLY: cp_fm_pool_p_type, &
+                               fm_pool_give_back_fm
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE kinds, ONLY: dp
+   USE qs_loc_types, ONLY: qs_loc_env_new_type, &
+                           qs_loc_env_release, &
+                           qs_loc_env_retain
+   USE qs_scf_types, ONLY: qs_scf_env_type, &
+                           scf_env_release, &
+                           scf_env_retain
+   USE scf_control_types, ONLY: scf_c_release, &
+                                scf_c_retain, &
+                                scf_control_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

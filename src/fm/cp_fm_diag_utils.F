@@ -14,28 +14,28 @@
 !> \author Nico Holmberg [01.2018]
 ! **************************************************************************************************
 MODULE cp_fm_diag_utils
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_type
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_para_env,                     ONLY: cp_para_env_create,&
-                                              cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: gcd
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_comm_free,&
-                                              mp_comm_split,&
-                                              mp_sync
+   USE cp_blacs_env, ONLY: cp_blacs_env_create, &
+                           cp_blacs_env_release, &
+                           cp_blacs_env_type
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_para_env, ONLY: cp_para_env_create, &
+                          cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: gcd
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_comm_free, &
+                              mp_comm_split, &
+                              mp_sync
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -136,7 +136,7 @@ CONTAINS
             CALL cp_para_env_release(work_redistribute%para_env_new)
          ELSE
             CALL mp_comm_free(work_redistribute%subgroup)
-         ENDIF
+         END IF
          DEALLOCATE (work_redistribute%group_distribution)
          DEALLOCATE (work_redistribute%group_partition)
       END IF
@@ -235,7 +235,7 @@ CONTAINS
             IF (gcd(ipe, jpe) >= gcd_max) THEN
                npcol = jpe
                gcd_max = gcd(ipe, jpe)
-            ENDIF
+            END IF
          END DO
 
          ! Count the number of processors without any columns
@@ -410,12 +410,12 @@ CONTAINS
                           matrix%matrix_struct%descriptor, &
                           fake_local_data(1, 1), 1, 1, fake_descriptor, &
                           matrix%matrix_struct%context%group)
-         ENDIF
+         END IF
       ELSE
          ! No need to redistribute, just return pointers to the original arrays
          matrix_new => matrix
          eigenvectors_new => eigenvectors
-      ENDIF
+      END IF
 
       IF (PRESENT(redist_info)) &
          redist_info = rdinfo
@@ -486,7 +486,7 @@ CONTAINS
             CALL pdgemr2d(n, n, fake_local_data(1, 1), 1, 1, fake_descriptor, &
                           eigenvectors%local_data(1, 1), 1, 1, eigenvectors%matrix_struct%descriptor, &
                           eigenvectors%matrix_struct%context%group)
-         ENDIF
+         END IF
          ! free work
          CALL cp_fm_redistribute_work_finalize(work_redistribute%group_distribution(mepos_old) == 0)
 
@@ -498,7 +498,7 @@ CONTAINS
          NULLIFY (matrix_new)
          NULLIFY (eigenvectors_new)
 
-      ENDIF
+      END IF
 
 #else
 

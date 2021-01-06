@@ -18,61 +18,61 @@
 !> \author Teodoro Laino 10.2006
 ! **************************************************************************************************
 MODULE neb_utils
-   USE bibliography,                    ONLY: E2002,&
-                                              Elber1987,&
-                                              Jonsson1998,&
-                                              Jonsson2000_1,&
-                                              Jonsson2000_2,&
-                                              Wales2004,&
-                                              cite_reference
-   USE colvar_utils,                    ONLY: eval_colvar,&
-                                              get_clv_force,&
-                                              set_colvars_target
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE f77_interface,                   ONLY: f_env_add_defaults,&
-                                              f_env_rm_defaults,&
-                                              f_env_type,&
-                                              get_energy,&
-                                              get_force,&
-                                              get_pos,&
-                                              set_pos
-   USE force_env_methods,               ONLY: force_env_calc_energy_force
-   USE force_env_types,                 ONLY: force_env_get
-   USE geo_opt,                         ONLY: cp_geo_opt
-   USE global_types,                    ONLY: global_environment_type
-   USE input_constants,                 ONLY: &
-        band_diis_opt, do_b_neb, do_band_cartesian, do_ci_neb, do_d_neb, do_eb, do_it_neb, do_sm, &
-        pot_neb_fe, pot_neb_full, pot_neb_me
-   USE input_cp2k_check,                ONLY: remove_restart_info
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mathlib,                         ONLY: matvec_3x3
-   USE md_run,                          ONLY: qs_mol_dyn
-   USE neb_io,                          ONLY: dump_replica_coordinates,&
-                                              handle_band_file_names
-   USE neb_md_utils,                    ONLY: neb_initialize_velocity
-   USE neb_types,                       ONLY: neb_type,&
-                                              neb_var_type
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: bohr
-   USE replica_methods,                 ONLY: rep_env_calc_e_f
-   USE replica_types,                   ONLY: rep_env_sync,&
-                                              replica_env_type
-   USE rmsd,                            ONLY: rmsd3
+   USE bibliography, ONLY: E2002, &
+                           Elber1987, &
+                           Jonsson1998, &
+                           Jonsson2000_1, &
+                           Jonsson2000_2, &
+                           Wales2004, &
+                           cite_reference
+   USE colvar_utils, ONLY: eval_colvar, &
+                           get_clv_force, &
+                           set_colvars_target
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE f77_interface, ONLY: f_env_add_defaults, &
+                            f_env_rm_defaults, &
+                            f_env_type, &
+                            get_energy, &
+                            get_force, &
+                            get_pos, &
+                            set_pos
+   USE force_env_methods, ONLY: force_env_calc_energy_force
+   USE force_env_types, ONLY: force_env_get
+   USE geo_opt, ONLY: cp_geo_opt
+   USE global_types, ONLY: global_environment_type
+   USE input_constants, ONLY: &
+      band_diis_opt, do_b_neb, do_band_cartesian, do_ci_neb, do_d_neb, do_eb, do_it_neb, do_sm, &
+      pot_neb_fe, pot_neb_full, pot_neb_me
+   USE input_cp2k_check, ONLY: remove_restart_info
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mathlib, ONLY: matvec_3x3
+   USE md_run, ONLY: qs_mol_dyn
+   USE neb_io, ONLY: dump_replica_coordinates, &
+                     handle_band_file_names
+   USE neb_md_utils, ONLY: neb_initialize_velocity
+   USE neb_types, ONLY: neb_type, &
+                        neb_var_type
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: bohr
+   USE replica_methods, ONLY: rep_env_calc_e_f
+   USE replica_types, ONLY: rep_env_sync, &
+                            replica_env_type
+   USE rmsd, ONLY: rmsd3
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -151,7 +151,7 @@ CONTAINS
       CHARACTER(LEN=default_path_length)                 :: filename
       CHARACTER(LEN=default_string_length)               :: dummy_char
       INTEGER :: handle, i_rep, iatom, ic, input_nr_replica, is, ivar, j, jtarg, n_rep, natom, &
-         neb_nr_replica, nr_replica_to_interpolate, nval, nvar, shell_index
+                 neb_nr_replica, nr_replica_to_interpolate, nval, nvar, shell_index
       LOGICAL                                            :: check, explicit, my_end, skip_vel_section
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: distance
       REAL(KIND=dp), DIMENSION(3)                        :: r

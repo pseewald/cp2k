@@ -5,31 +5,31 @@
 !   SPDX-License-Identifier: GPL-2.0-or-later                                                      !
 !--------------------------------------------------------------------------------------------------!
 MODULE dkh_main
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_scale_and_add,&
-                                              cp_fm_schur_product,&
-                                              cp_fm_syrk,&
-                                              cp_fm_transpose,&
-                                              cp_fm_triangular_multiply,&
-                                              cp_fm_upper_to_full
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose,&
-                                              cp_fm_cholesky_reduce
-   USE cp_fm_diag,                      ONLY: cp_fm_syevd
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_get,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE kinds,                           ONLY: dp
-   USE physcon,                         ONLY: c_light_au
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_scale_and_add, &
+                                 cp_fm_schur_product, &
+                                 cp_fm_syrk, &
+                                 cp_fm_transpose, &
+                                 cp_fm_triangular_multiply, &
+                                 cp_fm_upper_to_full
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose, &
+                             cp_fm_cholesky_reduce
+   USE cp_fm_diag, ONLY: cp_fm_syevd
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_get, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE kinds, ONLY: dp
+   USE physcon, ONLY: c_light_au
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -110,7 +110,7 @@ CONTAINS
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_fm_struct_type), POINTER                   :: matrix_full
       TYPE(cp_fm_type), POINTER :: matrix_aux, matrix_aux2, matrix_eig, matrix_ev1, matrix_ev2, &
-         matrix_ev3, matrix_ev4, matrix_pe1p, matrix_rev, matrix_se, matrix_sinv
+                                   matrix_ev3, matrix_ev4, matrix_pe1p, matrix_rev, matrix_se, matrix_sinv
 
       CALL timeset(routineN, handle)
       NULLIFY (blacs_env)
@@ -1038,8 +1038,8 @@ CONTAINS
       DO j = 1, ncol_local
          DO i = 1, nrow_local
             matrix_aux%local_data(i, j) = 1/(e(row_indices(i)) + e(col_indices(j)))
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       CALL cp_fm_schur_product(matrix_p, matrix_aux, matrix_pp)
 
@@ -2227,8 +2227,8 @@ CONTAINS
       DO i = 1, n
          DO j = 1, n
             p(i, j) = p(i, j)/(e(i) + e(j))
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       RETURN
    END SUBROUTINE mat_1_over_h_a
@@ -2261,8 +2261,8 @@ CONTAINS
       DO i = 1, n
          DO j = 1, n
             p(i, j) = p(i, j)*a(i)*a(j)
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       RETURN
    END SUBROUTINE mat_axa_a
@@ -2297,8 +2297,8 @@ CONTAINS
       DO i = 1, n
          DO j = 1, n
             p(i, j) = p(i, j)*a(i)*a(j)*r(i)*r(j)
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       RETURN
    END SUBROUTINE mat_arxra_a
@@ -2347,8 +2347,8 @@ CONTAINS
       DO i = 1, n
          DO j = 1, n
             qtemp(i, j) = q(i, j)*2.0_dp*t(j)*rr(j)*rr(j)
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       CALL dgemm("N", "N", n, n, n, alpha, qtemp, n, r, n, beta, p, n)
       RETURN
@@ -2399,8 +2399,8 @@ CONTAINS
       DO i = 1, n
          DO j = 1, n
             qtemp(i, j) = q(i, j)*0.5_dp/(t(j)*rr(j)*rr(j))
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       CALL dgemm("N", "N", n, n, n, alpha, qtemp, n, r, n, beta, p, n)
 
@@ -2449,8 +2449,8 @@ CONTAINS
       DO i = 1, n
          DO j = 1, n
             p(i, j) = alpha*p(i, j) + beta*r(i, j)
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       RETURN
    END SUBROUTINE mat_add2
@@ -2500,8 +2500,8 @@ CONTAINS
       DO i = 1, n
          DO j = 1, n
             p(i, j) = alpha*q(i, j) + beta*r(i, j)
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       RETURN
    END SUBROUTINE mat_add

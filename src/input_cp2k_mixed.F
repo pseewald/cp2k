@@ -12,35 +12,35 @@
 !> \author Teodoro Laino [tlaino] - University of Zurich
 ! **************************************************************************************************
 MODULE input_cp2k_mixed
-   USE bibliography,                    ONLY: Holmberg2017,&
-                                              Holmberg2018,&
-                                              Mavros2015,&
-                                              Migliore2009
-   USE cp_output_handling,              ONLY: add_last_numeric,&
-                                              cp_print_key_section_create,&
-                                              low_print_level,&
-                                              medium_print_level
-   USE input_constants,                 ONLY: mix_cdft,&
-                                              mix_coupled,&
-                                              mix_generic,&
-                                              mix_linear_combination,&
-                                              mix_minimum,&
-                                              mix_restrained
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: char_t,&
-                                              integer_t,&
-                                              lchar_t,&
-                                              logical_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: s2a
+   USE bibliography, ONLY: Holmberg2017, &
+                           Holmberg2018, &
+                           Mavros2015, &
+                           Migliore2009
+   USE cp_output_handling, ONLY: add_last_numeric, &
+                                 cp_print_key_section_create, &
+                                 low_print_level, &
+                                 medium_print_level
+   USE input_constants, ONLY: mix_cdft, &
+                              mix_coupled, &
+                              mix_generic, &
+                              mix_linear_combination, &
+                              mix_minimum, &
+                              mix_restrained
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: char_t, &
+                              integer_t, &
+                              lchar_t, &
+                              logical_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

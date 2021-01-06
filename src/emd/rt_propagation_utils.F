@@ -11,56 +11,56 @@
 ! **************************************************************************************************
 
 MODULE rt_propagation_utils
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              rtp_control_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_plus_fm_fm_t,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm
-   USE cp_fm_vect,                      ONLY: cp_fm_vect_dealloc
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_binary_read, dbcsr_checksum, dbcsr_copy, dbcsr_copy_into_existing, &
-        dbcsr_create, dbcsr_deallocate_matrix, dbcsr_desymmetrize, dbcsr_distribution_type, &
-        dbcsr_filter, dbcsr_get_info, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
-        dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, dbcsr_scale, &
-        dbcsr_set, dbcsr_type
-   USE input_constants,                 ONLY: use_restart_wfn,&
-                                              use_rt_restart
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE mathconstants,                   ONLY: zero
-   USE orbital_pointers,                ONLY: ncoset
-   USE particle_types,                  ONLY: particle_type
-   USE qs_dftb_matrices,                ONLY: build_dftb_overlap
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_ks_types,                     ONLY: qs_ks_did_change,&
-                                              qs_ks_env_type
-   USE qs_mo_io,                        ONLY: read_mo_set,&
-                                              read_rt_mos_from_restart
-   USE qs_mo_methods,                   ONLY: calculate_density_matrix
-   USE qs_mo_types,                     ONLY: mo_set_p_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_overlap,                      ONLY: build_overlap_matrix
-   USE qs_rho_methods,                  ONLY: qs_rho_update_rho
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_set,&
-                                              qs_rho_type
-   USE rt_propagation_types,            ONLY: get_rtp,&
-                                              rt_prop_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cp_control_types, ONLY: dft_control_type, &
+                               rtp_control_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_plus_fm_fm_t, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm
+   USE cp_fm_vect, ONLY: cp_fm_vect_dealloc
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_binary_read, dbcsr_checksum, dbcsr_copy, dbcsr_copy_into_existing, &
+      dbcsr_create, dbcsr_deallocate_matrix, dbcsr_desymmetrize, dbcsr_distribution_type, &
+      dbcsr_filter, dbcsr_get_info, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
+      dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, dbcsr_scale, &
+      dbcsr_set, dbcsr_type
+   USE input_constants, ONLY: use_restart_wfn, &
+                              use_rt_restart
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE mathconstants, ONLY: zero
+   USE orbital_pointers, ONLY: ncoset
+   USE particle_types, ONLY: particle_type
+   USE qs_dftb_matrices, ONLY: build_dftb_overlap
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_ks_types, ONLY: qs_ks_did_change, &
+                          qs_ks_env_type
+   USE qs_mo_io, ONLY: read_mo_set, &
+                       read_rt_mos_from_restart
+   USE qs_mo_methods, ONLY: calculate_density_matrix
+   USE qs_mo_types, ONLY: mo_set_p_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_overlap, ONLY: build_overlap_matrix
+   USE qs_rho_methods, ONLY: qs_rho_update_rho
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_set, &
+                           qs_rho_type
+   USE rt_propagation_types, ONLY: get_rtp, &
+                                   rt_prop_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -259,7 +259,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       id_nr = 0
       nspin = SIZE(mo_array)
@@ -271,7 +271,7 @@ CONTAINS
                           id_nr=id_nr, multiplicity=dft_control%multiplicity, dft_section=dft_section)
          DO ispin = 1, nspin
             CALL calculate_density_matrix(mo_array(ispin)%mo_set, p_rmpv(ispin)%matrix)
-         ENDDO
+         END DO
          IF (rtp%linear_scaling) THEN
             CALL get_rtp(rtp=rtp, rho_old=rho_old, rho_new=rho_new)
             DO ispin = 1, nspin
@@ -287,7 +287,7 @@ CONTAINS
             END DO
             DO i = 1, nspin
                CALL dbcsr_copy(rho_new(i)%matrix, rho_old(i)%matrix)
-            ENDDO
+            END DO
             CALL calc_update_rho_sparse(qs_env)
          ELSE
             CALL get_rtp(rtp=rtp, mos_old=mos_old)
@@ -295,7 +295,7 @@ CONTAINS
                CALL cp_fm_to_fm(mo_array(i)%mo_set%mo_coeff, mos_old(2*i - 1)%matrix)
                CALL cp_fm_set_all(mos_old(2*i)%matrix, zero, zero)
             END DO
-         ENDIF
+         END IF
       CASE (use_rt_restart)
          IF (rtp%linear_scaling) THEN
             CALL get_rtp(rtp=rtp, rho_old=rho_old, rho_new=rho_new)
@@ -309,18 +309,18 @@ CONTAINS
                cs_pos = dbcsr_checksum(rho_old(re)%matrix, pos=.TRUE.)
                IF (unit_nr > 0) THEN
                   WRITE (unit_nr, '(T2,A,E20.8)') "Read restart DM "//TRIM(file_name)//" with checksum: ", cs_pos
-               ENDIF
+               END IF
                WRITE (file_name, '(A,I0,A)') TRIM(project_name)//"_LS_DM_SPIN_IM", ispin, "_RESTART.dm"
                CALL dbcsr_get_info(rho_old(im)%matrix, distribution=dist)
                CALL dbcsr_binary_read(file_name, distribution=dist, matrix_new=rho_old(im)%matrix)
                cs_pos = dbcsr_checksum(rho_old(im)%matrix, pos=.TRUE.)
                IF (unit_nr > 0) THEN
                   WRITE (unit_nr, '(T2,A,E20.8)') "Read restart DM "//TRIM(file_name)//" with checksum: ", cs_pos
-               ENDIF
-            ENDDO
+               END IF
+            END DO
             DO i = 1, SIZE(rho_new)
                CALL dbcsr_copy(rho_new(i)%matrix, rho_old(i)%matrix)
-            ENDDO
+            END DO
             CALL calc_update_rho_sparse(qs_env)
          ELSE
             CALL get_rtp(rtp=rtp, mos_old=mos_old, mos_new=mos_new)
@@ -329,8 +329,8 @@ CONTAINS
             DO ispin = 1, nspin
                CALL calculate_density_matrix(mo_array(ispin)%mo_set, &
                                              p_rmpv(ispin)%matrix)
-            ENDDO
-         ENDIF
+            END DO
+         END IF
       END SELECT
 
    END SUBROUTINE get_restart_wfn
@@ -443,7 +443,7 @@ CONTAINS
          CALL dbcsr_copy_into_existing(rho_ao(ispin)%matrix, rho_new(ispin*2 - 1)%matrix)
          IF (rtp%do_hfx .OR. rtp%track_imag_density) THEN
             CALL dbcsr_copy_into_existing(rho_ao_im(ispin)%matrix, rho_new(ispin*2)%matrix)
-         ENDIF
+         END IF
       END DO
 
       CALL qs_rho_update_rho(rho, qs_env)

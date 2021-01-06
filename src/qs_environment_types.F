@@ -12,161 +12,161 @@
 !> \author MK (23.01.2002)
 ! **************************************************************************************************
 MODULE qs_environment_types
-   USE admm_dm_types,                   ONLY: admm_dm_type
-   USE admm_types,                      ONLY: admm_env_release,&
-                                              admm_type
-   USE almo_scf_types,                  ONLY: almo_scf_env_release,&
-                                              almo_scf_env_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE atprop_types,                    ONLY: atprop_type
-   USE cell_types,                      ONLY: cell_release,&
-                                              cell_retain,&
-                                              cell_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_ddapc_types,                  ONLY: cp_ddapc_ewald_release,&
-                                              cp_ddapc_ewald_type,&
-                                              cp_ddapc_release,&
-                                              cp_ddapc_retain,&
-                                              cp_ddapc_type
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_result_types,                 ONLY: cp_result_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_type
-   USE dbcsr_api,                       ONLY: dbcsr_distribution_type,&
-                                              dbcsr_p_type,&
-                                              dbcsr_release_p
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE distribution_2d_types,           ONLY: distribution_2d_type
-   USE dm_ls_scf_types,                 ONLY: ls_scf_env_type,&
-                                              ls_scf_release
-   USE ec_env_types,                    ONLY: ec_env_release,&
-                                              energy_correction_type
-   USE et_coupling_types,               ONLY: et_coupling_release,&
-                                              et_coupling_type
-   USE ewald_environment_types,         ONLY: ewald_env_release,&
-                                              ewald_env_retain,&
-                                              ewald_environment_type
-   USE ewald_pw_types,                  ONLY: ewald_pw_release,&
-                                              ewald_pw_retain,&
-                                              ewald_pw_type
-   USE fist_nonbond_env_types,          ONLY: fist_nonbond_env_release,&
-                                              fist_nonbond_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE hartree_local_types,             ONLY: ecoul_1center_type,&
-                                              get_hartree_local,&
-                                              hartree_local_create,&
-                                              hartree_local_release,&
-                                              hartree_local_type,&
-                                              set_hartree_local
-   USE hfx_types,                       ONLY: hfx_release,&
-                                              hfx_type
-   USE input_constants,                 ONLY: energy_force_run,&
-                                              energy_run
-   USE input_section_types,             ONLY: section_vals_release,&
-                                              section_vals_retain,&
-                                              section_vals_type
-   USE kg_environment_types,            ONLY: kg_env_release,&
-                                              kg_environment_type
-   USE kinds,                           ONLY: dp
-   USE kpoint_types,                    ONLY: kpoint_type
-   USE lri_environment_types,           ONLY: lri_density_release,&
-                                              lri_density_type,&
-                                              lri_env_release,&
-                                              lri_environment_type
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE mp2_types,                       ONLY: mp2_env_release,&
-                                              mp2_type
-   USE mscfg_types,                     ONLY: molecular_scf_guess_env_destroy,&
-                                              molecular_scf_guess_env_type
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_type
-   USE pw_types,                        ONLY: pw_p_type,&
-                                              pw_release,&
-                                              pw_type
-   USE qmmm_types_low,                  ONLY: qmmm_env_qm_type
-   USE qs_active_space_types,           ONLY: active_space_type,&
-                                              release_active_space_type
-   USE qs_charges_types,                ONLY: qs_charges_release,&
-                                              qs_charges_retain,&
-                                              qs_charges_type
-   USE qs_dftb_types,                   ONLY: qs_dftb_pairpot_release,&
-                                              qs_dftb_pairpot_type
-   USE qs_dispersion_types,             ONLY: qs_dispersion_release,&
-                                              qs_dispersion_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_gcp_types,                    ONLY: qs_gcp_release,&
-                                              qs_gcp_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_ks_qmmm_types,                ONLY: qs_ks_qmmm_env_type,&
-                                              qs_ks_qmmm_release,&
-                                              qs_ks_qmmm_retain
-   USE qs_ks_types,                     ONLY: get_ks_env,&
-                                              qs_ks_env_type,&
-                                              qs_ks_release,&
-                                              qs_ks_retain,&
-                                              set_ks_env
-   USE qs_linres_types,                 ONLY: linres_control_release,&
-                                              linres_control_retain,&
-                                              linres_control_type,&
-                                              polar_env_release,&
-                                              polar_env_type
-   USE qs_local_rho_types,              ONLY: get_local_rho,&
-                                              local_rho_set_create,&
-                                              local_rho_set_release,&
-                                              local_rho_type,&
-                                              rhoz_type,&
-                                              set_local_rho
-   USE qs_matrix_pools,                 ONLY: mpools_release,&
-                                              mpools_retain,&
-                                              qs_matrix_pools_type
-   USE qs_mo_types,                     ONLY: deallocate_mo_set,&
-                                              mo_set_p_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_oce_types,                    ONLY: deallocate_oce_set,&
-                                              oce_matrix_type
-   USE qs_period_efield_types,          ONLY: efield_berry_release,&
-                                              efield_berry_type
-   USE qs_rho0_types,                   ONLY: rho0_atom_type,&
-                                              rho0_mpole_type
-   USE qs_rho_atom_types,               ONLY: rho_atom_type
-   USE qs_rho_types,                    ONLY: qs_rho_p_type,&
-                                              qs_rho_release,&
-                                              qs_rho_retain,&
-                                              qs_rho_type
-   USE qs_scf_types,                    ONLY: qs_scf_env_type,&
-                                              scf_env_release,&
-                                              scf_env_retain
-   USE qs_subsys_types,                 ONLY: qs_subsys_set,&
-                                              qs_subsys_type
-   USE qs_wf_history_types,             ONLY: qs_wf_history_type,&
-                                              wfi_release,&
-                                              wfi_retain
-   USE rel_control_types,               ONLY: rel_c_release,&
-                                              rel_c_retain,&
-                                              rel_control_type
-   USE rt_propagation_types,            ONLY: rt_prop_release,&
-                                              rt_prop_type
-   USE scf_control_types,               ONLY: scf_c_release,&
-                                              scf_c_retain,&
-                                              scf_control_type
-   USE semi_empirical_mpole_types,      ONLY: nddo_mpole_release,&
-                                              nddo_mpole_type
-   USE semi_empirical_store_int_types,  ONLY: semi_empirical_si_release,&
-                                              semi_empirical_si_type
-   USE semi_empirical_types,            ONLY: se_taper_release,&
-                                              se_taper_type
-   USE task_list_types,                 ONLY: task_list_type
-   USE transport_env_types,             ONLY: transport_env_release,&
-                                              transport_env_type
-   USE virial_types,                    ONLY: virial_type
-   USE wannier_states_types,            ONLY: wannier_centres_type
-   USE xas_env_types,                   ONLY: xas_env_release,&
-                                              xas_env_retain,&
-                                              xas_environment_type
+   USE admm_dm_types, ONLY: admm_dm_type
+   USE admm_types, ONLY: admm_env_release, &
+                         admm_type
+   USE almo_scf_types, ONLY: almo_scf_env_release, &
+                             almo_scf_env_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE atprop_types, ONLY: atprop_type
+   USE cell_types, ONLY: cell_release, &
+                         cell_retain, &
+                         cell_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_ddapc_types, ONLY: cp_ddapc_ewald_release, &
+                             cp_ddapc_ewald_type, &
+                             cp_ddapc_release, &
+                             cp_ddapc_retain, &
+                             cp_ddapc_type
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_result_types, ONLY: cp_result_type
+   USE cp_subsys_types, ONLY: cp_subsys_type
+   USE dbcsr_api, ONLY: dbcsr_distribution_type, &
+                        dbcsr_p_type, &
+                        dbcsr_release_p
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE distribution_2d_types, ONLY: distribution_2d_type
+   USE dm_ls_scf_types, ONLY: ls_scf_env_type, &
+                              ls_scf_release
+   USE ec_env_types, ONLY: ec_env_release, &
+                           energy_correction_type
+   USE et_coupling_types, ONLY: et_coupling_release, &
+                                et_coupling_type
+   USE ewald_environment_types, ONLY: ewald_env_release, &
+                                      ewald_env_retain, &
+                                      ewald_environment_type
+   USE ewald_pw_types, ONLY: ewald_pw_release, &
+                             ewald_pw_retain, &
+                             ewald_pw_type
+   USE fist_nonbond_env_types, ONLY: fist_nonbond_env_release, &
+                                     fist_nonbond_env_type
+   USE global_types, ONLY: global_environment_type
+   USE hartree_local_types, ONLY: ecoul_1center_type, &
+                                  get_hartree_local, &
+                                  hartree_local_create, &
+                                  hartree_local_release, &
+                                  hartree_local_type, &
+                                  set_hartree_local
+   USE hfx_types, ONLY: hfx_release, &
+                        hfx_type
+   USE input_constants, ONLY: energy_force_run, &
+                              energy_run
+   USE input_section_types, ONLY: section_vals_release, &
+                                  section_vals_retain, &
+                                  section_vals_type
+   USE kg_environment_types, ONLY: kg_env_release, &
+                                   kg_environment_type
+   USE kinds, ONLY: dp
+   USE kpoint_types, ONLY: kpoint_type
+   USE lri_environment_types, ONLY: lri_density_release, &
+                                    lri_density_type, &
+                                    lri_env_release, &
+                                    lri_environment_type
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: molecule_type
+   USE mp2_types, ONLY: mp2_env_release, &
+                        mp2_type
+   USE mscfg_types, ONLY: molecular_scf_guess_env_destroy, &
+                          molecular_scf_guess_env_type
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_type
+   USE pw_types, ONLY: pw_p_type, &
+                       pw_release, &
+                       pw_type
+   USE qmmm_types_low, ONLY: qmmm_env_qm_type
+   USE qs_active_space_types, ONLY: active_space_type, &
+                                    release_active_space_type
+   USE qs_charges_types, ONLY: qs_charges_release, &
+                               qs_charges_retain, &
+                               qs_charges_type
+   USE qs_dftb_types, ONLY: qs_dftb_pairpot_release, &
+                            qs_dftb_pairpot_type
+   USE qs_dispersion_types, ONLY: qs_dispersion_release, &
+                                  qs_dispersion_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_gcp_types, ONLY: qs_gcp_release, &
+                           qs_gcp_type
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_ks_qmmm_types, ONLY: qs_ks_qmmm_env_type, &
+                               qs_ks_qmmm_release, &
+                               qs_ks_qmmm_retain
+   USE qs_ks_types, ONLY: get_ks_env, &
+                          qs_ks_env_type, &
+                          qs_ks_release, &
+                          qs_ks_retain, &
+                          set_ks_env
+   USE qs_linres_types, ONLY: linres_control_release, &
+                              linres_control_retain, &
+                              linres_control_type, &
+                              polar_env_release, &
+                              polar_env_type
+   USE qs_local_rho_types, ONLY: get_local_rho, &
+                                 local_rho_set_create, &
+                                 local_rho_set_release, &
+                                 local_rho_type, &
+                                 rhoz_type, &
+                                 set_local_rho
+   USE qs_matrix_pools, ONLY: mpools_release, &
+                              mpools_retain, &
+                              qs_matrix_pools_type
+   USE qs_mo_types, ONLY: deallocate_mo_set, &
+                          mo_set_p_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_oce_types, ONLY: deallocate_oce_set, &
+                           oce_matrix_type
+   USE qs_period_efield_types, ONLY: efield_berry_release, &
+                                     efield_berry_type
+   USE qs_rho0_types, ONLY: rho0_atom_type, &
+                            rho0_mpole_type
+   USE qs_rho_atom_types, ONLY: rho_atom_type
+   USE qs_rho_types, ONLY: qs_rho_p_type, &
+                           qs_rho_release, &
+                           qs_rho_retain, &
+                           qs_rho_type
+   USE qs_scf_types, ONLY: qs_scf_env_type, &
+                           scf_env_release, &
+                           scf_env_retain
+   USE qs_subsys_types, ONLY: qs_subsys_set, &
+                              qs_subsys_type
+   USE qs_wf_history_types, ONLY: qs_wf_history_type, &
+                                  wfi_release, &
+                                  wfi_retain
+   USE rel_control_types, ONLY: rel_c_release, &
+                                rel_c_retain, &
+                                rel_control_type
+   USE rt_propagation_types, ONLY: rt_prop_release, &
+                                   rt_prop_type
+   USE scf_control_types, ONLY: scf_c_release, &
+                                scf_c_retain, &
+                                scf_control_type
+   USE semi_empirical_mpole_types, ONLY: nddo_mpole_release, &
+                                         nddo_mpole_type
+   USE semi_empirical_store_int_types, ONLY: semi_empirical_si_release, &
+                                             semi_empirical_si_type
+   USE semi_empirical_types, ONLY: se_taper_release, &
+                                   se_taper_type
+   USE task_list_types, ONLY: task_list_type
+   USE transport_env_types, ONLY: transport_env_release, &
+                                  transport_env_type
+   USE virial_types, ONLY: virial_type
+   USE wannier_states_types, ONLY: wannier_centres_type
+   USE xas_env_types, ONLY: xas_env_release, &
+                            xas_env_retain, &
+                            xas_environment_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -547,8 +547,8 @@ CONTAINS
                                                             sab_aux_fit_vs_orb, sab_all
       LOGICAL, OPTIONAL                                  :: qmmm, qmmm_periodic
       TYPE(neighbor_list_set_p_type), DIMENSION(:), OPTIONAL, POINTER :: sac_ae, sac_ppl, sac_lri, &
-         sap_ppnl, sab_vdw, sab_scp, sap_oce, sab_lrc, sab_se, sab_tbe, sab_core, sab_xb, &
-         sab_xtb_nonbond, sab_almo, sab_kp
+                                                  sap_ppnl, sab_vdw, sab_scp, sap_oce, sab_lrc, sab_se, sab_tbe, sab_core, sab_xb, &
+                                                                         sab_xtb_nonbond, sab_almo, sab_kp
       TYPE(particle_type), DIMENSION(:), OPTIONAL, &
          POINTER                                         :: particle_set
       TYPE(qs_energy_type), OPTIONAL, POINTER            :: energy
@@ -565,9 +565,9 @@ CONTAINS
                                                             matrix_s_kp, matrix_w_kp, &
                                                             matrix_s_RI_aux_kp
       TYPE(dbcsr_p_type), DIMENSION(:), OPTIONAL, POINTER :: matrix_ks_aux_fit, &
-         matrix_ks_aux_fit_im, matrix_ks_aux_fit_dft, matrix_ks_aux_fit_hfx, matrix_s, &
-         matrix_s_aux_fit, matrix_s_aux_fit_vs_orb, matrix_s_RI_aux, matrix_w, matrix_w_mp2, &
-         matrix_p_mp2
+                                                     matrix_ks_aux_fit_im, matrix_ks_aux_fit_dft, matrix_ks_aux_fit_hfx, matrix_s, &
+                                               matrix_s_aux_fit, matrix_s_aux_fit_vs_orb, matrix_s_RI_aux, matrix_w, matrix_w_mp2, &
+                                                             matrix_p_mp2
       TYPE(qs_rho_type), OPTIONAL, POINTER               :: rho, rho_aux_fit, rho_aux_fit_buffer, &
                                                             rho_buffer, rho_xc
       TYPE(pw_env_type), OPTIONAL, POINTER               :: pw_env
@@ -1416,23 +1416,23 @@ CONTAINS
             IF (ASSOCIATED(qs_env%mo_derivs)) THEN
                DO I = 1, SIZE(qs_env%mo_derivs)
                   CALL dbcsr_release_p(qs_env%mo_derivs(I)%matrix)
-               ENDDO
+               END DO
                DEALLOCATE (qs_env%mo_derivs)
-            ENDIF
+            END IF
 
             IF (ASSOCIATED(qs_env%mo_derivs_aux_fit)) THEN
                DO I = 1, SIZE(qs_env%mo_derivs_aux_fit)
                   CALL cp_fm_release(qs_env%mo_derivs_aux_fit(I)%matrix)
-               ENDDO
+               END DO
                DEALLOCATE (qs_env%mo_derivs_aux_fit)
-            ENDIF
+            END IF
 
             IF (ASSOCIATED(qs_env%mo_loc_history)) THEN
                DO I = 1, SIZE(qs_env%mo_loc_history)
                   CALL cp_fm_release(qs_env%mo_loc_history(I)%matrix)
-               ENDDO
+               END DO
                DEALLOCATE (qs_env%mo_loc_history)
-            ENDIF
+            END IF
             IF (ASSOCIATED(qs_env%rtp)) THEN
                CALL rt_prop_release(qs_env%rtp)
                DEALLOCATE (qs_env%rtp)
@@ -1440,7 +1440,7 @@ CONTAINS
             IF (ASSOCIATED(qs_env%outer_scf_history)) THEN
                DEALLOCATE (qs_env%outer_scf_history)
                qs_env%outer_scf_ihistory = 0
-            ENDIF
+            END IF
             IF (ASSOCIATED(qs_env%gradient_history)) &
                DEALLOCATE (qs_env%gradient_history)
             IF (ASSOCIATED(qs_env%variable_history)) &
@@ -1461,16 +1461,16 @@ CONTAINS
 
             IF (ASSOCIATED(qs_env%almo_scf_env)) THEN
                CALL almo_scf_env_release(qs_env%almo_scf_env)
-            ENDIF
+            END IF
 
             IF (ASSOCIATED(qs_env%ls_scf_env)) THEN
                CALL ls_scf_release(qs_env%ls_scf_env)
-            ENDIF
+            END IF
             CALL molecular_scf_guess_env_destroy(qs_env%molecular_scf_guess_env)
 
             IF (ASSOCIATED(qs_env%transport_env)) THEN
                CALL transport_env_release(qs_env%transport_env)
-            ENDIF
+            END IF
 
             !Only if do_xas_calculation
             IF (ASSOCIATED(qs_env%xas_env)) THEN
@@ -1480,13 +1480,13 @@ CONTAINS
             CALL ewald_pw_release(qs_env%ewald_pw)
             IF (ASSOCIATED(qs_env%image_matrix)) THEN
                DEALLOCATE (qs_env%image_matrix)
-            ENDIF
+            END IF
             IF (ASSOCIATED(qs_env%ipiv)) THEN
                DEALLOCATE (qs_env%ipiv)
-            ENDIF
+            END IF
             IF (ASSOCIATED(qs_env%image_coeff)) THEN
                DEALLOCATE (qs_env%image_coeff)
-            ENDIF
+            END IF
             ! ZMP
             IF (ASSOCIATED(qs_env%rho_external)) THEN
                CALL qs_rho_release(qs_env%rho_external)
@@ -1494,14 +1494,14 @@ CONTAINS
             IF (ASSOCIATED(qs_env%external_vxc)) THEN
                CALL pw_release(qs_env%external_vxc%pw)
                DEALLOCATE (qs_env%external_vxc)
-            ENDIF
+            END IF
             IF (ASSOCIATED(qs_env%mask)) THEN
                CALL pw_release(qs_env%mask%pw)
                DEALLOCATE (qs_env%mask)
-            ENDIF
+            END IF
             IF (ASSOCIATED(qs_env%active_space)) THEN
                CALL release_active_space_type(qs_env%active_space)
-            ENDIF
+            END IF
             ! Embedding potentials if provided as input
             IF (qs_env%given_embed_pot) THEN
                CALL pw_release(qs_env%embed_pot%pw)
@@ -1509,8 +1509,8 @@ CONTAINS
                IF (ASSOCIATED(qs_env%spin_embed_pot)) THEN
                   CALL pw_release(qs_env%spin_embed_pot%pw)
                   DEALLOCATE (qs_env%spin_embed_pot)
-               ENDIF
-            ENDIF
+               END IF
+            END IF
 
             ! Polarisability tensor
             CALL polar_env_release(qs_env%polar_env)
@@ -1577,9 +1577,9 @@ CONTAINS
                DO i = 1, SIZE(qs_env%WannierCentres)
                   DEALLOCATE (qs_env%WannierCentres(i)%WannierHamDiag)
                   DEALLOCATE (qs_env%WannierCentres(i)%centres)
-               ENDDO
+               END DO
                DEALLOCATE (qs_env%WannierCentres)
-            ENDIF
+            END IF
             ! Resp charges
             IF (ASSOCIATED(qs_env%rhs)) DEALLOCATE (qs_env%rhs)
             ! now we are ready to deallocate the full structure

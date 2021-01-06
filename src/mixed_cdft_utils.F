@@ -12,107 +12,107 @@
 !> \author Nico Holmberg [01.2017]
 ! **************************************************************************************************
 MODULE mixed_cdft_utils
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_array_utils,                  ONLY: cp_1d_i_p_type,&
-                                              cp_1d_r_p_type,&
-                                              cp_2d_r_p_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_retain,&
-                                              cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr_bc
-   USE cp_files,                        ONLY: open_file
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_copy_general,&
-                                              cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_create,&
-                                              cp_logger_set,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_realspace_grid_init,          ONLY: init_input_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE cube_utils,                      ONLY: init_cube_info,&
-                                              return_cube_max_iradius
-   USE d3_poly,                         ONLY: init_d3_poly_module
-   USE dbcsr_api,                       ONLY: dbcsr_desymmetrize,&
-                                              dbcsr_get_info,&
-                                              dbcsr_init_p,&
-                                              dbcsr_p_type,&
-                                              dbcsr_release,&
-                                              dbcsr_release_p,&
-                                              dbcsr_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type,&
-                                              multiple_fe_list
-   USE gaussian_gridlevels,             ONLY: init_gaussian_gridlevel
-   USE global_types,                    ONLY: global_environment_type
-   USE hirshfeld_types,                 ONLY: create_hirshfeld_type,&
-                                              release_hirshfeld_type,&
-                                              set_hirshfeld_info
-   USE input_constants,                 ONLY: becke_cutoff_element,&
-                                              mixed_cdft_parallel,&
-                                              mixed_cdft_parallel_nobuild,&
-                                              mixed_cdft_serial,&
-                                              outer_scf_becke_constraint,&
-                                              outer_scf_hirshfeld_constraint,&
-                                              shape_function_gaussian
-   USE input_section_types,             ONLY: section_vals_duplicate,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_release,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE message_passing,                 ONLY: mp_irecv,&
-                                              mp_isend,&
-                                              mp_sum,&
-                                              mp_wait,&
-                                              mp_waitall
-   USE mixed_cdft_types,                ONLY: mixed_cdft_result_type_release,&
-                                              mixed_cdft_result_type_set,&
-                                              mixed_cdft_settings_type,&
-                                              mixed_cdft_type,&
-                                              mixed_cdft_work_type_init
-   USE mixed_environment_types,         ONLY: get_mixed_env,&
-                                              mixed_environment_type
-   USE pw_env_methods,                  ONLY: pw_env_create
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_grid_types,                   ONLY: HALFSPACE,&
-                                              pw_grid_type
-   USE pw_grids,                        ONLY: do_pw_grid_blocked_false,&
-                                              pw_grid_create,&
-                                              pw_grid_release,&
-                                              pw_grid_setup
-   USE pw_pool_types,                   ONLY: pw_pool_create,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type
-   USE qs_cdft_types,                   ONLY: cdft_control_create,&
-                                              cdft_control_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: create_qs_kind_set,&
-                                              qs_kind_type
-   USE realspace_grid_types,            ONLY: realspace_grid_desc_p_type,&
-                                              realspace_grid_input_type,&
-                                              realspace_grid_p_type,&
-                                              rs_grid_create,&
-                                              rs_grid_create_descriptor,&
-                                              rs_grid_print
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cell_types, ONLY: cell_type
+   USE cp_array_utils, ONLY: cp_1d_i_p_type, &
+                             cp_1d_r_p_type, &
+                             cp_2d_r_p_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_create, &
+                           cp_blacs_env_release, &
+                           cp_blacs_env_retain, &
+                           cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr_bc
+   USE cp_files, ONLY: open_file
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_copy_general, &
+                          cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_to_fm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_create, &
+                              cp_logger_set, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_realspace_grid_init, ONLY: init_input_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE cube_utils, ONLY: init_cube_info, &
+                         return_cube_max_iradius
+   USE d3_poly, ONLY: init_d3_poly_module
+   USE dbcsr_api, ONLY: dbcsr_desymmetrize, &
+                        dbcsr_get_info, &
+                        dbcsr_init_p, &
+                        dbcsr_p_type, &
+                        dbcsr_release, &
+                        dbcsr_release_p, &
+                        dbcsr_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type, &
+                              multiple_fe_list
+   USE gaussian_gridlevels, ONLY: init_gaussian_gridlevel
+   USE global_types, ONLY: global_environment_type
+   USE hirshfeld_types, ONLY: create_hirshfeld_type, &
+                              release_hirshfeld_type, &
+                              set_hirshfeld_info
+   USE input_constants, ONLY: becke_cutoff_element, &
+                              mixed_cdft_parallel, &
+                              mixed_cdft_parallel_nobuild, &
+                              mixed_cdft_serial, &
+                              outer_scf_becke_constraint, &
+                              outer_scf_hirshfeld_constraint, &
+                              shape_function_gaussian
+   USE input_section_types, ONLY: section_vals_duplicate, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_release, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE message_passing, ONLY: mp_irecv, &
+                              mp_isend, &
+                              mp_sum, &
+                              mp_wait, &
+                              mp_waitall
+   USE mixed_cdft_types, ONLY: mixed_cdft_result_type_release, &
+                               mixed_cdft_result_type_set, &
+                               mixed_cdft_settings_type, &
+                               mixed_cdft_type, &
+                               mixed_cdft_work_type_init
+   USE mixed_environment_types, ONLY: get_mixed_env, &
+                                      mixed_environment_type
+   USE pw_env_methods, ONLY: pw_env_create
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_grid_types, ONLY: HALFSPACE, &
+                            pw_grid_type
+   USE pw_grids, ONLY: do_pw_grid_blocked_false, &
+                       pw_grid_create, &
+                       pw_grid_release, &
+                       pw_grid_setup
+   USE pw_pool_types, ONLY: pw_pool_create, &
+                            pw_pool_p_type, &
+                            pw_pool_type
+   USE qs_cdft_types, ONLY: cdft_control_create, &
+                            cdft_control_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: create_qs_kind_set, &
+                            qs_kind_type
+   USE realspace_grid_types, ONLY: realspace_grid_desc_p_type, &
+                                   realspace_grid_input_type, &
+                                   realspace_grid_p_type, &
+                                   rs_grid_create, &
+                                   rs_grid_create_descriptor, &
+                                   rs_grid_print
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -665,7 +665,7 @@ CONTAINS
       TYPE(realspace_grid_input_type)                    :: input_settings
       TYPE(realspace_grid_p_type), DIMENSION(:), POINTER :: rs_grids
       TYPE(section_vals_type), POINTER :: force_env_section, force_env_sections, kind_section, &
-         print_section, root_section, rs_grid_section, subsys_section
+                                          print_section, root_section, rs_grid_section, subsys_section
 
       NULLIFY (cell_mix, subsys_mix, force_env_section, subsys_section, &
                print_section, root_section, kind_section, force_env_sections, rs_grid_section, &

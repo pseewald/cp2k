@@ -18,38 +18,38 @@
 !> \author Florian Schiffmann 08.2006
 ! **************************************************************************************************
 MODULE mode_selective
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_result_methods,               ONLY: get_results
-   USE global_types,                    ONLY: global_environment_type
-   USE input_constants,                 ONLY: ms_guess_atomic,&
-                                              ms_guess_bfgs,&
-                                              ms_guess_molden,&
-                                              ms_guess_restart,&
-                                              ms_guess_restart_vec
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp,&
-                                              max_line_length
-   USE mathlib,                         ONLY: diamat_all
-   USE message_passing,                 ONLY: mp_bcast
-   USE molden_utils,                    ONLY: write_vibrations_molden
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: massunit,&
-                                              vibfac
-   USE replica_methods,                 ONLY: rep_env_calc_e_f
-   USE replica_types,                   ONLY: replica_env_type
-   USE util,                            ONLY: sort
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_result_methods, ONLY: get_results
+   USE global_types, ONLY: global_environment_type
+   USE input_constants, ONLY: ms_guess_atomic, &
+                              ms_guess_bfgs, &
+                              ms_guess_molden, &
+                              ms_guess_restart, &
+                              ms_guess_restart_vec
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp, &
+                    max_line_length
+   USE mathlib, ONLY: diamat_all
+   USE message_passing, ONLY: mp_bcast
+   USE molden_utils, ONLY: write_vibrations_molden
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: massunit, &
+                      vibfac
+   USE replica_methods, ONLY: rep_env_calc_e_f
+   USE replica_types, ONLY: replica_env_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -477,7 +477,7 @@ CONTAINS
          ! should use the cp_fm_read_unformatted...
          DO i = 1, ncoord
             READ (UNIT=hesunit, IOSTAT=stat) ms_vib%hes_bfgs(:, i)
-         ENDDO
+         END DO
          CALL close_file(hesunit)
          IF (output_unit > 0) THEN
             IF (stat /= 0) THEN
@@ -859,7 +859,7 @@ CONTAINS
 
          DEALLOCATE (ms_vib%b_mat)
          DEALLOCATE (ms_vib%s_mat)
-      ENDIF
+      END IF
 
       ALLOCATE (ms_vib%b_mat(3*natoms, ms_vib%mat_size + nrep))
       ALLOCATE (ms_vib%s_mat(3*natoms, ms_vib%mat_size + nrep))
@@ -962,7 +962,7 @@ CONTAINS
          ELSE
             CALL ms_out(output_unit_ms, converged, freq, criteria, ms_vib, &
                         input, nrep, approx_H, eigenval, calc_intens, logger=logger)
-         ENDIF
+         END IF
          dump_only_positive = ms_vib%low_freq .GT. 0.0_dp
          CALL write_vibrations_molden(input, particles, eigenval, tmp_b, intensities, calc_intens, &
                                       dump_only_positive=dump_only_positive, logger=logger)
@@ -971,7 +971,7 @@ CONTAINS
          END IF
          DEALLOCATE (tmp_b)
          DEALLOCATE (tmp_s)
-      ENDIF
+      END IF
 
       IF (.NOT. converged) CALL ms_out(output_unit_ms, converged, freq, criteria, &
                                        ms_vib, input, nrep, approx_H, eigenval, calc_intens, logger=logger)
@@ -1159,7 +1159,7 @@ CONTAINS
                WRITE (iw, '(3X,5(4X, A))') 'FREQUENCY', 'INTENSITY', 'MAXVAL CRITERIA', 'NORM CRITERIA', 'CONVERGENCE'
             ELSE
                WRITE (iw, '(3X,5(4X, A))') 'FREQUENCY', 'MAXVAL CRITERIA', 'NORM CRITERIA', 'CONVERGENCE'
-            ENDIF
+            END IF
             DO i = 1, SIZE(ms_vib%b_mat, 2)
                residuum = 0._dp
                DO j = 1, SIZE(ms_vib%b_mat, 2)
@@ -1177,7 +1177,7 @@ CONTAINS
                   ELSE
                      IF (eigenval(i) .GT. ms_vib%low_freq) WRITE (iw, '(2X,A,2X,F9.3,1X,F12.6,3X,E12.3,7X,E12.3,11X,A)') &
                         'VIB|', eigenval(i), intensities(i), crit_a, crit_b, 'NO'
-                  ENDIF
+                  END IF
                ELSE
                   IF (crit_a .LE. ms_vib%eps(1) .AND. crit_b .LE. ms_vib%eps(2)) THEN
                      IF (eigenval(i) .GT. ms_vib%low_freq) WRITE (iw, '(2X,A,2X,F9.3,5X,E12.6,5X,E12.3,11X,A)') &
@@ -1185,7 +1185,7 @@ CONTAINS
                   ELSE
                      IF (eigenval(i) .GT. ms_vib%low_freq) WRITE (iw, '(2X,A,2X,F9.3,5X,E12.6,5X,E12.3,11X,A)') &
                         'VIB|', eigenval(i), crit_a, crit_b, 'NO'
-                  ENDIF
+                  END IF
                END IF
             END DO
             DEALLOCATE (residuum)

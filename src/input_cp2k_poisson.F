@@ -12,75 +12,75 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE input_cp2k_poisson
-   USE bibliography,                    ONLY: &
-        Aguado2003, BaniHashemian2016, Blochl1995, Darden1993, Essmann1995, Ewald1921, &
-        Genovese2006, Genovese2007, Laino2008, Martyna1999, Toukmaji1996
-   USE cell_types,                      ONLY: use_perd_none,&
-                                              use_perd_x,&
-                                              use_perd_xy,&
-                                              use_perd_xyz,&
-                                              use_perd_xz,&
-                                              use_perd_y,&
-                                              use_perd_yz,&
-                                              use_perd_z
-   USE cp_output_handling,              ONLY: add_last_numeric,&
-                                              cp_print_key_section_create,&
-                                              low_print_level,&
-                                              medium_print_level
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE dct,                             ONLY: neumannX,&
-                                              neumannXY,&
-                                              neumannXYZ,&
-                                              neumannXZ,&
-                                              neumannY,&
-                                              neumannYZ,&
-                                              neumannZ
-   USE dielectric_types,                ONLY: &
-        derivative_cd3, derivative_cd5, derivative_cd7, derivative_fft, derivative_fft_use_deps, &
-        derivative_fft_use_drho, rho_dependent, spatially_dependent, spatially_rho_dependent
-   USE dirichlet_bc_types,              ONLY: CIRCUMSCRIBED,&
-                                              INSCRIBED,&
-                                              x_axis,&
-                                              xy_plane,&
-                                              xz_plane,&
-                                              y_axis,&
-                                              yz_plane,&
-                                              z_axis
-   USE input_constants,                 ONLY: do_fist_pol_cg,&
-                                              do_fist_pol_none,&
-                                              do_fist_pol_sc
-   USE input_cp2k_rsgrid,               ONLY: create_rsgrid_section
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: enum_t,&
-                                              integer_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE multipole_types,                 ONLY: do_multipole_charge,&
-                                              do_multipole_dipole,&
-                                              do_multipole_none,&
-                                              do_multipole_quadrupole
-   USE ps_implicit_types,               ONLY: MIXED_BC,&
-                                              MIXED_PERIODIC_BC,&
-                                              NEUMANN_BC,&
-                                              PERIODIC_BC
-   USE pw_poisson_types,                ONLY: &
-        do_ewald_ewald, do_ewald_none, do_ewald_pme, do_ewald_spme, pw_poisson_analytic, &
-        pw_poisson_implicit, pw_poisson_mt, pw_poisson_multipole, pw_poisson_periodic, &
-        pw_poisson_wavelet
-   USE pw_spline_utils,                 ONLY: no_precond,&
-                                              precond_spl3_1,&
-                                              precond_spl3_2,&
-                                              precond_spl3_3,&
-                                              precond_spl3_aint,&
-                                              precond_spl3_aint2
-   USE string_utilities,                ONLY: s2a
+   USE bibliography, ONLY: &
+      Aguado2003, BaniHashemian2016, Blochl1995, Darden1993, Essmann1995, Ewald1921, &
+      Genovese2006, Genovese2007, Laino2008, Martyna1999, Toukmaji1996
+   USE cell_types, ONLY: use_perd_none, &
+                         use_perd_x, &
+                         use_perd_xy, &
+                         use_perd_xyz, &
+                         use_perd_xz, &
+                         use_perd_y, &
+                         use_perd_yz, &
+                         use_perd_z
+   USE cp_output_handling, ONLY: add_last_numeric, &
+                                 cp_print_key_section_create, &
+                                 low_print_level, &
+                                 medium_print_level
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE dct, ONLY: neumannX, &
+                  neumannXY, &
+                  neumannXYZ, &
+                  neumannXZ, &
+                  neumannY, &
+                  neumannYZ, &
+                  neumannZ
+   USE dielectric_types, ONLY: &
+      derivative_cd3, derivative_cd5, derivative_cd7, derivative_fft, derivative_fft_use_deps, &
+      derivative_fft_use_drho, rho_dependent, spatially_dependent, spatially_rho_dependent
+   USE dirichlet_bc_types, ONLY: CIRCUMSCRIBED, &
+                                 INSCRIBED, &
+                                 x_axis, &
+                                 xy_plane, &
+                                 xz_plane, &
+                                 y_axis, &
+                                 yz_plane, &
+                                 z_axis
+   USE input_constants, ONLY: do_fist_pol_cg, &
+                              do_fist_pol_none, &
+                              do_fist_pol_sc
+   USE input_cp2k_rsgrid, ONLY: create_rsgrid_section
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: enum_t, &
+                              integer_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE multipole_types, ONLY: do_multipole_charge, &
+                              do_multipole_dipole, &
+                              do_multipole_none, &
+                              do_multipole_quadrupole
+   USE ps_implicit_types, ONLY: MIXED_BC, &
+                                MIXED_PERIODIC_BC, &
+                                NEUMANN_BC, &
+                                PERIODIC_BC
+   USE pw_poisson_types, ONLY: &
+      do_ewald_ewald, do_ewald_none, do_ewald_pme, do_ewald_spme, pw_poisson_analytic, &
+      pw_poisson_implicit, pw_poisson_mt, pw_poisson_multipole, pw_poisson_periodic, &
+      pw_poisson_wavelet
+   USE pw_spline_utils, ONLY: no_precond, &
+                              precond_spl3_1, &
+                              precond_spl3_2, &
+                              precond_spl3_3, &
+                              precond_spl3_aint, &
+                              precond_spl3_aint2
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

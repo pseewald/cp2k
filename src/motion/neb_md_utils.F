@@ -18,22 +18,22 @@
 !> \author Teodoro Laino 10.2006
 ! **************************************************************************************************
 MODULE neb_md_utils
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE global_types,                    ONLY: global_environment_type
-   USE input_constants,                 ONLY: band_md_opt,&
-                                              do_band_collective
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE neb_types,                       ONLY: neb_type,&
-                                              neb_var_type
-   USE particle_types,                  ONLY: get_particle_pos_or_vel,&
-                                              particle_type,&
-                                              update_particle_pos_or_vel
-   USE physcon,                         ONLY: kelvin,&
-                                              massunit
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE global_types, ONLY: global_environment_type
+   USE input_constants, ONLY: band_md_opt, &
+                              do_band_collective
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE neb_types, ONLY: neb_type, &
+                        neb_var_type
+   USE particle_types, ONLY: get_particle_pos_or_vel, &
+                             particle_type, &
+                             update_particle_pos_or_vel
+   USE physcon, ONLY: kelvin, &
+                      massunit
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

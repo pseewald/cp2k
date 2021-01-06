@@ -12,35 +12,35 @@
 ! **************************************************************************************************
 MODULE ewalds
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE bibliography,                    ONLY: Ewald1921,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type
-   USE dg_rho0_types,                   ONLY: dg_rho0_type
-   USE dg_types,                        ONLY: dg_get,&
-                                              dg_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_environment_type
-   USE ewald_pw_types,                  ONLY: ewald_pw_get,&
-                                              ewald_pw_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fourpi,&
-                                              oorootpi,&
-                                              pi
-   USE mathlib,                         ONLY: matvec_3x3
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_poisson_types,                ONLY: do_ewald_none
-   USE pw_pool_types,                   ONLY: pw_pool_type
-   USE shell_potential_types,           ONLY: get_shell,&
-                                              shell_kind_type
-   USE structure_factor_types,          ONLY: structure_factor_type
-   USE structure_factors,               ONLY: structure_factor_allocate,&
-                                              structure_factor_deallocate,&
-                                              structure_factor_evaluate
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE bibliography, ONLY: Ewald1921, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type
+   USE dg_rho0_types, ONLY: dg_rho0_type
+   USE dg_types, ONLY: dg_get, &
+                       dg_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_environment_type
+   USE ewald_pw_types, ONLY: ewald_pw_get, &
+                             ewald_pw_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fourpi, &
+                            oorootpi, &
+                            pi
+   USE mathlib, ONLY: matvec_3x3
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_poisson_types, ONLY: do_ewald_none
+   USE pw_pool_types, ONLY: pw_pool_type
+   USE shell_potential_types, ONLY: get_shell, &
+                                    shell_kind_type
+   USE structure_factor_types, ONLY: structure_factor_type
+   USE structure_factors, ONLY: structure_factor_allocate, &
+                                structure_factor_deallocate, &
+                                structure_factor_evaluate
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -96,7 +96,7 @@ CONTAINS
       COMPLEX(KIND=dp)                                   :: snode
       COMPLEX(KIND=dp), ALLOCATABLE, DIMENSION(:)        :: summe
       INTEGER :: gpt, group, handle, iparticle, iparticle_kind, iparticle_local, lp, mp, nnodes, &
-         node, np, nparticle_kind, nparticle_local
+                 node, np, nparticle_kind, nparticle_local
       INTEGER, DIMENSION(:, :), POINTER                  :: bds
       LOGICAL                                            :: atenergy, atstress, use_charge_array
       REAL(KIND=dp)                                      :: alpha, denom, e_igdotr, factor, &
@@ -136,7 +136,7 @@ CONTAINS
       nnodes = 0
       DO iparticle_kind = 1, nparticle_kind
          nnodes = nnodes + local_particles%n_el(iparticle_kind)
-      ENDDO
+      END DO
 
       CALL structure_factor_allocate(pw_grid%bounds, nnodes, exp_igr)
 

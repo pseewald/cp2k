@@ -16,14 +16,14 @@
 !> \author Matthias Krack (08.10.1999)
 ! **************************************************************************************************
 MODULE ai_overlap
-   USE ai_os_rr,                        ONLY: os_rr_ovlp
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi,&
-                                              twopi
-   USE orbital_pointers,                ONLY: coset,&
-                                              nco,&
-                                              ncoset,&
-                                              nso
+   USE ai_os_rr, ONLY: os_rr_ovlp
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi, &
+                            twopi
+   USE orbital_pointers, ONLY: coset, &
+                               nco, &
+                               ncoset, &
+                               nso
    USE orbital_transformation_matrices, ONLY: orbtramat
 #include "../base/base_uses.f90"
 
@@ -89,9 +89,9 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(3), INTENT(OUT), OPTIONAL :: force_a
 
       INTEGER :: ax, ay, az, bx, by, bz, cda, cdax, cday, cdaz, coa, coamx, coamy, coamz, coapx, &
-         coapy, coapz, cob, cobm2x, cobm2y, cobm2z, cobmx, cobmy, cobmz, da, da_max, dax, day, &
-         daz, i, ipgf, j, jk, jpgf, jstart, k, la, la_max, la_min, la_start, lb, lb_max, lb_min, &
-         lb_start, na, nb, nda
+                 coapy, coapz, cob, cobm2x, cobm2y, cobm2z, cobmx, cobmy, cobmz, da, da_max, dax, day, &
+                 daz, i, ipgf, j, jk, jpgf, jstart, k, la, la_max, la_min, la_start, lb, lb_max, lb_min, &
+                 lb_start, na, nb, nda
       LOGICAL                                            :: calculate_force_a
       REAL(KIND=dp)                                      :: f0, f1, f2, f3, f4, fax, fay, faz, ftz, &
                                                             zetp
@@ -750,7 +750,7 @@ CONTAINS
                IF (PRESENT(ddab)) ddab(ma + 1:ma + na, mb + 1:mb + nb, 1:6) = 0.0_dp
                mb = mb + nb
                CYCLE
-            ENDIF
+            END IF
 
             ! Calculate some prefactors
             a = zeta(ipgf)
@@ -918,12 +918,12 @@ CONTAINS
                                        + 2.0_dp*b*REAL(az, dp)*ambp - REAL(az, dp)*REAL(bz, dp)*ambm
                   END IF
                   !
-               ENDDO
-               ENDDO
-               ENDDO !la
-            ENDDO
-            ENDDO
-            ENDDO !lb
+               END DO
+               END DO
+               END DO !la
+            END DO
+            END DO
+            END DO !lb
 
             mb = mb + nb
          END DO
@@ -981,8 +981,8 @@ CONTAINS
          INTENT(INOUT), OPTIONAL                         :: daba
 
       INTEGER :: ax, ax1, ax2, ay, ay1, ay2, az, az1, az2, bx, by, bz, coa1, coa2, cob, i1pgf, &
-         i2pgf, ia1, ia2, ib, jpgf, la1, la2, lb, ldrr, lma, lmb, ma1, ma2, mb, na1, na2, nb, &
-         ofa1, ofa2, ofb
+                 i2pgf, ia1, ia2, ib, jpgf, la1, la2, lb, ldrr, lma, lmb, ma1, ma2, mb, na1, na2, nb, &
+                 ofa1, ofa2, ofb
       REAL(KIND=dp)                                      :: a, b, dumx, dumy, dumz, f0, rab2, rpgfa, &
                                                             tab, xhi, zet
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: rr
@@ -1053,7 +1053,7 @@ CONTAINS
                   IF (PRESENT(daba)) daba(ma1 + 1:ma1 + na1, mb + 1:mb + nb, ma2 + 1:ma2 + na2, 1:3) = 0.0_dp
                   mb = mb + nb
                   CYCLE
-               ENDIF
+               END IF
 
                ! Calculate some prefactors
                a = zeta1(i1pgf) + zeta2(i2pgf)
@@ -1132,15 +1132,15 @@ CONTAINS
                            daba(ia1, ib, ia2, 3) = f0*rr(ax, bx, 1)*rr(ay, by, 2)*dumz
                         END IF
                         !
-                     ENDDO
-                     ENDDO
-                     ENDDO !la1
-                  ENDDO
-                  ENDDO
-                  ENDDO !la2
-               ENDDO
-               ENDDO
-               ENDDO !lb
+                     END DO
+                     END DO
+                     END DO !la1
+                  END DO
+                  END DO
+                  END DO !la2
+               END DO
+               END DO
+               END DO !lb
 
                mb = mb + nb
             END DO
@@ -1194,8 +1194,8 @@ CONTAINS
          INTENT(INOUT), OPTIONAL                         :: dabb
 
       INTEGER :: ax, ay, az, bx, bx1, bx2, by, by1, by2, bz, bz1, bz2, coa, cob1, cob2, ia, ib1, &
-         ib2, ipgf, j1pgf, j2pgf, la, lb1, lb2, ldrr, lma, lmb, ma, mb1, mb2, na, nb1, nb2, ofa, &
-         ofb1, ofb2
+                 ib2, ipgf, j1pgf, j2pgf, la, lb1, lb2, ldrr, lma, lmb, ma, mb1, mb2, na, nb1, nb2, ofa, &
+                 ofb1, ofb2
       REAL(KIND=dp)                                      :: a, b, dumx, dumy, dumz, f0, rab2, rpgfb, &
                                                             tab, xhi, zet
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: rr
@@ -1253,7 +1253,7 @@ CONTAINS
                   IF (PRESENT(dabb)) dabb(ma + 1:ma + na, mb1 + 1:mb1 + nb1, mb2 + 1:mb2 + nb2, 1:3) = 0.0_dp
                   mb2 = mb2 + nb2
                   CYCLE
-               ENDIF
+               END IF
 
                ! Calculate some prefactors
                a = zeta(ipgf)
@@ -1311,15 +1311,15 @@ CONTAINS
                            dabb(ia, ib1, ib2, 3) = f0*rr(ax, bx, 1)*rr(ay, by, 2)*dumz
                         END IF
                         !
-                     ENDDO
-                     ENDDO
-                     ENDDO !la
-                  ENDDO
-                  ENDDO
-                  ENDDO !lb1
-               ENDDO
-               ENDDO
-               ENDDO !lb2
+                     END DO
+                     END DO
+                     END DO !la
+                  END DO
+                  END DO
+                  END DO !lb1
+               END DO
+               END DO
+               END DO !lb2
 
                mb2 = mb2 + nb2
             END DO
@@ -1381,8 +1381,8 @@ CONTAINS
          INTENT(INOUT), OPTIONAL                         :: daaab
 
       INTEGER :: ax, ax1, ax2, ax3, ay, ay1, ay2, ay3, az, az1, az2, az3, bx, by, bz, coa1, coa2, &
-         coa3, cob, i1pgf, i2pgf, i3pgf, ia1, ia2, ia3, ib, jpgf, la1, la2, la3, lb, ldrr, lma, &
-         lmb, ma1, ma2, ma3, mb, na1, na2, na3, nb, ofa1, ofa2, ofa3, ofb
+                 coa3, cob, i1pgf, i2pgf, i3pgf, ia1, ia2, ia3, ib, jpgf, la1, la2, la3, lb, ldrr, lma, &
+                 lmb, ma1, ma2, ma3, mb, na1, na2, na3, nb, ofa1, ofa2, ofa3, ofb
       REAL(KIND=dp)                                      :: a, b, dumx, dumy, dumz, f0, rab2, rpgfa, &
                                                             tab, xhi, zet
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: rr
@@ -1446,7 +1446,7 @@ CONTAINS
                     IF (PRESENT(daaab)) daaab(ma1 + 1:ma1 + na1, ma2 + 1:ma2 + na2, ma3 + 1:ma3 + na3, mb + 1:mb + nb, 1:3) = 0.0_dp
                      mb = mb + nb
                      CYCLE
-                  ENDIF
+                  END IF
 
                   ! Calculate some prefactors
                   a = zeta1(i1pgf) + zeta2(i2pgf) + zeta3(i3pgf)
@@ -1511,18 +1511,18 @@ CONTAINS
                                  daaab(ia1, ia2, ia3, ib, 3) = f0*rr(ax, bx, 1)*rr(ay, by, 2)*dumz
                               END IF
                               !
-                           ENDDO
-                           ENDDO
-                           ENDDO !la1
-                        ENDDO
-                        ENDDO
-                        ENDDO !la2
-                     ENDDO
-                     ENDDO
-                     ENDDO !la3
-                  ENDDO
-                  ENDDO
-                  ENDDO !lb
+                           END DO
+                           END DO
+                           END DO !la1
+                        END DO
+                        END DO
+                        END DO !la2
+                     END DO
+                     END DO
+                     END DO !la3
+                  END DO
+                  END DO
+                  END DO !lb
 
                   mb = mb + nb
                END DO
@@ -1585,8 +1585,8 @@ CONTAINS
          INTENT(INOUT), OPTIONAL                         :: daabb
 
       INTEGER :: ax, ax1, ax2, ay, ay1, ay2, az, az1, az2, bx, bx1, bx2, by, by1, by2, bz, bz1, &
-         bz2, coa1, coa2, cob1, cob2, i1pgf, i2pgf, ia1, ia2, ib1, ib2, j1pgf, j2pgf, la1, la2, &
-         lb1, lb2, ldrr, lma, lmb, ma1, ma2, mb1, mb2, na1, na2, nb1, nb2, ofa1, ofa2, ofb1, ofb2
+                 bz2, coa1, coa2, cob1, cob2, i1pgf, i2pgf, ia1, ia2, ib1, ib2, j1pgf, j2pgf, la1, la2, &
+                 lb1, lb2, ldrr, lma, lmb, ma1, ma2, mb1, mb2, na1, na2, nb1, nb2, ofa1, ofa2, ofb1, ofb2
       REAL(KIND=dp)                                      :: a, b, dumx, dumy, dumz, f0, rab2, rpgfa, &
                                                             rpgfb, tab, xhi, zet
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: rr
@@ -1651,7 +1651,7 @@ CONTAINS
                  IF (PRESENT(daabb)) daabb(ma1 + 1:ma1 + na1, ma2 + 1:ma2 + na2, mb1 + 1:mb1 + nb1, mb2 + 1:mb2 + nb2, 1:3) = 0.0_dp
                      mb2 = mb2 + nb2
                      CYCLE
-                  ENDIF
+                  END IF
 
                   ! Calculate some prefactors
                   a = zeta1(i1pgf) + zeta2(i2pgf)
@@ -1719,18 +1719,18 @@ CONTAINS
                                  daabb(ia1, ia2, ib1, ib2, 3) = f0*rr(ax, bx, 1)*rr(ay, by, 2)*dumz
                               END IF
                               !
-                           ENDDO
-                           ENDDO
-                           ENDDO !la1
-                        ENDDO
-                        ENDDO
-                        ENDDO !la2
-                     ENDDO
-                     ENDDO
-                     ENDDO !lb1
-                  ENDDO
-                  ENDDO
-                  ENDDO !lb2
+                           END DO
+                           END DO
+                           END DO !la1
+                        END DO
+                        END DO
+                        END DO !la2
+                     END DO
+                     END DO
+                     END DO !lb1
+                  END DO
+                  END DO
+                  END DO !lb2
 
                   mb2 = mb2 + nb2
                END DO
@@ -1793,8 +1793,8 @@ CONTAINS
          INTENT(INOUT), OPTIONAL                         :: dabbb
 
       INTEGER :: ax, ay, az, bx, bx1, bx2, bx3, by, by1, by2, by3, bz, bz1, bz2, bz3, coa, cob1, &
-         cob2, cob3, ia, ib1, ib2, ib3, ipgf, j1pgf, j2pgf, j3pgf, la, lb1, lb2, lb3, ldrr, lma, &
-         lmb, ma, mb1, mb2, mb3, na, nb1, nb2, nb3, ofa, ofb1, ofb2, ofb3
+                 cob2, cob3, ia, ib1, ib2, ib3, ipgf, j1pgf, j2pgf, j3pgf, la, lb1, lb2, lb3, ldrr, lma, &
+                 lmb, ma, mb1, mb2, mb3, na, nb1, nb2, nb3, ofa, ofb1, ofb2, ofb3
       REAL(KIND=dp)                                      :: a, b, dumx, dumy, dumz, f0, rab2, rpgfb, &
                                                             tab, xhi, zet
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: rr
@@ -1858,7 +1858,7 @@ CONTAINS
                     IF (PRESENT(dabbb)) dabbb(ma + 1:ma + na, mb1 + 1:mb1 + nb1, mb2 + 1:mb2 + nb2, mb3 + 1:mb3 + nb3, 1:3) = 0.0_dp
                      mb3 = mb3 + nb3
                      CYCLE
-                  ENDIF
+                  END IF
 
                   ! Calculate some prefactors
                   a = zeta(ipgf)
@@ -1923,18 +1923,18 @@ CONTAINS
                                  dabbb(ia, ib1, ib2, ib3, 3) = f0*rr(ax, bx, 1)*rr(ay, by, 2)*dumz
                               END IF
                               !
-                           ENDDO
-                           ENDDO
-                           ENDDO !la
-                        ENDDO
-                        ENDDO
-                        ENDDO !lb1
-                     ENDDO
-                     ENDDO
-                     ENDDO !lb2
-                  ENDDO
-                  ENDDO
-                  ENDDO !lb3
+                           END DO
+                           END DO
+                           END DO !la
+                        END DO
+                        END DO
+                        END DO !lb1
+                     END DO
+                     END DO
+                     END DO !lb2
+                  END DO
+                  END DO
+                  END DO !lb3
 
                   mb3 = mb3 + nb3
                END DO

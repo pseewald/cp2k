@@ -15,165 +15,165 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE force_env_methods
-   USE atprop_types,                    ONLY: atprop_init,&
-                                              atprop_type
-   USE bibliography,                    ONLY: Heaton_Burgess2007,&
-                                              Huang2011,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_clone,&
-                                              cell_create,&
-                                              cell_release,&
-                                              cell_type,&
-                                              init_cell,&
-                                              real_to_scaled,&
-                                              scaled_to_real
-   USE constraint_fxd,                  ONLY: fix_atom_control
-   USE constraint_vsite,                ONLY: vsite_force_control
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_scale_and_add
-   USE cp_fm_types,                     ONLY: cp_fm_copy_general
-   USE cp_iter_types,                   ONLY: cp_iteration_info_copy_iter
-   USE cp_log_handling,                 ONLY: cp_add_default_logger,&
-                                              cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_rm_default_logger,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr,&
-                                              low_print_level
-   USE cp_para_env,                     ONLY: cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_result_methods,               ONLY: cp_results_erase,&
-                                              cp_results_mp_bcast,&
-                                              get_results,&
-                                              test_for_result
-   USE cp_result_types,                 ONLY: cp_result_copy,&
-                                              cp_result_create,&
-                                              cp_result_p_type,&
-                                              cp_result_release,&
-                                              cp_result_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_p_type,&
-                                              cp_subsys_set,&
-                                              cp_subsys_type
-   USE eip_environment_types,           ONLY: eip_env_retain,&
-                                              eip_environment_type
-   USE eip_silicon,                     ONLY: eip_bazant,&
-                                              eip_lenosky
-   USE embed_types,                     ONLY: embed_env_retain,&
-                                              embed_env_type,&
-                                              opt_dmfet_pot_type,&
-                                              opt_embed_pot_type
-   USE external_potential_methods,      ONLY: add_external_potential
-   USE fist_environment_types,          ONLY: fist_env_retain,&
-                                              fist_environment_type
-   USE fist_force,                      ONLY: fist_calc_energy_force
-   USE force_env_types,                 ONLY: &
-        force_env_get, force_env_get_natom, force_env_p_type, force_env_set, force_env_type, &
-        use_eip_force, use_embed, use_fist_force, use_mixed_force, use_nnp_force, use_prog_name, &
-        use_pwdft_force, use_qmmm, use_qmmmx, use_qs_force
-   USE force_env_utils,                 ONLY: rescale_forces,&
-                                              write_forces
-   USE force_fields_util,               ONLY: get_generic_info
-   USE fp_methods,                      ONLY: fp_eval
-   USE fparser,                         ONLY: EvalErrType,&
-                                              evalf,&
-                                              evalfd,&
-                                              finalizef,&
-                                              initf,&
-                                              parsef
-   USE global_types,                    ONLY: global_environment_type,&
-                                              globenv_retain
-   USE grrm_utils,                      ONLY: write_grrm
-   USE input_constants,                 ONLY: &
-        debug_run, dfet, dmfet, mix_cdft, mix_coupled, mix_generic, mix_linear_combination, &
-        mix_minimum, mix_restrained, mixed_cdft_serial, use_bazant_eip, use_lenosky_eip
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_retain,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kahan_sum,                       ONLY: accurate_sum
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE machine,                         ONLY: m_memory
-   USE mathlib,                         ONLY: abnormal_value
-   USE message_passing,                 ONLY: mp_sum,&
-                                              mp_sync
-   USE metadynamics_types,              ONLY: meta_env_retain,&
-                                              meta_env_type
-   USE mixed_cdft_methods,              ONLY: mixed_cdft_build_weight,&
-                                              mixed_cdft_calculate_coupling,&
-                                              mixed_cdft_init
-   USE mixed_energy_types,              ONLY: mixed_energy_type,&
-                                              mixed_force_type
-   USE mixed_environment_types,         ONLY: get_mixed_env,&
-                                              mixed_env_retain,&
-                                              mixed_environment_type
-   USE mixed_environment_utils,         ONLY: get_subsys_map_index,&
-                                              mixed_map_forces
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: get_molecule_kind,&
-                                              molecule_kind_type
-   USE nnp_environment_types,           ONLY: nnp_env_retain,&
-                                              nnp_type
-   USE nnp_force,                       ONLY: nnp_calc_energy_force
-   USE optimize_dmfet_potential,        ONLY: build_full_dm,&
-                                              check_dmfet,&
-                                              prepare_dmfet_opt,&
-                                              release_dmfet_opt,&
-                                              subsys_spin
-   USE optimize_embedding_potential,    ONLY: &
-        Coulomb_guess, calculate_embed_pot_grad, conv_check_embed, get_max_subsys_diff, &
-        get_prev_density, init_embed_pot, make_subsys_embed_pot, opt_embed_step, &
-        prepare_embed_opt, print_emb_opt_info, print_embed_restart, print_pot_simple_grid, &
-        print_rho_diff, print_rho_spin_diff, read_embed_pot, release_opt_embed, step_control, &
-        understand_spin_states
-   USE particle_list_types,             ONLY: particle_list_p_type,&
-                                              particle_list_type
-   USE physcon,                         ONLY: debye
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_copy,&
-                                              pw_integral_ab,&
-                                              pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE,&
-                                              pw_p_type,&
-                                              pw_release
-   USE pwdft_environment,               ONLY: pwdft_calc_energy_force
-   USE pwdft_environment_types,         ONLY: pwdft_env_retain,&
-                                              pwdft_environment_type
-   USE qmmm_force,                      ONLY: qmmm_calc_energy_force
-   USE qmmm_types,                      ONLY: qmmm_env_retain,&
-                                              qmmm_env_type
-   USE qmmm_util,                       ONLY: apply_qmmm_translate
-   USE qmmmx_force,                     ONLY: qmmmx_calc_energy_force
-   USE qmmmx_types,                     ONLY: qmmmx_env_retain,&
-                                              qmmmx_env_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_env_retain,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_force,                        ONLY: qs_calc_energy_force
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE restraint,                       ONLY: restraint_control
-   USE scine_utils,                     ONLY: write_scine
-   USE string_utilities,                ONLY: compress
-   USE virial_methods,                  ONLY: write_stress_tensor,&
-                                              write_stress_tensor_components
-   USE virial_types,                    ONLY: cp_virial,&
-                                              symmetrize_virial,&
-                                              virial_create,&
-                                              virial_p_type,&
-                                              virial_release,&
-                                              virial_type,&
-                                              zero_virial
+   USE atprop_types, ONLY: atprop_init, &
+                           atprop_type
+   USE bibliography, ONLY: Heaton_Burgess2007, &
+                           Huang2011, &
+                           cite_reference
+   USE cell_types, ONLY: cell_clone, &
+                         cell_create, &
+                         cell_release, &
+                         cell_type, &
+                         init_cell, &
+                         real_to_scaled, &
+                         scaled_to_real
+   USE constraint_fxd, ONLY: fix_atom_control
+   USE constraint_vsite, ONLY: vsite_force_control
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_fm_basic_linalg, ONLY: cp_fm_scale_and_add
+   USE cp_fm_types, ONLY: cp_fm_copy_general
+   USE cp_iter_types, ONLY: cp_iteration_info_copy_iter
+   USE cp_log_handling, ONLY: cp_add_default_logger, &
+                              cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_rm_default_logger, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr, &
+                                 low_print_level
+   USE cp_para_env, ONLY: cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_result_methods, ONLY: cp_results_erase, &
+                                cp_results_mp_bcast, &
+                                get_results, &
+                                test_for_result
+   USE cp_result_types, ONLY: cp_result_copy, &
+                              cp_result_create, &
+                              cp_result_p_type, &
+                              cp_result_release, &
+                              cp_result_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_p_type, &
+                              cp_subsys_set, &
+                              cp_subsys_type
+   USE eip_environment_types, ONLY: eip_env_retain, &
+                                    eip_environment_type
+   USE eip_silicon, ONLY: eip_bazant, &
+                          eip_lenosky
+   USE embed_types, ONLY: embed_env_retain, &
+                          embed_env_type, &
+                          opt_dmfet_pot_type, &
+                          opt_embed_pot_type
+   USE external_potential_methods, ONLY: add_external_potential
+   USE fist_environment_types, ONLY: fist_env_retain, &
+                                     fist_environment_type
+   USE fist_force, ONLY: fist_calc_energy_force
+   USE force_env_types, ONLY: &
+      force_env_get, force_env_get_natom, force_env_p_type, force_env_set, force_env_type, &
+      use_eip_force, use_embed, use_fist_force, use_mixed_force, use_nnp_force, use_prog_name, &
+      use_pwdft_force, use_qmmm, use_qmmmx, use_qs_force
+   USE force_env_utils, ONLY: rescale_forces, &
+                              write_forces
+   USE force_fields_util, ONLY: get_generic_info
+   USE fp_methods, ONLY: fp_eval
+   USE fparser, ONLY: EvalErrType, &
+                      evalf, &
+                      evalfd, &
+                      finalizef, &
+                      initf, &
+                      parsef
+   USE global_types, ONLY: global_environment_type, &
+                           globenv_retain
+   USE grrm_utils, ONLY: write_grrm
+   USE input_constants, ONLY: &
+      debug_run, dfet, dmfet, mix_cdft, mix_coupled, mix_generic, mix_linear_combination, &
+      mix_minimum, mix_restrained, mixed_cdft_serial, use_bazant_eip, use_lenosky_eip
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_retain, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kahan_sum, ONLY: accurate_sum
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE machine, ONLY: m_memory
+   USE mathlib, ONLY: abnormal_value
+   USE message_passing, ONLY: mp_sum, &
+                              mp_sync
+   USE metadynamics_types, ONLY: meta_env_retain, &
+                                 meta_env_type
+   USE mixed_cdft_methods, ONLY: mixed_cdft_build_weight, &
+                                 mixed_cdft_calculate_coupling, &
+                                 mixed_cdft_init
+   USE mixed_energy_types, ONLY: mixed_energy_type, &
+                                 mixed_force_type
+   USE mixed_environment_types, ONLY: get_mixed_env, &
+                                      mixed_env_retain, &
+                                      mixed_environment_type
+   USE mixed_environment_utils, ONLY: get_subsys_map_index, &
+                                      mixed_map_forces
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_type
+   USE molecule_kind_types, ONLY: get_molecule_kind, &
+                                  molecule_kind_type
+   USE nnp_environment_types, ONLY: nnp_env_retain, &
+                                    nnp_type
+   USE nnp_force, ONLY: nnp_calc_energy_force
+   USE optimize_dmfet_potential, ONLY: build_full_dm, &
+                                       check_dmfet, &
+                                       prepare_dmfet_opt, &
+                                       release_dmfet_opt, &
+                                       subsys_spin
+   USE optimize_embedding_potential, ONLY: &
+      Coulomb_guess, calculate_embed_pot_grad, conv_check_embed, get_max_subsys_diff, &
+      get_prev_density, init_embed_pot, make_subsys_embed_pot, opt_embed_step, &
+      prepare_embed_opt, print_emb_opt_info, print_embed_restart, print_pot_simple_grid, &
+      print_rho_diff, print_rho_spin_diff, read_embed_pot, release_opt_embed, step_control, &
+      understand_spin_states
+   USE particle_list_types, ONLY: particle_list_p_type, &
+                                  particle_list_type
+   USE physcon, ONLY: debye
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_copy, &
+                         pw_integral_ab, &
+                         pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE, &
+                       pw_p_type, &
+                       pw_release
+   USE pwdft_environment, ONLY: pwdft_calc_energy_force
+   USE pwdft_environment_types, ONLY: pwdft_env_retain, &
+                                      pwdft_environment_type
+   USE qmmm_force, ONLY: qmmm_calc_energy_force
+   USE qmmm_types, ONLY: qmmm_env_retain, &
+                         qmmm_env_type
+   USE qmmm_util, ONLY: apply_qmmm_translate
+   USE qmmmx_force, ONLY: qmmmx_calc_energy_force
+   USE qmmmx_types, ONLY: qmmmx_env_retain, &
+                          qmmmx_env_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_env_retain, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_force, ONLY: qs_calc_energy_force
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE restraint, ONLY: restraint_control
+   USE scine_utils, ONLY: write_scine
+   USE string_utilities, ONLY: compress
+   USE virial_methods, ONLY: write_stress_tensor, &
+                             write_stress_tensor_components
+   USE virial_types, ONLY: cp_virial, &
+                           symmetrize_virial, &
+                           virial_create, &
+                           virial_p_type, &
+                           virial_release, &
+                           virial_type, &
+                           zero_virial
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -211,7 +211,7 @@ CONTAINS
 
       TYPE(force_env_type), POINTER                      :: force_env
       LOGICAL, INTENT(IN), OPTIONAL :: calc_force, consistent_energies, skip_external_control, &
-         eval_energy_forces, require_consistent_energy_force, linres, calc_stress_tensor
+                                       eval_energy_forces, require_consistent_energy_force, linres, calc_stress_tensor
 
       REAL(kind=dp), PARAMETER                           :: ateps = 1.0E-6_dp
 
@@ -220,7 +220,7 @@ CONTAINS
                                                             output_unit, print_forces, print_grrm, &
                                                             print_scine
       LOGICAL :: calculate_forces, calculate_stress_tensor, energy_consistency, eval_ef, &
-         linres_run, my_skip, print_components
+                 linres_run, my_skip, print_components
       REAL(KIND=dp)                                      :: checksum, e_pot, sum_energy, &
                                                             sum_pv_virial, sum_stress_tensor
       REAL(KIND=dp), DIMENSION(3)                        :: grand_total_force, total_force
@@ -326,8 +326,8 @@ CONTAINS
          IF (ASSOCIATED(force_env%fp_env)) THEN
             IF (force_env%fp_env%use_fp) THEN
                CALL fp_eval(force_env%fp_env, subsys, cell)
-            ENDIF
-         ENDIF
+            END IF
+         END IF
          ! Constraints ONLY of Fixed Atom type
          CALL fix_atom_control(force_env)
          ! All Restraints
@@ -1056,7 +1056,7 @@ CONTAINS
          IF (ASSOCIATED(force_env%sub_force_env(iforce_eval)%force_env)) THEN
             IF (force_env%sub_force_env(iforce_eval)%force_env%para_env%ionode) &
                source = force_env%para_env%mepos
-         ENDIF
+         END IF
          CALL mp_sum(source, force_env%para_env%group)
          CALL cp_results_mp_bcast(results(iforce_eval)%results, source, force_env%para_env)
       END DO
@@ -1095,7 +1095,7 @@ CONTAINS
             mixed_energy%pot = energies(2)
             CALL mixed_map_forces(particles_mix, virial_mix, results_mix, global_forces, virials, results, &
                                   1.0_dp, 2, nforce_eval, map_index, mapping_section, .TRUE.)
-         ENDIF
+         END IF
       CASE (mix_coupled)
          ! Support offered only 2 force_eval
          CPASSERT(nforce_eval == 2)
@@ -1468,8 +1468,8 @@ CONTAINS
             CALL get_qs_env(force_env%sub_force_env(iforce_eval)%force_env%qs_env, dft_control=dft_control)
             IF (dft_control%qs_control%ref_embed_subsys) THEN
                IF (iforce_eval .EQ. 2) CPABORT("Density importing force_eval can't be the first.")
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          ! all force_env share the same cell
          CALL cp_subsys_set(subsystems(iforce_eval)%subsys, cell=cell_embed)
@@ -1503,7 +1503,7 @@ CONTAINS
                ! Now we can optimize the embedding potential
                CALL dft_embedding(force_env, iforce_eval, energies, converged_embed)
                IF (.NOT. converged_embed) CPABORT("Embedding potential optimization not converged.")
-            ENDIF
+            END IF
             ! Deallocate embedding potential on the high-level subsystem
             IF (dft_control%qs_control%high_level_embed_subsys) THEN
                CALL get_qs_env(qs_env=force_env%sub_force_env(iforce_eval)%force_env%qs_env, &
@@ -1516,9 +1516,9 @@ CONTAINS
                   CALL pw_pool_give_back_pw(auxbas_pw_pool, spin_embed_pot%pw)
                   CALL pw_release(spin_embed_pot%pw)
                   DEALLOCATE (spin_embed_pot)
-               ENDIF
-            ENDIF
-         ENDIF
+               END IF
+            END IF
+         END IF
 
          ! Only the rank 0 process collect info for each computation
          IF (force_env%sub_force_env(iforce_eval)%force_env%para_env%ionode) THEN
@@ -1697,18 +1697,18 @@ CONTAINS
                                 use_data=REALDATA3D, &
                                 in_space=REALSPACE)
          CALL pw_zero(diff_rho_spin%pw)
-      ENDIF
+      END IF
 
       ! Check the preliminary density differences
       DO i_spin = 1, nspins
          diff_rho_r%pw%cr3d(:, :, :) = diff_rho_r%pw%cr3d(:, :, :) - rho_r_ref(i_spin)%pw%cr3d(:, :, :)
-      ENDDO
+      END DO
       IF (opt_embed%open_shell_embed) THEN ! Spin part
          IF (nspins .EQ. 2) THEN ! Reference systems has an open shell, else the reference diff_rho_spin is zero
             diff_rho_spin%pw%cr3d(:, :, :) = diff_rho_spin%pw%cr3d(:, :, :) - rho_r_ref(1)%pw%cr3d(:, :, :) &
                                              + rho_r_ref(2)%pw%cr3d(:, :, :)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       DO i_force_eval = 1, ref_subsys_number - 1
          NULLIFY (subsys_rho, rho_r_subsys, dft_control)
@@ -1719,7 +1719,7 @@ CONTAINS
          CALL qs_rho_get(rho_struct=subsys_rho, rho_r=rho_r_subsys)
          DO i_spin = 1, nspins_subsys
             diff_rho_r%pw%cr3d(:, :, :) = diff_rho_r%pw%cr3d(:, :, :) + rho_r_subsys(i_spin)%pw%cr3d(:, :, :)
-         ENDDO
+         END DO
          IF (opt_embed%open_shell_embed) THEN ! Spin part
             IF (nspins_subsys .EQ. 2) THEN ! The subsystem makes contribution if it is spin-polarized
                ! We may need to change spin ONLY FOR THE SECOND SUBSYSTEM: that's the internal convention
@@ -1730,16 +1730,16 @@ CONTAINS
                   ! First subsystem (always) and second subsystem (without spin change)
                   diff_rho_spin%pw%cr3d(:, :, :) = diff_rho_spin%pw%cr3d(:, :, :) + &
                                                    rho_r_subsys(1)%pw%cr3d(:, :, :) - rho_r_subsys(2)%pw%cr3d(:, :, :)
-               ENDIF
-            ENDIF
-         ENDIF
-      ENDDO
+               END IF
+            END IF
+         END IF
+      END DO
 
       ! Print density difference
       CALL print_rho_diff(diff_rho_r, 0, force_env%sub_force_env(ref_subsys_number)%force_env%qs_env, .FALSE.)
       IF (opt_embed%open_shell_embed) THEN ! Spin part
          CALL print_rho_spin_diff(diff_rho_spin, 0, force_env%sub_force_env(ref_subsys_number)%force_env%qs_env, .FALSE.)
-      ENDIF
+      END IF
 
       ! Construct electrostatic guess if needed
       IF (opt_embed%Coulomb_guess) THEN
@@ -1760,12 +1760,12 @@ CONTAINS
             ELSE
                CALL Coulomb_guess(opt_embed%pot_diff, rhs, mapping_section, &
                                   force_env%sub_force_env(i_force_eval)%force_env%qs_env, nforce_eval, i_force_eval, opt_embed%eta)
-            ENDIF
-         ENDDO
+            END IF
+         END DO
          embed_pot%pw%cr3d(:, :, :) = embed_pot%pw%cr3d(:, :, :) + opt_embed%pot_diff%pw%cr3d(:, :, :)
          IF (.NOT. opt_embed%grid_opt) CALL pw_copy(embed_pot%pw, opt_embed%const_pot%pw)
 
-      ENDIF
+      END IF
 
       ! Difference guess
       IF (opt_embed%diff_guess) THEN
@@ -1773,7 +1773,7 @@ CONTAINS
          IF (.NOT. opt_embed%grid_opt) CALL pw_copy(embed_pot%pw, opt_embed%const_pot%pw)
          ! Open shell
          IF (opt_embed%open_shell_embed) spin_embed_pot%pw%cr3d(:, :, :) = diff_rho_spin%pw%cr3d(:, :, :)
-      ENDIF
+      END IF
 
       ! Calculate subsystems with trial embedding potential
       DO i_iter = 1, opt_embed%n_iter
@@ -1785,14 +1785,14 @@ CONTAINS
          nspins = dft_control%nspins
          DO i_spin = 1, nspins
             diff_rho_r%pw%cr3d(:, :, :) = diff_rho_r%pw%cr3d(:, :, :) - rho_r_ref(i_spin)%pw%cr3d(:, :, :)
-         ENDDO
+         END DO
          IF (opt_embed%open_shell_embed) THEN ! Spin part
             CALL pw_zero(diff_rho_spin%pw)
             IF (nspins .EQ. 2) THEN ! Reference systems has an open shell, else the reference diff_rho_spin is zero
                diff_rho_spin%pw%cr3d(:, :, :) = diff_rho_spin%pw%cr3d(:, :, :) - rho_r_ref(1)%pw%cr3d(:, :, :) &
                                                 + rho_r_ref(2)%pw%cr3d(:, :, :)
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          DO i_force_eval = 1, ref_subsys_number - 1
             NULLIFY (dft_control)
@@ -1809,7 +1809,7 @@ CONTAINS
                CALL make_subsys_embed_pot(force_env%sub_force_env(i_force_eval)%force_env%qs_env, &
                                           embed_pot, embed_pot_subsys, spin_embed_pot, spin_embed_pot_subsys, &
                                           opt_embed%open_shell_embed, .FALSE.)
-            ENDIF
+            END IF
 
             ! Subtract Coulomb potential difference if needed
             !  IF ((i_force_eval .EQ. 2) .AND. (opt_embed%Coulomb_guess)) THEN
@@ -1824,7 +1824,7 @@ CONTAINS
             IF ((opt_embed%open_shell_embed) .AND. (nspins_subsys .EQ. 2)) THEN ! Spin part
                CALL set_qs_env(force_env%sub_force_env(i_force_eval)%force_env%qs_env, &
                                spin_embed_pot=spin_embed_pot_subsys)
-            ENDIF
+            END IF
 
             ! Get the previous subsystem densities
             CALL get_prev_density(opt_embed, force_env%sub_force_env(i_force_eval)%force_env, i_force_eval)
@@ -1847,13 +1847,13 @@ CONTAINS
             IF (dft_control%qs_control%cluster_embed_subsys) THEN
                cluster_subsys_num = i_force_eval
                cluster_energy = energy%total
-            ENDIF
+            END IF
 
             ! Add subsystem densities
             CALL qs_rho_get(rho_struct=subsys_rho, rho_r=rho_r_subsys)
             DO i_spin = 1, nspins_subsys
                diff_rho_r%pw%cr3d(:, :, :) = diff_rho_r%pw%cr3d(:, :, :) + rho_r_subsys(i_spin)%pw%cr3d(:, :, :)
-            ENDDO
+            END DO
             IF (opt_embed%open_shell_embed) THEN ! Spin part
                IF (nspins_subsys .EQ. 2) THEN ! The subsystem makes contribution if it is spin-polarized
                   ! We may need to change spin ONLY FOR THE SECOND SUBSYSTEM: that's the internal convention
@@ -1864,9 +1864,9 @@ CONTAINS
                      ! First subsystem (always) and second subsystem (without spin change)
                      diff_rho_spin%pw%cr3d(:, :, :) = diff_rho_spin%pw%cr3d(:, :, :) + &
                                                       rho_r_subsys(1)%pw%cr3d(:, :, :) - rho_r_subsys(2)%pw%cr3d(:, :, :)
-                  ENDIF
-               ENDIF
-            ENDIF
+                  END IF
+               END IF
+            END IF
 
             ! Release embedding potential for subsystem
             CALL pw_release(embed_pot_subsys%pw)
@@ -1874,9 +1874,9 @@ CONTAINS
             IF (opt_embed%open_shell_embed) THEN
                CALL pw_release(spin_embed_pot_subsys%pw)
                DEALLOCATE (spin_embed_pot_subsys)
-            ENDIF
+            END IF
 
-         ENDDO ! i_force_eval
+         END DO ! i_force_eval
 
          ! Print embedding potential for restart
          CALL print_embed_restart(force_env%sub_force_env(ref_subsys_number)%force_env%qs_env, &
@@ -1889,7 +1889,7 @@ CONTAINS
          ! Integrate the potential over density differences and add to w functional; also add regularization contribution
          DO i_spin = 1, nspins ! Sum over nspins for the reference system, not subsystem!
             opt_embed%w_func(i_iter) = opt_embed%w_func(i_iter) - pw_integral_ab(embed_pot%pw, rho_r_ref(i_spin)%pw)
-         ENDDO
+         END DO
          ! Spin part
          IF (opt_embed%open_shell_embed) THEN
             ! If reference system is not spin-polarized then it does not make a contribution to W functional
@@ -1897,8 +1897,8 @@ CONTAINS
                opt_embed%w_func(i_iter) = opt_embed%w_func(i_iter) &
                                           - pw_integral_ab(spin_embed_pot%pw, rho_r_ref(1)%pw) &
                                           + pw_integral_ab(spin_embed_pot%pw, rho_r_ref(2)%pw)
-            ENDIF
-         ENDIF
+            END IF
+         END IF
          ! Finally, add the regularization term
          opt_embed%w_func(i_iter) = opt_embed%w_func(i_iter) + opt_embed%reg_term
 
@@ -1914,7 +1914,7 @@ CONTAINS
          CALL print_rho_diff(diff_rho_r, i_iter, force_env%sub_force_env(ref_subsys_number)%force_env%qs_env, .FALSE.)
          IF (opt_embed%open_shell_embed) THEN ! Spin part
             CALL print_rho_spin_diff(diff_rho_spin, i_iter, force_env%sub_force_env(ref_subsys_number)%force_env%qs_env, .FALSE.)
-         ENDIF
+         END IF
 
          ! Calculate potential gradient if the step has been accepted. Otherwise, we reuse the previous one
 
@@ -1925,7 +1925,7 @@ CONTAINS
          CALL opt_embed_step(diff_rho_r, diff_rho_spin, opt_embed, embed_pot, spin_embed_pot, rho_r_ref, &
                              force_env%sub_force_env(ref_subsys_number)%force_env%qs_env)
 
-      ENDDO ! i_iter
+      END DO ! i_iter
 
       ! Print final embedding potential for restart
       CALL print_embed_restart(force_env%sub_force_env(ref_subsys_number)%force_env%qs_env, &
@@ -1939,7 +1939,7 @@ CONTAINS
       !CALL print_rho_diff(diff_rho_r, i_iter, force_env%sub_force_env(ref_subsys_number)%force_env%qs_env, .TRUE.)
       IF (opt_embed%open_shell_embed) THEN ! Spin part
          CALL print_rho_spin_diff(diff_rho_spin, i_iter, force_env%sub_force_env(ref_subsys_number)%force_env%qs_env, .TRUE.)
-      ENDIF
+      END IF
 
       ! Give away plane waves pools
       CALL pw_release(diff_rho_r%pw)
@@ -1947,7 +1947,7 @@ CONTAINS
       IF (opt_embed%open_shell_embed) THEN
          CALL pw_release(diff_rho_spin%pw)
          DEALLOCATE (diff_rho_spin)
-      ENDIF
+      END IF
 
       CALL cp_print_key_finished_output(output_unit, logger, force_env%force_env_section, &
                                         "PRINT%PROGRAM_RUN_INFO")
@@ -1965,20 +1965,20 @@ CONTAINS
 
          IF (opt_embed%Coulomb_guess) THEN
             embed_pot_subsys%pw%cr3d(:, :, :) = embed_pot_subsys%pw%cr3d(:, :, :) - opt_embed%pot_diff%pw%cr3d(:, :, :)
-         ENDIF
+         END IF
 
          CALL set_qs_env(force_env%sub_force_env(ref_subsys_number + 1)%force_env%qs_env, embed_pot=embed_pot_subsys)
 
          IF ((opt_embed%open_shell_embed) .AND. (nspins_subsys .EQ. 2)) THEN
             CALL set_qs_env(force_env%sub_force_env(ref_subsys_number + 1)%force_env%qs_env, &
                             spin_embed_pot=spin_embed_pot_subsys)
-         ENDIF
+         END IF
 
          ! Substitute the correct energy in energies: only on rank 0
          IF (force_env%sub_force_env(cluster_subsys_num)%force_env%para_env%ionode) THEN
             energies(cluster_subsys_num) = cluster_energy
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! Deallocate and release opt_embed content
       CALL release_opt_embed(opt_embed)
@@ -1989,7 +1989,7 @@ CONTAINS
       IF (opt_embed%open_shell_embed) THEN
          CALL pw_release(spin_embed_pot%pw)
          DEALLOCATE (spin_embed_pot)
-      ENDIF
+      END IF
 
       converged_embed = opt_embed%converged
 
@@ -2077,7 +2077,7 @@ CONTAINS
          IF (opt_dmfet%open_shell_embed) CALL cp_fm_scale_and_add(-1.0_dp, opt_dmfet%dm_diff_beta, &
                                                                   1.0_dp, opt_dmfet%dm_subsys_beta)
 
-      ENDDO
+      END DO
 
       ! Main loop of iterative matrix potential optimization
       DO i_iter = 1, opt_dmfet%n_iter
@@ -2113,7 +2113,7 @@ CONTAINS
             IF (dft_control%qs_control%cluster_embed_subsys) THEN
                cluster_subsys_num = i_force_eval
                cluster_energy = energy%total
-            ENDIF
+            END IF
 
             ! Add subsystem density matrices
             subsys_open_shell = subsys_spin(force_env%sub_force_env(i_force_eval)%force_env%qs_env)
@@ -2130,21 +2130,21 @@ CONTAINS
                ELSE
                   CALL cp_fm_scale_and_add(-1.0_dp, opt_dmfet%dm_diff, 1.0_dp, opt_dmfet%dm_subsys)
                   CALL cp_fm_scale_and_add(-1.0_dp, opt_dmfet%dm_diff_beta, 1.0_dp, opt_dmfet%dm_subsys_beta)
-               ENDIF
+               END IF
             ELSE ! Closed-shell embedding
                CALL cp_fm_scale_and_add(-1.0_dp, opt_dmfet%dm_diff, 1.0_dp, opt_dmfet%dm_subsys)
-            ENDIF
+            END IF
 
-         ENDDO ! i_force_eval
+         END DO ! i_force_eval
 
          CALL check_dmfet(opt_dmfet, force_env%sub_force_env(ref_subsys_number)%force_env%qs_env)
 
-      ENDDO ! i_iter
+      END DO ! i_iter
 
       ! Substitute the correct energy in energies: only on rank 0
       IF (force_env%sub_force_env(cluster_subsys_num)%force_env%para_env%ionode) THEN
          energies(cluster_subsys_num) = cluster_energy
-      ENDIF
+      END IF
 
       CALL release_dmfet_opt(opt_dmfet)
 

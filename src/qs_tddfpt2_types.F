@@ -6,75 +6,75 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE qs_tddfpt2_types
-   USE admm_types,                      ONLY: admm_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type,&
-                                              get_blacs_info
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_fm_pool_types,                ONLY: cp_fm_pool_p_type,&
-                                              fm_pool_create,&
-                                              fm_pool_create_fm,&
-                                              fm_pool_release
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_p_type,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_fm_vect,                      ONLY: cp_fm_vect_dealloc
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_create,&
-                                              dbcsr_deallocate_matrix,&
-                                              dbcsr_distribution_type,&
-                                              dbcsr_get_info,&
-                                              dbcsr_init_p,&
-                                              dbcsr_p_type,&
-                                              dbcsr_release_p,&
-                                              dbcsr_type
-   USE ewald_environment_types,         ONLY: ewald_env_release,&
-                                              ewald_environment_type
-   USE ewald_pw_types,                  ONLY: ewald_pw_release,&
-                                              ewald_pw_type
-   USE input_section_types,             ONLY: section_get_ival,&
-                                              section_get_lval,&
-                                              section_get_rval,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE pw_env_types,                    ONLY: pw_env_get
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_rho_methods,                  ONLY: qs_rho_rebuild
-   USE qs_rho_types,                    ONLY: qs_rho_create,&
-                                              qs_rho_get,&
-                                              qs_rho_release,&
-                                              qs_rho_set,&
-                                              qs_rho_type
-   USE qs_tddfpt2_stda_types,           ONLY: stda_env_type
-   USE qs_tddfpt2_subgroups,            ONLY: tddfpt_dbcsr_create_by_dist,&
-                                              tddfpt_subgroup_env_type
-   USE xc,                              ONLY: xc_prep_2nd_deriv
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_release
-   USE xc_derivatives,                  ONLY: xc_functionals_get_needs
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_create,&
-                                              xc_rho_set_release,&
-                                              xc_rho_set_type
+   USE admm_types, ONLY: admm_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type, &
+                           get_blacs_info
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_sm_fm_multiply, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_fm_pool_types, ONLY: cp_fm_pool_p_type, &
+                               fm_pool_create, &
+                               fm_pool_create_fm, &
+                               fm_pool_release
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_p_type, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE cp_fm_vect, ONLY: cp_fm_vect_dealloc
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_create, &
+                        dbcsr_deallocate_matrix, &
+                        dbcsr_distribution_type, &
+                        dbcsr_get_info, &
+                        dbcsr_init_p, &
+                        dbcsr_p_type, &
+                        dbcsr_release_p, &
+                        dbcsr_type
+   USE ewald_environment_types, ONLY: ewald_env_release, &
+                                      ewald_environment_type
+   USE ewald_pw_types, ONLY: ewald_pw_release, &
+                             ewald_pw_type
+   USE input_section_types, ONLY: section_get_ival, &
+                                  section_get_lval, &
+                                  section_get_rval, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE pw_env_types, ONLY: pw_env_get
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_rho_methods, ONLY: qs_rho_rebuild
+   USE qs_rho_types, ONLY: qs_rho_create, &
+                           qs_rho_get, &
+                           qs_rho_release, &
+                           qs_rho_set, &
+                           qs_rho_type
+   USE qs_tddfpt2_stda_types, ONLY: stda_env_type
+   USE qs_tddfpt2_subgroups, ONLY: tddfpt_dbcsr_create_by_dist, &
+                                   tddfpt_subgroup_env_type
+   USE xc, ONLY: xc_prep_2nd_deriv
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_release
+   USE xc_derivatives, ONLY: xc_functionals_get_needs
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_create, &
+                               xc_rho_set_release, &
+                               xc_rho_set_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -680,11 +680,11 @@ CONTAINS
       IF (ASSOCIATED(work_matrices%gamma_exchange)) THEN
          CALL dbcsr_deallocate_matrix_set(work_matrices%gamma_exchange)
          NULLIFY (work_matrices%gamma_exchange)
-      ENDIF
+      END IF
       IF (ASSOCIATED(work_matrices%ctransformed)) THEN
          CALL cp_fm_vect_dealloc(work_matrices%ctransformed)
          NULLIFY (work_matrices%ctransformed)
-      ENDIF
+      END IF
       CALL dbcsr_release_p(work_matrices%shalf)
       ! Ewald
       CALL ewald_env_release(work_matrices%ewald_env)

@@ -14,13 +14,13 @@
 ! **************************************************************************************************
 MODULE pme_tools
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              real_to_scaled
-   USE kinds,                           ONLY: dp
-   USE particle_types,                  ONLY: particle_type
-   USE realspace_grid_types,            ONLY: realspace_grid_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         real_to_scaled
+   USE kinds, ONLY: dp
+   USE particle_types, ONLY: particle_type
+   USE realspace_grid_types, ONLY: realspace_grid_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -82,14 +82,14 @@ CONTAINS
                IF (part(ipart)%shell_index /= 0 .AND. PRESENT(core_center)) THEN
                   IF (in_slice(core_center(:, part(ipart)%shell_index), lb, ub)) THEN
                      p1 = ipart
-                  ENDIF
+                  END IF
                ELSE
                   IF (in_slice(center(:, ipart), lb, ub)) THEN
                      p1 = ipart
                      EXIT
                   END IF
                END IF
-            ENDIF
+            END IF
          ELSE
             p1 = ipart
             EXIT

@@ -18,127 +18,127 @@
 !> \author fawzi & Johanna
 ! **************************************************************************************************
 MODULE f77_interface
-   USE base_hooks,                      ONLY: cp_abort_hook,&
-                                              cp_warn_hook,&
-                                              timeset_hook,&
-                                              timestop_hook
-   USE bibliography,                    ONLY: add_all_references
-   USE cell_types,                      ONLY: cell_type,&
-                                              init_cell
-   USE cp2k_info,                       ONLY: get_runtime_info
-   USE cp_error_handling,               ONLY: cp_error_handling_setup
-   USE cp_files,                        ONLY: init_preconnection_list,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: &
-        cp_add_default_logger, cp_default_logger_stack_size, cp_failure_level, &
-        cp_get_default_logger, cp_logger_create, cp_logger_get_default_unit_nr, cp_logger_release, &
-        cp_logger_retain, cp_logger_type, cp_rm_default_logger, cp_to_string
-   USE cp_output_handling,              ONLY: cp_iterate
-   USE cp_para_env,                     ONLY: cp_para_env_create,&
-                                              cp_para_env_release,&
-                                              cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_result_methods,               ONLY: get_results,&
-                                              test_for_result
-   USE cp_result_types,                 ONLY: cp_result_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_set,&
-                                              cp_subsys_type,&
-                                              unpack_subsys_particles
-   USE dbcsr_api,                       ONLY: dbcsr_finalize_lib,&
-                                              dbcsr_init_lib
-   USE eip_environment,                 ONLY: eip_init
-   USE eip_environment_types,           ONLY: eip_env_create,&
-                                              eip_env_release,&
-                                              eip_environment_type
-   USE embed_main,                      ONLY: embed_create_force_env
-   USE embed_types,                     ONLY: embed_env_release,&
-                                              embed_env_type
-   USE environment,                     ONLY: cp2k_finalize,&
-                                              cp2k_init,&
-                                              cp2k_read,&
-                                              cp2k_setup
-   USE fist_main,                       ONLY: fist_create_force_env
-   USE force_env_methods,               ONLY: force_env_calc_energy_force,&
-                                              force_env_create
-   USE force_env_types,                 ONLY: &
-        force_env_get, force_env_get_frc, force_env_get_natom, force_env_get_nparticle, &
-        force_env_get_pos, force_env_get_vel, force_env_release, force_env_retain, force_env_set, &
-        force_env_type, multiple_fe_list
-   USE fp_types,                        ONLY: fp_env_create,&
-                                              fp_env_read,&
-                                              fp_env_release,&
-                                              fp_env_write,&
-                                              fp_type
-   USE global_types,                    ONLY: global_environment_type,&
-                                              globenv_create,&
-                                              globenv_release,&
-                                              globenv_retain
-   USE grid_api,                        ONLY: grid_library_finalize,&
-                                              grid_library_init
-   USE input_constants,                 ONLY: &
-        do_eip, do_embed, do_fist, do_mixed, do_nnp, do_qmmm, do_qmmmx, do_qs, do_sirius
-   USE input_cp2k_check,                ONLY: check_cp2k_input
-   USE input_cp2k_force_eval,           ONLY: create_force_eval_section
-   USE input_cp2k_read,                 ONLY: empty_initial_variables,&
-                                              read_input
-   USE input_enumeration_types,         ONLY: enum_i2c,&
-                                              enumeration_type
-   USE input_keyword_types,             ONLY: keyword_get,&
-                                              keyword_type
-   USE input_section_types,             ONLY: &
-        section_get_keyword, section_release, section_type, section_vals_duplicate, &
-        section_vals_get, section_vals_get_subs_vals, section_vals_release, &
-        section_vals_remove_values, section_vals_retain, section_vals_type, section_vals_val_get, &
-        section_vals_write
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE machine,                         ONLY: default_output_unit,&
-                                              m_chdir,&
-                                              m_getcwd,&
-                                              m_memory
-   USE message_passing,                 ONLY: &
-        add_mp_perf_env, get_mp_perf_env, mp_comm_world, mp_max, mp_perf_env_release, &
-        mp_perf_env_retain, mp_perf_env_type, mp_world_finalize, mp_world_init, rm_mp_perf_env
-   USE metadynamics_types,              ONLY: meta_env_release,&
-                                              meta_env_type
-   USE metadynamics_utils,              ONLY: metadyn_read
-   USE mixed_environment_types,         ONLY: mixed_env_release,&
-                                              mixed_environment_type
-   USE mixed_main,                      ONLY: mixed_create_force_env
-   USE nnp_environment,                 ONLY: nnp_init
-   USE nnp_environment_types,           ONLY: nnp_env_create,&
-                                              nnp_env_release,&
-                                              nnp_type
-   USE periodic_table,                  ONLY: init_periodic_table
-   USE pw_cuda,                         ONLY: pw_cuda_finalize,&
-                                              pw_cuda_init
-   USE pwdft_environment,               ONLY: pwdft_init
-   USE pwdft_environment_types,         ONLY: pwdft_env_create,&
-                                              pwdft_env_release,&
-                                              pwdft_environment_type
-   USE qmmm_create,                     ONLY: qmmm_env_create
-   USE qmmm_types,                      ONLY: qmmm_env_release,&
-                                              qmmm_env_type
-   USE qmmmx_create,                    ONLY: qmmmx_env_create
-   USE qmmmx_types,                     ONLY: qmmmx_env_release,&
-                                              qmmmx_env_type
-   USE qs_environment,                  ONLY: qs_init
-   USE qs_environment_types,            ONLY: qs_env_create,&
-                                              qs_env_release,&
-                                              qs_environment_type
-   USE reference_manager,               ONLY: remove_all_references
-   USE string_table,                    ONLY: string_table_allocate,&
-                                              string_table_deallocate
-   USE timings,                         ONLY: add_timer_env,&
-                                              get_timer_env,&
-                                              rm_timer_env,&
-                                              timer_env_release,&
-                                              timer_env_retain,&
-                                              timings_register_hooks
-   USE timings_types,                   ONLY: timer_env_type
-   USE virial_types,                    ONLY: virial_type
+   USE base_hooks, ONLY: cp_abort_hook, &
+                         cp_warn_hook, &
+                         timeset_hook, &
+                         timestop_hook
+   USE bibliography, ONLY: add_all_references
+   USE cell_types, ONLY: cell_type, &
+                         init_cell
+   USE cp2k_info, ONLY: get_runtime_info
+   USE cp_error_handling, ONLY: cp_error_handling_setup
+   USE cp_files, ONLY: init_preconnection_list, &
+                       open_file
+   USE cp_log_handling, ONLY: &
+      cp_add_default_logger, cp_default_logger_stack_size, cp_failure_level, &
+      cp_get_default_logger, cp_logger_create, cp_logger_get_default_unit_nr, cp_logger_release, &
+      cp_logger_retain, cp_logger_type, cp_rm_default_logger, cp_to_string
+   USE cp_output_handling, ONLY: cp_iterate
+   USE cp_para_env, ONLY: cp_para_env_create, &
+                          cp_para_env_release, &
+                          cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_result_methods, ONLY: get_results, &
+                                test_for_result
+   USE cp_result_types, ONLY: cp_result_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_set, &
+                              cp_subsys_type, &
+                              unpack_subsys_particles
+   USE dbcsr_api, ONLY: dbcsr_finalize_lib, &
+                        dbcsr_init_lib
+   USE eip_environment, ONLY: eip_init
+   USE eip_environment_types, ONLY: eip_env_create, &
+                                    eip_env_release, &
+                                    eip_environment_type
+   USE embed_main, ONLY: embed_create_force_env
+   USE embed_types, ONLY: embed_env_release, &
+                          embed_env_type
+   USE environment, ONLY: cp2k_finalize, &
+                          cp2k_init, &
+                          cp2k_read, &
+                          cp2k_setup
+   USE fist_main, ONLY: fist_create_force_env
+   USE force_env_methods, ONLY: force_env_calc_energy_force, &
+                                force_env_create
+   USE force_env_types, ONLY: &
+      force_env_get, force_env_get_frc, force_env_get_natom, force_env_get_nparticle, &
+      force_env_get_pos, force_env_get_vel, force_env_release, force_env_retain, force_env_set, &
+      force_env_type, multiple_fe_list
+   USE fp_types, ONLY: fp_env_create, &
+                       fp_env_read, &
+                       fp_env_release, &
+                       fp_env_write, &
+                       fp_type
+   USE global_types, ONLY: global_environment_type, &
+                           globenv_create, &
+                           globenv_release, &
+                           globenv_retain
+   USE grid_api, ONLY: grid_library_finalize, &
+                       grid_library_init
+   USE input_constants, ONLY: &
+      do_eip, do_embed, do_fist, do_mixed, do_nnp, do_qmmm, do_qmmmx, do_qs, do_sirius
+   USE input_cp2k_check, ONLY: check_cp2k_input
+   USE input_cp2k_force_eval, ONLY: create_force_eval_section
+   USE input_cp2k_read, ONLY: empty_initial_variables, &
+                              read_input
+   USE input_enumeration_types, ONLY: enum_i2c, &
+                                      enumeration_type
+   USE input_keyword_types, ONLY: keyword_get, &
+                                  keyword_type
+   USE input_section_types, ONLY: &
+      section_get_keyword, section_release, section_type, section_vals_duplicate, &
+      section_vals_get, section_vals_get_subs_vals, section_vals_release, &
+      section_vals_remove_values, section_vals_retain, section_vals_type, section_vals_val_get, &
+      section_vals_write
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE machine, ONLY: default_output_unit, &
+                      m_chdir, &
+                      m_getcwd, &
+                      m_memory
+   USE message_passing, ONLY: &
+      add_mp_perf_env, get_mp_perf_env, mp_comm_world, mp_max, mp_perf_env_release, &
+      mp_perf_env_retain, mp_perf_env_type, mp_world_finalize, mp_world_init, rm_mp_perf_env
+   USE metadynamics_types, ONLY: meta_env_release, &
+                                 meta_env_type
+   USE metadynamics_utils, ONLY: metadyn_read
+   USE mixed_environment_types, ONLY: mixed_env_release, &
+                                      mixed_environment_type
+   USE mixed_main, ONLY: mixed_create_force_env
+   USE nnp_environment, ONLY: nnp_init
+   USE nnp_environment_types, ONLY: nnp_env_create, &
+                                    nnp_env_release, &
+                                    nnp_type
+   USE periodic_table, ONLY: init_periodic_table
+   USE pw_cuda, ONLY: pw_cuda_finalize, &
+                      pw_cuda_init
+   USE pwdft_environment, ONLY: pwdft_init
+   USE pwdft_environment_types, ONLY: pwdft_env_create, &
+                                      pwdft_env_release, &
+                                      pwdft_environment_type
+   USE qmmm_create, ONLY: qmmm_env_create
+   USE qmmm_types, ONLY: qmmm_env_release, &
+                         qmmm_env_type
+   USE qmmmx_create, ONLY: qmmmx_env_create
+   USE qmmmx_types, ONLY: qmmmx_env_release, &
+                          qmmmx_env_type
+   USE qs_environment, ONLY: qs_init
+   USE qs_environment_types, ONLY: qs_env_create, &
+                                   qs_env_release, &
+                                   qs_environment_type
+   USE reference_manager, ONLY: remove_all_references
+   USE string_table, ONLY: string_table_allocate, &
+                           string_table_deallocate
+   USE timings, ONLY: add_timer_env, &
+                      get_timer_env, &
+                      rm_timer_env, &
+                      timer_env_release, &
+                      timer_env_retain, &
+                      timings_register_hooks
+   USE timings_types, ONLY: timer_env_type
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -496,14 +496,14 @@ CONTAINS
          END IF
          IF (PRESENT(ierr)) THEN
             ierr = 0
-         ENDIF
+         END IF
          CALL cp_rm_default_logger()
          CALL rm_timer_env()
          CALL rm_mp_perf_env()
       ELSE
          IF (PRESENT(ierr)) THEN
             ierr = 0
-         ENDIF
+         END IF
       END IF
    END SUBROUTINE f_env_rm_defaults
 
@@ -552,11 +552,11 @@ CONTAINS
 
       CHARACTER(len=default_path_length)                 :: old_dir, wdir
       INTEGER :: handle, i, ierr2, iforce_eval, isubforce_eval, k, method_name_id, my_group, &
-         nforce_eval, ngroups, nsubforce_size, unit_nr
+                 nforce_eval, ngroups, nsubforce_size, unit_nr
       INTEGER, DIMENSION(:), POINTER                     :: group_distribution, i_force_eval, &
                                                             lgroup_distribution
       LOGICAL :: check, do_qmmm_force_mixing, multiple_subsys, my_echo, my_owns_out_unit, &
-         use_motion_section, use_multiple_para_env
+                 use_motion_section, use_multiple_para_env
       TYPE(cp_logger_type), POINTER                      :: logger, my_logger
       TYPE(cp_para_env_type), POINTER                    :: my_para_env, para_env
       TYPE(eip_environment_type), POINTER                :: eip_env
@@ -577,8 +577,8 @@ CONTAINS
       TYPE(qs_environment_type), POINTER                 :: qs_env
       TYPE(section_type), POINTER                        :: section
       TYPE(section_vals_type), POINTER :: fe_section, force_env_section, force_env_sections, &
-         fp_section, input_file, qmmm_section, qmmmx_section, root_section, subsys_section, &
-         wrk_section
+                                          fp_section, input_file, qmmm_section, qmmmx_section, root_section, subsys_section, &
+                                          wrk_section
       TYPE(timer_env_type), POINTER                      :: timer_env
 
       CPASSERT(ASSOCIATED(input_declaration))
@@ -638,7 +638,7 @@ CONTAINS
             input_file => read_input(input_declaration, input_path, initial_variables, para_env=para_env)
          ELSE
             input_file => read_input(input_declaration, input_path, empty_initial_variables, para_env=para_env)
-         ENDIF
+         END IF
       ELSE
          CALL section_vals_retain(input_file)
       END IF
@@ -725,7 +725,7 @@ CONTAINS
                my_logger => force_env%mixed_env%sub_logger(my_group + 1)%p
                CALL cp_rm_default_logger()
                CALL cp_add_default_logger(my_logger)
-            ENDIF
+            END IF
             IF (method_name_id .EQ. do_embed) THEN
                check = ASSOCIATED(force_env%embed_env%sub_para_env)
                CPASSERT(check)
@@ -738,7 +738,7 @@ CONTAINS
                my_logger => force_env%embed_env%sub_logger(my_group + 1)%p
                CALL cp_rm_default_logger()
                CALL cp_add_default_logger(my_logger)
-            ENDIF
+            END IF
          ELSE
             my_para_env => para_env
          END IF
@@ -761,7 +761,7 @@ CONTAINS
             CALL section_vals_get(qmmmx_section, explicit=do_qmmm_force_mixing)
             IF (do_qmmm_force_mixing) &
                method_name_id = do_qmmmx ! QMMM Force-Mixing has its own (hidden) method_id
-         ENDIF
+         END IF
 
          SELECT CASE (method_name_id)
          CASE (do_fist)
@@ -1129,7 +1129,7 @@ CONTAINS
       CALL cp_subsys_get(subsys, virial=virial)
       IF (virial%pv_availability) THEN
          stress_tensor(:, :) = virial%pv_virial(:, :)/cell%deth
-      ENDIF
+      END IF
       CALL f_env_rm_defaults(f_env, ierr)
 
    END SUBROUTINE get_stress_tensor

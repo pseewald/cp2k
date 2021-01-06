@@ -19,12 +19,12 @@
 ! **************************************************************************************************
 MODULE neb_types
 
-   USE force_env_types,                 ONLY: force_env_type
-   USE input_constants,                 ONLY: do_band_cartesian,&
-                                              do_band_collective
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
+   USE force_env_types, ONLY: force_env_type
+   USE input_constants, ONLY: do_band_cartesian, &
+                              do_band_collective
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

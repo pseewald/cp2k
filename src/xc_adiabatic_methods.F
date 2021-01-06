@@ -13,14 +13,14 @@
 ! **************************************************************************************************
 MODULE xc_adiabatic_methods
 
-   USE input_constants,                 ONLY: do_potential_coulomb
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: oorootpi
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
+   USE input_constants, ONLY: do_potential_coulomb
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: oorootpi
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -68,8 +68,8 @@ CONTAINS
       INTEGER                                            :: nelec_a, nelec_b, nelectron, nspins
       LOGICAL                                            :: do_swap_hf
       REAL(dp) :: a, b, c, c1, da_dDFA, da_ddW0, da_dEx1, da_dEx2, db_dDFA, db_ddW0, db_dEx1, &
-         db_dEx2, dc_dDFA, dc_ddW0, dc_dEx1, dc_dEx2, dExc_da, dExc_db, dExc_dc, dfa_energy, &
-         swap_value
+                  db_dEx2, dc_dDFA, dc_ddW0, dc_dEx1, dc_dEx2, dExc_da, dExc_db, dExc_dc, dfa_energy, &
+                  swap_value
       TYPE(mo_set_p_type), DIMENSION(:), POINTER         :: mos
 
       do_swap_hf = .FALSE.

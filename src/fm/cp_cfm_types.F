@@ -10,23 +10,23 @@
 !> \author Joost VandeVondele, based on Fawzi's cp_fm_* routines
 ! **************************************************************************************************
 MODULE cp_cfm_types
-   USE cp_blacs_calls,                  ONLY: cp_blacs_zgebr2d,&
-                                              cp_blacs_zgebs2d
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_equivalent,&
-                                              cp_fm_struct_get,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_retain,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: z_one,&
-                                              z_zero
-   USE message_passing,                 ONLY: &
-        cp2k_is_parallel, mp_allgather, mp_any_source, mp_bcast, mp_irecv, mp_isend, mp_proc_null, &
-        mp_request_null, mp_sum, mp_waitall
+   USE cp_blacs_calls, ONLY: cp_blacs_zgebr2d, &
+                             cp_blacs_zgebs2d
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_fm_struct, ONLY: cp_fm_struct_equivalent, &
+                           cp_fm_struct_get, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_retain, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_type
+   USE cp_log_handling, ONLY: cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: z_one, &
+                            z_zero
+   USE message_passing, ONLY: &
+      cp2k_is_parallel, mp_allgather, mp_any_source, mp_bcast, mp_irecv, mp_isend, mp_proc_null, &
+      mp_request_null, mp_sum, mp_waitall
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -372,8 +372,8 @@ CONTAINS
 
       COMPLEX(kind=dp), DIMENSION(:, :), POINTER         :: local_data
       INTEGER :: end_col_global, end_col_local, end_row_global, end_row_local, handle, i, j, &
-         ncol_global, ncol_local, nrow_global, nrow_local, start_col_global, start_col_local, &
-         start_row_global, start_row_local, this_col
+                 ncol_global, ncol_local, nrow_global, nrow_local, start_col_global, start_col_local, &
+                 start_row_global, start_row_local, this_col
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_indices
       LOGICAL                                            :: do_zero, tr_a
       TYPE(cp_para_env_type), POINTER                    :: para_env
@@ -514,8 +514,8 @@ CONTAINS
       COMPLEX(kind=dp)                                   :: al, be
       COMPLEX(kind=dp), DIMENSION(:, :), POINTER         :: local_data
       INTEGER :: end_col_global, end_col_local, end_row_global, end_row_local, handle, i, j, &
-         ncol_global, ncol_local, nrow_global, nrow_local, start_col_global, start_col_local, &
-         start_row_global, start_row_local, this_col
+                 ncol_global, ncol_local, nrow_global, nrow_local, start_col_global, start_col_local, &
+                 start_row_global, start_row_local, this_col
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_indices
       LOGICAL                                            :: tr_a
 
@@ -677,11 +677,11 @@ CONTAINS
 
       IF (PRESENT(nrow_local)) THEN
          nrow_local = matrix%matrix_struct%nrow_locals(myprow)
-      ENDIF
+      END IF
 
       IF (PRESENT(ncol_local)) THEN
          ncol_local = matrix%matrix_struct%ncol_locals(mypcol)
-      ENDIF
+      END IF
 
       IF (PRESENT(row_indices)) THEN
          row_indices => matrix%matrix_struct%row_indices
@@ -694,14 +694,14 @@ CONTAINS
                row_indices(i) = &
                   indxl2g(i, matrix%matrix_struct%nrow_block, myprow, &
                           matrix%matrix_struct%first_p_pos(1), nprow)
-            ENDDO
+            END DO
 #else
             DO i = 1, SIZE(row_indices)
                row_indices(i) = i
-            ENDDO
+            END DO
 #endif
          END IF
-      ENDIF
+      END IF
 
       IF (PRESENT(col_indices)) THEN
          col_indices => matrix%matrix_struct%col_indices
@@ -714,14 +714,14 @@ CONTAINS
                col_indices(i) = &
                   indxl2g(i, matrix%matrix_struct%ncol_block, mypcol, &
                           matrix%matrix_struct%first_p_pos(2), npcol)
-            ENDDO
+            END DO
 #else
             DO i = 1, SIZE(col_indices)
                col_indices(i) = i
-            ENDDO
+            END DO
 #endif
          END IF
-      ENDIF
+      END IF
 
       IF (PRESENT(para_env)) para_env => matrix%matrix_struct%para_env
 
@@ -983,9 +983,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'cp_cfm_start_copy_general'
 
       INTEGER :: dest_p_i, dest_q_j, global_comm, global_rank, global_size, handle, i, j, k, &
-         mpi_rank, ncol_block_dest, ncol_block_src, ncol_local_recv, ncol_local_send, ncols, &
-         nrow_block_dest, nrow_block_src, nrow_local_recv, nrow_local_send, nrows, p, q, &
-         recv_rank, recv_size, send_rank, send_size
+                 mpi_rank, ncol_block_dest, ncol_block_src, ncol_local_recv, ncol_local_send, ncols, &
+                 nrow_block_dest, nrow_block_src, nrow_local_recv, nrow_local_send, nrows, p, q, &
+                 recv_rank, recv_size, send_rank, send_size
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: all_ranks, dest2global, dest_p, dest_q, &
                                                             recv_count, send_count, send_disp, &
                                                             source2global, src_p, src_q

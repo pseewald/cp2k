@@ -13,25 +13,25 @@
 !> \author Joost VandeVondele (09.2002)
 ! **************************************************************************************************
 MODULE preconditioner_apply
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_restore
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_copy, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
-        dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, dbcsr_release, dbcsr_type
-   USE input_constants,                 ONLY: ot_precond_full_all,&
-                                              ot_precond_full_kinetic,&
-                                              ot_precond_full_single,&
-                                              ot_precond_full_single_inverse,&
-                                              ot_precond_s_inverse,&
-                                              ot_precond_solver_direct,&
-                                              ot_precond_solver_inv_chol,&
-                                              ot_precond_solver_update
-   USE kinds,                           ONLY: dp
-   USE preconditioner_types,            ONLY: preconditioner_type
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_restore
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE dbcsr_api, ONLY: &
+      dbcsr_copy, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
+      dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, dbcsr_release, dbcsr_type
+   USE input_constants, ONLY: ot_precond_full_all, &
+                              ot_precond_full_kinetic, &
+                              ot_precond_full_single, &
+                              ot_precond_full_single_inverse, &
+                              ot_precond_s_inverse, &
+                              ot_precond_solver_direct, &
+                              ot_precond_solver_inv_chol, &
+                              ot_precond_solver_update
+   USE kinds, ONLY: dp
+   USE preconditioner_types, ONLY: preconditioner_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -246,8 +246,8 @@ CONTAINS
          dum = 1.0_dp/MAX(preconditioner_env%energy_gap, &
                           preconditioner_env%full_evals(row_indices(i)) - preconditioner_env%occ_evals(col_indices(j)))
          local_data(i, j) = local_data(i, j)*dum
-      ENDDO
-      ENDDO
+      END DO
+      END DO
 
       ! mult back
       CALL cp_gemm('N', 'N', n, k, n, 1.0_dp, preconditioner_env%fm, &
@@ -296,9 +296,9 @@ CONTAINS
                              preconditioner_env%full_evals(row_offset + i - 1) &
                              - preconditioner_env%occ_evals(col_offset + j - 1))
             DATA(i, j) = DATA(i, j)*dum
-         ENDDO
-         ENDDO
-      ENDDO
+         END DO
+         END DO
+      END DO
       CALL dbcsr_iterator_stop(iter)
 
       ! mult back

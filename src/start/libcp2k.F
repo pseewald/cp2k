@@ -18,29 +18,29 @@
 !> \author Mohammad Hossein Bani-Hashemian
 ! **************************************************************************************************
 MODULE libcp2k
-   USE ISO_C_BINDING,                   ONLY: C_CHAR,&
-                                              C_DOUBLE,&
-                                              C_FUNPTR,&
-                                              C_INT,&
-                                              C_LONG,&
-                                              C_NULL_CHAR
-   USE cp2k_info,                       ONLY: cp2k_version
-   USE cp2k_runs,                       ONLY: run_input
-   USE cp_fm_types,                     ONLY: cp_fm_get_element
-   USE f77_interface,                   ONLY: &
-        calc_energy_force, create_force_env, destroy_force_env, f_env_add_defaults, &
-        f_env_rm_defaults, f_env_type, finalize_cp2k, get_energy, get_force, get_natom, &
-        get_nparticle, get_pos, get_result_r1, init_cp2k, set_cell, set_pos, set_vel
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              use_qs_force
-   USE input_cp2k,                      ONLY: create_cp2k_root_section
-   USE input_cp2k_read,                 ONLY: empty_initial_variables
-   USE input_section_types,             ONLY: section_release,&
-                                              section_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE qs_active_space_types,           ONLY: eri_type_eri_element_func
+   USE ISO_C_BINDING, ONLY: C_CHAR, &
+                            C_DOUBLE, &
+                            C_FUNPTR, &
+                            C_INT, &
+                            C_LONG, &
+                            C_NULL_CHAR
+   USE cp2k_info, ONLY: cp2k_version
+   USE cp2k_runs, ONLY: run_input
+   USE cp_fm_types, ONLY: cp_fm_get_element
+   USE f77_interface, ONLY: &
+      calc_energy_force, create_force_env, destroy_force_env, f_env_add_defaults, &
+      f_env_rm_defaults, f_env_type, finalize_cp2k, get_energy, get_force, get_natom, &
+      get_nparticle, get_pos, get_result_r1, init_cp2k, set_cell, set_pos, set_vel
+   USE force_env_types, ONLY: force_env_get, &
+                              use_qs_force
+   USE input_cp2k, ONLY: create_cp2k_root_section
+   USE input_cp2k_read, ONLY: empty_initial_variables
+   USE input_section_types, ONLY: section_release, &
+                                  section_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE qs_active_space_types, ONLY: eri_type_eri_element_func
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -75,7 +75,7 @@ CONTAINS
       ! copy string
       DO i = 1, n
          version_str(i) = cp2k_version(i:i)
-      ENDDO
+      END DO
       version_str(n + 1) = C_NULL_CHAR
    END SUBROUTINE cp2k_get_version
 
@@ -475,7 +475,7 @@ CONTAINS
       USE qs_environment_types, ONLY: get_qs_env
       INTEGER(C_INT), VALUE                              :: f_env_id
       INTEGER(C_LONG), VALUE                             :: buf_len
-      REAL(C_DOUBLE), DIMENSION(0:buf_len-1), &
+      REAL(C_DOUBLE), DIMENSION(0:buf_len - 1), &
          INTENT(OUT)                                     :: buf
 
       INTEGER                                            :: i, ierr, j, norb
@@ -585,7 +585,7 @@ CONTAINS
          IF (.NOT. ASSOCIATED(active_space_env)) &
             EXIT try
 
-         ASSOCIATE (nze=>active_space_env%eri%eri(1)%csr_mat%nze_total)
+         ASSOCIATE (nze => active_space_env%eri%eri(1)%csr_mat%nze_total)
             IF (buf_coords_len < 4*nze .OR. buf_values_len < nze) &
                EXIT try
 

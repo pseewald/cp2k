@@ -8,63 +8,63 @@
 !> \brief Utility routines for qs_scf
 ! **************************************************************************************************
 MODULE qs_scf_loop_utils
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_external_control,             ONLY: external_control
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_get_info,&
-                                              dbcsr_p_type,&
-                                              dbcsr_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE kpoint_types,                    ONLY: kpoint_type
-   USE qs_density_mixing_types,         ONLY: broyden_mixing_new_nr,&
-                                              broyden_mixing_nr,&
-                                              direct_mixing_nr,&
-                                              gspace_mixing_nr,&
-                                              multisecant_mixing_nr,&
-                                              no_mixing_nr,&
-                                              pulay_mixing_nr
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_fb_env_methods,               ONLY: fb_env_do_diag
-   USE qs_gspace_mixing,                ONLY: gspace_mixing
-   USE qs_ks_types,                     ONLY: qs_ks_did_change,&
-                                              qs_ks_env_type
-   USE qs_mixing_utils,                 ONLY: self_consistency_check
-   USE qs_mo_methods,                   ONLY: calculate_density_matrix
-   USE qs_mo_occupation,                ONLY: set_mo_occupation
-   USE qs_mo_types,                     ONLY: mo_set_p_type
-   USE qs_mom_methods,                  ONLY: do_mom_diag
-   USE qs_ot_scf,                       ONLY: ot_scf_destroy,&
-                                              ot_scf_mini
-   USE qs_outer_scf,                    ONLY: outer_loop_gradient
-   USE qs_rho_methods,                  ONLY: qs_rho_update_rho
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf_diagonalization,          ONLY: do_block_davidson_diag,&
-                                              do_block_krylov_diag,&
-                                              do_general_diag,&
-                                              do_general_diag_kp,&
-                                              do_ot_diag,&
-                                              do_roks_diag,&
-                                              do_scf_diag_subspace,&
-                                              do_special_diag
-   USE qs_scf_methods,                  ONLY: scf_env_density_mixing
-   USE qs_scf_output,                   ONLY: qs_scf_print_summary
-   USE qs_scf_types,                    ONLY: block_davidson_diag_method_nr,&
-                                              block_krylov_diag_method_nr,&
-                                              filter_matrix_diag_method_nr,&
-                                              general_diag_method_nr,&
-                                              ot_diag_method_nr,&
-                                              ot_method_nr,&
-                                              qs_scf_env_type,&
-                                              special_diag_method_nr
-   USE scf_control_types,               ONLY: scf_control_type,&
-                                              smear_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_external_control, ONLY: external_control
+   USE cp_log_handling, ONLY: cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_get_info, &
+                        dbcsr_p_type, &
+                        dbcsr_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE kpoint_types, ONLY: kpoint_type
+   USE qs_density_mixing_types, ONLY: broyden_mixing_new_nr, &
+                                      broyden_mixing_nr, &
+                                      direct_mixing_nr, &
+                                      gspace_mixing_nr, &
+                                      multisecant_mixing_nr, &
+                                      no_mixing_nr, &
+                                      pulay_mixing_nr
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_fb_env_methods, ONLY: fb_env_do_diag
+   USE qs_gspace_mixing, ONLY: gspace_mixing
+   USE qs_ks_types, ONLY: qs_ks_did_change, &
+                          qs_ks_env_type
+   USE qs_mixing_utils, ONLY: self_consistency_check
+   USE qs_mo_methods, ONLY: calculate_density_matrix
+   USE qs_mo_occupation, ONLY: set_mo_occupation
+   USE qs_mo_types, ONLY: mo_set_p_type
+   USE qs_mom_methods, ONLY: do_mom_diag
+   USE qs_ot_scf, ONLY: ot_scf_destroy, &
+                        ot_scf_mini
+   USE qs_outer_scf, ONLY: outer_loop_gradient
+   USE qs_rho_methods, ONLY: qs_rho_update_rho
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf_diagonalization, ONLY: do_block_davidson_diag, &
+                                     do_block_krylov_diag, &
+                                     do_general_diag, &
+                                     do_general_diag_kp, &
+                                     do_ot_diag, &
+                                     do_roks_diag, &
+                                     do_scf_diag_subspace, &
+                                     do_special_diag
+   USE qs_scf_methods, ONLY: scf_env_density_mixing
+   USE qs_scf_output, ONLY: qs_scf_print_summary
+   USE qs_scf_types, ONLY: block_davidson_diag_method_nr, &
+                           block_krylov_diag_method_nr, &
+                           filter_matrix_diag_method_nr, &
+                           general_diag_method_nr, &
+                           ot_diag_method_nr, &
+                           ot_method_nr, &
+                           qs_scf_env_type, &
+                           special_diag_method_nr
+   USE scf_control_types, ONLY: scf_control_type, &
+                                smear_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -173,9 +173,9 @@ CONTAINS
                              "CORE_CORRECTION /= 0.0 and "// &
                              "SURFACE_DIPOLE_CORRECTION TRUE "// &
                              "is not implemented with SCF%MOM")
-            ENDIF
-         ENDIF
-      ENDIF
+            END IF
+         END IF
+      END IF
 
       SELECT CASE (scf_env%method)
       CASE DEFAULT
@@ -194,7 +194,7 @@ CONTAINS
                           "SURFACE_DIPOLE_CORRECTION  TRUE"// &
                           "requires SCF%DIAGONALIZATION: "// &
                           "ALGORITHM STANDARD")
-         ENDIF
+         END IF
          CALL fb_env_do_diag(scf_env%filter_matrix_env, qs_env, &
                              matrix_ks, matrix_s, scf_section, diis_step)
 
@@ -277,7 +277,7 @@ CONTAINS
       DO ispin = 1, SIZE(mos)
          energy%kTS = energy%kTS + mos(ispin)%mo_set%kTS
          energy%efermi = energy%efermi + mos(ispin)%mo_set%mu
-      ENDDO
+      END DO
       energy%efermi = energy%efermi/REAL(SIZE(mos), KIND=dp)
 
       CALL timestop(handle)
@@ -360,7 +360,7 @@ CONTAINS
       DO ispin = 1, SIZE(mos, 2)
          energy%kTS = energy%kTS + mos(1, ispin)%mo_set%kTS
          energy%efermi = energy%efermi + mos(1, ispin)%mo_set%mu
-      ENDDO
+      END DO
       energy%efermi = energy%efermi/REAL(SIZE(mos, 2), KIND=dp)
 
       CALL timestop(handle)
@@ -424,7 +424,7 @@ CONTAINS
 
       DO ispin = 1, SIZE(mos)
          CALL set_mo_occupation(mo_set=mos(ispin)%mo_set, smear=smear)
-      ENDDO
+      END DO
 
       DO ispin = 1, SIZE(mos)
          CALL calculate_density_matrix(mos(ispin)%mo_set, &
@@ -602,7 +602,7 @@ CONTAINS
                END DO
             END DO
          END SELECT
-      ENDIF
+      END IF
    END SUBROUTINE qs_scf_undo_mixing
 
 ! **************************************************************************************************
@@ -699,7 +699,7 @@ CONTAINS
       CASE (ot_method_nr)
          DO ispin = 1, SIZE(scf_env%qs_ot_env)
             CALL ot_scf_destroy(scf_env%qs_ot_env(ispin))
-         ENDDO
+         END DO
          DEALLOCATE (scf_env%qs_ot_env)
       CASE (ot_diag_method_nr)
          !

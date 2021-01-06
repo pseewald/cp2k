@@ -14,58 +14,58 @@
 !> \date   30.11.2005
 ! **************************************************************************************************
 MODULE xray_diffraction
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE bibliography,                    ONLY: Krack2002,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE mathconstants,                   ONLY: pi,&
-                                              twopi
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_gather,&
-                                              mp_gatherv
-   USE orbital_pointers,                ONLY: indco,&
-                                              nco,&
-                                              ncoset,&
-                                              nso,&
-                                              nsoset
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE bibliography, ONLY: Krack2002, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE mathconstants, ONLY: pi, &
+                            twopi
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_gather, &
+                              mp_gatherv
+   USE orbital_pointers, ONLY: indco, &
+                               nco, &
+                               ncoset, &
+                               nso, &
+                               nsoset
    USE orbital_transformation_matrices, ONLY: orbtramat
-   USE particle_types,                  ONLY: particle_type
-   USE paw_proj_set_types,              ONLY: get_paw_proj_set,&
-                                              paw_proj_set_type
-   USE physcon,                         ONLY: angstrom
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_grids,                        ONLY: get_pw_grid_info
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_integrate_function,&
-                                              pw_scale,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_rho_atom_types,               ONLY: get_rho_atom,&
-                                              rho_atom_coeff,&
-                                              rho_atom_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE util,                            ONLY: sort
+   USE particle_types, ONLY: particle_type
+   USE paw_proj_set_types, ONLY: get_paw_proj_set, &
+                                 paw_proj_set_type
+   USE physcon, ONLY: angstrom
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_grids, ONLY: get_pw_grid_info
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_integrate_function, &
+                         pw_scale, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_rho_atom_types, ONLY: get_rho_atom, &
+                                rho_atom_coeff, &
+                                rho_atom_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -108,7 +108,7 @@ CONTAINS
                                                             rho_total
       REAL(KIND=dp), DIMENSION(3)                        :: dg, dr
       REAL(KIND=dp), DIMENSION(:), POINTER :: f2sum, f2sum_gather, f4sum, f4sum_gather, fmax, &
-         fmax_gather, fmin, fmin_gather, fsum, fsum_gather, gsq, q_shell, q_shell_gather
+                                              fmax_gather, fmin, fmin_gather, fsum, fsum_gather, gsq, q_shell, q_shell_gather
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dft_control_type), POINTER                    :: dft_control
@@ -509,9 +509,9 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'calculate_rhotot_elec_gspace'
 
       INTEGER :: atom, handle, iatom, ico, ico1_pgf, ico1_set, ikind, ipgf, iset, iso, iso1_pgf, &
-         iso1_set, ison, ispin, jco, jco1_pgf, jco1_set, jpgf, jset, jso, jso1_pgf, jso1_set, &
-         json, la, lb, maxco, maxso, na, natom, nb, ncoa, ncob, ncotot, nkind, nsatbas, nset, &
-         nsoa, nsob, nsotot, nspin
+                 iso1_set, ison, ispin, jco, jco1_pgf, jco1_set, jpgf, jset, jso, jso1_pgf, jso1_set, &
+                 json, la, lb, maxco, maxso, na, natom, nb, ncoa, ncob, ncotot, nkind, nsatbas, nset, &
+                 nsoa, nsob, nsotot, nspin
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, lmax, lmin, npgf, o2nindex
       LOGICAL                                            :: orthorhombic, paw_atom
       REAL(KIND=dp)                                      :: alpha, eps_rho_gspace, rho_total, scale, &

@@ -12,12 +12,12 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE cuda_profiling
-   USE ISO_C_BINDING,                   ONLY: C_CHAR,&
-                                              C_INT,&
-                                              C_NULL_CHAR,&
-                                              C_SIZE_T
-   USE kinds,                           ONLY: default_string_length,&
-                                              int_8
+   USE ISO_C_BINDING, ONLY: C_CHAR, &
+                            C_INT, &
+                            C_NULL_CHAR, &
+                            C_SIZE_T
+   USE kinds, ONLY: default_string_length, &
+                    int_8
 #include "../base/base_uses.f90"
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads

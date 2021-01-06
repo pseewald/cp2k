@@ -8,16 +8,16 @@
 ! **************************************************************************************************
 MODULE qs_charge_mixing
 
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: get_pseudo_inverse_svd
-   USE message_passing,                 ONLY: mp_sum
-   USE qs_density_mixing_types,         ONLY: broyden_mixing_new_nr,&
-                                              broyden_mixing_nr,&
-                                              gspace_mixing_nr,&
-                                              mixing_storage_type,&
-                                              multisecant_mixing_nr,&
-                                              pulay_mixing_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: get_pseudo_inverse_svd
+   USE message_passing, ONLY: mp_sum
+   USE qs_density_mixing_types, ONLY: broyden_mixing_new_nr, &
+                                      broyden_mixing_nr, &
+                                      gspace_mixing_nr, &
+                                      mixing_storage_type, &
+                                      multisecant_mixing_nr, &
+                                      pulay_mixing_nr
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -201,7 +201,7 @@ CONTAINS
          mixing_store%wbroy(nv) = wfac/mixing_store%wbroy(nv)
       ELSE
          mixing_store%wbroy(nv) = maxw
-      ENDIF
+      END IF
       IF (mixing_store%wbroy(nv) < minw) mixing_store%wbroy(nv) = minw
 
       ! dfbroy

@@ -19,29 +19,29 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE cp_parser_types
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_para_env,                     ONLY: cp_para_env_create,&
-                                              cp_para_env_release,&
-                                              cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_buffer_types,          ONLY: buffer_type,&
-                                              create_buffer_type,&
-                                              release_buffer_type
-   USE cp_parser_ilist_types,           ONLY: create_ilist_type,&
-                                              ilist_type,&
-                                              release_ilist_type
-   USE cp_parser_inpp_types,            ONLY: create_inpp_type,&
-                                              inpp_type,&
-                                              release_inpp_type
-   USE cp_parser_status_types,          ONLY: create_status_type,&
-                                              release_status_type,&
-                                              status_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              max_line_length
-   USE message_passing,                 ONLY: mp_comm_self
-   USE string_utilities,                ONLY: compress
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_para_env, ONLY: cp_para_env_create, &
+                          cp_para_env_release, &
+                          cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_buffer_types, ONLY: buffer_type, &
+                                     create_buffer_type, &
+                                     release_buffer_type
+   USE cp_parser_ilist_types, ONLY: create_ilist_type, &
+                                    ilist_type, &
+                                    release_ilist_type
+   USE cp_parser_inpp_types, ONLY: create_inpp_type, &
+                                   inpp_type, &
+                                   release_inpp_type
+   USE cp_parser_status_types, ONLY: create_status_type, &
+                                     release_status_type, &
+                                     status_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    max_line_length
+   USE message_passing, ONLY: mp_comm_self
+   USE string_utilities, ONLY: compress
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -139,7 +139,7 @@ CONTAINS
             CALL release_status_type(parser%status)
             IF (ASSOCIATED(parser%initial_variables)) THEN
                DEALLOCATE (parser%initial_variables)
-            ENDIF
+            END IF
             DEALLOCATE (parser)
          END IF
       END IF
@@ -242,8 +242,8 @@ CONTAINS
          IF (SIZE(initial_variables, 2) > 0) THEN
             ALLOCATE (parser%initial_variables(2, SIZE(initial_variables, 2)))
             parser%initial_variables = initial_variables
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       parser%input_line_number = 0
       parser%icol = 0

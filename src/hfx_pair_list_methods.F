@@ -13,23 +13,23 @@
 !> \author Manuel Guidon
 ! **************************************************************************************************
 MODULE hfx_pair_list_methods
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE gamma,                           ONLY: fgamma => fgamma_0
-   USE hfx_types,                       ONLY: &
-        hfx_basis_type, hfx_block_range_type, hfx_cell_type, hfx_pgf_list, hfx_pgf_product_list, &
-        hfx_potential_type, hfx_screen_coeff_type, pair_list_type, pair_set_list_type
-   USE input_constants,                 ONLY: &
-        do_potential_TShPSC, do_potential_coulomb, do_potential_gaussian, do_potential_id, &
-        do_potential_long, do_potential_mix_cl, do_potential_mix_cl_trunc, do_potential_mix_lg, &
-        do_potential_short, do_potential_truncated
-   USE kinds,                           ONLY: dp
-   USE libint_wrapper,                  ONLY: prim_data_f_size
-   USE mathconstants,                   ONLY: pi
-   USE mp2_types,                       ONLY: pair_list_type_mp2
-   USE particle_types,                  ONLY: particle_type
-   USE t_c_g0,                          ONLY: t_c_g0_n
-   USE t_sh_p_s_c,                      ONLY: trunc_CS_poly_n20
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE gamma, ONLY: fgamma => fgamma_0
+   USE hfx_types, ONLY: &
+      hfx_basis_type, hfx_block_range_type, hfx_cell_type, hfx_pgf_list, hfx_pgf_product_list, &
+      hfx_potential_type, hfx_screen_coeff_type, pair_list_type, pair_set_list_type
+   USE input_constants, ONLY: &
+      do_potential_TShPSC, do_potential_coulomb, do_potential_gaussian, do_potential_id, &
+      do_potential_long, do_potential_mix_cl, do_potential_mix_cl_trunc, do_potential_mix_lg, &
+      do_potential_short, do_potential_truncated
+   USE kinds, ONLY: dp
+   USE libint_wrapper, ONLY: prim_data_f_size
+   USE mathconstants, ONLY: pi
+   USE mp2_types, ONLY: pair_list_type_mp2
+   USE particle_types, ONLY: particle_type
+   USE t_c_g0, ONLY: t_c_g0_n
+   USE t_sh_p_s_c, ONLY: trunc_CS_poly_n20
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -81,9 +81,9 @@ CONTAINS
       INTEGER                                            :: i, j, k, l, nimages1, nimages2, tmp_i4
       LOGICAL                                            :: use_gamma
       REAL(dp) :: C11(3), den, Eta, EtaInv, factor, Fm(prim_data_f_size), G(3), num, omega2, &
-         omega_corr, omega_corr2, P(3), pgf_max_1, pgf_max_2, PQ(3), Q(3), R, R1, R2, ra(3), &
-         rb(3), rc(3), rd(3), Rho, RhoInv, rpq2, S1234, S1234a, S1234b, shift(3), ssss, T, &
-         temp(3), temp_CC(3), temp_DD(3), tmp, tmp_D(3), W(3), Zeta1, Zeta_C, Zeta_D, ZetapEtaInv
+                  omega_corr, omega_corr2, P(3), pgf_max_1, pgf_max_2, PQ(3), Q(3), R, R1, R2, ra(3), &
+                  rb(3), rc(3), rd(3), Rho, RhoInv, rpq2, S1234, S1234a, S1234b, shift(3), ssss, T, &
+                  temp(3), temp_CC(3), temp_DD(3), tmp, tmp_D(3), W(3), Zeta1, Zeta_C, Zeta_D, ZetapEtaInv
       TYPE(hfx_pgf_product_list), ALLOCATABLE, &
          DIMENSION(:)                                    :: tmp_product_list
 
@@ -158,7 +158,7 @@ CONTAINS
                   ALLOCATE (product_list(tmp_i4))
                   product_list(1:SIZE(tmp_product_list)) = tmp_product_list
                   DEALLOCATE (tmp_product_list)
-               ENDIF
+               END IF
 
                T = Rho*rpq2
                SELECT CASE (potential_parameter%potential_type)
@@ -229,7 +229,7 @@ CONTAINS
                      product_list(nproducts)%Fm(l) = product_list(nproducts)%Fm(l)* &
                                                      (potential_parameter%scale_coulomb + potential_parameter%scale_longrange) - &
                                                      Fm(l)*potential_parameter%scale_longrange
-                  ENDDO
+                  END DO
 
                   ! longrange
                   omega2 = potential_parameter%omega**2

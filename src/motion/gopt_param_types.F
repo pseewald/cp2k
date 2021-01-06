@@ -13,16 +13,16 @@
 ! **************************************************************************************************
 MODULE gopt_param_types
 
-   USE input_constants,                 ONLY: default_bfgs_method_id,&
-                                              default_cell_method_id,&
-                                              default_cg_method_id,&
-                                              default_lbfgs_method_id,&
-                                              default_minimization_method_id,&
-                                              default_ts_method_id,&
-                                              none_ts_method_id
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
+   USE input_constants, ONLY: default_bfgs_method_id, &
+                              default_cell_method_id, &
+                              default_cg_method_id, &
+                              default_lbfgs_method_id, &
+                              default_minimization_method_id, &
+                              default_ts_method_id, &
+                              none_ts_method_id
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

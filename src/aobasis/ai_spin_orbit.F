@@ -35,11 +35,11 @@
 !> \author VW
 ! **************************************************************************************************
 MODULE ai_spin_orbit
-   USE ai_os_rr,                        ONLY: os_rr_coul
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE orbital_pointers,                ONLY: coset,&
-                                              ncoset
+   USE ai_os_rr, ONLY: os_rr_coul
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE orbital_pointers, ONLY: coset, &
+                               ncoset
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -85,11 +85,11 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(3), INTENT(IN)            :: rac, rbc, rab
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: vab
       INTEGER, INTENT(IN)                                :: ldrr1, ldrr2
-      REAL(dp), DIMENSION(0:ldrr1-1, ldrr2, *), &
+      REAL(dp), DIMENSION(0:ldrr1 - 1, ldrr2, *), &
          INTENT(INOUT)                                   :: rr
 
       INTEGER :: ax, ay, az, bx, by, bz, coa, coam1x, coam1y, coam1z, coap1x, coap1y, coap1z, cob, &
-         cobm1x, cobm1y, cobm1z, cobp1x, cobp1y, cobp1z, i, ipgf, j, jpgf, la, lb, ma, mb, na, nb
+                 cobm1x, cobm1y, cobm1z, cobp1x, cobp1y, cobp1z, i, ipgf, j, jpgf, la, lb, ma, mb, na, nb
       REAL(dp)                                           :: dab, dum1, dum2, f0, rab2, xhi, zet, &
                                                             zetab
       REAL(dp), DIMENSION(3)                             :: rap, rbp, rcp
@@ -117,11 +117,11 @@ CONTAINS
                      vab(i, j, 1) = 0.0_dp
                      vab(i, j, 2) = 0.0_dp
                      vab(i, j, 3) = 0.0_dp
-                  ENDDO
-               ENDDO
+                  END DO
+               END DO
                nb = nb + ncoset(lb_max)
                CYCLE
-            ENDIF
+            END IF
 
             ! *** Calculate some prefactors ***
 
@@ -219,21 +219,21 @@ CONTAINS
                   IF (ay .GT. 0 .AND. bx .GT. 0) dum2 = dum2 + REAL(ay, dp)*REAL(bx, dp)*rr(0, coam1y, cobm1x)
                   vab(ma, mb, 3) = f0*(dum1 - dum2)
                   !
-               ENDDO
-               ENDDO
-               ENDDO !la
+               END DO
+               END DO
+               END DO !la
 
-            ENDDO
-            ENDDO
-            ENDDO !lb
+            END DO
+            END DO
+            END DO !lb
 
             nb = nb + ncoset(lb_max)
 
-         ENDDO
+         END DO
 
          na = na + ncoset(la_max)
 
-      ENDDO
+      END DO
 
    END SUBROUTINE pso
 

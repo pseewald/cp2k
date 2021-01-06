@@ -21,19 +21,19 @@
 ! **************************************************************************************************
 MODULE qs_mo_types
 
-   USE cp_dbcsr_operations,             ONLY: dbcsr_copy_columns_hack
-   USE cp_fm_pool_types,                ONLY: cp_fm_pool_type,&
-                                              fm_pool_create_fm
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_init_p,&
-                                              dbcsr_release_p,&
-                                              dbcsr_type
-   USE kinds,                           ONLY: dp
+   USE cp_dbcsr_operations, ONLY: dbcsr_copy_columns_hack
+   USE cp_fm_pool_types, ONLY: cp_fm_pool_type, &
+                               fm_pool_create_fm
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_init_p, &
+                        dbcsr_release_p, &
+                        dbcsr_type
+   USE kinds, ONLY: dp
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -168,7 +168,7 @@ CONTAINS
       IF (ASSOCIATED(mo_set_old%mo_coeff_b)) THEN
          CALL dbcsr_init_p(mo_set_new%mo_coeff_b)
          CALL dbcsr_copy(mo_set_new%mo_coeff_b, mo_set_old%mo_coeff_b)
-      ENDIF
+      END IF
       mo_set_new%use_mo_coeff_b = mo_set_old%use_mo_coeff_b
 
       ALLOCATE (mo_set_new%eigenvalues(nmo))
@@ -329,7 +329,7 @@ CONTAINS
                                       blacs_env=mo_array(1)%mo_set%mo_coeff%matrix_struct%context) !fm->dbcsr
       ELSE !fm->dbcsr
          CALL cp_fm_to_fm(mo_array(1)%mo_set%mo_coeff, mo_array(2)%mo_set%mo_coeff, mo_array(2)%mo_set%nmo)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 

@@ -13,11 +13,11 @@
 MODULE qs_force_types
 
    !USE cp_control_types,                ONLY: qs_control_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -14,33 +14,33 @@
 !> \author MK (22.08.2003)
 ! **************************************************************************************************
 MODULE molecule_kind_types
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: use_perd_x,&
-                                              use_perd_xy,&
-                                              use_perd_xyz,&
-                                              use_perd_xz,&
-                                              use_perd_y,&
-                                              use_perd_yz,&
-                                              use_perd_z
-   USE colvar_types,                    ONLY: &
-        acid_hyd_dist_colvar_id, acid_hyd_shell_colvar_id, angle_colvar_id, colvar_counters, &
-        combine_colvar_id, coord_colvar_id, dfunct_colvar_id, dist_colvar_id, gyration_colvar_id, &
-        hydronium_dist_colvar_id, hydronium_shell_colvar_id, plane_distance_colvar_id, &
-        plane_plane_angle_colvar_id, population_colvar_id, qparm_colvar_id, &
-        reaction_path_colvar_id, rotation_colvar_id, torsion_colvar_id, xyz_diag_colvar_id, &
-        xyz_outerdiag_colvar_id
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE force_field_kind_types,          ONLY: &
-        bend_kind_type, bond_kind_type, impr_kind_dealloc_ref, impr_kind_type, opbend_kind_type, &
-        torsion_kind_dealloc_ref, torsion_kind_type, ub_kind_dealloc_ref, ub_kind_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE shell_potential_types,           ONLY: shell_kind_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: use_perd_x, &
+                         use_perd_xy, &
+                         use_perd_xyz, &
+                         use_perd_xz, &
+                         use_perd_y, &
+                         use_perd_yz, &
+                         use_perd_z
+   USE colvar_types, ONLY: &
+      acid_hyd_dist_colvar_id, acid_hyd_shell_colvar_id, angle_colvar_id, colvar_counters, &
+      combine_colvar_id, coord_colvar_id, dfunct_colvar_id, dist_colvar_id, gyration_colvar_id, &
+      hydronium_dist_colvar_id, hydronium_shell_colvar_id, plane_distance_colvar_id, &
+      plane_plane_angle_colvar_id, population_colvar_id, qparm_colvar_id, &
+      reaction_path_colvar_id, rotation_colvar_id, torsion_colvar_id, xyz_diag_colvar_id, &
+      xyz_outerdiag_colvar_id
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE force_field_kind_types, ONLY: &
+      bend_kind_type, bond_kind_type, impr_kind_dealloc_ref, impr_kind_type, opbend_kind_type, &
+      torsion_kind_dealloc_ref, torsion_kind_type, ub_kind_dealloc_ref, ub_kind_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE shell_potential_types, ONLY: shell_kind_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -492,7 +492,7 @@ CONTAINS
             END IF
             IF (ASSOCIATED(molecule_kind_set(imolecule_kind)%molecule_list)) THEN
                DEALLOCATE (molecule_kind_set(imolecule_kind)%molecule_list)
-            ENDIF
+            END IF
          END DO
 
          DEALLOCATE (molecule_kind_set)
@@ -599,7 +599,7 @@ CONTAINS
                                                             nconstraint_fixd, nfixd
       TYPE(colvar_counters), INTENT(out), OPTIONAL       :: ncolv
       INTEGER, INTENT(OUT), OPTIONAL :: ng3x3, ng4x6, nvsite, nfixd_restraint, ng3x3_restraint, &
-         ng4x6_restraint, nvsite_restraint, nrestraints, nmolecule, nsgf, nshell, ntorsion
+                                        ng4x6_restraint, nvsite_restraint, nrestraints, nmolecule, nsgf, nshell, ntorsion
       INTEGER, DIMENSION(:), OPTIONAL, POINTER           :: molecule_list
       INTEGER, INTENT(OUT), OPTIONAL                     :: nelectron, nelectron_alpha, &
                                                             nelectron_beta
@@ -734,7 +734,7 @@ CONTAINS
                                                             nrestraints
 
       INTEGER :: ibend, ibond, iimpr, imolecule_kind, iopbend, itorsion, iub, na, nc, nc_fixd, &
-         nfixd_restraint, nm, nmolecule_kind, nrestraints_tot
+                 nfixd_restraint, nm, nmolecule_kind, nrestraints_tot
       TYPE(molecule_kind_type), POINTER                  :: molecule_kind
 
       IF (ASSOCIATED(molecule_kind_set)) THEN
@@ -1088,7 +1088,7 @@ CONTAINS
                natom = SIZE(molecule_kind_set(imolecule_kind)%atom_list)
                nmolecule = SIZE(molecule_kind_set(imolecule_kind)%molecule_list)
                IF (natom*nmolecule > 1) all_single_atoms = .FALSE.
-            ENDDO
+            END DO
 
             IF (all_single_atoms) THEN
                WRITE (UNIT=output_unit, FMT="(/,/,T2,A)") &
@@ -1098,7 +1098,7 @@ CONTAINS
                   molecule_kind => molecule_kind_set(imolecule_kind)
                   CALL write_molecule_kind(molecule_kind, output_unit)
                END DO
-            ENDIF
+            END IF
 
             CALL get_molecule_kind_set(molecule_kind_set=molecule_kind_set, &
                                        nbond=nbond, &

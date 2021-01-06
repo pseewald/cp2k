@@ -12,31 +12,31 @@
 !> \author Fabian Ducry (05.2020)
 ! **************************************************************************************************
 MODULE qs_scf_csr_write
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_convert_dbcsr_to_csr, dbcsr_copy, dbcsr_create, &
-        dbcsr_csr_create_from_dbcsr, dbcsr_csr_dbcsr_blkrow_dist, dbcsr_csr_destroy, &
-        dbcsr_csr_type, dbcsr_csr_write, dbcsr_desymmetrize, dbcsr_has_symmetry, dbcsr_p_type, &
-        dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_antisymmetric, dbcsr_type_complex_8, &
-        dbcsr_type_no_symmetry, dbcsr_type_symmetric
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE kpoint_methods,                  ONLY: rskp_transform
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_convert_dbcsr_to_csr, dbcsr_copy, dbcsr_create, &
+      dbcsr_csr_create_from_dbcsr, dbcsr_csr_dbcsr_blkrow_dist, dbcsr_csr_destroy, &
+      dbcsr_csr_type, dbcsr_csr_write, dbcsr_desymmetrize, dbcsr_has_symmetry, dbcsr_p_type, &
+      dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_antisymmetric, dbcsr_type_complex_8, &
+      dbcsr_type_no_symmetry, dbcsr_type_symmetric
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE kpoint_methods, ONLY: rskp_transform
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -174,7 +174,7 @@ CONTAINS
 
       CHARACTER(len=*), PARAMETER                        :: routineN = 'write_matrix_csr'
       COMPLEX(KIND=dp), PARAMETER :: cone = CMPLX(1.0_dp, 0.0_dp, KIND=dp), &
-         ione = CMPLX(0.0_dp, 1.0_dp, KIND=dp)
+                                     ione = CMPLX(0.0_dp, 1.0_dp, KIND=dp)
 
       CHARACTER(LEN=default_path_length)                 :: file_name, fileformat, subs_string
       INTEGER                                            :: handle, igroup, ik, ikp, ispin, kplocal, &

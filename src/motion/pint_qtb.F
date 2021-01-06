@@ -13,36 +13,36 @@
 !>      02.2018 created [Fabien Brieuc]
 ! **************************************************************************************************
 MODULE pint_qtb
-   USE cp_files,                        ONLY: open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: debug_print_level,&
-                                              silent_print_level
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE fft_lib,                         ONLY: fft_1dm,&
-                                              fft_create_plan_1dm,&
-                                              fft_destroy_plan
-   USE fft_plan,                        ONLY: fft_plan_type
-   USE fft_tools,                       ONLY: FWFFT,&
-                                              fft_plan_style,&
-                                              fft_type
-   USE input_constants,                 ONLY: propagator_rpmd
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi,&
-                                              twopi
-   USE message_passing,                 ONLY: mp_bcast
-   USE parallel_rng_types,              ONLY: GAUSSIAN,&
-                                              rng_record_length,&
-                                              rng_stream_type,&
-                                              rng_stream_type_from_record
-   USE pint_io,                         ONLY: pint_write_line
-   USE pint_types,                      ONLY: normalmode_env_type,&
-                                              pint_env_type,&
-                                              qtb_therm_type
+   USE cp_files, ONLY: open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: debug_print_level, &
+                                 silent_print_level
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE fft_lib, ONLY: fft_1dm, &
+                      fft_create_plan_1dm, &
+                      fft_destroy_plan
+   USE fft_plan, ONLY: fft_plan_type
+   USE fft_tools, ONLY: FWFFT, &
+                        fft_plan_style, &
+                        fft_type
+   USE input_constants, ONLY: propagator_rpmd
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi, &
+                            twopi
+   USE message_passing, ONLY: mp_bcast
+   USE parallel_rng_types, ONLY: GAUSSIAN, &
+                                 rng_record_length, &
+                                 rng_stream_type, &
+                                 rng_stream_type_from_record
+   USE pint_io, ONLY: pint_write_line
+   USE pint_types, ONLY: normalmode_env_type, &
+                         pint_env_type, &
+                         qtb_therm_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -83,7 +83,7 @@ CONTAINS
 
       IF (pint_env%propagator%prop_kind /= propagator_rpmd) THEN
          CPABORT("QTB is designed to work with the RPMD propagator only")
-      ENDIF
+      END IF
 
       pint_env%e_qtb = 0.0_dp
       ALLOCATE (qtb_therm)
@@ -377,7 +377,7 @@ CONTAINS
                filter(0) = SQRT(p*kT)*(1.0_dp, 0.0_dp)
             ELSE
                filter(0) = SQRT(p*kT*fp1(1))*(1.0_dp, 0.0_dp)
-            ENDIF
+            END IF
             DO i = 1, nf/2
                w = i*dw
                tmp = 0.5_dp*w*h
@@ -657,7 +657,7 @@ CONTAINS
                                      (xk(k, j) - x(kk(k, j)))
                      ELSE
                         fpxk(k, j) = aa*xk(k, j) + bb
-                     ENDIF
+                     END IF
                   END DO
                END DO
             END DO

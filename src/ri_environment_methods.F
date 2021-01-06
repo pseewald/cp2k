@@ -16,49 +16,49 @@
 !>          Dorothea Golze
 ! **************************************************************************************************
 MODULE ri_environment_methods
-   USE arnoldi_api,                     ONLY: arnoldi_conjugate_gradient
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_diag,                   ONLY: cp_dbcsr_syevd
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_create, dbcsr_dot, dbcsr_get_info, dbcsr_iterator_blocks_left, &
-        dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
-        dbcsr_multiply, dbcsr_p_type, dbcsr_release, dbcsr_scale_by_vector, dbcsr_set, dbcsr_type, &
-        dbcsr_type_antisymmetric, dbcsr_type_no_symmetry, dbcsr_type_symmetric
-   USE iterate_matrix,                  ONLY: invert_Hotelling
-   USE kinds,                           ONLY: dp
-   USE lri_environment_types,           ONLY: allocate_lri_coefs,&
-                                              lri_density_create,&
-                                              lri_density_release,&
-                                              lri_density_type,&
-                                              lri_environment_type,&
-                                              lri_kind_type
-   USE message_passing,                 ONLY: mp_sum
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_collocate_density,            ONLY: calculate_lri_rho_elec
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_o3c_methods,                  ONLY: calculate_o3c_integrals,&
-                                              contract12_o3c
-   USE qs_o3c_types,                    ONLY: get_o3c_iterator_info,&
-                                              init_o3c_container,&
-                                              o3c_container_type,&
-                                              o3c_iterate,&
-                                              o3c_iterator_create,&
-                                              o3c_iterator_release,&
-                                              o3c_iterator_type,&
-                                              release_o3c_container
-   USE qs_overlap,                      ONLY: build_overlap_matrix
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE util,                            ONLY: get_limit
+   USE arnoldi_api, ONLY: arnoldi_conjugate_gradient
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_diag, ONLY: cp_dbcsr_syevd
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_create, dbcsr_dot, dbcsr_get_info, dbcsr_iterator_blocks_left, &
+      dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
+      dbcsr_multiply, dbcsr_p_type, dbcsr_release, dbcsr_scale_by_vector, dbcsr_set, dbcsr_type, &
+      dbcsr_type_antisymmetric, dbcsr_type_no_symmetry, dbcsr_type_symmetric
+   USE iterate_matrix, ONLY: invert_Hotelling
+   USE kinds, ONLY: dp
+   USE lri_environment_types, ONLY: allocate_lri_coefs, &
+                                    lri_density_create, &
+                                    lri_density_release, &
+                                    lri_density_type, &
+                                    lri_environment_type, &
+                                    lri_kind_type
+   USE message_passing, ONLY: mp_sum
+   USE pw_types, ONLY: pw_p_type
+   USE qs_collocate_density, ONLY: calculate_lri_rho_elec
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_o3c_methods, ONLY: calculate_o3c_integrals, &
+                             contract12_o3c
+   USE qs_o3c_types, ONLY: get_o3c_iterator_info, &
+                           init_o3c_container, &
+                           o3c_container_type, &
+                           o3c_iterate, &
+                           o3c_iterator_create, &
+                           o3c_iterator_release, &
+                           o3c_iterator_type, &
+                           release_o3c_container
+   USE qs_overlap, ONLY: build_overlap_matrix
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE util, ONLY: get_limit
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"
@@ -233,7 +233,7 @@ CONTAINS
                izero = izero + 1
             ELSE
                eval(i) = SQRT(1.0_dp/eval(i))
-            ENDIF
+            END IF
          END DO
          CALL dbcsr_scale_by_vector(emat, eval, side='right')
          CALL dbcsr_create(lri_env%ri_sinv(1)%matrix, template=lri_env%ri_smat(1)%matrix)
@@ -411,7 +411,7 @@ CONTAINS
          lri_coef => lri_density%lri_coefs(ispin)%lri_kinds
          CALL calculate_lri_rho_elec(rho_g(ispin), rho_r(ispin), qs_env, &
                                      lri_coef, tot_rho_r(ispin), "RI_HXC", .FALSE.)
-      ENDDO
+      END DO
 
       CALL timestop(handle)
 

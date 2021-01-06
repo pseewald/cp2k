@@ -15,26 +15,26 @@
 ! **************************************************************************************************
 MODULE xc_ke_gga
 
-   USE cp_array_utils,                  ONLY: cp_3d_r_p_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_functionals_utilities,        ONLY: calc_wave_vector,&
-                                              set_util
-   USE xc_input_constants,              ONLY: ke_lc,&
-                                              ke_llp,&
-                                              ke_ol1,&
-                                              ke_ol2,&
-                                              ke_pbe,&
-                                              ke_pw86,&
-                                              ke_pw91,&
-                                              ke_t92
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
+   USE cp_array_utils, ONLY: cp_3d_r_p_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_functionals_utilities, ONLY: calc_wave_vector, &
+                                       set_util
+   USE xc_input_constants, ONLY: ke_lc, &
+                                 ke_llp, &
+                                 ke_ol1, &
+                                 ke_ol2, &
+                                 ke_pbe, &
+                                 ke_pw86, &
+                                 ke_pw91, &
+                                 ke_t92
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -183,8 +183,8 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: s
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: fs
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER :: e_0, e_ndrho, e_ndrho_ndrho, &
-         e_ndrho_ndrho_ndrho, e_rho, e_rho_ndrho, e_rho_ndrho_ndrho, e_rho_rho, e_rho_rho_ndrho, &
-         e_rho_rho_rho, grho, rho, rho13
+                                           e_ndrho_ndrho_ndrho, e_rho, e_rho_ndrho, e_rho_ndrho_ndrho, e_rho_rho, e_rho_rho_ndrho, &
+                                                    e_rho_rho_rho, grho, rho, rho13
       TYPE(xc_derivative_type), POINTER                  :: deriv
 
       CALL timeset(routineN, handle)
@@ -326,8 +326,8 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: s
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: fs
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER :: e_0, e_ndrho, e_ndrho_ndrho, &
-         e_ndrho_ndrho_ndrho, e_rho, e_rho_ndrho, e_rho_ndrho_ndrho, e_rho_rho, e_rho_rho_ndrho, &
-         e_rho_rho_rho
+                                           e_ndrho_ndrho_ndrho, e_rho, e_rho_ndrho, e_rho_ndrho_ndrho, e_rho_rho, e_rho_rho_ndrho, &
+                                                    e_rho_rho_rho
       TYPE(cp_3d_r_p_type), DIMENSION(2)                 :: norm_drho, rho, rho_1_3
       TYPE(xc_derivative_type), POINTER                  :: deriv
 
@@ -758,8 +758,8 @@ CONTAINS
 
       INTEGER                                            :: ip
       REAL(KIND=dp) :: as, bs, p, q, sas, sbs, t1, t10, t11, t12, t133, t16, t17, t19, t2, t20, &
-         t22, t23, t26, t28, t29, t3, t30, t33, t36, t39, t4, t40, t42, t43, t45, t46, t47, t49, &
-         t5, t50, t54, t55, t7, t71, t8, t9, x, ys
+                       t22, t23, t26, t28, t29, t3, t30, t33, t36, t39, t4, t40, t42, t43, t45, t46, t47, t49, &
+                       t5, t50, t54, t55, t7, t71, t8, t9, x, ys
 
       p = 0.0044188_dp*b*b
       q = 0.0253_dp*b
@@ -1146,10 +1146,10 @@ CONTAINS
 
       INTEGER                                            :: ip
       REAL(dp) :: ff, t1, t10, t101, t106, t109, t111, t113, t119, t12, t123, t124, t13, t14, t15, &
-         t16, t17, t18, t19, t2, t20, t21, t22, t23, t25, t26, t27, t28, t29, t3, t30, t31, t33, &
-         t35, t37, t38, t39, t4, t40, t44, t47, t48, t5, t50, t51, t53, t55, t56, t57, t58, t59, &
-         t6, t60, t64, t65, t69, t7, t70, t71, t73, t77, t78, t8, t80, t82, t9, t90, t93, t94, &
-         t96, t98
+                  t16, t17, t18, t19, t2, t20, t21, t22, t23, t25, t26, t27, t28, t29, t3, t30, t31, t33, &
+                  t35, t37, t38, t39, t4, t40, t44, t47, t48, t5, t50, t51, t53, t55, t56, t57, t58, t59, &
+                  t6, t60, t64, t65, t69, t7, t70, t71, t73, t77, t78, t8, t80, t82, t9, t90, t93, t94, &
+                  t96, t98
       REAL(KIND=dp)                                      :: a1, a2, a3, a4, a5, bb, o, pa(6, 2), x
 
 ! parameter set 1: Perdew-Wang

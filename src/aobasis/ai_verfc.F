@@ -81,11 +81,11 @@
 
 MODULE ai_verfc
 
-   USE gamma,                           ONLY: fgamma => fgamma_0
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE orbital_pointers,                ONLY: coset,&
-                                              ncoset
+   USE gamma, ONLY: fgamma => fgamma_0
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE orbital_pointers, ONLY: coset, &
+                               ncoset
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -156,9 +156,9 @@ CONTAINS
       LOGICAL, OPTIONAL                                  :: dkh_erfc
 
       INTEGER :: ax, ay, az, bx, by, bz, coamx, coamy, coamz, coapx, coapy, coapz, cobmx, cobmy, &
-         cobmz, cobpx, cobpy, cobpz, i, ipgf, j, jpgf, la, la_max, la_min, la_start, lb, lb_max, &
-         lb_min, maxder_local, n, na, nap, nb, nmax, nxx, nxy, nxz, nyx, nyy, nyz, nzx, nzy, nzz, &
-         pVpa, pVpb
+                 cobmz, cobpx, cobpy, cobpz, i, ipgf, j, jpgf, la, la_max, la_min, la_start, lb, lb_max, &
+                 lb_min, maxder_local, n, na, nap, nb, nmax, nxx, nxy, nxz, nyx, nyy, nyz, nzx, nzy, nzz, &
+                 pVpa, pVpb
       LOGICAL                                            :: do_dkh
       REAL(KIND=dp)                                      :: dab, dac, dbc, f0, f1, f2, f3, f4, fax, &
                                                             fay, faz, fbx, fby, fbz, ferf, fnuc, &

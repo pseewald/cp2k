@@ -14,71 +14,71 @@
 ! **************************************************************************************************
 
 MODULE tmc_setup
-   USE bibliography,                    ONLY: cite_reference,&
-                                              schonherr2014
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: &
-        cp_add_default_logger, cp_get_default_logger, cp_logger_create, &
-        cp_logger_get_default_io_unit, cp_logger_release, cp_logger_set, cp_logger_type, &
-        cp_rm_default_logger, cp_to_string
-   USE cp_para_env,                     ONLY: cp_para_env_create
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE environment,                     ONLY: cp2k_get_walltime
-   USE f77_interface,                   ONLY: create_force_env,&
-                                              destroy_force_env
-   USE global_types,                    ONLY: global_environment_type
-   USE header,                          ONLY: tmc_ana_header,&
-                                              tmc_header
-   USE input_section_types,             ONLY: section_type,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE machine,                         ONLY: default_output_unit,&
-                                              m_flush
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_comm_dup,&
-                                              mp_comm_free,&
-                                              mp_comm_split_direct
-   USE parallel_rng_types,              ONLY: UNIFORM,&
-                                              rng_stream_type
-   USE physcon,                         ONLY: au2a => angstrom,&
-                                              au2bar => bar
-   USE tmc_analysis,                    ONLY: analysis_init,&
-                                              analysis_restart_print,&
-                                              analysis_restart_read,&
-                                              analyze_file_configurations,&
-                                              finalize_tmc_analysis,&
-                                              tmc_read_ana_input
-   USE tmc_analysis_types,              ONLY: tmc_ana_env_release,&
-                                              tmc_ana_list_type
-   USE tmc_file_io,                     ONLY: expand_file_name_int
-   USE tmc_master,                      ONLY: do_tmc_master
-   USE tmc_move_handle,                 ONLY: finalize_mv_types,&
-                                              print_move_types,&
-                                              read_init_move_types
-   USE tmc_stati,                       ONLY: &
-        task_type_MC, task_type_ideal_gas, tmc_NMC_worker_out_file_name, tmc_ana_out_file_name, &
-        tmc_default_restart_in_file_name, tmc_default_restart_out_file_name, &
-        tmc_default_unspecified_name, tmc_energy_worker_out_file_name, tmc_master_out_file_name
-   USE tmc_tree_build,                  ONLY: allocate_new_sub_tree_node,&
-                                              deallocate_sub_tree_node
-   USE tmc_tree_types,                  ONLY: tree_type
-   USE tmc_types,                       ONLY: tmc_comp_set_type,&
-                                              tmc_env_create,&
-                                              tmc_env_release,&
-                                              tmc_env_type,&
-                                              tmc_master_env_create,&
-                                              tmc_master_env_release,&
-                                              tmc_worker_env_create,&
-                                              tmc_worker_env_release
-   USE tmc_worker,                      ONLY: do_tmc_worker,&
-                                              get_atom_kinds_and_cell,&
-                                              get_initial_conf
+   USE bibliography, ONLY: cite_reference, &
+                           schonherr2014
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: &
+      cp_add_default_logger, cp_get_default_logger, cp_logger_create, &
+      cp_logger_get_default_io_unit, cp_logger_release, cp_logger_set, cp_logger_type, &
+      cp_rm_default_logger, cp_to_string
+   USE cp_para_env, ONLY: cp_para_env_create
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE environment, ONLY: cp2k_get_walltime
+   USE f77_interface, ONLY: create_force_env, &
+                            destroy_force_env
+   USE global_types, ONLY: global_environment_type
+   USE header, ONLY: tmc_ana_header, &
+                     tmc_header
+   USE input_section_types, ONLY: section_type, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE machine, ONLY: default_output_unit, &
+                      m_flush
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_comm_dup, &
+                              mp_comm_free, &
+                              mp_comm_split_direct
+   USE parallel_rng_types, ONLY: UNIFORM, &
+                                 rng_stream_type
+   USE physcon, ONLY: au2a => angstrom, &
+                      au2bar => bar
+   USE tmc_analysis, ONLY: analysis_init, &
+                           analysis_restart_print, &
+                           analysis_restart_read, &
+                           analyze_file_configurations, &
+                           finalize_tmc_analysis, &
+                           tmc_read_ana_input
+   USE tmc_analysis_types, ONLY: tmc_ana_env_release, &
+                                 tmc_ana_list_type
+   USE tmc_file_io, ONLY: expand_file_name_int
+   USE tmc_master, ONLY: do_tmc_master
+   USE tmc_move_handle, ONLY: finalize_mv_types, &
+                              print_move_types, &
+                              read_init_move_types
+   USE tmc_stati, ONLY: &
+      task_type_MC, task_type_ideal_gas, tmc_NMC_worker_out_file_name, tmc_ana_out_file_name, &
+      tmc_default_restart_in_file_name, tmc_default_restart_out_file_name, &
+      tmc_default_unspecified_name, tmc_energy_worker_out_file_name, tmc_master_out_file_name
+   USE tmc_tree_build, ONLY: allocate_new_sub_tree_node, &
+                             deallocate_sub_tree_node
+   USE tmc_tree_types, ONLY: tree_type
+   USE tmc_types, ONLY: tmc_comp_set_type, &
+                        tmc_env_create, &
+                        tmc_env_release, &
+                        tmc_env_type, &
+                        tmc_master_env_create, &
+                        tmc_master_env_release, &
+                        tmc_worker_env_create, &
+                        tmc_worker_env_release
+   USE tmc_worker, ONLY: do_tmc_worker, &
+                         get_atom_kinds_and_cell, &
+                         get_initial_conf
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -130,7 +130,7 @@ CONTAINS
       IF (output_unit > 0) THEN
          CALL tmc_header(output_unit)
          CALL m_flush(output_unit)
-      ENDIF
+      END IF
       ! ugly, we need to know the output unit on source, everywhere, in particular
       ! the tmc master
       IF (output_unit .NE. default_output_unit .AND. output_unit .GT. 0) THEN
@@ -207,7 +207,7 @@ CONTAINS
                               file_action="WRITE", file_position="APPEND", &
                               unit_number=tmc_env%m_env%io_unit)
                CALL tmc_header(tmc_env%m_env%io_unit)
-            ENDIF
+            END IF
             ! print the intresting parameters and starting values
             CALL tmc_print_params(tmc_env)
             CALL print_move_types(init=.TRUE., file_io=tmc_env%m_env%io_unit, &
@@ -216,7 +216,7 @@ CONTAINS
 
             IF (bcast_output_unit .NE. tmc_env%m_env%io_unit) THEN
                CALL close_file(unit_number=tmc_env%m_env%io_unit)
-            ENDIF
+            END IF
 
             CALL cp_rm_default_logger()
             CALL cp_logger_release(logger_sub)
@@ -287,7 +287,7 @@ CONTAINS
                               file_action="WRITE", file_position="APPEND", &
                               unit_number=output_unit)
                CALL tmc_ana_header(output_unit)
-            ENDIF
+            END IF
 
             ALLOCATE (tmc_ana_env_list(tmc_env%params%nr_temp))
             tmc_ana_section => section_vals_get_subs_vals(root_section, "MOTION%TMC%TMC_ANALYSIS")
@@ -304,7 +304,7 @@ CONTAINS
             DEALLOCATE (tmc_ana_env_list)
             IF (bcast_output_unit .NE. output_unit) THEN
                CALL close_file(unit_number=tmc_env%m_env%io_unit)
-            ENDIF
+            END IF
             CALL cp_rm_default_logger()
             CALL cp_logger_release(logger_sub)
 
@@ -806,8 +806,8 @@ CONTAINS
       LOGICAL                                            :: success
 
       INTEGER :: cc_group, cc_group_rank, comm_tmp, master_ana_group, master_ana_rank, &
-         master_first_e_worker_g, master_first_e_worker_r, master_worker_group, &
-         master_worker_rank, my_mpi_undefined, my_mpi_world, total_used
+                 master_first_e_worker_g, master_first_e_worker_r, master_worker_group, &
+                 master_worker_rank, my_mpi_undefined, my_mpi_world, total_used
       LOGICAL                                            :: flag, master
 
       CPASSERT(ASSOCIATED(tmc_comp_set))
@@ -932,7 +932,7 @@ CONTAINS
                                        group=comm_tmp)
             ELSE
                CALL mp_comm_free(comm_tmp)
-            ENDIF
+            END IF
 
             ! worker master communication
             CALL mp_comm_split_direct(my_mpi_world, comm_tmp, master_worker_group, master_worker_rank)
@@ -943,7 +943,7 @@ CONTAINS
                                        group=comm_tmp)
             ELSE
                CALL mp_comm_free(comm_tmp)
-            ENDIF
+            END IF
 
             ! communicator only for first energy worker master and global master
             CALL mp_comm_split_direct(my_mpi_world, comm_tmp, master_first_e_worker_g, master_first_e_worker_r)
@@ -954,7 +954,7 @@ CONTAINS
                                        group=comm_tmp)
             ELSE
                CALL mp_comm_free(comm_tmp)
-            ENDIF
+            END IF
 
             ! communicator only for analysis worker and global master
             CALL mp_comm_split_direct(my_mpi_world, comm_tmp, master_ana_group, master_ana_rank)
@@ -964,7 +964,7 @@ CONTAINS
                                        group=comm_tmp)
             ELSE
                CALL mp_comm_free(comm_tmp)
-            ENDIF
+            END IF
 
             ! communicator for master only to handle external control
             master_ana_group = my_mpi_undefined
@@ -980,7 +980,7 @@ CONTAINS
                                        group=comm_tmp)
             ELSE
                CALL mp_comm_free(comm_tmp)
-            ENDIF
+            END IF
          END IF
          CALL mp_comm_free(my_mpi_world)
       END IF

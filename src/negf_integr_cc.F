@@ -12,30 +12,30 @@
 !>   * 05.2017 created [Sergey Chulkov]
 ! **************************************************************************************************
 MODULE negf_integr_cc
-   USE cp_cfm_basic_linalg,             ONLY: cp_cfm_scale,&
-                                              cp_cfm_scale_and_add
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_get_info,&
-                                              cp_cfm_p_type,&
-                                              cp_cfm_release,&
-                                              cp_cfm_type
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_trace
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_equivalent,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE fft_tools,                       ONLY: fft_fw1d
-   USE kahan_sum,                       ONLY: accurate_sum
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE mathconstants,                   ONLY: z_one
-   USE negf_integr_utils,               ONLY: contour_shape_arc,&
-                                              contour_shape_linear,&
-                                              equidistant_nodes_a_b,&
-                                              rescale_nodes_cos,&
-                                              rescale_normalised_nodes
+   USE cp_cfm_basic_linalg, ONLY: cp_cfm_scale, &
+                                  cp_cfm_scale_and_add
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_get_info, &
+                           cp_cfm_p_type, &
+                           cp_cfm_release, &
+                           cp_cfm_type
+   USE cp_fm_basic_linalg, ONLY: cp_fm_trace
+   USE cp_fm_struct, ONLY: cp_fm_struct_equivalent, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE fft_tools, ONLY: fft_fw1d
+   USE kahan_sum, ONLY: accurate_sum
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE mathconstants, ONLY: z_one
+   USE negf_integr_utils, ONLY: contour_shape_arc, &
+                                contour_shape_linear, &
+                                equidistant_nodes_a_b, &
+                                rescale_nodes_cos, &
+                                rescale_normalised_nodes
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -421,7 +421,7 @@ CONTAINS
 
       COMPLEX(kind=dp), ALLOCATABLE, DIMENSION(:, :, :)  :: ztmp, ztmp_dct
       INTEGER :: handle, icol, ipoint, irow, ncols_local, nintervals, nintervals_half, &
-         nintervals_half_plus_1, nintervals_half_plus_2, nintervals_plus_2, nrows_local, stat
+                 nintervals_half_plus_1, nintervals_half_plus_2, nintervals_plus_2, nrows_local, stat
       LOGICAL                                            :: equiv
       REAL(kind=dp)                                      :: rscale
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:)           :: weights

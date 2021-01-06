@@ -10,33 +10,33 @@
 !> \author Teodoro Laino
 ! **************************************************************************************************
 MODULE cp_ddapc_types
-   USE cell_methods,                    ONLY: read_cell
-   USE cell_types,                      ONLY: cell_release,&
-                                              cell_type
-   USE cp_ddapc_methods,                ONLY: ddapc_eval_AmI,&
-                                              ddapc_eval_gfunc,&
-                                              ewald_ddapc_pot,&
-                                              solvation_ddapc_pot
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_printkey_is_on
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE ewald_spline_util,               ONLY: Setup_Ewald_Spline
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE particle_types,                  ONLY: particle_type
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_grids,                        ONLY: pw_grid_release
-   USE pw_poisson_types,                ONLY: pw_poisson_multipole
-   USE pw_pool_types,                   ONLY: pw_pool_give_back_pw,&
-                                              pw_pool_release,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: pw_type
+   USE cell_methods, ONLY: read_cell
+   USE cell_types, ONLY: cell_release, &
+                         cell_type
+   USE cp_ddapc_methods, ONLY: ddapc_eval_AmI, &
+                               ddapc_eval_gfunc, &
+                               ewald_ddapc_pot, &
+                               solvation_ddapc_pot
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_printkey_is_on
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE ewald_spline_util, ONLY: Setup_Ewald_Spline
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE particle_types, ONLY: particle_type
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_grids, ONLY: pw_grid_release
+   USE pw_poisson_types, ONLY: pw_poisson_multipole
+   USE pw_pool_types, ONLY: pw_pool_give_back_pw, &
+                            pw_pool_release, &
+                            pw_pool_type
+   USE pw_types, ONLY: pw_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -261,8 +261,8 @@ CONTAINS
       TYPE(cell_type), POINTER                           :: dummy_cell, mm_cell
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(section_vals_type), POINTER :: cell_section, grid_print_section, multipole_section, &
-         poisson_section, printC_section, qmmm_per_section, restraint_section, restraint_sectionB, &
-         solvation_section
+                                         poisson_section, printC_section, qmmm_per_section, restraint_section, restraint_sectionB, &
+                                          solvation_section
 
       logger => cp_get_default_logger()
       output_unit = cp_logger_get_default_io_unit(logger)

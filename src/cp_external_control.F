@@ -14,17 +14,17 @@
 ! **************************************************************************************************
 MODULE cp_external_control
 
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE global_types,                    ONLY: global_environment_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE machine,                         ONLY: m_walltime
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_probe
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE global_types, ONLY: global_environment_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE machine, ONLY: m_walltime
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_probe
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -146,13 +146,13 @@ CONTAINS
                   DO I = 1, 100000000
                      t2 = m_walltime()
                      IF (t2 - t1 > 1.0_dp) EXIT
-                  ENDDO
+                  END DO
                   ! and ask again
                   INQUIRE (FILE="WAIT", EXIST=should_wait)
                   IF (.NOT. should_wait) EXIT
-               ENDDO
+               END DO
                CALL close_file(unit_number=unit_number, file_status="DELETE")
-            ENDIF
+            END IF
             ! EXIT control sequence
             ! Check for <PROJECT_NAME>.EXIT_<FLAG>
             IF (.NOT. should_stop) THEN
@@ -170,7 +170,7 @@ CONTAINS
                IF (should_stop) THEN
                   WRITE (UNIT=cp_logger_get_default_unit_nr(logger), FMT="(/,T2,A,/)") &
                      "*** "//TRIM(flag)//" run terminated by external request ***"
-               ENDIF
+               END IF
             END IF
             ! Check for EXIT_<FLAG>
             IF (.NOT. should_stop) THEN
@@ -188,9 +188,9 @@ CONTAINS
                IF (should_stop) THEN
                   WRITE (UNIT=cp_logger_get_default_unit_nr(logger), FMT="(/,T2,A,/)") &
                      "*** "//TRIM(flag)//" run terminated by external request ***"
-               ENDIF
+               END IF
             END IF
-         ENDIF
+         END IF
 
          IF (PRESENT(target_time)) THEN
             my_target_time = target_time

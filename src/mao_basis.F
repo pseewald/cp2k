@@ -13,34 +13,34 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE mao_basis
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE dbcsr_api,                       ONLY: dbcsr_create,&
-                                              dbcsr_distribution_type,&
-                                              dbcsr_p_type,&
-                                              dbcsr_reserve_diag_blocks,&
-                                              dbcsr_type_no_symmetry
-   USE kinds,                           ONLY: dp
-   USE mao_methods,                     ONLY: mao_build_q
-   USE mao_optimizer,                   ONLY: mao_optimize
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_types,                     ONLY: get_ks_env,&
-                                              qs_ks_env_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type,&
-                                              release_neighbor_list_sets
-   USE qs_neighbor_lists,               ONLY: setup_neighbor_list
-   USE qs_overlap,                      ONLY: build_overlap_matrix_simple
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE dbcsr_api, ONLY: dbcsr_create, &
+                        dbcsr_distribution_type, &
+                        dbcsr_p_type, &
+                        dbcsr_reserve_diag_blocks, &
+                        dbcsr_type_no_symmetry
+   USE kinds, ONLY: dp
+   USE mao_methods, ONLY: mao_build_q
+   USE mao_optimizer, ONLY: mao_optimize
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_types, ONLY: get_ks_env, &
+                          qs_ks_env_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type, &
+                                     release_neighbor_list_sets
+   USE qs_neighbor_lists, ONLY: setup_neighbor_list
+   USE qs_overlap, ONLY: build_overlap_matrix_simple
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

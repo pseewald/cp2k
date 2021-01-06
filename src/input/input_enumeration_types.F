@@ -13,10 +13,10 @@
 ! **************************************************************************************************
 MODULE input_enumeration_types
 
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE kinds,                           ONLY: default_string_length
-   USE string_utilities,                ONLY: a2s,&
-                                              uppercase
+   USE cp_log_handling, ONLY: cp_to_string
+   USE kinds, ONLY: default_string_length
+   USE string_utilities, ONLY: a2s, &
+                               uppercase
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -175,7 +175,7 @@ CONTAINS
             DO j = 1, SIZE(enum%desc)
                PRINT *, TRIM(a2s(enum%desc(j)%chars))
                PRINT *, TRIM(enum%c_vals(j))
-            ENDDO
+            END DO
             PRINT *, enum%i_vals
          END IF
          IF (enum%strict) &

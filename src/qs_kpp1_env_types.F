@@ -12,14 +12,14 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE qs_kpp1_env_types
-   USE dbcsr_api,                       ONLY: dbcsr_deallocate_matrix,&
-                                              dbcsr_p_type
-   USE pw_types,                        ONLY: pw_p_type,&
-                                              pw_release
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_release
-   USE xc_rho_set_types,                ONLY: xc_rho_set_release,&
-                                              xc_rho_set_type
+   USE dbcsr_api, ONLY: dbcsr_deallocate_matrix, &
+                        dbcsr_p_type
+   USE pw_types, ONLY: pw_p_type, &
+                       pw_release
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_release
+   USE xc_rho_set_types, ONLY: xc_rho_set_release, &
+                               xc_rho_set_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

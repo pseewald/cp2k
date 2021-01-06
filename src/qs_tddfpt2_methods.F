@@ -6,72 +6,72 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE qs_tddfpt2_methods
-   USE admm_types,                      ONLY: admm_type
-   USE bibliography,                    ONLY: Grimme2013,&
-                                              Grimme2016,&
-                                              Iannuzzi2005,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              tddfpt2_control_type
-   USE cp_dbcsr_operations,             ONLY: dbcsr_deallocate_matrix_set
-   USE cp_fm_pool_types,                ONLY: fm_pool_create_fm
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_add_iter_level,&
-                                              cp_iterate,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr,&
-                                              cp_rm_iter_level
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE header,                          ONLY: tddfpt_header
-   USE input_constants,                 ONLY: tddfpt_dipole_velocity,&
-                                              tddfpt_kernel_full,&
-                                              tddfpt_kernel_stda
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE machine,                         ONLY: m_flush
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_mo_types,                     ONLY: mo_set_p_type
-   USE qs_scf_methods,                  ONLY: eigensolver
-   USE qs_scf_types,                    ONLY: qs_scf_env_type
-   USE qs_tddfpt2_densities,            ONLY: tddfpt_construct_aux_fit_density,&
-                                              tddfpt_construct_ground_state_orb_density
-   USE qs_tddfpt2_eigensolver,          ONLY: tddfpt_davidson_solver,&
-                                              tddfpt_orthogonalize_psi1_psi0,&
-                                              tddfpt_orthonormalize_psi1_psi1
-   USE qs_tddfpt2_properties,           ONLY: tddfpt_dipole_operator,&
-                                              tddfpt_print_excitation_analysis,&
-                                              tddfpt_print_nto_analysis,&
-                                              tddfpt_print_summary
-   USE qs_tddfpt2_restart,              ONLY: tddfpt_read_restart,&
-                                              tddfpt_write_restart
-   USE qs_tddfpt2_stda_types,           ONLY: allocate_stda_env,&
-                                              deallocate_stda_env,&
-                                              stda_env_type,&
-                                              stda_init_param
-   USE qs_tddfpt2_stda_utils,           ONLY: stda_init_matrices
-   USE qs_tddfpt2_subgroups,            ONLY: tddfpt_sub_env_init,&
-                                              tddfpt_sub_env_release,&
-                                              tddfpt_subgroup_env_type
-   USE qs_tddfpt2_types,                ONLY: &
-        full_kernel_env_type, stda_create_work_matrices, tddfpt_create_kernel_env, &
-        tddfpt_create_work_matrices, tddfpt_ground_state_mos, tddfpt_kernel_env_type, &
-        tddfpt_release_kernel_env, tddfpt_release_work_matrices, tddfpt_work_matrices
-   USE qs_tddfpt2_utils,                ONLY: tddfpt_guess_vectors,&
-                                              tddfpt_init_mos,&
-                                              tddfpt_oecorr,&
-                                              tddfpt_release_ground_state_mos
-   USE string_utilities,                ONLY: integer_to_string
+   USE admm_types, ONLY: admm_type
+   USE bibliography, ONLY: Grimme2013, &
+                           Grimme2016, &
+                           Iannuzzi2005, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type, &
+                               tddfpt2_control_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_deallocate_matrix_set
+   USE cp_fm_pool_types, ONLY: fm_pool_create_fm
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_add_iter_level, &
+                                 cp_iterate, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr, &
+                                 cp_rm_iter_level
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE header, ONLY: tddfpt_header
+   USE input_constants, ONLY: tddfpt_dipole_velocity, &
+                              tddfpt_kernel_full, &
+                              tddfpt_kernel_stda
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE machine, ONLY: m_flush
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_mo_types, ONLY: mo_set_p_type
+   USE qs_scf_methods, ONLY: eigensolver
+   USE qs_scf_types, ONLY: qs_scf_env_type
+   USE qs_tddfpt2_densities, ONLY: tddfpt_construct_aux_fit_density, &
+                                   tddfpt_construct_ground_state_orb_density
+   USE qs_tddfpt2_eigensolver, ONLY: tddfpt_davidson_solver, &
+                                     tddfpt_orthogonalize_psi1_psi0, &
+                                     tddfpt_orthonormalize_psi1_psi1
+   USE qs_tddfpt2_properties, ONLY: tddfpt_dipole_operator, &
+                                    tddfpt_print_excitation_analysis, &
+                                    tddfpt_print_nto_analysis, &
+                                    tddfpt_print_summary
+   USE qs_tddfpt2_restart, ONLY: tddfpt_read_restart, &
+                                 tddfpt_write_restart
+   USE qs_tddfpt2_stda_types, ONLY: allocate_stda_env, &
+                                    deallocate_stda_env, &
+                                    stda_env_type, &
+                                    stda_init_param
+   USE qs_tddfpt2_stda_utils, ONLY: stda_init_matrices
+   USE qs_tddfpt2_subgroups, ONLY: tddfpt_sub_env_init, &
+                                   tddfpt_sub_env_release, &
+                                   tddfpt_subgroup_env_type
+   USE qs_tddfpt2_types, ONLY: &
+      full_kernel_env_type, stda_create_work_matrices, tddfpt_create_kernel_env, &
+      tddfpt_create_work_matrices, tddfpt_ground_state_mos, tddfpt_kernel_env_type, &
+      tddfpt_release_kernel_env, tddfpt_release_work_matrices, tddfpt_work_matrices
+   USE qs_tddfpt2_utils, ONLY: tddfpt_guess_vectors, &
+                               tddfpt_init_mos, &
+                               tddfpt_oecorr, &
+                               tddfpt_release_ground_state_mos
+   USE string_utilities, ONLY: integer_to_string
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

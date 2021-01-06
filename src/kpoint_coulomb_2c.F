@@ -13,25 +13,25 @@
 !> \author Jan Wilhelm
 ! **************************************************************************************************
 MODULE kpoint_coulomb_2c
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell,&
-                                              pbc
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_create, dbcsr_init_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
-        dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, &
-        dbcsr_release_p, dbcsr_reserve_all_blocks, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry
-   USE generic_shg_integrals,           ONLY: int_operators_r12_ab_shg
-   USE generic_shg_integrals_init,      ONLY: contraction_matrix_shg
-   USE kinds,                           ONLY: dp
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE mathconstants,                   ONLY: twopi
-   USE particle_types,                  ONLY: particle_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: gto_basis_set_type
+   USE cell_types, ONLY: cell_type, &
+                         get_cell, &
+                         pbc
+   USE dbcsr_api, ONLY: &
+      dbcsr_create, dbcsr_init_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
+      dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, &
+      dbcsr_release_p, dbcsr_reserve_all_blocks, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry
+   USE generic_shg_integrals, ONLY: int_operators_r12_ab_shg
+   USE generic_shg_integrals_init, ONLY: contraction_matrix_shg
+   USE kinds, ONLY: dp
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE mathconstants, ONLY: twopi
+   USE particle_types, ONLY: particle_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -130,7 +130,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'lattice_sum'
 
       INTEGER :: factor, handle, i_block, i_x, i_x_inner, i_x_outer, ik, j_y, j_y_inner, &
-         j_y_outer, k_z, k_z_inner, k_z_outer, nkp, x_max, x_min, y_max, y_min, z_max, z_min
+                 j_y_outer, k_z, k_z_inner, k_z_outer, nkp, x_max, x_min, y_max, y_min, z_max, z_min
       INTEGER, DIMENSION(3)                              :: nkp_grid, periodic
       REAL(KIND=dp)                                      :: coskl, sinkl
       REAL(KIND=dp), DIMENSION(3)                        :: vec_L, vec_s

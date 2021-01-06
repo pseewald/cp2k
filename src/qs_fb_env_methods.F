@@ -7,101 +7,101 @@
 
 MODULE qs_fb_env_methods
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_gemm,&
-                                              cp_fm_symm,&
-                                              cp_fm_triangular_invert,&
-                                              cp_fm_triangular_multiply,&
-                                              cp_fm_upper_to_full
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose,&
-                                              cp_fm_cholesky_reduce,&
-                                              cp_fm_cholesky_restore
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver,&
-                                              cp_fm_power
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_create, dbcsr_finalize, dbcsr_get_info, dbcsr_iterator_blocks_left, &
-        dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
-        dbcsr_multiply, dbcsr_p_type, dbcsr_release, dbcsr_reserve_blocks, dbcsr_set, dbcsr_type, &
-        dbcsr_type_no_symmetry
-   USE input_constants,                 ONLY: cholesky_dbcsr,&
-                                              cholesky_inverse,&
-                                              cholesky_off,&
-                                              cholesky_reduce,&
-                                              cholesky_restore
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE message_passing,                 ONLY: mp_max
-   USE orbital_pointers,                ONLY: nco,&
-                                              ncoset
-   USE particle_types,                  ONLY: particle_type
-   USE qs_diis,                         ONLY: qs_diis_b_step
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_fb_atomic_halo_types,         ONLY: &
-        fb_atomic_halo_build_halo_atoms, fb_atomic_halo_cost, fb_atomic_halo_create, &
-        fb_atomic_halo_list_create, fb_atomic_halo_list_nullify, fb_atomic_halo_list_obj, &
-        fb_atomic_halo_list_release, fb_atomic_halo_list_set, fb_atomic_halo_list_write_info, &
-        fb_atomic_halo_nelectrons_estimate_Z, fb_atomic_halo_nullify, fb_atomic_halo_obj, &
-        fb_atomic_halo_set, fb_atomic_halo_sort, fb_build_pair_radii
-   USE qs_fb_env_types,                 ONLY: fb_env_get,&
-                                              fb_env_has_data,&
-                                              fb_env_obj,&
-                                              fb_env_set
-   USE qs_fb_filter_matrix_methods,     ONLY: fb_fltrmat_build,&
-                                              fb_fltrmat_build_2
-   USE qs_fb_trial_fns_types,           ONLY: fb_trial_fns_create,&
-                                              fb_trial_fns_nullify,&
-                                              fb_trial_fns_obj,&
-                                              fb_trial_fns_release,&
-                                              fb_trial_fns_set
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_matrix_pools,                 ONLY: mpools_create,&
-                                              mpools_rebuild_fm_pools,&
-                                              mpools_release,&
-                                              qs_matrix_pools_type
-   USE qs_mo_methods,                   ONLY: calculate_density_matrix
-   USE qs_mo_occupation,                ONLY: set_mo_occupation
-   USE qs_mo_types,                     ONLY: allocate_mo_set,&
-                                              deallocate_mo_set,&
-                                              get_mo_set,&
-                                              init_mo_set,&
-                                              mo_set_p_type,&
-                                              mo_set_type,&
-                                              set_mo_set
-   USE qs_scf_types,                    ONLY: qs_scf_env_type
-   USE scf_control_types,               ONLY: scf_control_type
-   USE string_utilities,                ONLY: compress,&
-                                              uppercase
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cell_types, ONLY: cell_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_gemm, &
+                                 cp_fm_symm, &
+                                 cp_fm_triangular_invert, &
+                                 cp_fm_triangular_multiply, &
+                                 cp_fm_upper_to_full
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose, &
+                             cp_fm_cholesky_reduce, &
+                             cp_fm_cholesky_restore
+   USE cp_fm_diag, ONLY: choose_eigv_solver, &
+                         cp_fm_power
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE dbcsr_api, ONLY: &
+      dbcsr_create, dbcsr_finalize, dbcsr_get_info, dbcsr_iterator_blocks_left, &
+      dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
+      dbcsr_multiply, dbcsr_p_type, dbcsr_release, dbcsr_reserve_blocks, dbcsr_set, dbcsr_type, &
+      dbcsr_type_no_symmetry
+   USE input_constants, ONLY: cholesky_dbcsr, &
+                              cholesky_inverse, &
+                              cholesky_off, &
+                              cholesky_reduce, &
+                              cholesky_restore
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE message_passing, ONLY: mp_max
+   USE orbital_pointers, ONLY: nco, &
+                               ncoset
+   USE particle_types, ONLY: particle_type
+   USE qs_diis, ONLY: qs_diis_b_step
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_fb_atomic_halo_types, ONLY: &
+      fb_atomic_halo_build_halo_atoms, fb_atomic_halo_cost, fb_atomic_halo_create, &
+      fb_atomic_halo_list_create, fb_atomic_halo_list_nullify, fb_atomic_halo_list_obj, &
+      fb_atomic_halo_list_release, fb_atomic_halo_list_set, fb_atomic_halo_list_write_info, &
+      fb_atomic_halo_nelectrons_estimate_Z, fb_atomic_halo_nullify, fb_atomic_halo_obj, &
+      fb_atomic_halo_set, fb_atomic_halo_sort, fb_build_pair_radii
+   USE qs_fb_env_types, ONLY: fb_env_get, &
+                              fb_env_has_data, &
+                              fb_env_obj, &
+                              fb_env_set
+   USE qs_fb_filter_matrix_methods, ONLY: fb_fltrmat_build, &
+                                          fb_fltrmat_build_2
+   USE qs_fb_trial_fns_types, ONLY: fb_trial_fns_create, &
+                                    fb_trial_fns_nullify, &
+                                    fb_trial_fns_obj, &
+                                    fb_trial_fns_release, &
+                                    fb_trial_fns_set
+   USE qs_integral_utils, ONLY: basis_set_list_setup
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_matrix_pools, ONLY: mpools_create, &
+                              mpools_rebuild_fm_pools, &
+                              mpools_release, &
+                              qs_matrix_pools_type
+   USE qs_mo_methods, ONLY: calculate_density_matrix
+   USE qs_mo_occupation, ONLY: set_mo_occupation
+   USE qs_mo_types, ONLY: allocate_mo_set, &
+                          deallocate_mo_set, &
+                          get_mo_set, &
+                          init_mo_set, &
+                          mo_set_p_type, &
+                          mo_set_type, &
+                          set_mo_set
+   USE qs_scf_types, ONLY: qs_scf_env_type
+   USE scf_control_types, ONLY: scf_control_type
+   USE string_utilities, ONLY: compress, &
+                               uppercase
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -145,18 +145,18 @@ CONTAINS
       CHARACTER(len=2)                                   :: spin_string
       CHARACTER(len=default_string_length)               :: name
       INTEGER :: filtered_nfullrowsORcols_total, handle, homo_filtered, ispin, lfomo_filtered, &
-         my_nmo, ndep, nelectron, nmo, nmo_filtered, nspin, original_nfullrowsORcols_total
+                 my_nmo, ndep, nelectron, nmo, nmo_filtered, nspin, original_nfullrowsORcols_total
       INTEGER, DIMENSION(:), POINTER                     :: filtered_rowORcol_block_sizes, &
                                                             original_rowORcol_block_sizes
       LOGICAL                                            :: collective_com
       REAL(kind=dp) :: diis_error, eps_default, eps_diis, eps_eigval, fermi_level, filter_temp, &
-         flexible_electron_count, KTS_filtered, maxocc, mu_filtered
+                       flexible_electron_count, KTS_filtered, maxocc, mu_filtered
       REAL(KIND=dp), DIMENSION(:), POINTER               :: eigenvalues, eigenvalues_filtered, occ, &
                                                             occ_filtered
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_fm_struct_type), POINTER                   :: filter_fm_struct, fm_struct
       TYPE(cp_fm_type), POINTER :: fm_matrix_filter, fm_matrix_filtered_ks, fm_matrix_filtered_s, &
-         fm_matrix_ortho, fm_matrix_work, mo_coeff, mo_coeff_filtered
+                                   fm_matrix_ortho, fm_matrix_work, mo_coeff, mo_coeff_filtered
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_filter
       TYPE(dbcsr_type)                                   :: matrix_filtered_ks, matrix_filtered_s, &
@@ -858,7 +858,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'fb_env_build_atomic_halos'
 
       INTEGER :: handle, iatom, ihalo, max_natoms_local, natoms_global, natoms_local, nelectrons, &
-         nhalo_atoms, nkinds_global, owner_id_in_halo
+                 nhalo_atoms, nkinds_global, owner_id_in_halo
       INTEGER, DIMENSION(:), POINTER                     :: halo_atoms, local_atoms
       REAL(KIND=dp)                                      :: cost
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: pair_radii

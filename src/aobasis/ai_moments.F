@@ -29,14 +29,14 @@ MODULE ai_moments
 ! zet{a,b}  : Exponents of the Gaussian-type functions a or b.
 ! zetp      : Reciprocal of the sum of the exponents of orbital a and b.
 
-   USE ai_derivatives,                  ONLY: adbdr,&
-                                              dabdr
-   USE ai_overlap,                      ONLY: overlap
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE orbital_pointers,                ONLY: coset,&
-                                              indco,&
-                                              ncoset
+   USE ai_derivatives, ONLY: adbdr, &
+                             dabdr
+   USE ai_overlap, ONLY: overlap
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE orbital_pointers, ONLY: coset, &
+                               indco, &
+                               ncoset
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -165,15 +165,15 @@ CONTAINS
          OPTIONAL                                        :: dcosab, dsinab
 
       INTEGER :: ax, ay, az, bx, by, bz, cda, cdax, cday, cdaz, coa, coamx, coamy, coamz, coapx, &
-         coapy, coapz, cob, da, da_max, dax, day, daz, i, ipgf, j, jpgf, k, la, la_max, la_min, &
-         la_start, lb, lb_start, na, nb
+                 coapy, coapz, cob, da, da_max, dax, day, daz, i, ipgf, j, jpgf, k, la, la_max, la_min, &
+                 la_start, lb, lb_start, na, nb
       REAL(KIND=dp)                                      :: dab, f0, f1, f2, f3, fax, fay, faz, ftz, &
                                                             fx, fy, fz, k2, kdp, rab2, s, zetp
       REAL(KIND=dp), DIMENSION(3)                        :: rab, rap, rbp
       REAL(KIND=dp), DIMENSION(ncoset(la_max_set), &
-         ncoset(lb_max), 3)                              :: dscos, dssin
+                               ncoset(lb_max), 3)                              :: dscos, dssin
       REAL(KIND=dp), &
-         DIMENSION(ncoset(la_max_set+1), ncoset(lb_max)) :: sc, ss
+         DIMENSION(ncoset(la_max_set + 1), ncoset(lb_max)) :: sc, ss
 
       rab = rbc - rac
       rab2 = SUM(rab**2)
@@ -815,8 +815,8 @@ CONTAINS
       REAL(KIND=dp)                                      :: dab, f0, f1, f2, f2x, f2y, f2z, f3, fx, &
                                                             fy, fz, rab2, zetp
       REAL(KIND=dp), DIMENSION(3)                        :: rab, rap, rbp, rpc
-      REAL(KIND=dp), DIMENSION(ncoset(la_max), ncoset(&
-         lb_max), ncoset(lc_max))                        :: s
+      REAL(KIND=dp), DIMENSION(ncoset(la_max), ncoset( &
+                               lb_max), ncoset(lc_max))                        :: s
 
       rab = rbc - rac
       rab2 = SUM(rab**2)
@@ -1344,8 +1344,8 @@ CONTAINS
       INTEGER                                            :: lda_min, ldb_min, lds, lmax
       REAL(KIND=dp)                                      :: dab, rab2
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: s
-      REAL(KIND=dp), DIMENSION(npgfa*ncoset(la_max+1), &
-         npgfb*ncoset(lb_max+1))                         :: sab
+      REAL(KIND=dp), DIMENSION(npgfa*ncoset(la_max + 1), &
+                               npgfb*ncoset(lb_max + 1))                         :: sab
 
       rab2 = SUM(rab**2)
       dab = SQRT(rab2)

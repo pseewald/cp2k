@@ -15,43 +15,43 @@
 !> \author CJM
 ! **************************************************************************************************
 MODULE fist_nonbond_force
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE atprop_types,                    ONLY: atprop_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_environment_type
-   USE fist_neighbor_list_types,        ONLY: fist_neighbor_type,&
-                                              neighbor_kind_pairs_type
-   USE fist_nonbond_env_types,          ONLY: fist_nonbond_env_get,&
-                                              fist_nonbond_env_type,&
-                                              pos_type
-   USE kinds,                           ONLY: dp
-   USE machine,                         ONLY: m_memory
-   USE mathconstants,                   ONLY: oorootpi,&
-                                              sqrthalf
-   USE mathlib,                         ONLY: matvec_3x3
-   USE message_passing,                 ONLY: mp_sum
-   USE pair_potential_coulomb,          ONLY: potential_coulomb
-   USE pair_potential_types,            ONLY: gal_type,&
-                                              nosh_nosh,&
-                                              nosh_sh,&
-                                              pair_potential_pp_type,&
-                                              pair_potential_single_type,&
-                                              sh_sh,&
-                                              siepmann_type,&
-                                              tersoff_type
-   USE particle_types,                  ONLY: particle_type
-   USE shell_potential_types,           ONLY: get_shell,&
-                                              shell_kind_type
-   USE splines_methods,                 ONLY: potential_s
-   USE splines_types,                   ONLY: spline_data_p_type,&
-                                              spline_factor_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE atprop_types, ONLY: atprop_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_environment_type
+   USE fist_neighbor_list_types, ONLY: fist_neighbor_type, &
+                                       neighbor_kind_pairs_type
+   USE fist_nonbond_env_types, ONLY: fist_nonbond_env_get, &
+                                     fist_nonbond_env_type, &
+                                     pos_type
+   USE kinds, ONLY: dp
+   USE machine, ONLY: m_memory
+   USE mathconstants, ONLY: oorootpi, &
+                            sqrthalf
+   USE mathlib, ONLY: matvec_3x3
+   USE message_passing, ONLY: mp_sum
+   USE pair_potential_coulomb, ONLY: potential_coulomb
+   USE pair_potential_types, ONLY: gal_type, &
+                                   nosh_nosh, &
+                                   nosh_sh, &
+                                   pair_potential_pp_type, &
+                                   pair_potential_single_type, &
+                                   sh_sh, &
+                                   siepmann_type, &
+                                   tersoff_type
+   USE particle_types, ONLY: particle_type
+   USE shell_potential_types, ONLY: get_shell, &
+                                    shell_kind_type
+   USE splines_methods, ONLY: potential_s
+   USE splines_types, ONLY: spline_data_p_type, &
+                            spline_factor_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -101,14 +101,14 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'force_nonbond'
 
       INTEGER :: atom_a, atom_b, ewald_type, handle, i, iend, igrp, ikind, ilist, ipair, istart, &
-         j, kind_a, kind_b, nkind, npairs, shell_a, shell_b, shell_type
+                 j, kind_a, kind_b, nkind, npairs, shell_a, shell_b, shell_type
       INTEGER, DIMENSION(:, :), POINTER                  :: list
       LOGICAL                                            :: all_terms, do_multipoles, full_nl, &
                                                             shell_present
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: is_shell_kind
       REAL(KIND=dp) :: alpha, beta, beta_a, beta_b, energy, etot, fac_ei, fac_kind, fac_vdw, &
-         fscalar, mm_radius_a, mm_radius_b, qcore_a, qcore_b, qeff_a, qeff_b, qshell_a, qshell_b, &
-         rab2, rab2_com, rab2_max
+                       fscalar, mm_radius_a, mm_radius_b, qcore_a, qcore_b, qeff_a, qeff_b, qshell_a, qshell_b, &
+                       rab2, rab2_com, rab2_max
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: mm_radius, qcore, qeff, qshell
       REAL(KIND=dp), DIMENSION(3)                        :: cell_v, cvi, fatom_a, fatom_b, fcore_a, &
                                                             fcore_b, fshell_a, fshell_b, rab, &
@@ -664,7 +664,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'bonded_correct_gaussian'
 
       INTEGER :: atom_a, atom_b, group, handle, iatom, iend, igrp, ilist, ipair, istart, kind_a, &
-         kind_b, natoms_per_kind, nkind, npairs, shell_a, shell_b
+                 kind_b, natoms_per_kind, nkind, npairs, shell_a, shell_b
       INTEGER, DIMENSION(:, :), POINTER                  :: list
       LOGICAL                                            :: a_is_shell, b_is_shell, do_multipoles, &
                                                             full_nl, shell_adiabatic
@@ -921,7 +921,7 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: use_virial
 
       REAL(KIND=dp), PARAMETER :: ac1 = 0.254829592_dp, ac2 = -0.284496736_dp, &
-         ac3 = 1.421413741_dp, ac4 = -1.453152027_dp, ac5 = 1.061405429_dp, pc = 0.3275911_dp
+                                  ac3 = 1.421413741_dp, ac4 = -1.453152027_dp, ac5 = 1.061405429_dp, pc = 0.3275911_dp
 
       INTEGER                                            :: iatom, jatom
       REAL(KIND=dp)                                      :: arg, dij, e_arg_arg, errf, fscalar, &
@@ -1024,7 +1024,7 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: use_virial
 
       REAL(KIND=dp), PARAMETER :: ac1 = 0.254829592_dp, ac2 = -0.284496736_dp, &
-         ac3 = 1.421413741_dp, ac4 = -1.453152027_dp, ac5 = 1.061405429_dp, pc = 0.3275911_dp
+                                  ac3 = 1.421413741_dp, ac4 = -1.453152027_dp, ac5 = 1.061405429_dp, pc = 0.3275911_dp
 
       INTEGER                                            :: iatom
       REAL(KIND=dp)                                      :: arg, dij, e_arg_arg, efac, errf, ffac, &

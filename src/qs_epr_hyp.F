@@ -13,55 +13,55 @@
 !> \author R. Declerck (Reinout.Declerck@UGent.be)
 ! **************************************************************************************************
 MODULE qs_epr_hyp
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fourpi
-   USE message_passing,                 ONLY: mp_sum,&
-                                              mp_sync
-   USE particle_types,                  ONLY: particle_type
-   USE periodic_table,                  ONLY: ptable
-   USE physcon,                         ONLY: a_bohr,&
-                                              a_fine,&
-                                              e_charge,&
-                                              e_gfactor,&
-                                              e_mass,&
-                                              h_bar,&
-                                              mu_perm
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_dr2_gg,&
-                                              pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_grid_atom,                    ONLY: grid_atom_type
-   USE qs_harmonics_atom,               ONLY: harmonics_atom_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_rho_atom_types,               ONLY: get_rho_atom,&
-                                              rho_atom_coeff,&
-                                              rho_atom_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE util,                            ONLY: get_limit
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fourpi
+   USE message_passing, ONLY: mp_sum, &
+                              mp_sync
+   USE particle_types, ONLY: particle_type
+   USE periodic_table, ONLY: ptable
+   USE physcon, ONLY: a_bohr, &
+                      a_fine, &
+                      e_charge, &
+                      e_gfactor, &
+                      e_mass, &
+                      h_bar, &
+                      mu_perm
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_dr2_gg, &
+                         pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_grid_atom, ONLY: grid_atom_type
+   USE qs_harmonics_atom, ONLY: harmonics_atom_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_rho_atom_types, ONLY: get_rho_atom, &
+                                rho_atom_coeff, &
+                                rho_atom_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE util, ONLY: get_limit
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -375,7 +375,7 @@ CONTAINS
                "             ", hypaniso(1, 1, iatom), hypaniso(1, 2, iatom), hypaniso(1, 3, iatom), &
                "  A_ani [Mhz]", hypaniso(2, 1, iatom), hypaniso(2, 2, iatom), hypaniso(2, 3, iatom), &
                "             ", hypaniso(3, 1, iatom), hypaniso(3, 2, iatom), hypaniso(3, 3, iatom)
-         ENDDO
+         END DO
       END IF
 
       ! Deallocate the remainings ...

@@ -21,54 +21,54 @@
 !>         Extension to a subspace of collective variables
 ! **************************************************************************************************
 MODULE neb_methods
-   USE colvar_utils,                    ONLY: number_of_colvar
-   USE cp_external_control,             ONLY: external_control
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_add_iter_level,&
-                                              cp_iterate,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr,&
-                                              cp_rm_iter_level
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_type
-   USE f77_interface,                   ONLY: f_env_add_defaults,&
-                                              f_env_rm_defaults,&
-                                              f_env_type
-   USE force_env_types,                 ONLY: force_env_get
-   USE global_types,                    ONLY: global_environment_type
-   USE header,                          ONLY: band_header
-   USE input_constants,                 ONLY: band_diis_opt,&
-                                              band_md_opt,&
-                                              do_rep_blocked,&
-                                              do_sm
-   USE input_section_types,             ONLY: section_type,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE neb_io,                          ONLY: dump_neb_info,&
-                                              neb_rep_env_map_info,&
-                                              read_neb_section
-   USE neb_md_utils,                    ONLY: control_vels_a,&
-                                              control_vels_b
-   USE neb_opt_utils,                   ONLY: accept_diis_step,&
-                                              neb_ls
-   USE neb_types,                       ONLY: neb_type,&
-                                              neb_var_create,&
-                                              neb_var_release,&
-                                              neb_var_type
-   USE neb_utils,                       ONLY: build_replica_coords,&
-                                              check_convergence,&
-                                              neb_calc_energy_forces,&
-                                              reorient_images,&
-                                              reparametrize_images
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: massunit
-   USE replica_methods,                 ONLY: rep_env_create
-   USE replica_types,                   ONLY: rep_env_release,&
-                                              replica_env_type
+   USE colvar_utils, ONLY: number_of_colvar
+   USE cp_external_control, ONLY: external_control
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_add_iter_level, &
+                                 cp_iterate, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr, &
+                                 cp_rm_iter_level
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_type
+   USE f77_interface, ONLY: f_env_add_defaults, &
+                            f_env_rm_defaults, &
+                            f_env_type
+   USE force_env_types, ONLY: force_env_get
+   USE global_types, ONLY: global_environment_type
+   USE header, ONLY: band_header
+   USE input_constants, ONLY: band_diis_opt, &
+                              band_md_opt, &
+                              do_rep_blocked, &
+                              do_sm
+   USE input_section_types, ONLY: section_type, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE neb_io, ONLY: dump_neb_info, &
+                     neb_rep_env_map_info, &
+                     read_neb_section
+   USE neb_md_utils, ONLY: control_vels_a, &
+                           control_vels_b
+   USE neb_opt_utils, ONLY: accept_diis_step, &
+                            neb_ls
+   USE neb_types, ONLY: neb_type, &
+                        neb_var_create, &
+                        neb_var_release, &
+                        neb_var_type
+   USE neb_utils, ONLY: build_replica_coords, &
+                        check_convergence, &
+                        neb_calc_energy_forces, &
+                        reorient_images, &
+                        reparametrize_images
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: massunit
+   USE replica_methods, ONLY: rep_env_create
+   USE replica_types, ONLY: rep_env_release, &
+                            replica_env_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -132,7 +132,7 @@ CONTAINS
                       TRIM(ADJUSTL(cp_to_string(prep)))//") and the number of replicas ("// &
                       TRIM(ADJUSTL(cp_to_string(nrep)))//") . ["// &
                       TRIM(ADJUSTL(cp_to_string(para_env%num_pe - nrep*prep)))//"] processors will be wasted!")
-      ENDIF
+      END IF
       force_env_section => section_vals_get_subs_vals(input, "FORCE_EVAL")
       ! Create Replica Environments
       IF (output_unit > 0) WRITE (output_unit, '(T2,"NEB|",A)') " Replica_env Setup. START"

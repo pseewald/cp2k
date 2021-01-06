@@ -11,51 +11,51 @@
 ! *****************************************************************************
 MODULE qs_basis_gradient
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set
-   USE cp_fm_types,                     ONLY: cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set,&
-                                              dbcsr_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp
-   USE particle_types,                  ONLY: particle_type
-   USE qs_core_hamiltonian,             ONLY: build_core_hamiltonian_matrix
-   USE qs_energy_matrix_w,              ONLY: qs_energies_compute_w
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: allocate_qs_force,&
-                                              deallocate_qs_force,&
-                                              qs_force_type,&
-                                              replicate_qs_force,&
-                                              zero_qs_force
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_methods,                   ONLY: qs_ks_allocate_basics,&
-                                              qs_ks_update_qs_env
-   USE qs_ks_types,                     ONLY: qs_ks_env_type,&
-                                              set_ks_env
-   USE qs_mixing_utils,                 ONLY: mixing_allocate
-   USE qs_mo_methods,                   ONLY: calculate_density_matrix,&
-                                              make_basis_sm
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_neighbor_lists,               ONLY: build_qs_neighbor_lists
-   USE qs_rho_methods,                  ONLY: qs_rho_update_rho
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_set,&
-                                              qs_rho_type
-   USE qs_scf_types,                    ONLY: qs_scf_env_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_set,&
-                                              qs_subsys_type
-   USE qs_update_s_mstruct,             ONLY: qs_env_update_s_mstruct
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set
+   USE cp_fm_types, ONLY: cp_fm_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_p_type, &
+                        dbcsr_set, &
+                        dbcsr_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp
+   USE particle_types, ONLY: particle_type
+   USE qs_core_hamiltonian, ONLY: build_core_hamiltonian_matrix
+   USE qs_energy_matrix_w, ONLY: qs_energies_compute_w
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: allocate_qs_force, &
+                             deallocate_qs_force, &
+                             qs_force_type, &
+                             replicate_qs_force, &
+                             zero_qs_force
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_methods, ONLY: qs_ks_allocate_basics, &
+                            qs_ks_update_qs_env
+   USE qs_ks_types, ONLY: qs_ks_env_type, &
+                          set_ks_env
+   USE qs_mixing_utils, ONLY: mixing_allocate
+   USE qs_mo_methods, ONLY: calculate_density_matrix, &
+                            make_basis_sm
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_neighbor_lists, ONLY: build_qs_neighbor_lists
+   USE qs_rho_methods, ONLY: qs_rho_update_rho
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_set, &
+                           qs_rho_type
+   USE qs_scf_types, ONLY: qs_scf_env_type
+   USE qs_subsys_types, ONLY: qs_subsys_set, &
+                              qs_subsys_type
+   USE qs_update_s_mstruct, ONLY: qs_env_update_s_mstruct
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -156,8 +156,8 @@ CONTAINS
                END DO
             END DO
             CALL set_ks_env(ks_env, matrix_w_kp=matrix_w_kp)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
       ! time to compute the w matrix
       CALL qs_energies_compute_w(qs_env, .TRUE.)
 

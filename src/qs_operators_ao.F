@@ -11,40 +11,40 @@
 !> \author MI (07.2005)
 ! **************************************************************************************************
 MODULE qs_operators_ao
-   USE ai_moments,                      ONLY: diff_momop,&
-                                              diffop,&
-                                              moment
-   USE ai_os_rr,                        ONLY: os_rr_ovlp
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE block_p_types,                   ONLY: block_p_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_get_matrix_type,&
-                                              dbcsr_p_type,&
-                                              dbcsr_type_antisymmetric,&
-                                              dbcsr_type_no_symmetry
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE orbital_pointers,                ONLY: coset,&
-                                              init_orbital_pointers,&
-                                              ncoset
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
+   USE ai_moments, ONLY: diff_momop, &
+                         diffop, &
+                         moment
+   USE ai_os_rr, ONLY: os_rr_ovlp
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE block_p_types, ONLY: block_p_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_get_block_p, &
+                        dbcsr_get_matrix_type, &
+                        dbcsr_p_type, &
+                        dbcsr_type_antisymmetric, &
+                        dbcsr_type_no_symmetry
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE orbital_pointers, ONLY: coset, &
+                               init_orbital_pointers, &
+                               ncoset
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -76,8 +76,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'build_lin_mom_matrix'
 
       INTEGER :: handle, i, iatom, icol, ikind, inode, irow, iset, jatom, jkind, jset, last_jatom, &
-         ldai, maxco, maxlgto, maxsgf, natom, ncoa, ncob, neighbor_list_id, nkind, nseta, nsetb, &
-         sgfa, sgfb
+                 ldai, maxco, maxlgto, maxsgf, natom, ncoa, ncob, neighbor_list_id, nkind, nseta, nsetb, &
+                 sgfa, sgfb
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, lb_min, npgfa, &
                                                             npgfb, nsgfa, nsgfb
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, first_sgfb
@@ -198,7 +198,7 @@ CONTAINS
                CALL dbcsr_get_block_p(matrix=matrix(i)%matrix, &
                                       row=irow, col=icol, BLOCK=integral(i)%block, found=found)
                CPASSERT(ASSOCIATED(INTEGRAL(i)%block))
-            ENDDO
+            END DO
          END IF
 
          rab2 = rab(1)*rab(1) + rab(2)*rab(2) + rab(3)*rab(3)
@@ -249,13 +249,13 @@ CONTAINS
                                 1.0_dp, integral(i)%block(sgfb, sgfa), &
                                 SIZE(integral(i)%block, 1))
 
-                  ENDIF
+                  END IF
 
-               ENDDO
+               END DO
 
-            ENDDO
+            END DO
 
-         ENDDO
+         END DO
 
       END DO
       CALL neighbor_list_iterator_release(nl_iterator)
@@ -311,7 +311,7 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(3), INTENT(IN)            :: rab
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: intab
       INTEGER, INTENT(IN)                                :: ldrr
-      REAL(dp), DIMENSION(0:ldrr-1, 0:ldrr-1, 3), &
+      REAL(dp), DIMENSION(0:ldrr - 1, 0:ldrr - 1, 3), &
          INTENT(INOUT)                                   :: rr
 
       INTEGER                                            :: ax, ay, az, bx, by, bz, coa, cob, i, &
@@ -342,11 +342,11 @@ CONTAINS
                      intab(i, j, 1) = 0.0_dp
                      intab(i, j, 2) = 0.0_dp
                      intab(i, j, 3) = 0.0_dp
-                  ENDDO
-               ENDDO
+                  END DO
+               END DO
                nb = nb + ncoset(lb_max)
                CYCLE
-            ENDIF
+            END IF
 
             ! *** Calculate some prefactors ***
             zet = zeta(ipgf) + zetb(jpgf)
@@ -390,21 +390,21 @@ CONTAINS
                   IF (az .GT. 0) dumz = dumz - REAL(az, dp)*rr(az - 1, bz, 3)
                   intab(ma, mb, 3) = f0*rr(ax, bx, 1)*rr(ay, by, 2)*dumz
                   !
-               ENDDO
-               ENDDO
-               ENDDO !la
+               END DO
+               END DO
+               END DO !la
 
-            ENDDO
-            ENDDO
-            ENDDO !lb
+            END DO
+            END DO
+            END DO !lb
 
             nb = nb + ncoset(lb_max)
 
-         ENDDO
+         END DO
 
          na = na + ncoset(la_max)
 
-      ENDDO
+      END DO
 
    END SUBROUTINE lin_mom
 
@@ -428,8 +428,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'build_ang_mom_matrix'
 
       INTEGER :: handle, i, iatom, icol, ikind, inode, irow, iset, jatom, jkind, jset, last_jatom, &
-         ldai, maxco, maxlgto, maxsgf, natom, ncoa, ncob, neighbor_list_id, nkind, nseta, nsetb, &
-         sgfa, sgfb
+                 ldai, maxco, maxlgto, maxsgf, natom, ncoa, ncob, neighbor_list_id, nkind, nseta, nsetb, &
+                 sgfa, sgfb
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, lb_min, npgfa, &
                                                             npgfb, nsgfa, nsgfb
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, first_sgfb
@@ -552,7 +552,7 @@ CONTAINS
                CALL dbcsr_get_block_p(matrix=matrix(i)%matrix, &
                                       row=irow, col=icol, BLOCK=INTEGRAL(i)%block, found=found)
                CPASSERT(ASSOCIATED(INTEGRAL(i)%block))
-            ENDDO
+            END DO
          END IF
 
          rab2 = rab(1)*rab(1) + rab(2)*rab(2) + rab(3)*rab(3)
@@ -615,11 +615,11 @@ CONTAINS
                   !
                   !ENDIF
 
-               ENDDO
+               END DO
 
-            ENDDO
+            END DO
 
-         ENDDO
+         END DO
 
       END DO
       CALL neighbor_list_iterator_release(nl_iterator)
@@ -676,7 +676,7 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(3), INTENT(IN)            :: rab, rac
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: intab
       INTEGER, INTENT(IN)                                :: ldrr
-      REAL(dp), DIMENSION(0:ldrr-1, 0:ldrr-1, 3), &
+      REAL(dp), DIMENSION(0:ldrr - 1, 0:ldrr - 1, 3), &
          INTENT(INOUT)                                   :: rr
 
       INTEGER                                            :: ax, ay, az, bx, by, bz, coa, cob, i, &
@@ -707,11 +707,11 @@ CONTAINS
                      intab(i, j, 1) = 0.0_dp
                      intab(i, j, 2) = 0.0_dp
                      intab(i, j, 3) = 0.0_dp
-                  ENDDO
-               ENDDO
+                  END DO
+               END DO
                nb = nb + ncoset(lb_max)
                CYCLE
-            ENDIF
+            END IF
 
             ! *** Calculate some prefactors ***
             zet = zeta(ipgf) + zetb(jpgf)
@@ -762,21 +762,21 @@ CONTAINS
                        &  (rr(ax + 1, bx, 1) + rac(1)*rr(ax, bx, 1))*dumy &
                        & - (rr(ay + 1, by, 2) + rac(2)*rr(ay, by, 2))*dumx)
                   !
-               ENDDO
-               ENDDO
-               ENDDO !la
+               END DO
+               END DO
+               END DO !la
 
-            ENDDO
-            ENDDO
-            ENDDO !lb
+            END DO
+            END DO
+            END DO !lb
 
             nb = nb + ncoset(lb_max)
 
-         ENDDO
+         END DO
 
          na = na + ncoset(la_max)
 
-      ENDDO
+      END DO
 
    END SUBROUTINE ang_mom
 
@@ -802,7 +802,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'p_xyz_ao'
 
       INTEGER :: handle, i, iatom, icol, ikind, inode, irow, iset, jatom, jkind, jset, last_jatom, &
-         ldab, ldsa, ldsb, ldwork, maxl, ncoa, ncob, nkind, nseta, nsetb, sgfa, sgfb
+                 ldab, ldsa, ldsb, ldwork, maxl, ncoa, ncob, nkind, nseta, nsetb, sgfa, sgfb
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, lb_min, npgfa, &
                                                             npgfb, nsgfa, nsgfb
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, first_sgfb
@@ -1070,8 +1070,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'rRc_xyz_ao'
 
       INTEGER :: handle, iatom, icol, ikind, imom, inode, irow, iset, jatom, jkind, jset, &
-         last_jatom, ldab, ldsa, ldsb, ldwork, M_dim, maxl, ncoa, ncob, nkind, nseta, nsetb, sgfa, &
-         sgfb, smom
+                 last_jatom, ldab, ldsa, ldsb, ldwork, M_dim, maxl, ncoa, ncob, nkind, nseta, nsetb, sgfa, &
+                 sgfb, smom
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, npgfa, npgfb, &
                                                             nsgfa, nsgfb
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, first_sgfb
@@ -1332,8 +1332,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'rRc_xyz_der_ao'
 
       INTEGER :: handle, i, iatom, icol, idir, ikind, imom, inode, ipgf, irow, iset, j, jatom, &
-         jkind, jpgf, jset, last_jatom, lda_min, ldab, ldb_min, ldsa, ldsb, ldwork, M_dim, maxl, &
-         na, nb, ncoa, ncob, nda, ndb, nkind, nseta, nsetb, sgfa, sgfb
+                 jkind, jpgf, jset, last_jatom, lda_min, ldab, ldb_min, ldsa, ldsb, ldwork, M_dim, maxl, &
+                 na, nb, ncoa, ncob, nda, ndb, nkind, nseta, nsetb, sgfa, sgfb
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, lb_min, npgfa, &
                                                             npgfb, nsgfa, nsgfb
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, first_sgfb

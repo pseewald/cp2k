@@ -11,22 +11,22 @@
 ! **************************************************************************************************
 MODULE constraint_3x3
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE constraint_fxd,                  ONLY: check_fixed_atom_cns_g3x3
-   USE kinds,                           ONLY: dp
-   USE linear_systems,                  ONLY: solve_system
-   USE mathlib,                         ONLY: dotprod_3d,&
-                                              matvec_3x3
-   USE molecule_kind_types,             ONLY: fixd_constraint_type,&
-                                              g3x3_constraint_type,&
-                                              get_molecule_kind,&
-                                              molecule_kind_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              global_constraint_type,&
-                                              local_g3x3_constraint_type,&
-                                              molecule_type
-   USE particle_types,                  ONLY: particle_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE constraint_fxd, ONLY: check_fixed_atom_cns_g3x3
+   USE kinds, ONLY: dp
+   USE linear_systems, ONLY: solve_system
+   USE mathlib, ONLY: dotprod_3d, &
+                      matvec_3x3
+   USE molecule_kind_types, ONLY: fixd_constraint_type, &
+                                  g3x3_constraint_type, &
+                                  get_molecule_kind, &
+                                  molecule_kind_type
+   USE molecule_types, ONLY: get_molecule, &
+                             global_constraint_type, &
+                             local_g3x3_constraint_type, &
+                             molecule_type
+   USE particle_types, ONLY: particle_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

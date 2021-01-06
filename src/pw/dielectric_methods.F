@@ -13,36 +13,36 @@
 ! **************************************************************************************************
 MODULE dielectric_methods
 
-   USE dct,                             ONLY: pw_expand
-   USE dielectric_types,                ONLY: &
-        derivative_cd3, derivative_cd5, derivative_cd7, derivative_fft, derivative_fft_use_deps, &
-        derivative_fft_use_drho, dielectric_parameters, dielectric_type, rho_dependent, &
-        spatially_dependent, spatially_rho_dependent
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: twopi
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_derive,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create,&
-                                              pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_release,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
-   USE realspace_grid_types,            ONLY: realspace_grid_type
-   USE rs_methods,                      ONLY: derive_fdm_cd3,&
-                                              derive_fdm_cd5,&
-                                              derive_fdm_cd7,&
-                                              pw_mollifier,&
-                                              setup_grid_axes
+   USE dct, ONLY: pw_expand
+   USE dielectric_types, ONLY: &
+      derivative_cd3, derivative_cd5, derivative_cd7, derivative_fft, derivative_fft_use_deps, &
+      derivative_fft_use_drho, dielectric_parameters, dielectric_type, rho_dependent, &
+      spatially_dependent, spatially_rho_dependent
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: twopi
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_derive, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create, &
+                            pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_release, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_type
+   USE realspace_grid_types, ONLY: realspace_grid_type
+   USE rs_methods, ONLY: derive_fdm_cd3, &
+                         derive_fdm_cd5, &
+                         derive_fdm_cd7, &
+                         pw_mollifier, &
+                         setup_grid_axes
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -834,8 +834,8 @@ CONTAINS
       CALL dielectric_constant_sccs(rho, swch_func, dswch_func_drho, 2.0_dp, &
                                     dielectric_params%rho_max, dielectric_params%rho_min)
 
-      eps%cr3d = ((swch_func%cr3d-1.0_dp)*(eps_sptldep%cr3d-1.0_dp)) + 1.0_dp
-      deps_drho%cr3d = dswch_func_drho%cr3d*(eps_sptldep%cr3d-1.0_dp)
+      eps%cr3d = ((swch_func%cr3d - 1.0_dp)*(eps_sptldep%cr3d - 1.0_dp)) + 1.0_dp
+      deps_drho%cr3d = dswch_func_drho%cr3d*(eps_sptldep%cr3d - 1.0_dp)
 
       CALL pw_pool_give_back_pw(pw_pool, dswch_func_drho)
       CALL pw_pool_give_back_pw(pw_pool, swch_func)

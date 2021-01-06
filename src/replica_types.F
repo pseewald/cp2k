@@ -19,26 +19,26 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE replica_types
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_rm_iter_level
-   USE cp_para_env,                     ONLY: cp_cart_release,&
-                                              cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_cart_type,&
-                                              cp_para_env_type
-   USE cp_result_methods,               ONLY: cp_results_mp_bcast
-   USE cp_result_types,                 ONLY: cp_result_p_type,&
-                                              cp_result_release
-   USE f77_interface,                   ONLY: destroy_force_env,&
-                                              f_env_add_defaults,&
-                                              f_env_rm_defaults,&
-                                              f_env_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE message_passing,                 ONLY: mp_sum
-   USE qs_wf_history_types,             ONLY: qs_wf_history_p_type,&
-                                              wfi_release
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_rm_iter_level
+   USE cp_para_env, ONLY: cp_cart_release, &
+                          cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_cart_type, &
+                            cp_para_env_type
+   USE cp_result_methods, ONLY: cp_results_mp_bcast
+   USE cp_result_types, ONLY: cp_result_p_type, &
+                              cp_result_release
+   USE f77_interface, ONLY: destroy_force_env, &
+                            f_env_add_defaults, &
+                            f_env_rm_defaults, &
+                            f_env_type
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE message_passing, ONLY: mp_sum
+   USE qs_wf_history_types, ONLY: qs_wf_history_p_type, &
+                                  wfi_release
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

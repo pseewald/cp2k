@@ -12,46 +12,46 @@
 !> \author Joost VandeVondele (2003-08)
 ! **************************************************************************************************
 MODULE qs_mo_methods
-   USE admm_types,                      ONLY: admm_type
-   USE admm_utils,                      ONLY: admm_correct_for_eigenvalues,&
-                                              admm_uncorrect_for_eigenvalues
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_dbcsr_diag,                   ONLY: cp_dbcsr_syevd,&
-                                              cp_dbcsr_syevx
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              cp_dbcsr_m_by_n_from_template,&
-                                              cp_dbcsr_plus_fm_fm_t,&
-                                              cp_dbcsr_sm_fm_multiply
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_syrk,&
-                                              cp_fm_triangular_multiply
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver,&
-                                              cp_fm_power,&
-                                              cp_fm_syevx
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_copy, dbcsr_get_info, dbcsr_init_p, dbcsr_multiply, dbcsr_p_type, dbcsr_release, &
-        dbcsr_release_p, dbcsr_scale_by_vector, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_max
-   USE physcon,                         ONLY: evolt
-   USE qs_mo_occupation,                ONLY: set_mo_occupation
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type,&
-                                              mo_set_type
-   USE scf_control_types,               ONLY: scf_control_type
+   USE admm_types, ONLY: admm_type
+   USE admm_utils, ONLY: admm_correct_for_eigenvalues, &
+                         admm_uncorrect_for_eigenvalues
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_dbcsr_diag, ONLY: cp_dbcsr_syevd, &
+                            cp_dbcsr_syevx
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  cp_dbcsr_m_by_n_from_template, &
+                                  cp_dbcsr_plus_fm_fm_t, &
+                                  cp_dbcsr_sm_fm_multiply
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_syrk, &
+                                 cp_fm_triangular_multiply
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose
+   USE cp_fm_diag, ONLY: choose_eigv_solver, &
+                         cp_fm_power, &
+                         cp_fm_syevx
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_copy, dbcsr_get_info, dbcsr_init_p, dbcsr_multiply, dbcsr_p_type, dbcsr_release, &
+      dbcsr_release_p, dbcsr_scale_by_vector, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_max
+   USE physcon, ONLY: evolt
+   USE qs_mo_occupation, ONLY: set_mo_occupation
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type, &
+                          mo_set_type
+   USE scf_control_types, ONLY: scf_control_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -450,7 +450,7 @@ CONTAINS
                                        ncol=mo_set%homo, &
                                        alpha=alpha)
             CALL cp_fm_release(fm_tmp)
-         ENDIF
+         END IF
       ELSE
          IF (my_use_dbcsr) THEN
             CALL dbcsr_multiply("N", "T", mo_set%maxocc, mo_set%mo_coeff_b, mo_set%mo_coeff_b, &
@@ -462,8 +462,8 @@ CONTAINS
                                        matrix_v=mo_set%mo_coeff, &
                                        ncol=mo_set%homo, &
                                        alpha=alpha)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       CALL timestop(handle)
 
@@ -524,7 +524,7 @@ CONTAINS
          compute_evecs = .FALSE.
          ! this is not the case, so lets compute evecs always
          compute_evecs = .TRUE.
-      ENDIF
+      END IF
 
       IF (ncol_global .GT. 0) THEN
 
@@ -537,7 +537,7 @@ CONTAINS
          CALL cp_fm_create(h_block, fm_struct_tmp, name="h block")
          IF (compute_evecs) THEN
             CALL cp_fm_create(e_vectors, fm_struct_tmp, name="e vectors")
-         ENDIF
+         END IF
          CALL cp_fm_struct_release(fm_struct_tmp)
 
          ! h subblock and diag
@@ -551,7 +551,7 @@ CONTAINS
             CALL choose_eigv_solver(h_block, e_vectors, evals)
          ELSE
             CALL cp_fm_syevx(h_block, eigenvalues=evals)
-         ENDIF
+         END IF
 
          ! rotate the orbitals
          IF (do_rotation_local) THEN
@@ -563,8 +563,8 @@ CONTAINS
                   CALL cp_gemm('N', 'N', nrow_global, ncol_global, ncol_global, 1.0_dp, &
                                co_rotate, e_vectors, 0.0_dp, weighted_vectors)
                   CALL cp_fm_to_fm(weighted_vectors, co_rotate)
-               ENDIF
-            ENDIF
+               END IF
+            END IF
             IF (PRESENT(co_rotate_dbcsr)) THEN
                IF (ASSOCIATED(co_rotate_dbcsr)) THEN
                   CALL cp_fm_create(weighted_vectors2, orbitals%matrix_struct, "weighted_vectors")
@@ -573,14 +573,14 @@ CONTAINS
                                weighted_vectors2, e_vectors, 0.0_dp, weighted_vectors)
                   CALL copy_fm_to_dbcsr(weighted_vectors, co_rotate_dbcsr)
                   CALL cp_fm_release(weighted_vectors2)
-               ENDIF
-            ENDIF
-         ENDIF
+               END IF
+            END IF
+         END IF
 
          ! give output
          IF (PRESENT(evals_arg)) THEN
             evals_arg(:) = evals(:)
-         ENDIF
+         END IF
 
          IF (PRESENT(ionode) .OR. PRESENT(scr)) THEN
             IF (.NOT. PRESENT(ionode)) CPABORT("IONODE?")
@@ -598,19 +598,19 @@ CONTAINS
                   CASE (0)
                      WRITE (scr, '(1X,1F16.8)') evals(i:i + j)
                   END SELECT
-               ENDDO
-            ENDIF
-         ENDIF
+               END DO
+            END IF
+         END IF
 
          CALL cp_fm_release(weighted_vectors)
          CALL cp_fm_release(h_block)
          IF (compute_evecs) THEN
             CALL cp_fm_release(e_vectors)
-         ENDIF
+         END IF
 
          DEALLOCATE (evals)
 
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -665,7 +665,7 @@ CONTAINS
          compute_evecs = .FALSE.
          ! this is not the case, so lets compute evecs always
          compute_evecs = .TRUE.
-      ENDIF
+      END IF
 
       IF (ncol_global .GT. 0) THEN
 
@@ -687,7 +687,7 @@ CONTAINS
 !           CALL dbcsr_create(e_vectors, "e_vectors", dist, dbcsr_type_no_symmetry,&
 !                row_blk_size, col_blk_size, 0, 0, dbcsr_type_real_default)
             !CALL cp_fm_create(e_vectors,fm_struct_tmp, name="e vectors")
-         ENDIF
+         END IF
 !        CALL dbcsr_distribution_release (dist)
 !        CALL array_release (row_blk_size);CALL array_release (col_blk_size)
          !CALL cp_fm_struct_release(fm_struct_tmp)
@@ -706,7 +706,7 @@ CONTAINS
             CALL cp_dbcsr_syevd(h_block, e_vectors, evals, para_env=para_env, blacs_env=blacs_env)
          ELSE
             CALL cp_dbcsr_syevx(h_block, eigenvalues=evals, para_env=para_env, blacs_env=blacs_env)
-         ENDIF
+         END IF
 
          ! rotate the orbitals
          IF (do_rotation_local) THEN
@@ -722,14 +722,14 @@ CONTAINS
                   !     co_rotate,e_vectors,0.0_dp,weighted_vectors)
                   CALL dbcsr_copy(co_rotate, weighted_vectors)
                   !CALL cp_fm_to_fm(weighted_vectors,co_rotate)
-               ENDIF
-            ENDIF
-         ENDIF
+               END IF
+            END IF
+         END IF
 
          ! give output
          IF (PRESENT(evals_arg)) THEN
             evals_arg(:) = evals(:)
-         ENDIF
+         END IF
 
          IF (PRESENT(ionode) .OR. PRESENT(scr)) THEN
             IF (.NOT. PRESENT(ionode)) CPABORT("IONODE?")
@@ -747,9 +747,9 @@ CONTAINS
                   CASE (0)
                      WRITE (scr, '(1X,1F16.8)') evals(i:i + j)
                   END SELECT
-               ENDDO
-            ENDIF
-         ENDIF
+               END DO
+            END IF
+         END IF
 
          CALL dbcsr_release_p(weighted_vectors)
          CALL dbcsr_release_p(h_block)
@@ -758,11 +758,11 @@ CONTAINS
          IF (compute_evecs) THEN
             CALL dbcsr_release_p(e_vectors)
             !CALL cp_fm_release(e_vectors)
-         ENDIF
+         END IF
 
          DEALLOCATE (evals)
 
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -825,7 +825,7 @@ CONTAINS
             CALL cp_fm_struct_release(tmp_fm_struct)
             CALL cp_gemm('T', 'N', k, k, n, 1.0_dp, mo_array(ispin)%mo_set%mo_coeff, &
                          mo_array(ispin)%mo_set%mo_coeff, 0.0_dp, overlap)
-         ENDIF
+         END IF
          CALL cp_fm_get_info(overlap, nrow_local=nrow_local, ncol_local=ncol_local, &
                              row_indices=row_indices, col_indices=col_indices)
          DO i = 1, nrow_local
@@ -833,10 +833,10 @@ CONTAINS
                alpha = overlap%local_data(i, j)
                IF (row_indices(i) .EQ. col_indices(j)) alpha = alpha - 1.0_dp
                max_alpha = MAX(max_alpha, ABS(alpha))
-            ENDDO
-         ENDDO
+            END DO
+         END DO
          CALL cp_fm_release(overlap)
-      ENDDO
+      END DO
       CALL mp_max(max_alpha, mo_array(1)%mo_set%mo_coeff%matrix_struct%para_env%group)
       orthonormality = max_alpha
       ! write(*,*) "max deviation from orthonormalization ",orthonormality
@@ -891,7 +891,7 @@ CONTAINS
          CALL cp_fm_release(overlap)
          CALL cp_fm_release(evecs)
          DEALLOCATE (evals)
-      ENDDO
+      END DO
       CALL timestop(handle)
 
    END SUBROUTINE calculate_magnitude
@@ -945,7 +945,7 @@ CONTAINS
                mo_coeff_deriv => mo_derivs(ispin)%matrix
             ELSE
                mo_coeff_deriv => NULL()
-            ENDIF
+            END IF
 
             ! ** If we do ADMM, we add have to modify the kohn-sham matrix
             IF (PRESENT(admm_env)) THEN
@@ -967,7 +967,7 @@ CONTAINS
             CALL set_mo_occupation(mo_set=mos(ispin)%mo_set, smear=scf_control%smear)
          IF (output_unit > 0) WRITE (output_unit, '(T2,A,F12.6)') &
             "Fermi Energy [eV] :", mos(ispin)%mo_set%mu*evolt
-      ENDDO
+      END DO
 
       CALL timestop(handle)
 

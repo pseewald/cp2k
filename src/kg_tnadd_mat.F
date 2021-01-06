@@ -11,44 +11,44 @@
 !>      - adapted from core_ppl
 ! **************************************************************************************************
 MODULE kg_tnadd_mat
-   USE ai_overlap_ppl,                  ONLY: ppl_integral
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_create,&
-                                              dbcsr_distribution_type,&
-                                              dbcsr_finalize,&
-                                              dbcsr_get_block_p,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set,&
-                                              dbcsr_type_symmetric
-   USE external_potential_types,        ONLY: get_potential,&
-                                              local_potential_type
-   USE kg_environment_types,            ONLY: kg_environment_type
-   USE kinds,                           ONLY: dp
-   USE orbital_pointers,                ONLY: init_orbital_pointers,&
-                                              ncoset
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type,&
-                                              nl_set_sub_iterator,&
-                                              nl_sub_iterate
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
+   USE ai_overlap_ppl, ONLY: ppl_integral
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_create, &
+                        dbcsr_distribution_type, &
+                        dbcsr_finalize, &
+                        dbcsr_get_block_p, &
+                        dbcsr_p_type, &
+                        dbcsr_set, &
+                        dbcsr_type_symmetric
+   USE external_potential_types, ONLY: get_potential, &
+                                       local_potential_type
+   USE kg_environment_types, ONLY: kg_environment_type
+   USE kinds, ONLY: dp
+   USE orbital_pointers, ONLY: init_orbital_pointers, &
+                               ncoset
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type, &
+                                     nl_set_sub_iterator, &
+                                     nl_sub_iterate
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
 
@@ -100,9 +100,9 @@ CONTAINS
       INTEGER, PARAMETER                                 :: nexp_max = 10
 
       INTEGER :: atom_a, atom_b, atom_c, handle, i, iatom, icol, ikind, img, imol, inode, irow, &
-         iset, jatom, jkind, jmol, jset, katom, kkind, kmol, last_iatom, last_jatom, ldai, ldsab, &
-         maxco, maxder, maxl, maxlgto, maxnset, maxpol, maxsgf, mepos, natom, ncoa, ncob, nder, &
-         ngau, nkind, npol, nseta, nsetb, nthread, sgfa, sgfb
+                 iset, jatom, jkind, jmol, jset, katom, kkind, kmol, last_iatom, last_jatom, ldai, ldsab, &
+                 maxco, maxder, maxl, maxlgto, maxnset, maxpol, maxsgf, mepos, natom, ncoa, ncob, nder, &
+                 ngau, nkind, npol, nseta, nsetb, nthread, sgfa, sgfb
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind
       INTEGER, DIMENSION(:), POINTER                     :: atom_to_molecule, col_blk_sizes, la_max, &
                                                             la_min, lb_max, lb_min, npgfa, npgfb, &
@@ -131,12 +131,12 @@ CONTAINS
          CALL timeset(routineN//"_forces", handle)
       ELSE
          CALL timeset(routineN, handle)
-      ENDIF
+      END IF
 
       NULLIFY (matrix_kg)
       IF (ASSOCIATED(kg_env%tnadd_mat)) THEN
          CALL dbcsr_deallocate_matrix_set(kg_env%tnadd_mat)
-      ENDIF
+      END IF
       sac_kin => kg_env%sac_kin
       atom_to_molecule => kg_env%atom_to_molecule
 
@@ -336,7 +336,7 @@ CONTAINS
                                    0.0_dp, pab(1, 1, iset, jset), SIZE(pab, 1))
                      END DO
                   END DO
-               ENDIF
+               END IF
             END IF
             END IF
          END IF
@@ -478,7 +478,7 @@ CONTAINS
 
       DO i = 1, SIZE(matrix_kg)
          CALL dbcsr_finalize(matrix_kg(i)%matrix)
-      ENDDO
+      END DO
       kg_env%tnadd_mat => matrix_kg
 
       DEALLOCATE (atom_of_kind, basis_set_list)

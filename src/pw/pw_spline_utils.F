@@ -16,32 +16,32 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE pw_spline_utils
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: twopi
-   USE message_passing,                 ONLY: mp_alltoall,&
-                                              mp_comm_compare,&
-                                              mp_sendrecv,&
-                                              mp_sum
-   USE pw_grid_types,                   ONLY: FULLSPACE,&
-                                              PW_MODE_LOCAL
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_integral_ab,&
-                                              pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_release,&
-                                              pw_pool_retain,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: twopi
+   USE message_passing, ONLY: mp_alltoall, &
+                              mp_comm_compare, &
+                              mp_sendrecv, &
+                              mp_sum
+   USE pw_grid_types, ONLY: FULLSPACE, &
+                            PW_MODE_LOCAL
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_integral_ab, &
+                         pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_release, &
+                            pw_pool_retain, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -764,9 +764,9 @@ CONTAINS
       INTEGER, DIMENSION(2, 3)                           :: bo
       TYPE(pw_type), POINTER                             :: pw_in
       REAL(kind=dp), DIMENSION(bo(1, 1):bo(2, 1), bo(1, &
-         2):bo(2, 2), bo(1, 3):bo(2, 3)), INTENT(inout)  :: out_val
+                                                     2):bo(2, 2), bo(1, 3):bo(2, 3)), INTENT(inout)  :: out_val
       REAL(kind=dp), DIMENSION(bo(1, 1):bo(2, 1), bo(1, &
-         2):bo(2, 2), bo(1, 3):bo(2, 3)), INTENT(in)     :: in_val
+                                                     2):bo(2, 2), bo(1, 3):bo(2, 3)), INTENT(in)     :: in_val
 
       INTEGER                                            :: i, j, jw, k, kw, myj, myk
       INTEGER, DIMENSION(2, 3)                           :: gbo
@@ -1015,8 +1015,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'add_coarse2fine'
 
       INTEGER :: coarse_slice_size, f_shift(3), fi, fi_lb, fi_ub, fj, fk, handle, handle2, i, ii, &
-         ij, ik, ip, j, k, my_lb, my_ub, n_procs, p, p_lb, p_old, p_ub, rcv_tot_size, rest_b, &
-         s(3), send_tot_size, sf, shift, ss, x, x_att, xx
+                 ij, ik, ip, j, k, my_lb, my_ub, n_procs, p, p_lb, p_old, p_ub, rcv_tot_size, rest_b, &
+                 s(3), send_tot_size, sf, shift, ss, x, x_att, xx
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: rcv_offset, rcv_size, real_rcv_size, &
                                                             send_offset, send_size, sent_size
       INTEGER, DIMENSION(2, 3)                           :: coarse_bo, coarse_gbo, fine_bo, &
@@ -1812,7 +1812,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'add_fine2coarse'
 
       INTEGER :: coarse_slice_size, f_shift(3), fi, fj, fk, handle, handle2, i, ii, ij, ik, ip, j, &
-         k, n_procs, p, p_old, rcv_tot_size, rest_b, s(3), send_tot_size, ss, x, x_att
+                 k, n_procs, p, p_old, rcv_tot_size, rest_b, s(3), send_tot_size, ss, x, x_att
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: pp_lb, pp_ub, rcv_offset, rcv_size, &
                                                             real_rcv_size, send_offset, send_size, &
                                                             sent_size
@@ -3206,8 +3206,8 @@ CONTAINS
       INTEGER, DIMENSION(4)                              :: ii, ij, ik
       LOGICAL                                            :: my_mpsum
       REAL(KIND=dp) :: a1, a2, a3, b1, b2, b3, c1, c2, c3, d1, d2, d3, dr1, dr2, dr3, e1, e2, e3, &
-         f1, f2, f3, g1, g2, g3, h1, h2, h3, p1, p2, p3, q1, q2, q3, r1, r2, r3, s1, s2, s3, s4, &
-         t1, t2, t3, t4, u1, u2, u3, v1, v2, v3, v4, xd1, xd2, xd3
+                       f1, f2, f3, g1, g2, g3, h1, h2, h3, p1, p2, p3, q1, q2, q3, r1, r2, r3, s1, s2, s3, s4, &
+                       t1, t2, t3, t4, u1, u2, u3, v1, v2, v3, v4, xd1, xd2, xd3
       REAL(KIND=dp), DIMENSION(4, 4, 4)                  :: box
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: grid
 
@@ -3355,10 +3355,10 @@ CONTAINS
       INTEGER, DIMENSION(4)                              :: ii, ij, ik
       LOGICAL                                            :: my_mpsum
       REAL(KIND=dp) :: a1, a2, a3, b1, b2, b3, c1, c2, c3, d1, d2, d3, dr1, dr1i, dr2, dr2i, dr3, &
-         dr3i, e1, e2, e3, f1, f2, f3, g1, g2, g3, h1, h2, h3, p1, p2, p3, q1, q2, q3, r1, r2, r3, &
-         s1, s1d, s1o, s2, s2d, s2o, s3, s3d, s3o, s4, s4d, s4o, t1, t1d, t1o, t2, t2d, t2o, t3, &
-         t3d, t3o, t4, t4d, t4o, u1, u2, u3, v1, v1d, v1o, v2, v2d, v2o, v3, v3d, v3o, v4, v4d, &
-         v4o, xd1, xd2, xd3
+                       dr3i, e1, e2, e3, f1, f2, f3, g1, g2, g3, h1, h2, h3, p1, p2, p3, q1, q2, q3, r1, r2, r3, &
+                       s1, s1d, s1o, s2, s2d, s2o, s3, s3d, s3o, s4, s4d, s4o, t1, t1d, t1o, t2, t2d, t2o, t3, &
+                       t3d, t3o, t4, t4d, t4o, u1, u2, u3, v1, v1d, v1o, v2, v2d, v2o, v3, v3d, v3o, v4, v4d, &
+                       v4o, xd1, xd2, xd3
       REAL(KIND=dp), DIMENSION(4, 4, 4)                  :: box
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: grid
 

@@ -10,20 +10,20 @@
 ! **************************************************************************************************
 MODULE al_system_init
 
-   USE al_system_mapping,               ONLY: al_to_particle_mapping
-   USE al_system_types,                 ONLY: al_system_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: global_constraint_type,&
-                                              molecule_type
-   USE simpar_types,                    ONLY: simpar_type
-   USE thermostat_types,                ONLY: thermostat_info_type
+   USE al_system_mapping, ONLY: al_to_particle_mapping
+   USE al_system_types, ONLY: al_system_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: global_constraint_type, &
+                             molecule_type
+   USE simpar_types, ONLY: simpar_type
+   USE thermostat_types, ONLY: thermostat_info_type
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -72,7 +72,7 @@ CONTAINS
 
       IF (.NOT. restart) THEN
          CALL init_al_variables(al)
-      ENDIF
+      END IF
 
    END SUBROUTINE initialize_al_part
 

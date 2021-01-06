@@ -10,39 +10,39 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE qs_subsys_methods
-   USE atom_types,                      ONLY: lmat
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cell_methods,                    ONLY: read_cell,&
-                                              write_cell
-   USE cell_types,                      ONLY: cell_clone,&
-                                              cell_create,&
-                                              cell_release,&
-                                              cell_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_methods,               ONLY: cp_subsys_create
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_release,&
-                                              cp_subsys_set,&
-                                              cp_subsys_type
-   USE external_potential_types,        ONLY: all_potential_type,&
-                                              get_potential,&
-                                              gth_potential_type,&
-                                              sgp_potential_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE molecule_kind_types,             ONLY: get_molecule_kind,&
-                                              molecule_kind_type,&
-                                              set_molecule_kind
-   USE qs_kind_types,                   ONLY: create_qs_kind_set,&
-                                              get_qs_kind,&
-                                              init_atom_electronic_state,&
-                                              qs_kind_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_set,&
-                                              qs_subsys_type
+   USE atom_types, ONLY: lmat
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cell_methods, ONLY: read_cell, &
+                           write_cell
+   USE cell_types, ONLY: cell_clone, &
+                         cell_create, &
+                         cell_release, &
+                         cell_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_methods, ONLY: cp_subsys_create
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_release, &
+                              cp_subsys_set, &
+                              cp_subsys_type
+   USE external_potential_types, ONLY: all_potential_type, &
+                                       get_potential, &
+                                       gth_potential_type, &
+                                       sgp_potential_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE molecule_kind_types, ONLY: get_molecule_kind, &
+                                  molecule_kind_type, &
+                                  set_molecule_kind
+   USE qs_kind_types, ONLY: create_qs_kind_set, &
+                            get_qs_kind, &
+                            init_atom_electronic_state, &
+                            qs_kind_type
+   USE qs_subsys_types, ONLY: qs_subsys_set, &
+                              qs_subsys_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -250,7 +250,7 @@ CONTAINS
                   CALL get_gto_basis_set(gto_basis_set=orb_basis_set, nsgf=nsgf)
                ELSE
                   nsgf = 0
-               ENDIF
+               END IF
                n_ao = n_ao + nsgf
 
             END DO ! iatom

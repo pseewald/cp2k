@@ -12,25 +12,25 @@
 !> \author fawzi & thomas
 ! **************************************************************************************************
 MODULE xc_derivative_set_types
-   USE cp_linked_list_xc_deriv,         ONLY: cp_sll_xc_deriv_dealloc,&
-                                              cp_sll_xc_deriv_insert_el,&
-                                              cp_sll_xc_deriv_next,&
-                                              cp_sll_xc_deriv_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_comm_self
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_grids,                        ONLY: pw_grid_create,&
-                                              pw_grid_release
-   USE pw_pool_types,                   ONLY: pw_pool_create,&
-                                              pw_pool_create_cr3d,&
-                                              pw_pool_release,&
-                                              pw_pool_retain,&
-                                              pw_pool_type
-   USE xc_derivative_desc,              ONLY: MAX_DERIVATIVE_DESC_LENGTH,&
-                                              standardize_derivative_desc
-   USE xc_derivative_types,             ONLY: xc_derivative_create,&
-                                              xc_derivative_release,&
-                                              xc_derivative_type
+   USE cp_linked_list_xc_deriv, ONLY: cp_sll_xc_deriv_dealloc, &
+                                      cp_sll_xc_deriv_insert_el, &
+                                      cp_sll_xc_deriv_next, &
+                                      cp_sll_xc_deriv_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_comm_self
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_grids, ONLY: pw_grid_create, &
+                       pw_grid_release
+   USE pw_pool_types, ONLY: pw_pool_create, &
+                            pw_pool_create_cr3d, &
+                            pw_pool_release, &
+                            pw_pool_retain, &
+                            pw_pool_type
+   USE xc_derivative_desc, ONLY: MAX_DERIVATIVE_DESC_LENGTH, &
+                                 standardize_derivative_desc
+   USE xc_derivative_types, ONLY: xc_derivative_create, &
+                                  xc_derivative_release, &
+                                  xc_derivative_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

@@ -223,12 +223,12 @@ CONTAINS
                                       repeats=.FALSE., &
                                       default_l_val=.FALSE., &
                                       lone_keyword_l_val=.TRUE.)
-               ENDIF
+               END IF
             CASE (13)
                CALL sirius_option_get_logical(section_name, name, lvec(1), vec_length)
                DO j = 1, vec_length
                   lvecl(j) = lvec(j)
-               ENDDO
+               END DO
                CALL keyword_create(keyword, __LOCATION__, &
                                    name=name1, &
                                    description=TRIM(ADJUSTL(description)), &
@@ -336,7 +336,7 @@ CONTAINS
       TYPE(section_type), POINTER                        :: section
 
       CHARACTER(len=*), PARAMETER :: routineN = 'create_pwdft_section', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       CPASSERT(.NOT. ASSOCIATED(section))
 

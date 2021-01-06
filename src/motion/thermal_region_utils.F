@@ -16,40 +16,40 @@
 ! **************************************************************************************************
 MODULE thermal_region_utils
 
-   USE bibliography,                    ONLY: Kantorovich2008,&
-                                              Kantorovich2008a,&
-                                              cite_reference
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE input_constants,                 ONLY: langevin_ensemble,&
-                                              npt_f_ensemble,&
-                                              npt_i_ensemble,&
-                                              nvt_ensemble
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE particle_list_types,             ONLY: particle_list_type
-   USE physcon,                         ONLY: femtoseconds,&
-                                              kelvin
-   USE simpar_types,                    ONLY: simpar_type
-   USE string_utilities,                ONLY: integer_to_string
-   USE thermal_region_types,            ONLY: allocate_thermal_regions,&
-                                              release_thermal_regions,&
-                                              thermal_region_type,&
-                                              thermal_regions_type
+   USE bibliography, ONLY: Kantorovich2008, &
+                           Kantorovich2008a, &
+                           cite_reference
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE input_constants, ONLY: langevin_ensemble, &
+                              npt_f_ensemble, &
+                              npt_i_ensemble, &
+                              nvt_ensemble
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE particle_list_types, ONLY: particle_list_type
+   USE physcon, ONLY: femtoseconds, &
+                      kelvin
+   USE simpar_types, ONLY: simpar_type
+   USE string_utilities, ONLY: integer_to_string
+   USE thermal_region_types, ONLY: allocate_thermal_regions, &
+                                   release_thermal_regions, &
+                                   thermal_region_type, &
+                                   thermal_regions_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

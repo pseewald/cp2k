@@ -27,8 +27,8 @@
 ! **************************************************************************************************
 MODULE splines
 
-   USE kinds,                           ONLY: dp
-   USE lapack,                          ONLY: lapack_sgbsv
+   USE kinds, ONLY: dp
+   USE lapack, ONLY: lapack_sgbsv
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -115,8 +115,8 @@ CONTAINS
 
       INTEGER                                            :: i, i2, info, ipiv(4), j, n
       REAL(dp) :: Ae(4, 4), be(4), bemat(4, 1), c1, c2, c3, c4, ce(4), d2p1, d2pn, x0, xe(4), &
-         ye(4), hi(SIZE(c, 2)), cs(2*SIZE(c, 2)), bs(2*SIZE(c, 2)), bmat(2*SIZE(c, 2), 1), &
-         As(5, 2*SIZE(c, 2))
+                  ye(4), hi(SIZE(c, 2)), cs(2*SIZE(c, 2)), bs(2*SIZE(c, 2)), bmat(2*SIZE(c, 2), 1), &
+                  As(5, 2*SIZE(c, 2))
       INTEGER                                            :: ipiv2(2*SIZE(c, 2))
 
       ! x values of data
@@ -338,7 +338,7 @@ CONTAINS
                i1 = ic
             ELSE
                i2 = ic
-            ENDIF
+            END IF
          END DO
       END IF
    END FUNCTION

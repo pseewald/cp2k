@@ -12,42 +12,42 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE input_cp2k_force_eval
-   USE cp_output_handling,              ONLY: add_last_numeric,&
-                                              cp_print_key_section_create,&
-                                              debug_print_level,&
-                                              high_print_level,&
-                                              low_print_level,&
-                                              medium_print_level
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE input_constants,                 ONLY: &
-        do_eip, do_embed, do_fist, do_mixed, do_nnp, do_qmmm, do_qs, do_sirius, &
-        do_stress_analytical, do_stress_diagonal_anal, do_stress_diagonal_numer, do_stress_none, &
-        do_stress_numerical, numerical
-   USE input_cp2k_dft,                  ONLY: create_bsse_section,&
-                                              create_dft_section
-   USE input_cp2k_eip,                  ONLY: create_eip_section
-   USE input_cp2k_embed,                ONLY: create_embed_section
-   USE input_cp2k_mixed,                ONLY: create_mix_section
-   USE input_cp2k_mm,                   ONLY: create_mm_section
-   USE input_cp2k_nnp,                  ONLY: create_nnp_section
-   USE input_cp2k_properties_dft,       ONLY: create_properties_section
-   USE input_cp2k_pwdft,                ONLY: create_pwdft_section
-   USE input_cp2k_qmmm,                 ONLY: create_qmmm_section
-   USE input_cp2k_subsys,               ONLY: create_subsys_section
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: char_t,&
-                                              integer_t,&
-                                              lchar_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: s2a
+   USE cp_output_handling, ONLY: add_last_numeric, &
+                                 cp_print_key_section_create, &
+                                 debug_print_level, &
+                                 high_print_level, &
+                                 low_print_level, &
+                                 medium_print_level
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE input_constants, ONLY: &
+      do_eip, do_embed, do_fist, do_mixed, do_nnp, do_qmmm, do_qs, do_sirius, &
+      do_stress_analytical, do_stress_diagonal_anal, do_stress_diagonal_numer, do_stress_none, &
+      do_stress_numerical, numerical
+   USE input_cp2k_dft, ONLY: create_bsse_section, &
+                             create_dft_section
+   USE input_cp2k_eip, ONLY: create_eip_section
+   USE input_cp2k_embed, ONLY: create_embed_section
+   USE input_cp2k_mixed, ONLY: create_mix_section
+   USE input_cp2k_mm, ONLY: create_mm_section
+   USE input_cp2k_nnp, ONLY: create_nnp_section
+   USE input_cp2k_properties_dft, ONLY: create_properties_section
+   USE input_cp2k_pwdft, ONLY: create_pwdft_section
+   USE input_cp2k_qmmm, ONLY: create_qmmm_section
+   USE input_cp2k_subsys, ONLY: create_subsys_section
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: char_t, &
+                              integer_t, &
+                              lchar_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

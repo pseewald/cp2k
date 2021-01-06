@@ -11,47 +11,47 @@
 !>     jgh (23-05-2004) Last atom of molecule information added
 ! **************************************************************************************************
 MODULE topology_coordinate_util
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              set_atomic_kind
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE exclusion_types,                 ONLY: exclusion_type
-   USE external_potential_types,        ONLY: allocate_potential,&
-                                              fist_potential_type,&
-                                              get_potential,&
-                                              set_potential
-   USE input_constants,                 ONLY: do_fist,&
-                                              do_skip_12,&
-                                              do_skip_13,&
-                                              do_skip_14
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE molecule_kind_types,             ONLY: atom_type,&
-                                              get_molecule_kind,&
-                                              molecule_kind_type,&
-                                              set_molecule_kind
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              molecule_type
-   USE particle_types,                  ONLY: allocate_particle_set,&
-                                              particle_type
-   USE physcon,                         ONLY: massunit
-   USE qmmm_types_low,                  ONLY: qmmm_env_mm_type
-   USE string_table,                    ONLY: id2str,&
-                                              s2s,&
-                                              str2id
-   USE topology_types,                  ONLY: atom_info_type,&
-                                              connectivity_info_type,&
-                                              topology_parameters_type
-   USE topology_util,                   ONLY: array1_list_type,&
-                                              reorder_structure
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                set_atomic_kind
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE exclusion_types, ONLY: exclusion_type
+   USE external_potential_types, ONLY: allocate_potential, &
+                                       fist_potential_type, &
+                                       get_potential, &
+                                       set_potential
+   USE input_constants, ONLY: do_fist, &
+                              do_skip_12, &
+                              do_skip_13, &
+                              do_skip_14
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE molecule_kind_types, ONLY: atom_type, &
+                                  get_molecule_kind, &
+                                  molecule_kind_type, &
+                                  set_molecule_kind
+   USE molecule_types, ONLY: get_molecule, &
+                             molecule_type
+   USE particle_types, ONLY: allocate_particle_set, &
+                             particle_type
+   USE physcon, ONLY: massunit
+   USE qmmm_types_low, ONLY: qmmm_env_mm_type
+   USE string_table, ONLY: id2str, &
+                           s2s, &
+                           str2id
+   USE topology_types, ONLY: atom_info_type, &
+                             connectivity_info_type, &
+                             topology_parameters_type
+   USE topology_util, ONLY: array1_list_type, &
+                            reorder_structure
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -108,7 +108,7 @@ CONTAINS
                                                             natom_of_kind, wlist
       INTEGER, DIMENSION(:, :), POINTER                  :: pairs
       LOGICAL :: autogen, check, disable_exclusion_lists, do_center, explicit, found, &
-         my_ignore_outside_box, my_qmmm, present_12_excl_ei_list, present_12_excl_vdw_list
+                 my_ignore_outside_box, my_qmmm, present_12_excl_ei_list, present_12_excl_vdw_list
       REAL(KIND=dp)                                      :: bounds(2, 3), cdims(3), dims(3), qeff, &
                                                             vec(3)
       REAL(KIND=dp), DIMENSION(:), POINTER               :: charge, cpoint, mass
@@ -193,7 +193,7 @@ CONTAINS
       ALLOCATE (atom_info%id_atom_names(topology%natom_type))
       DO k = 1, counter
          atom_info%id_atom_names(k) = id_work(k)
-      ENDDO
+      END DO
       DEALLOCATE (id_work)
       CALL reallocate(mass, 1, counter)
       CALL reallocate(id_element, 1, counter)
@@ -292,10 +292,10 @@ CONTAINS
                   WRITE (iw, '(I12)') iatomlist(J)
                ELSE
                   WRITE (iw, '(I12)', ADVANCE="NO") iatomlist(J)
-               ENDIF
-            ENDDO
+               END IF
+            END DO
             WRITE (iw, *)
-         ENDIF
+         END IF
          CALL set_atomic_kind(atomic_kind=atomic_kind, &
                               natom=natom_of_kind(i), atom_list=iatomlist)
          DEALLOCATE (iatomlist)
@@ -385,12 +385,12 @@ CONTAINS
             NULLIFY (exclusions(i)%list_exclude_vdw)
             NULLIFY (exclusions(i)%list_exclude_ei)
             NULLIFY (exclusions(i)%list_onfo)
-         ENDDO
+         END DO
          ! Reorder bonds
          ALLOCATE (ex_bond_list(natom))
          DO I = 1, natom
             ALLOCATE (ex_bond_list(I)%array1(0))
-         ENDDO
+         END DO
          N = 0
          IF (ASSOCIATED(conn_info%bond_a)) THEN
             N = SIZE(conn_info%bond_a)
@@ -408,7 +408,7 @@ CONTAINS
             ALLOCATE (ex_bond_list_vdw(natom))
             DO I = 1, natom
                ALLOCATE (ex_bond_list_vdw(I)%array1(0))
-            ENDDO
+            END DO
             CALL setup_exclusion_list(exclude_section, "BOND", ex_bond_list, ex_bond_list_vdw, &
                                       particle_set)
          ELSE
@@ -423,7 +423,7 @@ CONTAINS
             ALLOCATE (ex_bond_list_ei(natom))
             DO I = 1, natom
                ALLOCATE (ex_bond_list_ei(I)%array1(0))
-            ENDDO
+            END DO
             CALL setup_exclusion_list(exclude_section, "BOND", ex_bond_list, ex_bond_list_ei, &
                                       particle_set)
          ELSE
@@ -436,7 +436,7 @@ CONTAINS
          ALLOCATE (ex_bend_list(natom))
          DO I = 1, natom
             ALLOCATE (ex_bend_list(I)%array1(0))
-         ENDDO
+         END DO
          IF (autogen) THEN
             ! Construct autogenerated 1-3 pairs, i.e. all possible 1-3 pairs instead
             ! of only the bends that are present in the topology.
@@ -483,7 +483,7 @@ CONTAINS
          ALLOCATE (ex_onfo_list(natom))
          DO I = 1, natom
             ALLOCATE (ex_onfo_list(I)%array1(0))
-         ENDDO
+         END DO
          IF (autogen) THEN
             ! Construct autogenerated 1-4 pairs, i.e. all possible 1-4 pairs instead
             ! of only the onfo's that are present in the topology.
@@ -651,18 +651,18 @@ CONTAINS
          ! deallocate onfo
          DO I = 1, natom
             DEALLOCATE (ex_onfo_list(I)%array1)
-         ENDDO
+         END DO
          DEALLOCATE (ex_onfo_list)
          ! deallocate bends
          DO I = 1, natom
             DEALLOCATE (ex_bend_list(I)%array1)
-         ENDDO
+         END DO
          DEALLOCATE (ex_bend_list)
          ! deallocate bonds
          IF (present_12_excl_ei_list) THEN
             DO I = 1, natom
                DEALLOCATE (ex_bond_list_ei(I)%array1)
-            ENDDO
+            END DO
             DEALLOCATE (ex_bond_list_ei)
          ELSE
             NULLIFY (ex_bond_list_ei)
@@ -670,16 +670,16 @@ CONTAINS
          IF (present_12_excl_vdw_list) THEN
             DO I = 1, natom
                DEALLOCATE (ex_bond_list_vdw(I)%array1)
-            ENDDO
+            END DO
             DEALLOCATE (ex_bond_list_vdw)
          ELSE
             NULLIFY (ex_bond_list_vdw)
          END IF
          DO I = 1, natom
             DEALLOCATE (ex_bond_list(I)%array1)
-         ENDDO
+         END DO
          DEALLOCATE (ex_bond_list)
-      ENDIF
+      END IF
       CALL timestop(handle2)
       !-----------------------------------------------------------------------------
       !-----------------------------------------------------------------------------

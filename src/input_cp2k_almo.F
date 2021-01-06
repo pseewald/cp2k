@@ -10,32 +10,32 @@
 !> \author Rustam Khaliullin
 ! **************************************************************************************************
 MODULE input_cp2k_almo
-   USE bibliography,                    ONLY: Khaliullin2007,&
-                                              Khaliullin2008,&
-                                              Khaliullin2013,&
-                                              Scheiber2018
-   USE cp_output_handling,              ONLY: cp_print_key_section_create,&
-                                              low_print_level
-   USE input_constants,                 ONLY: &
-        almo_deloc_none, almo_deloc_scf, almo_deloc_x, almo_deloc_x_then_scf, &
-        almo_deloc_xalmo_1diag, almo_deloc_xalmo_scf, almo_deloc_xalmo_x, almo_frz_crystal, &
-        almo_frz_none, almo_scf_diag, almo_scf_pcg, almo_scf_skip, almo_scf_trustr, atomic_guess, &
-        cg_dai_yuan, cg_fletcher, cg_fletcher_reeves, cg_hager_zhang, cg_hestenes_stiefel, &
-        cg_liu_storey, cg_polak_ribiere, cg_zero, molecular_guess, op_loc_berry, op_loc_pipek, &
-        optimizer_diis, optimizer_lin_eq_pcg, optimizer_pcg, optimizer_trustr, &
-        spd_inversion_dense_cholesky, spd_inversion_ls_hotelling, spd_inversion_ls_taylor, &
-        trustr_cauchy, trustr_dogleg, trustr_steihaug, xalmo_prec_domain, xalmo_prec_full, &
-        xalmo_prec_zero, xalmo_trial_r0_out, xalmo_trial_simplex
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: s2a
+   USE bibliography, ONLY: Khaliullin2007, &
+                           Khaliullin2008, &
+                           Khaliullin2013, &
+                           Scheiber2018
+   USE cp_output_handling, ONLY: cp_print_key_section_create, &
+                                 low_print_level
+   USE input_constants, ONLY: &
+      almo_deloc_none, almo_deloc_scf, almo_deloc_x, almo_deloc_x_then_scf, &
+      almo_deloc_xalmo_1diag, almo_deloc_xalmo_scf, almo_deloc_xalmo_x, almo_frz_crystal, &
+      almo_frz_none, almo_scf_diag, almo_scf_pcg, almo_scf_skip, almo_scf_trustr, atomic_guess, &
+      cg_dai_yuan, cg_fletcher, cg_fletcher_reeves, cg_hager_zhang, cg_hestenes_stiefel, &
+      cg_liu_storey, cg_polak_ribiere, cg_zero, molecular_guess, op_loc_berry, op_loc_pipek, &
+      optimizer_diis, optimizer_lin_eq_pcg, optimizer_pcg, optimizer_trustr, &
+      spd_inversion_dense_cholesky, spd_inversion_ls_hotelling, spd_inversion_ls_taylor, &
+      trustr_cauchy, trustr_dogleg, trustr_steihaug, xalmo_prec_domain, xalmo_prec_full, &
+      xalmo_prec_zero, xalmo_trial_r0_out, xalmo_trial_simplex
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -678,7 +678,7 @@ CONTAINS
          CALL section_add_keyword(section, keyword)
          CALL keyword_release(keyword)
 
-      ENDIF
+      END IF
 
       IF (optimizer_type .EQ. optimizer_pcg .OR. &
           optimizer_type .EQ. optimizer_lin_eq_pcg .OR. &
@@ -707,7 +707,7 @@ CONTAINS
          CALL section_add_keyword(section, keyword)
          CALL keyword_release(keyword)
 
-      ENDIF
+      END IF
 
       IF (optimizer_type .EQ. optimizer_pcg) THEN
 
@@ -734,7 +734,7 @@ CONTAINS
          CALL section_add_keyword(section, keyword)
          CALL keyword_release(keyword)
 
-      ENDIF
+      END IF
 
       IF (optimizer_type .EQ. optimizer_pcg .OR. &
           optimizer_type .EQ. optimizer_trustr) THEN
@@ -755,7 +755,7 @@ CONTAINS
          CALL section_add_keyword(section, keyword)
          CALL keyword_release(keyword)
 
-      ENDIF
+      END IF
 
       IF (optimizer_type .EQ. optimizer_trustr) THEN
 
@@ -801,7 +801,7 @@ CONTAINS
          CALL section_add_keyword(section, keyword)
          CALL keyword_release(keyword)
 
-      ENDIF
+      END IF
 
    END SUBROUTINE create_optimizer_section
 

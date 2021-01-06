@@ -13,44 +13,44 @@
 !>                                       (patch by Marcel Baer)
 ! **************************************************************************************************
 MODULE integrator_utils
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE barostat_types,                  ONLY: do_clv_x,&
-                                              do_clv_xy,&
-                                              do_clv_xyz,&
-                                              do_clv_xz,&
-                                              do_clv_y,&
-                                              do_clv_yz,&
-                                              do_clv_z
-   USE cell_types,                      ONLY: cell_type
-   USE constraint,                      ONLY: rattle_roll_control
-   USE constraint_util,                 ONLY: pv_constraint
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE extended_system_types,           ONLY: debug_isotropic_limit,&
-                                              debug_uniaxial_limit,&
-                                              npt_info_type
-   USE input_constants,                 ONLY: &
-        isokin_ensemble, npe_f_ensemble, npe_i_ensemble, nph_uniaxial_damped_ensemble, &
-        nph_uniaxial_ensemble, npt_f_ensemble, npt_i_ensemble, nve_ensemble, nvt_ensemble
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: matvec_3x3,&
-                                              transpose_3d
-   USE md_environment_types,            ONLY: get_md_env,&
-                                              md_environment_type
-   USE message_passing,                 ONLY: mp_max,&
-                                              mp_sum
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              global_constraint_type,&
-                                              molecule_type
-   USE particle_types,                  ONLY: particle_type,&
-                                              update_particle_set
-   USE shell_potential_types,           ONLY: shell_kind_type
-   USE simpar_types,                    ONLY: simpar_type
-   USE thermostat_types,                ONLY: set_thermostats,&
-                                              thermostats_type
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE barostat_types, ONLY: do_clv_x, &
+                             do_clv_xy, &
+                             do_clv_xyz, &
+                             do_clv_xz, &
+                             do_clv_y, &
+                             do_clv_yz, &
+                             do_clv_z
+   USE cell_types, ONLY: cell_type
+   USE constraint, ONLY: rattle_roll_control
+   USE constraint_util, ONLY: pv_constraint
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE extended_system_types, ONLY: debug_isotropic_limit, &
+                                    debug_uniaxial_limit, &
+                                    npt_info_type
+   USE input_constants, ONLY: &
+      isokin_ensemble, npe_f_ensemble, npe_i_ensemble, nph_uniaxial_damped_ensemble, &
+      nph_uniaxial_ensemble, npt_f_ensemble, npt_i_ensemble, nve_ensemble, nvt_ensemble
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: matvec_3x3, &
+                      transpose_3d
+   USE md_environment_types, ONLY: get_md_env, &
+                                   md_environment_type
+   USE message_passing, ONLY: mp_max, &
+                              mp_sum
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: get_molecule, &
+                             global_constraint_type, &
+                             molecule_type
+   USE particle_types, ONLY: particle_type, &
+                             update_particle_set
+   USE shell_potential_types, ONLY: shell_kind_type
+   USE simpar_types, ONLY: simpar_type
+   USE thermostat_types, ONLY: set_thermostats, &
+                               thermostats_type
+   USE virial_types, ONLY: virial_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -745,7 +745,7 @@ CONTAINS
                         local_particles, kin, pv_kin, virial, para_env%group)
          CALL update_veps(cell, npt, simpar, pv_kin, kin, virial, infree)
 
-      ENDIF
+      END IF
       first = .FALSE.
 
       ! assigning local variable
@@ -991,14 +991,14 @@ CONTAINS
             npt(1, 1)%f = virial%pv_virial(1, 1) + &
                           pv_kin(1, 1) + virial%pv_constraint(1, 1) - &
                           simpar%p0*v + infree*kin
-         ENDIF
+         END IF
          IF (debug_uniaxial_limit) THEN
             ! orthorhombic box ONLY
             npt(1, 1)%f = virial%pv_virial(1, 1) + &
                           pv_kin(1, 1) + virial%pv_constraint(1, 1) - &
                           simpar%p0*box%deth + infree*kin
          END IF
-      ENDIF
+      END IF
 
       ! update barostat velocities
       npt(:, :)%v = npt(:, :)%v + &

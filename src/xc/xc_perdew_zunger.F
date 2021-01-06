@@ -15,26 +15,26 @@
 !> \see functionals_utilities
 ! **************************************************************************************************
 MODULE xc_perdew_zunger
-   USE bibliography,                    ONLY: Ortiz1994,&
-                                              Perdew1981,&
-                                              cite_reference
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_functionals_utilities,        ONLY: calc_fx,&
-                                              calc_rs,&
-                                              calc_z,&
-                                              set_util
-   USE xc_input_constants,              ONLY: pz_dmc,&
-                                              pz_orig,&
-                                              pz_vmc
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
+   USE bibliography, ONLY: Ortiz1994, &
+                           Perdew1981, &
+                           cite_reference
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_functionals_utilities, ONLY: calc_fx, &
+                                       calc_rs, &
+                                       calc_z, &
+                                       set_util
+   USE xc_input_constants, ONLY: pz_dmc, &
+                                 pz_orig, &
+                                 pz_vmc
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

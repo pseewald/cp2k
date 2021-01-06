@@ -12,27 +12,27 @@
 !> \author Nico Holmberg (03.2018)
 ! **************************************************************************************************
 MODULE qs_cdft_scf_utils
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_files,                        ONLY: close_file,&
-                                              get_unit_number,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_logger_create,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_constants,                 ONLY: &
-        broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, &
-        broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
-        jacobian_fd1, jacobian_fd1_backward, jacobian_fd1_central, jacobian_fd2, &
-        jacobian_fd2_backward, outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
-        outer_scf_optimizer_newton_ls
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE mathlib,                         ONLY: invert_matrix
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_scf_types,                    ONLY: qs_scf_env_type
-   USE scf_control_types,               ONLY: scf_control_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_files, ONLY: close_file, &
+                       get_unit_number, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_logger_create, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_constants, ONLY: &
+      broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, &
+      broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
+      jacobian_fd1, jacobian_fd1_backward, jacobian_fd1_central, jacobian_fd2, &
+      jacobian_fd2_backward, outer_scf_optimizer_broyden, outer_scf_optimizer_newton, &
+      outer_scf_optimizer_newton_ls
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE mathlib, ONLY: invert_matrix
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_scf_types, ONLY: qs_scf_env_type
+   USE scf_control_types, ONLY: scf_control_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

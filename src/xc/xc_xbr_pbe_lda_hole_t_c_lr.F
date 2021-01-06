@@ -28,24 +28,24 @@
 
 MODULE xc_xbr_pbe_lda_hole_t_c_lr
 
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
-   USE xc_xbecke_roussel,               ONLY: x_br_lsd_y_gt_0,&
-                                              x_br_lsd_y_gt_0_cutoff,&
-                                              x_br_lsd_y_lte_0,&
-                                              x_br_lsd_y_lte_0_cutoff
-   USE xc_xlda_hole_t_c_lr,             ONLY: xlda_hole_t_c_lr_lda_calc_0
-   USE xc_xpbe_hole_t_c_lr,             ONLY: xpbe_hole_t_c_lr_lda_calc_1,&
-                                              xpbe_hole_t_c_lr_lda_calc_2
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
+   USE xc_xbecke_roussel, ONLY: x_br_lsd_y_gt_0, &
+                                x_br_lsd_y_gt_0_cutoff, &
+                                x_br_lsd_y_lte_0, &
+                                x_br_lsd_y_lte_0_cutoff
+   USE xc_xlda_hole_t_c_lr, ONLY: xlda_hole_t_c_lr_lda_calc_0
+   USE xc_xpbe_hole_t_c_lr, ONLY: xpbe_hole_t_c_lr_lda_calc_1, &
+                                  xpbe_hole_t_c_lr_lda_calc_2
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -290,9 +290,9 @@ CONTAINS
 
       INTEGER                                            :: ip
       REAL(dp) :: dFermi_dlaplace_rho, dFermi_dndrho, dFermi_drho, dFermi_dtau, e_0_br, e_0_lda, &
-         e_0_pbe, e_laplace_rho_br, e_ndrho_br, e_ndrho_pbe, e_rho_br, e_rho_lda, e_rho_pbe, &
-         e_tau_br, Fermi, Fx, my_laplace_rho, my_ndrho, my_rho, my_tau, ss, ss2, sscale, t1, t15, &
-         t16, t2, t3, t4, t5, t6, t7, t8, t9, yval
+                  e_0_pbe, e_laplace_rho_br, e_ndrho_br, e_ndrho_pbe, e_rho_br, e_rho_lda, e_rho_pbe, &
+                  e_tau_br, Fermi, Fx, my_laplace_rho, my_ndrho, my_rho, my_tau, ss, ss2, sscale, t1, t15, &
+                  t16, t2, t3, t4, t5, t6, t7, t8, t9, yval
 
 !$OMP     DO
 
@@ -447,8 +447,8 @@ CONTAINS
       REAL(dp)                                           :: gamma, R, sx
       REAL(kind=dp)                                      :: epsilon_rho
       REAL(kind=dp), DIMENSION(:, :, :), POINTER :: dummy, e_0, e_laplace_rhoa, e_laplace_rhob, &
-         e_ndrhoa, e_ndrhob, e_rhoa, e_rhob, e_tau_a, e_tau_b, laplace_rhoa, laplace_rhob, &
-         norm_drhoa, norm_drhob, rhoa, rhob, tau_a, tau_b
+                                                 e_ndrhoa, e_ndrhob, e_rhoa, e_rhob, e_tau_a, e_tau_b, laplace_rhoa, laplace_rhob, &
+                                                    norm_drhoa, norm_drhob, rhoa, rhob, tau_a, tau_b
       TYPE(xc_derivative_type), POINTER                  :: deriv
 
       CALL timeset(routineN, handle)
@@ -580,9 +580,9 @@ CONTAINS
 
       INTEGER                                            :: ip
       REAL(dp) :: dFermi_dlaplace_rho, dFermi_dndrho, dFermi_drho, dFermi_dtau, e_0_br, e_0_lda, &
-         e_0_pbe, e_laplace_rho_br, e_ndrho_br, e_ndrho_pbe, e_rho_br, e_rho_lda, e_rho_pbe, &
-         e_tau_br, Fermi, Fx, my_laplace_rho, my_ndrho, my_rho, my_tau, ss, ss2, sscale, t1, t15, &
-         t16, t2, t3, t4, t5, t6, t7, t8, t9, yval
+                  e_0_pbe, e_laplace_rho_br, e_ndrho_br, e_ndrho_pbe, e_rho_br, e_rho_lda, e_rho_pbe, &
+                  e_tau_br, Fermi, Fx, my_laplace_rho, my_ndrho, my_rho, my_tau, ss, ss2, sscale, t1, t15, &
+                  t16, t2, t3, t4, t5, t6, t7, t8, t9, yval
 
 !$OMP     DO
 

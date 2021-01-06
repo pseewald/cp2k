@@ -12,64 +12,64 @@
 !> \author Teodoro Laino
 ! **************************************************************************************************
 MODULE qmmm_gpw_energy
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE cp_spline_utils,                 ONLY: pw_prolongate_s3,&
-                                              spline3_nopbc_interp,&
-                                              spline3_pbc_interp
-   USE cube_utils,                      ONLY: cube_info_type
-   USE input_constants,                 ONLY: do_par_atom,&
-                                              do_qmmm_coulomb,&
-                                              do_qmmm_gauss,&
-                                              do_qmmm_none,&
-                                              do_qmmm_pcharge,&
-                                              do_qmmm_swave
-   USE input_section_types,             ONLY: section_get_ivals,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum,&
-                                              mp_sync
-   USE mm_collocate_potential,          ONLY: collocate_gf_rspace_NoPBC
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_p_type,&
-                                              pw_pools_create_pws,&
-                                              pw_pools_give_back_pws
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
-   USE qmmm_gaussian_types,             ONLY: qmmm_gaussian_p_type,&
-                                              qmmm_gaussian_type
-   USE qmmm_se_energy,                  ONLY: build_se_qmmm_matrix
-   USE qmmm_tb_methods,                 ONLY: build_tb_qmmm_matrix,&
-                                              build_tb_qmmm_matrix_pc,&
-                                              build_tb_qmmm_matrix_zero
-   USE qmmm_types_low,                  ONLY: qmmm_env_qm_type,&
-                                              qmmm_per_pot_p_type,&
-                                              qmmm_per_pot_type,&
-                                              qmmm_pot_p_type,&
-                                              qmmm_pot_type
-   USE qmmm_util,                       ONLY: spherical_cutoff_factor
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_ks_qmmm_types,                ONLY: qs_ks_qmmm_env_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_realspace_grid_cube, ONLY: cp_pw_to_cube
+   USE cp_spline_utils, ONLY: pw_prolongate_s3, &
+                              spline3_nopbc_interp, &
+                              spline3_pbc_interp
+   USE cube_utils, ONLY: cube_info_type
+   USE input_constants, ONLY: do_par_atom, &
+                              do_qmmm_coulomb, &
+                              do_qmmm_gauss, &
+                              do_qmmm_none, &
+                              do_qmmm_pcharge, &
+                              do_qmmm_swave
+   USE input_section_types, ONLY: section_get_ivals, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum, &
+                              mp_sync
+   USE mm_collocate_potential, ONLY: collocate_gf_rspace_NoPBC
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_zero
+   USE pw_pool_types, ONLY: pw_pool_p_type, &
+                            pw_pools_create_pws, &
+                            pw_pools_give_back_pws
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE, &
+                       pw_p_type, &
+                       pw_type
+   USE qmmm_gaussian_types, ONLY: qmmm_gaussian_p_type, &
+                                  qmmm_gaussian_type
+   USE qmmm_se_energy, ONLY: build_se_qmmm_matrix
+   USE qmmm_tb_methods, ONLY: build_tb_qmmm_matrix, &
+                              build_tb_qmmm_matrix_pc, &
+                              build_tb_qmmm_matrix_zero
+   USE qmmm_types_low, ONLY: qmmm_env_qm_type, &
+                             qmmm_per_pot_p_type, &
+                             qmmm_per_pot_type, &
+                             qmmm_pot_p_type, &
+                             qmmm_pot_type
+   USE qmmm_util, ONLY: spherical_cutoff_factor
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_ks_qmmm_types, ONLY: qs_ks_qmmm_env_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -393,7 +393,7 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: shells
 
       CHARACTER(len=*), PARAMETER :: routineN = 'qmmm_elec_with_gaussian_low', &
-         routineNb = 'qmmm_elec_gaussian_low'
+                                     routineNb = 'qmmm_elec_gaussian_low'
 
       INTEGER                                            :: handle, handle2, IGauss, ilevel, Imm, &
                                                             IndMM, IRadTyp, LIndMM, myind, &
@@ -464,13 +464,13 @@ CONTAINS
       END DO Radius
       IF (ASSOCIATED(xdat)) THEN
          DEALLOCATE (xdat)
-      ENDIF
+      END IF
       IF (ASSOCIATED(ydat)) THEN
          DEALLOCATE (ydat)
-      ENDIF
+      END IF
       IF (ASSOCIATED(zdat)) THEN
          DEALLOCATE (zdat)
-      ENDIF
+      END IF
       CALL timestop(handle2)
       CALL timeset(routineNb//"_R", handle2)
       IF (periodic) THEN
@@ -555,10 +555,10 @@ CONTAINS
                                                             my_j, my_k, myind, npts(3)
       INTEGER, DIMENSION(2, 3)                           :: bo, gbo
       REAL(KIND=dp) :: a1, a2, a3, abc_X(4, 4), abc_X_Y(4), b1, b2, b3, c1, c2, c3, d1, d2, d3, &
-         dr1, dr1c, dr2, dr2c, dr3, dr3c, e1, e2, e3, f1, f2, f3, g1, g2, g3, h1, h2, h3, p1, p2, &
-         p3, q1, q2, q3, qt, r1, r2, r3, rt1, rt2, rt3, rv1, rv2, rv3, s1, s2, s3, s4, &
-         sph_chrg_factor, t1, t2, t3, t4, u1, u2, u3, v1, v2, v3, v4, val, xd1, xd2, xd3, xs1, &
-         xs2, xs3
+                       dr1, dr1c, dr2, dr2c, dr3, dr3c, e1, e2, e3, f1, f2, f3, g1, g2, g3, h1, h2, h3, p1, p2, &
+                       p3, q1, q2, q3, qt, r1, r2, r3, rt1, rt2, rt3, rv1, rv2, rv3, s1, s2, s3, s4, &
+                       sph_chrg_factor, t1, t2, t3, t4, u1, u2, u3, v1, v2, v3, v4, val, xd1, xd2, xd3, xs1, &
+                       xs2, xs3
       REAL(KIND=dp), DIMENSION(3)                        :: ra, vec
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER         :: grid, grid2
       TYPE(pw_type), POINTER                             :: pw
@@ -581,17 +581,17 @@ CONTAINS
          dr2 = pw%pw_grid%dr(2)
          dr3 = pw%pw_grid%dr(3)
          grid => pw%cr3d(:, :, :)
-         !$OMP PARALLEL DO DEFAULT(NONE) &
-         !$OMP SHARED(bo, gbo, grid, grid2, pw, npts, per_pot, mm_atom_index) &
-         !$OMP SHARED(dr1, dr2, dr3, dr1c, dr2c, dr3c, par_scheme, mm_charges, mm_particles) &
-         !$OMP SHARED(mm_cell, dOmmOqm, shells, para_env, IRadTyp, qmmm_spherical_cutoff) &
-         !$OMP PRIVATE(Imm, LIndMM, IndMM, qt, sph_chrg_factor, ra, myind) &
-         !$OMP PRIVATE(rt1, rt2, rt3, k, vec, ivec, xd1, xd2, xd3, ik1, ik2, ik3, ik4) &
-         !$OMP PRIVATE(ij1, ij2, ij3, ij4, ii1, ii2, ii3, ii4, my_k, my_j, xs1, xs2, xs3) &
-         !$OMP PRIVATE(p1, p2, p3, q1, q2, q3, r1, r2, r3, v1, v2, v3, v4, e1, e2, e3) &
-         !$OMP PRIVATE(f1, f2, f3, g1, g2, g3, h1, h2, h3, s1, s2, s3, s4, a1, a2, a3) &
-         !$OMP PRIVATE(b1, b2, b3, c1, c2, c3, d1, d2, d3, t1, t2, t3, t4, u1, u2, u3, val) &
-         !$OMP PRIVATE(rv1, rv2, rv3, abc_X, abc_X_Y)
+!$OMP PARALLEL DO DEFAULT(NONE) &
+!$OMP SHARED(bo, gbo, grid, grid2, pw, npts, per_pot, mm_atom_index) &
+!$OMP SHARED(dr1, dr2, dr3, dr1c, dr2c, dr3c, par_scheme, mm_charges, mm_particles) &
+!$OMP SHARED(mm_cell, dOmmOqm, shells, para_env, IRadTyp, qmmm_spherical_cutoff) &
+!$OMP PRIVATE(Imm, LIndMM, IndMM, qt, sph_chrg_factor, ra, myind) &
+!$OMP PRIVATE(rt1, rt2, rt3, k, vec, ivec, xd1, xd2, xd3, ik1, ik2, ik3, ik4) &
+!$OMP PRIVATE(ij1, ij2, ij3, ij4, ii1, ii2, ii3, ii4, my_k, my_j, xs1, xs2, xs3) &
+!$OMP PRIVATE(p1, p2, p3, q1, q2, q3, r1, r2, r3, v1, v2, v3, v4, e1, e2, e3) &
+!$OMP PRIVATE(f1, f2, f3, g1, g2, g3, h1, h2, h3, s1, s2, s3, s4, a1, a2, a3) &
+!$OMP PRIVATE(b1, b2, b3, c1, c2, c3, d1, d2, d3, t1, t2, t3, t4, u1, u2, u3, val) &
+!$OMP PRIVATE(rv1, rv2, rv3, abc_X, abc_X_Y)
          Atoms: DO Imm = 1, SIZE(per_pot%mm_atom_index)
             IF (par_scheme == do_par_atom) THEN
                myind = Imm + (IRadTyp - 1)*SIZE(per_pot%mm_atom_index)
@@ -722,16 +722,16 @@ CONTAINS
                      abc_X_Y(4) = abc_X(1, 4)*t1 + abc_X(2, 4)*t2 + abc_X(3, 4)*t3 + abc_X(4, 4)*t4
 
                      val = abc_X_Y(1)*s1 + abc_X_Y(2)*s2 + abc_X_Y(3)*s3 + abc_X_Y(4)*s4
-                     !$OMP ATOMIC
+!$OMP ATOMIC
                      grid2(i, j, k) = grid2(i, j, k) - val*qt
-                     !$OMP END ATOMIC
+!$OMP END ATOMIC
                      xs1 = xs1 + dr1c
                   END DO
                   xs2 = xs2 + dr2c
                END DO
             END DO LoopOnGrid
          END DO Atoms
-         !$OMP END PARALLEL DO
+!$OMP END PARALLEL DO
       END DO Radius
       CALL timestop(handle)
    END SUBROUTINE qmmm_elec_with_gaussian_LG
@@ -801,11 +801,11 @@ CONTAINS
          pot => potentials(IRadTyp)%pot
          dx = Pot%dx
          pot0_2 => Pot%pot0_2
-         !$OMP PARALLEL DO DEFAULT(NONE) &
-         !$OMP SHARED(pot, par_scheme, para_env, mm_atom_index, mm_particles, dOmmOqm, mm_cell, qmmm_spherical_cutoff) &
-         !$OMP SHARED(bo, gbo, dr1, dr2, dr3, grid2, shells, pot0_2, dx, mm_charges, IRadTyp) &
-         !$OMP PRIVATE(myind, Imm, LIndMM, IndMM, ra, qt, sph_chrg_factor, rt1, rt2, rt3, my_k, my_j) &
-         !$OMP PRIVATE(rv1, rv2, rv3, rx2, rx3, r, r2, rx, Term, xs1, xs2, xs3, i, j, k, ix)
+!$OMP PARALLEL DO DEFAULT(NONE) &
+!$OMP SHARED(pot, par_scheme, para_env, mm_atom_index, mm_particles, dOmmOqm, mm_cell, qmmm_spherical_cutoff) &
+!$OMP SHARED(bo, gbo, dr1, dr2, dr3, grid2, shells, pot0_2, dx, mm_charges, IRadTyp) &
+!$OMP PRIVATE(myind, Imm, LIndMM, IndMM, ra, qt, sph_chrg_factor, rt1, rt2, rt3, my_k, my_j) &
+!$OMP PRIVATE(rv1, rv2, rv3, rx2, rx3, r, r2, rx, Term, xs1, xs2, xs3, i, j, k, ix)
          Atoms: DO Imm = 1, SIZE(pot%mm_atom_index)
             IF (par_scheme == do_par_atom) THEN
                myind = Imm + (IRadTyp - 1)*SIZE(pot%mm_atom_index)
@@ -847,16 +847,16 @@ CONTAINS
                             + pot0_2(2, ix)*(rx - 2.0_dp*rx2 + rx3) &
                             + pot0_2(1, ix + 1)*(3.0_dp*rx2 - 2.0_dp*rx3) &
                             + pot0_2(2, ix + 1)*(-rx2 + rx3)
-                     !$OMP ATOMIC
+!$OMP ATOMIC
                      grid2(i, j, k) = grid2(i, j, k) - Term*qt
-                     !$OMP END ATOMIC
+!$OMP END ATOMIC
                      xs1 = xs1 + dr1
                   END DO
                   xs2 = xs2 + dr2
                END DO
             END DO LoopOnGrid
          END DO Atoms
-         !$OMP END PARALLEL DO
+!$OMP END PARALLEL DO
       END DO Radius
       CALL timestop(handle)
    END SUBROUTINE qmmm_elec_with_gaussian_LR

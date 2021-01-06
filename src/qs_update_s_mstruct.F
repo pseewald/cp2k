@@ -13,33 +13,33 @@
 !> \author Fawzi Mohamed
 ! *****************************************************************************
 MODULE qs_update_s_mstruct
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_ddapc_types,                  ONLY: cp_ddapc_release
-   USE cp_ddapc_util,                   ONLY: cp_ddapc_init
-   USE input_constants,                 ONLY: do_ppl_analytic,&
-                                              do_ppl_grid,&
-                                              kg_tnadd_embed,&
-                                              kg_tnadd_embed_ri
-   USE pw_methods,                      ONLY: pw_transfer
-   USE pw_types,                        ONLY: pw_p_type,&
-                                              pw_release
-   USE qs_collocate_density,            ONLY: calculate_ppl_grid,&
-                                              calculate_rho_core,&
-                                              calculate_rho_nlcc
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_ks_types,                     ONLY: get_ks_env,&
-                                              qs_ks_did_change,&
-                                              qs_ks_env_type,&
-                                              set_ks_env
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_rho_methods,                  ONLY: qs_rho_rebuild
-   USE qs_rho_types,                    ONLY: qs_rho_type
-   USE qs_scf_types,                    ONLY: scf_env_did_change
-   USE task_list_methods,               ONLY: generate_qs_task_list
-   USE task_list_types,                 ONLY: allocate_task_list,&
-                                              deallocate_task_list,&
-                                              task_list_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_ddapc_types, ONLY: cp_ddapc_release
+   USE cp_ddapc_util, ONLY: cp_ddapc_init
+   USE input_constants, ONLY: do_ppl_analytic, &
+                              do_ppl_grid, &
+                              kg_tnadd_embed, &
+                              kg_tnadd_embed_ri
+   USE pw_methods, ONLY: pw_transfer
+   USE pw_types, ONLY: pw_p_type, &
+                       pw_release
+   USE qs_collocate_density, ONLY: calculate_ppl_grid, &
+                                   calculate_rho_core, &
+                                   calculate_rho_nlcc
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_ks_types, ONLY: get_ks_env, &
+                          qs_ks_did_change, &
+                          qs_ks_env_type, &
+                          set_ks_env
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_rho_methods, ONLY: qs_rho_rebuild
+   USE qs_rho_types, ONLY: qs_rho_type
+   USE qs_scf_types, ONLY: scf_env_did_change
+   USE task_list_methods, ONLY: generate_qs_task_list
+   USE task_list_types, ONLY: allocate_task_list, &
+                              deallocate_task_list, &
+                              task_list_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -93,8 +93,8 @@ CONTAINS
             IF (ASSOCIATED(rho_core)) THEN
                CALL pw_release(rho_core%pw)
                DEALLOCATE (rho_core)
-            ENDIF
-         ENDIF
+            END IF
+         END IF
          ! force analytic ppl calculation
          dft_control%qs_control%do_ppl_method = do_ppl_analytic
       ELSE IF (dft_control%qs_control%semi_empirical) THEN
@@ -124,7 +124,7 @@ CONTAINS
       IF (ASSOCIATED(rho_nlcc)) THEN
          CALL calculate_rho_nlcc(rho_nlcc, qs_env)
          CALL pw_transfer(rho_nlcc%pw, rho_nlcc_g%pw)
-      ENDIF
+      END IF
 
       ! allocates and creates the task_list
       CALL qs_create_task_list(qs_env)
@@ -181,23 +181,23 @@ CONTAINS
             IF (.NOT. ASSOCIATED(task_list)) THEN
                CALL allocate_task_list(task_list)
                CALL set_ks_env(ks_env, task_list=task_list)
-            ENDIF
+            END IF
             CALL generate_qs_task_list(ks_env, task_list, &
                                        reorder_rs_grid_ranks=.TRUE., soft_valid=.FALSE., &
                                        skip_load_balance_distributed=skip_load_balance_distributed)
-         ENDIF
+         END IF
          ! generate the soft task list
          IF (dft_control%qs_control%gapw .OR. dft_control%qs_control%gapw_xc) THEN
             CALL get_ks_env(ks_env, task_list_soft=task_list)
             IF (.NOT. ASSOCIATED(task_list)) THEN
                CALL allocate_task_list(task_list)
                CALL set_ks_env(ks_env, task_list_soft=task_list)
-            ENDIF
+            END IF
             CALL generate_qs_task_list(ks_env, task_list, &
                                        reorder_rs_grid_ranks=.TRUE., soft_valid=.TRUE., &
                                        skip_load_balance_distributed=skip_load_balance_distributed)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       IF (dft_control%do_admm) THEN
          ! generate the aux_fit task list
@@ -205,7 +205,7 @@ CONTAINS
          IF (.NOT. ASSOCIATED(task_list)) THEN
             CALL allocate_task_list(task_list)
             CALL set_ks_env(ks_env, task_list_aux_fit=task_list)
-         ENDIF
+         END IF
          CALL get_ks_env(ks_env, sab_aux_fit=sab_orb)
          CALL generate_qs_task_list(ks_env, task_list, &
                                     reorder_rs_grid_ranks=.FALSE., soft_valid=.FALSE., basis_type="AUX_FIT", &
@@ -306,7 +306,7 @@ CONTAINS
          CALL qs_rho_rebuild(rho_external, qs_env=qs_env, &
                              rebuild_grids=rebuild_grids)
          dft_control%read_external_density = .TRUE.
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 

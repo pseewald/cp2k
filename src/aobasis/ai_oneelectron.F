@@ -33,9 +33,9 @@
 ! **************************************************************************************************
 MODULE ai_oneelectron
 
-   USE kinds,                           ONLY: dp
-   USE orbital_pointers,                ONLY: coset,&
-                                              ncoset
+   USE kinds, ONLY: dp
+   USE orbital_pointers, ONLY: coset, &
+                               ncoset
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -106,11 +106,11 @@ CONTAINS
          OPTIONAL                                        :: fs
 
       INTEGER :: ax, ay, az, bx, by, bz, cda, cdax, cday, cdaz, cdb, cdbx, cdby, cdbz, coa, coamx, &
-         coamy, coamz, coapx, coapy, coapz, cob, cobmx, cobmy, cobmz, cobpx, cobpy, cobpz, da, &
-         da_max, dax, day, daz, db, db_max, dbx, dby, dbz, i, ia, iap, iax, iay, iaz, ib, ibm, &
-         ibx, iby, ibz, ii(3), iim(3), ij, ipgf, ir, ir1, ir2, irm(3), irr(3), irx, iry, irz, ix, &
-         ixx(1), j, jj(3), jjp(3), jpgf, la, la_max, la_min, lb, lb_max, lb_min, llr, m, ma, mb, &
-         mmax, na, nb
+                 coamy, coamz, coapx, coapy, coapz, cob, cobmx, cobmy, cobmz, cobpx, cobpy, cobpz, da, &
+                 da_max, dax, day, daz, db, db_max, dbx, dby, dbz, i, ia, iap, iax, iay, iaz, ib, ibm, &
+                 ibx, iby, ibz, ii(3), iim(3), ij, ipgf, ir, ir1, ir2, irm(3), irr(3), irx, iry, irz, ix, &
+                 ixx(1), j, jj(3), jjp(3), jpgf, la, la_max, la_min, lb, lb_max, lb_min, llr, m, ma, mb, &
+                 mmax, na, nb
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: iiap
       LOGICAL                                            :: calculate_force_a, calculate_force_b
       REAL(KIND=dp)                                      :: aai, abx, fax, fay, faz, fbx, fby, fbz, &
@@ -565,7 +565,7 @@ CONTAINS
          OPTIONAL                                        :: dva
 
       INTEGER :: ax, ay, az, coa, coamx, coamy, coamz, coapx, coapy, coapz, da_max, i, ipgf, ir, &
-         ir1, ir2, irm(3), irr(3), irx, iry, irz, ix, ixx(1), la, la_max, la_min, llr, m, mmax, na
+                 ir1, ir2, irm(3), irr(3), irx, iry, irz, ix, ixx(1), la, la_max, la_min, llr, m, mmax, na
       REAL(KIND=dp)                                      :: aai, fax, fay, faz, ftz, orho, s1
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: s
 

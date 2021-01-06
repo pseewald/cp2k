@@ -11,35 +11,35 @@
 !> \date   2020-10-10
 ! **************************************************************************************************
 MODULE nnp_environment_types
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_create,&
-                                              atomic_kind_list_release,&
-                                              atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cell_types,                      ONLY: cell_release,&
-                                              cell_retain,&
-                                              cell_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_release,&
-                                              cp_subsys_retain,&
-                                              cp_subsys_set,&
-                                              cp_subsys_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_create,&
-                                              molecule_kind_list_release,&
-                                              molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_list_types,             ONLY: molecule_list_create,&
-                                              molecule_list_release,&
-                                              molecule_list_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_list_types,             ONLY: particle_list_create,&
-                                              particle_list_release,&
-                                              particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_create, &
+                                     atomic_kind_list_release, &
+                                     atomic_kind_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cell_types, ONLY: cell_release, &
+                         cell_retain, &
+                         cell_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_release, &
+                              cp_subsys_retain, &
+                              cp_subsys_set, &
+                              cp_subsys_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_create, &
+                                       molecule_kind_list_release, &
+                                       molecule_kind_list_type
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_list_types, ONLY: molecule_list_create, &
+                                  molecule_list_release, &
+                                  molecule_list_type
+   USE molecule_types, ONLY: molecule_type
+   USE particle_list_types, ONLY: particle_list_create, &
+                                  particle_list_release, &
+                                  particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

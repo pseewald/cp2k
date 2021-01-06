@@ -12,32 +12,32 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE qmmmx_force
-   USE cell_types,                      ONLY: cell_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_type
-   USE fist_environment_types,          ONLY: fist_env_get
-   USE input_constants,                 ONLY: do_fm_mom_conserv_QM,&
-                                              do_fm_mom_conserv_buffer,&
-                                              do_fm_mom_conserv_core,&
-                                              do_fm_mom_conserv_equal_a,&
-                                              do_fm_mom_conserv_equal_f,&
-                                              do_fm_mom_conserv_none
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE particle_types,                  ONLY: particle_type
-   USE qmmm_force,                      ONLY: qmmm_calc_energy_force
-   USE qmmm_types,                      ONLY: qmmm_env_get,&
-                                              qmmm_env_type
-   USE qmmm_types_low,                  ONLY: force_mixing_label_QM_core,&
-                                              force_mixing_label_QM_dynamics,&
-                                              force_mixing_label_buffer
-   USE qmmm_util,                       ONLY: apply_qmmm_unwrap,&
-                                              apply_qmmm_wrap
-   USE qmmmx_types,                     ONLY: qmmmx_env_type
-   USE qmmmx_util,                      ONLY: apply_qmmmx_translate
-   USE qs_environment_types,            ONLY: get_qs_env
+   USE cell_types, ONLY: cell_type
+   USE cp_subsys_types, ONLY: cp_subsys_type
+   USE fist_environment_types, ONLY: fist_env_get
+   USE input_constants, ONLY: do_fm_mom_conserv_QM, &
+                              do_fm_mom_conserv_buffer, &
+                              do_fm_mom_conserv_core, &
+                              do_fm_mom_conserv_equal_a, &
+                              do_fm_mom_conserv_equal_f, &
+                              do_fm_mom_conserv_none
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE particle_types, ONLY: particle_type
+   USE qmmm_force, ONLY: qmmm_calc_energy_force
+   USE qmmm_types, ONLY: qmmm_env_get, &
+                         qmmm_env_type
+   USE qmmm_types_low, ONLY: force_mixing_label_QM_core, &
+                             force_mixing_label_QM_dynamics, &
+                             force_mixing_label_buffer
+   USE qmmm_util, ONLY: apply_qmmm_unwrap, &
+                        apply_qmmm_wrap
+   USE qmmmx_types, ONLY: qmmmx_env_type
+   USE qmmmx_util, ONLY: apply_qmmmx_translate
+   USE qs_environment_types, ONLY: get_qs_env
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -83,7 +83,7 @@ CONTAINS
          IF (require_consistent_energy_force) &
             CALL cp_abort(__LOCATION__, &
                           "qmmmx_energy_and_forces got require_consistent_energy_force but force mixing is active. ")
-      ENDIF
+      END IF
 
       ! Possibly translate the system
       CALL apply_qmmmx_translate(qmmmx_env)
@@ -106,7 +106,7 @@ CONTAINS
          IF (cur_labels(ip) >= force_mixing_label_QM_dynamics) THEN ! this is a QM atom
             ! copy (QM) force from extended calculation
             particles_qmmm_core(cur_indices(ip))%f = particles_qmmm_extended(cur_indices(ip))%f
-         ENDIF
+         END IF
       END DO
 
       ! zero momentum
@@ -124,7 +124,7 @@ CONTAINS
             mom_conserv_min_label = force_mixing_label_buffer
          ELSE
             CPABORT("Got unknown MOMENTUM_CONSERVATION_REGION (not CORE, QM, or BUFFER) !")
-         ENDIF
+         END IF
 
          total_f = 0.0_dp
          DO ip = 1, SIZE(particles_qmmm_core)
@@ -136,7 +136,7 @@ CONTAINS
             DO ip = 1, SIZE(cur_indices)
                IF (cur_labels(ip) >= mom_conserv_min_label) THEN
                   particles_qmmm_core(cur_indices(ip))%f = particles_qmmm_core(cur_indices(ip))%f - delta_f
-               ENDIF
+               END IF
             END DO
          ELSE IF (mom_conserv_type == do_fm_mom_conserv_equal_a) THEN
             mom_conserv_mass = 0.0_dp
@@ -149,10 +149,10 @@ CONTAINS
                IF (cur_labels(ip) >= mom_conserv_min_label) THEN
                   particles_qmmm_core(cur_indices(ip))%f = particles_qmmm_core(cur_indices(ip))%f - &
                                                            particles_qmmm_core(cur_indices(ip))%atomic_kind%mass*delta_a
-               ENDIF
+               END IF
             END DO
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       CALL qmmm_env_get(qmmmx_env%ext, subsys=subsys_primary)
       particles_primary => subsys_primary%particles%els

@@ -9,75 +9,75 @@
 ! **************************************************************************************************
 MODULE qs_tddfpt2_stda_utils
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE atprop_types,                    ONLY: atprop_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: stda_control_type,&
-                                              tddfpt2_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              cp_dbcsr_plus_fm_fm_t,&
-                                              cp_dbcsr_sm_fm_multiply,&
-                                              dbcsr_allocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_row_scale,&
-                                              cp_fm_schur_product
-   USE cp_fm_diag,                      ONLY: cp_fm_power
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type,&
-                                              cp_fm_vectorssum
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add_on_diag, dbcsr_create, dbcsr_distribution_type, dbcsr_filter, dbcsr_finalize, &
-        dbcsr_get_block_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
-        dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, &
-        dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_symmetric
-   USE ewald_environment_types,         ONLY: ewald_env_create,&
-                                              ewald_env_get,&
-                                              ewald_env_set,&
-                                              ewald_environment_type,&
-                                              read_ewald_section_tb
-   USE ewald_methods_tb,                ONLY: tb_ewald_overlap,&
-                                              tb_spme_evaluate
-   USE ewald_pw_types,                  ONLY: ewald_pw_create,&
-                                              ewald_pw_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE iterate_matrix,                  ONLY: matrix_sqrt_Newton_Schulz
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: oorootpi
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE qs_tddfpt2_stda_types,           ONLY: stda_env_type
-   USE qs_tddfpt2_subgroups,            ONLY: tddfpt_subgroup_env_type
-   USE qs_tddfpt2_types,                ONLY: tddfpt_work_matrices
-   USE scf_control_types,               ONLY: scf_control_type
-   USE util,                            ONLY: get_limit
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE atprop_types, ONLY: atprop_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: stda_control_type, &
+                               tddfpt2_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  cp_dbcsr_plus_fm_fm_t, &
+                                  cp_dbcsr_sm_fm_multiply, &
+                                  dbcsr_allocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_row_scale, &
+                                 cp_fm_schur_product
+   USE cp_fm_diag, ONLY: cp_fm_power
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_type, &
+                          cp_fm_vectorssum
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add_on_diag, dbcsr_create, dbcsr_distribution_type, dbcsr_filter, dbcsr_finalize, &
+      dbcsr_get_block_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
+      dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, &
+      dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_symmetric
+   USE ewald_environment_types, ONLY: ewald_env_create, &
+                                      ewald_env_get, &
+                                      ewald_env_set, &
+                                      ewald_environment_type, &
+                                      read_ewald_section_tb
+   USE ewald_methods_tb, ONLY: tb_ewald_overlap, &
+                               tb_spme_evaluate
+   USE ewald_pw_types, ONLY: ewald_pw_create, &
+                             ewald_pw_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE iterate_matrix, ONLY: matrix_sqrt_Newton_Schulz
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: oorootpi
+   USE message_passing, ONLY: mp_sum
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE qs_tddfpt2_stda_types, ONLY: stda_env_type
+   USE qs_tddfpt2_subgroups, ONLY: tddfpt_subgroup_env_type
+   USE qs_tddfpt2_types, ONLY: tddfpt_work_matrices
+   USE scf_control_types, ONLY: scf_control_type
+   USE util, ONLY: get_limit
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -140,7 +140,7 @@ CONTAINS
          CALL ewald_pw_create(ewald_pw, ewald_env, cell, cell_ref, print_section=print_section)
          work%ewald_env => ewald_env
          work%ewald_pw => ewald_pw
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -358,7 +358,7 @@ CONTAINS
          CALL cp_fm_get_info(work%ctransformed(ispin)%matrix, ncol_global=nactive)
          CALL cp_dbcsr_sm_fm_multiply(work%shalf, sub_env%mos_occ(ispin)%matrix, &
                                       work%ctransformed(ispin)%matrix, nactive, alpha=1.0_dp, beta=0.0_dp)
-      ENDDO
+      END DO
 
       CALL timestop(handle)
 
@@ -390,7 +390,7 @@ CONTAINS
          CALL cp_fm_get_info(xt(ispin)%matrix, ncol_global=nactive)
          CALL cp_dbcsr_sm_fm_multiply(shalf, xvec(ispin)%matrix, &
                                       xt(ispin)%matrix, nactive, alpha=1.0_dp, beta=0.0_dp)
-      ENDDO
+      END DO
 
       CALL timestop(handle)
 
@@ -484,7 +484,7 @@ CONTAINS
          ct => work%ctransformed(ispin)%matrix
          CALL cp_fm_get_info(ct, matrix_struct=fmstruct)
          CALL cp_fm_create(matrix=xtransformed(ispin)%matrix, matrix_struct=fmstruct, name="XTRANSFORMED")
-      ENDDO
+      END DO
       CALL get_lowdin_x(work%shalf, X, xtransformed)
 
       ALLOCATE (tcharge(natom), gtcharge(natom, 1))
@@ -521,7 +521,7 @@ CONTAINS
                   END DO
                END DO
                CALL cp_fm_release(cvecjspin)
-            ENDDO !jspin
+            END DO !jspin
             ! Apply tcharge*gab -> gtcharge
             ! gT(b) = SUM_a g(a,b)*TC(a)
             ! gab = work%gamma_exchange(1)%matrix
@@ -629,7 +629,7 @@ CONTAINS
          !
          CALL cp_fm_release(cvec)
          DEALLOCATE (tv)
-      ENDDO
+      END DO
 
       DO ispin = 1, nspins
          CALL cp_fm_release(matrix=xtransformed(ispin)%matrix)

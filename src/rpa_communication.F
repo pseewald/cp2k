@@ -12,41 +12,41 @@
 !>      12.2012 created [Mauro Del Ben]
 ! **************************************************************************************************
 MODULE rpa_communication
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_type
-   USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr,&
-                                              cp_dbcsr_m_by_n_from_template,&
-                                              dbcsr_allocate_matrix_set
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_indxg2l,&
-                                              cp_fm_indxg2p,&
-                                              cp_fm_indxl2g,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type,&
-                                              dbcsr_type,&
-                                              dbcsr_type_no_symmetry
-   USE group_dist_types,                ONLY: create_group_dist,&
-                                              get_group_dist,&
-                                              group_dist_d1_type,&
-                                              release_group_dist
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_irecv,&
-                                              mp_isend,&
-                                              mp_sum,&
-                                              mp_wait,&
-                                              mp_waitall
-   USE mp2_ri_grad_util,                ONLY: fm2array,&
-                                              prepare_redistribution
-   USE mp2_types,                       ONLY: integ_mat_buffer_type
-   USE util,                            ONLY: get_limit
+   USE cp_blacs_env, ONLY: cp_blacs_env_create, &
+                           cp_blacs_env_release, &
+                           cp_blacs_env_type
+   USE cp_dbcsr_operations, ONLY: copy_fm_to_dbcsr, &
+                                  cp_dbcsr_m_by_n_from_template, &
+                                  dbcsr_allocate_matrix_set
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_indxg2l, &
+                          cp_fm_indxg2p, &
+                          cp_fm_indxl2g, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_p_type, &
+                        dbcsr_type, &
+                        dbcsr_type_no_symmetry
+   USE group_dist_types, ONLY: create_group_dist, &
+                               get_group_dist, &
+                               group_dist_d1_type, &
+                               release_group_dist
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_irecv, &
+                              mp_isend, &
+                              mp_sum, &
+                              mp_wait, &
+                              mp_waitall
+   USE mp2_ri_grad_util, ONLY: fm2array, &
+                               prepare_redistribution
+   USE mp2_types, ONLY: integ_mat_buffer_type
+   USE util, ONLY: get_limit
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -96,11 +96,11 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'initialize_buffer'
 
       INTEGER :: dummy_proc, handle, handle2, i, i_global, i_local, iiB, iii, j_global, j_local, &
-         jjB, mypcol_d, mypcol_s, myprow_d, myprow_s, ncol_block_d, ncol_block_s, ncol_local_d, &
-         ncol_local_s, npcol_d, npcol_s, nprow_d, nprow_s, nrow_block_d, nrow_block_s, &
-         nrow_local_d, nrow_local_s, proc_receive, proc_send, proc_shift, rec_counter, &
-         rec_local_col, rec_local_row, rec_pcol, rec_prow, ref_rec_pcol, ref_rec_prow, &
-         send_counter, send_pcol, send_prow, size_rec_buffer, size_send_buffer
+                 jjB, mypcol_d, mypcol_s, myprow_d, myprow_s, ncol_block_d, ncol_block_s, ncol_local_d, &
+                 ncol_local_s, npcol_d, npcol_s, nprow_d, nprow_s, nrow_block_d, nrow_block_s, &
+                 nrow_local_d, nrow_local_s, proc_receive, proc_send, proc_shift, rec_counter, &
+                 rec_local_col, rec_local_row, rec_pcol, rec_prow, ref_rec_pcol, ref_rec_prow, &
+                 send_counter, send_pcol, send_prow, size_rec_buffer, size_send_buffer
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: index_counter, proc2counter
       INTEGER, DIMENSION(:), POINTER                     :: col_indices_d, col_indices_s, &
                                                             row_indices_d, row_indices_s
@@ -343,24 +343,24 @@ CONTAINS
                               map_send_size, map_rec_size, local_size_source, para_env_RPA)
       TYPE(cp_fm_type), POINTER                          :: fm_mat_source, fm_mat_dest
       TYPE(cp_para_env_type), POINTER                    :: para_env_RPA
-      INTEGER, DIMENSION(2, 0:para_env_RPA%num_pe-1), &
+      INTEGER, DIMENSION(2, 0:para_env_RPA%num_pe - 1), &
          INTENT(IN)                                      :: local_size_source
-      INTEGER, DIMENSION(0:para_env_RPA%num_pe-1), &
+      INTEGER, DIMENSION(0:para_env_RPA%num_pe - 1), &
          INTENT(IN)                                      :: map_rec_size, map_send_size
       INTEGER, INTENT(IN)                                :: number_of_send
       TYPE(integ_mat_buffer_type), DIMENSION(:), &
          INTENT(INOUT)                                   :: buffer_send, buffer_rec
-      INTEGER, DIMENSION(-para_env_RPA%num_pe:2*&
-         para_env_RPA%num_pe-1), INTENT(IN)              :: RPA_proc_map
+      INTEGER, DIMENSION(-para_env_RPA%num_pe:2* &
+                         para_env_RPA%num_pe - 1), INTENT(IN)              :: RPA_proc_map
 
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'fm_redistribute'
 
       INTEGER :: dummy_proc, handle, handle2, i_global, i_local, iiB, iii, j_global, j_local, jjB, &
-         mypcol_d, mypcol_s, myprow_d, myprow_s, ncol_block_d, ncol_block_s, ncol_local_d, &
-         ncol_local_s, npcol_d, npcol_s, nprow_d, nprow_s, nrow_block_d, nrow_block_s, &
-         nrow_local_d, nrow_local_s, proc_receive, proc_send, proc_shift, rec_counter, &
-         rec_local_col, rec_local_row, rec_pcol, rec_prow, ref_rec_pcol, ref_rec_prow, &
-         send_counter, size_rec_buffer, size_send_buffer
+                 mypcol_d, mypcol_s, myprow_d, myprow_s, ncol_block_d, ncol_block_s, ncol_local_d, &
+                 ncol_local_s, npcol_d, npcol_s, nprow_d, nprow_s, nrow_block_d, nrow_block_s, &
+                 nrow_local_d, nrow_local_s, proc_receive, proc_send, proc_shift, rec_counter, &
+                 rec_local_col, rec_local_row, rec_pcol, rec_prow, ref_rec_pcol, ref_rec_prow, &
+                 send_counter, size_rec_buffer, size_send_buffer
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: req_send
       INTEGER, DIMENSION(:), POINTER                     :: col_indices_d, col_indices_s, &
                                                             row_indices_d, row_indices_s
@@ -607,15 +607,15 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'gamma_fm_to_dbcsr'
 
       INTEGER :: dimen_ia, dummy_proc, handle, i, i_global, i_local, iaia, iib, iii, itmp(2), &
-         j_global, j_local, jjb, jjj, kkb, my_ia_end, my_ia_size, my_ia_start, mypcol, myprow, &
-         ncol_block, ncol_local, npcol, nprow, nrow_block, nrow_local, number_of_rec, &
-         number_of_send, proc_receive, proc_send, proc_shift, rec_counter, rec_iaia_end, &
-         rec_iaia_size, rec_iaia_start, rec_pcol, rec_prow, ref_send_pcol, ref_send_prow, &
-         send_counter, send_pcol, send_prow, size_rec_buffer, size_send_buffer
+                 j_global, j_local, jjb, jjj, kkb, my_ia_end, my_ia_size, my_ia_start, mypcol, myprow, &
+                 ncol_block, ncol_local, npcol, nprow, nrow_block, nrow_local, number_of_rec, &
+                 number_of_send, proc_receive, proc_send, proc_shift, rec_counter, rec_iaia_end, &
+                 rec_iaia_size, rec_iaia_start, rec_pcol, rec_prow, ref_send_pcol, ref_send_prow, &
+                 send_counter, send_pcol, send_prow, size_rec_buffer, size_send_buffer
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: iii_vet, map_rec_size, map_send_size, &
                                                             proc_map, req_send, sub_proc_map
       INTEGER, ALLOCATABLE, DIMENSION(:, :) :: grid_2_mepos, grid_ref_2_send_pos, &
-         group_grid_2_mepos, indices_map_my, mepos_2_grid, mepos_2_grid_group, sizes
+                                               group_grid_2_mepos, indices_map_my, mepos_2_grid, mepos_2_grid_group, sizes
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_indices
       REAL(KIND=dp)                                      :: part_ia
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: Gamma_2D

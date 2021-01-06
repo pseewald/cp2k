@@ -13,11 +13,11 @@
 ! **************************************************************************************************
 MODULE subcell_types
 
-   USE cell_types,                      ONLY: cell_type,&
-                                              real_to_scaled,&
-                                              scaled_to_real
-   USE kinds,                           ONLY: dp
-   USE util,                            ONLY: sort
+   USE cell_types, ONLY: cell_type, &
+                         real_to_scaled, &
+                         scaled_to_real
+   USE kinds, ONLY: dp
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

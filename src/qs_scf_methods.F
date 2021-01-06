@@ -18,40 +18,40 @@
 ! **************************************************************************************************
 MODULE qs_scf_methods
 
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              cp_dbcsr_sm_fm_multiply
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_symm,&
-                                              cp_fm_triangular_multiply,&
-                                              cp_fm_upper_to_full
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_reduce,&
-                                              cp_fm_cholesky_restore
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver,&
-                                              cp_fm_block_jacobi
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_equivalent,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_desymmetrize, dbcsr_get_block_p, dbcsr_iterator_blocks_left, &
-        dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
-        dbcsr_multiply, dbcsr_p_type, dbcsr_type
-   USE input_constants,                 ONLY: cholesky_inverse,&
-                                              cholesky_off,&
-                                              cholesky_reduce,&
-                                              cholesky_restore
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_max
-   USE qs_density_mixing_types,         ONLY: mixing_storage_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  cp_dbcsr_sm_fm_multiply
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_symm, &
+                                 cp_fm_triangular_multiply, &
+                                 cp_fm_upper_to_full
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_reduce, &
+                             cp_fm_cholesky_restore
+   USE cp_fm_diag, ONLY: choose_eigv_solver, &
+                         cp_fm_block_jacobi
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_equivalent, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_desymmetrize, dbcsr_get_block_p, dbcsr_iterator_blocks_left, &
+      dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
+      dbcsr_multiply, dbcsr_p_type, dbcsr_type
+   USE input_constants, ONLY: cholesky_inverse, &
+                              cholesky_off, &
+                              cholesky_reduce, &
+                              cholesky_restore
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_max
+   USE qs_density_mixing_types, ONLY: mixing_storage_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -517,8 +517,8 @@ CONTAINS
                   p_new_block(i, j) = p_old_block(i, j) + p_mix*p_new_block(i, j)
                END DO
             END DO
-         ENDIF
-      ENDDO
+         END IF
+      END DO
       CALL dbcsr_iterator_stop(iter)
 
       CALL mp_max(delta, para_env%group)

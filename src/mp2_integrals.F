@@ -12,96 +12,96 @@
 !>      03.2019 separated from mp2_ri_gpw [Frederick Stein]
 ! **************************************************************************************************
 MODULE mp2_integrals
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type
-   USE bibliography,                    ONLY: DelBen2013,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              cp_dbcsr_m_by_n_from_template
-   USE cp_eri_mme_interface,            ONLY: cp_eri_mme_param,&
-                                              cp_eri_mme_set_params
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_para_env,                     ONLY: cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_copy, dbcsr_create, dbcsr_get_info, dbcsr_multiply, dbcsr_p_type, dbcsr_release, &
-        dbcsr_release_p, dbcsr_scalar, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry, &
-        dbcsr_type_real_8
-   USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_clear, dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_create, dbcsr_t_destroy, &
-        dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
-        dbcsr_t_filter, dbcsr_t_get_block, dbcsr_t_get_info, dbcsr_t_get_num_blocks, &
-        dbcsr_t_get_stored_coordinates, dbcsr_t_mp_environ_pgrid, dbcsr_t_pgrid_create, &
-        dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_put_block, dbcsr_t_reserve_blocks, &
-        dbcsr_t_reserved_block_indices, dbcsr_t_split_blocks, dbcsr_t_type
-   USE group_dist_types,                ONLY: create_group_dist,&
-                                              get_group_dist,&
-                                              group_dist_d1_type
-   USE hfx_types,                       ONLY: alloc_containers,&
-                                              block_ind_type,&
-                                              hfx_compression_type
-   USE input_constants,                 ONLY: do_eri_gpw,&
-                                              do_eri_mme,&
-                                              do_eri_os,&
-                                              do_potential_coulomb,&
-                                              do_potential_id,&
-                                              do_potential_long,&
-                                              do_potential_short,&
-                                              do_potential_truncated
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE kpoint_methods,                  ONLY: kpoint_init_cell_index
-   USE kpoint_types,                    ONLY: kpoint_type
-   USE libint_2c_3c,                    ONLY: libint_potential_type
-   USE machine,                         ONLY: m_flush
-   USE message_passing,                 ONLY: mp_cart_create,&
-                                              mp_environ,&
-                                              mp_max,&
-                                              mp_sendrecv,&
-                                              mp_sum,&
-                                              mp_sync
-   USE mp2_eri,                         ONLY: mp2_eri_3c_integrate
-   USE mp2_eri_gpw,                     ONLY: cleanup_gpw,&
-                                              mp2_eri_3c_integrate_gpw,&
-                                              prepare_gpw
-   USE mp2_ri_2c,                       ONLY: get_2c_integrals
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_type
-   USE pw_poisson_types,                ONLY: pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_type
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_tensors,                      ONLY: build_3c_integrals,&
-                                              build_3c_neighbor_lists,&
-                                              compress_tensor,&
-                                              get_tensor_occupancy,&
-                                              neighbor_list_3c_destroy
-   USE qs_tensors_types,                ONLY: create_3c_tensor,&
-                                              create_tensor_batches,&
-                                              distribution_3d_create,&
-                                              distribution_3d_type,&
-                                              neighbor_list_3c_type,&
-                                              pgf_block_sizes
-   USE task_list_types,                 ONLY: task_list_type
-   USE util,                            ONLY: get_limit
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE basis_set_types, ONLY: gto_basis_set_p_type
+   USE bibliography, ONLY: DelBen2013, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type, &
+                         get_cell
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  cp_dbcsr_m_by_n_from_template
+   USE cp_eri_mme_interface, ONLY: cp_eri_mme_param, &
+                                   cp_eri_mme_set_params
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE cp_para_env, ONLY: cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE dbcsr_api, ONLY: &
+      dbcsr_copy, dbcsr_create, dbcsr_get_info, dbcsr_multiply, dbcsr_p_type, dbcsr_release, &
+      dbcsr_release_p, dbcsr_scalar, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry, &
+      dbcsr_type_real_8
+   USE dbcsr_tensor_api, ONLY: &
+      dbcsr_t_clear, dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_create, dbcsr_t_destroy, &
+      dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
+      dbcsr_t_filter, dbcsr_t_get_block, dbcsr_t_get_info, dbcsr_t_get_num_blocks, &
+      dbcsr_t_get_stored_coordinates, dbcsr_t_mp_environ_pgrid, dbcsr_t_pgrid_create, &
+      dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, dbcsr_t_put_block, dbcsr_t_reserve_blocks, &
+      dbcsr_t_reserved_block_indices, dbcsr_t_split_blocks, dbcsr_t_type
+   USE group_dist_types, ONLY: create_group_dist, &
+                               get_group_dist, &
+                               group_dist_d1_type
+   USE hfx_types, ONLY: alloc_containers, &
+                        block_ind_type, &
+                        hfx_compression_type
+   USE input_constants, ONLY: do_eri_gpw, &
+                              do_eri_mme, &
+                              do_eri_os, &
+                              do_potential_coulomb, &
+                              do_potential_id, &
+                              do_potential_long, &
+                              do_potential_short, &
+                              do_potential_truncated
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE kpoint_methods, ONLY: kpoint_init_cell_index
+   USE kpoint_types, ONLY: kpoint_type
+   USE libint_2c_3c, ONLY: libint_potential_type
+   USE machine, ONLY: m_flush
+   USE message_passing, ONLY: mp_cart_create, &
+                              mp_environ, &
+                              mp_max, &
+                              mp_sendrecv, &
+                              mp_sum, &
+                              mp_sync
+   USE mp2_eri, ONLY: mp2_eri_3c_integrate
+   USE mp2_eri_gpw, ONLY: cleanup_gpw, &
+                          mp2_eri_3c_integrate_gpw, &
+                          prepare_gpw
+   USE mp2_ri_2c, ONLY: get_2c_integrals
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_type
+   USE pw_poisson_types, ONLY: pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_type
+   USE pw_types, ONLY: pw_p_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_integral_utils, ONLY: basis_set_list_setup
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_tensors, ONLY: build_3c_integrals, &
+                         build_3c_neighbor_lists, &
+                         compress_tensor, &
+                         get_tensor_occupancy, &
+                         neighbor_list_3c_destroy
+   USE qs_tensors_types, ONLY: create_3c_tensor, &
+                               create_tensor_batches, &
+                               distribution_3d_create, &
+                               distribution_3d_type, &
+                               neighbor_list_3c_type, &
+                               pgf_block_sizes
+   USE task_list_types, ONLY: task_list_type
+   USE util, ONLY: get_limit
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"
@@ -248,21 +248,21 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'mp2_ri_gpw_compute_in'
 
       INTEGER :: cm, cut_memory, cut_memory_int, eri_method, gw_corr_lev_total, handle, handle2, &
-         handle4, i, i_counter, i_mem, itmp(2), j, jcell, kcell, LLL, max_row_col_local, &
-         max_row_col_local_beta, max_row_col_local_gw, max_row_col_local_occ_bse, &
-         max_row_col_local_virt_bse, min_bsize, mp_comm_t3c_2, my_B_all_end, my_B_all_size, &
-         my_B_all_start, my_B_occ_bse_end, my_B_occ_bse_size, my_B_occ_bse_start, my_B_size, &
-         my_B_size_beta, my_B_virt_bse_end, my_B_virt_bse_size, my_B_virt_bse_start, &
-         my_B_virtual_end, my_B_virtual_end_beta, my_B_virtual_start, my_B_virtual_start_beta, &
-         my_group_L_end
+                 handle4, i, i_counter, i_mem, itmp(2), j, jcell, kcell, LLL, max_row_col_local, &
+                 max_row_col_local_beta, max_row_col_local_gw, max_row_col_local_occ_bse, &
+                 max_row_col_local_virt_bse, min_bsize, mp_comm_t3c_2, my_B_all_end, my_B_all_size, &
+                 my_B_all_start, my_B_occ_bse_end, my_B_occ_bse_size, my_B_occ_bse_start, my_B_size, &
+                 my_B_size_beta, my_B_virt_bse_end, my_B_virt_bse_size, my_B_virt_bse_start, &
+                 my_B_virtual_end, my_B_virtual_end_beta, my_B_virtual_start, my_B_virtual_start_beta, &
+                 my_group_L_end
       INTEGER :: my_group_L_size, my_group_L_start, natom, ngroup, nimg, nkind, num_small_eigen, &
-         potential_type, ri_metric_type, virtual, virtual_beta
+                 potential_type, ri_metric_type, virtual, virtual_beta
       INTEGER(int_8)                                     :: nze
       INTEGER, ALLOCATABLE, DIMENSION(:) :: dist_AO_1, dist_AO_2, dist_RI, &
-         ends_array_mc_block_int, ends_array_mc_int, sizes_AO, sizes_AO_split, sizes_RI, &
-         sizes_RI_split, starts_array_mc_block_int, starts_array_mc_int, sub_proc_map
+                                            ends_array_mc_block_int, ends_array_mc_int, sizes_AO, sizes_AO_split, sizes_RI, &
+                                            sizes_RI_split, starts_array_mc_block_int, starts_array_mc_int, sub_proc_map
       INTEGER, ALLOCATABLE, DIMENSION(:, :) :: local_col_row_info, local_col_row_info_beta, &
-         local_col_row_info_gw, local_col_row_info_occ_bse, local_col_row_info_virt_bse
+                                               local_col_row_info_gw, local_col_row_info_occ_bse, local_col_row_info_virt_bse
       INTEGER, DIMENSION(2, 3)                           :: bounds
       INTEGER, DIMENSION(3)                              :: bounds_3c, pcoord, pdims, pdims_t3c, &
                                                             periodic
@@ -270,7 +270,7 @@ CONTAINS
                                                             do_kpoints_from_Gamma, do_svd, &
                                                             memory_info
       REAL(KIND=dp) :: compression_factor, cond_num, cutoff_old, eps_svd, mem_for_iaK, memory_3c, &
-         occ, omega_pot, rc_ang, relative_cutoff_old
+                       occ, omega_pot, rc_ang, relative_cutoff_old
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: e_cutoff_old
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: my_Lrows
       TYPE(cp_eri_mme_param), POINTER                    :: eri_param
@@ -283,8 +283,8 @@ CONTAINS
       TYPE(dbcsr_t_type)                                 :: t_3c_overl_int_template, t_3c_tmp
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_overl_int
       TYPE(dbcsr_type) :: matrix_bse_ab, matrix_bse_anu, matrix_bse_ij, matrix_bse_inu, &
-         matrix_ia_jb, matrix_ia_jb_beta, matrix_ia_jnu, matrix_ia_jnu_beta, matrix_in_jm, &
-         matrix_in_jm_beta, matrix_in_jnu, matrix_in_jnu_beta
+                          matrix_ia_jb, matrix_ia_jb_beta, matrix_ia_jnu, matrix_ia_jnu_beta, matrix_in_jm, &
+                          matrix_in_jm_beta, matrix_in_jnu, matrix_in_jnu_beta
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(distribution_3d_type)                         :: dist_3d
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: basis_set_ao, basis_set_ri_aux
@@ -309,7 +309,7 @@ CONTAINS
       IF ((ri_metric%potential_type == do_potential_short .OR. ri_metric%potential_type == do_potential_truncated) &
           .AND. .NOT. do_im_time) THEN
          CPABORT("TRUNCATED and SHORTRANGE RI metrics not yet implemented")
-      ENDIF
+      END IF
 
       virtual = nmo - homo
       gw_corr_lev_total = gw_corr_lev_virt + gw_corr_lev_occ
@@ -426,7 +426,7 @@ CONTAINS
       IF (qs_env%mp2_env%eri_method .EQ. do_eri_mme) THEN
          ! cell might have changed, so we need to reset parameters
          CALL cp_eri_mme_set_params(eri_param, cell, qs_kind_set, basis_type_1="ORB", basis_type_2="RI_AUX", para_env=para_env)
-      ENDIF
+      END IF
 
       CALL get_cell(cell=cell, periodic=periodic)
       ! for minimax Ewald summation, full periodicity is required
@@ -448,7 +448,7 @@ CONTAINS
                             qs_kind_set, sab_orb_sub)
 
       IF (unit_nr > 0) THEN
-         ASSOCIATE (ri_metric=>qs_env%mp2_env%ri_metric)
+         ASSOCIATE (ri_metric => qs_env%mp2_env%ri_metric)
             SELECT CASE (ri_metric%potential_type)
             CASE (do_potential_coulomb)
                WRITE (unit_nr, FMT="(/T3,A,T74,A)") &
@@ -477,7 +477,7 @@ CONTAINS
                   "RI_INFO| Cutoff Radius [angstrom]:     ", rc_ang
             END SELECT
          END ASSOCIATE
-      ENDIF
+      END IF
 
       IF (unit_nr > 0 .AND. .NOT. do_im_time) THEN
          WRITE (UNIT=unit_nr, FMT="(T3,A,T75,i6)") "RI_INFO| Cholesky decomposition group size:", para_env_L%num_pe
@@ -543,7 +543,7 @@ CONTAINS
             END IF
          END IF
          CALL m_flush(unit_nr)
-      ENDIF
+      END IF
 
       CALL mp_sync(para_env%group) ! sync to see memory output
 
@@ -601,7 +601,7 @@ CONTAINS
                ALLOCATE (mat_munu_local_L(LLL)%matrix)
                CALL dbcsr_copy(mat_munu_local_L(LLL)%matrix, mat_munu%matrix)
                CALL dbcsr_set(mat_munu_local_L(LLL)%matrix, 0.0_dp)
-            ENDDO
+            END DO
             CALL mp2_eri_3c_integrate(eri_param, ri_metric%potential_type, ri_metric%omega, para_env_sub, qs_env, &
                                       first_c=my_group_L_start, last_c=my_group_L_end, &
                                       mat_ab=mat_munu_local_L, &
@@ -614,7 +614,7 @@ CONTAINS
                                          fm_BIb_jb, BIb_C(LLL, 1:my_B_size, 1:homo), &
                                          mo_coeff_o, mo_coeff_v, eps_filter, max_row_col_local, sub_proc_map, &
                                          local_col_row_info, my_B_virtual_end, my_B_virtual_start, "alpha")
-            ENDDO
+            END DO
             CALL contract_B_L(BIb_C, my_Lrows, gd_B_virtual%sizes, gd_array%sizes, qs_env%mp2_env%eri_blksize, &
                               ngroup, color_sub, para_env%group, para_env_sub)
 
@@ -625,11 +625,11 @@ CONTAINS
                                             fm_BIb_jb_beta, BIb_C_beta(LLL, 1:my_B_size_beta, 1:homo_beta), &
                                             mo_coeff_o_beta, mo_coeff_v_beta, eps_filter, max_row_col_local_beta, sub_proc_map, &
                                             local_col_row_info_beta, my_B_virtual_end_beta, my_B_virtual_start_beta, "beta")
-               ENDDO
+               END DO
                CALL contract_B_L(BIb_C_beta, my_Lrows, gd_B_virtual_beta%sizes, gd_array%sizes, qs_env%mp2_env%eri_blksize, &
                                  ngroup, color_sub, para_env%group, para_env_sub)
 
-            ENDIF
+            END IF
 
             IF (my_do_gw) THEN
 
@@ -638,7 +638,7 @@ CONTAINS
                                             fm_BIb_gw, BIb_C_gw(LLL, 1:my_B_all_size, 1:gw_corr_lev_total), &
                                             mo_coeff_gw, mo_coeff_all, eps_filter, max_row_col_local_gw, sub_proc_map, &
                                             local_col_row_info_gw, my_B_all_end, my_B_all_start, "gw_alpha")
-               ENDDO
+               END DO
                CALL contract_B_L(BIb_C_gw, my_Lrows, gd_B_all%sizes, gd_array%sizes, qs_env%mp2_env%eri_blksize, &
                                  ngroup, color_sub, para_env%group, para_env_sub)
 
@@ -649,12 +649,12 @@ CONTAINS
                                                fm_BIb_gw_beta, BIb_C_gw_beta(LLL, 1:my_B_all_size, 1:gw_corr_lev_total), &
                                                mo_coeff_gw_beta, mo_coeff_all_beta, eps_filter, max_row_col_local_gw, &
                                                sub_proc_map, local_col_row_info_gw, my_B_all_end, my_B_all_start, "gw_beta")
-                  ENDDO
+                  END DO
                   CALL contract_B_L(BIb_C_gw_beta, my_Lrows, gd_B_all%sizes, gd_array%sizes, qs_env%mp2_env%eri_blksize, &
                                     ngroup, color_sub, para_env%group, para_env_sub)
 
-               ENDIF
-            ENDIF
+               END IF
+            END IF
 
             IF (do_bse) THEN
 
@@ -664,7 +664,7 @@ CONTAINS
                                             fm_BIb_bse_ab, BIb_C_bse_ab(LLL, 1:my_B_virt_bse_size, 1:virtual), &
                                             mo_coeff_v, mo_coeff_v, eps_filter, max_row_col_local_virt_bse, &
                                             sub_proc_map, local_col_row_info_virt_bse, my_B_all_end, my_B_all_start, "bse_ab")
-               ENDDO
+               END DO
                CALL contract_B_L(BIb_C_bse_ab, my_Lrows, gd_B_virt_bse%sizes, gd_array%sizes, qs_env%mp2_env%eri_blksize, &
                                  ngroup, color_sub, para_env%group, para_env_sub)
 
@@ -675,7 +675,7 @@ CONTAINS
                                             mo_coeff_o, mo_coeff_o, eps_filter, max_row_col_local_occ_bse, &
                                             sub_proc_map, local_col_row_info_occ_bse, &
                                             my_B_occ_bse_end, my_B_occ_bse_start, "bse_ij")
-               ENDDO
+               END DO
                CALL contract_B_L(BIb_C_bse_ij, my_Lrows, gd_B_occ_bse%sizes, gd_array%sizes, qs_env%mp2_env%eri_blksize, &
                                  ngroup, color_sub, para_env%group, para_env_sub)
 
@@ -683,7 +683,7 @@ CONTAINS
 
             DO LLL = 1, my_group_L_size
                CALL dbcsr_release_p(mat_munu_local_L(LLL)%matrix)
-            ENDDO
+            END DO
             DEALLOCATE (mat_munu_local_L)
 
          ELSE IF (do_gpw) THEN
@@ -708,7 +708,7 @@ CONTAINS
                                             mo_coeff_o_beta, mo_coeff_v_beta, eps_filter, max_row_col_local_beta, sub_proc_map, &
                                             local_col_row_info_beta, my_B_virtual_end_beta, my_B_virtual_start_beta, "beta")
 
-               ENDIF
+               END IF
 
                IF (my_do_gw) THEN
                   ! transform (K|mu nu) to (K|nm), n corresponds to corrected GW levels, m is in nmo
@@ -830,15 +830,15 @@ CONTAINS
             nimg = dft_control%nimages
          ELSE
             nimg = 1
-         ENDIF
+         END IF
 
          ALLOCATE (t_3c_overl_int(nimg, nimg))
 
          DO i = 1, SIZE(t_3c_overl_int, 1)
             DO j = 1, SIZE(t_3c_overl_int, 2)
                CALL dbcsr_t_create(t_3c_overl_int_template, t_3c_overl_int(i, j))
-            ENDDO
-         ENDDO
+            END DO
+         END DO
 
          CALL dbcsr_t_destroy(t_3c_overl_int_template)
 
@@ -851,7 +851,7 @@ CONTAINS
          pdims_t3c = 0
          CALL dbcsr_t_pgrid_create(para_env%group, pdims_t3c, pgrid_t3c_M)
 
-         ASSOCIATE (cut_memory=>qs_env%mp2_env%ri_rpa_im_time%cut_memory)
+         ASSOCIATE (cut_memory => qs_env%mp2_env%ri_rpa_im_time%cut_memory)
             CALL create_tensor_batches(sizes_AO_split, cut_memory, starts_array_mc, ends_array_mc, &
                                        starts_array_mc_block, ends_array_mc_block)
          END ASSOCIATE
@@ -879,8 +879,8 @@ CONTAINS
          DO i = 1, SIZE(t_3c_O, 1)
             DO j = 1, SIZE(t_3c_O, 2)
                IF (i > 1 .OR. j > 1) CALL dbcsr_t_create(t_3c_O(1, 1), t_3c_O(i, j))
-            ENDDO
-         ENDDO
+            END DO
+         END DO
 
          ! build integrals in batches and copy to optimized format
          ! note: integrals are stored in terms of atomic blocks. To avoid a memory bottleneck,
@@ -905,17 +905,17 @@ CONTAINS
                                     summation=.TRUE., move_data=.TRUE.)
                   CALL dbcsr_t_clear(t_3c_overl_int(i, j))
                   CALL dbcsr_t_filter(t_3c_O(i, j), qs_env%mp2_env%ri_rpa_im_time%eps_filter/2)
-               ENDDO
-            ENDDO
+               END DO
+            END DO
 
             CALL timestop(handle4)
-         ENDDO
+         END DO
 
          DO i = 1, SIZE(t_3c_overl_int, 1)
             DO j = 1, SIZE(t_3c_overl_int, 2)
                CALL dbcsr_t_destroy(t_3c_overl_int(i, j))
-            ENDDO
-         ENDDO
+            END DO
+         END DO
          DEALLOCATE (t_3c_overl_int)
 
          CALL timeset(routineN//"_copy_3c", handle4)
@@ -926,15 +926,15 @@ CONTAINS
                CALL dbcsr_t_copy(t_3c_O(jcell, kcell), t_3c_tmp)
                CALL dbcsr_t_copy(t_3c_tmp, t_3c_O(kcell, jcell), order=[1, 3, 2], summation=.TRUE., move_data=.TRUE.)
                CALL dbcsr_t_filter(t_3c_O(kcell, jcell), qs_env%mp2_env%ri_rpa_im_time%eps_filter)
-            ENDDO
-         ENDDO
+            END DO
+         END DO
          DO jcell = 1, nimg
             DO kcell = jcell + 1, nimg
                CALL dbcsr_t_copy(t_3c_O(jcell, kcell), t_3c_tmp)
                CALL dbcsr_t_copy(t_3c_tmp, t_3c_O(kcell, jcell), order=[1, 3, 2], summation=.FALSE., move_data=.TRUE.)
                CALL dbcsr_t_filter(t_3c_O(kcell, jcell), qs_env%mp2_env%ri_rpa_im_time%eps_filter)
-            ENDDO
-         ENDDO
+            END DO
+         END DO
 
          CALL dbcsr_t_get_info(t_3c_O(1, 1), nfull_total=bounds_3c)
          CALL get_tensor_occupancy(t_3c_O(1, 1), nze, occ)
@@ -953,10 +953,10 @@ CONTAINS
                   CALL alloc_containers(t_3c_O_compressed(i, j, i_mem), 1)
                   CALL compress_tensor(t_3c_tmp, t_3c_O_compressed(i, j, i_mem), &
                                        qs_env%mp2_env%ri_rpa_im_time%eps_compress, memory_3c)
-               ENDDO
+               END DO
                CALL dbcsr_t_clear(t_3c_O(i, j))
-            ENDDO
-         ENDDO
+            END DO
+         END DO
 
          CALL mp_sum(memory_3c, para_env%group)
 
@@ -1086,7 +1086,7 @@ CONTAINS
          ! check that tensor distribution is correct
          CALL dbcsr_t_get_stored_coordinates(tB_in, [loc_P, loc_a, 1], check_proc)
          CPASSERT(check_proc .EQ. iproc_glob)
-      ENDIF
+      END IF
 
       ! reserve (R|ai) block
       CALL dbcsr_t_reserve_blocks(tB_in, [loc_P], [loc_a], [1])
@@ -1105,8 +1105,8 @@ CONTAINS
             ii = ii + 1
             block_ind_L_R(ii) = i
             block_ind_L_P(ii) = loc_P
-         ENDIF
-      ENDDO
+         END IF
+      END DO
       CALL dbcsr_t_reserve_blocks(tL, block_ind_L_R(1:ii), block_ind_L_P(1:ii))
 
       ! insert (R|ai) block
@@ -1120,8 +1120,8 @@ CONTAINS
          CALL dbcsr_t_get_stored_coordinates(tL, [i, loc_P], check_proc)
          IF (check_proc == iproc_glob) THEN
             CALL dbcsr_t_put_block(tL, [i, loc_P], [sizes_L(i), sizes_L(loc_P)], my_Lrows(istart:iend, :))
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       CALL dbcsr_t_split_blocks(tB_in, tB_in_split, [blk_size(2), blk_size(1), blk_size(1)])
       CALL dbcsr_t_split_blocks(tL, tL_split, [blk_size(2), blk_size(2)])
@@ -1414,8 +1414,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'grep_Lcols'
 
       INTEGER :: handle, handle2, i_global, iiB, j_global, jjB, max_row_col_local, ncol_local, &
-         ncol_rec, nrow_local, nrow_rec, proc_receive, proc_receive_static, proc_send, &
-         proc_send_static, proc_shift
+                 ncol_rec, nrow_local, nrow_rec, proc_receive, proc_receive_static, proc_send, &
+                 proc_send_static, proc_shift
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: proc_map
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: local_col_row_info, rec_col_row_info
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, col_indices_rec, &

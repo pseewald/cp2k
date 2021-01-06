@@ -13,18 +13,18 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE mao_optimizer
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_distribution_type, dbcsr_get_info, dbcsr_norm, &
-        dbcsr_norm_maxabsnorm, dbcsr_p_type, dbcsr_release, dbcsr_reserve_diag_blocks, dbcsr_type, &
-        dbcsr_type_symmetric
-   USE kinds,                           ONLY: dp
-   USE mao_methods,                     ONLY: mao_function,&
-                                              mao_function_gradient,&
-                                              mao_initialization,&
-                                              mao_orthogonalization,&
-                                              mao_scalar_product
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_distribution_type, dbcsr_get_info, dbcsr_norm, &
+      dbcsr_norm_maxabsnorm, dbcsr_p_type, dbcsr_release, dbcsr_reserve_diag_blocks, dbcsr_type, &
+      dbcsr_type_symmetric
+   USE kinds, ONLY: dp
+   USE mao_methods, ONLY: mao_function, &
+                          mao_function_gradient, &
+                          mao_initialization, &
+                          mao_orthogonalization, &
+                          mao_scalar_product
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

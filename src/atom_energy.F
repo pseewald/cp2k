@@ -6,53 +6,53 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE atom_energy
-   USE atom_admm_methods,               ONLY: atom_admm
-   USE atom_electronic_structure,       ONLY: calculate_atom
-   USE atom_fit,                        ONLY: atom_fit_density,&
-                                              atom_fit_kgpot
-   USE atom_grb,                        ONLY: atom_grb_construction
-   USE atom_operators,                  ONLY: atom_int_release,&
-                                              atom_int_setup,&
-                                              atom_ppint_release,&
-                                              atom_ppint_setup,&
-                                              atom_relint_release,&
-                                              atom_relint_setup
-   USE atom_output,                     ONLY: atom_print_basis,&
-                                              atom_print_info,&
-                                              atom_print_method,&
-                                              atom_print_orbitals,&
-                                              atom_print_potential,&
-                                              atom_write_pseudo_param
-   USE atom_sgp,                        ONLY: atom_sgp_construction
-   USE atom_types,                      ONLY: &
-        atom_basis_type, atom_gthpot_type, atom_integrals, atom_optimization_type, atom_orbitals, &
-        atom_p_type, atom_potential_type, atom_state, atom_type, create_atom_orbs, &
-        create_atom_type, gth_pseudo, init_atom_basis, init_atom_potential, lmat, &
-        read_atom_opt_section, release_atom_basis, release_atom_potential, release_atom_type, &
-        set_atom
-   USE atom_utils,                      ONLY: &
-        atom_completeness, atom_condnumber, atom_consistent_method, atom_core_density, &
-        atom_density, atom_local_potential, atom_read_external_density, atom_read_external_vxc, &
-        atom_set_occupation, atom_write_zmp_restart, get_maxl_occ, get_maxn_occ
-   USE atom_xc,                         ONLY: calculate_atom_ext_vxc,&
-                                              calculate_atom_zmp
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE input_constants,                 ONLY: do_analytic
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              gamma1,&
-                                              pi
-   USE periodic_table,                  ONLY: nelem,&
-                                              ptable
-   USE physcon,                         ONLY: bohr
+   USE atom_admm_methods, ONLY: atom_admm
+   USE atom_electronic_structure, ONLY: calculate_atom
+   USE atom_fit, ONLY: atom_fit_density, &
+                       atom_fit_kgpot
+   USE atom_grb, ONLY: atom_grb_construction
+   USE atom_operators, ONLY: atom_int_release, &
+                             atom_int_setup, &
+                             atom_ppint_release, &
+                             atom_ppint_setup, &
+                             atom_relint_release, &
+                             atom_relint_setup
+   USE atom_output, ONLY: atom_print_basis, &
+                          atom_print_info, &
+                          atom_print_method, &
+                          atom_print_orbitals, &
+                          atom_print_potential, &
+                          atom_write_pseudo_param
+   USE atom_sgp, ONLY: atom_sgp_construction
+   USE atom_types, ONLY: &
+      atom_basis_type, atom_gthpot_type, atom_integrals, atom_optimization_type, atom_orbitals, &
+      atom_p_type, atom_potential_type, atom_state, atom_type, create_atom_orbs, &
+      create_atom_type, gth_pseudo, init_atom_basis, init_atom_potential, lmat, &
+      read_atom_opt_section, release_atom_basis, release_atom_potential, release_atom_type, &
+      set_atom
+   USE atom_utils, ONLY: &
+      atom_completeness, atom_condnumber, atom_consistent_method, atom_core_density, &
+      atom_density, atom_local_potential, atom_read_external_density, atom_read_external_vxc, &
+      atom_set_occupation, atom_write_zmp_restart, get_maxl_occ, get_maxn_occ
+   USE atom_xc, ONLY: calculate_atom_ext_vxc, &
+                      calculate_atom_zmp
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE input_constants, ONLY: do_analytic
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: dfac, &
+                            gamma1, &
+                            pi
+   USE periodic_table, ONLY: nelem, &
+                             ptable
+   USE physcon, ONLY: bohr
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -86,7 +86,7 @@ CONTAINS
       CHARACTER(LEN=default_string_length), &
          DIMENSION(:), POINTER                           :: tmpstringlist
       INTEGER :: do_eric, do_erie, handle, i, im, in, iw, k, maxl, mb, method, mo, n_meth, n_rep, &
-         nder, nr_gh, num_gau, num_gto, num_pol, reltyp, zcore, zval, zz
+                 nder, nr_gh, num_gau, num_gto, num_pol, reltyp, zcore, zval, zz
       INTEGER, DIMENSION(0:lmat)                         :: maxn
       INTEGER, DIMENSION(:), POINTER                     :: cn
       LOGICAL                                            :: dm, do_gh, do_zmp, doread, eri_c, eri_e, &
@@ -104,8 +104,8 @@ CONTAINS
       TYPE(atom_state), POINTER                          :: state
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(section_vals_type), POINTER :: admm_section, basis_section, external_vxc_section, &
-         method_section, opt_section, potential_section, powell_section, sgp_section, xc_section, &
-         zmp_restart_section, zmp_section
+                                          method_section, opt_section, potential_section, powell_section, sgp_section, xc_section, &
+                                          zmp_restart_section, zmp_section
 
       CALL timeset(routineN, handle)
 
@@ -342,7 +342,7 @@ CONTAINS
                                           atom=atom_info(in, im)%atom, &
                                           lprint=.TRUE.)
                   DEALLOCATE (ext_density)
-               ENDIF
+               END IF
                ! ZMP If we have the external v_xc calculate KS quantities
                IF (atom_info(in, im)%atom%read_vxc) THEN
                   ALLOCATE (ext_vxc(atom_info(in, im)%atom%basis%grid%nr))
@@ -352,7 +352,7 @@ CONTAINS
                                               atom=atom_info(in, im)%atom, &
                                               lprint=.TRUE.)
                   DEALLOCATE (ext_vxc)
-               ENDIF
+               END IF
 
                ! Print out the orbitals if requested
                iw = cp_print_key_unit_nr(logger, atom_section, "PRINT%ORBITALS", extension=".log")
@@ -561,10 +561,10 @@ CONTAINS
             DO j = 1, i - 1
                o = DOT_PRODUCT(rbasis(1:m, j, l), RESHAPE(MATMUL(ovlp(1:m, 1:m, l), rbasis(1:m, i:i, l)), (/m/)))
                rbasis(1:m, i, l) = rbasis(1:m, i, l) - o*rbasis(1:m, j, l)
-            ENDDO
+            END DO
             o = DOT_PRODUCT(rbasis(1:m, i, l), RESHAPE(MATMUL(ovlp(1:m, 1:m, l), rbasis(1:m, i:i, l)), (/m/)))
             rbasis(1:m, i, l) = rbasis(1:m, i, l)/SQRT(o)
-         ENDDO
+         END DO
 
          ! check
          ALLOCATE (amat(n, n))

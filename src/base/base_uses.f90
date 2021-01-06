@@ -1,20 +1,20 @@
 ! Basic use statements and preprocessor macros
 ! should be included in the use statements
 
-  USE base_hooks,                      ONLY: cp__a,&
-                                             cp__b,&
-                                             cp__w,&
-                                             cp__h,&
-                                             cp__l,&
-                                             cp_abort,&
-                                             cp_warn,&
-                                             cp_hint,&
-                                             timeset,&
-                                             timestop
+  USE base_hooks, ONLY: cp__a, &
+                        cp__b, &
+                        cp__w, &
+                        cp__h, &
+                        cp__l, &
+                        cp_abort, &
+                        cp_warn, &
+                        cp_hint, &
+                        timeset, &
+                        timestop
 
 ! Check for OpenMP early on - ideally before the compiler fails with a cryptic message.
 #if !defined(_OPENMP)
-   "OpenMP is required. Please add -fopenmp to your Fortran compiler flags."
+  "OpenMP is required. Please add -fopenmp to your Fortran compiler flags."
 #endif
 
 ! Dangerous: Full path can be arbitrarily long and might overflow Fortran line.

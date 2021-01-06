@@ -17,19 +17,19 @@
 !> \author JGH (15.02.2002)
 ! **************************************************************************************************
 MODULE xc_pade
-   USE bibliography,                    ONLY: Goedecker1996,&
-                                              cite_reference
-   USE kinds,                           ONLY: dp
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_functionals_utilities,        ONLY: calc_fx,&
-                                              calc_rs,&
-                                              calc_rs_pw,&
-                                              set_util
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_type
+   USE bibliography, ONLY: Goedecker1996, &
+                           cite_reference
+   USE kinds, ONLY: dp
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_functionals_utilities, ONLY: calc_fx, &
+                                       calc_rs, &
+                                       calc_rs_pw, &
+                                       set_util
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -724,8 +724,8 @@ CONTAINS
       REAL(KIND=dp), INTENT(INOUT)                       :: potaaa, potaab, potabb, potbbb
 
       REAL(KIND=dp) :: d2p, d2q, d2xp, d2xq, d3p, d3q, dpv, dq, dr, drr, drrr, dx, dxp, dxq, dxr, &
-         dxrr, dxx, dxxr, dxxx, fa0, fa1, fa2, fa3, fb1, fb2, fb3, fb4, or, p, q, rhoab, xp, xq, &
-         xt, yt
+                       dxrr, dxx, dxxr, dxxx, fa0, fa1, fa2, fa3, fb1, fb2, fb3, fb4, or, p, q, rhoab, xp, xq, &
+                       xt, yt
 
       IF (.NOT. debug_flag) CPABORT("Routine not tested")
 

@@ -11,10 +11,10 @@
 ! **************************************************************************************************
 MODULE qs_gcp_types
 
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type,&
-                                              release_neighbor_list_sets
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type, &
+                                     release_neighbor_list_sets
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

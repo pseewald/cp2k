@@ -14,51 +14,51 @@
 !> \author Hossein Bani-Hashemian
 ! **************************************************************************************************
 MODULE ps_implicit_methods
-   USE bibliography,                    ONLY: BaniHashemian2016,&
-                                              cite_reference
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE dct,                             ONLY: &
-        dct_type, dct_type_init, neumannX, neumannXY, neumannXYZ, neumannXZ, neumannY, neumannYZ, &
-        neumannZ, pw_expand, pw_shrink
-   USE dielectric_methods,              ONLY: dielectric_create
-   USE dielectric_types,                ONLY: dielectric_type
-   USE dirichlet_bc_methods,            ONLY: dirichlet_boundary_region_setup
-   USE dirichlet_bc_types,              ONLY: dbc_tile_release
-   USE kahan_sum,                       ONLY: accurate_sum
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE mathconstants,                   ONLY: fourpi,&
-                                              pi
-   USE message_passing,                 ONLY: mp_sum
-   USE ps_implicit_types,               ONLY: MIXED_BC,&
-                                              MIXED_PERIODIC_BC,&
-                                              NEUMANN_BC,&
-                                              PERIODIC_BC,&
-                                              ps_implicit_type
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_derive,&
-                                              pw_integral_ab,&
-                                              pw_scale,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_poisson_types,                ONLY: greens_fn_type,&
-                                              pw_poisson_parameter_type,&
-                                              pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_create,&
-                                              pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_release,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
+   USE bibliography, ONLY: BaniHashemian2016, &
+                           cite_reference
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE dct, ONLY: &
+      dct_type, dct_type_init, neumannX, neumannXY, neumannXYZ, neumannXZ, neumannY, neumannYZ, &
+      neumannZ, pw_expand, pw_shrink
+   USE dielectric_methods, ONLY: dielectric_create
+   USE dielectric_types, ONLY: dielectric_type
+   USE dirichlet_bc_methods, ONLY: dirichlet_boundary_region_setup
+   USE dirichlet_bc_types, ONLY: dbc_tile_release
+   USE kahan_sum, ONLY: accurate_sum
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE mathconstants, ONLY: fourpi, &
+                            pi
+   USE message_passing, ONLY: mp_sum
+   USE ps_implicit_types, ONLY: MIXED_BC, &
+                                MIXED_PERIODIC_BC, &
+                                NEUMANN_BC, &
+                                PERIODIC_BC, &
+                                ps_implicit_type
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_derive, &
+                         pw_integral_ab, &
+                         pw_scale, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_poisson_types, ONLY: greens_fn_type, &
+                               pw_poisson_parameter_type, &
+                               pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_create, &
+                            pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_release, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -498,7 +498,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'implicit_poisson_solver_mixed_periodic'
 
       INTEGER :: data_size, handle, iter, j, lb1, lb2, lb3, max_iter, n_contacts, n_tiles_tot, ng, &
-         ngpts_local, nt, nt_tot, outp_unit, times_called, ub1, ub2, ub3
+                 ngpts_local, nt, nt_tot, outp_unit, times_called, ub1, ub2, ub3
       INTEGER(KIND=int_8)                                :: ngpts
       INTEGER, DIMENSION(2, 3)                           :: bounds_local
       INTEGER, DIMENSION(3)                              :: npts_local
@@ -508,7 +508,7 @@ CONTAINS
                                                             gminusAxvbar_avg, nabs_error, omega, &
                                                             pres_error, tol
       REAL(dp), ALLOCATABLE, DIMENSION(:) :: Btxlambda_new, Btxlambda_old, Bxv_bar, Bxv_new, &
-         lambda0, lambda_new, lambda_newNeta, lambda_old, QSxlambda, v_bar1D, v_D, v_new1D, w
+                                             lambda0, lambda_new, lambda_newNeta, lambda_old, QSxlambda, v_bar1D, v_D, v_new1D, w
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: B, Bt, QS, Rinv
       REAL(dp), ALLOCATABLE, DIMENSION(:, :, :)          :: Btxlambda_new3D, Btxlambda_old3D
       TYPE(dielectric_type), POINTER                     :: dielectric
@@ -613,7 +613,7 @@ CONTAINS
          CALL DGEMV('N', data_size, n_tiles_tot, 1.0_dp, Bt, data_size, lambda_old, 1, 0.0_dp, Btxlambda_old, 1)
       END IF
       CALL convert_1dto3d(ps_implicit_env%idx_1dto3d, Btxlambda_old, Btxlambda_old3D)
-      res_old%cr3d = res_old%cr3d-Btxlambda_old3D
+      res_old%cr3d = res_old%cr3d - Btxlambda_old3D
 
 ! evaluate \Delta^-1(res_old)
       CALL apply_inv_laplace_operator_fft(pw_pool, green, res_old, QAinvxres)
@@ -646,7 +646,7 @@ CONTAINS
          eta = lambda_newNeta(n_tiles_tot + 1)
 
 ! v_new = v_bar + 1 * \eta
-         v_new%cr3d = v_new%cr3d+eta/ngpts
+         v_new%cr3d = v_new%cr3d + eta/ngpts
 
 ! evaluate B^t * \lambda_new
          IF (data_size .NE. 0) THEN
@@ -660,7 +660,7 @@ CONTAINS
          CALL apply_P_operator(pw_pool, dielectric, QAinvxres, PxQAinvxres)
          CALL pw_axpy(PxQAinvxres, res_new, -1.0_dp)
          CALL pw_axpy(res_old, res_new, 1.0_dp - omega)
-         res_new%cr3d = res_new%cr3d+Btxlambda_old3D-Btxlambda_new3D
+         res_new%cr3d = res_new%cr3d + Btxlambda_old3D - Btxlambda_new3D
 
 ! compute the error
          CALL ps_implicit_compute_error_fft(pw_pool, green, res_new, v_old, v_new, QAinvxres, &
@@ -757,7 +757,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'implicit_poisson_solver_mixed'
 
       INTEGER :: data_size, handle, iter, j, lb1, lb2, lb3, max_iter, n_contacts, n_tiles_tot, &
-         neumann_directions, ng, ngpts_local, nt, nt_tot, outp_unit, times_called, ub1, ub2, ub3
+                 neumann_directions, ng, ngpts_local, nt, nt_tot, outp_unit, times_called, ub1, ub2, ub3
       INTEGER(KIND=int_8)                                :: ngpts
       INTEGER, DIMENSION(2, 3)                           :: bounds_local
       INTEGER, DIMENSION(3)                              :: npts_local
@@ -767,7 +767,7 @@ CONTAINS
                                                             gminusAxvbar_avg, nabs_error, omega, &
                                                             pres_error, tol, vol_scfac
       REAL(dp), ALLOCATABLE, DIMENSION(:) :: Btxlambda_new, Btxlambda_old, Bxv_bar, Bxv_new, &
-         lambda0, lambda_new, lambda_newNeta, lambda_old, QSxlambda, v_bar1D, v_D, v_new1D, w
+                                             lambda0, lambda_new, lambda_newNeta, lambda_old, QSxlambda, v_bar1D, v_D, v_new1D, w
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: B, Bt, QS, Rinv
       REAL(dp), ALLOCATABLE, DIMENSION(:, :, :)          :: Btxlambda_new3D, Btxlambda_old3D
       TYPE(dct_type), POINTER                            :: dct_env
@@ -898,7 +898,7 @@ CONTAINS
          CALL DGEMV('N', data_size, n_tiles_tot, 1.0_dp, Bt, data_size, lambda_old, 1, 0.0_dp, Btxlambda_old, 1)
       END IF
       CALL convert_1dto3d(ps_implicit_env%idx_1dto3d, Btxlambda_old, Btxlambda_old3D)
-      res_old%cr3d = res_old%cr3d-Btxlambda_old3D
+      res_old%cr3d = res_old%cr3d - Btxlambda_old3D
 
 ! evaluate \Delta^-1(res_old)
       CALL apply_inv_laplace_operator_dct(pw_pool_xpndd, green, res_old, QAinvxres)
@@ -931,7 +931,7 @@ CONTAINS
          eta = lambda_newNeta(n_tiles_tot + 1)
 
 ! v_new = v_bar + 1 * \eta
-         v_new_xpndd%cr3d = v_new_xpndd%cr3d+eta/ngpts
+         v_new_xpndd%cr3d = v_new_xpndd%cr3d + eta/ngpts
 
 ! evaluate B^t * \lambda_new
          IF (data_size .NE. 0) THEN
@@ -945,7 +945,7 @@ CONTAINS
          CALL apply_P_operator(pw_pool_xpndd, dielectric, QAinvxres, PxQAinvxres)
          CALL pw_axpy(PxQAinvxres, res_new, -1.0_dp)
          CALL pw_axpy(res_old, res_new, 1.0_dp - omega)
-         res_new%cr3d = res_new%cr3d-Btxlambda_new3D+Btxlambda_old3D
+         res_new%cr3d = res_new%cr3d - Btxlambda_new3D + Btxlambda_old3D
 
 ! compute the error
          CALL ps_implicit_compute_error_dct(pw_pool_xpndd, green, res_new, v_old, v_new_xpndd, QAinvxres, &
@@ -1084,7 +1084,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'ps_implicit_prepare_blocks'
 
       INTEGER :: data_size, handle, i, indx1, indx2, info, j, k, l, lb1, lb2, lb3, n_contacts, &
-         n_tiles, n_tiles_tot, neumann_directions, ngpts_local, ub1, ub2, ub3, unit_nr
+                 n_tiles, n_tiles_tot, neumann_directions, ngpts_local, ub1, ub2, ub3, unit_nr
       INTEGER(KIND=int_8)                                :: ngpts
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ipiv
       INTEGER, DIMENSION(2, 3)                           :: bounds, bounds_local
@@ -1108,7 +1108,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       SELECT CASE (poisson_params%ps_implicit_params%boundary_condition)
       CASE (MIXED_BC)
@@ -1435,8 +1435,8 @@ CONTAINS
       END DO
 
       CALL derive_fft(v, dv, pw_pool)
-      Pxv%cr3d = -(dv(1)%pw%cr3d*dln_eps(1)%pw%cr3d+ &
-                   dv(2)%pw%cr3d*dln_eps(2)%pw%cr3d+ &
+      Pxv%cr3d = -(dv(1)%pw%cr3d*dln_eps(1)%pw%cr3d + &
+                   dv(2)%pw%cr3d*dln_eps(2)%pw%cr3d + &
                    dv(3)%pw%cr3d*dln_eps(3)%pw%cr3d)
 
       DO i = 1, 3
@@ -1911,7 +1911,7 @@ CONTAINS
 
 ! normalized absolute error :
 ! nabs_error := \frac{\| v_old - v_new \|}{volume}
-      nabs_error = accurate_sum(ABS(v_old%cr3d-v_new%cr3d)**2)
+      nabs_error = accurate_sum(ABS(v_old%cr3d - v_new%cr3d)**2)
       CALL mp_sum(nabs_error, pw_pool%pw_grid%para%group)
       nabs_error = SQRT(nabs_error)/vol
 
@@ -1962,7 +1962,7 @@ CONTAINS
 
 ! normalized absolute error :
 ! nabs_error := \frac{\| v_old - v_new \|}{volume}
-      nabs_error = accurate_sum(ABS(v_old%cr3d-v_new%cr3d)**2)
+      nabs_error = accurate_sum(ABS(v_old%cr3d - v_new%cr3d)**2)
       CALL mp_sum(nabs_error, pw_pool%pw_grid%para%group)
       nabs_error = SQRT(nabs_error)/vol
 
@@ -1999,7 +1999,7 @@ CONTAINS
          outp_unit = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          outp_unit = -1
-      ENDIF
+      END IF
 
       IF (logger%iter_info%print_level .GT. low_print_level) THEN
          IF ((outp_unit .GT. 0) .AND. (iter .EQ. 1)) THEN

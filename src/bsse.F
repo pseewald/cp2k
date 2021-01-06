@@ -12,44 +12,44 @@
 !> \author Teodoro Laino
 ! **************************************************************************************************
 MODULE bsse
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE cell_types,                      ONLY: cell_type
-   USE cp2k_info,                       ONLY: write_restart_header
-   USE cp_external_control,             ONLY: external_control
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_add_iter_level,&
-                                              cp_iterate,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr,&
-                                              cp_rm_iter_level
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_methods,               ONLY: create_small_subsys
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_release,&
-                                              cp_subsys_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE input_constants,                 ONLY: do_qs
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set,&
-                                              section_vals_write
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE particle_list_types,             ONLY: particle_list_type
-   USE qs_energy,                       ONLY: qs_energies
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment,                  ONLY: qs_init
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_env_create,&
-                                              qs_env_release,&
-                                              qs_environment_type
-   USE string_utilities,                ONLY: compress
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE cell_types, ONLY: cell_type
+   USE cp2k_info, ONLY: write_restart_header
+   USE cp_external_control, ONLY: external_control
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_add_iter_level, &
+                                 cp_iterate, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr, &
+                                 cp_rm_iter_level
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_methods, ONLY: create_small_subsys
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_release, &
+                              cp_subsys_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE global_types, ONLY: global_environment_type
+   USE input_constants, ONLY: do_qs
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set, &
+                                  section_vals_write
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE particle_list_types, ONLY: particle_list_type
+   USE qs_energy, ONLY: qs_energies
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment, ONLY: qs_init
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_env_create, &
+                                   qs_env_release, &
+                                   qs_environment_type
+   USE string_utilities, ONLY: compress
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -619,7 +619,7 @@ CONTAINS
       IF (ires > 0) THEN
          CALL write_restart_header(ires)
          CALL section_vals_write(root_section, unit_nr=ires, hide_root=.TRUE.)
-      ENDIF
+      END IF
 
       CALL cp_print_key_finished_output(ires, logger, bsse_section, &
                                         "PRINT%RESTART")

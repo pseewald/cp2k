@@ -12,32 +12,32 @@
 ! **************************************************************************************************
 MODULE nnp_force
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_subsys_types,                 ONLY: cp_subsys_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE message_passing,                 ONLY: mp_allgather,&
-                                              mp_sum
-   USE nnp_acsf,                        ONLY: nnp_calc_acsf
-   USE nnp_environment_types,           ONLY: nnp_env_get,&
-                                              nnp_type
-   USE nnp_model,                       ONLY: nnp_gradients,&
-                                              nnp_predict
-   USE particle_types,                  ONLY: particle_type
-   USE periodic_table,                  ONLY: get_ptable_info
-   USE physcon,                         ONLY: angstrom
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_subsys_types, ONLY: cp_subsys_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE message_passing, ONLY: mp_allgather, &
+                              mp_sum
+   USE nnp_acsf, ONLY: nnp_calc_acsf
+   USE nnp_environment_types, ONLY: nnp_env_get, &
+                                    nnp_type
+   USE nnp_model, ONLY: nnp_gradients, &
+                        nnp_predict
+   USE particle_types, ONLY: particle_type
+   USE periodic_table, ONLY: get_ptable_info
+   USE physcon, ONLY: angstrom
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -63,7 +63,7 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: calc_forces
 
       CHARACTER(len=*), PARAMETER :: routineN = 'nnp_calc_energy_force', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: handle, i, i_com, ig, ind, istart, j, k, &
                                                             m, mecalc

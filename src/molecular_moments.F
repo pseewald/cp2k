@@ -9,52 +9,52 @@
 !> \brief Set of routines handling the localization for molecular properties
 ! **************************************************************************************************
 MODULE molecular_moments
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_schur_product
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_deallocate_matrix,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE input_constants,                 ONLY: use_mom_ref_com
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_maxloc,&
-                                              mp_sum
-   USE molecule_kind_types,             ONLY: get_molecule_kind,&
-                                              molecule_kind_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE moments_utils,                   ONLY: get_reference_point
-   USE orbital_pointers,                ONLY: indco,&
-                                              ncoset
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_loc_types,                    ONLY: qs_loc_env_new_type
-   USE qs_moments,                      ONLY: build_local_moment_matrix
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_sm_fm_multiply
+   USE cp_fm_basic_linalg, ONLY: cp_fm_schur_product
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_deallocate_matrix, &
+                        dbcsr_p_type, &
+                        dbcsr_set
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE input_constants, ONLY: use_mom_ref_com
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_maxloc, &
+                              mp_sum
+   USE molecule_kind_types, ONLY: get_molecule_kind, &
+                                  molecule_kind_type
+   USE molecule_types, ONLY: molecule_type
+   USE moments_utils, ONLY: get_reference_point
+   USE orbital_pointers, ONLY: indco, &
+                               ncoset
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_loc_types, ONLY: qs_loc_env_new_type
+   USE qs_moments, ONLY: build_local_moment_matrix
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -86,8 +86,8 @@ CONTAINS
       TYPE(molecule_type), POINTER                       :: molecule_set(:)
 
       INTEGER :: akind, first_atom, i, iatom, ikind, imol, imol_now, iounit, iproc, ispin, j, lx, &
-         ly, lz, molkind, n, n1, n2, natom, ncol_global, nm, nmol, nmols, norder, nrow_global, ns, &
-         nspins
+                 ly, lz, molkind, n, n1, n2, natom, ncol_global, nm, nmol, nmols, norder, nrow_global, ns, &
+                 nspins
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: states
       INTEGER, DIMENSION(2)                              :: nstates
       LOGICAL                                            :: floating, ghost
@@ -153,7 +153,7 @@ CONTAINS
                   nstates(1) = molecule_set(imol)%lmi(ispin)%nstates
                ELSE
                   nstates(1) = 0
-               ENDIF
+               END IF
                nstates(2) = para_env%mepos
                CALL mp_maxloc(nstates, para_env%group)
                IF (nstates(1) == 0) CYCLE
@@ -225,7 +225,7 @@ CONTAINS
                   ns = SIZE(molecule_set(imol_now)%lmi(ispin)%states)
                   charge_set(imol_now) = charge_set(imol_now) - zwfc*ns
                END IF
-            ENDDO
+            END DO
             !
             IF (norder > 0) THEN
                ! nuclear contribution
@@ -266,8 +266,8 @@ CONTAINS
                n2 = ncoset(n) - 1
                WRITE (UNIT=iounit, FMT='(T4,A,I2,10(T16,6F12.6))') "Order:", n, moment_set(n1:n2, i)
             END DO
-         ENDDO
-      ENDIF
+         END DO
+      END IF
       CALL cp_print_key_finished_output(iounit, logger, loc_print_key, &
                                         "MOLECULAR_MOMENTS")
 

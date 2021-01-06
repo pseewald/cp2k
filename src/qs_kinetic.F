@@ -13,38 +13,38 @@
 !> \author Juerg Hutter
 ! **************************************************************************************************
 MODULE qs_kinetic
-   USE ai_contraction,                  ONLY: block_add,&
-                                              contraction,&
-                                              decontraction,&
-                                              force_trace
-   USE ai_kinetic,                      ONLY: kinetic
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set
-   USE dbcsr_api,                       ONLY: dbcsr_filter,&
-                                              dbcsr_finalize,&
-                                              dbcsr_get_block_p,&
-                                              dbcsr_p_type,&
-                                              dbcsr_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE orbital_pointers,                ONLY: ncoset
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_integral_utils,               ONLY: basis_set_list_setup,&
-                                              get_memory_usage
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_ks_types,                     ONLY: get_ks_env,&
-                                              qs_ks_env_type
-   USE qs_neighbor_list_types,          ONLY: get_neighbor_list_set_p,&
-                                              neighbor_list_set_p_type
-   USE qs_overlap,                      ONLY: create_sab_matrix
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
+   USE ai_contraction, ONLY: block_add, &
+                             contraction, &
+                             decontraction, &
+                             force_trace
+   USE ai_kinetic, ONLY: kinetic
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set
+   USE dbcsr_api, ONLY: dbcsr_filter, &
+                        dbcsr_finalize, &
+                        dbcsr_get_block_p, &
+                        dbcsr_p_type, &
+                        dbcsr_type
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE orbital_pointers, ONLY: ncoset
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_integral_utils, ONLY: basis_set_list_setup, &
+                                get_memory_usage
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_ks_types, ONLY: get_ks_env, &
+                          qs_ks_env_type
+   USE qs_neighbor_list_types, ONLY: get_neighbor_list_set_p, &
+                                     neighbor_list_set_p_type
+   USE qs_overlap, ONLY: create_sab_matrix
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
 
 !$ USE OMP_LIB, ONLY: omp_lock_kind, &
 !$                    omp_init_lock, omp_set_lock, &

@@ -14,23 +14,23 @@
 ! **************************************************************************************************
 MODULE extended_system_dynamics
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE extended_system_types,           ONLY: lnhc_parameters_type,&
-                                              map_info_type,&
-                                              npt_info_type
-   USE kinds,                           ONLY: dp
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_types,                  ONLY: particle_type
-   USE shell_potential_types,           ONLY: shell_kind_type
-   USE thermostat_utils,                ONLY: ke_region_baro,&
-                                              ke_region_particles,&
-                                              ke_region_shells,&
-                                              vel_rescale_baro,&
-                                              vel_rescale_particles,&
-                                              vel_rescale_shells
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE extended_system_types, ONLY: lnhc_parameters_type, &
+                                    map_info_type, &
+                                    npt_info_type
+   USE kinds, ONLY: dp
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: molecule_type
+   USE particle_types, ONLY: particle_type
+   USE shell_potential_types, ONLY: shell_kind_type
+   USE thermostat_utils, ONLY: ke_region_baro, &
+                               ke_region_particles, &
+                               ke_region_shells, &
+                               vel_rescale_baro, &
+                               vel_rescale_particles, &
+                               vel_rescale_shells
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE

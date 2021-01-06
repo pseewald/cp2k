@@ -14,30 +14,30 @@
 ! **************************************************************************************************
 MODULE wiener_process
 
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE md_environment_types,            ONLY: get_md_env,&
-                                              md_environment_type,&
-                                              need_per_atom_wiener_process
-   USE metadynamics_types,              ONLY: meta_env_type
-   USE parallel_rng_types,              ONLY: GAUSSIAN,&
-                                              next_rng_seed,&
-                                              rng_record_length,&
-                                              rng_stream_type,&
-                                              rng_stream_type_from_record
-   USE particle_list_types,             ONLY: particle_list_type
-   USE simpar_types,                    ONLY: simpar_type
-   USE string_utilities,                ONLY: compress
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE md_environment_types, ONLY: get_md_env, &
+                                   md_environment_type, &
+                                   need_per_atom_wiener_process
+   USE metadynamics_types, ONLY: meta_env_type
+   USE parallel_rng_types, ONLY: GAUSSIAN, &
+                                 next_rng_seed, &
+                                 rng_record_length, &
+                                 rng_stream_type, &
+                                 rng_stream_type_from_record
+   USE particle_list_types, ONLY: particle_list_type
+   USE simpar_types, ONLY: simpar_type
+   USE string_utilities, ONLY: compress
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

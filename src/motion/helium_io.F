@@ -12,56 +12,56 @@
 ! **************************************************************************************************
 MODULE helium_io
 
-   USE cell_types,                      ONLY: get_cell
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE cp_units,                        ONLY: cp_unit_from_cp2k,&
-                                              cp_unit_to_cp2k
-   USE helium_common,                   ONLY: helium_cycle_number,&
-                                              helium_cycle_of,&
-                                              helium_is_winding,&
-                                              helium_path_length,&
-                                              helium_pbc
-   USE helium_interactions,             ONLY: helium_total_inter_action,&
-                                              helium_total_link_action,&
-                                              helium_total_pair_action
-   USE helium_types,                    ONLY: &
-        e_id_interact, e_id_kinetic, e_id_potential, e_id_thermo, e_id_total, e_id_virial, &
-        helium_solvent_p_type, helium_solvent_type, rho_num
-   USE input_constants,                 ONLY: helium_cell_shape_cube,&
-                                              helium_cell_shape_octahedron,&
-                                              helium_sampling_ceperley,&
-                                              helium_sampling_worm,&
-                                              helium_solute_intpot_mwater,&
-                                              helium_solute_intpot_none,&
-                                              perm_cycle,&
-                                              perm_plain
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp,&
-                                              int_8
-   USE machine,                         ONLY: m_flush
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_gather,&
-                                              mp_sum
-   USE physcon,                         ONLY: angstrom,&
-                                              massunit
-   USE pint_types,                      ONLY: pint_env_type
+   USE cell_types, ONLY: get_cell
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE cp_units, ONLY: cp_unit_from_cp2k, &
+                       cp_unit_to_cp2k
+   USE helium_common, ONLY: helium_cycle_number, &
+                            helium_cycle_of, &
+                            helium_is_winding, &
+                            helium_path_length, &
+                            helium_pbc
+   USE helium_interactions, ONLY: helium_total_inter_action, &
+                                  helium_total_link_action, &
+                                  helium_total_pair_action
+   USE helium_types, ONLY: &
+      e_id_interact, e_id_kinetic, e_id_potential, e_id_thermo, e_id_total, e_id_virial, &
+      helium_solvent_p_type, helium_solvent_type, rho_num
+   USE input_constants, ONLY: helium_cell_shape_cube, &
+                              helium_cell_shape_octahedron, &
+                              helium_sampling_ceperley, &
+                              helium_sampling_worm, &
+                              helium_solute_intpot_mwater, &
+                              helium_solute_intpot_none, &
+                              perm_cycle, &
+                              perm_plain
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp, &
+                    int_8
+   USE machine, ONLY: m_flush
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_gather, &
+                              mp_sum
+   USE physcon, ONLY: angstrom, &
+                      massunit
+   USE pint_types, ONLY: pint_env_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -1815,7 +1815,7 @@ CONTAINS
       TYPE(helium_solvent_type), POINTER                 :: helium
 
       CHARACTER(len=*), PARAMETER :: routineN = 'helium_print_force_inst', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       CHARACTER(len=default_string_length)               :: my_middle_name, stmp
       INTEGER                                            :: handle, ia, ib, ic, idim, irank, offset, &

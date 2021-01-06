@@ -13,37 +13,37 @@
 !> \author Joost VandeVondele (09.2002)
 ! **************************************************************************************************
 MODULE preconditioner_solvers
-   USE arnoldi_api,                     ONLY: arnoldi_data_type,&
-                                              arnoldi_ev,&
-                                              deallocate_arnoldi_data,&
-                                              get_selected_ritz_val,&
-                                              setup_arnoldi_data
-   USE bibliography,                    ONLY: Schiffmann2015,&
-                                              cite_reference
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_upper_to_full
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose,&
-                                              cp_fm_cholesky_invert
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_create, dbcsr_filter, dbcsr_get_info, dbcsr_get_occupation, dbcsr_init_p, &
-        dbcsr_p_type, dbcsr_release, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_real_8
-   USE input_constants,                 ONLY: ot_precond_solver_default,&
-                                              ot_precond_solver_direct,&
-                                              ot_precond_solver_inv_chol,&
-                                              ot_precond_solver_update
-   USE iterate_matrix,                  ONLY: invert_Hotelling
-   USE kinds,                           ONLY: dp
-   USE preconditioner_types,            ONLY: preconditioner_type
+   USE arnoldi_api, ONLY: arnoldi_data_type, &
+                          arnoldi_ev, &
+                          deallocate_arnoldi_data, &
+                          get_selected_ritz_val, &
+                          setup_arnoldi_data
+   USE bibliography, ONLY: Schiffmann2015, &
+                           cite_reference
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr
+   USE cp_fm_basic_linalg, ONLY: cp_fm_upper_to_full
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose, &
+                             cp_fm_cholesky_invert
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_create, dbcsr_filter, dbcsr_get_info, dbcsr_get_occupation, dbcsr_init_p, &
+      dbcsr_p_type, dbcsr_release, dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_real_8
+   USE input_constants, ONLY: ot_precond_solver_default, &
+                              ot_precond_solver_direct, &
+                              ot_precond_solver_inv_chol, &
+                              ot_precond_solver_update
+   USE iterate_matrix, ONLY: invert_Hotelling
+   USE kinds, ONLY: dp
+   USE preconditioner_types, ONLY: preconditioner_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -154,8 +154,8 @@ CONTAINS
             CALL cp_fm_cholesky_decompose(fm)
          ELSE
             CALL cp_fm_set_all(fm, alpha=0._dp, beta=1._dp)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
       CALL cp_fm_cholesky_invert(fm)
 
       CALL cp_fm_upper_to_full(fm, fm_work)
@@ -202,8 +202,8 @@ CONTAINS
             CALL cp_fm_cholesky_decompose(fm)
          ELSE
             CALL cp_fm_set_all(fm, alpha=0._dp, beta=1._dp)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       CALL timestop(handle)
 
@@ -318,7 +318,7 @@ CONTAINS
                               name="preconditioner_env%dbcsr_matrix", &
                               matrix_type=dbcsr_type_no_symmetry, &
                               nze=0, data_type=dbcsr_type_real_8)
-         ENDIF
+         END IF
 !       CALL cp_fm_create(fm_tmp, matrix_struct=fm_matrix%matrix_struct)
 !       CALL cp_fm_upper_to_full(fm_matrix, fm_tmp)
          CALL copy_fm_to_dbcsr(fm_matrix, dbcsr_matrix)
@@ -355,7 +355,7 @@ CONTAINS
 
          IF (ASSOCIATED(fm_matrix)) THEN
             CALL cp_fm_release(fm_matrix)
-         ENDIF
+         END IF
 
          CALL dbcsr_get_info(dbcsr_matrix, nfullrows_total=n)
          CALL cp_fm_struct_create(fm_struct_tmp, nrow_global=n, ncol_global=n, &

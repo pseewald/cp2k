@@ -26,11 +26,11 @@
 ! **************************************************************************************************
 MODULE ai_overlap_aabb
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE orbital_pointers,                ONLY: coset,&
-                                              indco,&
-                                              ncoset
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE orbital_pointers, ONLY: coset, &
+                               indco, &
+                               ncoset
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -102,9 +102,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'overlap_aabb'
 
       INTEGER :: ax, ay, az, bx, by, bz, coa, coamx, coamy, coamz, coapx, coapy, coapz, cob, &
-         cobm2x, cobm2y, cobm2z, cobmx, cobmy, cobmz, handle, i, ia, ib, ipgf, j, ja, jb, jpgf, &
-         jpgf_start, kpgf, la, la_max, la_min, la_start, lb, lb_max, lb_min, lpgf, lpgf_start, &
-         ncoa1, ncoa2, ncob1, ncob2
+                 cobm2x, cobm2y, cobm2z, cobmx, cobmy, cobmz, handle, i, ia, ib, ipgf, j, ja, jb, jpgf, &
+                 jpgf_start, kpgf, la, la_max, la_min, la_start, lb, lb_max, lb_min, lpgf, lpgf_start, &
+                 ncoa1, ncoa2, ncob1, ncob2
       INTEGER, DIMENSION(3)                              :: na, naa, nb, nbb, nia, nib, nja, njb
       REAL(KIND=dp)                                      :: f0, f1, f2, f3, f4, fax, fay, faz, zeta, &
                                                             zetb, zetp
@@ -127,10 +127,10 @@ CONTAINS
             jpgf_start = ipgf
             DO i = 1, jpgf_start - 1
                ncoa2 = ncoa2 + ncoset(la_max_set2)
-            ENDDO
+            END DO
          ELSE
             jpgf_start = 1
-         ENDIF
+         END IF
 
          DO jpgf = jpgf_start, npgfa2
 
@@ -147,10 +147,10 @@ CONTAINS
                   lpgf_start = kpgf
                   DO i = 1, lpgf_start - 1
                      ncob2 = ncob2 + ncoset(lb_max_set2)
-                  ENDDO
+                  END DO
                ELSE
                   lpgf_start = 1
-               ENDIF
+               END IF
 
                DO lpgf = lpgf_start, npgfb2
 
@@ -170,11 +170,11 @@ CONTAINS
                                     saabb(ncoa2 + ja, ncoa1 + ia, ncob1 + ib, ncob2 + jb) = 0._dp
                                     saabb(ncoa1 + ia, ncoa2 + ja, ncob2 + jb, ncob1 + ib) = 0._dp
                                     saabb(ncoa2 + ja, ncoa1 + ia, ncob2 + jb, ncob1 + ib) = 0._dp
-                                 ENDIF
-                              ENDDO
-                           ENDDO
-                        ENDDO
-                     ENDDO
+                                 END IF
+                              END DO
+                           END DO
+                        END DO
+                     END DO
                      ncob2 = ncob2 + ncoset(lb_max_set2)
                      CYCLE
                   END IF
@@ -585,8 +585,8 @@ CONTAINS
                                           saabb(ncoa2 + ja, ncoa1 + ia, ncob1 + ib, ncob2 + jb) = s(i, j)
                                           saabb(ncoa1 + ia, ncoa2 + ja, ncob2 + jb, ncob1 + ib) = s(i, j)
                                           saabb(ncoa2 + ja, ncoa1 + ia, ncob2 + jb, ncob1 + ib) = s(i, j)
-                                       ENDIF
-                                    ENDIF
+                                       END IF
+                                    END IF
                                  END DO
                               END DO
                            END DO

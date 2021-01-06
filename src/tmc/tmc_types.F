@@ -30,19 +30,19 @@
 ! **************************************************************************************************
 
 MODULE tmc_types
-   USE cell_types,                      ONLY: cell_type
-   USE cp_para_env,                     ONLY: cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE parallel_rng_types,              ONLY: rng_stream_type
-   USE tmc_move_types,                  ONLY: tmc_move_type
-   USE tmc_stati,                       ONLY: task_type_MC
-   USE tmc_tree_types,                  ONLY: clean_list,&
-                                              elem_array_type,&
-                                              elem_list_type,&
-                                              global_tree_type
+   USE cell_types, ONLY: cell_type
+   USE cp_para_env, ONLY: cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE parallel_rng_types, ONLY: rng_stream_type
+   USE tmc_move_types, ONLY: tmc_move_type
+   USE tmc_stati, ONLY: task_type_MC
+   USE tmc_tree_types, ONLY: clean_list, &
+                             elem_array_type, &
+                             elem_list_type, &
+                             global_tree_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

@@ -12,22 +12,22 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE cp_spline_utils
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_spline_utils,                 ONLY: &
-        add_coarse2fine, add_fine2coarse, find_coeffs, pw_spline_do_precond, &
-        pw_spline_precond_create, pw_spline_precond_release, pw_spline_precond_set_kind, &
-        pw_spline_precond_type, spl3_1d_transf_border1, spl3_1d_transf_coeffs, spl3_nopbc, &
-        spl3_nopbct, spl3_pbc
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE,&
-                                              pw_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_spline_utils, ONLY: &
+      add_coarse2fine, add_fine2coarse, find_coeffs, pw_spline_do_precond, &
+      pw_spline_precond_create, pw_spline_precond_release, pw_spline_precond_set_kind, &
+      pw_spline_precond_type, spl3_1d_transf_border1, spl3_1d_transf_coeffs, spl3_nopbc, &
+      spl3_nopbct, spl3_pbc
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE, &
+                       pw_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

@@ -9,35 +9,35 @@
 !> \brief Routines that print various information about an atomic kind.
 ! **************************************************************************************************
 MODULE atom_output
-   USE atom_types,                      ONLY: &
-        atom_basis_type, atom_gthpot_type, atom_potential_type, atom_state, atom_type, cgto_basis, &
-        ecp_pseudo, gth_pseudo, gto_basis, lmat, no_pseudo, num_basis, sgp_pseudo, sto_basis, &
-        upf_pseudo
-   USE atom_utils,                      ONLY: get_maxl_occ,&
-                                              get_maxn_occ,&
-                                              get_rho0
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE input_constants,                 ONLY: &
-        barrier_conf, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_nonrel_atom, &
-        do_rhf_atom, do_rks_atom, do_rohf_atom, do_sczoramp_atom, do_uhf_atom, do_uks_atom, &
-        do_zoramp_atom, poly_conf, xc_none
-   USE input_cp2k_check,                ONLY: xc_functionals_expand
-   USE input_section_types,             ONLY: section_vals_duplicate,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_get_subs_vals2,&
-                                              section_vals_release,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              pi
-   USE periodic_table,                  ONLY: ptable
-   USE physcon,                         ONLY: evolt
-   USE xc_derivatives,                  ONLY: xc_functional_get_info
-   USE xc_libxc,                        ONLY: libxc_version_info
+   USE atom_types, ONLY: &
+      atom_basis_type, atom_gthpot_type, atom_potential_type, atom_state, atom_type, cgto_basis, &
+      ecp_pseudo, gth_pseudo, gto_basis, lmat, no_pseudo, num_basis, sgp_pseudo, sto_basis, &
+      upf_pseudo
+   USE atom_utils, ONLY: get_maxl_occ, &
+                         get_maxn_occ, &
+                         get_rho0
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE input_constants, ONLY: &
+      barrier_conf, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_nonrel_atom, &
+      do_rhf_atom, do_rks_atom, do_rohf_atom, do_sczoramp_atom, do_uhf_atom, do_uks_atom, &
+      do_zoramp_atom, poly_conf, xc_none
+   USE input_cp2k_check, ONLY: xc_functionals_expand
+   USE input_section_types, ONLY: section_vals_duplicate, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_get_subs_vals2, &
+                                  section_vals_release, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: dfac, &
+                            pi
+   USE periodic_table, ONLY: ptable
+   USE physcon, ONLY: evolt
+   USE xc_derivatives, ONLY: xc_functional_get_info
+   USE xc_libxc, ONLY: libxc_version_info
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

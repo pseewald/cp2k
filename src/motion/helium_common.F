@@ -13,28 +13,28 @@
 ! **************************************************************************************************
 MODULE helium_common
 
-   USE helium_types,                    ONLY: helium_solvent_type,&
-                                              int_arr_ptr,&
-                                              rho_atom_number,&
-                                              rho_moment_of_inertia,&
-                                              rho_num,&
-                                              rho_projected_area,&
-                                              rho_winding_cycle,&
-                                              rho_winding_number
-   USE input_constants,                 ONLY: denominator_inertia,&
-                                              denominator_natoms,&
-                                              denominator_rperp2,&
-                                              helium_cell_shape_octahedron
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi
-   USE memory_utilities,                ONLY: reallocate
-   USE physcon,                         ONLY: angstrom,&
-                                              bohr
-   USE pint_public,                     ONLY: pint_com_pos
-   USE pint_types,                      ONLY: pint_env_type
-   USE splines_methods,                 ONLY: spline_value
-   USE splines_types,                   ONLY: spline_data_type
+   USE helium_types, ONLY: helium_solvent_type, &
+                           int_arr_ptr, &
+                           rho_atom_number, &
+                           rho_moment_of_inertia, &
+                           rho_num, &
+                           rho_projected_area, &
+                           rho_winding_cycle, &
+                           rho_winding_number
+   USE input_constants, ONLY: denominator_inertia, &
+                              denominator_natoms, &
+                              denominator_rperp2, &
+                              helium_cell_shape_octahedron
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi
+   USE memory_utilities, ONLY: reallocate
+   USE physcon, ONLY: angstrom, &
+                      bohr
+   USE pint_public, ONLY: pint_com_pos
+   USE pint_types, ONLY: pint_env_type
+   USE splines_methods, ONLY: spline_value
+   USE splines_types, ONLY: spline_data_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -576,7 +576,7 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(:, :, :, :), POINTER      :: rho
 
       CHARACTER(len=*), PARAMETER :: routineN = 'helium_norm_rho', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: ix, iy, iz, ndim
       REAL(KIND=dp)                                      :: invatoms, rx, ry, rz

@@ -13,31 +13,31 @@
 !> \author Dorothea Golze
 ! **************************************************************************************************
 MODULE lri_ks_methods
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_add_block_node,&
-                                              dbcsr_finalize,&
-                                              dbcsr_get_block_p,&
-                                              dbcsr_p_type,&
-                                              dbcsr_type
-   USE kinds,                           ONLY: dp
-   USE lri_compression,                 ONLY: lri_decomp_i
-   USE lri_environment_types,           ONLY: lri_environment_type,&
-                                              lri_int_type,&
-                                              lri_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE qs_o3c_methods,                  ONLY: contract3_o3c
-   USE qs_o3c_types,                    ONLY: get_o3c_vec,&
-                                              o3c_vec_create,&
-                                              o3c_vec_release,&
-                                              o3c_vec_type
-   USE ri_environment_methods,          ONLY: ri_metric_solver
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_add_block_node, &
+                        dbcsr_finalize, &
+                        dbcsr_get_block_p, &
+                        dbcsr_p_type, &
+                        dbcsr_type
+   USE kinds, ONLY: dp
+   USE lri_compression, ONLY: lri_decomp_i
+   USE lri_environment_types, ONLY: lri_environment_type, &
+                                    lri_int_type, &
+                                    lri_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE qs_o3c_methods, ONLY: contract3_o3c
+   USE qs_o3c_types, ONLY: get_o3c_vec, &
+                           o3c_vec_create, &
+                           o3c_vec_release, &
+                           o3c_vec_type
+   USE ri_environment_methods, ONLY: ri_metric_solver
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"
@@ -72,7 +72,7 @@ CONTAINS
       CHARACTER(*), PARAMETER :: routineN = 'calculate_lri_ks_matrix'
 
       INTEGER :: atom_a, atom_b, col, handle, i, iac, iatom, ic, ikind, ilist, jatom, jkind, &
-         jneighbor, mepos, natom, nba, nbb, nfa, nfb, nkind, nlist, nm, nn, nthread, row
+                 jneighbor, mepos, natom, nba, nbb, nfa, nfb, nkind, nlist, nm, nn, nthread, row
       INTEGER, DIMENSION(3)                              :: cell
       INTEGER, DIMENSION(:), POINTER                     :: atom_of_kind
       LOGICAL                                            :: found, trans, use_cell_mapping
@@ -172,16 +172,16 @@ CONTAINS
                   DO i = 1, nfa
                      CALL lri_decomp_i(int3, lrii%cabai, i)
                      hs_work(1:nba, 1:nbb) = hs_work(1:nba, 1:nbb) + vi(i)*int3(1:nba, 1:nbb)
-                  ENDDO
+                  END DO
                ELSE
                   DO i = 1, nfa
                      CALL lri_decomp_i(int3, lrii%cabai, i)
                      hs_work(1:nba, 1:nbb) = hs_work(1:nba, 1:nbb) + vi(i)*int3(1:nba, 1:nbb)
-                  ENDDO
+                  END DO
                   DO i = 1, nfb
                      CALL lri_decomp_i(int3, lrii%cabbi, i)
                      hs_work(1:nba, 1:nbb) = hs_work(1:nba, 1:nbb) + vi(nfa + i)*int3(1:nba, 1:nbb)
-                  ENDDO
+                  END DO
                END IF
                DEALLOCATE (vi)
             END IF
@@ -208,14 +208,14 @@ CONTAINS
                      hf_work(1:nba, 1:nbb) = hf_work(1:nba, 1:nbb) + &
                                              via(i)*int3(1:nba, 1:nbb)*wab(1:nba, 1:nbb)
                   END IF
-               ENDDO
+               END DO
                DO i = 1, nfb
                   IF (lrii%abbscr(i) > threshold) THEN
                      CALL lri_decomp_i(int3, lrii%cabbi, i)
                      hf_work(1:nba, 1:nbb) = hf_work(1:nba, 1:nbb) + &
                                              vib(i)*int3(1:nba, 1:nbb)*wbb(1:nba, 1:nbb)
                   END IF
-               ENDDO
+               END DO
                !
                DEALLOCATE (via, vib, wab, wbb)
             END IF
@@ -243,7 +243,7 @@ CONTAINS
                   h_block(1:nbb, 1:nba) = h_block(1:nbb, 1:nba) + fw*TRANSPOSE(hs_work(1:nba, 1:nbb))
                ELSE
                   h_block(1:nba, 1:nbb) = h_block(1:nba, 1:nbb) + fw*hs_work(1:nba, 1:nbb)
-               ENDIF
+               END IF
             END IF
             IF (lrii%lriff) THEN
                fw = lrii%wff
@@ -251,7 +251,7 @@ CONTAINS
                   h_block(1:nbb, 1:nba) = h_block(1:nbb, 1:nba) + fw*TRANSPOSE(hf_work(1:nba, 1:nbb))
                ELSE
                   h_block(1:nba, 1:nbb) = h_block(1:nba, 1:nbb) + fw*hf_work(1:nba, 1:nbb)
-               ENDIF
+               END IF
             END IF
 !$OMP END CRITICAL(addhamiltonian)
 

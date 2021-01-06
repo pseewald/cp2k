@@ -7,19 +7,19 @@
 
 MODULE qs_fb_env_types
 
-   USE kinds,                           ONLY: dp
-   USE qs_fb_atomic_halo_types,         ONLY: fb_atomic_halo_list_associate,&
-                                              fb_atomic_halo_list_has_data,&
-                                              fb_atomic_halo_list_nullify,&
-                                              fb_atomic_halo_list_obj,&
-                                              fb_atomic_halo_list_release,&
-                                              fb_atomic_halo_list_retain
-   USE qs_fb_trial_fns_types,           ONLY: fb_trial_fns_associate,&
-                                              fb_trial_fns_has_data,&
-                                              fb_trial_fns_nullify,&
-                                              fb_trial_fns_obj,&
-                                              fb_trial_fns_release,&
-                                              fb_trial_fns_retain
+   USE kinds, ONLY: dp
+   USE qs_fb_atomic_halo_types, ONLY: fb_atomic_halo_list_associate, &
+                                      fb_atomic_halo_list_has_data, &
+                                      fb_atomic_halo_list_nullify, &
+                                      fb_atomic_halo_list_obj, &
+                                      fb_atomic_halo_list_release, &
+                                      fb_atomic_halo_list_retain
+   USE qs_fb_trial_fns_types, ONLY: fb_trial_fns_associate, &
+                                    fb_trial_fns_has_data, &
+                                    fb_trial_fns_nullify, &
+                                    fb_trial_fns_obj, &
+                                    fb_trial_fns_release, &
+                                    fb_trial_fns_retain
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

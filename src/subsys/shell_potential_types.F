@@ -10,8 +10,8 @@
 ! **************************************************************************************************
 MODULE shell_potential_types
 
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
+   USE kinds, ONLY: default_string_length, &
+                    dp
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

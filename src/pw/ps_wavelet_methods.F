@@ -12,24 +12,24 @@
 ! **************************************************************************************************
 MODULE ps_wavelet_methods
 
-   USE bibliography,                    ONLY: Genovese2006,&
-                                              Genovese2007,&
-                                              cite_reference
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_alltoall,&
-                                              mp_cart_rank,&
-                                              mp_max
-   USE ps_wavelet_kernel,               ONLY: createKernel
-   USE ps_wavelet_types,                ONLY: WAVELET0D,&
-                                              ps_wavelet_type
-   USE ps_wavelet_util,                 ONLY: F_FFT_dimensions,&
-                                              PSolver,&
-                                              P_FFT_dimensions,&
-                                              S_FFT_dimensions
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_poisson_types,                ONLY: pw_poisson_parameter_type
-   USE pw_types,                        ONLY: pw_type
-   USE util,                            ONLY: get_limit
+   USE bibliography, ONLY: Genovese2006, &
+                           Genovese2007, &
+                           cite_reference
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_alltoall, &
+                              mp_cart_rank, &
+                              mp_max
+   USE ps_wavelet_kernel, ONLY: createKernel
+   USE ps_wavelet_types, ONLY: WAVELET0D, &
+                               ps_wavelet_type
+   USE ps_wavelet_util, ONLY: F_FFT_dimensions, &
+                              PSolver, &
+                              P_FFT_dimensions, &
+                              S_FFT_dimensions
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_poisson_types, ONLY: pw_poisson_parameter_type
+   USE pw_types, ONLY: pw_type
+   USE util, ONLY: get_limit
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

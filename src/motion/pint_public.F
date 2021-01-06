@@ -14,9 +14,9 @@
 ! **************************************************************************************************
 MODULE pint_public
 
-   USE kinds,                           ONLY: dp
-   USE parallel_rng_types,              ONLY: rng_stream_type
-   USE pint_types,                      ONLY: pint_env_type
+   USE kinds, ONLY: dp
+   USE parallel_rng_types, ONLY: rng_stream_type
+   USE pint_types, ONLY: pint_env_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

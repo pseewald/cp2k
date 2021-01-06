@@ -12,34 +12,34 @@
 !> \author JGH (04.2014)
 ! **************************************************************************************************
 MODULE rs_pw_interface
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE cp_spline_utils,                 ONLY: pw_interp,&
-                                              pw_prolongate_s3,&
-                                              pw_restrict_s3,&
-                                              spline3_pbc_interp
-   USE gaussian_gridlevels,             ONLY: gridlevel_info_type
-   USE input_section_types,             ONLY: section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_p_type,&
-                                              pw_pools_create_pws,&
-                                              pw_pools_give_back_pws
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE realspace_grid_types,            ONLY: pw2rs,&
-                                              realspace_grid_desc_p_type,&
-                                              realspace_grid_p_type,&
-                                              rs2pw,&
-                                              rs_grid_release,&
-                                              rs_pw_transfer
+   USE cp_log_handling, ONLY: cp_to_string
+   USE cp_spline_utils, ONLY: pw_interp, &
+                              pw_prolongate_s3, &
+                              pw_restrict_s3, &
+                              spline3_pbc_interp
+   USE gaussian_gridlevels, ONLY: gridlevel_info_type
+   USE input_section_types, ONLY: section_vals_val_get
+   USE kinds, ONLY: dp
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_pool_types, ONLY: pw_pool_p_type, &
+                            pw_pools_create_pws, &
+                            pw_pools_give_back_pws
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE realspace_grid_types, ONLY: pw2rs, &
+                                   realspace_grid_desc_p_type, &
+                                   realspace_grid_p_type, &
+                                   rs2pw, &
+                                   rs_grid_release, &
+                                   rs_pw_transfer
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -105,13 +105,13 @@ CONTAINS
          CALL pw_transfer(rho%pw, rho_gspace%pw)
          IF (rho%pw%pw_grid%spherical) THEN ! rho_gspace = rho
             CALL pw_transfer(rho_gspace%pw, rho%pw)
-         ENDIF
+         END IF
       ELSE
          DO igrid_level = 1, gridlevel_info%ngrid_levels
             CALL rs_pw_transfer(rs_rho(igrid_level)%rs_grid, &
                                 mgrid_rspace(igrid_level)%pw, rs2pw)
             CALL rs_grid_release(rs_rho(igrid_level)%rs_grid)
-         ENDDO
+         END DO
 
          ! we want both rho and rho_gspace, the latter for Hartree and co-workers.
          SELECT CASE (interp_kind)
@@ -195,7 +195,7 @@ CONTAINS
          DO igrid_level = 1, gridlevel_info%ngrid_levels
             CALL rs_pw_transfer(rs_rho(igrid_level)%rs_grid, &
                                 mgrid_rspace(igrid_level)%pw, rs2pw)
-         ENDDO
+         END DO
 
          ! we want both rho and rho_gspace, the latter for Hartree and co-workers.
          SELECT CASE (interp_kind)
@@ -286,8 +286,8 @@ CONTAINS
                   CALL pw_transfer(mgrid_gspace(auxbas_grid)%pw, mgrid_rspace(auxbas_grid)%pw)
                ELSE ! fft forward + backward should be identical
                   CALL pw_copy(v_rspace%pw, mgrid_rspace(auxbas_grid)%pw)
-               ENDIF
-            ENDIF
+               END IF
+            END IF
             ! *** Multiply by the grid volume element ratio ***
             IF (igrid_level /= auxbas_grid) THEN
                scale = mgrid_rspace(igrid_level)%pw%pw_grid%dvol/ &
@@ -317,7 +317,7 @@ CONTAINS
       DO igrid_level = 1, gridlevel_info%ngrid_levels
          CALL rs_pw_transfer(rs_v(igrid_level)%rs_grid, &
                              mgrid_rspace(igrid_level)%pw, pw2rs)
-      ENDDO
+      END DO
       ! *** give back the pw multi-grids
       CALL pw_pools_give_back_pws(pw_pools, mgrid_rspace)
 

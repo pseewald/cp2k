@@ -13,15 +13,15 @@
 !> \author APSI & JGH
 ! **************************************************************************************************
 MODULE machine
-   USE ISO_C_BINDING,                   ONLY: C_INT
-   USE ISO_FORTRAN_ENV,                 ONLY: input_unit,&
-                                              output_unit
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp,&
-                                              int_8
-   USE machine_internal,                ONLY: &
-        m_abort, m_chdir, m_flush_internal => m_flush, m_getcwd, m_getlog, m_getpid, m_hostnm, &
-        m_memory, m_memory_details, m_memory_max, m_mov, m_procrun
+   USE ISO_C_BINDING, ONLY: C_INT
+   USE ISO_FORTRAN_ENV, ONLY: input_unit, &
+                              output_unit
+   USE kinds, ONLY: default_string_length, &
+                    dp, &
+                    int_8
+   USE machine_internal, ONLY: &
+      m_abort, m_chdir, m_flush_internal => m_flush, m_getcwd, m_getlog, m_getpid, m_hostnm, &
+      m_memory, m_memory_details, m_memory_max, m_mov, m_procrun
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads, OMP_GET_WTIME
 
@@ -124,7 +124,7 @@ CONTAINS
             CALL SYSTEM_CLOCK(count_rate=count_rate, count_max=count_max)
             cycles = 0
             last_count = 0
-         ENDIF
+         END IF
 
          CALL SYSTEM_CLOCK(count=count)
 
@@ -138,8 +138,8 @@ CONTAINS
                count = last_count
             ELSE
                cycles = cycles + 1
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          ! keep track of our history
          last_count = count
@@ -148,7 +148,7 @@ CONTAINS
               /REAL(count_rate, KIND=dp)
 !$    ELSE
 !$       wt = OMP_GET_WTIME()
-!$    ENDIF
+!$    END IF
 #endif
    END FUNCTION m_walltime
 
@@ -170,7 +170,7 @@ CONTAINS
       IF (stat == 0) THEN
          DO i = 1, bufferlen
             READ (121245, END=999) buffer(I:I)
-         ENDDO
+         END DO
 999      CLOSE (121245)
          imod = INDEX(buffer, "model name")
          IF (imod > 0) THEN
@@ -178,8 +178,8 @@ CONTAINS
             iline = icol - 1 + INDEX(buffer(icol:), NEW_LINE('A'))
             IF (iline == icol - 1) iline = bufferlen + 1
             model_name = buffer(icol + 1:iline - 1)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
    END SUBROUTINE m_cpuinfo
 
 ! **************************************************************************************************
@@ -214,8 +214,8 @@ CONTAINS
       CHARACTER(len=default_string_length), POINTER      :: m_cpuid_name
 
       CHARACTER(len=default_string_length), SAVE, TARGET :: name_generic = "generic", &
-         name_unknown = "unknown", name_x86_avx = "x86_avx", name_x86_avx2 = "x86_avx2", &
-         name_x86_avx512 = "x86_avx512", name_x86_sse4 = "x86_sse4"
+                                                   name_unknown = "unknown", name_x86_avx = "x86_avx", name_x86_avx2 = "x86_avx2", &
+                                                            name_x86_avx512 = "x86_avx512", name_x86_sse4 = "x86_sse4"
 
       SELECT CASE (cpuid)
       CASE (MACHINE_CPU_GENERIC)
@@ -273,7 +273,7 @@ CONTAINS
       OPEN (121245, FILE=filename, ACTION="READ", STATUS="OLD", ACCESS="STREAM")
       DO I = 1, 80
          READ (121245, END=999) DATA(I:I)
-      ENDDO
+      END DO
 999   CLOSE (121245)
       DATA(I:80) = ""
       READ (DATA, *, IOSTAT=iostat) raw
@@ -282,7 +282,7 @@ CONTAINS
       ELSE
          ! convert from J to kJ
          wt = raw/1000.0_dp
-      ENDIF
+      END IF
    END FUNCTION read_energy
 #endif
 

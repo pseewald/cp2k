@@ -16,11 +16,11 @@
 ! **************************************************************************************************
 MODULE eigenvalueproblems
 
-   USE kinds,                           ONLY: dp
-   USE lapack,                          ONLY: lapack_cgesvd,&
-                                              lapack_chpev,&
-                                              lapack_sgesvd,&
-                                              lapack_ssyev
+   USE kinds, ONLY: dp
+   USE lapack, ONLY: lapack_cgesvd, &
+                     lapack_chpev, &
+                     lapack_sgesvd, &
+                     lapack_ssyev
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

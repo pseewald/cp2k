@@ -6,75 +6,75 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE qs_tddfpt2_utils
-   USE cell_types,                      ONLY: cell_type
-   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type,&
-                                              get_blacs_info
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              tddfpt2_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              cp_dbcsr_plus_fm_fm_t,&
-                                              cp_dbcsr_sm_fm_multiply,&
-                                              dbcsr_allocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_triangular_invert
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
-   USE cp_fm_pool_types,                ONLY: cp_fm_pool_type,&
-                                              fm_pool_create,&
-                                              fm_pool_release
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_p_type,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_to_fm_submat,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_copy,&
-                                              dbcsr_get_info,&
-                                              dbcsr_init_p,&
-                                              dbcsr_p_type,&
-                                              dbcsr_type
-   USE input_constants,                 ONLY: &
-        cholesky_dbcsr, cholesky_inverse, cholesky_off, cholesky_restore, oe_gllb, oe_lb, oe_none, &
-        oe_saop, oe_shift
-   USE input_section_types,             ONLY: section_vals_create,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_release,&
-                                              section_vals_retain,&
-                                              section_vals_set_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE message_passing,                 ONLY: mp_min,&
-                                              mp_sum
-   USE physcon,                         ONLY: evolt
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_ks_methods,                   ONLY: qs_ks_build_kohn_sham_matrix
-   USE qs_mo_types,                     ONLY: allocate_mo_set,&
-                                              deallocate_mo_set,&
-                                              get_mo_set,&
-                                              init_mo_set,&
-                                              mo_set_p_type,&
-                                              mo_set_type
-   USE qs_scf_methods,                  ONLY: eigensolver
-   USE qs_scf_post_gpw,                 ONLY: make_lumo_gpw
-   USE qs_scf_types,                    ONLY: ot_method_nr,&
-                                              qs_scf_env_type
-   USE qs_tddfpt2_types,                ONLY: tddfpt_ground_state_mos
-   USE util,                            ONLY: sort
-   USE xc_pot_saop,                     ONLY: add_saop_pot
-   USE xtb_matrices,                    ONLY: build_xtb_ks_matrix
+   USE cell_types, ONLY: cell_type
+   USE cp_array_utils, ONLY: cp_1d_r_p_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type, &
+                           get_blacs_info
+   USE cp_control_types, ONLY: dft_control_type, &
+                               tddfpt2_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  cp_dbcsr_plus_fm_fm_t, &
+                                  cp_dbcsr_sm_fm_multiply, &
+                                  dbcsr_allocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_triangular_invert
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose
+   USE cp_fm_pool_types, ONLY: cp_fm_pool_type, &
+                               fm_pool_create, &
+                               fm_pool_release
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_p_type, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_to_fm_submat, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_copy, &
+                        dbcsr_get_info, &
+                        dbcsr_init_p, &
+                        dbcsr_p_type, &
+                        dbcsr_type
+   USE input_constants, ONLY: &
+      cholesky_dbcsr, cholesky_inverse, cholesky_off, cholesky_restore, oe_gllb, oe_lb, oe_none, &
+      oe_saop, oe_shift
+   USE input_section_types, ONLY: section_vals_create, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_release, &
+                                  section_vals_retain, &
+                                  section_vals_set_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE message_passing, ONLY: mp_min, &
+                              mp_sum
+   USE physcon, ONLY: evolt
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_ks_methods, ONLY: qs_ks_build_kohn_sham_matrix
+   USE qs_mo_types, ONLY: allocate_mo_set, &
+                          deallocate_mo_set, &
+                          get_mo_set, &
+                          init_mo_set, &
+                          mo_set_p_type, &
+                          mo_set_type
+   USE qs_scf_methods, ONLY: eigensolver
+   USE qs_scf_post_gpw, ONLY: make_lumo_gpw
+   USE qs_scf_types, ONLY: ot_method_nr, &
+                           qs_scf_env_type
+   USE qs_tddfpt2_types, ONLY: tddfpt_ground_state_mos
+   USE util, ONLY: sort
+   USE xc_pot_saop, ONLY: add_saop_pot
+   USE xtb_matrices, ONLY: build_xtb_ks_matrix
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -228,7 +228,7 @@ CONTAINS
       REAL(kind=dp), PARAMETER                           :: eps_dp = EPSILON(0.0_dp)
 
       INTEGER :: cholesky_method_inout, handle, icol_global, icol_local, imo, irow_global, &
-         irow_local, nao, ncol_local, nelectrons, nmo_occ, nmo_scf, nmo_virt, nrow_local, sign_int
+                 irow_local, nao, ncol_local, nelectrons, nmo_occ, nmo_scf, nmo_virt, nrow_local, sign_int
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: minrow_neg_array, minrow_pos_array, &
                                                             sum_sign_array
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_indices

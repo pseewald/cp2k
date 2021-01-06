@@ -10,23 +10,23 @@
 ! **************************************************************************************************
 MODULE csvr_system_dynamics
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE csvr_system_types,               ONLY: csvr_system_type
-   USE csvr_system_utils,               ONLY: rescaling_factor
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE extended_system_types,           ONLY: map_info_type,&
-                                              npt_info_type
-   USE kinds,                           ONLY: dp
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE parallel_rng_types,              ONLY: rng_stream_type
-   USE particle_types,                  ONLY: particle_type
-   USE thermostat_utils,                ONLY: ke_region_baro,&
-                                              ke_region_particles,&
-                                              ke_region_shells,&
-                                              vel_rescale_baro,&
-                                              vel_rescale_particles,&
-                                              vel_rescale_shells
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE csvr_system_types, ONLY: csvr_system_type
+   USE csvr_system_utils, ONLY: rescaling_factor
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE extended_system_types, ONLY: map_info_type, &
+                                    npt_info_type
+   USE kinds, ONLY: dp
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: molecule_type
+   USE parallel_rng_types, ONLY: rng_stream_type
+   USE particle_types, ONLY: particle_type
+   USE thermostat_utils, ONLY: ke_region_baro, &
+                               ke_region_particles, &
+                               ke_region_shells, &
+                               vel_rescale_baro, &
+                               vel_rescale_particles, &
+                               vel_rescale_shells
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE

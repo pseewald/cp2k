@@ -11,22 +11,22 @@
 ! **************************************************************************************************
 MODULE constraint_4x6
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE constraint_fxd,                  ONLY: check_fixed_atom_cns_g4x6
-   USE kinds,                           ONLY: dp
-   USE linear_systems,                  ONLY: solve_system
-   USE mathlib,                         ONLY: dotprod_3d,&
-                                              matvec_3x3
-   USE molecule_kind_types,             ONLY: fixd_constraint_type,&
-                                              g4x6_constraint_type,&
-                                              get_molecule_kind,&
-                                              molecule_kind_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              global_constraint_type,&
-                                              local_g4x6_constraint_type,&
-                                              molecule_type
-   USE particle_types,                  ONLY: particle_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE constraint_fxd, ONLY: check_fixed_atom_cns_g4x6
+   USE kinds, ONLY: dp
+   USE linear_systems, ONLY: solve_system
+   USE mathlib, ONLY: dotprod_3d, &
+                      matvec_3x3
+   USE molecule_kind_types, ONLY: fixd_constraint_type, &
+                                  g4x6_constraint_type, &
+                                  get_molecule_kind, &
+                                  molecule_kind_type
+   USE molecule_types, ONLY: get_molecule, &
+                             global_constraint_type, &
+                             local_g4x6_constraint_type, &
+                             molecule_type
+   USE particle_types, ONLY: particle_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -635,8 +635,8 @@ CONTAINS
       REAL(KIND=dp)                                      :: dtby2, dtsqby2, idtsq, imass1, imass2, &
                                                             imass3, imass4, sigma
       REAL(KIND=dp), DIMENSION(3) :: f_roll1, f_roll2, f_roll3, f_roll4, f_roll5, f_roll6, fc1, &
-         fc2, fc3, fc4, r0_12, r0_13, r0_14, r0_23, r0_24, r0_34, r1, r12, r13, r14, r2, r23, r24, &
-         r3, r34, r4, v1, v2, v3, v4, vec
+                                     fc2, fc3, fc4, r0_12, r0_13, r0_14, r0_23, r0_24, r0_34, r1, r12, r13, r14, r2, r23, r24, &
+                                     r3, r34, r4, v1, v2, v3, v4, vec
       REAL(KIND=dp), DIMENSION(6, 1)                     :: bvec
       REAL(KIND=dp), DIMENSION(6, 6)                     :: amat, atemp
       TYPE(atomic_kind_type), POINTER                    :: atomic_kind

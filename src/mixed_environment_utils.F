@@ -11,23 +11,23 @@
 ! **************************************************************************************************
 MODULE mixed_environment_utils
 
-   USE cp_result_methods,               ONLY: cp_results_erase,&
-                                              get_results,&
-                                              put_results,&
-                                              test_for_result
-   USE cp_result_types,                 ONLY: cp_result_p_type,&
-                                              cp_result_type
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mixed_energy_types,              ONLY: mixed_force_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE virial_types,                    ONLY: virial_p_type,&
-                                              virial_type,&
-                                              zero_virial
+   USE cp_result_methods, ONLY: cp_results_erase, &
+                                get_results, &
+                                put_results, &
+                                test_for_result
+   USE cp_result_types, ONLY: cp_result_p_type, &
+                              cp_result_type
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mixed_energy_types, ONLY: mixed_force_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE virial_types, ONLY: virial_p_type, &
+                           virial_type, &
+                           zero_virial
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -165,7 +165,7 @@ CONTAINS
             map_full_sys => section_vals_get_subs_vals(mapping_section, "FORCE_EVAL_MIXED")
          ELSE
             map_full_sys => section_vals_get_subs_vals(mapping_section, "FORCE_EVAL_EMBED")
-         ENDIF
+         END IF
          map_force_ev => section_vals_get_subs_vals(mapping_section, "FORCE_EVAL")
          CALL section_vals_get(map_full_sys, explicit=explicit)
          CPASSERT(explicit)

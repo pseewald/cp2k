@@ -11,82 +11,82 @@
 !>      none
 ! **************************************************************************************************
 MODULE topology
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE atoms_input,                     ONLY: read_atoms_input
-   USE cell_methods,                    ONLY: read_cell,&
-                                              write_cell
-   USE cell_types,                      ONLY: cell_create,&
-                                              cell_retain,&
-                                              cell_type
-   USE colvar_types,                    ONLY: colvar_p_type
-   USE colvar_utils,                    ONLY: post_process_colvar
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE exclusion_types,                 ONLY: exclusion_type
-   USE input_constants,                 ONLY: &
-        do_conn_amb7, do_conn_g87, do_conn_g96, do_conn_generate, do_conn_mol_set, do_conn_off, &
-        do_conn_psf, do_conn_psf_u, do_conn_user, do_coord_cif, do_coord_cp2k, do_coord_crd, &
-        do_coord_g96, do_coord_off, do_coord_pdb, do_coord_xtl, do_coord_xyz
-   USE input_cp2k_binary_restarts,      ONLY: read_binary_coordinates
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mm_mapping_library,              ONLY: create_ff_map,&
-                                              destroy_ff_map
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: global_constraint_type,&
-                                              molecule_type
-   USE particle_types,                  ONLY: particle_type
-   USE qmmm_topology_util,              ONLY: qmmm_connectivity_control,&
-                                              qmmm_coordinate_control
-   USE qmmm_types_low,                  ONLY: qmmm_env_mm_type
-   USE string_table,                    ONLY: id2str,&
-                                              s2s,&
-                                              str2id
-   USE topology_amber,                  ONLY: read_connectivity_amber,&
-                                              read_coordinate_crd
-   USE topology_cif,                    ONLY: read_coordinate_cif
-   USE topology_connectivity_util,      ONLY: topology_conn_multiple,&
-                                              topology_connectivity_pack
-   USE topology_constraint_util,        ONLY: topology_constraint_pack
-   USE topology_coordinate_util,        ONLY: topology_coordinate_pack
-   USE topology_cp2k,                   ONLY: read_coordinate_cp2k
-   USE topology_generate_util,          ONLY: topology_generate_bend,&
-                                              topology_generate_bond,&
-                                              topology_generate_dihe,&
-                                              topology_generate_impr,&
-                                              topology_generate_molecule,&
-                                              topology_generate_onfo,&
-                                              topology_generate_ub
-   USE topology_gromos,                 ONLY: read_coordinate_g96,&
-                                              read_topology_gromos
-   USE topology_input,                  ONLY: read_constraints_section,&
-                                              read_topology_section
-   USE topology_multiple_unit_cell,     ONLY: topology_muc
-   USE topology_pdb,                    ONLY: read_coordinate_pdb,&
-                                              write_coordinate_pdb
-   USE topology_psf,                    ONLY: idm_psf,&
-                                              psf_post_process,&
-                                              read_topology_psf,&
-                                              write_topology_psf
-   USE topology_types,                  ONLY: deallocate_topology,&
-                                              init_topology,&
-                                              pre_read_topology,&
-                                              topology_parameters_type
-   USE topology_util,                   ONLY: check_subsys_element,&
-                                              topology_molecules_check,&
-                                              topology_reorder_atoms,&
-                                              topology_set_atm_mass
-   USE topology_xtl,                    ONLY: read_coordinate_xtl
-   USE topology_xyz,                    ONLY: read_coordinate_xyz
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE atoms_input, ONLY: read_atoms_input
+   USE cell_methods, ONLY: read_cell, &
+                           write_cell
+   USE cell_types, ONLY: cell_create, &
+                         cell_retain, &
+                         cell_type
+   USE colvar_types, ONLY: colvar_p_type
+   USE colvar_utils, ONLY: post_process_colvar
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE exclusion_types, ONLY: exclusion_type
+   USE input_constants, ONLY: &
+      do_conn_amb7, do_conn_g87, do_conn_g96, do_conn_generate, do_conn_mol_set, do_conn_off, &
+      do_conn_psf, do_conn_psf_u, do_conn_user, do_coord_cif, do_coord_cp2k, do_coord_crd, &
+      do_coord_g96, do_coord_off, do_coord_pdb, do_coord_xtl, do_coord_xyz
+   USE input_cp2k_binary_restarts, ONLY: read_binary_coordinates
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mm_mapping_library, ONLY: create_ff_map, &
+                                 destroy_ff_map
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: global_constraint_type, &
+                             molecule_type
+   USE particle_types, ONLY: particle_type
+   USE qmmm_topology_util, ONLY: qmmm_connectivity_control, &
+                                 qmmm_coordinate_control
+   USE qmmm_types_low, ONLY: qmmm_env_mm_type
+   USE string_table, ONLY: id2str, &
+                           s2s, &
+                           str2id
+   USE topology_amber, ONLY: read_connectivity_amber, &
+                             read_coordinate_crd
+   USE topology_cif, ONLY: read_coordinate_cif
+   USE topology_connectivity_util, ONLY: topology_conn_multiple, &
+                                         topology_connectivity_pack
+   USE topology_constraint_util, ONLY: topology_constraint_pack
+   USE topology_coordinate_util, ONLY: topology_coordinate_pack
+   USE topology_cp2k, ONLY: read_coordinate_cp2k
+   USE topology_generate_util, ONLY: topology_generate_bend, &
+                                     topology_generate_bond, &
+                                     topology_generate_dihe, &
+                                     topology_generate_impr, &
+                                     topology_generate_molecule, &
+                                     topology_generate_onfo, &
+                                     topology_generate_ub
+   USE topology_gromos, ONLY: read_coordinate_g96, &
+                              read_topology_gromos
+   USE topology_input, ONLY: read_constraints_section, &
+                             read_topology_section
+   USE topology_multiple_unit_cell, ONLY: topology_muc
+   USE topology_pdb, ONLY: read_coordinate_pdb, &
+                           write_coordinate_pdb
+   USE topology_psf, ONLY: idm_psf, &
+                           psf_post_process, &
+                           read_topology_psf, &
+                           write_topology_psf
+   USE topology_types, ONLY: deallocate_topology, &
+                             init_topology, &
+                             pre_read_topology, &
+                             topology_parameters_type
+   USE topology_util, ONLY: check_subsys_element, &
+                            topology_molecules_check, &
+                            topology_reorder_atoms, &
+                            topology_set_atm_mass
+   USE topology_xtl, ONLY: read_coordinate_xtl
+   USE topology_xyz, ONLY: read_coordinate_xyz
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -353,7 +353,7 @@ CONTAINS
       ALLOCATE (elements(SIZE(topology%atom_info%id_element)))
       DO i = 1, SIZE(elements)
          elements(i) = id2str(topology%atom_info%id_element(i))
-      ENDDO
+      END DO
 
       DO i = 1, topology%natoms
          IF (elements(i) == "__DEF__") CYCLE

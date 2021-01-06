@@ -10,77 +10,77 @@
 !> \author MK (12.06.2002)
 ! **************************************************************************************************
 MODULE qs_force
-   USE admm_methods,                    ONLY: calc_aux_mo_derivs_none,&
-                                              calc_mixed_overlap_force
-   USE admm_types,                      ONLY: admm_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_dbcsr_output,                 ONLY: cp_dbcsr_write_sparse_matrix
-   USE cp_fm_types,                     ONLY: cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_copy,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set
-   USE dft_plus_u,                      ONLY: plus_u
-   USE efield_utils,                    ONLY: calculate_ecore_efield
-   USE energy_corrections,              ONLY: energy_correction
-   USE input_constants,                 ONLY: do_admm_purify_none
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE lri_environment_types,           ONLY: lri_environment_type
-   USE message_passing,                 ONLY: mp_sum
-   USE mulliken,                        ONLY: mulliken_restraint
-   USE particle_types,                  ONLY: particle_type
-   USE qs_core_energies,                ONLY: calculate_ecore_overlap,&
-                                              calculate_ecore_self
-   USE qs_core_hamiltonian,             ONLY: build_core_hamiltonian_matrix
-   USE qs_dftb_dispersion,              ONLY: calculate_dftb_dispersion
-   USE qs_dftb_matrices,                ONLY: build_dftb_matrices
-   USE qs_energy,                       ONLY: qs_energies
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_methods,          ONLY: qs_env_rebuild_pw_env
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_external_potential,           ONLY: external_c_potential,&
-                                              external_e_potential
-   USE qs_force_types,                  ONLY: allocate_qs_force,&
-                                              qs_force_type,&
-                                              replicate_qs_force,&
-                                              zero_qs_force
-   USE qs_ks_methods,                   ONLY: qs_ks_update_qs_env
-   USE qs_ks_types,                     ONLY: qs_ks_did_change,&
-                                              qs_ks_env_type,&
-                                              set_ks_env
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type,&
-                                              mo_set_type
-   USE qs_rho_methods,                  ONLY: qs_rho_update_rho
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf_post_scf,                 ONLY: qs_scf_compute_properties
-   USE qs_subsys_types,                 ONLY: qs_subsys_set,&
-                                              qs_subsys_type
-   USE ri_environment_methods,          ONLY: build_ri_matrices
-   USE rt_propagation_forces,           ONLY: calc_c_mat_force,&
-                                              rt_admm_force
-   USE se_core_core,                    ONLY: se_core_core_interaction
-   USE se_core_matrix,                  ONLY: build_se_core_matrix
-   USE virial_types,                    ONLY: symmetrize_virial,&
-                                              virial_type
-   USE xtb_matrices,                    ONLY: build_xtb_matrices
+   USE admm_methods, ONLY: calc_aux_mo_derivs_none, &
+                           calc_mixed_overlap_force
+   USE admm_types, ONLY: admm_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_dbcsr_output, ONLY: cp_dbcsr_write_sparse_matrix
+   USE cp_fm_types, ONLY: cp_fm_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_copy, &
+                        dbcsr_p_type, &
+                        dbcsr_set
+   USE dft_plus_u, ONLY: plus_u
+   USE efield_utils, ONLY: calculate_ecore_efield
+   USE energy_corrections, ONLY: energy_correction
+   USE input_constants, ONLY: do_admm_purify_none
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE lri_environment_types, ONLY: lri_environment_type
+   USE message_passing, ONLY: mp_sum
+   USE mulliken, ONLY: mulliken_restraint
+   USE particle_types, ONLY: particle_type
+   USE qs_core_energies, ONLY: calculate_ecore_overlap, &
+                               calculate_ecore_self
+   USE qs_core_hamiltonian, ONLY: build_core_hamiltonian_matrix
+   USE qs_dftb_dispersion, ONLY: calculate_dftb_dispersion
+   USE qs_dftb_matrices, ONLY: build_dftb_matrices
+   USE qs_energy, ONLY: qs_energies
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_methods, ONLY: qs_env_rebuild_pw_env
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_external_potential, ONLY: external_c_potential, &
+                                    external_e_potential
+   USE qs_force_types, ONLY: allocate_qs_force, &
+                             qs_force_type, &
+                             replicate_qs_force, &
+                             zero_qs_force
+   USE qs_ks_methods, ONLY: qs_ks_update_qs_env
+   USE qs_ks_types, ONLY: qs_ks_did_change, &
+                          qs_ks_env_type, &
+                          set_ks_env
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type, &
+                          mo_set_type
+   USE qs_rho_methods, ONLY: qs_rho_update_rho
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf_post_scf, ONLY: qs_scf_compute_properties
+   USE qs_subsys_types, ONLY: qs_subsys_set, &
+                              qs_subsys_type
+   USE ri_environment_methods, ONLY: build_ri_matrices
+   USE rt_propagation_forces, ONLY: calc_c_mat_force, &
+                                    rt_admm_force
+   USE se_core_core, ONLY: se_core_core_interaction
+   USE se_core_matrix, ONLY: build_se_core_matrix
+   USE virial_types, ONLY: symmetrize_virial, &
+                           virial_type
+   USE xtb_matrices, ONLY: build_xtb_matrices
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -143,7 +143,7 @@ CONTAINS
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER :: matrix_ks_aux_fit, matrix_p_mp2, matrix_s, &
-         matrix_s_aux_fit, matrix_s_aux_fit_vs_orb, matrix_w, matrix_w_mp2, rho_ao
+                                                   matrix_s_aux_fit, matrix_s_aux_fit_vs_orb, matrix_w, matrix_w_mp2, rho_ao
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER       :: matrix_w_kp
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(lri_environment_type), POINTER                :: lri_env
@@ -274,7 +274,7 @@ CONTAINS
                                                  "DFT%PRINT%AO_MATRICES/W_MATRIX")
             END IF
          END DO
-      ENDIF
+      END IF
 
       ! Compute core forces (also overwrites matrix_w)
       IF (dft_control%qs_control%semi_empirical) THEN
@@ -305,7 +305,7 @@ CONTAINS
          IF (dft_control%qs_control%rigpw) THEN
             CALL get_qs_env(qs_env=qs_env, lri_env=lri_env)
             CALL build_ri_matrices(lri_env, qs_env, calculate_forces=.TRUE.)
-         ENDIF
+         END IF
       END IF
 
       ! Compute grid-based forces

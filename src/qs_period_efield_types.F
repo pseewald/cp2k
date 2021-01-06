@@ -15,9 +15,9 @@
 
 MODULE qs_period_efield_types
 
-   USE cp_dbcsr_operations,             ONLY: dbcsr_deallocate_matrix_set
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE kinds,                           ONLY: dp
+   USE cp_dbcsr_operations, ONLY: dbcsr_deallocate_matrix_set
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE kinds, ONLY: dp
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -12,22 +12,22 @@
 ! **************************************************************************************************
 MODULE helium_worm
 
-   USE helium_common,                   ONLY: helium_calc_plength,&
-                                              helium_eval_chain,&
-                                              helium_eval_expansion,&
-                                              helium_pbc,&
-                                              helium_update_coord_system
-   USE helium_interactions,             ONLY: helium_bead_solute_e_f,&
-                                              helium_calc_energy,&
-                                              helium_solute_e_f
-   USE helium_io,                       ONLY: helium_write_line
-   USE helium_types,                    ONLY: helium_solvent_type
-   USE input_constants,                 ONLY: helium_forces_average,&
-                                              helium_forces_last
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi
-   USE pint_types,                      ONLY: pint_env_type
+   USE helium_common, ONLY: helium_calc_plength, &
+                            helium_eval_chain, &
+                            helium_eval_expansion, &
+                            helium_pbc, &
+                            helium_update_coord_system
+   USE helium_interactions, ONLY: helium_bead_solute_e_f, &
+                                  helium_calc_energy, &
+                                  helium_solute_e_f
+   USE helium_io, ONLY: helium_write_line
+   USE helium_types, ONLY: helium_solvent_type
+   USE input_constants, ONLY: helium_forces_average, &
+                              helium_forces_last
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi
+   USE pint_types, ONLY: pint_env_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -53,9 +53,9 @@ CONTAINS
 
       CHARACTER(len=default_string_length)               :: stmp
       INTEGER :: ac, iatom, ibead, icrawl, iMC, imove, ncentracc, ncentratt, ncloseacc, ncloseatt, &
-         ncrawlbwdacc, ncrawlbwdatt, ncrawlfwdacc, ncrawlfwdatt, nMC, nmoveheadacc, nmoveheadatt, &
-         nmovetailacc, nmovetailatt, nopenacc, nopenatt, npswapacc, nstagacc, nstagatt, nstat, &
-         nswapacc, nswapatt, ntot, staging_l
+                 ncrawlbwdacc, ncrawlbwdatt, ncrawlfwdacc, ncrawlfwdatt, nMC, nmoveheadacc, nmoveheadatt, &
+                 nmovetailacc, nmovetailatt, nopenacc, nopenatt, npswapacc, nstagacc, nstagatt, nstat, &
+                 nswapacc, nswapatt, ntot, staging_l
       REAL(KIND=dp)                                      :: rtmp
 
       CALL helium_update_coord_system(helium, pint_env)
@@ -1418,7 +1418,7 @@ CONTAINS
       REAL(KIND=dp)                                      :: distsq, mass, rtmp, rtmpo, sdiff, snew, &
                                                             sold
       REAL(KIND=dp), DIMENSION(3)                        :: distvec, dr, dro, new_com, old_com
-      REAL(KIND=dp), DIMENSION(3, l-1)                   :: newsection
+      REAL(KIND=dp), DIMENSION(3, l - 1)                   :: newsection
 
       mass = helium%he_mass_au
 

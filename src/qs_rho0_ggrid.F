@@ -6,68 +6,68 @@
 !--------------------------------------------------------------------------------------------------!
 ! **************************************************************************************************
 MODULE qs_rho0_ggrid
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cube_utils,                      ONLY: cube_info_type
-   USE gaussian_gridlevels,             ONLY: gaussian_gridlevel
-   USE grid_api,                        ONLY: GRID_FUNC_AB,&
-                                              collocate_pgf_product
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              fourpi
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_sum
-   USE orbital_pointers,                ONLY: indco,&
-                                              nco,&
-                                              ncoset,&
-                                              nso,&
-                                              nsoset
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cube_utils, ONLY: cube_info_type
+   USE gaussian_gridlevels, ONLY: gaussian_gridlevel
+   USE grid_api, ONLY: GRID_FUNC_AB, &
+                       collocate_pgf_product
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: dfac, &
+                            fourpi
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_sum
+   USE orbital_pointers, ONLY: indco, &
+                               nco, &
+                               ncoset, &
+                               nso, &
+                               nsoset
    USE orbital_transformation_matrices, ONLY: orbtramat
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_integrate_function,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_release
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_harmonics_atom,               ONLY: get_none0_cg_list,&
-                                              harmonics_atom_type
-   USE qs_integrate_potential,          ONLY: integrate_pgf_product
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_local_rho_types,              ONLY: get_local_rho,&
-                                              local_rho_type
-   USE qs_rho0_types,                   ONLY: get_rho0_mpole,&
-                                              rho0_mpole_type
-   USE qs_rho_atom_types,               ONLY: get_rho_atom,&
-                                              rho_atom_coeff,&
-                                              rho_atom_type
-   USE realspace_grid_types,            ONLY: &
-        pw2rs, realspace_grid_desc_p_type, realspace_grid_desc_type, realspace_grid_p_type, &
-        realspace_grid_type, rs2pw, rs_grid_create, rs_grid_release, rs_grid_retain, rs_grid_zero, &
-        rs_pw_transfer
-   USE util,                            ONLY: get_limit
-   USE virial_types,                    ONLY: virial_type
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_integrate_function, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_release
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_harmonics_atom, ONLY: get_none0_cg_list, &
+                                harmonics_atom_type
+   USE qs_integrate_potential, ONLY: integrate_pgf_product
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_local_rho_types, ONLY: get_local_rho, &
+                                 local_rho_type
+   USE qs_rho0_types, ONLY: get_rho0_mpole, &
+                            rho0_mpole_type
+   USE qs_rho_atom_types, ONLY: get_rho_atom, &
+                                rho_atom_coeff, &
+                                rho_atom_type
+   USE realspace_grid_types, ONLY: &
+      pw2rs, realspace_grid_desc_p_type, realspace_grid_desc_type, realspace_grid_p_type, &
+      realspace_grid_type, rs2pw, rs_grid_create, rs_grid_release, rs_grid_retain, rs_grid_zero, &
+      rs_pw_transfer
+   USE util, ONLY: get_limit
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -200,11 +200,11 @@ CONTAINS
                IF (MODULO(nat, rs_grid%desc%group_size) == rs_grid%desc%my_pos) THEN
                   npme = npme + 1
                   cores(npme) = iat
-               ENDIF
+               END IF
             ELSE
                npme = npme + 1
                cores(npme) = iat
-            ENDIF
+            END IF
 
          END DO
 
@@ -347,9 +347,9 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'integrate_vhg0_rspace'
 
       INTEGER :: auxbas_grid, bo(2), handle, i, iat, iatom, ic, icg, ico, ig1, ig2, igrid, ii, &
-         ikind, ipgf1, ipgf2, is, iset1, iset2, iso, iso1, iso2, ispin, j, l0_ikind, llmax, lmax0, &
-         lshell, lx, ly, lz, m1, m2, max_iso_not0_local, max_s_harm, maxl, maxso, mepos, n1, n2, &
-         nat, nch_ik, nch_max, ncurr, nset, nsotot, nspins, num_pe
+                 ikind, ipgf1, ipgf2, is, iset1, iset2, iso, iso1, iso2, ispin, j, l0_ikind, llmax, lmax0, &
+                 lshell, lx, ly, lz, m1, m2, max_iso_not0_local, max_s_harm, maxl, maxso, mepos, n1, n2, &
+                 nat, nch_ik, nch_max, ncurr, nset, nsotot, nspins, num_pe
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: cg_n_list
       INTEGER, ALLOCATABLE, DIMENSION(:, :, :)           :: cg_list
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, lmax, lmin, npgf

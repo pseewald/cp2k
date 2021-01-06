@@ -12,26 +12,26 @@
 !> \author Manuel Guidon
 ! **************************************************************************************************
 MODULE hfx_screening_methods
-   USE ao_util,                         ONLY: exp_radius_very_extended
-   USE basis_set_types,                 ONLY: gto_basis_set_type
-   USE hfx_libint_interface,            ONLY: evaluate_eri_screen
-   USE hfx_types,                       ONLY: hfx_basis_type,&
-                                              hfx_p_kind,&
-                                              hfx_potential_type,&
-                                              hfx_screen_coeff_type,&
-                                              log_zero,&
-                                              powell_min_log
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE libint_wrapper,                  ONLY: cp_libint_t
-   USE machine,                         ONLY: default_output_unit
-   USE orbital_pointers,                ONLY: ncoset
-   USE powell,                          ONLY: opt_state_type,&
-                                              powell_optimize
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
+   USE ao_util, ONLY: exp_radius_very_extended
+   USE basis_set_types, ONLY: gto_basis_set_type
+   USE hfx_libint_interface, ONLY: evaluate_eri_screen
+   USE hfx_types, ONLY: hfx_basis_type, &
+                        hfx_p_kind, &
+                        hfx_potential_type, &
+                        hfx_screen_coeff_type, &
+                        log_zero, &
+                        powell_min_log
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE libint_wrapper, ONLY: cp_libint_t
+   USE machine, ONLY: default_output_unit
+   USE orbital_pointers, ONLY: ncoset
+   USE powell, ONLY: opt_state_type, &
+                     powell_optimize
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -151,7 +151,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'update_pmax_mat'
 
       INTEGER :: act_atomic_block_offset, act_set_offset, handle, i, img, jatom, jkind, jset, &
-         katom, kind_kind_idx, kkind, kset, mb, mc, nimg, nsetb, nsetc
+                 katom, kind_kind_idx, kkind, kset, mb, mc, nimg, nsetb, nsetc
       INTEGER, DIMENSION(:), POINTER                     :: nsgfb, nsgfc
       REAL(dp)                                           :: pmax_tmp
 
@@ -191,9 +191,9 @@ CONTAINS
                                  pmax_tmp = MAX(pmax_tmp, ABS(full_density_beta(i, img)))
                               END IF
                               i = i + 1
-                           ENDDO
-                        ENDDO
-                     ENDDO
+                           END DO
+                        END DO
+                     END DO
                      IF (pmax_tmp == 0.0_dp) THEN
                         pmax_tmp = log_zero
                      ELSE
@@ -216,9 +216,9 @@ CONTAINS
                                  pmax_tmp = MAX(pmax_tmp, ABS(full_density_beta(i, img)))
                               END IF
                               i = i + nsgfc(kset)
-                           ENDDO
-                        ENDDO
-                     ENDDO
+                           END DO
+                        END DO
+                     END DO
                      IF (pmax_tmp == 0.0_dp) THEN
                         pmax_tmp = log_zero
                      ELSE
@@ -323,7 +323,7 @@ CONTAINS
                                                             npgfb, nsgfa, nsgfb
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, first_sgfb
       REAL(dp) :: kind_radius_a, kind_radius_b, max_contraction_a, max_contraction_b, max_val, &
-         max_val_temp, R1, ra(3), radius, rb(3), x(2)
+                  max_val_temp, R1, ra(3), radius, rb(3), x(2)
       REAL(dp), DIMENSION(:), POINTER                    :: set_radius_a, set_radius_b
       REAL(dp), DIMENSION(:, :), POINTER                 :: rpgfa, rpgfb, sphi_a, sphi_b, zeta, zetb
       REAL(dp), SAVE                                     :: DATA(2, 0:100)
@@ -675,7 +675,7 @@ CONTAINS
                                                             npgfb, nsgfa, nsgfb
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, first_sgfb
       REAL(dp) :: cutoff, ff, max_contraction_a, max_contraction_b, prefactor, R1, R_max, ra(3), &
-         rab(3), rab2, radius, rap(3), rb(3), rp(3), x(2), zetp
+                  rab(3), rab2, radius, rap(3), rb(3), rp(3), x(2), zetp
       REAL(dp), DIMENSION(:, :), POINTER                 :: rpgfa, rpgfb, sphi_a, sphi_b, zeta, zetb
       REAL(dp), SAVE                                     :: DATA(2, 0:100)
       TYPE(gto_basis_set_type), POINTER                  :: orb_basis
@@ -868,7 +868,7 @@ CONTAINS
          opt_state%state = 8
          CALL powell_optimize(opt_state%nvar, x, opt_state)
 
-      ENDDO
+      END DO
 
    END SUBROUTINE optimize_it
 

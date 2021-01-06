@@ -12,73 +12,73 @@
 ! **************************************************************************************************
 MODULE helium_methods
 
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE bibliography,                    ONLY: Walewski2014,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_printkey_is_on
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE f77_interface,                   ONLY: f_env_add_defaults,&
-                                              f_env_rm_defaults,&
-                                              f_env_type
-   USE force_env_types,                 ONLY: force_env_get
-   USE helium_common,                   ONLY: helium_com,&
-                                              helium_pbc
-   USE helium_interactions,             ONLY: helium_vij
-   USE helium_io,                       ONLY: helium_write_line,&
-                                              helium_write_setup
-   USE helium_sampling,                 ONLY: helium_sample
-   USE helium_types,                    ONLY: helium_solvent_p_type,&
-                                              helium_solvent_type,&
-                                              rho_atom_number,&
-                                              rho_moment_of_inertia,&
-                                              rho_num,&
-                                              rho_projected_area,&
-                                              rho_winding_cycle,&
-                                              rho_winding_number
-   USE input_constants,                 ONLY: helium_cell_shape_cube,&
-                                              helium_cell_shape_octahedron,&
-                                              helium_sampling_ceperley,&
-                                              helium_sampling_worm,&
-                                              helium_solute_intpot_none
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp,&
-                                              max_line_length
-   USE mathconstants,                   ONLY: pi,&
-                                              twopi
-   USE message_passing,                 ONLY: mp_allgather,&
-                                              mp_bcast,&
-                                              mp_comm_free,&
-                                              mp_comm_split_direct
-   USE parallel_rng_types,              ONLY: GAUSSIAN,&
-                                              UNIFORM,&
-                                              rng_stream_p_type,&
-                                              rng_stream_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE physcon,                         ONLY: a_mass,&
-                                              angstrom,&
-                                              boltzmann,&
-                                              h_bar,&
-                                              kelvin,&
-                                              massunit
-   USE pint_public,                     ONLY: pint_com_pos
-   USE pint_types,                      ONLY: pint_env_type
-   USE splines_methods,                 ONLY: init_spline,&
-                                              init_splinexy
-   USE splines_types,                   ONLY: spline_data_create,&
-                                              spline_data_release
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE bibliography, ONLY: Walewski2014, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type, &
+                         get_cell
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_printkey_is_on
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE f77_interface, ONLY: f_env_add_defaults, &
+                            f_env_rm_defaults, &
+                            f_env_type
+   USE force_env_types, ONLY: force_env_get
+   USE helium_common, ONLY: helium_com, &
+                            helium_pbc
+   USE helium_interactions, ONLY: helium_vij
+   USE helium_io, ONLY: helium_write_line, &
+                        helium_write_setup
+   USE helium_sampling, ONLY: helium_sample
+   USE helium_types, ONLY: helium_solvent_p_type, &
+                           helium_solvent_type, &
+                           rho_atom_number, &
+                           rho_moment_of_inertia, &
+                           rho_num, &
+                           rho_projected_area, &
+                           rho_winding_cycle, &
+                           rho_winding_number
+   USE input_constants, ONLY: helium_cell_shape_cube, &
+                              helium_cell_shape_octahedron, &
+                              helium_sampling_ceperley, &
+                              helium_sampling_worm, &
+                              helium_solute_intpot_none
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp, &
+                    max_line_length
+   USE mathconstants, ONLY: pi, &
+                            twopi
+   USE message_passing, ONLY: mp_allgather, &
+                              mp_bcast, &
+                              mp_comm_free, &
+                              mp_comm_split_direct
+   USE parallel_rng_types, ONLY: GAUSSIAN, &
+                                 UNIFORM, &
+                                 rng_stream_p_type, &
+                                 rng_stream_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE physcon, ONLY: a_mass, &
+                      angstrom, &
+                      boltzmann, &
+                      h_bar, &
+                      kelvin, &
+                      massunit
+   USE pint_public, ONLY: pint_com_pos
+   USE pint_types, ONLY: pint_env_type
+   USE splines_methods, ONLY: init_spline, &
+                              init_splinexy
+   USE splines_types, ONLY: spline_data_create, &
+                            spline_data_release
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

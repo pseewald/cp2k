@@ -9,35 +9,35 @@
 !> \brief
 ! **************************************************************************************************
 MODULE qs_loc_dipole
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_logger_type
-   USE cp_output_handling,              ONLY: cp_iter_string,&
-                                              cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_result_methods,               ONLY: cp_results_erase,&
-                                              get_results,&
-                                              put_results
-   USE cp_result_types,                 ONLY: cp_result_type
-   USE input_section_types,             ONLY: section_get_ival,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: twopi
-   USE moments_utils,                   ONLY: get_reference_point
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: debye
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_loc_types,                    ONLY: qs_loc_env_new_type
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_logger_type
+   USE cp_output_handling, ONLY: cp_iter_string, &
+                                 cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_result_methods, ONLY: cp_results_erase, &
+                                get_results, &
+                                put_results
+   USE cp_result_types, ONLY: cp_result_type
+   USE input_section_types, ONLY: section_get_ival, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: twopi
+   USE moments_utils, ONLY: get_reference_point
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: debye
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_loc_types, ONLY: qs_loc_env_new_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -139,8 +139,8 @@ CONTAINS
                      zeta = CMPLX(COS(theta), SIN(theta), KIND=dp)**(-zwfc)
                      ggamma(j) = ggamma(j)*zeta
                   END DO
-               ENDDO
-            ENDDO
+               END DO
+            END DO
             ggamma = ggamma*zphase
             ci = AIMAG(LOG(ggamma))/twopi
             dipole = MATMUL(cell%hmat, ci)
@@ -164,8 +164,8 @@ CONTAINS
                DO i = 1, SIZE(qs_loc_env%localized_wfn_control%centers_set(ispins)%array, 2)
                   ria = pbc(qs_loc_env%localized_wfn_control%centers_set(ispins)%array(1:3, i), cell)
                   dipole = dipole - zwfc*(ria - rcc)
-               ENDDO
-            ENDDO
+               END DO
+            END DO
          END IF
 
          ! Print and possibly store results

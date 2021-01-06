@@ -12,43 +12,43 @@
 !>         Teodoro Laino [tlaino] - 11.2008 : Improved the fixd_list restraints
 ! **************************************************************************************************
 MODULE restraint
-   USE cell_types,                      ONLY: cell_type,&
-                                              use_perd_x,&
-                                              use_perd_xy,&
-                                              use_perd_xyz,&
-                                              use_perd_xz,&
-                                              use_perd_y,&
-                                              use_perd_yz,&
-                                              use_perd_z
-   USE colvar_methods,                  ONLY: colvar_eval_mol_f
-   USE colvar_types,                    ONLY: colvar_counters,&
-                                              diff_colvar
-   USE constraint_fxd,                  ONLY: create_local_fixd_list,&
-                                              release_local_fixd_list
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_set,&
-                                              force_env_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: colvar_constraint_type,&
-                                              fixd_constraint_type,&
-                                              g3x3_constraint_type,&
-                                              g4x6_constraint_type,&
-                                              get_molecule_kind,&
-                                              local_fixd_constraint_type,&
-                                              molecule_kind_type
-   USE molecule_list_types,             ONLY: molecule_list_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              global_constraint_type,&
-                                              local_colvar_constraint_type,&
-                                              molecule_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type,&
-                                              update_particle_set
+   USE cell_types, ONLY: cell_type, &
+                         use_perd_x, &
+                         use_perd_xy, &
+                         use_perd_xyz, &
+                         use_perd_xz, &
+                         use_perd_y, &
+                         use_perd_yz, &
+                         use_perd_z
+   USE colvar_methods, ONLY: colvar_eval_mol_f
+   USE colvar_types, ONLY: colvar_counters, &
+                           diff_colvar
+   USE constraint_fxd, ONLY: create_local_fixd_list, &
+                             release_local_fixd_list
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_set, &
+                              force_env_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_type
+   USE molecule_kind_types, ONLY: colvar_constraint_type, &
+                                  fixd_constraint_type, &
+                                  g3x3_constraint_type, &
+                                  g4x6_constraint_type, &
+                                  get_molecule_kind, &
+                                  local_fixd_constraint_type, &
+                                  molecule_kind_type
+   USE molecule_list_types, ONLY: molecule_list_type
+   USE molecule_types, ONLY: get_molecule, &
+                             global_constraint_type, &
+                             local_colvar_constraint_type, &
+                             molecule_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type, &
+                             update_particle_set
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -174,17 +174,17 @@ CONTAINS
             IF (n3x3con_restraint /= 0) THEN
                n_restraint = n_restraint + n3x3con_restraint
                CALL restraint_3x3_int(molecule, particle_set, energy_3x3, force)
-            ENDIF
+            END IF
             ! 4x6
             IF (n4x6con_restraint /= 0) THEN
                n_restraint = n_restraint + n4x6con_restraint
                CALL restraint_4x6_int(molecule, particle_set, energy_4x6, force)
-            ENDIF
+            END IF
             ! collective variables
             IF (ncolv%nrestraint /= 0) THEN
                n_restraint = n_restraint + ncolv%nrestraint
                CALL restraint_colv_int(molecule, particle_set, cell, energy_colv, force)
-            ENDIF
+            END IF
          END DO
       END DO MOL
       CALL mp_sum(n_restraint, force_env%para_env%group)
@@ -196,7 +196,7 @@ CONTAINS
          CALL update_particle_set(particle_set, force_env%para_env%group, for=force, add=.TRUE.)
          force = 0.0_dp
          n_restraint = 0
-      ENDIF
+      END IF
       ! Intermolecular Restraints
       IF (ASSOCIATED(gci)) THEN
          IF (gci%nrestraint > 0) THEN
@@ -204,17 +204,17 @@ CONTAINS
             IF (gci%ng3x3_restraint /= 0) THEN
                n_restraint = n_restraint + gci%ng3x3_restraint
                CALL restraint_3x3_ext(gci, particle_set, energy_3x3, force)
-            ENDIF
+            END IF
             ! 4x6
             IF (gci%ng4x6_restraint /= 0) THEN
                n_restraint = n_restraint + gci%ng4x6_restraint
                CALL restraint_4x6_ext(gci, particle_set, energy_4x6, force)
-            ENDIF
+            END IF
             ! collective variables
             IF (gci%ncolv%nrestraint /= 0) THEN
                n_restraint = n_restraint + gci%ncolv%nrestraint
                CALL restraint_colv_ext(gci, particle_set, cell, energy_colv, force)
-            ENDIF
+            END IF
             DO iparticle = 1, SIZE(particle_set)
                particle_set(iparticle)%f = particle_set(iparticle)%f + force(:, iparticle)
             END DO

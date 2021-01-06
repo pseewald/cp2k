@@ -12,9 +12,9 @@
 ! **************************************************************************************************
 MODULE basis_set_container_types
 
-   USE basis_set_types,                 ONLY: deallocate_gto_basis_set,&
-                                              gto_basis_set_type
-   USE kinds,                           ONLY: default_string_length
+   USE basis_set_types, ONLY: deallocate_gto_basis_set, &
+                              gto_basis_set_type
+   USE kinds, ONLY: default_string_length
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

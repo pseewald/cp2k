@@ -16,34 +16,34 @@
 ! **************************************************************************************************
 MODULE semi_empirical_int_num
 
-   USE input_constants,                 ONLY: do_method_am1,&
-                                              do_method_pchg,&
-                                              do_method_pdg,&
-                                              do_method_pm3,&
-                                              do_method_pm6,&
-                                              do_method_pm6fm,&
-                                              do_method_undef,&
-                                              do_se_IS_kdso_d
-   USE kinds,                           ONLY: dp
-   USE multipole_types,                 ONLY: do_multipole_none
-   USE physcon,                         ONLY: angstrom,&
-                                              evolt
-   USE semi_empirical_int_arrays,       ONLY: &
-        ijkl_ind, ijkl_sym, inddd, inddp, indexa, indexb, indpp, int2c_type, l_index, rij_threshold
-   USE semi_empirical_int_utils,        ONLY: ijkl_d,&
-                                              ijkl_sp,&
-                                              rot_2el_2c_first,&
-                                              rotmat,&
-                                              store_2el_2c_diag
-   USE semi_empirical_types,            ONLY: rotmat_create,&
-                                              rotmat_release,&
-                                              rotmat_type,&
-                                              se_int_control_type,&
-                                              se_int_screen_type,&
-                                              se_taper_type,&
-                                              semi_empirical_type,&
-                                              setup_se_int_control_type
-   USE taper_types,                     ONLY: taper_eval
+   USE input_constants, ONLY: do_method_am1, &
+                              do_method_pchg, &
+                              do_method_pdg, &
+                              do_method_pm3, &
+                              do_method_pm6, &
+                              do_method_pm6fm, &
+                              do_method_undef, &
+                              do_se_IS_kdso_d
+   USE kinds, ONLY: dp
+   USE multipole_types, ONLY: do_multipole_none
+   USE physcon, ONLY: angstrom, &
+                      evolt
+   USE semi_empirical_int_arrays, ONLY: &
+      ijkl_ind, ijkl_sym, inddd, inddp, indexa, indexb, indpp, int2c_type, l_index, rij_threshold
+   USE semi_empirical_int_utils, ONLY: ijkl_d, &
+                                       ijkl_sp, &
+                                       rot_2el_2c_first, &
+                                       rotmat, &
+                                       store_2el_2c_diag
+   USE semi_empirical_types, ONLY: rotmat_create, &
+                                   rotmat_release, &
+                                   rotmat_type, &
+                                   se_int_control_type, &
+                                   se_int_screen_type, &
+                                   se_taper_type, &
+                                   semi_empirical_type, &
+                                   setup_se_int_control_type
+   USE taper_types, ONLY: taper_eval
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -206,7 +206,7 @@ CONTAINS
 
          ! Store two electron integrals in the triangular format
          CALL store_2el_2c_diag(limij, limkl, ww, w)
-      ENDIF
+      END IF
    END SUBROUTINE rotint_num
 
 ! **************************************************************************************************
@@ -542,7 +542,7 @@ CONTAINS
             IF (nt == 8 .OR. nt == 9) THEN
                IF (sepi%z == 7 .OR. sepi%z == 8) scale = scale + (angstrom*rij - 1._dp)*EXP(-alpi*rij)
                IF (sepj%z == 7 .OR. sepj%z == 8) scale = scale + (angstrom*rij - 1._dp)*EXP(-alpj*rij)
-            ENDIF
+            END IF
             scale = ABS(scale*zz*ssss)
             zz = zz/rij
             IF (itype == do_method_am1 .OR. itype == do_method_pm3 .OR. itype == do_method_pdg) THEN
@@ -592,16 +592,16 @@ CONTAINS
                      ax = fni2(ig)*(rij - fni3(ig))**2
                      IF (ax <= 25._dp) THEN
                         scale = scale + zz*fni1(ig)*EXP(-ax)
-                     ENDIF
-                  ENDIF
+                     END IF
+                  END IF
                   IF (ABS(fnj1(ig)) > 0._dp) THEN
                      ax = fnj2(ig)*(rij - fnj3(ig))**2
                      IF (ax <= 25._dp) THEN
                         scale = scale + zz*fnj1(ig)*EXP(-ax)
-                     ENDIF
-                  ENDIF
+                     END IF
+                  END IF
                END DO
-            ENDIF
+            END IF
             IF (itype == do_method_pdg) THEN
                ! PDDG function
                zaf = sepi%zeff/nt

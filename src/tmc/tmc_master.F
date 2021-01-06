@@ -21,56 +21,56 @@
 ! **************************************************************************************************
 
 MODULE tmc_master
-   USE cell_types,                      ONLY: init_cell
-   USE cp_external_control,             ONLY: external_control
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE machine,                         ONLY: m_flush,&
-                                              m_memory,&
-                                              m_walltime
-   USE tmc_calculations,                ONLY: get_subtree_efficiency
-   USE tmc_cancelation,                 ONLY: free_cancelation_list
-   USE tmc_dot_tree,                    ONLY: create_dot_color,&
-                                              create_global_tree_dot_color,&
-                                              finalize_draw_tree,&
-                                              init_draw_trees
-   USE tmc_file_io,                     ONLY: print_restart_file,&
-                                              write_element_in_file
-   USE tmc_messages,                    ONLY: communicate_atom_types,&
-                                              recv_msg,&
-                                              send_msg,&
-                                              stop_whole_group,&
-                                              tmc_message
-   USE tmc_move_handle,                 ONLY: check_moves,&
-                                              print_move_types
-   USE tmc_stati,                       ONLY: &
-        TMC_CANCELING_MESSAGE, TMC_CANCELING_RECEIPT, TMC_STATUS_FAILED, &
-        TMC_STATUS_WAIT_FOR_NEW_TASK, TMC_STATUS_WORKER_INIT, TMC_STAT_ANALYSIS_REQUEST, &
-        TMC_STAT_ANALYSIS_RESULT, TMC_STAT_APPROX_ENERGY_REQUEST, TMC_STAT_APPROX_ENERGY_RESULT, &
-        TMC_STAT_ENERGY_REQUEST, TMC_STAT_ENERGY_RESULT, TMC_STAT_INIT_ANALYSIS, &
-        TMC_STAT_MD_REQUEST, TMC_STAT_MD_RESULT, TMC_STAT_NMC_REQUEST, TMC_STAT_NMC_RESULT, &
-        TMC_STAT_SCF_STEP_ENER_RECEIVE, TMC_STAT_START_CONF_REQUEST, TMC_STAT_START_CONF_RESULT
-   USE tmc_tree_acceptance,             ONLY: check_acceptance_of_depending_subtree_nodes,&
-                                              check_elements_for_acc_prob_update,&
-                                              tree_update
-   USE tmc_tree_build,                  ONLY: create_new_gt_tree_node,&
-                                              deallocate_sub_tree_node,&
-                                              finalize_init,&
-                                              finalize_trees,&
-                                              init_tree_mod,&
-                                              remove_all_trees
-   USE tmc_tree_search,                 ONLY: count_nodes_in_trees,&
-                                              count_prepared_nodes_in_trees,&
-                                              search_next_energy_calc
-   USE tmc_tree_types,                  ONLY: &
-        elem_array_type, elem_list_type, global_tree_type, status_accepted, &
-        status_calc_approx_ener, status_calculate_MD, status_calculate_NMC_steps, &
-        status_calculate_energy, status_calculated, status_cancel_ener, status_cancel_nmc, &
-        status_canceled_ener, status_canceled_nmc, status_created, status_rejected, tree_type
-   USE tmc_types,                       ONLY: tmc_env_type
+   USE cell_types, ONLY: init_cell
+   USE cp_external_control, ONLY: external_control
+   USE cp_log_handling, ONLY: cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE global_types, ONLY: global_environment_type
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE machine, ONLY: m_flush, &
+                      m_memory, &
+                      m_walltime
+   USE tmc_calculations, ONLY: get_subtree_efficiency
+   USE tmc_cancelation, ONLY: free_cancelation_list
+   USE tmc_dot_tree, ONLY: create_dot_color, &
+                           create_global_tree_dot_color, &
+                           finalize_draw_tree, &
+                           init_draw_trees
+   USE tmc_file_io, ONLY: print_restart_file, &
+                          write_element_in_file
+   USE tmc_messages, ONLY: communicate_atom_types, &
+                           recv_msg, &
+                           send_msg, &
+                           stop_whole_group, &
+                           tmc_message
+   USE tmc_move_handle, ONLY: check_moves, &
+                              print_move_types
+   USE tmc_stati, ONLY: &
+      TMC_CANCELING_MESSAGE, TMC_CANCELING_RECEIPT, TMC_STATUS_FAILED, &
+      TMC_STATUS_WAIT_FOR_NEW_TASK, TMC_STATUS_WORKER_INIT, TMC_STAT_ANALYSIS_REQUEST, &
+      TMC_STAT_ANALYSIS_RESULT, TMC_STAT_APPROX_ENERGY_REQUEST, TMC_STAT_APPROX_ENERGY_RESULT, &
+      TMC_STAT_ENERGY_REQUEST, TMC_STAT_ENERGY_RESULT, TMC_STAT_INIT_ANALYSIS, &
+      TMC_STAT_MD_REQUEST, TMC_STAT_MD_RESULT, TMC_STAT_NMC_REQUEST, TMC_STAT_NMC_RESULT, &
+      TMC_STAT_SCF_STEP_ENER_RECEIVE, TMC_STAT_START_CONF_REQUEST, TMC_STAT_START_CONF_RESULT
+   USE tmc_tree_acceptance, ONLY: check_acceptance_of_depending_subtree_nodes, &
+                                  check_elements_for_acc_prob_update, &
+                                  tree_update
+   USE tmc_tree_build, ONLY: create_new_gt_tree_node, &
+                             deallocate_sub_tree_node, &
+                             finalize_init, &
+                             finalize_trees, &
+                             init_tree_mod, &
+                             remove_all_trees
+   USE tmc_tree_search, ONLY: count_nodes_in_trees, &
+                              count_prepared_nodes_in_trees, &
+                              search_next_energy_calc
+   USE tmc_tree_types, ONLY: &
+      elem_array_type, elem_list_type, global_tree_type, status_accepted, &
+      status_calc_approx_ener, status_calculate_MD, status_calculate_NMC_steps, &
+      status_calculate_energy, status_calculated, status_cancel_ener, status_cancel_nmc, &
+      status_canceled_ener, status_canceled_nmc, status_created, status_rejected, tree_type
+   USE tmc_types, ONLY: tmc_env_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -214,8 +214,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'do_tmc_master'
 
       INTEGER :: cancel_count, handle, last_output, reactivation_cc_count, &
-         reactivation_ener_count, restart_count, restarted_elem_nr, stat, walltime_delay, &
-         walltime_offset, wg, worker_counter
+                 reactivation_ener_count, restart_count, restarted_elem_nr, stat, walltime_delay, &
+                 walltime_offset, wg, worker_counter
       INTEGER(KIND=int_8)                                :: mem
       INTEGER, DIMENSION(6)                              :: nr_of_job
       INTEGER, DIMENSION(:), POINTER                     :: tree_elem_counters, tree_elem_heads

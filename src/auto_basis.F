@@ -13,25 +13,25 @@
 !> - 11.2017 creation [JGH]
 ! **************************************************************************************************
 MODULE auto_basis
-   USE aux_basis_set,                   ONLY: create_aux_basis
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type,&
-                                              sort_gto_basis_set
-   USE bibliography,                    ONLY: Stoychev2016,&
-                                              cite_reference
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              fac,&
-                                              gamma1,&
-                                              pi,&
-                                              rootpi
-   USE orbital_pointers,                ONLY: init_orbital_pointers
-   USE periodic_table,                  ONLY: get_ptable_info
-   USE powell,                          ONLY: opt_state_type,&
-                                              powell_optimize
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
+   USE aux_basis_set, ONLY: create_aux_basis
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type, &
+                              sort_gto_basis_set
+   USE bibliography, ONLY: Stoychev2016, &
+                           cite_reference
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: dfac, &
+                            fac, &
+                            gamma1, &
+                            pi, &
+                            rootpi
+   USE orbital_pointers, ONLY: init_orbital_pointers
+   USE periodic_table, ONLY: get_ptable_info
+   USE powell, ONLY: opt_state_type, &
+                     powell_optimize
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -90,7 +90,7 @@ CONTAINS
          CALL get_qs_kind(qs_kind, basis_set=orb_basis_set, basis_type="ORB")
       ELSE
          CALL get_qs_kind(qs_kind, basis_set=orb_basis_set, basis_type=basis_type)
-      ENDIF
+      END IF
       IF (ASSOCIATED(orb_basis_set)) THEN
          CALL get_basis_keyfigures(orb_basis_set, lmax, zmin, zmax, zeff)
          !Note: RI basis coud require lmax up to 2*orb_lmax. This ensures that all orbital pointers
@@ -205,7 +205,7 @@ CONTAINS
 
          IF (PRESENT(basis_sort)) THEN
             CALL sort_gto_basis_set(ri_aux_basis_set, basis_sort)
-         ENDIF
+         END IF
 
       END IF
 

@@ -10,15 +10,15 @@
 !> \author Teodoro Laino [tlaino] - University of Zurich - 12.2007
 ! **************************************************************************************************
 MODULE multipole_types
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE external_potential_types,        ONLY: fist_potential_type,&
-                                              get_potential
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE particle_types,                  ONLY: particle_type
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE external_potential_types, ONLY: fist_potential_type, &
+                                       get_potential
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE particle_types, ONLY: particle_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

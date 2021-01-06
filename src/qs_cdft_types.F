@@ -12,21 +12,21 @@
 !> \author Nico Holmberg [03.2017]
 ! **************************************************************************************************
 MODULE qs_cdft_types
-   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
-   USE cp_fm_types,                     ONLY: cp_fm_p_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE hirshfeld_types,                 ONLY: hirshfeld_type,&
-                                              release_hirshfeld_type
-   USE input_constants,                 ONLY: becke_cutoff_global,&
-                                              outer_scf_none,&
-                                              radius_single,&
-                                              shape_function_gaussian
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE outer_scf_control_types,         ONLY: outer_scf_control_type,&
-                                              qs_outer_scf_type
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_release
+   USE cp_array_utils, ONLY: cp_1d_r_p_type
+   USE cp_fm_types, ONLY: cp_fm_p_type
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE hirshfeld_types, ONLY: hirshfeld_type, &
+                              release_hirshfeld_type
+   USE input_constants, ONLY: becke_cutoff_global, &
+                              outer_scf_none, &
+                              radius_single, &
+                              shape_function_gaussian
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE outer_scf_control_types, ONLY: outer_scf_control_type, &
+                                      qs_outer_scf_type
+   USE pw_types, ONLY: pw_p_type
+   USE qs_cdft_opt_types, ONLY: cdft_opt_type_release
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

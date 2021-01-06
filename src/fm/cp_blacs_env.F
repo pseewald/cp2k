@@ -13,18 +13,18 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE cp_blacs_env
-   USE cp_array_utils,                  ONLY: cp_2d_i_write
-   USE cp_blacs_calls,                  ONLY: cp_blacs_gridexit,&
-                                              cp_blacs_gridinfo,&
-                                              cp_blacs_gridinit,&
-                                              cp_blacs_set
-   USE cp_para_env,                     ONLY: cp_para_env_release,&
-                                              cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: dp
-   USE machine,                         ONLY: m_flush
-   USE mathlib,                         ONLY: gcd
-   USE message_passing,                 ONLY: mp_sum
+   USE cp_array_utils, ONLY: cp_2d_i_write
+   USE cp_blacs_calls, ONLY: cp_blacs_gridexit, &
+                             cp_blacs_gridinfo, &
+                             cp_blacs_gridinit, &
+                             cp_blacs_set
+   USE cp_para_env, ONLY: cp_para_env_release, &
+                          cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: dp
+   USE machine, ONLY: m_flush
+   USE mathlib, ONLY: gcd
+   USE message_passing, ONLY: mp_sum
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -95,7 +95,7 @@ CONTAINS
                              para_env, blacs2mpi, mpi2blacs)
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       INTEGER, INTENT(OUT), OPTIONAL :: my_process_row, my_process_column, my_process_number, &
-         number_of_process_rows, number_of_process_columns, number_of_processes
+                                        number_of_process_rows, number_of_process_columns, number_of_processes
       TYPE(cp_para_env_type), OPTIONAL, POINTER          :: para_env
       INTEGER, DIMENSION(:, :), OPTIONAL, POINTER        :: blacs2mpi, mpi2blacs
 
@@ -176,7 +176,7 @@ CONTAINS
       IF (PRESENT(grid_2d)) THEN
          nprow = grid_2d(1)
          npcol = grid_2d(2)
-      ENDIF
+      END IF
 
       IF (nprow*npcol .NE. npe) THEN
          ! hard code for the time being the grid layout
@@ -195,8 +195,8 @@ CONTAINS
                   nprow = ipe
                   npcol = jpe
                   gcd_max = gcd(ipe, jpe)
-               ENDIF
-            ENDDO
+               END IF
+            END DO
          CASE (BLACS_GRID_ROW)
             nprow = 1
             npcol = npe
@@ -204,7 +204,7 @@ CONTAINS
             nprow = npe
             npcol = 1
          END SELECT
-      ENDIF
+      END IF
 
       ! blacs_env%group will be set to the blacs context for this blacs env, this is not the same as the MPI context
       blacs_env%group = para_env%group
@@ -214,7 +214,7 @@ CONTAINS
          CALL cp_blacs_gridinit(blacs_env%group, "Row-major", nprow, npcol)
       ELSE
          CALL cp_blacs_gridinit(blacs_env%group, "Col-major", nprow, npcol)
-      ENDIF
+      END IF
 
       my_blacs_repeatable = .FALSE.
       IF (PRESENT(blacs_repeatable)) my_blacs_repeatable = blacs_repeatable

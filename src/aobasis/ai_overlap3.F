@@ -44,10 +44,10 @@ MODULE ai_overlap3
 
 ! **************************************************************************************************
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE orbital_pointers,                ONLY: coset,&
-                                              ncoset
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE orbital_pointers, ONLY: coset, &
+                               ncoset
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -126,8 +126,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'overlap3'
 
       INTEGER :: ax, ay, az, bx, by, bz, coa, coax, coay, coaz, coc, cocx, cocy, cocz, cx, cy, cz, &
-         handle, i, ipgf, j, jpgf, k, kpgf, l, la, la_max, la_min, la_start, lai, lb, lb_max, &
-         lb_min, lbi, lc, lc_max, lc_min, lci, na, nb, nc, nda, ndc
+                 handle, i, ipgf, j, jpgf, k, kpgf, l, la, la_max, la_min, la_start, lai, lb, lb_max, &
+                 lb_min, lbi, lc, lc_max, lc_min, lci, na, nb, nc, nda, ndc
       REAL(KIND=dp)                                      :: f0, f1, f2, f3, fcx, fcy, fcz, fx, fy, &
                                                             fz, rcp2, zetg, zetp
       REAL(KIND=dp), DIMENSION(3)                        :: rag, rbg, rcg, rcp
@@ -159,14 +159,14 @@ CONTAINS
       IF (PRESENT(sdabc)) THEN
          ALLOCATE (sda(ncoset(la_max), ncoset(lb_max), ncoset(lc_max), 3))
          sda = 0._dp
-      ENDIF
+      END IF
       IF (PRESENT(sabdc)) THEN
          ALLOCATE (sdc(ncoset(la_max), ncoset(lb_max), ncoset(lc_max), 3))
          sdc = 0._dp
-      ENDIF
+      END IF
       IF (PRESENT(int_abc_ext)) THEN
          int_abc_ext = 0.0_dp
-      ENDIF
+      END IF
 
 !   *** Loop over all pairs of primitive Gaussian-type functions ***
 
@@ -1007,7 +1007,7 @@ CONTAINS
                         END DO
                      END DO
                   END DO
-               ENDIF
+               END IF
 
 !         *** Calculate the requested derivatives with respect to  ***
 !         *** the nuclear coordinates of the atomic center a and c ***
@@ -1016,7 +1016,7 @@ CONTAINS
                   CALL derivatives_overlap3(la_max_set, la_min_set, lb_max_set, lb_min_set, &
                                             lc_max_set, lc_min_set, zeta(ipgf), zetc(kpgf), &
                                             s, sda, sdc)
-               ENDIF
+               END IF
 
 !         *** Store the first derivatives of the primitive overlap integrals ***
 
@@ -1028,7 +1028,7 @@ CONTAINS
                               sdabc(nda + i, nb + j, nc + l, k) = sda(i, j, l, k)
                            END DO
                         END DO
-                     ENDDO
+                     END DO
                   END DO
                END IF
 
@@ -1040,7 +1040,7 @@ CONTAINS
                               sabdc(na + i, nb + j, ndc + l, k) = sdc(i, j, l, k)
                            END DO
                         END DO
-                     ENDDO
+                     END DO
                   END DO
                END IF
 
@@ -1058,10 +1058,10 @@ CONTAINS
       DEALLOCATE (s)
       IF (PRESENT(sdabc)) THEN
          DEALLOCATE (sda)
-      ENDIF
+      END IF
       IF (PRESENT(sabdc)) THEN
          DEALLOCATE (sdc)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -1094,7 +1094,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'derivatives_overlap3'
 
       INTEGER :: ax, ay, az, bx, by, bz, coa, coamx, coamy, coamz, coapx, coapy, coapz, cob, coc, &
-         cocmx, cocmy, cocmz, cocpx, cocpy, cocpz, cx, cy, cz, devx, devy, devz, handle, la, lb, lc
+                 cocmx, cocmy, cocmz, cocpx, cocpy, cocpz, cx, cy, cz, devx, devy, devz, handle, la, lb, lc
       REAL(KIND=dp)                                      :: fax, fay, faz, fcx, fcy, fcz, fexpa, &
                                                             fexpc
 
@@ -1152,7 +1152,7 @@ CONTAINS
                                                                fay*s(coamy, cob, coc)
                                     sda(coa, cob, coc, devz) = fexpa*s(coapz, cob, coc) - &
                                                                faz*s(coamz, cob, coc)
-                                 ENDIF
+                                 END IF
                                  IF (ASSOCIATED(sdc)) THEN
                                     sdc(coa, cob, coc, devx) = fexpc*s(coa, cob, cocpx) - &
                                                                fcx*s(coa, cob, cocmx)
@@ -1160,10 +1160,10 @@ CONTAINS
                                                                fcy*s(coa, cob, cocmy)
                                     sdc(coa, cob, coc, devz) = fexpc*s(coa, cob, cocpz) - &
                                                                fcz*s(coa, cob, cocmz)
-                                 ENDIF
-                              ENDDO
-                           ENDDO
-                        ENDDO
+                                 END IF
+                              END DO
+                           END DO
+                        END DO
                      END DO
                   END DO
                END DO

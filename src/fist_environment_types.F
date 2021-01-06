@@ -13,57 +13,57 @@
 !> \author CJM SEPT-01-02
 ! **************************************************************************************************
 MODULE fist_environment_types
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_create,&
-                                              atomic_kind_list_release,&
-                                              atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cell_types,                      ONLY: cell_release,&
-                                              cell_retain,&
-                                              cell_type
-   USE cp_para_env,                     ONLY: cp_para_env_release,&
-                                              cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_result_types,                 ONLY: cp_result_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_release,&
-                                              cp_subsys_retain,&
-                                              cp_subsys_set,&
-                                              cp_subsys_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE ewald_environment_types,         ONLY: ewald_env_release,&
-                                              ewald_env_retain,&
-                                              ewald_environment_type
-   USE ewald_pw_types,                  ONLY: ewald_pw_release,&
-                                              ewald_pw_retain,&
-                                              ewald_pw_type
-   USE exclusion_types,                 ONLY: exclusion_release,&
-                                              exclusion_type
-   USE fist_efield_types,               ONLY: fist_efield_type
-   USE fist_energy_types,               ONLY: deallocate_fist_energy,&
-                                              fist_energy_type
-   USE fist_nonbond_env_types,          ONLY: fist_nonbond_env_release,&
-                                              fist_nonbond_env_retain,&
-                                              fist_nonbond_env_type
-   USE input_section_types,             ONLY: section_vals_release,&
-                                              section_vals_retain,&
-                                              section_vals_type
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_create,&
-                                              molecule_kind_list_release,&
-                                              molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_list_types,             ONLY: molecule_list_create,&
-                                              molecule_list_release,&
-                                              molecule_list_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE multipole_types,                 ONLY: multipole_type
-   USE particle_list_types,             ONLY: particle_list_create,&
-                                              particle_list_release,&
-                                              particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE qmmm_types_low,                  ONLY: qmmm_env_mm_create,&
-                                              qmmm_env_mm_release,&
-                                              qmmm_env_mm_retain,&
-                                              qmmm_env_mm_type
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_create, &
+                                     atomic_kind_list_release, &
+                                     atomic_kind_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cell_types, ONLY: cell_release, &
+                         cell_retain, &
+                         cell_type
+   USE cp_para_env, ONLY: cp_para_env_release, &
+                          cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_result_types, ONLY: cp_result_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_release, &
+                              cp_subsys_retain, &
+                              cp_subsys_set, &
+                              cp_subsys_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE ewald_environment_types, ONLY: ewald_env_release, &
+                                      ewald_env_retain, &
+                                      ewald_environment_type
+   USE ewald_pw_types, ONLY: ewald_pw_release, &
+                             ewald_pw_retain, &
+                             ewald_pw_type
+   USE exclusion_types, ONLY: exclusion_release, &
+                              exclusion_type
+   USE fist_efield_types, ONLY: fist_efield_type
+   USE fist_energy_types, ONLY: deallocate_fist_energy, &
+                                fist_energy_type
+   USE fist_nonbond_env_types, ONLY: fist_nonbond_env_release, &
+                                     fist_nonbond_env_retain, &
+                                     fist_nonbond_env_type
+   USE input_section_types, ONLY: section_vals_release, &
+                                  section_vals_retain, &
+                                  section_vals_type
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_create, &
+                                       molecule_kind_list_release, &
+                                       molecule_kind_list_type
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_list_types, ONLY: molecule_list_create, &
+                                  molecule_list_release, &
+                                  molecule_list_type
+   USE molecule_types, ONLY: molecule_type
+   USE multipole_types, ONLY: multipole_type
+   USE particle_list_types, ONLY: particle_list_create, &
+                                  particle_list_release, &
+                                  particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE qmmm_types_low, ONLY: qmmm_env_mm_create, &
+                             qmmm_env_mm_release, &
+                             qmmm_env_mm_retain, &
+                             qmmm_env_mm_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -334,12 +334,12 @@ CONTAINS
          CALL ewald_env_retain(ewald_env)
          CALL ewald_env_release(fist_env%ewald_env)
          fist_env%ewald_env => ewald_env
-      ENDIF
+      END IF
       IF (PRESENT(ewald_pw)) THEN
          CALL ewald_pw_retain(ewald_pw)
          CALL ewald_pw_release(fist_env%ewald_pw)
          fist_env%ewald_pw => ewald_pw
-      ENDIF
+      END IF
       IF (PRESENT(cell_ref)) THEN
          CALL cell_retain(cell_ref)
          CALL cell_release(fist_env%cell_ref)
@@ -349,7 +349,7 @@ CONTAINS
          CALL fist_nonbond_env_retain(fist_nonbond_env)
          CALL fist_nonbond_env_release(fist_env%fist_nonbond_env)
          fist_env%fist_nonbond_env => fist_nonbond_env
-      ENDIF
+      END IF
       IF (PRESENT(input)) THEN
          CALL section_vals_retain(input)
          CALL section_vals_release(fist_env%input)

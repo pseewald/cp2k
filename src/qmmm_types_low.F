@@ -11,30 +11,30 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE qmmm_types_low
-   USE cp_eri_mme_interface,            ONLY: cp_eri_mme_finalize,&
-                                              cp_eri_mme_param
-   USE ewald_environment_types,         ONLY: ewald_env_release,&
-                                              ewald_environment_type
-   USE ewald_pw_types,                  ONLY: ewald_pw_release,&
-                                              ewald_pw_type
-   USE force_field_types,               ONLY: deallocate_inp_info,&
-                                              init_inp_info,&
-                                              input_info_type
-   USE input_constants,                 ONLY: do_eri_mme,&
-                                              do_qmmm_none
-   USE kinds,                           ONLY: dp
-   USE particle_types,                  ONLY: allocate_particle_set,&
-                                              deallocate_particle_set,&
-                                              particle_type
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_grids,                        ONLY: pw_grid_release
-   USE pw_pool_types,                   ONLY: pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_release,&
-                                              pw_pool_type,&
-                                              pw_pools_dealloc
-   USE pw_types,                        ONLY: pw_type
-   USE qmmm_gaussian_types,             ONLY: qmmm_gaussian_p_type
+   USE cp_eri_mme_interface, ONLY: cp_eri_mme_finalize, &
+                                   cp_eri_mme_param
+   USE ewald_environment_types, ONLY: ewald_env_release, &
+                                      ewald_environment_type
+   USE ewald_pw_types, ONLY: ewald_pw_release, &
+                             ewald_pw_type
+   USE force_field_types, ONLY: deallocate_inp_info, &
+                                init_inp_info, &
+                                input_info_type
+   USE input_constants, ONLY: do_eri_mme, &
+                              do_qmmm_none
+   USE kinds, ONLY: dp
+   USE particle_types, ONLY: allocate_particle_set, &
+                             deallocate_particle_set, &
+                             particle_type
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_grids, ONLY: pw_grid_release
+   USE pw_pool_types, ONLY: pw_pool_give_back_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_release, &
+                            pw_pool_type, &
+                            pw_pools_dealloc
+   USE pw_types, ONLY: pw_type
+   USE qmmm_gaussian_types, ONLY: qmmm_gaussian_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -438,8 +438,8 @@ CONTAINS
                IF (qmmm_env%image_charge) THEN
                   IF (qmmm_env%image_charge_pot%image_matrix_method .EQ. do_eri_mme) THEN
                      CALL cp_eri_mme_finalize(qmmm_env%image_charge_pot%eri_mme_param)
-                  ENDIF
-               ENDIF
+                  END IF
+               END IF
                CALL qmmm_image_charge_dealloc(qmmm_env%image_charge_pot)
             END IF
             IF (ASSOCIATED(qmmm_env%ewald_env)) THEN

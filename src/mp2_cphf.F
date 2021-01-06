@@ -12,86 +12,86 @@
 !>      11.2013 created [Mauro Del Ben]
 ! **************************************************************************************************
 MODULE mp2_cphf
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              dbcsr_allocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_upper_to_full
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm_submat,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_copy,&
-                                              dbcsr_create,&
-                                              dbcsr_p_type,&
-                                              dbcsr_release,&
-                                              dbcsr_scale,&
-                                              dbcsr_set,&
-                                              dbcsr_type_symmetric
-   USE hfx_energy_potential,            ONLY: integrate_four_center
-   USE hfx_types,                       ONLY: alloc_containers,&
-                                              hfx_container_type,&
-                                              hfx_init_container,&
-                                              hfx_type
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kahan_sum,                       ONLY: accurate_sum
-   USE kinds,                           ONLY: dp
-   USE linear_systems,                  ONLY: solve_system
-   USE machine,                         ONLY: m_walltime
-   USE mathconstants,                   ONLY: fourpi
-   USE message_passing,                 ONLY: mp_sum
-   USE mp2_eri_gpw,                     ONLY: calc_potential_gpw
-   USE mp2_types,                       ONLY: mp2_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_derive,&
-                                              pw_integral_ab,&
-                                              pw_scale,&
-                                              pw_transfer
-   USE pw_poisson_methods,              ONLY: pw_poisson_solve
-   USE pw_poisson_types,                ONLY: pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_collocate_density,            ONLY: calculate_rho_elec
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_integrate_potential,          ONLY: integrate_v_core_rspace,&
-                                              integrate_v_rspace
-   USE qs_ks_types,                     ONLY: qs_ks_env_type,&
-                                              set_ks_env
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_rho_methods,                  ONLY: qs_rho_rebuild
-   USE qs_rho_types,                    ONLY: qs_rho_create,&
-                                              qs_rho_get,&
-                                              qs_rho_release,&
-                                              qs_rho_type
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  dbcsr_allocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_upper_to_full
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm_submat, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_copy, &
+                        dbcsr_create, &
+                        dbcsr_p_type, &
+                        dbcsr_release, &
+                        dbcsr_scale, &
+                        dbcsr_set, &
+                        dbcsr_type_symmetric
+   USE hfx_energy_potential, ONLY: integrate_four_center
+   USE hfx_types, ONLY: alloc_containers, &
+                        hfx_container_type, &
+                        hfx_init_container, &
+                        hfx_type
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kahan_sum, ONLY: accurate_sum
+   USE kinds, ONLY: dp
+   USE linear_systems, ONLY: solve_system
+   USE machine, ONLY: m_walltime
+   USE mathconstants, ONLY: fourpi
+   USE message_passing, ONLY: mp_sum
+   USE mp2_eri_gpw, ONLY: calc_potential_gpw
+   USE mp2_types, ONLY: mp2_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_derive, &
+                         pw_integral_ab, &
+                         pw_scale, &
+                         pw_transfer
+   USE pw_poisson_methods, ONLY: pw_poisson_solve
+   USE pw_poisson_types, ONLY: pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_collocate_density, ONLY: calculate_rho_elec
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_integrate_potential, ONLY: integrate_v_core_rspace, &
+                                     integrate_v_rspace
+   USE qs_ks_types, ONLY: qs_ks_env_type, &
+                          set_ks_env
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_rho_methods, ONLY: qs_rho_rebuild
+   USE qs_rho_types, ONLY: qs_rho_create, &
+                           qs_rho_get, &
+                           qs_rho_release, &
+                           qs_rho_type
+   USE virial_types, ONLY: virial_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
 
@@ -146,8 +146,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'solve_z_vector_eq'
 
       INTEGER :: alpha, beta, bin, dimen, handle, handle2, i, i_global, i_thread, iiB, ikind, &
-         irep, ispin, j_global, jjB, my_bin_size, n_rep_hf, n_threads, ncol_local, nrow_local, &
-         potential_type, transf_type_in, transf_type_out, virtual, virtual_beta
+                 irep, ispin, j_global, jjB, my_bin_size, n_rep_hf, n_threads, ncol_local, nrow_local, &
+                 potential_type, transf_type_in, transf_type_out, virtual, virtual_beta
       INTEGER, DIMENSION(3)                              :: comp
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_indices
       LOGICAL                                            :: alpha_beta, do_dynamic_load_balancing, &
@@ -159,8 +159,8 @@ CONTAINS
       TYPE(cp_blacs_env_type), POINTER                   :: blacs_env
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_tmp
       TYPE(cp_fm_type), POINTER :: fm_back, fm_G_mu_nu, L_jb, L_jb_beta, mo_coeff_o, &
-         mo_coeff_o_beta, mo_coeff_v, mo_coeff_v_beta, P_ia, P_ia_beta, P_mo, P_mo_beta, W_mo, &
-         W_mo_beta
+                                   mo_coeff_o_beta, mo_coeff_v, mo_coeff_v_beta, P_ia, P_ia_beta, P_mo, P_mo_beta, W_mo, &
+                                   W_mo_beta
       TYPE(dbcsr_p_type)                                 :: P_mu_nu
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: mat_mu_nu, matrix_ks, matrix_p_mp2, &
                                                             matrix_s, matrix_w_mp2, rho_ao
@@ -229,7 +229,7 @@ CONTAINS
          P_mo_beta => mp2_env%ri_grad%P_mo_beta
          W_mo_beta => mp2_env%ri_grad%W_mo_beta
          L_jb_beta => mp2_env%ri_grad%L_jb_beta
-      ENDIF
+      END IF
 
       ! pw stuff
       NULLIFY (poisson_env, pw_pools, auxbas_pw_pool)
@@ -325,7 +325,7 @@ CONTAINS
                                  nrow=dimen, ncol=virtual_beta, &
                                  s_firstrow=1, s_firstcol=homo_beta + 1, &
                                  t_firstrow=1, t_firstcol=1)
-      ENDIF
+      END IF
 
       ! create a working rho environment
       NULLIFY (rho_work)
@@ -375,7 +375,7 @@ CONTAINS
             mp2_env%p_screen = .FALSE.
          ELSE
             mp2_env%p_screen = .TRUE.
-         ENDIF
+         END IF
       END IF
 
       ! update Lagrangian with the CPHF like update, occ-occ block, first call (recompute hfx integrals if needed)
@@ -429,7 +429,7 @@ CONTAINS
                                mo_coeff_o_beta=mo_coeff_o, &
                                mo_coeff_v_beta=mo_coeff_v, &
                                homo_beta=homo, virtual_beta=virtual, factor=factor)
-      ENDIF
+      END IF
 
       ! update Lagrangian with the CPHF like update, virt-virt block
       transf_type_in = 2
@@ -475,7 +475,7 @@ CONTAINS
                                mo_coeff_o_beta=mo_coeff_o, &
                                mo_coeff_v_beta=mo_coeff_v, &
                                homo_beta=homo, virtual_beta=virtual, factor=factor)
-      ENDIF
+      END IF
       ! at this point Lagrnagian is completed ready to solve the Z-vector equations
       ! P_ia will contain the solution of these equations
       NULLIFY (P_ia, fm_struct_tmp)
@@ -491,7 +491,7 @@ CONTAINS
          CALL cp_fm_create(P_ia_beta, fm_struct_tmp, name="P_ia_beta")
          CALL cp_fm_struct_release(fm_struct_tmp)
          CALL cp_fm_set_all(P_ia_beta, 0.0_dp)
-      ENDIF
+      END IF
 
       IF (.NOT. alpha_beta) THEN
          CALL solve_z_vector_eq_low(qs_env, mp2_env, para_env, homo, virtual, dimen, unit_nr, &
@@ -507,7 +507,7 @@ CONTAINS
                                     P_mu_nu, L_jb, fm_G_mu_nu, fm_back, P_ia, &
                                     homo_beta, Eigenval_beta, P_ia_beta, mo_coeff_beta, &
                                     mo_coeff_o_beta, mo_coeff_v_beta, L_jb_beta)
-      ENDIF
+      END IF
 
       ! release Lagrangian
       CALL cp_fm_release(L_jb)
@@ -534,7 +534,7 @@ CONTAINS
          CALL cp_fm_set_all(fm_back, 0.0_dp)
          ! P_mo now is ready
          CALL cp_fm_upper_to_full(matrix=P_mo_beta, work=fm_back)
-      ENDIF
+      END IF
 
       ! do the final update to MP2 energy weighted matrix W_MO
       CALL cp_fm_get_info(matrix=W_mo, &
@@ -591,7 +591,7 @@ CONTAINS
                END DO
             END IF
          END DO
-      ENDIF
+      END IF
 
       ! complete the occ-occ block of W_mo with a CPHF like update
       transf_type_in = 4
@@ -637,7 +637,7 @@ CONTAINS
                                mo_coeff_o_beta=mo_coeff_o, &
                                mo_coeff_v_beta=mo_coeff_v, &
                                homo_beta=homo, virtual_beta=virtual, factor=factor)
-      ENDIF
+      END IF
 
       ! release DBCSR stuff
       DO ispin = 1, dft_control%nspins
@@ -654,7 +654,7 @@ CONTAINS
       IF (alpha_beta) THEN
          CALL cp_fm_release(mo_coeff_o_beta)
          CALL cp_fm_release(mo_coeff_v_beta)
-      ENDIF
+      END IF
       ! release rho stuff
       CALL qs_rho_release(rho_struct=rho_work)
 
@@ -736,13 +736,13 @@ CONTAINS
                       b_first_row=1, &
                       c_first_col=1, &
                       c_first_row=1)
-      ENDIF
+      END IF
 
       ! copy W_mo into dbcsr
       CALL copy_fm_to_dbcsr(W_mo, matrix_w_mp2(1)%matrix, keep_sparsity=.TRUE.)
       IF (alpha_beta) THEN
          CALL copy_fm_to_dbcsr(W_mo_beta, matrix_w_mp2(2)%matrix, keep_sparsity=.TRUE.)
-      ENDIF
+      END IF
 
       ! create mp2 DBCSR density
       CALL dbcsr_allocate_matrix_set(matrix_p_mp2, dft_control%nspins)
@@ -766,13 +766,13 @@ CONTAINS
       IF (alpha_beta) THEN
          CALL cp_fm_release(W_mo_beta)
          CALL cp_fm_release(P_mo_beta)
-      ENDIF
+      END IF
 
       ! update the core-forces with the MP2-density contribution
       ! put MP2 density on the grid
       IF (alpha_beta) THEN ! In alpha_beta case, get the joint density
          CALL dbcsr_add(matrix_p_mp2(1)%matrix, matrix_p_mp2(2)%matrix, 1.0_dp, 1.0_dp)
-      ENDIF
+      END IF
       CALL calculate_rho_elec(matrix_p=matrix_p_mp2(1)%matrix, &
                               rho=rho_r, &
                               rho_gspace=rho_g, &
@@ -787,12 +787,12 @@ CONTAINS
       DO ikind = 1, SIZE(atomic_kind_set)
          force(ikind)%mp2_sep = force(ikind)%rho_core
          force(ikind)%rho_core = 0.0_dp
-      ENDDO
+      END DO
       ! right contribution
       IF (alpha_beta) THEN ! In alpha_beta case, get the joint density
          CALL dbcsr_add(rho_ao(1)%matrix, rho_ao(2)%matrix, 1.0_dp, 1.0_dp)
          CALL dbcsr_add(matrix_ks(1)%matrix, matrix_ks(2)%matrix, 1.0_dp, 1.0_dp)
-      ENDIF
+      END IF
       CALL integrate_v_rspace(v_rspace=rho_r, pmat=rho_ao(1), hmat=matrix_ks(1), &
                               qs_env=qs_env, calculate_forces=.TRUE.)
 
@@ -864,7 +864,7 @@ CONTAINS
          CALL dbcsr_add(rho_ao(1)%matrix, rho_ao(2)%matrix, 1.0_dp, -1.0_dp)
          CALL dbcsr_add(matrix_p_mp2(1)%matrix, matrix_p_mp2(2)%matrix, 1.0_dp, -1.0_dp)
          CALL dbcsr_add(matrix_ks(1)%matrix, matrix_ks(2)%matrix, 1.0_dp, -1.0_dp)
-      ENDIF
+      END IF
 
       DO ispin = 1, dft_control%nspins
          CALL dbcsr_add(rho_ao(ispin)%matrix, matrix_p_mp2(ispin)%matrix, 1.0_dp, 1.0_dp)
@@ -1023,7 +1023,7 @@ CONTAINS
                          b_first_row=1, &
                          c_first_col=1, &
                          c_first_row=1)
-         ENDIF
+         END IF
 
       CASE (2)
          IF (.NOT. alpha_beta) THEN
@@ -1065,7 +1065,7 @@ CONTAINS
                          b_first_row=1, &
                          c_first_col=1, &
                          c_first_row=1)
-         ENDIF
+         END IF
 
       CASE (3)
          IF (.NOT. alpha_beta) THEN
@@ -1157,7 +1157,7 @@ CONTAINS
                          b_first_row=1, &
                          c_first_col=1, &
                          c_first_row=1)
-         ENDIF
+         END IF
 
       CASE (4)
          ! all-all block
@@ -1199,7 +1199,7 @@ CONTAINS
                          b_first_row=1, &
                          c_first_col=1, &
                          c_first_row=1)
-         ENDIF
+         END IF
 
       CASE DEFAULT
          ! nothing
@@ -1241,7 +1241,7 @@ CONTAINS
                                        para_env, my_recalc_hfx_integrals, irep, .TRUE., &
                                        ispin=1)
          END DO
-      ENDIF
+      END IF
 
       ! scale by a factor 4.0 (closed shell) or 2.0 (open-shell)
       CALL dbcsr_scale(mat_mu_nu(1)%matrix, factor)
@@ -1373,8 +1373,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'solve_z_vector_eq_low'
 
       INTEGER :: cycle_counter, handle, i_global, iiB, iiter, j_global, jjB, max_num_iter, &
-         ncol_local, ncol_local_b, nrow_local, nrow_local_b, transf_type_in, transf_type_out, &
-         virtual_beta
+                 ncol_local, ncol_local_b, nrow_local, nrow_local_b, transf_type_in, transf_type_out, &
+                 virtual_beta
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_indices
       LOGICAL                                            :: alpha_beta, converged
       REAL(KIND=dp)                                      :: conv, conv_b, eps_conv, factor, &
@@ -1395,7 +1395,7 @@ CONTAINS
       IF (alpha_beta) THEN
          virtual_beta = dimen - homo_beta
          factor = 2.0_dp
-      ENDIF
+      END IF
 
       max_num_iter = mp2_env%ri_grad%cphf_max_num_iter
       eps_conv = mp2_env%ri_grad%cphf_eps_conv
@@ -1518,7 +1518,7 @@ CONTAINS
          ALLOCATE (x_norm_b(1:max_num_iter))
          x_norm_b = 0.0_dp
 
-      ENDIF
+      END IF
 
       cycle_counter = 0
       DO iiter = 1, max_num_iter
@@ -1581,7 +1581,7 @@ CONTAINS
                                                      xn_b(iiB)%matrix%local_data(:, :)*proj_bi_xj(iiB)
             END DO
             DEALLOCATE (proj_bi_xj)
-         ENDIF
+         END IF
 
          ! create Ax(iiter) that will store the matrix vector product for this cycle
          NULLIFY (Ax(iiter)%matrix)
@@ -1635,7 +1635,7 @@ CONTAINS
                                   mo_coeff_o_beta=mo_coeff_o, &
                                   mo_coeff_v_beta=mo_coeff_v, &
                                   homo_beta=homo, virtual_beta=virtual)
-         ENDIF
+         END IF
 
          ! in order to reduce the number of calls to mp_sum here we
          ! cluster all necessary scalar products into a sigle vector
@@ -1658,7 +1658,7 @@ CONTAINS
                                              xn_b(iiB)%matrix%local_data(1:nrow_local_b, 1:ncol_local_b)) + &
                                 accurate_sum(Ax_ba(iiter)%matrix%local_data(1:nrow_local_b, 1:ncol_local_b)* &
                                              xn_b(iiB)%matrix%local_data(1:nrow_local_b, 1:ncol_local_b))
-            ENDIF
+            END IF
          END DO
          ! <x_i|b>
          temp_vals(iiter + 1) = accurate_sum(xn(iiter)%matrix%local_data(1:nrow_local, 1:ncol_local)* &
@@ -1675,7 +1675,7 @@ CONTAINS
             temp_vals(iiter + 2) = temp_vals(iiter + 2) + &
                                    accurate_sum(xn_b(iiter)%matrix%local_data(1:nrow_local_b, 1:ncol_local_b)* &
                                                 xn_b(iiter)%matrix%local_data(1:nrow_local_b, 1:ncol_local_b))
-         ENDIF
+         END IF
          CALL mp_sum(temp_vals, para_env%group)
          ! update <Ax_i|x_j>,  <x_i|b> and norm <x_i|x_i>
          xi_Axi(iiter, 1:iiter) = temp_vals(1:iiter)
@@ -1736,7 +1736,7 @@ CONTAINS
                                   residual_b%local_data(1:nrow_local_b, 1:ncol_local_b))
             CALL mp_sum(conv_b, para_env%group)
             conv = conv + SQRT(conv_b)
-         ENDIF
+         END IF
 
          t2 = m_walltime()
 
@@ -1759,7 +1759,7 @@ CONTAINS
             b_i_b%local_data(:, :) = precond_b%local_data(:, :)* &
                                      (Ax_bb(iiter)%matrix%local_data(:, :) + &
                                       Ax_ba(iiter)%matrix%local_data(:, :))
-         ENDIF
+         END IF
 
       END DO
 
@@ -1772,7 +1772,7 @@ CONTAINS
             P_ia_beta%local_data(1:nrow_local_b, 1:ncol_local_b) = &
                P_ia_beta%local_data(1:nrow_local_b, 1:ncol_local_b) + &
                b_small(iiter, 1)*xn_b(iiter)%matrix%local_data(1:nrow_local_b, 1:ncol_local_b)
-         ENDIF
+         END IF
       END DO
 
       DEALLOCATE (x_norm)
@@ -1812,7 +1812,7 @@ CONTAINS
          DEALLOCATE (Ax_bb)
          DEALLOCATE (Ax_ab)
          DEALLOCATE (Ax_ba)
-      ENDIF
+      END IF
 
       IF (unit_nr > 0) THEN
          WRITE (unit_nr, '(T4,A)') REPEAT("-", 40)

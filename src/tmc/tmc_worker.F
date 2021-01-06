@@ -28,66 +28,66 @@
 ! **************************************************************************************************
 
 MODULE tmc_worker
-   USE cell_types,                      ONLY: cell_copy,&
-                                              cell_type,&
-                                              init_cell
-   USE cp_external_control,             ONLY: set_external_comm
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_result_methods,               ONLY: cp_results_erase,&
-                                              put_results
-   USE cp_result_types,                 ONLY: cp_result_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE f77_interface,                   ONLY: f_env_get_from_id,&
-                                              f_env_type,&
-                                              get_natom,&
-                                              get_pos,&
-                                              get_result_r1
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_get_natom
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE molecule_list_types,             ONLY: molecule_list_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE tmc_analysis,                    ONLY: analysis_init,&
-                                              analysis_restart_print,&
-                                              analysis_restart_read,&
-                                              analyze_file_configurations,&
-                                              do_tmc_analysis,&
-                                              finalize_tmc_analysis
-   USE tmc_analysis_types,              ONLY: tmc_ana_list_type
-   USE tmc_calculations,                ONLY: calc_potential_energy
-   USE tmc_messages,                    ONLY: bcast_group,&
-                                              check_if_group_master,&
-                                              communicate_atom_types,&
-                                              master_comm_id,&
-                                              recv_msg,&
-                                              send_msg,&
-                                              stop_whole_group,&
-                                              tmc_message
-   USE tmc_move_handle,                 ONLY: clear_move_probs,&
-                                              prob_update,&
-                                              select_random_move_type
-   USE tmc_move_types,                  ONLY: mv_type_MD,&
-                                              mv_type_NMC_moves
-   USE tmc_moves,                       ONLY: change_pos
-   USE tmc_stati,                       ONLY: &
-        TMC_CANCELING_MESSAGE, TMC_CANCELING_RECEIPT, TMC_STATUS_CALCULATING, TMC_STATUS_FAILED, &
-        TMC_STATUS_STOP_RECEIPT, TMC_STATUS_WAIT_FOR_NEW_TASK, TMC_STATUS_WORKER_INIT, &
-        TMC_STAT_ANALYSIS_REQUEST, TMC_STAT_ANALYSIS_RESULT, TMC_STAT_APPROX_ENERGY_REQUEST, &
-        TMC_STAT_APPROX_ENERGY_RESULT, TMC_STAT_ENERGY_REQUEST, TMC_STAT_ENERGY_RESULT, &
-        TMC_STAT_INIT_ANALYSIS, TMC_STAT_MD_REQUEST, TMC_STAT_MD_RESULT, TMC_STAT_NMC_REQUEST, &
-        TMC_STAT_NMC_RESULT, TMC_STAT_SCF_STEP_ENER_RECEIVE, TMC_STAT_START_CONF_REQUEST, &
-        TMC_STAT_START_CONF_RESULT, task_type_MC, task_type_ideal_gas
-   USE tmc_tree_acceptance,             ONLY: acceptance_check
-   USE tmc_tree_build,                  ONLY: allocate_new_sub_tree_node,&
-                                              deallocate_sub_tree_node
-   USE tmc_tree_types,                  ONLY: tree_type
-   USE tmc_types,                       ONLY: allocate_tmc_atom_type,&
-                                              tmc_atom_type,&
-                                              tmc_env_type,&
-                                              tmc_param_type
+   USE cell_types, ONLY: cell_copy, &
+                         cell_type, &
+                         init_cell
+   USE cp_external_control, ONLY: set_external_comm
+   USE cp_log_handling, ONLY: cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_result_methods, ONLY: cp_results_erase, &
+                                put_results
+   USE cp_result_types, ONLY: cp_result_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE f77_interface, ONLY: f_env_get_from_id, &
+                            f_env_type, &
+                            get_natom, &
+                            get_pos, &
+                            get_result_r1
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_get_natom
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE molecule_list_types, ONLY: molecule_list_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE tmc_analysis, ONLY: analysis_init, &
+                           analysis_restart_print, &
+                           analysis_restart_read, &
+                           analyze_file_configurations, &
+                           do_tmc_analysis, &
+                           finalize_tmc_analysis
+   USE tmc_analysis_types, ONLY: tmc_ana_list_type
+   USE tmc_calculations, ONLY: calc_potential_energy
+   USE tmc_messages, ONLY: bcast_group, &
+                           check_if_group_master, &
+                           communicate_atom_types, &
+                           master_comm_id, &
+                           recv_msg, &
+                           send_msg, &
+                           stop_whole_group, &
+                           tmc_message
+   USE tmc_move_handle, ONLY: clear_move_probs, &
+                              prob_update, &
+                              select_random_move_type
+   USE tmc_move_types, ONLY: mv_type_MD, &
+                             mv_type_NMC_moves
+   USE tmc_moves, ONLY: change_pos
+   USE tmc_stati, ONLY: &
+      TMC_CANCELING_MESSAGE, TMC_CANCELING_RECEIPT, TMC_STATUS_CALCULATING, TMC_STATUS_FAILED, &
+      TMC_STATUS_STOP_RECEIPT, TMC_STATUS_WAIT_FOR_NEW_TASK, TMC_STATUS_WORKER_INIT, &
+      TMC_STAT_ANALYSIS_REQUEST, TMC_STAT_ANALYSIS_RESULT, TMC_STAT_APPROX_ENERGY_REQUEST, &
+      TMC_STAT_APPROX_ENERGY_RESULT, TMC_STAT_ENERGY_REQUEST, TMC_STAT_ENERGY_RESULT, &
+      TMC_STAT_INIT_ANALYSIS, TMC_STAT_MD_REQUEST, TMC_STAT_MD_RESULT, TMC_STAT_NMC_REQUEST, &
+      TMC_STAT_NMC_RESULT, TMC_STAT_SCF_STEP_ENER_RECEIVE, TMC_STAT_START_CONF_REQUEST, &
+      TMC_STAT_START_CONF_RESULT, task_type_MC, task_type_ideal_gas
+   USE tmc_tree_acceptance, ONLY: acceptance_check
+   USE tmc_tree_build, ONLY: allocate_new_sub_tree_node, &
+                             deallocate_sub_tree_node
+   USE tmc_tree_types, ONLY: tree_type
+   USE tmc_types, ONLY: allocate_tmc_atom_type, &
+                        tmc_atom_type, &
+                        tmc_env_type, &
+                        tmc_param_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -844,7 +844,7 @@ CONTAINS
             atoms(iparticle)%mass = particles%els(iparticle)%atomic_kind%mass
          END DO
          CPASSERT(iparticle - 1 .EQ. nr_atoms)
-      ENDIF
+      END IF
    END SUBROUTINE get_atom_kinds_and_cell
 
 ! **************************************************************************************************

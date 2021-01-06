@@ -12,82 +12,82 @@
 !> \author RD
 ! **************************************************************************************************
 MODULE qs_linres_epr_nablavks
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE external_potential_types,        ONLY: all_potential_type,&
-                                              get_potential,&
-                                              gth_potential_type,&
-                                              sgp_potential_type
-   USE hartree_local_methods,           ONLY: calculate_Vh_1center
-   USE input_section_types,             ONLY: section_get_ivals,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: rootpi,&
-                                              twopi
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_derive,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_poisson_methods,              ONLY: pw_poisson_solve
-   USE pw_poisson_types,                ONLY: pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_gapw_densities,               ONLY: prepare_gapw_den
-   USE qs_grid_atom,                    ONLY: grid_atom_type
-   USE qs_harmonics_atom,               ONLY: harmonics_atom_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_methods,                   ONLY: calc_rho_tot_gspace
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_linres_types,                 ONLY: epr_env_type,&
-                                              get_epr_env,&
-                                              nablavks_atom_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_realspace_grid_cube, ONLY: cp_pw_to_cube
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE external_potential_types, ONLY: all_potential_type, &
+                                       get_potential, &
+                                       gth_potential_type, &
+                                       sgp_potential_type
+   USE hartree_local_methods, ONLY: calculate_Vh_1center
+   USE input_section_types, ONLY: section_get_ivals, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: rootpi, &
+                            twopi
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_derive, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_poisson_methods, ONLY: pw_poisson_solve
+   USE pw_poisson_types, ONLY: pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_gapw_densities, ONLY: prepare_gapw_den
+   USE qs_grid_atom, ONLY: grid_atom_type
+   USE qs_harmonics_atom, ONLY: harmonics_atom_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_methods, ONLY: calc_rho_tot_gspace
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_linres_types, ONLY: epr_env_type, &
+                              get_epr_env, &
+                              nablavks_atom_type
 ! R0
-   USE qs_local_rho_types,              ONLY: rhoz_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_oce_types,                    ONLY: oce_matrix_type
-   USE qs_rho0_types,                   ONLY: rho0_atom_type
-   USE qs_rho_atom_methods,             ONLY: calculate_rho_atom_coeff
-   USE qs_rho_atom_types,               ONLY: get_rho_atom,&
-                                              rho_atom_coeff,&
-                                              rho_atom_type
+   USE qs_local_rho_types, ONLY: rhoz_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_oce_types, ONLY: oce_matrix_type
+   USE qs_rho0_types, ONLY: rho0_atom_type
+   USE qs_rho_atom_methods, ONLY: calculate_rho_atom_coeff
+   USE qs_rho_atom_types, ONLY: get_rho_atom, &
+                                rho_atom_coeff, &
+                                rho_atom_type
 ! R0
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_p_type,&
-                                              qs_rho_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
-   USE qs_vxc,                          ONLY: qs_vxc_create
-   USE qs_vxc_atom,                     ONLY: calculate_vxc_atom
-   USE util,                            ONLY: get_limit
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_p_type, &
+                           qs_rho_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
+   USE qs_vxc, ONLY: qs_vxc_create
+   USE qs_vxc_atom, ONLY: calculate_vxc_atom
+   USE util, ONLY: get_limit
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -123,7 +123,7 @@ CONTAINS
       LOGICAL                                            :: gapw, gapw_xc, gth_gspace, ionode, &
                                                             make_soft, mpi_io, paw_atom
       REAL(KIND=dp) :: alpha, alpha_core, arg, charge, ehartree, exc, exc1, exp_rap, &
-         gapw_max_alpha, hard_radius, hard_value, soft_value, sqrt_alpha, sqrt_rap
+                       gapw_max_alpha, hard_radius, hard_value, soft_value, sqrt_alpha, sqrt_rap
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: vh1_rad_h, vh1_rad_s
       REAL(KIND=dp), DIMENSION(3)                        :: rap, ratom, roffset, rpoint
       REAL(KIND=dp), DIMENSION(:), POINTER               :: cexp_ppl, rho_rad_z
@@ -148,8 +148,8 @@ CONTAINS
       TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho1_r, rho2_r, rho_r, v_rspace_new, &
                                                             v_tau_rspace
       TYPE(pw_p_type), POINTER :: rho_tot_gspace, v_coulomb_gspace, v_coulomb_gtemp, &
-         v_coulomb_rtemp, v_hartree_gspace, v_hartree_gtemp, v_hartree_rtemp, v_xc_gtemp, &
-         v_xc_rtemp, wf_r
+                                  v_coulomb_rtemp, v_hartree_gspace, v_hartree_gtemp, v_hartree_rtemp, v_xc_gtemp, &
+                                  v_xc_rtemp, wf_r
       TYPE(pw_poisson_type), POINTER                     :: poisson_env
       TYPE(pw_pool_type), POINTER                        :: auxbas_pw_pool
       TYPE(pw_type), POINTER                             :: pwx, pwy, pwz

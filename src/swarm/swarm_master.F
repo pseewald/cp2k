@@ -10,33 +10,33 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE swarm_master
-   USE cp_external_control,             ONLY: external_control
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE glbopt_master,                   ONLY: glbopt_master_finalize,&
-                                              glbopt_master_init,&
-                                              glbopt_master_steer,&
-                                              glbopt_master_type
-   USE global_types,                    ONLY: global_environment_type
-   USE input_constants,                 ONLY: swarm_do_glbopt
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length
-   USE swarm_message,                   ONLY: swarm_message_add,&
-                                              swarm_message_equal,&
-                                              swarm_message_file_read,&
-                                              swarm_message_file_write,&
-                                              swarm_message_free,&
-                                              swarm_message_get,&
-                                              swarm_message_type
+   USE cp_external_control, ONLY: external_control
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE glbopt_master, ONLY: glbopt_master_finalize, &
+                            glbopt_master_init, &
+                            glbopt_master_steer, &
+                            glbopt_master_type
+   USE global_types, ONLY: global_environment_type
+   USE input_constants, ONLY: swarm_do_glbopt
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length
+   USE swarm_message, ONLY: swarm_message_add, &
+                            swarm_message_equal, &
+                            swarm_message_file_read, &
+                            swarm_message_file_write, &
+                            swarm_message_free, &
+                            swarm_message_get, &
+                            swarm_message_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -254,12 +254,12 @@ CONTAINS
 
          IF (master%iw > 0) WRITE (master%iw, '(A,A,1X,I8,A,A)') ' SWARM| ', REPEAT("*", 15), &
             master%i_iteration, ' Master / Worker Communication  ', REPEAT("*", 15)
-      ENDIF
+      END IF
 
       IF (master%i_iteration >= master%max_iter .AND. .NOT. master%should_stop) THEN
          IF (master%iw > 0) WRITE (master%iw, '(A)') " SWARM| Reached MAX_ITER. Quitting."
          master%should_stop = .TRUE.
-      ENDIF
+      END IF
 
       IF (.NOT. master%should_stop) THEN
          CALL external_control(master%should_stop, "SWARM", master%globenv)
@@ -287,8 +287,8 @@ CONTAINS
             IF (master%iw > 0) WRITE (master%iw, '(1X,A,T71,I10)') &
                "SWARM| Sending shutdown command to worker", worker_id
             master%should_stop = .TRUE.
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       CALL swarm_message_add(cmd, "worker_id", worker_id)
 
@@ -323,7 +323,7 @@ CONTAINS
       IF (master%iw > 0) THEN
          WRITE (master%iw, "(1X,A,T71,I10)") "SWARM| Total number of iterations ", master%i_iteration
          WRITE (master%iw, "(A)") " SWARM| Shutting down the master."
-      ENDIF
+      END IF
 
       SELECT CASE (master%behavior)
       CASE (swarm_do_glbopt)

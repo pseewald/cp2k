@@ -19,54 +19,54 @@
 ! **************************************************************************************************
 MODULE xas_restart
 
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_get_submatrix,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_set_submatrix,&
-                                              cp_fm_type,&
-                                              cp_fm_write_unformatted
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_generate_filename,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE message_passing,                 ONLY: mp_bcast
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_ks_types,                     ONLY: qs_ks_did_change
-   USE qs_mixing_utils,                 ONLY: mixing_init
-   USE qs_mo_io,                        ONLY: wfn_restart_file_name
-   USE qs_mo_methods,                   ONLY: calculate_density_matrix
-   USE qs_mo_occupation,                ONLY: set_mo_occupation
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type,&
-                                              set_mo_set
-   USE qs_rho_atom_types,               ONLY: rho_atom_type
-   USE qs_rho_methods,                  ONLY: qs_rho_update_rho
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf_types,                    ONLY: qs_scf_env_type
-   USE scf_control_types,               ONLY: scf_control_type
-   USE string_utilities,                ONLY: xstring
-   USE xas_env_types,                   ONLY: get_xas_env,&
-                                              set_xas_env,&
-                                              xas_environment_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_sm_fm_multiply
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_get_submatrix, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_set_submatrix, &
+                          cp_fm_type, &
+                          cp_fm_write_unformatted
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_generate_filename, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE message_passing, ONLY: mp_bcast
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_ks_types, ONLY: qs_ks_did_change
+   USE qs_mixing_utils, ONLY: mixing_init
+   USE qs_mo_io, ONLY: wfn_restart_file_name
+   USE qs_mo_methods, ONLY: calculate_density_matrix
+   USE qs_mo_occupation, ONLY: set_mo_occupation
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type, &
+                          set_mo_set
+   USE qs_rho_atom_types, ONLY: rho_atom_type
+   USE qs_rho_methods, ONLY: qs_rho_update_rho
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf_types, ONLY: qs_scf_env_type
+   USE scf_control_types, ONLY: scf_control_type
+   USE string_utilities, ONLY: xstring
+   USE xas_env_types, ONLY: get_xas_env, &
+                            set_xas_env, &
+                            xas_environment_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -111,8 +111,8 @@ CONTAINS
 
       CHARACTER(LEN=default_path_length)                 :: filename
       INTEGER :: group, handle, i, ia, ie, ispin, my_spin, nao, nao_read, nelectron, nexc_atoms, &
-         nexc_atoms_read, nexc_search, nexc_search_read, nmo, nmo_read, output_unit, rst_unit, &
-         source, xas_estate, xas_estate_read, xas_method_read
+                 nexc_atoms_read, nexc_search, nexc_search_read, nmo, nmo_read, output_unit, rst_unit, &
+                 source, xas_estate, xas_estate_read, xas_method_read
       LOGICAL                                            :: file_exists
       REAL(dp)                                           :: occ_estate, occ_estate_read, &
                                                             xas_nelectron, xas_nelectron_read
@@ -189,7 +189,7 @@ CONTAINS
                CALL cp_abort(__LOCATION__, &
                              " READ XAS RESTART: restart with different excited atoms "// &
                              " is not possible. Start instead a new XAS run with the new set of atoms. ")
-         ENDIF
+         END IF
 
          CALL mp_bcast(xas_estate_read, source, group)
          CALL set_xas_env(xas_env=xas_env, xas_estate=xas_estate_read)
@@ -223,7 +223,7 @@ CONTAINS
 
                END IF
                DEALLOCATE (eig_read, occ_read)
-            ENDIF
+            END IF
             CALL mp_bcast(eigenvalues, source, group)
             CALL mp_bcast(occupation_numbers, source, group)
 
@@ -334,7 +334,7 @@ CONTAINS
             WRITE (rst_unit) xas_method
             WRITE (rst_unit) nexc_search, nexc_atoms, occ_estate, xas_nelectron
             WRITE (rst_unit) xas_estate
-         ENDIF
+         END IF
          DO ispin = 1, SIZE(mos)
             CALL get_mo_set(mos(ispin)%mo_set, mo_coeff=mo_coeff, nao=nao, nmo=nmo, &
                             eigenvalues=eigenvalues, occupation_numbers=occupation_numbers)
@@ -489,7 +489,7 @@ CONTAINS
             ic_max = i
 
             b_max = a_max
-         ENDIF
+         END IF
       END DO
 
       IF (ic_max /= xas_estate) THEN

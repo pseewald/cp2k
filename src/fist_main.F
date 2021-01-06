@@ -14,18 +14,18 @@
 !> \author CJM-Sept-01-02
 ! **************************************************************************************************
 MODULE fist_main
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_type
-   USE fist_environment,                ONLY: fist_init
-   USE fist_environment_types,          ONLY: fist_env_create,&
-                                              fist_env_release,&
-                                              fist_env_set,&
-                                              fist_environment_type
-   USE force_env_methods,               ONLY: force_env_create
-   USE force_env_types,                 ONLY: force_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE qmmm_types_low,                  ONLY: qmmm_env_mm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_type
+   USE fist_environment, ONLY: fist_init
+   USE fist_environment_types, ONLY: fist_env_create, &
+                                     fist_env_release, &
+                                     fist_env_set, &
+                                     fist_environment_type
+   USE force_env_methods, ONLY: force_env_create
+   USE force_env_types, ONLY: force_env_type
+   USE global_types, ONLY: global_environment_type
+   USE input_section_types, ONLY: section_vals_type
+   USE qmmm_types_low, ONLY: qmmm_env_mm_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

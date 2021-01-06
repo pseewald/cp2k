@@ -11,31 +11,31 @@
 !>      06.2019 Moved from rpa_ri_gpw [Frederick Stein]
 ! **************************************************************************************************
 MODULE rpa_gw_ic
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              cp_dbcsr_m_by_n_from_template
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_create, dbcsr_get_info, dbcsr_get_stored_coordinates, dbcsr_init_p, &
-        dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
-        dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, dbcsr_release_p, &
-        dbcsr_reserve_all_blocks, dbcsr_scalar, dbcsr_set, dbcsr_transposed, dbcsr_type, &
-        dbcsr_type_no_symmetry
-   USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_create, &
-        dbcsr_t_destroy, dbcsr_t_get_block, dbcsr_t_get_info, dbcsr_t_iterator_blocks_left, &
-        dbcsr_t_iterator_next_block, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, &
-        dbcsr_t_iterator_type, dbcsr_t_nblks_total, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, &
-        dbcsr_t_pgrid_type, dbcsr_t_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_alltoall,&
-                                              mp_dims_create,&
-                                              mp_sum
-   USE mp2_types,                       ONLY: integ_mat_buffer_type
-   USE physcon,                         ONLY: evolt
-   USE qs_tensors_types,                ONLY: create_2c_tensor
-   USE rpa_communication,               ONLY: communicate_buffer
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  cp_dbcsr_m_by_n_from_template
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_create, dbcsr_get_info, dbcsr_get_stored_coordinates, dbcsr_init_p, &
+      dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
+      dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, dbcsr_release_p, &
+      dbcsr_reserve_all_blocks, dbcsr_scalar, dbcsr_set, dbcsr_transposed, dbcsr_type, &
+      dbcsr_type_no_symmetry
+   USE dbcsr_tensor_api, ONLY: &
+      dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_create, &
+      dbcsr_t_destroy, dbcsr_t_get_block, dbcsr_t_get_info, dbcsr_t_iterator_blocks_left, &
+      dbcsr_t_iterator_next_block, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, &
+      dbcsr_t_iterator_type, dbcsr_t_nblks_total, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, &
+      dbcsr_t_pgrid_type, dbcsr_t_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_alltoall, &
+                              mp_dims_create, &
+                              mp_sum
+   USE mp2_types, ONLY: integ_mat_buffer_type
+   USE physcon, ONLY: evolt
+   USE qs_tensors_types, ONLY: create_2c_tensor
+   USE rpa_communication, ONLY: communicate_buffer
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -262,7 +262,7 @@ CONTAINS
          ELSE
             n_start_block = 1
             n_start = boff(3) - mo_bounds(1) + 1
-         ENDIF
+         END IF
 
          IF (boff(3) + bsize(3) - 1 > mo_bounds(2)) THEN
             n_end_block = mo_bounds(2) - boff(3) + 1
@@ -270,7 +270,7 @@ CONTAINS
          ELSE
             n_end_block = bsize(3)
             n_end = boff(3) + bsize(3) - mo_bounds(1)
-         ENDIF
+         END IF
 
          Delta_Sigma_Neaton(n_start:n_end) = &
             Delta_Sigma_Neaton(n_start:n_end) + &
@@ -278,7 +278,7 @@ CONTAINS
                            block_2(:, n, n)), &
                n=n_start_block, n_end_block)/)
          DEALLOCATE (block_1, block_2)
-      ENDDO
+      END DO
       CALL dbcsr_t_iterator_stop(iter)
 
       CALL mp_sum(Delta_Sigma_Neaton, para_env%group)
@@ -446,8 +446,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'fill_fm_mat_M_virt'
 
       INTEGER :: col, col_offset, col_size, handle, i_col, i_global, i_index, i_row, iiB, imepos, &
-         j_global, jjB, m_level_gw, n_level_gw, nblkrows_total, ncol_local, nfullrows_total, &
-         nrow_local, offset, row, row_block, row_index, row_offset, row_size
+                 j_global, jjB, m_level_gw, n_level_gw, nblkrows_total, ncol_local, nfullrows_total, &
+                 nrow_local, offset, row, row_block, row_index, row_offset, row_size
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: blk_from_indx, entry_counter, &
                                                             num_entries_rec, num_entries_send
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_blk_offset, &
@@ -688,8 +688,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'fill_fm_mat_M_occ'
 
       INTEGER :: col, col_offset, col_size, handle, i_col, i_global, i_index, i_row, iiB, imepos, &
-         j_global, jjB, m_level_gw, n_level_gw, nblkrows_total, ncol_local, nfullrows_total, &
-         nrow_local, offset, row, row_block, row_index, row_offset, row_size
+                 j_global, jjB, m_level_gw, n_level_gw, nblkrows_total, ncol_local, nfullrows_total, &
+                 nrow_local, offset, row, row_block, row_index, row_offset, row_size
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: blk_from_indx, entry_counter, &
                                                             num_entries_rec, num_entries_send
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_blk_offset, &

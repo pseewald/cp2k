@@ -19,27 +19,27 @@
 ! **************************************************************************************************
 MODULE cp_parser_methods
 
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_buffer_types,          ONLY: copy_buffer_type,&
-                                              finalize_sub_buffer,&
-                                              initialize_sub_buffer
-   USE cp_parser_ilist_methods,         ONLY: ilist_reset,&
-                                              ilist_setup,&
-                                              ilist_update
-   USE cp_parser_inpp_methods,          ONLY: inpp_end_include,&
-                                              inpp_expand_variables,&
-                                              inpp_process_directive
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_reset
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp,&
-                                              int_8,&
-                                              max_line_length
-   USE message_passing,                 ONLY: mp_bcast
-   USE string_utilities,                ONLY: is_whitespace,&
-                                              uppercase
+   USE cp_log_handling, ONLY: cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_buffer_types, ONLY: copy_buffer_type, &
+                                     finalize_sub_buffer, &
+                                     initialize_sub_buffer
+   USE cp_parser_ilist_methods, ONLY: ilist_reset, &
+                                      ilist_setup, &
+                                      ilist_update
+   USE cp_parser_inpp_methods, ONLY: inpp_end_include, &
+                                     inpp_expand_variables, &
+                                     inpp_process_directive
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_reset
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp, &
+                    int_8, &
+                    max_line_length
+   USE message_passing, ONLY: mp_bcast
+   USE string_utilities, ONLY: is_whitespace, &
+                               uppercase
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -69,8 +69,8 @@ CONTAINS
    FUNCTION parser_location(parser) RESULT(res)
 
       TYPE(cp_parser_type), POINTER                      :: parser
-      CHARACTER&
-         (len=default_path_length+default_string_length) :: res
+      CHARACTER &
+         (len=default_path_length + default_string_length) :: res
 
       CPASSERT(ASSOCIATED(parser))
       CPASSERT(parser%ref_count > 0)
@@ -811,7 +811,7 @@ CONTAINS
       LOGICAL, INTENT(IN), OPTIONAL                      :: begin_line, search_from_begin_of_file
 
       CHARACTER(LEN=LEN(string))                         :: pattern
-      CHARACTER(LEN=max_line_length+1)                   :: current_line
+      CHARACTER(LEN=max_line_length + 1)                   :: current_line
       INTEGER                                            :: ipattern
       LOGICAL                                            :: at_end, begin, do_reset
 
@@ -1388,7 +1388,7 @@ CONTAINS
             ! this leads to wrong CP2K results (e.g. parsing force fields).
             WRITE (fmtstr, FMT='(A,I0,A)') '(I', iop - 1, ')'
             READ (UNIT=string(i:i + iop - 2), FMT=fmtstr, IOSTAT=istat) iz8
-         ENDIF
+         END IF
          IF (istat /= 0) THEN
             error_message = "An integer type object was expected, found <"// &
                             string(i:i + iop - 2)//">"

@@ -14,27 +14,27 @@
 ! **************************************************************************************************
 MODULE qs_scf_lanczos
 
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_qr_factorization,&
-                                              cp_fm_scale_and_add,&
-                                              cp_fm_transpose,&
-                                              cp_fm_triangular_multiply
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: &
-        cp_fm_create, cp_fm_get_submatrix, cp_fm_p_type, cp_fm_release, cp_fm_set_all, &
-        cp_fm_set_submatrix, cp_fm_to_fm, cp_fm_type, cp_fm_vectorsnorm
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_scf_types,                    ONLY: krylov_space_type
-   USE scf_control_types,               ONLY: scf_control_type
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_qr_factorization, &
+                                 cp_fm_scale_and_add, &
+                                 cp_fm_transpose, &
+                                 cp_fm_triangular_multiply
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose
+   USE cp_fm_diag, ONLY: choose_eigv_solver
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: &
+      cp_fm_create, cp_fm_get_submatrix, cp_fm_p_type, cp_fm_release, cp_fm_set_all, &
+      cp_fm_set_submatrix, cp_fm_to_fm, cp_fm_type, cp_fm_vectorsnorm
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_to_string
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_scf_types, ONLY: krylov_space_type
+   USE scf_control_types, ONLY: scf_control_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -187,7 +187,7 @@ CONTAINS
                                                             rzero = 0.0_dp
 
       INTEGER :: hand1, hand2, hand3, hand4, hand5, handle, ib, ik, imo, imo_low, imo_up, it, jt, &
-         nblock, ndim, nmo, nmo_converged, nmo_nc, nmob, num_blocks
+                 nblock, ndim, nmo, nmo_converged, nmo_nc, nmob, num_blocks
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: itaken
       LOGICAL                                            :: my_check_moconv_only
       REAL(dp)                                           :: max_norm, min_norm, vmax
@@ -523,8 +523,8 @@ CONTAINS
                                                             rzero = 0.0_dp
 
       INTEGER :: hand1, hand2, hand3, hand4, hand5, hand6, handle, i, ia, ib, ik, imo, imo_low, &
-         imo_up, info, it, j, jt, liwork, lwork, nblock, ndim, nmo, nmo_converged, nmo_nc, nmob, &
-         num_blocks
+                 imo_up, info, it, j, jt, liwork, lwork, nblock, ndim, nmo, nmo_converged, nmo_nc, nmob, &
+                 num_blocks
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: itaken
       INTEGER, DIMENSION(:), POINTER                     :: iwork
       LOGICAL                                            :: my_check_moconv_only

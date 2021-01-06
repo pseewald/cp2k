@@ -8,33 +8,33 @@
 ! **************************************************************************************************
 MODULE surface_dipole
 
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE kahan_sum,                       ONLY: accurate_sum
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE message_passing,                 ONLY: mp_sum
-   USE physcon,                         ONLY: bohr
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_grid_types,                   ONLY: PW_MODE_LOCAL
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_type
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE kahan_sum, ONLY: accurate_sum
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE message_passing, ONLY: mp_sum
+   USE physcon, ONLY: bohr
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_grid_types, ONLY: PW_MODE_LOCAL
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_type
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE, &
+                       pw_p_type, &
+                       pw_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_subsys_types, ONLY: qs_subsys_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -138,7 +138,7 @@ CONTAINS
 !  is that the cell angles are 90 degrees.
             END IF
          END IF
-      ENDDO
+      END DO
 
       ilow = wf_r%pw%pw_grid%bounds(1, idir_surfdip)
       iup = wf_r%pw%pw_grid%bounds(2, idir_surfdip)
@@ -172,7 +172,7 @@ CONTAINS
          DO i = bo(1, 1), bo(2, 1)
             rhoavsurf(i) = accurate_sum(wf_r%pw%cr3d(i, bo(1, 2):bo(2, 2), bo(1, 3):bo(2, 3)))
          END DO
-      ENDIF
+      END IF
       wf_r%pw%cr3d = wf_r%pw%cr3d/wf_r%pw%pw_grid%vol
       rhoavsurf = rhoavsurf/wf_r%pw%pw_grid%vol
 
@@ -218,7 +218,7 @@ CONTAINS
             cutoff = 1.0_dp
          ELSE
             cutoff = ABS(SIN(0.5_dp*pi*REAL(ABS(irho - ilayer_min), dp)/REAL(width, dp)))
-         ENDIF
+         END IF
          dip_hh = dip_hh + rhoavsurf(irho)*hh*dip_fac*cutoff
       END DO
 
@@ -244,7 +244,7 @@ CONTAINS
             cutoff = 1.0_dp
          ELSE
             cutoff = ABS(SIN(0.5_dp*pi*REAL(ABS(irho - ilayer_min), dp)/REAL(width, dp)))
-         ENDIF
+         END IF
          vdip = vdip*cutoff
 
          IF (idir_surfdip == 3) THEN
@@ -271,7 +271,7 @@ CONTAINS
       END IF
 
 !    Add the dipole potential to the hartree potential on the realspace grid
-      v_hartree_rspace%cr3d = v_hartree_rspace%cr3d+vdip_r%pw%cr3d
+      v_hartree_rspace%cr3d = v_hartree_rspace%cr3d + vdip_r%pw%cr3d
 
       CALL pw_pool_give_back_pw(auxbas_pw_pool, wf_r%pw)
       CALL pw_pool_give_back_pw(auxbas_pw_pool, vdip_r%pw)

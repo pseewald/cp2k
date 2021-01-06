@@ -18,18 +18,18 @@
 !> \author Teodoro Laino 10.2006
 ! **************************************************************************************************
 MODULE neb_opt_utils
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit,&
-                                              cp_to_string
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE neb_types,                       ONLY: neb_type,&
-                                              neb_var_type
-   USE neb_utils,                       ONLY: neb_calc_energy_forces,&
-                                              reorient_images
-   USE particle_types,                  ONLY: particle_type
-   USE replica_types,                   ONLY: replica_env_type
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit, &
+                              cp_to_string
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE neb_types, ONLY: neb_type, &
+                        neb_var_type
+   USE neb_utils, ONLY: neb_calc_energy_forces, &
+                        reorient_images
+   USE particle_types, ONLY: particle_type
+   USE replica_types, ONLY: replica_env_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -143,9 +143,9 @@ CONTAINS
                   S(k) = 0.0_dp
                ELSE
                   S(k) = 1.0_dp/S(k)
-               ENDIF
+               END IF
                VT(k, :) = VT(k, :)*S(k)
-            ENDDO
+            END DO
             CALL DGEMM('T', 'T', np, np, np, 1.0_dp, VT, np, U, np, 0.0_dp, wrk_inv, np)
             DEALLOCATE (iwork)
             DEALLOCATE (S)

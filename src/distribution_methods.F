@@ -13,60 +13,60 @@
 !> \author MK (22.08.2003)
 ! **************************************************************************************************
 MODULE distribution_methods
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc,&
-                                              real_to_scaled,&
-                                              scaled_to_real
-   USE cp_array_utils,                  ONLY: cp_1d_i_p_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_min_heap,                     ONLY: cp_heap_fill,&
-                                              cp_heap_get_first,&
-                                              cp_heap_new,&
-                                              cp_heap_release,&
-                                              cp_heap_reset_first,&
-                                              cp_heap_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE dbcsr_api,                       ONLY: dbcsr_distribution_get_num_images
-   USE distribution_1d_types,           ONLY: distribution_1d_create,&
-                                              distribution_1d_type
-   USE distribution_2d_types,           ONLY: distribution_2d_create,&
-                                              distribution_2d_type,&
-                                              distribution_2d_write
-   USE input_constants,                 ONLY: model_block_count,&
-                                              model_block_lmax
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE machine,                         ONLY: m_flush
-   USE mathconstants,                   ONLY: pi
-   USE mathlib,                         ONLY: gcd,&
-                                              lcm
-   USE message_passing,                 ONLY: mp_sum,&
-                                              mp_sync
-   USE molecule_kind_types,             ONLY: get_molecule_kind,&
-                                              get_molecule_kind_set,&
-                                              molecule_kind_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE parallel_rng_types,              ONLY: UNIFORM,&
-                                              rng_stream_type
-   USE particle_types,                  ONLY: particle_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE util,                            ONLY: sort
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc, &
+                         real_to_scaled, &
+                         scaled_to_real
+   USE cp_array_utils, ONLY: cp_1d_i_p_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_min_heap, ONLY: cp_heap_fill, &
+                          cp_heap_get_first, &
+                          cp_heap_new, &
+                          cp_heap_release, &
+                          cp_heap_reset_first, &
+                          cp_heap_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE dbcsr_api, ONLY: dbcsr_distribution_get_num_images
+   USE distribution_1d_types, ONLY: distribution_1d_create, &
+                                    distribution_1d_type
+   USE distribution_2d_types, ONLY: distribution_2d_create, &
+                                    distribution_2d_type, &
+                                    distribution_2d_write
+   USE input_constants, ONLY: model_block_count, &
+                              model_block_lmax
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE machine, ONLY: m_flush
+   USE mathconstants, ONLY: pi
+   USE mathlib, ONLY: gcd, &
+                      lcm
+   USE message_passing, ONLY: mp_sum, &
+                              mp_sync
+   USE molecule_kind_types, ONLY: get_molecule_kind, &
+                                  get_molecule_kind_set, &
+                                  molecule_kind_type
+   USE molecule_types, ONLY: molecule_type
+   USE parallel_rng_types, ONLY: UNIFORM, &
+                                 rng_stream_type
+   USE particle_types, ONLY: particle_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -122,8 +122,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'distribute_molecules_1d'
 
       INTEGER :: atom_a, bin, group, handle, iatom, imolecule, imolecule_kind, imolecule_local, &
-         imolecule_prev_kind, iparticle_kind, ipe, iw, kind_a, molecule_a, mype, n, natom, nbins, &
-         nload, nmolecule, nmolecule_kind, nparticle_kind, npe, nsgf, output_unit
+                 imolecule_prev_kind, iparticle_kind, ipe, iw, kind_a, molecule_a, mype, n, natom, nbins, &
+                 nload, nmolecule, nmolecule_kind, nparticle_kind, npe, nsgf, output_unit
       INTEGER(int_8)                                     :: bin_price
       INTEGER(int_8), ALLOCATABLE, DIMENSION(:)          :: workload_count, workload_fill
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: nmolecule_local, nparticle_local, work
@@ -145,8 +145,8 @@ CONTAINS
          IF (ASSOCIATED(prev_local_molecules) .AND. &
              ASSOCIATED(prev_molecule_kind_set)) THEN
             has_prev_subsys_info = .TRUE.
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       logger => cp_get_default_logger()
 
@@ -209,7 +209,7 @@ CONTAINS
                           1:prev_local_molecules%n_el(imolecule_prev_kind)) == molecule_list(imolecule))) THEN
                      ! molecule used to be local
                      nmolecule_local(imolecule_kind) = nmolecule_local(imolecule_kind) + 1
-                  ENDIF
+                  END IF
                END DO
             ELSE
                CALL cp_heap_get_first(bin_heap_count, bin, bin_price, found)
@@ -260,7 +260,7 @@ CONTAINS
 
                workload_fill(ipe) = workload_fill(ipe) + nload
                is_local = (ipe == mype)
-            ENDIF
+            END IF
             IF (is_local) THEN
                imolecule_local = imolecule_local + 1
                molecule_a = molecule_list(imolecule)
@@ -490,9 +490,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'distribute_molecules_2d'
 
       INTEGER :: cluster_price, cost_model, group, handle, iatom, iatom_mol, iatom_one, ikind, &
-         imol, imolecule, imolecule_kind, iparticle_kind, ipcol, iprow, iw, kind_a, mypcol, &
-         myprow, n, natom, natom_mol, nclusters, nmolecule, nmolecule_kind, nparticle_kind, npcol, &
-         nprow, nsgf, output_unit
+                 imol, imolecule, imolecule_kind, iparticle_kind, ipcol, iprow, iw, kind_a, mypcol, &
+                 myprow, n, natom, natom_mol, nclusters, nmolecule, nmolecule_kind, nparticle_kind, npcol, &
+                 nprow, nsgf, output_unit
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: cluster_list, cluster_prices, &
                                                             nparticle_local_col, &
                                                             nparticle_local_row, work
@@ -501,7 +501,7 @@ CONTAINS
                                                             cluster_row_distribution, &
                                                             col_distribution, row_distribution
       LOGICAL :: basic_cluster_optimization, basic_optimization, basic_spatial_optimization, &
-         molecular_distribution, skip_optimization
+                 molecular_distribution, skip_optimization
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: coords, pbc_scaled_coords
       REAL(KIND=dp), DIMENSION(3)                        :: center
       TYPE(cp_1d_i_p_type), DIMENSION(:), POINTER        :: local_particle_col, local_particle_row
@@ -560,7 +560,7 @@ CONTAINS
             nclusters = nmolecule
          ELSE
             nclusters = natom
-         ENDIF
+         END IF
 
          ALLOCATE (cluster_list(nclusters))
          ALLOCATE (cluster_prices(nclusters))
@@ -590,7 +590,7 @@ CONTAINS
                   cluster_price = 8 + (MAXVAL(lmax_basis)**2)
                END SELECT
                cluster_prices(iatom) = cluster_price
-            ENDDO
+            END DO
          ELSE
             imol = 0
             DO imolecule_kind = 1, nmolecule_kind
@@ -616,11 +616,11 @@ CONTAINS
                         CALL get_gto_basis_set(orb_basis_set, lmax=lmax_basis)
                         cluster_price = cluster_price + 8 + (MAXVAL(lmax_basis)**2)
                      END SELECT
-                  ENDDO
+                  END DO
                   cluster_prices(imol) = cluster_price
-               ENDDO
-            ENDDO
-         ENDIF
+               END DO
+            END DO
+         END IF
 
          ! And distribute
          IF (basic_optimization) THEN
@@ -634,7 +634,7 @@ CONTAINS
                DO iatom = 1, natom
                   CALL real_to_scaled(pbc_scaled_coords(:, iatom), pbc(particle_set(iatom)%r(:), cell), cell)
                   coords(:, iatom) = pbc(particle_set(iatom)%r(:), cell)
-               ENDDO
+               END DO
                CALL make_cluster_distribution(coords, pbc_scaled_coords, cell, cluster_prices, &
                                               nprow, cluster_row_distribution, npcol, cluster_col_distribution)
             ELSE ! basic_spatial_optimization
@@ -643,7 +643,7 @@ CONTAINS
                   ! just scaled coords
                   DO iatom = 1, natom
                      CALL real_to_scaled(pbc_scaled_coords(:, iatom), pbc(particle_set(iatom)%r(:), cell), cell)
-                  ENDDO
+                  END DO
                ELSE
                   ! use scaled coords of geometric center, folding when appropriate
                   imol = 0
@@ -658,19 +658,19 @@ CONTAINS
                            iatom = molecule_set(molecule_list(imolecule))%first_atom + iatom_mol - 1
                            center = center + &
                                    pbc(particle_set(iatom)%r(:) - particle_set(iatom_one)%r(:), cell) + particle_set(iatom_one)%r(:)
-                        ENDDO
+                        END DO
                         center = center/natom_mol
                         CALL real_to_scaled(pbc_scaled_coords(:, imol), pbc(center, cell), cell)
-                     ENDDO
-                  ENDDO
-               ENDIF
+                     END DO
+                  END DO
+               END IF
 
                CALL make_basic_spatial_distribution(pbc_scaled_coords, cluster_prices, &
                                                     nprow, cluster_row_distribution(:, 1), npcol, cluster_col_distribution(:, 1))
 
                DEALLOCATE (pbc_scaled_coords)
             END IF
-         ENDIF
+         END IF
 
          ! And assign back
          IF (.NOT. molecular_distribution) THEN
@@ -687,10 +687,10 @@ CONTAINS
                      iatom = molecule_set(molecule_list(imolecule))%first_atom + iatom_mol - 1
                      row_distribution(iatom, :) = cluster_row_distribution(imol, :)
                      col_distribution(iatom, :) = cluster_col_distribution(imol, :)
-                  ENDDO
-               ENDDO
-            ENDDO
-         ENDIF
+                  END DO
+               END DO
+            END DO
+         END IF
 
          ! cleanup
          DEALLOCATE (cluster_list)
@@ -701,7 +701,7 @@ CONTAINS
       ELSE
          ! expects nothing else
          CPABORT("")
-      ENDIF
+      END IF
 
       ! prepare the lists of local particles
 
@@ -712,7 +712,7 @@ CONTAINS
          CALL get_atomic_kind(atomic_kind=particle_set(iatom)%atomic_kind, kind_number=kind_a)
          IF (row_distribution(iatom, 1) == myprow) nparticle_local_row(kind_a) = nparticle_local_row(kind_a) + 1
          IF (col_distribution(iatom, 1) == mypcol) nparticle_local_col(kind_a) = nparticle_local_col(kind_a) + 1
-      ENDDO
+      END DO
 
       ! allocate space
       DO iparticle_kind = 1, nparticle_kind
@@ -721,7 +721,7 @@ CONTAINS
 
          n = nparticle_local_col(iparticle_kind)
          ALLOCATE (local_particle_col(iparticle_kind)%array(n))
-      ENDDO
+      END DO
 
       ! store
       nparticle_local_col = 0
@@ -731,12 +731,12 @@ CONTAINS
          IF (row_distribution(iatom, 1) == myprow) THEN
             nparticle_local_row(kind_a) = nparticle_local_row(kind_a) + 1
             local_particle_row(kind_a)%array(nparticle_local_row(kind_a)) = iatom
-         ENDIF
+         END IF
          IF (col_distribution(iatom, 1) == mypcol) THEN
             nparticle_local_col(kind_a) = nparticle_local_col(kind_a) + 1
             local_particle_col(kind_a)%array(nparticle_local_col(kind_a)) = iatom
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
 !   *** Generate the 2d distribution structure  but take care of the zero offsets required
       row_distribution(:, 1) = row_distribution(:, 1) - 1
@@ -817,7 +817,7 @@ CONTAINS
                                     local=.TRUE., &
                                     long_description=.TRUE.)
 
-      ENDIF
+      END IF
 
 !   *** Release work storage ***
 
@@ -887,7 +887,7 @@ CONTAINS
          cluster_price = cluster_prices(cluster_index)
          bin_price = bin_price + cluster_price
          CALL cp_heap_reset_first(bin_heap, bin_price)
-      ENDDO
+      END DO
       CALL cp_heap_release(bin_heap)
       CALL timestop(timing_handle)
    END SUBROUTINE make_basic_distribution
@@ -934,7 +934,7 @@ CONTAINS
       DO iatom = 1, natoms
          row_distribution(iatom) = (distribution(iatom) - 1)*pgrid_gcd/npcols + 1
          col_distribution(iatom) = (distribution(iatom) - 1)*pgrid_gcd/nprows + 1
-      ENDDO
+      END DO
 
       DEALLOCATE (bin_costs, distribution)
 
@@ -983,7 +983,7 @@ CONTAINS
             ! WRITE(100, '(A, I0, 3F12.6)') "A", permutation(ibin), pbc_scaled_coords(:, atom_permutation(iatom))
             bin_costs(permutation(ibin)) = bin_costs(permutation(ibin)) + atom_costs_sorted(iatom)
             distribution(indices(atom_permutation(iatom))) = permutation(ibin)
-         ENDDO
+         END DO
          DEALLOCATE (bin_costs_sorted, permutation, atom_costs_sorted, atom_permutation)
       ELSE
          ! divide atoms in two subsets, sorting according to their coordinates, alternatively x, y, z
@@ -996,7 +996,7 @@ CONTAINS
          CALL spatial_recurse(pbc_scaled_coords(:, permutation(nhalf + 1:)), costs(permutation(nhalf + 1:)), &
                               indices(permutation(nhalf + 1:)), bin_costs, distribution, level + 1)
          DEALLOCATE (coord, permutation)
-      ENDIF
+      END IF
 
    END SUBROUTINE spatial_recurse
 
@@ -1079,14 +1079,14 @@ CONTAINS
       DO i = 1, natom
          cluster_count(atom_to_cluster(i)) = cluster_count(atom_to_cluster(i)) + 1
          cluster_center(:, atom_to_cluster(i)) = coords(:, i)
-      ENDDO
+      END DO
       cluster_low = HUGE(0.0_dp)/2
       cluster_high = -HUGE(0.0_dp)/2
       DO i = 1, natom
          fold = pbc(coords(:, i) - cluster_center(:, atom_to_cluster(i)), cell) + cluster_center(:, atom_to_cluster(i))
          cluster_low(:, atom_to_cluster(i)) = MIN(cluster_low(:, atom_to_cluster(i)), fold(:))
          cluster_high(:, atom_to_cluster(i)) = MAX(cluster_high(:, atom_to_cluster(i)), fold(:))
-      ENDDO
+      END DO
       IF (output_unit > 0) THEN
          WRITE (output_unit, *)
          WRITE (output_unit, '(T2,A)') "Cluster distribution information"
@@ -1103,7 +1103,7 @@ CONTAINS
          WRITE (output_unit, '(T2,A,T48,F8.3,I8)') "Largest cartesian extend [a.u.]/cluster z=", &
             MAXVAL(cluster_high(3, :) - cluster_low(3, :), MASK=(cluster_count > 0)), &
             MAXLOC(cluster_high(3, :) - cluster_low(3, :), MASK=(cluster_count > 0))
-      ENDIF
+      END IF
 
       DEALLOCATE (atom_to_cluster, cluster_cost, cluster_to_row, cluster_to_col, sorted_cost, piv_cost, proc_cost)
       CALL timestop(handle)
@@ -1183,7 +1183,7 @@ CONTAINS
          nsplits = 1
       ELSE
          nsplits = MIN(INT(MIN(INT(MAX(6, INT(60.00/LOG(REAL(natoms, KIND=dp)))), KIND=int_8), ncluster)), natoms)
-      ENDIF
+      END IF
       IF (nsplits == 1) THEN
          icluster = icluster + 1
          cluster_inds = icluster
@@ -1297,7 +1297,7 @@ CONTAINS
       INTEGER                                            :: handle, i, ind, itn, j, nat, oldc
       LOGICAL                                            :: changed
       REAL(KIND=dp) :: average(3, ncent, 2), cent_coord(3, ncent), devi, deviat(ncent), dist, &
-         dvec(3), old_var, rn, scaled_cent(3, ncent), var_cl(ncent)
+                       dvec(3), old_var, rn, scaled_cent(3, ncent), var_cl(ncent)
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: dmat
       REAL(KIND=dp), DIMENSION(3, 2)                     :: initial_seed
       TYPE(rng_stream_type)                              :: rng_stream

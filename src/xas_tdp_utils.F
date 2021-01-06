@@ -11,68 +11,68 @@
 ! **************************************************************************************************
 
 MODULE xas_tdp_utils
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_cfm_basic_linalg,             ONLY: cp_cfm_gemm
-   USE cp_cfm_diag,                     ONLY: cp_cfm_heevd
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_get_info,&
-                                              cp_cfm_get_submatrix,&
-                                              cp_cfm_release,&
-                                              cp_cfm_type,&
-                                              cp_fm_to_cfm
-   USE cp_dbcsr_cholesky,               ONLY: cp_dbcsr_cholesky_decompose,&
-                                              cp_dbcsr_cholesky_invert
-   USE cp_dbcsr_diag,                   ONLY: cp_dbcsr_power
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              cp_dbcsr_sm_fm_multiply,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_scale,&
-                                              cp_fm_transpose,&
-                                              cp_fm_upper_to_full
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver,&
-                                              cp_fm_geeig
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: &
-        cp_fm_create, cp_fm_get_diag, cp_fm_get_info, cp_fm_get_submatrix, cp_fm_p_type, &
-        cp_fm_release, cp_fm_set_element, cp_fm_to_fm_submat, cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_distribution_get, dbcsr_distribution_new, &
-        dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_finalize, dbcsr_get_block_p, &
-        dbcsr_get_info, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
-        dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, &
-        dbcsr_p_type, dbcsr_put_block, dbcsr_release, dbcsr_reserve_all_blocks, dbcsr_set, &
-        dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_symmetric
-   USE input_constants,                 ONLY: ot_precond_full_single,&
-                                              tddfpt_singlet,&
-                                              tddfpt_spin_cons,&
-                                              tddfpt_spin_flip,&
-                                              tddfpt_triplet,&
-                                              xas_dip_len
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: get_diag
-   USE physcon,                         ONLY: a_fine
-   USE preconditioner_types,            ONLY: destroy_preconditioner,&
-                                              init_preconditioner,&
-                                              preconditioner_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_mo_methods,                   ONLY: calculate_subspace_eigenvalues
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_ot_eigensolver,               ONLY: ot_eigensolver
-   USE xas_tdp_kernel,                  ONLY: kernel_coulomb_xc,&
-                                              kernel_exchange
-   USE xas_tdp_types,                   ONLY: donor_state_type,&
-                                              xas_tdp_control_type,&
-                                              xas_tdp_env_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_cfm_basic_linalg, ONLY: cp_cfm_gemm
+   USE cp_cfm_diag, ONLY: cp_cfm_heevd
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_get_info, &
+                           cp_cfm_get_submatrix, &
+                           cp_cfm_release, &
+                           cp_cfm_type, &
+                           cp_fm_to_cfm
+   USE cp_dbcsr_cholesky, ONLY: cp_dbcsr_cholesky_decompose, &
+                                cp_dbcsr_cholesky_invert
+   USE cp_dbcsr_diag, ONLY: cp_dbcsr_power
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  cp_dbcsr_sm_fm_multiply, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_scale, &
+                                 cp_fm_transpose, &
+                                 cp_fm_upper_to_full
+   USE cp_fm_diag, ONLY: choose_eigv_solver, &
+                         cp_fm_geeig
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: &
+      cp_fm_create, cp_fm_get_diag, cp_fm_get_info, cp_fm_get_submatrix, cp_fm_p_type, &
+      cp_fm_release, cp_fm_set_element, cp_fm_to_fm_submat, cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_distribution_get, dbcsr_distribution_new, &
+      dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_finalize, dbcsr_get_block_p, &
+      dbcsr_get_info, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
+      dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, &
+      dbcsr_p_type, dbcsr_put_block, dbcsr_release, dbcsr_reserve_all_blocks, dbcsr_set, &
+      dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_symmetric
+   USE input_constants, ONLY: ot_precond_full_single, &
+                              tddfpt_singlet, &
+                              tddfpt_spin_cons, &
+                              tddfpt_spin_flip, &
+                              tddfpt_triplet, &
+                              xas_dip_len
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: get_diag
+   USE physcon, ONLY: a_fine
+   USE preconditioner_types, ONLY: destroy_preconditioner, &
+                                   init_preconditioner, &
+                                   preconditioner_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_mo_methods, ONLY: calculate_subspace_eigenvalues
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_ot_eigensolver, ONLY: ot_eigensolver
+   USE xas_tdp_kernel, ONLY: kernel_coulomb_xc, &
+                             kernel_exchange
+   USE xas_tdp_types, ONLY: donor_state_type, &
+                            xas_tdp_control_type, &
+                            xas_tdp_env_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"
@@ -178,7 +178,7 @@ CONTAINS
       TYPE(dbcsr_type)                                   :: matrix_a, matrix_a_sf, matrix_b, proj_Q, &
                                                             proj_Q_sf, work
       TYPE(dbcsr_type), POINTER :: matrix_c_sc, matrix_c_sf, matrix_c_sg, matrix_c_tp, matrix_d, &
-         matrix_e_sc, sc_matrix_tdp, sf_matrix_tdp, sg_matrix_tdp, tp_matrix_tdp
+                                   matrix_e_sc, sc_matrix_tdp, sf_matrix_tdp, sg_matrix_tdp, tp_matrix_tdp
 
       NULLIFY (sg_matrix_tdp, tp_matrix_tdp, submat_dist, submat_blk_size, matrix_c_sf)
       NULLIFY (matrix_c_sg, matrix_c_tp, matrix_c_sc, matrix_d, matrix_e_sc)
@@ -834,7 +834,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'prep_for_ot', routineP = moduleN//':'//routineN
 
       INTEGER :: blk, handle, i, iblk, ido_mo, ispin, jblk, maxel, minel, nao, natom, ndo_mo, &
-         nelec_spin(2), nhomo(2), nlumo(2), nspins, start_block, start_col, start_row
+                 nelec_spin(2), nhomo(2), nlumo(2), nspins, start_block, start_col, start_row
       LOGICAL                                            :: do_os, found
       REAL(dp), DIMENSION(:, :), POINTER                 :: pblock
       TYPE(cp_fm_type), POINTER                          :: mo_coeff
@@ -1518,7 +1518,7 @@ CONTAINS
       TYPE(cp_fm_struct_type), POINTER                   :: full_struct, gsex_struct, prod_struct, &
                                                             vec_struct, work_struct
       TYPE(cp_fm_type), POINTER :: gs_coeffs, gsex_fm, img_fm, mo_coeff, prod_work, real_fm, &
-         sc_coeffs, sf_coeffs, vec_soc_x, vec_soc_y, vec_soc_z, vec_work, work_fm
+                                   sc_coeffs, sf_coeffs, vec_soc_x, vec_soc_y, vec_soc_z, vec_work, work_fm
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_distribution_type), POINTER             :: coeffs_dist, dbcsr_dist, prod_dist
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s

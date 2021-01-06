@@ -10,26 +10,26 @@
 !> \author Teodoro Laino
 ! **************************************************************************************************
 MODULE qmmm_pw_grid
-   USE input_constants,                 ONLY: do_par_atom,&
-                                              do_qmmm_gauss,&
-                                              do_qmmm_swave
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE message_passing,                 ONLY: mp_comm_dup,&
-                                              mp_environ
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_grid_types,                   ONLY: FULLSPACE,&
-                                              PW_MODE_DISTRIBUTED,&
-                                              PW_MODE_LOCAL,&
-                                              pw_grid_type
-   USE pw_grids,                        ONLY: pw_grid_create,&
-                                              pw_grid_release
-   USE pw_pool_types,                   ONLY: pw_pool_create,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type,&
-                                              pw_pools_dealloc
-   USE qmmm_types_low,                  ONLY: qmmm_env_qm_type
+   USE input_constants, ONLY: do_par_atom, &
+                              do_qmmm_gauss, &
+                              do_qmmm_swave
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE message_passing, ONLY: mp_comm_dup, &
+                              mp_environ
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_grid_types, ONLY: FULLSPACE, &
+                            PW_MODE_DISTRIBUTED, &
+                            PW_MODE_LOCAL, &
+                            pw_grid_type
+   USE pw_grids, ONLY: pw_grid_create, &
+                       pw_grid_release
+   USE pw_pool_types, ONLY: pw_pool_create, &
+                            pw_pool_p_type, &
+                            pw_pool_type, &
+                            pw_pools_dealloc
+   USE qmmm_types_low, ONLY: qmmm_env_qm_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

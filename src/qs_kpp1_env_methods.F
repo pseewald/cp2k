@@ -13,79 +13,79 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE qs_kpp1_env_methods
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_copy,&
-                                              dbcsr_p_type,&
-                                              dbcsr_scale,&
-                                              dbcsr_set
-   USE hartree_local_methods,           ONLY: Vh_1c_gg_integrals
-   USE input_constants,                 ONLY: do_method_gapw,&
-                                              do_method_gapw_xc,&
-                                              tddfpt_excitations,&
-                                              tddfpt_singlet,&
-                                              tddfpt_triplet
-   USE input_section_types,             ONLY: section_get_ival,&
-                                              section_get_rval,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kahan_sum,                       ONLY: accurate_sum
-   USE kinds,                           ONLY: dp
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_integrate_function,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_poisson_methods,              ONLY: pw_poisson_solve
-   USE pw_poisson_types,                ONLY: pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_create,&
-                                              pw_p_type,&
-                                              pw_release,&
-                                              pw_retain
-   USE qs_energy_types,                 ONLY: allocate_qs_energy,&
-                                              deallocate_qs_energy,&
-                                              qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_gapw_densities,               ONLY: prepare_gapw_den
-   USE qs_integrate_potential,          ONLY: integrate_v_rspace
-   USE qs_kpp1_env_types,               ONLY: qs_kpp1_env_type
-   USE qs_ks_atom,                      ONLY: update_ks_atom
-   USE qs_ks_methods,                   ONLY: qs_ks_build_kohn_sham_matrix
-   USE qs_p_env_types,                  ONLY: qs_p_env_type
-   USE qs_rho0_ggrid,                   ONLY: integrate_vhg0_rspace
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_vxc_atom,                     ONLY: calculate_xc_2nd_deriv_atom
-   USE xc,                              ONLY: xc_calc_2nd_deriv,&
-                                              xc_prep_2nd_deriv
-   USE xc_derivative_set_types,         ONLY: xc_dset_release
-   USE xc_derivatives,                  ONLY: xc_functionals_get_needs
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_create,&
-                                              xc_rho_set_release,&
-                                              xc_rho_set_type,&
-                                              xc_rho_set_update
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_copy, &
+                        dbcsr_p_type, &
+                        dbcsr_scale, &
+                        dbcsr_set
+   USE hartree_local_methods, ONLY: Vh_1c_gg_integrals
+   USE input_constants, ONLY: do_method_gapw, &
+                              do_method_gapw_xc, &
+                              tddfpt_excitations, &
+                              tddfpt_singlet, &
+                              tddfpt_triplet
+   USE input_section_types, ONLY: section_get_ival, &
+                                  section_get_rval, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kahan_sum, ONLY: accurate_sum
+   USE kinds, ONLY: dp
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_integrate_function, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_poisson_methods, ONLY: pw_poisson_solve
+   USE pw_poisson_types, ONLY: pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_create, &
+                       pw_p_type, &
+                       pw_release, &
+                       pw_retain
+   USE qs_energy_types, ONLY: allocate_qs_energy, &
+                              deallocate_qs_energy, &
+                              qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_gapw_densities, ONLY: prepare_gapw_den
+   USE qs_integrate_potential, ONLY: integrate_v_rspace
+   USE qs_kpp1_env_types, ONLY: qs_kpp1_env_type
+   USE qs_ks_atom, ONLY: update_ks_atom
+   USE qs_ks_methods, ONLY: qs_ks_build_kohn_sham_matrix
+   USE qs_p_env_types, ONLY: qs_p_env_type
+   USE qs_rho0_ggrid, ONLY: integrate_vhg0_rspace
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_vxc_atom, ONLY: calculate_xc_2nd_deriv_atom
+   USE xc, ONLY: xc_calc_2nd_deriv, &
+                 xc_prep_2nd_deriv
+   USE xc_derivative_set_types, ONLY: xc_dset_release
+   USE xc_derivatives, ONLY: xc_functionals_get_needs
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_create, &
+                               xc_rho_set_release, &
+                               xc_rho_set_type, &
+                               xc_rho_set_update
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -428,7 +428,7 @@ CONTAINS
                IF (res_etype == tddfpt_singlet) THEN
                   v_hartree_rspace%pw%cr3d = v_hartree_rspace%pw%cr3d* &
                                              v_hartree_rspace%pw%pw_grid%dvol
-                  v_rspace_new(1)%pw%cr3d = v_rspace_new(1)%pw%cr3d+ &
+                  v_rspace_new(1)%pw%cr3d = v_rspace_new(1)%pw%cr3d + &
                                             2.0_dp*v_hartree_rspace%pw%cr3d
                END IF
             ELSE
@@ -436,7 +436,7 @@ CONTAINS
                   v_hartree_rspace%pw%cr3d = v_hartree_rspace%pw%cr3d* &
                                              v_hartree_rspace%pw%pw_grid%dvol
                END IF
-               v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d+ &
+               v_rspace_new(ispin)%pw%cr3d = v_rspace_new(ispin)%pw%cr3d + &
                                              v_hartree_rspace%pw%cr3d
             END IF
 
@@ -529,7 +529,7 @@ CONTAINS
       DO ispin = 1, SIZE(k_p_p1)
          CALL dbcsr_add(rho_ao(ispin)%matrix, rho1_ao(ispin)%matrix, &
                         alpha_scalar=1.0_dp, beta_scalar=my_diff)
-         rho_r(ispin)%pw%cr3d = rho_r(ispin)%pw%cr3d+my_diff*rho1_r(ispin)%pw%cr3d
+         rho_r(ispin)%pw%cr3d = rho_r(ispin)%pw%cr3d + my_diff*rho1_r(ispin)%pw%cr3d
          rho_g(ispin)%pw%cc = rho_g(ispin)%pw%cc + my_diff*rho1_g(ispin)%pw%cc
       END DO
 
@@ -550,7 +550,7 @@ CONTAINS
       DO ispin = 1, nspins
          CALL dbcsr_add(rho_ao(ispin)%matrix, rho1_ao(ispin)%matrix, &
                         alpha_scalar=1.0_dp, beta_scalar=my_diff)
-         rho_r(ispin)%pw%cr3d = rho_r(ispin)%pw%cr3d+my_diff*rho1_r(ispin)%pw%cr3d
+         rho_r(ispin)%pw%cr3d = rho_r(ispin)%pw%cr3d + my_diff*rho1_r(ispin)%pw%cr3d
          rho_g(ispin)%pw%cc = rho_g(ispin)%pw%cc + my_diff*rho1_g(ispin)%pw%cc
       END DO
 
@@ -564,7 +564,7 @@ CONTAINS
       DO ispin = 1, nspins
          CALL dbcsr_add(rho_ao(ispin)%matrix, rho1_ao(ispin)%matrix, &
                         alpha_scalar=1.0_dp, beta_scalar=my_diff)
-         rho_r(ispin)%pw%cr3d = rho_r(ispin)%pw%cr3d+my_diff*rho1_r(ispin)%pw%cr3d
+         rho_r(ispin)%pw%cr3d = rho_r(ispin)%pw%cr3d + my_diff*rho1_r(ispin)%pw%cr3d
          rho_g(ispin)%pw%cc = rho_g(ispin)%pw%cc + my_diff*rho1_g(ispin)%pw%cc
       END DO
 

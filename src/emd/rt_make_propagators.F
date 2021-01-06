@@ -12,37 +12,37 @@
 
 MODULE rt_make_propagators
 
-   USE cp_control_types,                ONLY: rtp_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              cp_dbcsr_sm_fm_multiply
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_to_fm
-   USE cp_fm_vect,                      ONLY: cp_fm_vect_dealloc
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_create,&
-                                              dbcsr_deallocate_matrix,&
-                                              dbcsr_p_type,&
-                                              dbcsr_scale,&
-                                              dbcsr_type
-   USE input_constants,                 ONLY: do_etrs,&
-                                              do_pade,&
-                                              do_taylor
-   USE kinds,                           ONLY: dp
-   USE ls_matrix_exp,                   ONLY: bch_expansion_complex_propagator,&
-                                              bch_expansion_imaginary_propagator,&
-                                              cp_complex_dbcsr_gemm_3,&
-                                              taylor_full_complex_dbcsr,&
-                                              taylor_only_imaginary_dbcsr
-   USE matrix_exp,                      ONLY: arnoldi,&
-                                              exp_pade_full_complex,&
-                                              exp_pade_only_imaginary,&
-                                              taylor_full_complex,&
-                                              taylor_only_imaginary
-   USE rt_propagation_types,            ONLY: get_rtp,&
-                                              rt_prop_type
+   USE cp_control_types, ONLY: rtp_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  cp_dbcsr_sm_fm_multiply
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_to_fm
+   USE cp_fm_vect, ONLY: cp_fm_vect_dealloc
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_create, &
+                        dbcsr_deallocate_matrix, &
+                        dbcsr_p_type, &
+                        dbcsr_scale, &
+                        dbcsr_type
+   USE input_constants, ONLY: do_etrs, &
+                              do_pade, &
+                              do_taylor
+   USE kinds, ONLY: dp
+   USE ls_matrix_exp, ONLY: bch_expansion_complex_propagator, &
+                            bch_expansion_imaginary_propagator, &
+                            cp_complex_dbcsr_gemm_3, &
+                            taylor_full_complex_dbcsr, &
+                            taylor_only_imaginary_dbcsr
+   USE matrix_exp, ONLY: arnoldi, &
+                         exp_pade_full_complex, &
+                         exp_pade_only_imaginary, &
+                         taylor_full_complex, &
+                         taylor_only_imaginary
+   USE rt_propagation_types, ONLY: get_rtp, &
+                                   rt_prop_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -174,7 +174,7 @@ CONTAINS
             ELSE
                CALL dbcsr_copy(rho_next(re)%matrix, rho_old(re)%matrix)
                CALL dbcsr_copy(rho_next(im)%matrix, rho_old(im)%matrix)
-            ENDIF
+            END IF
          END IF
          CALL cp_complex_dbcsr_gemm_3("N", "N", one, exp_H_new(re)%matrix, exp_H_new(im)%matrix, &
                                       rho_next(re)%matrix, rho_next(im)%matrix, zero, tmp_re, tmp_im, filter_eps=rtp%filter_eps)
@@ -306,7 +306,7 @@ CONTAINS
                   CALL bch_expansion_complex_propagator( &
                      exp_H_old(re)%matrix, exp_H_old(im)%matrix, rho_next(re)%matrix, rho_next(im)%matrix, &
                      rtp%filter_eps, rtp%filter_eps_small, rtp_control%eps_exp)
-               ENDIF
+               END IF
             END IF
          END IF
          CALL dbcsr_copy(rho_new(re)%matrix, rho_next(re)%matrix)
@@ -319,7 +319,7 @@ CONTAINS
             CALL bch_expansion_complex_propagator( &
                propagator_matrix(re)%matrix, propagator_matrix(im)%matrix, rho_new(re)%matrix, rho_new(im)%matrix, &
                rtp%filter_eps, rtp%filter_eps_small, rtp_control%eps_exp)
-         ENDIF
+         END IF
 
       END DO
 

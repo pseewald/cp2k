@@ -11,17 +11,17 @@
 ! **************************************************************************************************
 
 MODULE negf_subgroup_types
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_retain,&
-                                              cp_blacs_env_type,&
-                                              get_blacs_info
-   USE cp_para_env,                     ONLY: cp_para_env_create,&
-                                              cp_para_env_release,&
-                                              cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE message_passing,                 ONLY: mp_comm_split
-   USE negf_control_types,              ONLY: negf_control_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_create, &
+                           cp_blacs_env_release, &
+                           cp_blacs_env_retain, &
+                           cp_blacs_env_type, &
+                           get_blacs_info
+   USE cp_para_env, ONLY: cp_para_env_create, &
+                          cp_para_env_release, &
+                          cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE message_passing, ONLY: mp_comm_split
+   USE negf_control_types, ONLY: negf_control_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

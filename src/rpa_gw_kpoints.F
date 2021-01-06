@@ -11,51 +11,51 @@
 !>      04.2019 created [Jan Wilhelm]
 ! **************************************************************************************************
 MODULE rpa_gw_kpoints
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell,&
-                                              pbc
-   USE cp_cfm_basic_linalg,             ONLY: cp_cfm_cholesky_invert,&
-                                              cp_cfm_gemm,&
-                                              cp_cfm_scale_and_add,&
-                                              cp_cfm_scale_and_add_fm,&
-                                              cp_cfm_transpose
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_get_info,&
-                                              cp_cfm_p_type,&
-                                              cp_cfm_release,&
-                                              cp_cfm_set_all,&
-                                              cp_cfm_type
-   USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_scale_and_add
-   USE cp_fm_types,                     ONLY: cp_fm_copy_general,&
-                                              cp_fm_create,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_create, dbcsr_dot, dbcsr_get_block_p, dbcsr_get_num_blocks, &
-        dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
-        dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, dbcsr_release, dbcsr_set, &
-        dbcsr_type
-   USE kinds,                           ONLY: dp
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE mathconstants,                   ONLY: gaussi,&
-                                              twopi,&
-                                              z_one,&
-                                              z_zero
-   USE mathlib,                         ONLY: invmat
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE rpa_im_time,                     ONLY: compute_transl_dm
+   USE basis_set_types, ONLY: gto_basis_set_p_type
+   USE cell_types, ONLY: cell_type, &
+                         get_cell, &
+                         pbc
+   USE cp_cfm_basic_linalg, ONLY: cp_cfm_cholesky_invert, &
+                                  cp_cfm_gemm, &
+                                  cp_cfm_scale_and_add, &
+                                  cp_cfm_scale_and_add_fm, &
+                                  cp_cfm_transpose
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_get_info, &
+                           cp_cfm_p_type, &
+                           cp_cfm_release, &
+                           cp_cfm_set_all, &
+                           cp_cfm_type
+   USE cp_dbcsr_operations, ONLY: copy_fm_to_dbcsr
+   USE cp_fm_basic_linalg, ONLY: cp_fm_scale_and_add
+   USE cp_fm_types, ONLY: cp_fm_copy_general, &
+                          cp_fm_create, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_create, dbcsr_dot, dbcsr_get_block_p, dbcsr_get_num_blocks, &
+      dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
+      dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_p_type, dbcsr_release, dbcsr_set, &
+      dbcsr_type
+   USE kinds, ONLY: dp
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE mathconstants, ONLY: gaussi, &
+                            twopi, &
+                            z_one, &
+                            z_zero
+   USE mathlib, ONLY: invmat
+   USE message_passing, ONLY: mp_sum
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_integral_utils, ONLY: basis_set_list_setup
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE rpa_im_time, ONLY: compute_transl_dm
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -113,15 +113,15 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'compute_Wc_real_space_tau_GW'
 
       INTEGER :: handle, handle2, i_global, iatom, iatom_old, icell, iiB, iquad, irow, j_global, &
-         jatom, jatom_old, jcol, jjB, jkp, LLL, natom, ncol_local, nkind, nkp, nrow_local, &
-         num_cells, xcell, ycell, zcell
+                 jatom, jatom_old, jcol, jjB, jkp, LLL, natom, ncol_local, nkind, nkp, nrow_local, &
+                 num_cells, xcell, ycell, zcell
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_from_RI_index
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_blk_end, row_blk_start, &
                                                             row_indices
       INTEGER, DIMENSION(:, :), POINTER                  :: index_to_cell
       LOGICAL                                            :: do_V_and_not_W
       REAL(KIND=dp) :: abs_rab_cell, arg, contribution, coskl, cutoff_exp, d_0, omega, sinkl, &
-         sum_exp, sum_exp_k_im, sum_exp_k_re, tau, weight, weight_im, weight_re
+                       sum_exp, sum_exp_k_im, sum_exp_k_re, tau, weight, weight_im, weight_re
       REAL(KIND=dp), DIMENSION(3)                        :: cell_vector, rab_cell_i
       REAL(KIND=dp), DIMENSION(3, 3)                     :: hmat
       REAL(KIND=dp), DIMENSION(:), POINTER               :: wkp
@@ -819,8 +819,8 @@ CONTAINS
 
       INTEGER                                            :: handle, n_level_gw_ref
       REAL(KIND=dp) :: trace_neg_tau_im_1, trace_neg_tau_im_2, trace_neg_tau_re_1, &
-         trace_neg_tau_re_2, trace_pos_tau_im_1, trace_pos_tau_im_2, trace_pos_tau_re_1, &
-         trace_pos_tau_re_2
+                       trace_neg_tau_re_2, trace_pos_tau_im_1, trace_pos_tau_im_2, trace_pos_tau_re_1, &
+                       trace_pos_tau_re_2
 
       CALL timeset(routineN, handle)
 
@@ -1115,8 +1115,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'compute_cell_vec_for_R1_plus_S2_or_R1'
 
       INTEGER :: bound_1, bound_2, bound_3, bound_4, bound_5, bound_6, handle, i_cell_S_1, &
-         size_set, x_cell_R1_plus_S2, x_cell_R1_plus_S2_minus_S1, y_cell_R1_plus_S2, &
-         y_cell_R1_plus_S2_minus_S1, z_cell_R1_plus_S2, z_cell_R1_plus_S2_minus_S1
+                 size_set, x_cell_R1_plus_S2, x_cell_R1_plus_S2_minus_S1, y_cell_R1_plus_S2, &
+                 y_cell_R1_plus_S2_minus_S1, z_cell_R1_plus_S2, z_cell_R1_plus_S2_minus_S1
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: index_to_cell_tmp
       INTEGER, DIMENSION(:, :), POINTER                  :: index_to_cell_dm
       LOGICAL                                            :: already_there

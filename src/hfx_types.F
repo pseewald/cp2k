@@ -13,80 +13,80 @@
 !> \author Manuel Guidon
 ! **************************************************************************************************
 MODULE hfx_types
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE auto_basis,                      ONLY: create_ri_aux_basis_set
-   USE basis_set_container_types,       ONLY: add_basis_set_to_container
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_p_type,&
-                                              gto_basis_set_type,&
-                                              init_orb_basis_set
-   USE bibliography,                    ONLY: cite_reference,&
-                                              guidon2008,&
-                                              guidon2009
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell,&
-                                              plane_distance,&
-                                              scaled_to_real
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_files,                        ONLY: close_file,&
-                                              file_exists,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_batched_contract_finalize, dbcsr_t_default_distvec, dbcsr_t_destroy, &
-        dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
-        dbcsr_t_mp_dims_create, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, &
-        dbcsr_t_type
-   USE hfx_helpers,                     ONLY: count_cells_perd,&
-                                              next_image_cell_perd
-   USE input_constants,                 ONLY: &
-        do_hfx_auto_shells, do_potential_coulomb, do_potential_gaussian, do_potential_id, &
-        do_potential_long, do_potential_mix_cl, do_potential_mix_cl_trunc, do_potential_mix_lg, &
-        do_potential_short, do_potential_truncated, hfx_ri_do_2c_diag, hfx_ri_do_2c_iter
-   USE input_cp2k_hfx,                  ONLY: ri_mo,&
-                                              ri_pmat
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp,&
-                                              int_8
-   USE libint_2c_3c,                    ONLY: libint_potential_type
-   USE libint_wrapper,                  ONLY: &
-        cp_libint_cleanup_eri, cp_libint_cleanup_eri1, cp_libint_init_eri, cp_libint_init_eri1, &
-        cp_libint_set_contrdepth, cp_libint_static_cleanup, cp_libint_static_init, cp_libint_t, &
-        prim_data_f_size
-   USE machine,                         ONLY: m_chdir,&
-                                              m_getcwd
-   USE mathlib,                         ONLY: erfc_cutoff
-   USE message_passing,                 ONLY: mp_cart_create,&
-                                              mp_environ
-   USE orbital_pointers,                ONLY: nco,&
-                                              ncoset,&
-                                              nso
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
-   USE qs_interactions,                 ONLY: init_interaction_radii_orb_basis
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_loc_types,                    ONLY: qs_loc_env_new_type
-   USE qs_tensors_types,                ONLY: &
-        create_2c_tensor, create_3c_tensor, create_tensor_batches, default_block_size, &
-        distribution_3d_create, distribution_3d_destroy, distribution_3d_type, pgf_block_sizes, &
-        split_block_sizes
-   USE string_utilities,                ONLY: compress
-   USE t_c_g0,                          ONLY: free_C0
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE auto_basis, ONLY: create_ri_aux_basis_set
+   USE basis_set_container_types, ONLY: add_basis_set_to_container
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_p_type, &
+                              gto_basis_set_type, &
+                              init_orb_basis_set
+   USE bibliography, ONLY: cite_reference, &
+                           guidon2008, &
+                           guidon2009
+   USE cell_types, ONLY: cell_type, &
+                         get_cell, &
+                         plane_distance, &
+                         scaled_to_real
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_files, ONLY: close_file, &
+                       file_exists, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE dbcsr_tensor_api, ONLY: &
+      dbcsr_t_batched_contract_finalize, dbcsr_t_default_distvec, dbcsr_t_destroy, &
+      dbcsr_t_distribution_destroy, dbcsr_t_distribution_new, dbcsr_t_distribution_type, &
+      dbcsr_t_mp_dims_create, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, &
+      dbcsr_t_type
+   USE hfx_helpers, ONLY: count_cells_perd, &
+                          next_image_cell_perd
+   USE input_constants, ONLY: &
+      do_hfx_auto_shells, do_potential_coulomb, do_potential_gaussian, do_potential_id, &
+      do_potential_long, do_potential_mix_cl, do_potential_mix_cl_trunc, do_potential_mix_lg, &
+      do_potential_short, do_potential_truncated, hfx_ri_do_2c_diag, hfx_ri_do_2c_iter
+   USE input_cp2k_hfx, ONLY: ri_mo, &
+                             ri_pmat
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp, &
+                    int_8
+   USE libint_2c_3c, ONLY: libint_potential_type
+   USE libint_wrapper, ONLY: &
+      cp_libint_cleanup_eri, cp_libint_cleanup_eri1, cp_libint_init_eri, cp_libint_init_eri1, &
+      cp_libint_set_contrdepth, cp_libint_static_cleanup, cp_libint_static_init, cp_libint_t, &
+      prim_data_f_size
+   USE machine, ONLY: m_chdir, &
+                      m_getcwd
+   USE mathlib, ONLY: erfc_cutoff
+   USE message_passing, ONLY: mp_cart_create, &
+                              mp_environ
+   USE orbital_pointers, ONLY: nco, &
+                               ncoset, &
+                               nso
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_integral_utils, ONLY: basis_set_list_setup
+   USE qs_interactions, ONLY: init_interaction_radii_orb_basis
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_loc_types, ONLY: qs_loc_env_new_type
+   USE qs_tensors_types, ONLY: &
+      create_2c_tensor, create_3c_tensor, create_tensor_batches, default_block_size, &
+      distribution_3d_create, distribution_3d_destroy, distribution_3d_type, pgf_block_sizes, &
+      split_block_sizes
+   USE string_utilities, ONLY: compress
+   USE t_c_g0, ONLY: free_C0
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
 
@@ -595,7 +595,7 @@ CONTAINS
       CHARACTER(LEN=512)                                 :: error_msg
       CHARACTER(LEN=default_path_length)                 :: char_val
       INTEGER :: handle, i, i_thread, iatom, ikind, int_val, irep, jkind, max_set, n_rep_hf, &
-         n_threads, natom, natom_a, natom_b, nkind, nseta, nsetb, pbc_shells, storage_id
+                 n_threads, natom, natom_a, natom_b, nkind, nseta, nsetb, pbc_shells, storage_id
       INTEGER, DIMENSION(:), POINTER                     :: atom2kind, kind_of
       LOGICAL                                            :: do_ri, logic_val, my_do_exx
       REAL(dp)                                           :: real_val
@@ -719,7 +719,7 @@ CONTAINS
                ! this gives a reasonable number of blocks for binning, yet typically results in blocking.
                int_val = CEILING(0.1_dp*natom/ &
                                  REAL(actual_x_data%load_balance_parameter%nbins*n_threads*para_env%num_pe, KIND=dp)**(0.25_dp))
-            ENDIF
+            END IF
             ! at least 1 atom per block, and avoid overly large blocks
             actual_x_data%load_balance_parameter%block_size = MIN(max_atom_block, MAX(1, int_val))
 
@@ -976,7 +976,7 @@ CONTAINS
                                                     particle_set, atomic_kind_set, dft_control, para_env, irep, do_ot, &
                                                     nelectron_total)
 
-            ENDIF
+            END IF
          END DO
       END DO
 
@@ -1029,7 +1029,7 @@ CONTAINS
 
       NULLIFY (hf_sub_section)
 
-      ASSOCIATE (hfx_pot=>ri_data%hfx_pot)
+      ASSOCIATE (hfx_pot => ri_data%hfx_pot)
          hfx_pot%potential_type = x_data%potential_parameter%potential_type
          hfx_pot%omega = x_data%potential_parameter%omega
          hfx_pot%cutoff_radius = x_data%potential_parameter%cutoff_radius
@@ -1061,7 +1061,7 @@ CONTAINS
          orb_basis_type = "AUX_FIT"
       ELSE
          orb_basis_type = "ORB"
-      ENDIF
+      END IF
 
       ri_basis_type = "RI_HFX"
 
@@ -1072,7 +1072,7 @@ CONTAINS
 
       IF (ri_data%flavor == ri_mo .AND. .NOT. do_ot) THEN
          CPABORT("RI_FLAVOR MO is not consistent with density mixing. Either use OT or RI_FLAVOR RHO.")
-      ENDIF
+      END IF
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -1121,21 +1121,21 @@ CONTAINS
       ri_data%filter_eps_storage = ri_data%filter_eps*eps_storage_scaling
       CALL section_vals_val_get(ri_section, "EPS_FILTER_MO", r_val=ri_data%filter_eps_mo)
 
-      ASSOCIATE (ri_metric=>ri_data%ri_metric, hfx_pot=>ri_data%hfx_pot)
+      ASSOCIATE (ri_metric => ri_data%ri_metric, hfx_pot => ri_data%hfx_pot)
          CALL section_vals_val_get(ri_section, "RI_METRIC", i_val=ri_metric%potential_type, explicit=explicit)
          IF (.NOT. explicit .OR. ri_metric%potential_type == 0) THEN
             ri_metric%potential_type = hfx_pot%potential_type
-         ENDIF
+         END IF
 
          CALL section_vals_val_get(ri_section, "OMEGA", r_val=ri_metric%omega, explicit=explicit)
          IF (.NOT. explicit) THEN
             ri_metric%omega = hfx_pot%omega
-         ENDIF
+         END IF
 
          CALL section_vals_val_get(ri_section, "CUTOFF_RADIUS", r_val=ri_metric%cutoff_radius, explicit=explicit)
          IF (.NOT. explicit) THEN
             ri_metric%cutoff_radius = hfx_pot%cutoff_radius
-         ENDIF
+         END IF
       END ASSOCIATE
 
       CALL section_vals_val_get(ri_section, "2C_MATRIX_FUNCTIONS", i_val=ri_data%t2c_method)
@@ -1153,7 +1153,7 @@ CONTAINS
 
       IF (ri_data%flavor == ri_pmat) THEN
          ri_data%n_mem = FLOOR(SQRT(REAL(ri_data%n_mem, dp) - 0.1)) + 1
-      ENDIF
+      END IF
 
       ri_data%orb_basis_type = orb_basis_type
       ri_data%ri_basis_type = ri_basis_type
@@ -1162,7 +1162,7 @@ CONTAINS
       IF (PRESENT(t_c_filename)) THEN
          ri_data%ri_metric%filename = t_c_filename
          ri_data%hfx_pot%filename = t_c_filename
-      ENDIF
+      END IF
 
       ri_data%unit_nr_dbcsr = unit_nr_dbcsr
       ri_data%unit_nr = unit_nr
@@ -1236,26 +1236,26 @@ CONTAINS
          CALL init_interaction_radii_orb_basis(ri_aux_basis_set, ri_data%eps_pgf_orb)
       END DO
 
-      ASSOCIATE (ri_metric=>ri_data%ri_metric, hfx_pot=>ri_data%hfx_pot)
+      ASSOCIATE (ri_metric => ri_data%ri_metric, hfx_pot => ri_data%hfx_pot)
          IF (ri_metric%potential_type == do_potential_short) THEN
             CALL erfc_cutoff(ri_data%eps_schwarz, ri_metric%omega, ri_metric%cutoff_radius)
-         ENDIF
+         END IF
 
          IF (hfx_pot%potential_type == do_potential_short) THEN
             ! need a more accurate threshold for determining 2-center integral operator range
             ! because stability of matrix inversion/sqrt is sensitive to this
             CALL erfc_cutoff(ri_data%filter_eps_2c, hfx_pot%omega, hfx_pot%cutoff_radius)
-         ENDIF
+         END IF
          ! determine whether RI metric is same operator as used in HFX
          same_op = ri_metric%potential_type == hfx_pot%potential_type
 
          IF (same_op .AND. hfx_pot%potential_type == do_potential_truncated) THEN
             same_op = ABS(ri_metric%cutoff_radius - hfx_pot%cutoff_radius) < 1.0E-16_dp
-         ENDIF
+         END IF
 
          IF (same_op .AND. hfx_pot%potential_type == do_potential_short) THEN
             same_op = ABS(ri_metric%omega - hfx_pot%omega) < 1.0E-16_dp
-         ENDIF
+         END IF
       END ASSOCIATE
 
       ri_data%same_op = same_op
@@ -1325,8 +1325,8 @@ CONTAINS
          DO i_mem = 1, ri_data%n_mem
          DO j_mem = 1, ri_data%n_mem
             CALL alloc_containers(ri_data%store_3c(i_mem, j_mem), 1)
-         ENDDO
-         ENDDO
+         END DO
+         END DO
 
          ALLOCATE (ri_data%t_3c_int_ctr_2(1, 1))
          CALL create_3c_tensor(ri_data%t_3c_int_ctr_2(1, 1), ri_data%dist1_ao_1, ri_data%dist1_ri, ri_data%dist1_ao_2, &
@@ -1389,7 +1389,7 @@ CONTAINS
                                ri_data%pgrid_2, ri_data%bsizes_AO_split, ri_data%bsizes_RI_split, ri_data%bsizes_AO_split, &
                                [1], [2, 3], name="(AO | RI AO)")
 
-      ENDIF
+      END IF
 
       ri_data%dbcsr_nflop = 0
       ri_data%dbcsr_time = 0.0_dp
@@ -1408,8 +1408,8 @@ CONTAINS
 
       REAL(dp)                                           :: my_flop_rate
 
-      ASSOCIATE (unit_nr=>ri_data%unit_nr, dbcsr_nflop=>ri_data%dbcsr_nflop, &
-                 dbcsr_time=>ri_data%dbcsr_time, num_pe=>ri_data%num_pe)
+      ASSOCIATE (unit_nr => ri_data%unit_nr, dbcsr_nflop => ri_data%dbcsr_nflop, &
+                 dbcsr_time => ri_data%dbcsr_time, num_pe => ri_data%num_pe)
          my_flop_rate = REAL(dbcsr_nflop, dp)/(1.0E09_dp*ri_data%dbcsr_time)
          IF (unit_nr > 0) WRITE (UNIT=unit_nr, FMT="(/T2,A,T73,ES8.2)") &
             "RI-HFX PERFORMANCE| DBCSR total number of flops:", REAL(dbcsr_nflop*num_pe, dp)
@@ -1441,23 +1441,23 @@ CONTAINS
       IF (ASSOCIATED(ri_data%pgrid)) THEN
          CALL dbcsr_t_pgrid_destroy(ri_data%pgrid)
          DEALLOCATE (ri_data%pgrid)
-      ENDIF
+      END IF
       IF (ASSOCIATED(ri_data%pgrid_1)) THEN
          CALL dbcsr_t_pgrid_destroy(ri_data%pgrid_1)
          DEALLOCATE (ri_data%pgrid_1)
-      ENDIF
+      END IF
       IF (ASSOCIATED(ri_data%pgrid_2)) THEN
          CALL dbcsr_t_pgrid_destroy(ri_data%pgrid_2)
          DEALLOCATE (ri_data%pgrid_2)
-      ENDIF
+      END IF
       IF (ASSOCIATED(ri_data%pgrid_3)) THEN
          CALL dbcsr_t_pgrid_destroy(ri_data%pgrid_3)
          DEALLOCATE (ri_data%pgrid_3)
-      ENDIF
+      END IF
       IF (ASSOCIATED(ri_data%pgrid_2d)) THEN
          CALL dbcsr_t_pgrid_destroy(ri_data%pgrid_2d)
          DEALLOCATE (ri_data%pgrid_2d)
-      ENDIF
+      END IF
 
       CALL distribution_3d_destroy(ri_data%dist_3d)
       CALL dbcsr_t_distribution_destroy(ri_data%dist)
@@ -1473,8 +1473,8 @@ CONTAINS
          DO i_mem = 1, ri_data%n_mem
          DO j_mem = 1, ri_data%n_mem
             CALL dealloc_containers(ri_data%store_3c(i_mem, j_mem), unused)
-         ENDDO
-         ENDDO
+         END DO
+         END DO
          CALL dbcsr_t_destroy(ri_data%t_3c_int_ctr_1(1, 1))
          DEALLOCATE (ri_data%t_3c_int_ctr_1)
          CALL dbcsr_t_destroy(ri_data%t_3c_int_ctr_2(1, 1))
@@ -1507,13 +1507,13 @@ CONTAINS
             CALL dbcsr_t_destroy(ri_data%t_3c_ctr_RI(ispin, 1, 1))
             CALL dbcsr_t_destroy(ri_data%t_3c_ctr_KS(ispin, 1, 1))
             CALL dbcsr_t_destroy(ri_data%t_3c_ctr_KS_copy(ispin, 1, 1))
-         ENDDO
+         END DO
          DEALLOCATE (ri_data%t_2c_int)
          DEALLOCATE (ri_data%t_3c_int_mo)
          DEALLOCATE (ri_data%t_3c_ctr_RI)
          DEALLOCATE (ri_data%t_3c_ctr_KS)
          DEALLOCATE (ri_data%t_3c_ctr_KS_copy)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
    END SUBROUTINE
@@ -1536,8 +1536,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'hfx_create_basis_types'
 
       INTEGER :: co_counter, handle, i, ikind, ipgf, iset, j, k, la, max_am_kind, max_coeff, &
-         max_nsgfl, max_pgf, max_pgf_kind, max_set, nkind, nl_count, nset, nseta, offset_a, &
-         offset_a1, s_offset_nl_a, sgfa, so_counter
+                 max_nsgfl, max_pgf, max_pgf_kind, max_set, nkind, nl_count, nset, nseta, offset_a, &
+                 offset_a1, s_offset_nl_a, sgfa, so_counter
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, npgfa, nshell
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, nl_a
       REAL(dp), DIMENSION(:, :), POINTER                 :: sphi_a
@@ -1904,14 +1904,14 @@ CONTAINS
                   logger => cp_get_default_logger()
                   CALL cp_print_key_finished_output(actual_x_data%ri_data%unit_nr_dbcsr, logger, actual_x_data%ri_data%ri_section, &
                                                     "RI_INFO")
-               ENDIF
+               END IF
                IF (ASSOCIATED(actual_x_data%ri_data%hfx_section)) THEN
                   logger => cp_get_default_logger()
                   CALL cp_print_key_finished_output(actual_x_data%ri_data%unit_nr, logger, actual_x_data%ri_data%hfx_section, &
                                                     "HF_INFO")
-               ENDIF
+               END IF
                DEALLOCATE (actual_x_data%ri_data)
-            ENDIF
+            END IF
          END DO
 
       END DO
@@ -1939,11 +1939,11 @@ CONTAINS
       CHARACTER(LEN=512)                                 :: error_msg
       CHARACTER(LEN=64)                                  :: char_nshells
       INTEGER :: i, idx, ikind, ipgf, iset, ishell, j, jkind, jpgf, jset, jshell, k, kshell, l, &
-         m(3), max_shell, nseta, nsetb, total_number_of_cells, ub, ub_max
+                 m(3), max_shell, nseta, nsetb, total_number_of_cells, ub, ub_max
       INTEGER, DIMENSION(:), POINTER                     :: la_max, lb_max, npgfa, npgfb
       LOGICAL                                            :: image_cell_found, nothing_more_to_add
       REAL(dp) :: cross_product(3), dist_min, distance(14), l_min, normal(3, 6), P(3, 14), &
-         plane_vector(3, 2), point_in_plane(3), r(3), R1, R_max, R_max_stress, s(3), x, y, z, Zeta1
+                  plane_vector(3, 2), point_in_plane(3), r(3), R1, R_max, R_max_stress, s(3), x, y, z, Zeta1
       REAL(dp), DIMENSION(:, :), POINTER                 :: zeta, zetb
       TYPE(hfx_cell_type), ALLOCATABLE, DIMENSION(:)     :: tmp_neighbor_cells
 
@@ -2260,7 +2260,7 @@ CONTAINS
                x_data%neighbor_cells(i)%cell = REAL(m, dp)
                CALL next_image_cell_perd(m, x_data%periodic_parameter%perd)
                i = i + 1
-            ENDDO
+            END DO
          END IF
       CASE DEFAULT
          total_number_of_cells = 0
@@ -2278,7 +2278,7 @@ CONTAINS
             x_data%neighbor_cells(i)%cell = REAL(m, dp)
             CALL next_image_cell_perd(m, x_data%periodic_parameter%perd)
             i = i + 1
-         ENDDO
+         END DO
       END SELECT
 
       ! ** Transform into real coord
@@ -2540,7 +2540,7 @@ CONTAINS
             WRITE (UNIT=iw, FMT="((T3,A,T77,A),/)") &
                "HFX_INFO| Number of periodic cells considered:     ", "NONE"
          END IF
-      ENDIF
+      END IF
    END SUBROUTINE hfx_print_std_info
 
 ! **************************************************************************************************
@@ -2567,7 +2567,7 @@ CONTAINS
 
       IF (iw > 0) THEN
 
-         ASSOCIATE (ri_metric=>ri_data%ri_metric, hfx_pot=>ri_data%hfx_pot)
+         ASSOCIATE (ri_metric => ri_data%ri_metric, hfx_pot => ri_data%hfx_pot)
             SELECT CASE (ri_metric%potential_type)
             CASE (do_potential_coulomb)
                WRITE (UNIT=iw, FMT="(/T3,A,T74,A)") &
@@ -2645,7 +2645,7 @@ CONTAINS
             WRITE (UNIT=iw, FMT="(T3, A, T79, I2)") &
                "HFX_RI_INFO| Memory reduction factor", ri_data%n_mem**2
          END SELECT
-      ENDIF
+      END IF
 
    END SUBROUTINE
 
@@ -2738,7 +2738,7 @@ CONTAINS
          CALL hfx_print_ri_info(x_data%ri_data, hfx_section)
       ELSE
          CALL hfx_print_std_info(x_data, hfx_section)
-      ENDIF
+      END IF
 
       CALL cp_print_key_finished_output(iw, logger, hfx_section, &
                                         "HF_INFO")

@@ -18,7 +18,7 @@
 ! **************************************************************************************************
 
 MODULE minimax_exp_k53
-   USE kinds,                           ONLY: dp
+   USE kinds, ONLY: dp
 
    IMPLICIT NONE
    PRIVATE

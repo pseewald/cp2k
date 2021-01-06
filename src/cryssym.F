@@ -11,14 +11,14 @@
 ! **************************************************************************************************
 MODULE cryssym
 
-   USE bibliography,                    ONLY: Togo2018,&
-                                              cite_reference
-   USE kinds,                           ONLY: dp
-   USE spglib_f08,                      ONLY: &
-        spg_get_international, spg_get_ir_reciprocal_mesh, spg_get_major_version, &
-        spg_get_micro_version, spg_get_minor_version, spg_get_multiplicity, spg_get_pointgroup, &
-        spg_get_schoenflies, spg_get_symmetry
-   USE string_utilities,                ONLY: strip_control_codes
+   USE bibliography, ONLY: Togo2018, &
+                           cite_reference
+   USE kinds, ONLY: dp
+   USE spglib_f08, ONLY: &
+      spg_get_international, spg_get_ir_reciprocal_mesh, spg_get_major_version, &
+      spg_get_micro_version, spg_get_minor_version, spg_get_multiplicity, spg_get_pointgroup, &
+      spg_get_schoenflies, spg_get_symmetry
+   USE string_utilities, ONLY: strip_control_codes
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -287,7 +287,7 @@ CONTAINS
                xkp(:, i) = REAL(is_shift + 2*ixkp(:, i), KIND=dp)/REAL(2*nk(:), KIND=dp)
                j = iwkp(i) + 1
                wkp(j) = wkp(j) + 1.0_dp
-            ENDDO
+            END DO
             csym%kplink(1, 1:nkpts) = iwkp(1:nkpts) + 1
             DEALLOCATE (ixkp, iwkp)
          END IF

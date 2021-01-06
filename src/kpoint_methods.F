@@ -13,78 +13,78 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE kpoint_methods
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              real_to_scaled
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale
-   USE cp_fm_pool_types,                ONLY: cp_fm_pool_p_type,&
-                                              fm_pool_create_fm,&
-                                              fm_pool_give_back_fm
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: &
-        copy_info_type, cp_fm_cleanup_copy_general, cp_fm_create, cp_fm_finish_copy_general, &
-        cp_fm_get_info, cp_fm_p_type, cp_fm_release, cp_fm_start_copy_general, cp_fm_to_fm, &
-        cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE cp_para_env,                     ONLY: cp_cart_create,&
-                                              cp_para_env_create,&
-                                              cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_cart_type,&
-                                              cp_para_env_type
-   USE cryssym,                         ONLY: apply_rotation_coord,&
-                                              crys_sym_gen,&
-                                              csym_type,&
-                                              kpoint_gen,&
-                                              print_crys_symmetry,&
-                                              print_kp_symmetry,&
-                                              release_csym_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_copy, dbcsr_create, dbcsr_deallocate_matrix, dbcsr_distribution_get, &
-        dbcsr_distribution_type, dbcsr_get_block_p, dbcsr_get_info, dbcsr_iterator_blocks_left, &
-        dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
-        dbcsr_p_type, dbcsr_set, dbcsr_type, dbcsr_type_antisymmetric, dbcsr_type_symmetric
-   USE fermi_utils,                     ONLY: fermikp,&
-                                              fermikp2
-   USE input_constants,                 ONLY: smear_fermi_dirac
-   USE kinds,                           ONLY: dp
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_env_create,&
-                                              kpoint_env_p_type,&
-                                              kpoint_env_type,&
-                                              kpoint_sym_create,&
-                                              kpoint_sym_type,&
-                                              kpoint_type
-   USE mathconstants,                   ONLY: twopi
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_cart_create,&
-                                              mp_cart_sub,&
-                                              mp_max,&
-                                              mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE qs_matrix_pools,                 ONLY: mpools_create,&
-                                              mpools_get,&
-                                              mpools_rebuild_fm_pools,&
-                                              qs_matrix_pools_type
-   USE qs_mo_types,                     ONLY: allocate_mo_set,&
-                                              get_mo_set,&
-                                              mo_set_p_type,&
-                                              mo_set_type,&
-                                              set_mo_set
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              get_neighbor_list_set_p,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE scf_control_types,               ONLY: smear_type
-   USE util,                            ONLY: get_limit
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         real_to_scaled
+   USE cp_blacs_env, ONLY: cp_blacs_env_create, &
+                           cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: copy_fm_to_dbcsr
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale
+   USE cp_fm_pool_types, ONLY: cp_fm_pool_p_type, &
+                               fm_pool_create_fm, &
+                               fm_pool_give_back_fm
+   USE cp_fm_struct, ONLY: cp_fm_struct_type
+   USE cp_fm_types, ONLY: &
+      copy_info_type, cp_fm_cleanup_copy_general, cp_fm_create, cp_fm_finish_copy_general, &
+      cp_fm_get_info, cp_fm_p_type, cp_fm_release, cp_fm_start_copy_general, cp_fm_to_fm, &
+      cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE cp_para_env, ONLY: cp_cart_create, &
+                          cp_para_env_create, &
+                          cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_cart_type, &
+                            cp_para_env_type
+   USE cryssym, ONLY: apply_rotation_coord, &
+                      crys_sym_gen, &
+                      csym_type, &
+                      kpoint_gen, &
+                      print_crys_symmetry, &
+                      print_kp_symmetry, &
+                      release_csym_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_copy, dbcsr_create, dbcsr_deallocate_matrix, dbcsr_distribution_get, &
+      dbcsr_distribution_type, dbcsr_get_block_p, dbcsr_get_info, dbcsr_iterator_blocks_left, &
+      dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
+      dbcsr_p_type, dbcsr_set, dbcsr_type, dbcsr_type_antisymmetric, dbcsr_type_symmetric
+   USE fermi_utils, ONLY: fermikp, &
+                          fermikp2
+   USE input_constants, ONLY: smear_fermi_dirac
+   USE kinds, ONLY: dp
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_env_create, &
+                           kpoint_env_p_type, &
+                           kpoint_env_type, &
+                           kpoint_sym_create, &
+                           kpoint_sym_type, &
+                           kpoint_type
+   USE mathconstants, ONLY: twopi
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_cart_create, &
+                              mp_cart_sub, &
+                              mp_max, &
+                              mp_sum
+   USE particle_types, ONLY: particle_type
+   USE qs_matrix_pools, ONLY: mpools_create, &
+                              mpools_get, &
+                              mpools_rebuild_fm_pools, &
+                              qs_matrix_pools_type
+   USE qs_mo_types, ONLY: allocate_mo_set, &
+                          get_mo_set, &
+                          mo_set_p_type, &
+                          mo_set_type, &
+                          set_mo_set
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     get_neighbor_list_set_p, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE scf_control_types, ONLY: smear_type
+   USE util, ONLY: get_limit
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -330,7 +330,7 @@ CONTAINS
                nkp_grp = npe/igr
                IF (MOD(nkp, nkp_grp) .NE. 0) CYCLE
                ngr = igr
-            ENDDO
+            END DO
          ELSE IF (kpoint%parallel_group_size == 0) THEN
             ! no parallelization over kpoints
             ngr = npe

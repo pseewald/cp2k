@@ -12,20 +12,20 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE input_val_types
-   USE cp_parser_types,                 ONLY: default_continuation_character
-   USE cp_units,                        ONLY: cp_unit_create,&
-                                              cp_unit_desc,&
-                                              cp_unit_from_cp2k,&
-                                              cp_unit_from_cp2k1,&
-                                              cp_unit_release,&
-                                              cp_unit_retain,&
-                                              cp_unit_type
-   USE input_enumeration_types,         ONLY: enum_i2c,&
-                                              enum_release,&
-                                              enum_retain,&
-                                              enumeration_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
+   USE cp_parser_types, ONLY: default_continuation_character
+   USE cp_units, ONLY: cp_unit_create, &
+                       cp_unit_desc, &
+                       cp_unit_from_cp2k, &
+                       cp_unit_from_cp2k1, &
+                       cp_unit_release, &
+                       cp_unit_retain, &
+                       cp_unit_type
+   USE input_enumeration_types, ONLY: enum_i2c, &
+                                      enum_release, &
+                                      enum_retain, &
+                                      enumeration_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

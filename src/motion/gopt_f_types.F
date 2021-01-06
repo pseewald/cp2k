@@ -13,34 +13,34 @@
 !>      03.2008 - Teodoro Laino [tlaino] - University of Zurich - Cell Optimization
 ! **************************************************************************************************
 MODULE gopt_f_types
-   USE cell_opt_types,                  ONLY: cell_opt_env_create,&
-                                              cell_opt_env_release,&
-                                              cell_opt_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE dimer_types,                     ONLY: dimer_env_create,&
-                                              dimer_env_release,&
-                                              dimer_env_retain,&
-                                              dimer_env_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_get_natom,&
-                                              force_env_release,&
-                                              force_env_retain,&
-                                              force_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE gopt_param_types,                ONLY: gopt_param_read,&
-                                              gopt_param_release,&
-                                              gopt_param_type
-   USE input_constants,                 ONLY: default_cell_method_id,&
-                                              default_dimer_method_id,&
-                                              default_minimization_method_id,&
-                                              default_shellcore_method_id,&
-                                              default_ts_method_id
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE particle_list_types,             ONLY: particle_list_type
+   USE cell_opt_types, ONLY: cell_opt_env_create, &
+                             cell_opt_env_release, &
+                             cell_opt_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE dimer_types, ONLY: dimer_env_create, &
+                          dimer_env_release, &
+                          dimer_env_retain, &
+                          dimer_env_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_get_natom, &
+                              force_env_release, &
+                              force_env_retain, &
+                              force_env_type
+   USE global_types, ONLY: global_environment_type
+   USE gopt_param_types, ONLY: gopt_param_read, &
+                               gopt_param_release, &
+                               gopt_param_type
+   USE input_constants, ONLY: default_cell_method_id, &
+                              default_dimer_method_id, &
+                              default_minimization_method_id, &
+                              default_shellcore_method_id, &
+                              default_ts_method_id
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE particle_list_types, ONLY: particle_list_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

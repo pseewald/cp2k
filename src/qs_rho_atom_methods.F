@@ -6,63 +6,63 @@
 !--------------------------------------------------------------------------------------------------!
 MODULE qs_rho_atom_methods
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              gapw_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_p_type
-   USE kinds,                           ONLY: dp
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE lebedev,                         ONLY: deallocate_lebedev_grids,&
-                                              get_number_of_lebedev_grid,&
-                                              init_lebedev_grids,&
-                                              lebedev_grid
-   USE mathconstants,                   ONLY: fourpi,&
-                                              pi
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_sum
-   USE orbital_pointers,                ONLY: indso,&
-                                              nsoset
-   USE paw_proj_set_types,              ONLY: get_paw_proj_set,&
-                                              paw_proj_set_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_grid_atom,                    ONLY: create_grid_atom,&
-                                              grid_atom_type
-   USE qs_harmonics_atom,               ONLY: create_harmonics_atom,&
-                                              get_maxl_CG,&
-                                              get_none0_cg_list,&
-                                              harmonics_atom_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE qs_oce_methods,                  ONLY: proj_blk
-   USE qs_oce_types,                    ONLY: oce_matrix_type
-   USE qs_rho_atom_types,               ONLY: allocate_rho_atom_set,&
-                                              rho_atom_coeff,&
-                                              rho_atom_type
-   USE sap_kind_types,                  ONLY: alist_pre_align_blk,&
-                                              alist_type,&
-                                              get_alist
-   USE spherical_harmonics,             ONLY: clebsch_gordon,&
-                                              clebsch_gordon_deallocate,&
-                                              clebsch_gordon_init
-   USE util,                            ONLY: get_limit
-   USE whittaker,                       ONLY: whittaker_c0a,&
-                                              whittaker_ci
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cp_control_types, ONLY: dft_control_type, &
+                               gapw_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_get_block_p, &
+                        dbcsr_p_type
+   USE kinds, ONLY: dp
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE lebedev, ONLY: deallocate_lebedev_grids, &
+                      get_number_of_lebedev_grid, &
+                      init_lebedev_grids, &
+                      lebedev_grid
+   USE mathconstants, ONLY: fourpi, &
+                            pi
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_sum
+   USE orbital_pointers, ONLY: indso, &
+                               nsoset
+   USE paw_proj_set_types, ONLY: get_paw_proj_set, &
+                                 paw_proj_set_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_grid_atom, ONLY: create_grid_atom, &
+                           grid_atom_type
+   USE qs_harmonics_atom, ONLY: create_harmonics_atom, &
+                                get_maxl_CG, &
+                                get_none0_cg_list, &
+                                harmonics_atom_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE qs_oce_methods, ONLY: proj_blk
+   USE qs_oce_types, ONLY: oce_matrix_type
+   USE qs_rho_atom_types, ONLY: allocate_rho_atom_set, &
+                                rho_atom_coeff, &
+                                rho_atom_type
+   USE sap_kind_types, ONLY: alist_pre_align_blk, &
+                             alist_type, &
+                             get_alist
+   USE spherical_harmonics, ONLY: clebsch_gordon, &
+                                  clebsch_gordon_deallocate, &
+                                  clebsch_gordon_init
+   USE util, ONLY: get_limit
+   USE whittaker, ONLY: whittaker_c0a, &
+                        whittaker_ci
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, &
 !$                    omp_get_thread_num, &
@@ -113,10 +113,10 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'calculate_rho_atom'
 
       INTEGER :: damax_iso_not0_local, handle, i, i1, i2, iat, iatom, icg, ipgf1, ipgf2, ir, &
-         iset1, iset2, iso, iso1, iso1_first, iso1_last, iso2, iso2_first, iso2_last, istat, j, l, &
-         l1, l2, l_iso, l_sub, l_sum, lmax12, lmax_expansion, lmin12, m1s, m2s, max_iso_not0, &
-         max_iso_not0_local, max_s_harm, maxl, maxso, mepos, n1s, n2s, nr, nset, num_pe, size1, &
-         size2
+                 iset1, iset2, iso, iso1, iso1_first, iso1_last, iso2, iso2_first, iso2_last, istat, j, l, &
+                 l1, l2, l_iso, l_sub, l_sum, lmax12, lmax_expansion, lmin12, m1s, m2s, max_iso_not0, &
+                 max_iso_not0_local, max_s_harm, maxl, maxso, mepos, n1s, n2s, nr, nset, num_pe, size1, &
+                 size2
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: cg_n_list, dacg_n_list
       INTEGER, ALLOCATABLE, DIMENSION(:, :, :)           :: cg_list, dacg_list
       INTEGER, DIMENSION(2)                              :: bo
@@ -182,7 +182,7 @@ CONTAINS
                CALL allocate_rho_atom_rad(rho_atom_set, iatom, i, nr, max_iso_not0)
             ELSE
                CALL set2zero_rho_atom_rad(rho_atom_set, iatom, i)
-            ENDIF
+            END IF
          END DO
       END DO
 
@@ -340,9 +340,9 @@ CONTAINS
                                  rho_atom_set(iatom)%vrho_rad_s(i)%r_coef(1:nr, iso) + &
                                  vgg(1:nr, l, l_iso)*CPCS_sphere(iso1, iso2)*my_CG(iso1, iso2, iso)
 
-                           ENDDO ! icg
+                           END DO ! icg
 
-                        ENDDO ! iso
+                        END DO ! iso
 
                         DO iso = 1, max_iso_not0 !damax_iso_not0_local
                            l_iso = indso(1, iso)
@@ -362,17 +362,17 @@ CONTAINS
                               END DO
                            END DO ! icg
 
-                        ENDDO ! iso
+                        END DO ! iso
 
-                     ENDDO ! i
-                  ENDDO ! iat
+                     END DO ! i
+                  END DO ! iat
 
-               ENDDO ! ipgf2
-            ENDDO ! ipgf1
+               END DO ! ipgf2
+            END DO ! ipgf1
             m2s = m2s + maxso
-         ENDDO ! iset2
+         END DO ! iset2
          m1s = m1s + maxso
-      ENDDO ! iset1
+      END DO ! iset1
 
       DO iat = bo(1), bo(2)
          iatom = atom_list(iat)
@@ -434,9 +434,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'calculate_rho_atom_coeff'
 
       INTEGER :: bo(2), handle, i, iac, iatom, ibc, icol, ikind, img, irow, ispin, istat, jatom, &
-         jkind, kac, katom, kbc, kkind, len_CPC, len_PC1, max_gau, max_nsgf, maxsoc, mepos, &
-         n_cont_a, n_cont_b, nat_kind, natom, nimages, nkind, nsatbas, nsetc, nsoctot, nspins, &
-         num_pe
+                 jkind, kac, katom, kbc, kkind, len_CPC, len_PC1, max_gau, max_nsgf, maxsoc, mepos, &
+                 n_cont_a, n_cont_b, nat_kind, natom, nimages, nkind, nsatbas, nsetc, nsoctot, nspins, &
+                 num_pe
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of
       INTEGER, DIMENSION(3)                              :: cell_b
       INTEGER, DIMENSION(:), POINTER                     :: a_list, list_a, list_b
@@ -502,8 +502,8 @@ CONTAINS
             DO ispin = 1, nspins
                rho_atom_set(iatom)%cpc_h(ispin)%r_coef = 0.0_dp
                rho_atom_set(iatom)%cpc_s(ispin)%r_coef = 0.0_dp
-            ENDDO ! ispin
-         ENDDO ! i
+            END DO ! ispin
+         END DO ! i
 
          num_pe = para_env%num_pe
          mepos = para_env%mepos
@@ -513,8 +513,8 @@ CONTAINS
             DO ispin = 1, nspins
                rho_atom_set(iatom)%ga_Vlocal_gb_h(ispin)%r_coef = 0.0_dp
                rho_atom_set(iatom)%ga_Vlocal_gb_s(ispin)%r_coef = 0.0_dp
-            ENDDO ! ispin
-         ENDDO ! i
+            END DO ! ispin
+         END DO ! i
       END DO ! ikind
 
       ALLOCATE (basis_set_list(nkind))
@@ -604,7 +604,7 @@ CONTAINS
          ELSE
             irow = jatom
             icol = iatom
-         ENDIF
+         END IF
 
          IF (nimages > 1) THEN
             img = cell_to_index(cell_b(1), cell_b(2), cell_b(3))
@@ -619,7 +619,7 @@ CONTAINS
                                    row=irow, col=icol, BLOCK=p_block_spin(ispin)%r_coef, &
                                    found=found)
             pmax = pmax + MAXVAL(ABS(p_block_spin(ispin)%r_coef))
-         ENDDO
+         END DO
 
          DO kkind = 1, nkind
             CALL get_qs_kind(qs_kind_set(kkind), &
@@ -689,7 +689,7 @@ CONTAINS
                            CALL alist_pre_align_blk(p_block_spin(ispin)%r_coef, &
                                                     SIZE(p_block_spin(ispin)%r_coef, 1), p_matrix, SIZE(p_matrix, 1), &
                                                     list_b, n_cont_b, list_a, n_cont_a)
-                        ENDIF
+                        END IF
 
                         factor = 1.0_dp
                         IF (iatom == jatom) factor = 0.5_dp
@@ -708,7 +708,7 @@ CONTAINS
                                          C_coeff_hh_a, C_coeff_ss_a, n_cont_a, &
                                          p_matrix, max_nsgf, r_coef_h, r_coef_s, nsoctot, &
                                          len_PC1, len_CPC, factor, distab)
-                        ENDIF
+                        END IF
 !$                      CALL omp_unset_lock(locks((katom - 1)*nspins + ispin))
 
                      END DO
@@ -750,7 +750,7 @@ CONTAINS
                r_coef_h(:, :) = r_coef_h(:, :) + TRANSPOSE(r_coef_h(:, :))
                r_coef_s(:, :) = r_coef_s(:, :) + TRANSPOSE(r_coef_s(:, :))
             END IF
-         ENDDO
+         END DO
 
       END DO
 
@@ -781,8 +781,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'init_rho_atom'
 
       INTEGER :: handle, ikind, il, iso, iso1, iso2, l1, l1l2, l2, la, lc1, lc2, lcleb, ll, llmax, &
-         lmax_sphere, lp, m1, m2, max_s_harm, max_s_set, maxl, maxlgto, maxs, mm, mp, na, nat, &
-         natom, nr, nspins, quadrature
+                 lmax_sphere, lp, m1, m2, max_s_harm, max_s_set, maxl, maxlgto, maxs, mm, mp, na, nat, &
+                 natom, nr, nspins, quadrature
       INTEGER, DIMENSION(:), POINTER                     :: atom_list
       LOGICAL                                            :: paw_atom
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: rga
@@ -854,7 +854,7 @@ CONTAINS
                         iso = nsoset(lp - 1) + lp + 1 - ABS(mp)
                      END IF
                      my_CG(iso1, iso2, iso) = rga(il, 1)
-                     ENDIF
+                     END IF
                      IF (mp /= mm .AND. ABS(mm) <= lp) THEN
                      IF (mm >= 0) THEN
                         iso = nsoset(lp - 1) + lp + 1 + mm
@@ -862,12 +862,12 @@ CONTAINS
                         iso = nsoset(lp - 1) + lp + 1 - ABS(mm)
                      END IF
                      my_CG(iso1, iso2, iso) = rga(il, 2)
-                     ENDIF
+                     END IF
                   END DO
-               ENDDO ! iso2
-            ENDDO ! lc2
-         ENDDO ! iso1
-      ENDDO ! lc1
+               END DO ! iso2
+            END DO ! lc2
+         END DO ! iso1
+      END DO ! lc1
       DEALLOCATE (rga)
       CALL clebsch_gordon_deallocate()
 
@@ -1030,7 +1030,7 @@ CONTAINS
                      NULLIFY (rho_atom_set(iatom)%rho_rad_s_d(j, ispin)%r_coef)
                   END DO
                END DO
-            ENDIF
+            END IF
 
          END DO ! iat
 
@@ -1061,7 +1061,7 @@ CONTAINS
                   NULLIFY (rho_atom_set(iatom)%ga_Vlocal_gb_h(ispin)%r_coef)
                   NULLIFY (rho_atom_set(iatom)%ga_Vlocal_gb_s(ispin)%r_coef)
                END DO
-            ENDIF
+            END IF
 
          END DO ! iat
 

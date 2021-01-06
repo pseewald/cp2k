@@ -6,38 +6,38 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE optimize_dmfet_potential
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_copy_general,&
-                                              cp_fm_create,&
-                                              cp_fm_maxabsval,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_create,&
-                                              dbcsr_init_p,&
-                                              dbcsr_multiply,&
-                                              dbcsr_p_type,&
-                                              dbcsr_release,&
-                                              dbcsr_trace,&
-                                              dbcsr_type,&
-                                              dbcsr_type_no_symmetry
-   USE embed_types,                     ONLY: opt_dmfet_pot_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_create, &
+                           cp_blacs_env_release, &
+                           cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_fm_to_dbcsr
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_copy_general, &
+                          cp_fm_create, &
+                          cp_fm_maxabsval, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_create, &
+                        dbcsr_init_p, &
+                        dbcsr_multiply, &
+                        dbcsr_p_type, &
+                        dbcsr_release, &
+                        dbcsr_trace, &
+                        dbcsr_type, &
+                        dbcsr_type_no_symmetry
+   USE embed_types, ONLY: opt_dmfet_pot_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -157,7 +157,7 @@ CONTAINS
          CALL cp_fm_set_all(opt_dmfet%dm_subsys_beta, 0.0_dp)
          CALL cp_fm_set_all(opt_dmfet%dm_total_beta, 0.0_dp)
          CALL cp_fm_set_all(opt_dmfet%dm_diff_beta, 0.0_dp)
-      ENDIF
+      END IF
 
       ! Release structure and context
       CALL cp_fm_struct_release(fm_struct)
@@ -192,7 +192,7 @@ CONTAINS
          CALL cp_fm_release(opt_dmfet%dm_subsys_beta)
          CALL cp_fm_release(opt_dmfet%dm_total_beta)
          CALL cp_fm_release(opt_dmfet%dm_diff_beta)
-      ENDIF
+      END IF
 
       DEALLOCATE (opt_dmfet%w_func)
       DEALLOCATE (opt_dmfet%max_diff)
@@ -247,14 +247,14 @@ CONTAINS
                       k=homo, alpha=coeff, &
                       matrix_a=mo_coeff, matrix_b=mo_coeff, &
                       beta=0.0_dp, matrix_c=dm_beta)
-      ENDIF
+      END IF
 
       ! If embedding is open shell, but subsystem is not, copy alpha-spin DM intou beta-spin DM
       IF (open_shell_embed .AND. (.NOT. open_shell)) THEN
          CALL get_qs_env(qs_env=qs_env, para_env=para_env)
          CALL cp_fm_copy_general(dm, dm_beta, para_env)
 
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -302,7 +302,7 @@ CONTAINS
 
          CALL dbcsr_trace(dm_s, trace)
 
-      ENDIF
+      END IF
 
       ! Release dbcsr objects
       CALL dbcsr_release(diff_dbcsr)
@@ -312,7 +312,7 @@ CONTAINS
       CALL cp_fm_maxabsval(opt_dmfet%dm_diff, max_diff)
       IF (opt_dmfet%open_shell_embed) THEN
          CALL cp_fm_maxabsval(opt_dmfet%dm_diff_beta, max_diff_beta)
-      ENDIF
+      END IF
 
    END SUBROUTINE check_dmfet
 

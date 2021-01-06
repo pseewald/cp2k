@@ -7,14 +7,14 @@
 ! **************************************************************************************************
 MODULE qs_grid_atom
 
-   USE input_constants,                 ONLY: do_gapw_gcs,&
-                                              do_gapw_gct,&
-                                              do_gapw_log
-   USE kinds,                           ONLY: dp
-   USE lebedev,                         ONLY: get_number_of_lebedev_grid,&
-                                              lebedev_grid
-   USE mathconstants,                   ONLY: pi
-   USE memory_utilities,                ONLY: reallocate
+   USE input_constants, ONLY: do_gapw_gcs, &
+                              do_gapw_gct, &
+                              do_gapw_log
+   USE kinds, ONLY: dp
+   USE lebedev, ONLY: get_number_of_lebedev_grid, &
+                      lebedev_grid
+   USE mathconstants, ONLY: pi
+   USE memory_utilities, ONLY: reallocate
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -225,7 +225,7 @@ CONTAINS
          DO l = 1, llmax + 1
             grid_atom%rad2l(:, l) = grid_atom%rad2l(:, l - 1)*rad(:)
             grid_atom%oorad2l(:, l) = grid_atom%oorad2l(:, l - 1)/rad(:)
-         ENDDO
+         END DO
 
          IF (ll > 0) THEN
             grid_atom%wa(1:na) = 4._dp*pi*lebedev_grid(ll)%w(1:na)
@@ -258,7 +258,7 @@ CONTAINS
                   grid_atom%usin_azi(ia) = 1.0_dp
                END IF
 
-            ENDDO
+            END DO
 
          END IF
 

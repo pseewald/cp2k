@@ -12,31 +12,31 @@
 !> \author Manuel Guidon
 ! **************************************************************************************************
 MODULE hfx_communication
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_iterator_blocks_left,&
-                                              dbcsr_iterator_next_block,&
-                                              dbcsr_iterator_start,&
-                                              dbcsr_iterator_stop,&
-                                              dbcsr_iterator_type,&
-                                              dbcsr_p_type,&
-                                              dbcsr_type
-   USE hfx_types,                       ONLY: hfx_2D_map,&
-                                              hfx_basis_type,&
-                                              hfx_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE message_passing,                 ONLY: mp_allgather,&
-                                              mp_isendrecv,&
-                                              mp_max,&
-                                              mp_sync,&
-                                              mp_waitall
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_get_block_p, &
+                        dbcsr_iterator_blocks_left, &
+                        dbcsr_iterator_next_block, &
+                        dbcsr_iterator_start, &
+                        dbcsr_iterator_stop, &
+                        dbcsr_iterator_type, &
+                        dbcsr_p_type, &
+                        dbcsr_type
+   USE hfx_types, ONLY: hfx_2D_map, &
+                        hfx_basis_type, &
+                        hfx_type
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE message_passing, ONLY: mp_allgather, &
+                              mp_isendrecv, &
+                              mp_max, &
+                              mp_sync, &
+                              mp_waitall
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -89,7 +89,7 @@ CONTAINS
       LOGICAL, INTENT(IN)                                :: antisymmetric
 
       INTEGER :: blk, block_size, data_from, dest, i, iatom, icpu, ikind, iset, jatom, jkind, &
-         jset, mepos, ncpu, nseta, nsetb, pa, pa1, pb, pb1, req(2), source, source_cpu
+                 jset, mepos, ncpu, nseta, nsetb, pa, pa1, pb, pb1, req(2), source, source_cpu
       INTEGER, DIMENSION(:), POINTER                     :: nsgfa, nsgfb
       LOGICAL                                            :: found
       REAL(dp)                                           :: symmfac
@@ -163,7 +163,7 @@ CONTAINS
          IF (icpu .NE. ncpu - 1) THEN
             CALL mp_isendrecv(sendbuffer, dest, recbuffer, source, &
                               para_env%group, req(1), req(2), 13)
-         ENDIF
+         END IF
          data_from = MODULO(mepos - icpu, ncpu)
          source_cpu = MODULO(data_from, ncpu) + 1
          block_size = block_offset(source_cpu + 1) - block_offset(source_cpu)
@@ -171,11 +171,11 @@ CONTAINS
 
          IF (icpu .NE. ncpu - 1) THEN
             CALL mp_waitall(req)
-         ENDIF
+         END IF
          swapbuffer => sendbuffer
          sendbuffer => recbuffer
          recbuffer => swapbuffer
-      ENDDO
+      END DO
       DEALLOCATE (sendbuffer, recbuffer)
       ! sync before/after a ring of isendrecv
       CALL mp_sync(para_env%group)
@@ -213,7 +213,7 @@ CONTAINS
       REAL(dp), INTENT(IN), OPTIONAL                     :: off_diag_fac, diag_fac
 
       INTEGER :: blk, block_size, data_to, dest, dest_cpu, i, iatom, icpu, ikind, iset, jatom, &
-         jkind, jset, mepos, ncpu, nseta, nsetb, pa, pa1, pb, pb1, req(2), source
+                 jkind, jset, mepos, ncpu, nseta, nsetb, pa, pa1, pb, pb1, req(2), source
       INTEGER, DIMENSION(:), POINTER                     :: nsgfa, nsgfb
       REAL(dp)                                           :: my_fac, myd_fac
       REAL(dp), DIMENSION(:), POINTER                    :: recbuffer, sendbuffer, swapbuffer
@@ -250,7 +250,7 @@ CONTAINS
          swapbuffer => sendbuffer
          sendbuffer => recbuffer
          recbuffer => swapbuffer
-      ENDDO
+      END DO
       ! sync before/after a ring of isendrecv
       CALL mp_sync(para_env%group)
 
@@ -444,7 +444,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'get_atomic_block_maps'
 
       INTEGER :: blk, handle, iatom, ibuf, icpu, ikind, ilist, iset, itask, jatom, jkind, jset, &
-         natom, ncpu, nseta, nsetb, number_of_p_blocks, offset, tmp(2)
+                 natom, ncpu, nseta, nsetb, number_of_p_blocks, offset, tmp(2)
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: buffer_in, buffer_out, counter, rcount, &
                                                             rdispl
       INTEGER, DIMENSION(:), POINTER                     :: iatom_list, jatom_list, nsgfa, nsgfb
@@ -501,7 +501,7 @@ CONTAINS
       rdispl(1) = 0
       DO icpu = 2, para_env%num_pe
          rdispl(icpu) = rdispl(icpu - 1) + rcount(icpu - 1)
-      ENDDO
+      END DO
       CALL mp_allgather(buffer_in, buffer_out, rcount, rdispl, para_env%group)
 
       DO ibuf = 0, number_of_p_blocks*para_env%num_pe*3 - 3, 3
@@ -513,8 +513,8 @@ CONTAINS
             jatom = buffer_out(ibuf + 2)
             is_assoc_atomic_block(iatom, jatom) = itask
             is_assoc_atomic_block(jatom, iatom) = itask
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       IF (ASSOCIATED(map_atoms_to_cpus)) THEN
          DO icpu = 1, para_env%num_pe

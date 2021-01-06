@@ -11,27 +11,27 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE input_cp2k_motion_print
-   USE cp_output_handling,              ONLY: add_last_numeric,&
-                                              cp_print_key_section_create,&
-                                              high_print_level,&
-                                              low_print_level,&
-                                              silent_print_level
-   USE input_constants,                 ONLY: dump_atomic,&
-                                              dump_dcd,&
-                                              dump_dcd_aligned_cell,&
-                                              dump_pdb,&
-                                              dump_xmol
-   USE input_cp2k_subsys,               ONLY: create_structure_data_section
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE string_utilities,                ONLY: newline,&
-                                              s2a
+   USE cp_output_handling, ONLY: add_last_numeric, &
+                                 cp_print_key_section_create, &
+                                 high_print_level, &
+                                 low_print_level, &
+                                 silent_print_level
+   USE input_constants, ONLY: dump_atomic, &
+                              dump_dcd, &
+                              dump_dcd_aligned_cell, &
+                              dump_pdb, &
+                              dump_xmol
+   USE input_cp2k_subsys, ONLY: create_structure_data_section
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE string_utilities, ONLY: newline, &
+                               s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

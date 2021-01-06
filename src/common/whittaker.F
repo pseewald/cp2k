@@ -11,10 +11,10 @@
 ! **************************************************************************************************
 MODULE whittaker
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              fac,&
-                                              rootpi
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: dfac, &
+                            fac, &
+                            rootpi
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -116,8 +116,8 @@ CONTAINS
 
       INTEGER                                            :: i, k
       REAL(dp) :: t1, t10, t11, t12, t13, t14, t16, t17, t18, t19, t2, t21, t22, t23, t25, t28, &
-         t3, t30, t31, t34, t36, t39, t4, t41, t44, t45, t46, t5, t50, t51, t52, t56, t6, t61, t7, &
-         t8, t9, x
+                  t3, t30, t31, t34, t36, t39, t4, t41, t44, t45, t46, t5, t50, t51, t52, t56, t6, t61, t7, &
+                  t8, t9, x
 
       IF (MOD(l, 2) /= 0) THEN
          CPABORT("Angular momentum has to be even")

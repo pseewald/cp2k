@@ -12,9 +12,9 @@
 !> \author Frederick Stein
 ! **************************************************************************************************
 MODULE group_dist_types
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE message_passing,                 ONLY: mp_sum
-   USE util,                            ONLY: get_limit
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE message_passing, ONLY: mp_sum
+   USE util, ONLY: get_limit
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

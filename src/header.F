@@ -11,12 +11,12 @@
 !> \author APSI & CJM & JGH
 ! **************************************************************************************************
 MODULE header
-   USE cp2k_info,                       ONLY: r_cwd,&
-                                              r_datx,&
-                                              r_host_name,&
-                                              r_pid,&
-                                              r_user_name
-   USE kinds,                           ONLY: default_path_length
+   USE cp2k_info, ONLY: r_cwd, &
+                        r_datx, &
+                        r_host_name, &
+                        r_pid, &
+                        r_user_name
+   USE kinds, ONLY: default_path_length
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

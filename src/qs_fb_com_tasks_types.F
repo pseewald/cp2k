@@ -7,21 +7,21 @@
 
 MODULE qs_fb_com_tasks_types
 
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_get_info,&
-                                              dbcsr_put_block,&
-                                              dbcsr_type
-   USE kinds,                           ONLY: dp,&
-                                              int_4,&
-                                              int_8
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_alltoall
-   USE qs_fb_matrix_data_types,         ONLY: fb_matrix_data_add,&
-                                              fb_matrix_data_get,&
-                                              fb_matrix_data_has_data,&
-                                              fb_matrix_data_obj
-   USE util,                            ONLY: sort
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_get_block_p, &
+                        dbcsr_get_info, &
+                        dbcsr_put_block, &
+                        dbcsr_type
+   USE kinds, ONLY: dp, &
+                    int_4, &
+                    int_8
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_alltoall
+   USE qs_fb_matrix_data_types, ONLY: fb_matrix_data_add, &
+                                      fb_matrix_data_get, &
+                                      fb_matrix_data_has_data, &
+                                      fb_matrix_data_obj
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -994,10 +994,10 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'fb_com_atom_pairs_gather_blks'
 
       INTEGER :: handle, iatom, ii, ind, ipair, ipe, jatom, jj, ncols_blk, ncols_blk_max, &
-         npairs_recv, npairs_send, nrows_blk, nrows_blk_max, numprocs, pe, recv_encode, send_encode
+                 npairs_recv, npairs_send, nrows_blk, nrows_blk_max, numprocs, pe, recv_encode, send_encode
       INTEGER(KIND=int_8), DIMENSION(:), POINTER         :: pairs_recv, pairs_send
       INTEGER, ALLOCATABLE, DIMENSION(:) :: recv_disps, recv_pair_count, recv_pair_disps, &
-         recv_sizes, send_disps, send_pair_count, send_pair_disps, send_sizes
+                                            recv_sizes, send_disps, send_pair_count, send_pair_disps, send_sizes
       INTEGER, DIMENSION(:), POINTER                     :: col_block_size_data, row_block_size_data
       LOGICAL                                            :: check_ok, found
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: recv_buf, send_buf
@@ -1180,10 +1180,10 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'fb_com_atom_pairs_distribute_blks'
 
       INTEGER :: handle, iatom, ii, ind, ipair, ipe, jatom, jj, ncols_blk, npairs_recv, &
-         npairs_send, nrows_blk, numprocs, pe, recv_encode, send_encode
+                 npairs_send, nrows_blk, numprocs, pe, recv_encode, send_encode
       INTEGER(KIND=int_8), DIMENSION(:), POINTER         :: pairs_recv, pairs_send
       INTEGER, ALLOCATABLE, DIMENSION(:) :: recv_disps, recv_pair_count, recv_pair_disps, &
-         recv_sizes, send_disps, send_pair_count, send_pair_disps, send_sizes
+                                            recv_sizes, send_disps, send_pair_count, send_pair_disps, send_sizes
       INTEGER, DIMENSION(:), POINTER                     :: col_block_size_data, row_block_size_data
       LOGICAL                                            :: check_ok, found
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: recv_buf, send_buf

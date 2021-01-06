@@ -12,37 +12,37 @@
 !> \author Teodoro Laino [tlaino] - University of Zurich 10.2008
 ! **************************************************************************************************
 MODULE topology_amber
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object,&
-                                              parser_search_string,&
-                                              parser_test_next_token
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE force_field_types,               ONLY: amber_info_type
-   USE input_cp2k_restarts_util,        ONLY: section_velocity_val_set
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE particle_types,                  ONLY: particle_type
-   USE qmmm_ff_fist,                    ONLY: qmmm_ff_precond_only_qm
-   USE string_table,                    ONLY: id2str,&
-                                              s2s,&
-                                              str2id
-   USE topology_generate_util,          ONLY: topology_generate_molname
-   USE topology_types,                  ONLY: atom_info_type,&
-                                              connectivity_info_type,&
-                                              topology_parameters_type
-   USE util,                            ONLY: sort
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object, &
+                                parser_search_string, &
+                                parser_test_next_token
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE force_field_types, ONLY: amber_info_type
+   USE input_cp2k_restarts_util, ONLY: section_velocity_val_set
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE particle_types, ONLY: particle_type
+   USE qmmm_ff_fist, ONLY: qmmm_ff_precond_only_qm
+   USE string_table, ONLY: id2str, &
+                           s2s, &
+                           str2id
+   USE topology_generate_util, ONLY: topology_generate_molname
+   USE topology_types, ONLY: atom_info_type, &
+                             connectivity_info_type, &
+                             topology_parameters_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -382,10 +382,10 @@ CONTAINS
       CHARACTER(LEN=default_string_length), &
          ALLOCATABLE, DIMENSION(:)                       :: isymbl, labres, strtmp_a
       INTEGER :: handle, handle2, i, ifbox, ifcap, ifpert, index_now, info(31), istart, mbona, &
-         mbper, mdper, mgper, mphia, mtheta, natom, natom_prev, natyp, nbona, nbond_prev, nbonh, &
-         nbper, ndper, ngper, nhparm, nmxrs, nnb, nparm, nphb, nphi_prev, nphia, nphih, nptra, &
-         nres, nsize, ntheta, ntheta_prev, ntheth, ntypes, numang, numbnd, numextra, &
-         unique_torsions
+                 mbper, mdper, mgper, mphia, mtheta, natom, natom_prev, natyp, nbona, nbond_prev, nbonh, &
+                 nbper, ndper, ngper, nhparm, nmxrs, nnb, nparm, nphb, nphi_prev, nphia, nphih, nptra, &
+                 nres, nsize, ntheta, ntheta_prev, ntheth, ntypes, numang, numbnd, numextra, &
+                 unique_torsions
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: iac, ib, ibh, icb, icbh, ico, icp, icph, &
                                                             ict, icth, ip, iph, ipres, it, ith, &
                                                             iwork, jb, jbh, jp, jph, jt, jth, kp, &
@@ -515,7 +515,7 @@ CONTAINS
                CALL rd_amber_section(parser, section, strtmp_a, natom)
                DO i = 1, natom
                   atom_info%id_atmname(natom_prev + i) = str2id(strtmp_a(i))
-               ENDDO
+               END DO
                DEALLOCATE (strtmp_a)
             CASE ("CHARGE")
                IF (.NOT. do_connectivity) CYCLE
@@ -664,7 +664,7 @@ CONTAINS
 
          DO i = 1, SIZE(isymbl)
             isymbl(i) = id2str(atom_info%id_atmname(natom_prev + i))
-         ENDDO
+         END DO
 
          ! Sort atom names + charges and identify unique types
          CALL sort(isymbl, natom, iwork)
@@ -1629,7 +1629,7 @@ CONTAINS
          IF (m(iphi) - pn(icp(iwork(1))) .GT. EPSILON(1.0_dp)) THEN
             ! non integer torsions not supported
             CPABORT("")
-         ENDIF
+         END IF
 
          phi0(iphi) = phase(icp(iwork(1)))
 
@@ -1663,7 +1663,7 @@ CONTAINS
                IF (m(iphi) - pn(icp(iwork(i))) .GT. EPSILON(1.0_dp)) THEN
                   ! non integer torsions not supported
                   CPABORT("")
-               ENDIF
+               END IF
                phi0(iphi) = phase(icp(iwork(i)))
             END IF
          END DO

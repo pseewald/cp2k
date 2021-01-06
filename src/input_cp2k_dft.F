@@ -12,145 +12,145 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE input_cp2k_dft
-   USE basis_set_types,                 ONLY: basis_sort_default,&
-                                              basis_sort_zet
-   USE bibliography,                    ONLY: &
-        Andermatt2016, Andreussi2012, Avezac2005, BaniHashemian2016, Becke1988b, Bengtsson1999, &
-        Blochl1995, Brehm2018, Brehm2020, Brelaz1979, Dewar1977, Dewar1985, Dudarev1997, &
-        Dudarev1998, Ehrhardt1985, Fattebert2002, Golze2017a, Golze2017b, Guidon2010, &
-        Heinzmann1976, Holmberg2017, Holmberg2018, Hunt2003, Iannuzzi2005, Iannuzzi2006, &
-        Iannuzzi2007, Kolafa2004, Krack2000, Krack2002, Kuhne2007, Kunert2003, Lippert1997, &
-        Lippert1999, Lu2004, Perdew1981, Repasky2002, Rocha2006, Rycroft2009, Schenter2008, &
-        Schiffmann2015, Shigeta2001, Stewart1982, Stewart1989, Stewart2007, Thiel1992, Thomas2015, &
-        VanVoorhis2015, VandeVondele2003, VandeVondele2005a, VandeVondele2005b, VandeVondele2006, &
-        Weber2008, Yin2017
-   USE cp_output_handling,              ONLY: add_last_numeric,&
-                                              cp_print_key_section_create,&
-                                              debug_print_level,&
-                                              high_print_level,&
-                                              low_print_level,&
-                                              medium_print_level,&
-                                              silent_print_level
-   USE cp_spline_utils,                 ONLY: pw_interp,&
-                                              spline3_nopbc_interp,&
-                                              spline3_pbc_interp
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE input_constants,                 ONLY: &
-        atomic_guess, becke_cutoff_element, becke_cutoff_global, bqb_opt_exhaustive, &
-        bqb_opt_normal, bqb_opt_off, bqb_opt_patient, bqb_opt_quick, broyden_type_1, &
-        broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, broyden_type_2, &
-        broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, casci_canonical, &
-        cdft_alpha_constraint, cdft_beta_constraint, cdft_charge_constraint, &
-        cdft_magnetization_constraint, cholesky_dbcsr, cholesky_inverse, cholesky_off, &
-        cholesky_reduce, cholesky_restore, core_guess, diag_block_davidson, diag_block_krylov, &
-        diag_filter_matrix, diag_ot, diag_standard, dmft_model, do_admm_aux_exch_func_bee, &
-        do_admm_aux_exch_func_default, do_admm_aux_exch_func_none, do_admm_aux_exch_func_opt, &
-        do_admm_aux_exch_func_pbex, do_admm_basis_projection, do_admm_blocked_projection, &
-        do_admm_blocking_purify_full, do_admm_charge_constrained_projection, &
-        do_admm_exch_scaling_merlot, do_admm_exch_scaling_none, do_admm_purify_cauchy, &
-        do_admm_purify_cauchy_subspace, do_admm_purify_mcweeny, do_admm_purify_mo_diag, &
-        do_admm_purify_mo_no_diag, do_admm_purify_none, do_admm_purify_none_dm, do_arnoldi, &
-        do_bch, do_cn, do_ddapc_constraint, do_ddapc_restraint, do_em, do_etrs, do_full_density, &
-        do_gapw_gcs, do_gapw_gct, do_gapw_log, do_loc_both, do_loc_crazy, do_loc_direct, &
-        do_loc_homo, do_loc_jacobi, do_loc_l1_norm_sd, do_loc_lumo, do_loc_max, do_loc_min, &
-        do_loc_none, do_loc_scdm, do_lri_inv, do_lri_inv_auto, do_lri_opt_all, do_lri_opt_coeff, &
-        do_lri_opt_exps, do_lri_pseudoinv_diag, do_lri_pseudoinv_svd, do_method_am1, &
-        do_method_dftb, do_method_gapw, do_method_gapw_xc, do_method_gpw, do_method_lrigpw, &
-        do_method_mndo, do_method_mndod, do_method_ofgpw, do_method_pdg, do_method_pm3, &
-        do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_rigpw, do_method_rm1, &
-        do_method_xtb, do_pade, do_potential_coulomb, do_potential_id, do_potential_short, &
-        do_potential_truncated, do_ppl_analytic, do_ppl_grid, do_pwgrid_ns_fullspace, &
-        do_pwgrid_ns_halfspace, do_pwgrid_spherical, do_s2_constraint, do_s2_restraint, &
-        do_se_is_kdso, do_se_is_kdso_d, do_se_is_slater, do_se_lr_ewald, do_se_lr_ewald_gks, &
-        do_se_lr_ewald_r3, do_se_lr_none, do_spin_density, do_taylor, ehrenfest, embed_diff, &
-        embed_fa, embed_grid_angstrom, embed_grid_bohr, embed_level_shift, embed_none, &
-        embed_quasi_newton, embed_resp, embed_steep_desc, eri_method_full_gpw, eri_method_gpw_ht, &
-        eri_operator_coulomb, eri_operator_erf, eri_operator_erfc, eri_operator_gaussian, &
-        eri_operator_yukawa, gaussian, general_roks, gto_cartesian, gto_spherical, hf_model, &
-        high_spin_roks, history_guess, jacobian_fd1, jacobian_fd1_backward, jacobian_fd1_central, &
-        jacobian_fd2, jacobian_fd2_backward, kg_color_dsatur, kg_color_greedy, kg_tnadd_atomic, &
-        kg_tnadd_embed, kg_tnadd_embed_ri, kg_tnadd_none, ls_2pnt, ls_3pnt, ls_gold, ls_none, &
-        mao_basis_ext, mao_basis_orb, mao_basis_prim, mao_projection, mopac_guess, no_excitations, &
-        no_guess, numerical, oe_gllb, oe_lb, oe_none, oe_saop, oe_sic, op_loc_berry, op_loc_boys, &
-        op_loc_pipek, orb_dx2, orb_dxy, orb_dy2, orb_dyz, orb_dz2, orb_dzx, orb_px, orb_py, &
-        orb_pz, orb_s, ot_algo_irac, ot_algo_taylor_or_diag, ot_chol_irac, ot_lwdn_irac, &
-        ot_mini_broyden, ot_mini_cg, ot_mini_diis, ot_mini_sd, ot_poly_irac, ot_precond_full_all, &
-        ot_precond_full_kinetic, ot_precond_full_single, ot_precond_full_single_inverse, &
-        ot_precond_none, ot_precond_s_inverse, ot_precond_solver_default, &
-        ot_precond_solver_direct, ot_precond_solver_inv_chol, ot_precond_solver_update, &
-        outer_scf_basis_center_opt, outer_scf_becke_constraint, outer_scf_cdft_constraint, &
-        outer_scf_ddapc_constraint, outer_scf_hirshfeld_constraint, outer_scf_none, &
-        outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, outer_scf_optimizer_diis, &
-        outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, outer_scf_optimizer_none, &
-        outer_scf_optimizer_sd, outer_scf_optimizer_secant, outer_scf_s2_constraint, &
-        plus_u_lowdin, plus_u_mulliken, plus_u_mulliken_charges, radius_covalent, radius_default, &
-        radius_single, radius_user, radius_vdw, random_guess, real_time_propagation, &
-        ref_charge_atomic, ref_charge_mulliken, rel_dkh, rel_none, rel_pot_erfc, rel_pot_full, &
-        rel_sczora_mp, rel_trans_atom, rel_trans_full, rel_trans_molecule, rel_zora, &
-        rel_zora_full, rel_zora_mp, restart_guess, rsdft_model, sccs_andreussi, &
-        sccs_derivative_cd3, sccs_derivative_cd5, sccs_derivative_cd7, sccs_derivative_fft, &
-        sccs_fattebert_gygi, shape_function_density, shape_function_gaussian, sic_ad, sic_eo, &
-        sic_list_all, sic_list_unpaired, sic_mauri_spz, sic_mauri_us, sic_none, slater, &
-        smear_energy_window, smear_fermi_dirac, smear_list, sparse_guess, tddfpt_davidson, &
-        tddfpt_excitations, tddfpt_lanczos, tddfpt_singlet, tddfpt_spin_cons, tddfpt_spin_flip, &
-        tddfpt_triplet, use_mom_ref_coac, use_mom_ref_com, use_mom_ref_user, use_mom_ref_zero, &
-        use_restart_wfn, use_rt_restart, use_scf_wfn, voro_radii_cov, voro_radii_unity, &
-        voro_radii_user, voro_radii_vdw, wannier_projection, weight_type_mass, weight_type_unit, &
-        wfi_aspc_nr, wfi_frozen_method_nr, wfi_linear_p_method_nr, wfi_linear_ps_method_nr, &
-        wfi_linear_wf_method_nr, wfi_ps_method_nr, wfi_use_guess_method_nr, &
-        wfi_use_prev_p_method_nr, wfi_use_prev_rho_r_method_nr, wfi_use_prev_wf_method_nr, &
-        xas_1s_type, xas_2p_type, xas_2s_type, xas_3d_type, xas_3p_type, xas_3s_type, xas_4d_type, &
-        xas_4f_type, xas_4p_type, xas_4s_type, xas_dip_len, xas_dip_vel, xas_dscf, xas_none, &
-        xas_not_excited, xas_tdp_by_index, xas_tdp_by_kind, xas_tp_fh, xas_tp_flex, xas_tp_hh, &
-        xas_tp_xfh, xas_tp_xhh, xes_tp_val
-   USE input_cp2k_almo,                 ONLY: create_almo_scf_section
-   USE input_cp2k_distribution,         ONLY: create_distribution_section
-   USE input_cp2k_ec,                   ONLY: create_ec_section
-   USE input_cp2k_external,             ONLY: create_ext_den_section,&
-                                              create_ext_pot_section,&
-                                              create_ext_vxc_section
-   USE input_cp2k_field,                ONLY: create_efield_section,&
-                                              create_per_efield_section
-   USE input_cp2k_kpoints,              ONLY: create_kpoints_section
-   USE input_cp2k_ls,                   ONLY: create_ls_scf_section
-   USE input_cp2k_mm,                   ONLY: create_dipoles_section,&
-                                              create_neighbor_lists_section
-   USE input_cp2k_motion_print,         ONLY: add_format_keyword
-   USE input_cp2k_poisson,              ONLY: create_poisson_section
-   USE input_cp2k_rsgrid,               ONLY: create_rsgrid_section
-   USE input_cp2k_tb,                   ONLY: create_dftb_control_section,&
-                                              create_xtb_control_section
-   USE input_cp2k_transport,            ONLY: create_transport_section
-   USE input_cp2k_xc,                   ONLY: create_xc_fun_section,&
-                                              create_xc_section
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: char_t,&
-                                              integer_t,&
-                                              lchar_t,&
-                                              logical_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE pw_grids,                        ONLY: do_pw_grid_blocked_false,&
-                                              do_pw_grid_blocked_free,&
-                                              do_pw_grid_blocked_true
-   USE pw_spline_utils,                 ONLY: no_precond,&
-                                              precond_spl3_1,&
-                                              precond_spl3_2,&
-                                              precond_spl3_3,&
-                                              precond_spl3_aint,&
-                                              precond_spl3_aint2
-   USE qs_density_mixing_types,         ONLY: create_mixing_section
-   USE qs_fb_input,                     ONLY: create_filtermatrix_section
-   USE qs_mom_types,                    ONLY: create_mom_section
-   USE string_utilities,                ONLY: newline,&
-                                              s2a
+   USE basis_set_types, ONLY: basis_sort_default, &
+                              basis_sort_zet
+   USE bibliography, ONLY: &
+      Andermatt2016, Andreussi2012, Avezac2005, BaniHashemian2016, Becke1988b, Bengtsson1999, &
+      Blochl1995, Brehm2018, Brehm2020, Brelaz1979, Dewar1977, Dewar1985, Dudarev1997, &
+      Dudarev1998, Ehrhardt1985, Fattebert2002, Golze2017a, Golze2017b, Guidon2010, &
+      Heinzmann1976, Holmberg2017, Holmberg2018, Hunt2003, Iannuzzi2005, Iannuzzi2006, &
+      Iannuzzi2007, Kolafa2004, Krack2000, Krack2002, Kuhne2007, Kunert2003, Lippert1997, &
+      Lippert1999, Lu2004, Perdew1981, Repasky2002, Rocha2006, Rycroft2009, Schenter2008, &
+      Schiffmann2015, Shigeta2001, Stewart1982, Stewart1989, Stewart2007, Thiel1992, Thomas2015, &
+      VanVoorhis2015, VandeVondele2003, VandeVondele2005a, VandeVondele2005b, VandeVondele2006, &
+      Weber2008, Yin2017
+   USE cp_output_handling, ONLY: add_last_numeric, &
+                                 cp_print_key_section_create, &
+                                 debug_print_level, &
+                                 high_print_level, &
+                                 low_print_level, &
+                                 medium_print_level, &
+                                 silent_print_level
+   USE cp_spline_utils, ONLY: pw_interp, &
+                              spline3_nopbc_interp, &
+                              spline3_pbc_interp
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE input_constants, ONLY: &
+      atomic_guess, becke_cutoff_element, becke_cutoff_global, bqb_opt_exhaustive, &
+      bqb_opt_normal, bqb_opt_off, bqb_opt_patient, bqb_opt_quick, broyden_type_1, &
+      broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, broyden_type_2, &
+      broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, casci_canonical, &
+      cdft_alpha_constraint, cdft_beta_constraint, cdft_charge_constraint, &
+      cdft_magnetization_constraint, cholesky_dbcsr, cholesky_inverse, cholesky_off, &
+      cholesky_reduce, cholesky_restore, core_guess, diag_block_davidson, diag_block_krylov, &
+      diag_filter_matrix, diag_ot, diag_standard, dmft_model, do_admm_aux_exch_func_bee, &
+      do_admm_aux_exch_func_default, do_admm_aux_exch_func_none, do_admm_aux_exch_func_opt, &
+      do_admm_aux_exch_func_pbex, do_admm_basis_projection, do_admm_blocked_projection, &
+      do_admm_blocking_purify_full, do_admm_charge_constrained_projection, &
+      do_admm_exch_scaling_merlot, do_admm_exch_scaling_none, do_admm_purify_cauchy, &
+      do_admm_purify_cauchy_subspace, do_admm_purify_mcweeny, do_admm_purify_mo_diag, &
+      do_admm_purify_mo_no_diag, do_admm_purify_none, do_admm_purify_none_dm, do_arnoldi, &
+      do_bch, do_cn, do_ddapc_constraint, do_ddapc_restraint, do_em, do_etrs, do_full_density, &
+      do_gapw_gcs, do_gapw_gct, do_gapw_log, do_loc_both, do_loc_crazy, do_loc_direct, &
+      do_loc_homo, do_loc_jacobi, do_loc_l1_norm_sd, do_loc_lumo, do_loc_max, do_loc_min, &
+      do_loc_none, do_loc_scdm, do_lri_inv, do_lri_inv_auto, do_lri_opt_all, do_lri_opt_coeff, &
+      do_lri_opt_exps, do_lri_pseudoinv_diag, do_lri_pseudoinv_svd, do_method_am1, &
+      do_method_dftb, do_method_gapw, do_method_gapw_xc, do_method_gpw, do_method_lrigpw, &
+      do_method_mndo, do_method_mndod, do_method_ofgpw, do_method_pdg, do_method_pm3, &
+      do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_rigpw, do_method_rm1, &
+      do_method_xtb, do_pade, do_potential_coulomb, do_potential_id, do_potential_short, &
+      do_potential_truncated, do_ppl_analytic, do_ppl_grid, do_pwgrid_ns_fullspace, &
+      do_pwgrid_ns_halfspace, do_pwgrid_spherical, do_s2_constraint, do_s2_restraint, &
+      do_se_is_kdso, do_se_is_kdso_d, do_se_is_slater, do_se_lr_ewald, do_se_lr_ewald_gks, &
+      do_se_lr_ewald_r3, do_se_lr_none, do_spin_density, do_taylor, ehrenfest, embed_diff, &
+      embed_fa, embed_grid_angstrom, embed_grid_bohr, embed_level_shift, embed_none, &
+      embed_quasi_newton, embed_resp, embed_steep_desc, eri_method_full_gpw, eri_method_gpw_ht, &
+      eri_operator_coulomb, eri_operator_erf, eri_operator_erfc, eri_operator_gaussian, &
+      eri_operator_yukawa, gaussian, general_roks, gto_cartesian, gto_spherical, hf_model, &
+      high_spin_roks, history_guess, jacobian_fd1, jacobian_fd1_backward, jacobian_fd1_central, &
+      jacobian_fd2, jacobian_fd2_backward, kg_color_dsatur, kg_color_greedy, kg_tnadd_atomic, &
+      kg_tnadd_embed, kg_tnadd_embed_ri, kg_tnadd_none, ls_2pnt, ls_3pnt, ls_gold, ls_none, &
+      mao_basis_ext, mao_basis_orb, mao_basis_prim, mao_projection, mopac_guess, no_excitations, &
+      no_guess, numerical, oe_gllb, oe_lb, oe_none, oe_saop, oe_sic, op_loc_berry, op_loc_boys, &
+      op_loc_pipek, orb_dx2, orb_dxy, orb_dy2, orb_dyz, orb_dz2, orb_dzx, orb_px, orb_py, &
+      orb_pz, orb_s, ot_algo_irac, ot_algo_taylor_or_diag, ot_chol_irac, ot_lwdn_irac, &
+      ot_mini_broyden, ot_mini_cg, ot_mini_diis, ot_mini_sd, ot_poly_irac, ot_precond_full_all, &
+      ot_precond_full_kinetic, ot_precond_full_single, ot_precond_full_single_inverse, &
+      ot_precond_none, ot_precond_s_inverse, ot_precond_solver_default, &
+      ot_precond_solver_direct, ot_precond_solver_inv_chol, ot_precond_solver_update, &
+      outer_scf_basis_center_opt, outer_scf_becke_constraint, outer_scf_cdft_constraint, &
+      outer_scf_ddapc_constraint, outer_scf_hirshfeld_constraint, outer_scf_none, &
+      outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, outer_scf_optimizer_diis, &
+      outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, outer_scf_optimizer_none, &
+      outer_scf_optimizer_sd, outer_scf_optimizer_secant, outer_scf_s2_constraint, &
+      plus_u_lowdin, plus_u_mulliken, plus_u_mulliken_charges, radius_covalent, radius_default, &
+      radius_single, radius_user, radius_vdw, random_guess, real_time_propagation, &
+      ref_charge_atomic, ref_charge_mulliken, rel_dkh, rel_none, rel_pot_erfc, rel_pot_full, &
+      rel_sczora_mp, rel_trans_atom, rel_trans_full, rel_trans_molecule, rel_zora, &
+      rel_zora_full, rel_zora_mp, restart_guess, rsdft_model, sccs_andreussi, &
+      sccs_derivative_cd3, sccs_derivative_cd5, sccs_derivative_cd7, sccs_derivative_fft, &
+      sccs_fattebert_gygi, shape_function_density, shape_function_gaussian, sic_ad, sic_eo, &
+      sic_list_all, sic_list_unpaired, sic_mauri_spz, sic_mauri_us, sic_none, slater, &
+      smear_energy_window, smear_fermi_dirac, smear_list, sparse_guess, tddfpt_davidson, &
+      tddfpt_excitations, tddfpt_lanczos, tddfpt_singlet, tddfpt_spin_cons, tddfpt_spin_flip, &
+      tddfpt_triplet, use_mom_ref_coac, use_mom_ref_com, use_mom_ref_user, use_mom_ref_zero, &
+      use_restart_wfn, use_rt_restart, use_scf_wfn, voro_radii_cov, voro_radii_unity, &
+      voro_radii_user, voro_radii_vdw, wannier_projection, weight_type_mass, weight_type_unit, &
+      wfi_aspc_nr, wfi_frozen_method_nr, wfi_linear_p_method_nr, wfi_linear_ps_method_nr, &
+      wfi_linear_wf_method_nr, wfi_ps_method_nr, wfi_use_guess_method_nr, &
+      wfi_use_prev_p_method_nr, wfi_use_prev_rho_r_method_nr, wfi_use_prev_wf_method_nr, &
+      xas_1s_type, xas_2p_type, xas_2s_type, xas_3d_type, xas_3p_type, xas_3s_type, xas_4d_type, &
+      xas_4f_type, xas_4p_type, xas_4s_type, xas_dip_len, xas_dip_vel, xas_dscf, xas_none, &
+      xas_not_excited, xas_tdp_by_index, xas_tdp_by_kind, xas_tp_fh, xas_tp_flex, xas_tp_hh, &
+      xas_tp_xfh, xas_tp_xhh, xes_tp_val
+   USE input_cp2k_almo, ONLY: create_almo_scf_section
+   USE input_cp2k_distribution, ONLY: create_distribution_section
+   USE input_cp2k_ec, ONLY: create_ec_section
+   USE input_cp2k_external, ONLY: create_ext_den_section, &
+                                  create_ext_pot_section, &
+                                  create_ext_vxc_section
+   USE input_cp2k_field, ONLY: create_efield_section, &
+                               create_per_efield_section
+   USE input_cp2k_kpoints, ONLY: create_kpoints_section
+   USE input_cp2k_ls, ONLY: create_ls_scf_section
+   USE input_cp2k_mm, ONLY: create_dipoles_section, &
+                            create_neighbor_lists_section
+   USE input_cp2k_motion_print, ONLY: add_format_keyword
+   USE input_cp2k_poisson, ONLY: create_poisson_section
+   USE input_cp2k_rsgrid, ONLY: create_rsgrid_section
+   USE input_cp2k_tb, ONLY: create_dftb_control_section, &
+                            create_xtb_control_section
+   USE input_cp2k_transport, ONLY: create_transport_section
+   USE input_cp2k_xc, ONLY: create_xc_fun_section, &
+                            create_xc_section
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: char_t, &
+                              integer_t, &
+                              lchar_t, &
+                              logical_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE pw_grids, ONLY: do_pw_grid_blocked_false, &
+                       do_pw_grid_blocked_free, &
+                       do_pw_grid_blocked_true
+   USE pw_spline_utils, ONLY: no_precond, &
+                              precond_spl3_1, &
+                              precond_spl3_2, &
+                              precond_spl3_3, &
+                              precond_spl3_aint, &
+                              precond_spl3_aint2
+   USE qs_density_mixing_types, ONLY: create_mixing_section
+   USE qs_fb_input, ONLY: create_filtermatrix_section
+   USE qs_mom_types, ONLY: create_mom_section
+   USE string_utilities, ONLY: newline, &
+                               s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

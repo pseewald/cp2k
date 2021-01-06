@@ -17,84 +17,84 @@
 !> \author Matthias Krack (08.10.1999,26.03.2002,16.06.2003)
 ! **************************************************************************************************
 MODULE qs_neighbor_lists
-   USE almo_scf_types,                  ONLY: almo_max_cutoff_multiplier
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell,&
-                                              pbc,&
-                                              plane_distance,&
-                                              real_to_scaled,&
-                                              scaled_to_real
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE distribution_2d_types,           ONLY: distribution_2d_type
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_environment_type
-   USE external_potential_types,        ONLY: all_potential_type,&
-                                              get_potential,&
-                                              gth_potential_type,&
-                                              sgp_potential_type
-   USE input_constants,                 ONLY: dispersion_uff,&
-                                              do_method_lrigpw,&
-                                              do_method_rigpw,&
-                                              do_se_IS_slater,&
-                                              vdw_pairpot_dftd3,&
-                                              vdw_pairpot_dftd3bj,&
-                                              xc_vdw_fun_pairpot
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp,&
-                                              int_8
-   USE kpoint_types,                    ONLY: kpoint_type
-   USE message_passing,                 ONLY: mp_max,&
-                                              mp_sum
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_types,                  ONLY: particle_type
-   USE paw_proj_set_types,              ONLY: get_paw_proj_set,&
-                                              paw_proj_set_type
-   USE periodic_table,                  ONLY: ptable
-   USE physcon,                         ONLY: bohr
-   USE qs_dftb_types,                   ONLY: qs_dftb_atom_type
-   USE qs_dftb_utils,                   ONLY: get_dftb_atom_param
-   USE qs_dispersion_types,             ONLY: qs_dispersion_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_gcp_types,                    ONLY: qs_gcp_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_ks_types,                     ONLY: get_ks_env,&
-                                              qs_ks_env_type,&
-                                              set_ks_env
-   USE qs_neighbor_list_types,          ONLY: &
-        add_neighbor_list, add_neighbor_node, allocate_neighbor_list_set, get_iterator_info, &
-        get_iterator_task, neighbor_list_iterate, neighbor_list_iterator_create, &
-        neighbor_list_iterator_p_type, neighbor_list_iterator_release, neighbor_list_p_type, &
-        neighbor_list_set_p_type, neighbor_list_set_type, release_neighbor_list_sets
-   USE string_utilities,                ONLY: compress,&
-                                              uppercase
-   USE subcell_types,                   ONLY: allocate_subcell,&
-                                              deallocate_subcell,&
-                                              give_ijk_subcell,&
-                                              subcell_type
-   USE util,                            ONLY: locate,&
-                                              sort
+   USE almo_scf_types, ONLY: almo_max_cutoff_multiplier
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cell_types, ONLY: cell_type, &
+                         get_cell, &
+                         pbc, &
+                         plane_distance, &
+                         real_to_scaled, &
+                         scaled_to_real
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE distribution_2d_types, ONLY: distribution_2d_type
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_environment_type
+   USE external_potential_types, ONLY: all_potential_type, &
+                                       get_potential, &
+                                       gth_potential_type, &
+                                       sgp_potential_type
+   USE input_constants, ONLY: dispersion_uff, &
+                              do_method_lrigpw, &
+                              do_method_rigpw, &
+                              do_se_IS_slater, &
+                              vdw_pairpot_dftd3, &
+                              vdw_pairpot_dftd3bj, &
+                              xc_vdw_fun_pairpot
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp, &
+                    int_8
+   USE kpoint_types, ONLY: kpoint_type
+   USE message_passing, ONLY: mp_max, &
+                              mp_sum
+   USE molecule_types, ONLY: molecule_type
+   USE particle_types, ONLY: particle_type
+   USE paw_proj_set_types, ONLY: get_paw_proj_set, &
+                                 paw_proj_set_type
+   USE periodic_table, ONLY: ptable
+   USE physcon, ONLY: bohr
+   USE qs_dftb_types, ONLY: qs_dftb_atom_type
+   USE qs_dftb_utils, ONLY: get_dftb_atom_param
+   USE qs_dispersion_types, ONLY: qs_dispersion_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_gcp_types, ONLY: qs_gcp_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_ks_types, ONLY: get_ks_env, &
+                          qs_ks_env_type, &
+                          set_ks_env
+   USE qs_neighbor_list_types, ONLY: &
+      add_neighbor_list, add_neighbor_node, allocate_neighbor_list_set, get_iterator_info, &
+      get_iterator_task, neighbor_list_iterate, neighbor_list_iterator_create, &
+      neighbor_list_iterator_p_type, neighbor_list_iterator_release, neighbor_list_p_type, &
+      neighbor_list_set_p_type, neighbor_list_set_type, release_neighbor_list_sets
+   USE string_utilities, ONLY: compress, &
+                               uppercase
+   USE subcell_types, ONLY: allocate_subcell, &
+                            deallocate_subcell, &
+                            give_ijk_subcell, &
+                            subcell_type
+   USE util, ONLY: locate, &
+                   sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -202,9 +202,9 @@ CONTAINS
          DO imol = 1, SIZE(molecule_set)
             DO iat = molecule_set(imol)%first_atom, molecule_set(imol)%last_atom
                atom2mol(iat) = imol
-            ENDDO
+            END DO
          END DO
-      ENDIF
+      END IF
 
       DO ikind = 1, nkind
          NULLIFY (atom2d(ikind)%list)
@@ -268,7 +268,7 @@ CONTAINS
 
          DEALLOCATE (listsort, listindex)
 
-      ENDDO
+      END DO
 
       DEALLOCATE (atom_of_kind)
 
@@ -301,15 +301,15 @@ CONTAINS
       INTEGER                                            :: handle, ikind, ingp, iw, jkind, maxatom, &
                                                             ngp, nkind, numshells, zat
       LOGICAL :: all_potential_present, almo, dftb, do_hfx, dokp, explicit, gth_potential_present, &
-         lri_optbas, lrigpw, mic, molecule_only, nddo, paw_atom, paw_atom_present, rigpw, &
-         sgp_potential_present, xtb
+                 lri_optbas, lrigpw, mic, molecule_only, nddo, paw_atom, paw_atom_present, rigpw, &
+                 sgp_potential_present, xtb
       LOGICAL, ALLOCATABLE, DIMENSION(:) :: all_present, aux_fit_present, aux_present, &
-         core_present, default_present, nonbond1_atom, nonbond2_atom, oce_present, orb_present, &
-         ppl_present, ppnl_present, ri_present, xb1_atom, xb2_atom
+                                            core_present, default_present, nonbond1_atom, nonbond2_atom, oce_present, orb_present, &
+                                            ppl_present, ppnl_present, ri_present, xb1_atom, xb2_atom
       REAL(dp)                                           :: almo_rcov, almo_rvdw, rcut, roperator, &
                                                             subcells
       REAL(dp), ALLOCATABLE, DIMENSION(:) :: all_pot_rad, aux_fit_radius, c_radius, calpha, &
-         core_radius, oce_radius, orb_radius, ppl_radius, ppnl_radius, ri_radius, zeff
+                                             core_radius, oce_radius, orb_radius, ppl_radius, ppnl_radius, ri_radius, zeff
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: pair_radius
       TYPE(all_potential_type), POINTER                  :: all_potential
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -326,9 +326,9 @@ CONTAINS
       TYPE(local_atoms_type), ALLOCATABLE, DIMENSION(:)  :: atom2d
       TYPE(molecule_type), DIMENSION(:), POINTER         :: molecule_set
       TYPE(neighbor_list_set_p_type), DIMENSION(:), POINTER :: saa_list, sab_all, sab_almo, &
-         sab_aux_fit, sab_aux_fit_asymm, sab_aux_fit_vs_orb, sab_cn, sab_core, sab_gcp, sab_kp, &
-         sab_lrc, sab_orb, sab_scp, sab_se, sab_tbe, sab_vdw, sab_xb, sab_xtb_nonbond, sac_ae, &
-         sac_lri, sac_ppl, sap_oce, sap_ppnl, soa_list, soo_list
+                                            sab_aux_fit, sab_aux_fit_asymm, sab_aux_fit_vs_orb, sab_cn, sab_core, sab_gcp, sab_kp, &
+                                             sab_lrc, sab_orb, sab_scp, sab_se, sab_tbe, sab_vdw, sab_xb, sab_xtb_nonbond, sac_ae, &
+                                                               sac_lri, sac_ppl, sap_oce, sap_ppnl, soa_list, soo_list
       TYPE(particle_type), DIMENSION(:), POINTER         :: particle_set
       TYPE(paw_proj_set_type), POINTER                   :: paw_proj
       TYPE(qs_dftb_atom_type), POINTER                   :: dftb_atom
@@ -505,14 +505,14 @@ CONTAINS
                CALL get_gto_basis_set(gto_basis_set=orb_basis_set, kind_radius=orb_radius(ikind))
             ELSE
                orb_present(ikind) = .FALSE.
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          IF (ASSOCIATED(aux_basis_set)) THEN
             aux_present(ikind) = .TRUE.
          ELSE
             aux_present(ikind) = .FALSE.
-         ENDIF
+         END IF
 
          IF (ASSOCIATED(aux_fit_basis_set)) THEN
             aux_fit_present(ikind) = .TRUE.
@@ -594,7 +594,7 @@ CONTAINS
          CALL build_neighbor_lists(sab_all, particle_set, atom2d, cell, pair_radius, &
                                    mic=mic, symmetric=.FALSE., subcells=subcells, molecular=molecule_only, nlname="sab_all")
          CALL set_ks_env(ks_env=ks_env, sab_all=sab_all)
-      ENDIF
+      END IF
 
       ! Build the core-core overlap neighbor lists
       IF (.NOT. (nddo .OR. dftb .OR. xtb)) THEN
@@ -604,7 +604,7 @@ CONTAINS
          CALL set_ks_env(ks_env=ks_env, sab_core=sab_core)
          CALL write_neighbor_lists(sab_core, particle_set, cell, para_env, neighbor_list_section, &
                                    "/SAB_CORE", "sab_core", "CORE CORE")
-      ENDIF
+      END IF
 
       IF (dft_control%do_admm) THEN
          CALL pair_radius_setup(aux_fit_present, aux_fit_present, aux_fit_radius, aux_fit_radius, pair_radius)
@@ -827,8 +827,8 @@ CONTAINS
                         CALL uppercase(element_symbol2)
                         IF (TRIM(dft_control%qs_control%xtb_control%nonbonded%pot(ingp)%pot%at2) == TRIM(element_symbol2)) THEN
                            nonbond2_atom(jkind) = .TRUE.
-                        ENDIF
-                     ENDDO
+                        END IF
+                     END DO
                   END IF
                END DO
                CALL pair_radius_setup(nonbond1_atom, nonbond2_atom, c_radius, c_radius, pair_radius)
@@ -838,7 +838,7 @@ CONTAINS
                CALL write_neighbor_lists(sab_xtb_nonbond, particle_set, cell, para_env, neighbor_list_section, &
                                          "/SAB_XTB_NONBOND", "sab_xtb_nonbond", "XTB NONBONDED INTERACTIONS")
             END DO
-         ENDIF
+         END IF
       END IF
 
       ! Build the neighbor lists for the vdW pair potential
@@ -905,7 +905,7 @@ CONTAINS
                CALL get_gto_basis_set(gto_basis_set=ri_basis_set, kind_radius=ri_radius(ikind))
             ELSE
                ri_present(ikind) = .FALSE.
-            ENDIF
+            END IF
          END DO
          ! set neighborlists in lri_env environment
          CALL pair_radius_setup(orb_present, orb_present, orb_radius, orb_radius, pair_radius)
@@ -941,7 +941,7 @@ CONTAINS
          CALL build_neighbor_lists(sab_almo, particle_set, atom2d, cell, pair_radius, &
                                    subcells=subcells, operator_type="PP", nlname="sab_almo")
          CALL set_ks_env(ks_env=ks_env, sab_almo=sab_almo)
-      ENDIF
+      END IF
 
       ! Print particle distribution
       print_key_path = "PRINT%DISTRIBUTION"
@@ -973,7 +973,7 @@ CONTAINS
       END IF
       IF (paw_atom_present) THEN
          DEALLOCATE (oce_present, oce_radius)
-      ENDIF
+      END IF
       IF (all_potential_present .OR. sgp_potential_present) THEN
          DEALLOCATE (all_present, all_pot_rad)
       END IF
@@ -1112,7 +1112,7 @@ CONTAINS
       ALLOCATE (r_pbc(3, natom))
       DO i = 1, natom
          r_pbc(1:3, i) = pbc(particle_set(i)%r(1:3), cell)
-      ENDDO
+      END DO
 
       ! setup the local lists of atoms
       maxat = 0
@@ -1352,8 +1352,8 @@ CONTAINS
                                              rab_pbc(:) = pbc(rab(:), cell)
                                              IF (SUM((rab_pbc - rab)**2) > EPSILON(1.0_dp)) THEN
                                                 include_ab = .FALSE.
-                                             ENDIF
-                                          ENDIF
+                                             END IF
+                                          END IF
                                           IF (include_ab) THEN
                                              CALL add_neighbor_node( &
                                                 neighbor_list=kind_a(iatom_local)%neighbor_list, &
@@ -1361,7 +1361,7 @@ CONTAINS
                                                 cell=cell_b, &
                                                 r=rab, &
                                                 nkind=nkind)
-                                          ENDIF
+                                          END IF
                                        END IF
                                     END IF
                                  END DO
@@ -1592,7 +1592,7 @@ CONTAINS
             n = n + 1
             list(n) = listb(ib)
          END DO loopb
-      ENDIF
+      END IF
    END SUBROUTINE combine_lists
 
 ! **************************************************************************************************
@@ -1703,7 +1703,7 @@ CONTAINS
          tmp = (/nblock_max, nelement_max/)
          CALL mp_max(tmp, group)
          nblock_max = tmp(1); nelement_max = tmp(2)
-      ENDIF
+      END IF
 
       IF (output_unit > 0) THEN
          IF (full_output) THEN
@@ -1722,7 +1722,7 @@ CONTAINS
             WRITE (UNIT=output_unit, FMT="(T15,A,T68,I13)") "Maximum number of particle pairs:", nblock_max
             WRITE (UNIT=output_unit, FMT="(T15,A,T68,I13)") "Average number of matrix element:", (nelement_sum + npe - 1)/npe
             WRITE (UNIT=output_unit, FMT="(T15,A,T68,I13)") "Maximum number of matrix elements:", nelement_max
-         ENDIF
+         END IF
       END IF
 
       ! Release work storage

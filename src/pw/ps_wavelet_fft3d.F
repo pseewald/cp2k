@@ -8,7 +8,7 @@
 ! **************************************************************************************************
 MODULE ps_wavelet_fft3d
 
-   USE kinds,                           ONLY: dp
+   USE kinds, ONLY: dp
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -36,15 +36,15 @@ CONTAINS
 
       INTEGER, PARAMETER                                 :: ndata = 149, ndata1024 = 149
       INTEGER, DIMENSION(ndata), PARAMETER :: idata = (/3, 4, 5, 6, 8, 9, 12, 15, 16, 18, 20, 24, &
-         25, 27, 30, 32, 36, 40, 45, 48, 54, 60, 64, 72, 75, 80, 81, 90, 96, 100, 108, 120, 125, &
-         128, 135, 144, 150, 160, 162, 180, 192, 200, 216, 225, 240, 243, 256, 270, 288, 300, 320, &
-         324, 360, 375, 384, 400, 405, 432, 450, 480, 486, 500, 512, 540, 576, 600, 625, 640, 648, &
-         675, 720, 729, 750, 768, 800, 810, 864, 900, 960, 972, 1000, 1024, 1080, 1125, 1152, 1200,&
-         1215, 1280, 1296, 1350, 1440, 1458, 1500, 1536, 1600, 1620, 1728, 1800, 1875, 1920, 1944, &
-         2000, 2025, 2048, 2160, 2250, 2304, 2400, 2430, 2500, 2560, 2592, 2700, 2880, 3000, 3072, &
-         3125, 3200, 3240, 3375, 3456, 3600, 3750, 3840, 3888, 4000, 4050, 4096, 4320, 4500, 4608, &
-         4800, 5000, 5120, 5184, 5400, 5625, 5760, 6000, 6144, 6400, 6480, 6750, 6912, 7200, 7500, &
-         7680, 8000, ctrig_length/)
+                                           25, 27, 30, 32, 36, 40, 45, 48, 54, 60, 64, 72, 75, 80, 81, 90, 96, 100, 108, 120, 125, &
+                                         128, 135, 144, 150, 160, 162, 180, 192, 200, 216, 225, 240, 243, 256, 270, 288, 300, 320, &
+                                         324, 360, 375, 384, 400, 405, 432, 450, 480, 486, 500, 512, 540, 576, 600, 625, 640, 648, &
+                                        675, 720, 729, 750, 768, 800, 810, 864, 900, 960, 972, 1000, 1024, 1080, 1125, 1152, 1200, &
+                                         1215, 1280, 1296, 1350, 1440, 1458, 1500, 1536, 1600, 1620, 1728, 1800, 1875, 1920, 1944, &
+                                         2000, 2025, 2048, 2160, 2250, 2304, 2400, 2430, 2500, 2560, 2592, 2700, 2880, 3000, 3072, &
+                                         3125, 3200, 3240, 3375, 3456, 3600, 3750, 3840, 3888, 4000, 4050, 4096, 4320, 4500, 4608, &
+                                         4800, 5000, 5120, 5184, 5400, 5625, 5760, 6000, 6144, 6400, 6480, 6750, 6912, 7200, 7500, &
+                                                        7680, 8000, ctrig_length/)
 
       INTEGER                                            :: i
 
@@ -204,7 +204,7 @@ CONTAINS
 37          FORMAT(15(i5))
             WRITE (*, 37) (idata(1, j), j=1, 149)
             CPABORT("")
-         ENDIF
+         END IF
          IF (n .EQ. idata(1, i)) THEN
             ic = 0
             DO j = 1, 6
@@ -214,18 +214,18 @@ CONTAINS
                   now(j) = idata(1 + j, i)
                ELSE
                   EXIT
-               ENDIF
-            ENDDO
+               END IF
+            END DO
             EXIT
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       after(1) = 1
       before(ic) = 1
       DO i = 2, ic
          after(i) = after(i - 1)*now(i - 1)
          before(ic - i + 1) = before(ic - i + 2)*now(ic - i + 2)
-      ENDDO
+      END DO
 
       twopi = 6.283185307179586_dp
       angle = isign*twopi/n
@@ -255,7 +255,7 @@ CONTAINS
                trig(1, n - i + 1) = trigc
                trig(2, n - i + 1) = -trigs
 20             CONTINUE
-               ENDIF
+               END IF
 
                END SUBROUTINE ctrig
 
@@ -282,18 +282,18 @@ CONTAINS
 !  This file is distributed under the terms of the
 !  GNU General Public License, see http://www.gnu.org/copyleft/gpl.txt .
 
-      INTEGER                                            :: mm, nfft, m, nn, n
-      REAL(KIND=dp)                                      :: zin, zout, trig
-      INTEGER                                            :: after, now, before, isign
+                  INTEGER                                            :: mm, nfft, m, nn, n
+                  REAL(KIND=dp)                                      :: zin, zout, trig
+                  INTEGER                                            :: after, now, before, isign
 
-      INTEGER                                            :: atb, atn, ia, ias, ib, itrig, itt, j, &
-                                                            nin1, nin2, nin3, nin4, nin5, nin6, &
-                                                            nin7, nin8, nout1, nout2, nout3, &
-                                                            nout4, nout5, nout6, nout7, nout8
-      REAL(KIND=dp) :: am, ap, bb, bm, bp, ci2, ci3, ci4, ci5, ci6, ci7, ci8, cm, cos2, cos4, cp, &
-         cr2, cr3, cr4, cr5, cr6, cr7, cr8, dm, dpp, r, r1, r2, r25, r3, r34, r4, r5, r6, r7, r8, &
-         rt2i, s, s1, s2, s25, s3, s34, s4, s5, s6, s7, s8, sin2, sin4, ui1, ui2, ui3, ur1, ur2, &
-         ur3, vi1, vi2, vi3, vr1, vr2, vr3
+                  INTEGER                                            :: atb, atn, ia, ias, ib, itrig, itt, j, &
+                                                                        nin1, nin2, nin3, nin4, nin5, nin6, &
+                                                                        nin7, nin8, nout1, nout2, nout3, &
+                                                                        nout4, nout5, nout6, nout7, nout8
+                  REAL(KIND=dp) :: am, ap, bb, bm, bp, ci2, ci3, ci4, ci5, ci6, ci7, ci8, cm, cos2, cos4, cp, &
+                                   cr2, cr3, cr4, cr5, cr6, cr7, cr8, dm, dpp, r, r1, r2, r25, r3, r34, r4, r5, r6, r7, r8, &
+                                   rt2i, s, s1, s2, s25, s3, s34, s4, s5, s6, s7, s8, sin2, sin4, ui1, ui2, ui3, ur1, ur2, &
+                                   ur3, vi1, vi2, vi3, vr1, vr2, vr3
 
                   DIMENSION trig(2, ctrig_length), zin(2, mm, m), zout(2, nn, n)
                   atn = after*now
@@ -319,7 +319,7 @@ CONTAINS
                            zout(2, j, nout1) = s2 + s1
                            zout(1, j, nout2) = r1 - r2
                            zout(2, j, nout2) = s1 - s2
-                        ENDDO; ENDDO
+                        END DO; END DO
                      DO 2000, ia = 2, after
                         ias = ia - 1
                         IF (2*ias .EQ. after) THEN
@@ -340,7 +340,7 @@ CONTAINS
                                     zout(2, j, nout1) = s2 + s1
                                     zout(1, j, nout2) = r2 + r1
                                     zout(2, j, nout2) = s1 - s2
-                                 ENDDO; ENDDO
+                                 END DO; END DO
                            ELSE
                               nin1 = ia - after
                               nout1 = ia - atn
@@ -358,8 +358,8 @@ CONTAINS
                                     zout(2, j, nout1) = s1 - s2
                                     zout(1, j, nout2) = r1 - r2
                                     zout(2, j, nout2) = s2 + s1
-                                 ENDDO; ENDDO
-                           ENDIF
+                                 END DO; END DO
+                           END IF
                         ELSE IF (4*ias .EQ. after) THEN
                            IF (isign .EQ. 1) THEN
                               nin1 = ia - after
@@ -380,7 +380,7 @@ CONTAINS
                                     zout(2, j, nout1) = s2 + s1
                                     zout(1, j, nout2) = r1 - r2
                                     zout(2, j, nout2) = s1 - s2
-                                 ENDDO; ENDDO
+                                 END DO; END DO
                            ELSE
                               nin1 = ia - after
                               nout1 = ia - atn
@@ -400,8 +400,8 @@ CONTAINS
                                     zout(2, j, nout1) = s2 + s1
                                     zout(1, j, nout2) = r1 - r2
                                     zout(2, j, nout2) = s1 - s2
-                                 ENDDO; ENDDO
-                           ENDIF
+                                 END DO; END DO
+                           END IF
                         ELSE IF (4*ias .EQ. 3*after) THEN
                            IF (isign .EQ. 1) THEN
                               nin1 = ia - after
@@ -422,7 +422,7 @@ CONTAINS
                                     zout(2, j, nout1) = s2 + s1
                                     zout(1, j, nout2) = r2 + r1
                                     zout(2, j, nout2) = s1 - s2
-                                 ENDDO; ENDDO
+                                 END DO; END DO
                            ELSE
                               nin1 = ia - after
                               nout1 = ia - atn
@@ -442,8 +442,8 @@ CONTAINS
                                     zout(2, j, nout1) = s1 - s2
                                     zout(1, j, nout2) = r1 - r2
                                     zout(2, j, nout2) = s2 + s1
-                                 ENDDO; ENDDO
-                           ENDIF
+                                 END DO; END DO
+                           END IF
                         ELSE
                            itrig = ias*before + 1
                            cr2 = trig(1, itrig)
@@ -466,8 +466,8 @@ CONTAINS
                                  zout(2, j, nout1) = s2 + s1
                                  zout(1, j, nout2) = r1 - r2
                                  zout(2, j, nout2) = s1 - s2
-                              ENDDO; ENDDO
-                        ENDIF
+                              END DO; END DO
+                        END IF
 2000                    CONTINUE
                         ELSE IF (now .EQ. 4) THEN
                         IF (isign .EQ. 1) THEN
@@ -508,7 +508,7 @@ CONTAINS
                                  s = r2 - r4
                                  zout(2, j, nout2) = r + s
                                  zout(2, j, nout4) = r - s
-                              ENDDO; ENDDO
+                              END DO; END DO
                            DO 4000, ia = 2, after
                               ias = ia - 1
                               IF (2*ias .EQ. after) THEN
@@ -552,7 +552,7 @@ CONTAINS
                                        s = r2 + r4
                                        zout(2, j, nout2) = r + s
                                        zout(2, j, nout4) = r - s
-                                    ENDDO; ENDDO
+                                    END DO; END DO
                               ELSE
                                  itt = ias*before
                                  itrig = itt + 1
@@ -606,8 +606,8 @@ CONTAINS
                                        s = r2 - r4
                                        zout(2, j, nout2) = r + s
                                        zout(2, j, nout4) = r - s
-                                    ENDDO; ENDDO
-                              ENDIF
+                                    END DO; END DO
+                              END IF
 4000                          CONTINUE
                               ELSE
                               ia = 1
@@ -647,7 +647,7 @@ CONTAINS
                                     s = r2 - r4
                                     zout(2, j, nout2) = r - s
                                     zout(2, j, nout4) = r + s
-                                 ENDDO; ENDDO
+                                 END DO; END DO
                               DO 4100, ia = 2, after
                                  ias = ia - 1
                                  IF (2*ias .EQ. after) THEN
@@ -691,7 +691,7 @@ CONTAINS
                                           s = r2 - r4
                                           zout(2, j, nout2) = r - s
                                           zout(2, j, nout4) = r + s
-                                       ENDDO; ENDDO
+                                       END DO; END DO
                                  ELSE
                                     itt = ias*before
                                     itrig = itt + 1
@@ -745,10 +745,10 @@ CONTAINS
                                           s = r2 - r4
                                           zout(2, j, nout2) = r - s
                                           zout(2, j, nout4) = r + s
-                                       ENDDO; ENDDO
-                                 ENDIF
+                                       END DO; END DO
+                                 END IF
 4100                             CONTINUE
-                                 ENDIF
+                                 END IF
                                  ELSE IF (now .EQ. 8) THEN
                                  IF (isign .EQ. -1) THEN
                                     ia = 1
@@ -840,7 +840,7 @@ CONTAINS
                                           zout(2, j, nout4) = bp + dpp
                                           zout(1, j, nout8) = am - cp
                                           zout(2, j, nout8) = bp - dpp
-                                       ENDDO; ENDDO
+                                       END DO; END DO
                                     DO 8000, ia = 2, after
                                        ias = ia - 1
                                        itt = ias*before
@@ -967,7 +967,7 @@ CONTAINS
                                              zout(2, j, nout4) = bp + dpp
                                              zout(1, j, nout8) = am - cp
                                              zout(2, j, nout8) = bp - dpp
-                                          ENDDO; ENDDO
+                                          END DO; END DO
 8000                                   CONTINUE
 
                                        ELSE
@@ -1060,7 +1060,7 @@ CONTAINS
                                              zout(2, j, nout4) = bp + dpp
                                              zout(1, j, nout8) = am - cp
                                              zout(2, j, nout8) = bp - dpp
-                                          ENDDO; ENDDO
+                                          END DO; END DO
 
                                        DO 8001, ia = 2, after
                                           ias = ia - 1
@@ -1188,10 +1188,10 @@ CONTAINS
                                                 zout(2, j, nout4) = bp + dpp
                                                 zout(1, j, nout8) = am - cp
                                                 zout(2, j, nout8) = bp - dpp
-                                             ENDDO; ENDDO
+                                             END DO; END DO
 8001                                      CONTINUE
 
-                                          ENDIF
+                                          END IF
                                           ELSE IF (now .EQ. 3) THEN
 !         .5_dp*sqrt(3._dp)
                                           bb = isign*0.8660254037844387_dp
@@ -1224,7 +1224,7 @@ CONTAINS
                                                 zout(2, j, nout2) = s1 + r2
                                                 zout(1, j, nout3) = r1 + s2
                                                 zout(2, j, nout3) = s1 - r2
-                                             ENDDO; ENDDO
+                                             END DO; END DO
                                           DO 3000, ia = 2, after
                                              ias = ia - 1
                                              IF (4*ias .EQ. 3*after) THEN
@@ -1257,7 +1257,7 @@ CONTAINS
                                                       zout(2, j, nout2) = s1 - r2
                                                       zout(1, j, nout3) = r1 + s2
                                                       zout(2, j, nout3) = s1 + r2
-                                                   ENDDO; ENDDO
+                                                   END DO; END DO
                                              ELSE
                                                 nin1 = ia - after
                                                 nout1 = ia - atn
@@ -1287,8 +1287,8 @@ CONTAINS
                                                       zout(2, j, nout2) = s1 + r2
                                                       zout(1, j, nout3) = r1 - s2
                                                       zout(2, j, nout3) = s1 - r2
-                                                   ENDDO; ENDDO
-                                             ENDIF
+                                                   END DO; END DO
+                                             END IF
                                              ELSE IF (8*ias .EQ. 3*after) THEN
                                              IF (isign .EQ. 1) THEN
                                                 nin1 = ia - after
@@ -1321,7 +1321,7 @@ CONTAINS
                                                       zout(2, j, nout2) = s1 + r2
                                                       zout(1, j, nout3) = r1 + s2
                                                       zout(2, j, nout3) = s1 - r2
-                                                   ENDDO; ENDDO
+                                                   END DO; END DO
                                              ELSE
                                                 nin1 = ia - after
                                                 nout1 = ia - atn
@@ -1353,8 +1353,8 @@ CONTAINS
                                                       zout(2, j, nout2) = s1 + r2
                                                       zout(1, j, nout3) = r1 + s2
                                                       zout(2, j, nout3) = s1 - r2
-                                                   ENDDO; ENDDO
-                                             ENDIF
+                                                   END DO; END DO
+                                             END IF
                                              ELSE
                                              itt = ias*before
                                              itrig = itt + 1
@@ -1395,8 +1395,8 @@ CONTAINS
                                                    zout(2, j, nout2) = s1 + r2
                                                    zout(1, j, nout3) = r1 + s2
                                                    zout(2, j, nout3) = s1 - r2
-                                                ENDDO; ENDDO
-                                             ENDIF
+                                                END DO; END DO
+                                             END IF
 3000                                         CONTINUE
                                              ELSE IF (now .EQ. 5) THEN
 !         cos(2._dp*pi/5._dp)
@@ -1458,7 +1458,7 @@ CONTAINS
                                                    s = sin4*r25 - sin2*r34
                                                    zout(2, j, nout3) = r + s
                                                    zout(2, j, nout4) = r - s
-                                                ENDDO; ENDDO
+                                                END DO; END DO
                                              DO 5000, ia = 2, after
                                                 ias = ia - 1
                                                 IF (8*ias .EQ. 5*after) THEN
@@ -1517,7 +1517,7 @@ CONTAINS
                                                             s = sin4*r25 - sin2*r34
                                                             zout(2, j, nout3) = r + s
                                                             zout(2, j, nout4) = r - s
-                                                         ENDDO; ENDDO
+                                                         END DO; END DO
                                                    ELSE
                                                       nin1 = ia - after
                                                       nout1 = ia - atn
@@ -1573,8 +1573,8 @@ CONTAINS
                                                             s = sin4*r25 - sin2*r34
                                                             zout(2, j, nout3) = r + s
                                                             zout(2, j, nout4) = r - s
-                                                         ENDDO; ENDDO
-                                                   ENDIF
+                                                         END DO; END DO
+                                                   END IF
                                                 ELSE
                                                    ias = ia - 1
                                                    itt = ias*before
@@ -1648,8 +1648,8 @@ CONTAINS
                                                          s = sin4*r25 - sin2*r34
                                                          zout(2, j, nout3) = r + s
                                                          zout(2, j, nout4) = r - s
-                                                      ENDDO; ENDDO
-                                                ENDIF
+                                                      END DO; END DO
+                                                END IF
 5000                                            CONTINUE
                                                 ELSE IF (now .EQ. 6) THEN
 !         .5_dp*sqrt(3._dp)
@@ -1722,10 +1722,10 @@ CONTAINS
                                                       zout(2, j, nout2) = ui2 - vi2
                                                       zout(1, j, nout6) = ur3 - vr3
                                                       zout(2, j, nout6) = ui3 - vi3
-                                                   ENDDO; ENDDO
+                                                   END DO; END DO
                                                 ELSE
                                                 CPABORT("error fftstp")
-                                                ENDIF
+                                                END IF
 
                                                 END SUBROUTINE fftstp
 

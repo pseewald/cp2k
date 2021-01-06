@@ -12,50 +12,50 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE particle_methods
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_p_type
-   USE cell_types,                      ONLY: cell_clone,&
-                                              cell_create,&
-                                              cell_release,&
-                                              cell_type,&
-                                              get_cell,&
-                                              pbc,&
-                                              real_to_scaled,&
-                                              set_cell_param
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE external_potential_types,        ONLY: fist_potential_type,&
-                                              get_potential
-   USE input_constants,                 ONLY: dump_atomic,&
-                                              dump_dcd,&
-                                              dump_dcd_aligned_cell,&
-                                              dump_pdb,&
-                                              dump_xmol
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp,&
-                                              sp
-   USE mathconstants,                   ONLY: degree
-   USE mathlib,                         ONLY: angle,&
-                                              dihedral_angle
-   USE memory_utilities,                ONLY: reallocate
-   USE particle_types,                  ONLY: get_particle_pos_or_vel,&
-                                              particle_type
-   USE physcon,                         ONLY: massunit
-   USE qmmm_ff_fist,                    ONLY: qmmm_ff_precond_only_qm
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE shell_potential_types,           ONLY: get_shell,&
-                                              shell_kind_type
-   USE string_utilities,                ONLY: uppercase
-   USE util,                            ONLY: sort,&
-                                              sort_unique
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_p_type
+   USE cell_types, ONLY: cell_clone, &
+                         cell_create, &
+                         cell_release, &
+                         cell_type, &
+                         get_cell, &
+                         pbc, &
+                         real_to_scaled, &
+                         set_cell_param
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE external_potential_types, ONLY: fist_potential_type, &
+                                       get_potential
+   USE input_constants, ONLY: dump_atomic, &
+                              dump_dcd, &
+                              dump_dcd_aligned_cell, &
+                              dump_pdb, &
+                              dump_xmol
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp, &
+                    sp
+   USE mathconstants, ONLY: degree
+   USE mathlib, ONLY: angle, &
+                      dihedral_angle
+   USE memory_utilities, ONLY: reallocate
+   USE particle_types, ONLY: get_particle_pos_or_vel, &
+                             particle_type
+   USE physcon, ONLY: massunit
+   USE qmmm_ff_fist, ONLY: qmmm_ff_precond_only_qm
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE shell_potential_types, ONLY: get_shell, &
+                                    shell_kind_type
+   USE string_utilities, ONLY: uppercase
+   USE util, ONLY: sort, &
+                   sort_unique
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

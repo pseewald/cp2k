@@ -35,14 +35,14 @@
 ! **************************************************************************************************
 MODULE ai_operators_r12
 
-   USE gamma,                           ONLY: fgamma => fgamma_0
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fac,&
-                                              pi
-   USE orbital_pointers,                ONLY: coset,&
-                                              ncoset
-   USE t_c_g0,                          ONLY: get_lmax_init,&
-                                              t_c_g0_n
+   USE gamma, ONLY: fgamma => fgamma_0
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fac, &
+                            pi
+   USE orbital_pointers, ONLY: coset, &
+                               ncoset
+   USE t_c_g0, ONLY: get_lmax_init, &
+                     t_c_g0_n
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -70,10 +70,10 @@ MODULE ai_operators_r12
 ! **************************************************************************************************
       SUBROUTINE ab_sint_os(v, nmax, zetp, zetq, zetw, rho, rac2, omega, r_cutoff)
          USE kinds, ONLY: dp
-      REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: v
-      INTEGER, INTENT(IN)                                :: nmax
-      REAL(KIND=dp), INTENT(IN)                          :: zetp, zetq, zetw, rho, rac2, omega, &
-                                                            r_cutoff
+         REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: v
+         INTEGER, INTENT(IN)                                :: nmax
+         REAL(KIND=dp), INTENT(IN)                          :: zetp, zetq, zetw, rho, rac2, omega, &
+                                                               r_cutoff
 
       END SUBROUTINE ab_sint_os
    END INTERFACE
@@ -610,8 +610,8 @@ CONTAINS
          DO j = 0, n - 1
             v(1, 1, n) = v(1, 1, n) + f0*fsign* &
                          fac(n - 1)/fac(n - j - 1)/fac(j)*(-tau)**(n - j - 1)*(-eta)**j*f(j)
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       DEALLOCATE (f)
 

@@ -16,17 +16,17 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE qs_rho_types
-   USE cp_dbcsr_operations,             ONLY: dbcsr_deallocate_matrix_set
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE kinds,                           ONLY: dp
-   USE kpoint_transitional,             ONLY: get_1d_pointer,&
-                                              get_2d_pointer,&
-                                              kpoint_transitional_release,&
-                                              kpoint_transitional_type,&
-                                              set_1d_pointer,&
-                                              set_2d_pointer
-   USE pw_types,                        ONLY: pw_p_type,&
-                                              pw_release
+   USE cp_dbcsr_operations, ONLY: dbcsr_deallocate_matrix_set
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE kinds, ONLY: dp
+   USE kpoint_transitional, ONLY: get_1d_pointer, &
+                                  get_2d_pointer, &
+                                  kpoint_transitional_release, &
+                                  kpoint_transitional_type, &
+                                  set_1d_pointer, &
+                                  set_2d_pointer
+   USE pw_types, ONLY: pw_p_type, &
+                       pw_release
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -14,14 +14,14 @@
 ! **************************************************************************************************
 MODULE helium_types
 
-   USE cell_types,                      ONLY: cell_type
-   USE cp_log_handling,                 ONLY: cp_logger_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp,&
-                                              int_8
-   USE parallel_rng_types,              ONLY: rng_stream_type
-   USE splines_types,                   ONLY: spline_data_type
+   USE cell_types, ONLY: cell_type
+   USE cp_log_handling, ONLY: cp_logger_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: default_string_length, &
+                    dp, &
+                    int_8
+   USE parallel_rng_types, ONLY: rng_stream_type
+   USE splines_types, ONLY: spline_data_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

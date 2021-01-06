@@ -15,88 +15,88 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE pw_env_methods
-   USE ao_util,                         ONLY: exp_radius
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_realspace_grid_init,          ONLY: init_input_type
-   USE cube_utils,                      ONLY: destroy_cube_info,&
-                                              init_cube_info,&
-                                              return_cube_max_iradius
-   USE d3_poly,                         ONLY: init_d3_poly_module
-   USE dct,                             ONLY: neumannX,&
-                                              neumannXY,&
-                                              neumannXYZ,&
-                                              neumannXZ,&
-                                              neumannY,&
-                                              neumannYZ,&
-                                              neumannZ,&
-                                              setup_dct_pw_grids
-   USE dielectric_types,                ONLY: derivative_cd3,&
-                                              derivative_cd5,&
-                                              derivative_cd7,&
-                                              rho_dependent
-   USE gaussian_gridlevels,             ONLY: destroy_gaussian_gridlevel,&
-                                              gaussian_gridlevel,&
-                                              init_gaussian_gridlevel
-   USE input_constants,                 ONLY: xc_vdw_fun_nonloc
-   USE input_section_types,             ONLY: section_get_ival,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE ps_implicit_types,               ONLY: MIXED_BC,&
-                                              MIXED_PERIODIC_BC,&
-                                              NEUMANN_BC,&
-                                              PERIODIC_BC
-   USE ps_wavelet_types,                ONLY: WAVELET0D,&
-                                              WAVELET2D,&
-                                              WAVELET3D
-   USE pw_env_types,                    ONLY: pw_env_type
-   USE pw_grid_info,                    ONLY: pw_grid_init_setup
-   USE pw_grid_types,                   ONLY: FULLSPACE,&
-                                              HALFSPACE,&
-                                              pw_grid_type
-   USE pw_grids,                        ONLY: do_pw_grid_blocked_false,&
-                                              pw_grid_change,&
-                                              pw_grid_create,&
-                                              pw_grid_release,&
-                                              pw_grid_setup
-   USE pw_poisson_methods,              ONLY: pw_poisson_set
-   USE pw_poisson_read_input,           ONLY: pw_poisson_read_parameters
-   USE pw_poisson_types,                ONLY: &
-        pw_poisson_analytic, pw_poisson_create, pw_poisson_implicit, pw_poisson_mt, &
-        pw_poisson_multipole, pw_poisson_none, pw_poisson_parameter_type, pw_poisson_periodic, &
-        pw_poisson_wavelet
-   USE pw_pool_types,                   ONLY: pw_pool_create,&
-                                              pw_pool_p_type,&
-                                              pw_pool_release,&
-                                              pw_pool_retain,&
-                                              pw_pools_dealloc
-   USE qs_dispersion_types,             ONLY: qs_dispersion_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_rho0_types,                   ONLY: get_rho0_mpole,&
-                                              rho0_mpole_type
-   USE realspace_grid_types,            ONLY: &
-        realspace_grid_desc_p_type, realspace_grid_desc_type, realspace_grid_input_type, &
-        realspace_grid_p_type, realspace_grid_type, rs_grid_create, rs_grid_create_descriptor, &
-        rs_grid_print, rs_grid_release, rs_grid_release_descriptor
-   USE xc_input_constants,              ONLY: &
-        xc_deriv_collocate, xc_deriv_nn10_smooth, xc_deriv_nn50_smooth, xc_deriv_pw, &
-        xc_deriv_spline2, xc_deriv_spline2_smooth, xc_deriv_spline3, xc_deriv_spline3_smooth, &
-        xc_rho_nn10, xc_rho_nn50, xc_rho_no_smooth, xc_rho_spline2_smooth, xc_rho_spline3_smooth
+   USE ao_util, ONLY: exp_radius
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_realspace_grid_init, ONLY: init_input_type
+   USE cube_utils, ONLY: destroy_cube_info, &
+                         init_cube_info, &
+                         return_cube_max_iradius
+   USE d3_poly, ONLY: init_d3_poly_module
+   USE dct, ONLY: neumannX, &
+                  neumannXY, &
+                  neumannXYZ, &
+                  neumannXZ, &
+                  neumannY, &
+                  neumannYZ, &
+                  neumannZ, &
+                  setup_dct_pw_grids
+   USE dielectric_types, ONLY: derivative_cd3, &
+                               derivative_cd5, &
+                               derivative_cd7, &
+                               rho_dependent
+   USE gaussian_gridlevels, ONLY: destroy_gaussian_gridlevel, &
+                                  gaussian_gridlevel, &
+                                  init_gaussian_gridlevel
+   USE input_constants, ONLY: xc_vdw_fun_nonloc
+   USE input_section_types, ONLY: section_get_ival, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE ps_implicit_types, ONLY: MIXED_BC, &
+                                MIXED_PERIODIC_BC, &
+                                NEUMANN_BC, &
+                                PERIODIC_BC
+   USE ps_wavelet_types, ONLY: WAVELET0D, &
+                               WAVELET2D, &
+                               WAVELET3D
+   USE pw_env_types, ONLY: pw_env_type
+   USE pw_grid_info, ONLY: pw_grid_init_setup
+   USE pw_grid_types, ONLY: FULLSPACE, &
+                            HALFSPACE, &
+                            pw_grid_type
+   USE pw_grids, ONLY: do_pw_grid_blocked_false, &
+                       pw_grid_change, &
+                       pw_grid_create, &
+                       pw_grid_release, &
+                       pw_grid_setup
+   USE pw_poisson_methods, ONLY: pw_poisson_set
+   USE pw_poisson_read_input, ONLY: pw_poisson_read_parameters
+   USE pw_poisson_types, ONLY: &
+      pw_poisson_analytic, pw_poisson_create, pw_poisson_implicit, pw_poisson_mt, &
+      pw_poisson_multipole, pw_poisson_none, pw_poisson_parameter_type, pw_poisson_periodic, &
+      pw_poisson_wavelet
+   USE pw_pool_types, ONLY: pw_pool_create, &
+                            pw_pool_p_type, &
+                            pw_pool_release, &
+                            pw_pool_retain, &
+                            pw_pools_dealloc
+   USE qs_dispersion_types, ONLY: qs_dispersion_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_rho0_types, ONLY: get_rho0_mpole, &
+                            rho0_mpole_type
+   USE realspace_grid_types, ONLY: &
+      realspace_grid_desc_p_type, realspace_grid_desc_type, realspace_grid_input_type, &
+      realspace_grid_p_type, realspace_grid_type, rs_grid_create, rs_grid_create_descriptor, &
+      rs_grid_print, rs_grid_release, rs_grid_release_descriptor
+   USE xc_input_constants, ONLY: &
+      xc_deriv_collocate, xc_deriv_nn10_smooth, xc_deriv_nn50_smooth, xc_deriv_pw, &
+      xc_deriv_spline2, xc_deriv_spline2_smooth, xc_deriv_spline3, xc_deriv_spline3_smooth, &
+      xc_rho_nn10, xc_rho_nn50, xc_rho_no_smooth, xc_rho_spline2_smooth, xc_rho_spline3_smooth
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -156,7 +156,7 @@ CONTAINS
 
       CHARACTER(LEN=3)                                   :: string
       INTEGER :: blocked_id, blocked_id_input, boundary_condition, grid_span, handle, i, &
-         igrid_level, iounit, ncommensurate, ngrid_level, xc_deriv_method_id, xc_smooth_method_id
+                 igrid_level, iounit, ncommensurate, ngrid_level, xc_deriv_method_id, xc_smooth_method_id
       INTEGER, DIMENSION(2)                              :: distribution_layout
       INTEGER, DIMENSION(3)                              :: higher_grid_layout
       LOGICAL                                            :: efg_present, linres_present, odd, &
@@ -171,7 +171,7 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(pw_grid_type), POINTER :: dct_pw_grid, mt_super_ref_grid, old_pw_grid, pw_grid, &
-         super_ref_grid, vdw_grid, vdw_ref_grid, xc_super_ref_grid
+                                     super_ref_grid, vdw_grid, vdw_ref_grid, xc_super_ref_grid
       TYPE(pw_poisson_parameter_type)                    :: poisson_params
       TYPE(pw_pool_p_type), DIMENSION(:), POINTER        :: pw_pools
       TYPE(qs_dispersion_type), POINTER                  :: dispersion_env
@@ -251,7 +251,7 @@ CONTAINS
       IF (PRESENT(external_para_env)) THEN
          para_env => external_para_env
          CPASSERT(ASSOCIATED(para_env))
-      ENDIF
+      END IF
       ! interpolation section
       pw_env%interp_section => section_vals_get_subs_vals(input, "DFT%MGRID%INTERPOLATOR")
 
@@ -281,7 +281,7 @@ CONTAINS
          ncommensurate = ngrid_level
       ELSE
          ncommensurate = 0
-      ENDIF
+      END IF
       !
       ! If Tuckerman is present let's perform the set-up of the super-reference-grid
       !
@@ -356,14 +356,14 @@ CONTAINS
       CALL section_vals_get(linres_section, explicit=linres_present)
       IF (linres_present) THEN
          smooth_required = smooth_required .OR. .TRUE.
-      ENDIF
+      END IF
 
       efg_section => section_vals_get_subs_vals(section_vals=input, &
                                                 subsection_name="DFT%PRINT%ELECTRIC_FIELD_GRADIENT")
       CALL section_vals_get(efg_section, explicit=efg_present)
       IF (efg_present) THEN
          smooth_required = smooth_required .OR. .TRUE.
-      ENDIF
+      END IF
 
       DO igrid_level = 1, ngrid_level
          CALL pw_grid_create(pw_grid, para_env%group)
@@ -380,13 +380,13 @@ CONTAINS
          ! FIXME ... check if a plane distributed lower grid is sufficient
          IF (qs_env%qmmm) THEN
             distribution_layout = (/para_env%num_pe, 1/)
-         ENDIF
+         END IF
 
          ! If splines are required
          ! FIXME.... should only be true for the highest grid
          IF (smooth_required) THEN
             distribution_layout = (/para_env%num_pe, 1/)
-         ENDIF
+         END IF
 
          IF (igrid_level == 1) THEN
             IF (ASSOCIATED(old_pw_grid)) THEN
@@ -493,7 +493,7 @@ CONTAINS
       IF (use_ref_cell) THEN
          DO igrid_level = 1, SIZE(pw_pools)
             CALL pw_grid_change(cell%hmat, pw_pools(igrid_level)%pool%pw_grid)
-         ENDDO
+         END DO
          IF (set_vdw_pool) CALL pw_grid_change(cell%hmat, pw_env%vdw_pw_pool%pw_grid)
          CALL pw_poisson_read_parameters(poisson_section, poisson_params)
          CALL pw_poisson_set(pw_env%poisson_env, cell_hmat=cell%hmat, pw_pools=pw_env%pw_pools, &
@@ -745,11 +745,11 @@ CONTAINS
       CHARACTER(LEN=8), DIMENSION(4), PARAMETER :: &
          pbas = (/"ORB     ", "AUX_FIT ", "MAO     ", "HARRIS  "/)
       CHARACTER(LEN=8), DIMENSION(8), PARAMETER :: sbas = (/"ORB     ", "AUX     ", "RI_AUX  ", &
-         "MAO     ", "HARRIS  ", "RI_HXC  ", "RI_K    ", "LRI_AUX "/)
+                                                            "MAO     ", "HARRIS  ", "RI_HXC  ", "RI_K    ", "LRI_AUX "/)
       REAL(KIND=dp), PARAMETER                           :: safety_factor = 1.015_dp
 
       INTEGER :: handle, ibasis_set_type, igrid_level, igrid_zet0_s, ikind, ipgf, iset, ishell, &
-         jkind, jpgf, jset, jshell, la, lb, lgrid_level, ngrid_level, nkind, nseta, nsetb
+                 jkind, jpgf, jset, jshell, la, lb, lgrid_level, ngrid_level, nkind, nseta, nsetb
       INTEGER, DIMENSION(:), POINTER                     :: npgfa, npgfb, nshella, nshellb
       INTEGER, DIMENSION(:, :), POINTER                  :: lshella, lshellb
       REAL(KIND=dp)                                      :: alpha, core_charge, eps_gvg, eps_rho, &
@@ -808,7 +808,7 @@ CONTAINS
                maxradius = MAX(maxradius, exp_radius(0, alpha, eps_rho, core_charge, rlow=maxradius))
                ! forces
                maxradius = MAX(maxradius, exp_radius(1, alpha, eps_rho, core_charge, rlow=maxradius))
-            ENDIF
+            END IF
          END DO
 
          ! loop over basis sets that are used in grid collocation directly (no product)
@@ -830,7 +830,7 @@ CONTAINS
                         lgrid_level = gaussian_gridlevel(pw_env%gridlevel_info, zetp)
                         IF (lgrid_level .EQ. igrid_level) THEN
                            maxradius = MAX(maxradius, exp_radius(la, zetp, eps_rho, 1.0_dp, rlow=maxradius))
-                        ENDIF
+                        END IF
                      END DO
                   END DO
                END DO
@@ -873,7 +873,7 @@ CONTAINS
                            maxradius = MAX(maxradius, exp_radius(lb, zetp, eps_gvg, 2.0_dp, rlow=maxradius))
                            ! forces
                            maxradius = MAX(maxradius, exp_radius(lb + 1, zetp, eps_gvg, 2.0_dp, rlow=maxradius))
-                        ENDIF
+                        END IF
                      END DO
                      END DO
                      END DO

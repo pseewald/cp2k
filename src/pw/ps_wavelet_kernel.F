@@ -11,16 +11,16 @@
 ! **************************************************************************************************
 MODULE ps_wavelet_kernel
 
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_alltoall
-   USE ps_wavelet_base,                 ONLY: scramble_unpack
-   USE ps_wavelet_fft3d,                ONLY: ctrig,&
-                                              ctrig_length,&
-                                              fftstp
-   USE ps_wavelet_scaling_function,     ONLY: scaling_function,&
-                                              scf_recursion
-   USE ps_wavelet_util,                 ONLY: F_FFT_dimensions,&
-                                              S_FFT_dimensions
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_alltoall
+   USE ps_wavelet_base, ONLY: scramble_unpack
+   USE ps_wavelet_fft3d, ONLY: ctrig, &
+                               ctrig_length, &
+                               fftstp
+   USE ps_wavelet_scaling_function, ONLY: scaling_function, &
+                                          scf_recursion
+   USE ps_wavelet_util, ONLY: F_FFT_dimensions, &
+                              S_FFT_dimensions
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -230,8 +230,8 @@ CONTAINS
       INTEGER, PARAMETER                                 :: n_points = 2**6, ncache_optimal = 8*1024
 
       INTEGER :: i, i1, i2, i3, ic, iend, imu, ind1, ind2, inzee, ipolyord, ireim, istart, j2, &
-         j2nd, j2st, jnd1, jp2, jreim, n_cell, n_range, n_scf, nact2, ncache, nfft, num_of_mus, &
-         shift
+                 j2nd, j2st, jnd1, jp2, jreim, n_cell, n_range, n_scf, nact2, ncache, nfft, num_of_mus, &
+                 shift
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: after, before, now
       REAL(kind=dp)                                      :: a, b, c, cp, d, diff, dx, feI, feR, foI, &
                                                             foR, fR, mu1, pi, pion, ponx, pony, &
@@ -461,7 +461,7 @@ CONTAINS
                         halfft_cache(1, 1, inzee), halfft_cache(1, 1, 3 - inzee), &
                         btrig, after(i), now(i), before(i), 1)
             inzee = 3 - inzee
-         ENDDO
+         END DO
          !assign the values of the FFT array
          !and compare with the good results
          DO imu = istart, iend
@@ -520,7 +520,7 @@ CONTAINS
 
       ELSE
          karray(1:nker1, 1:nker2, 1:nker3) = kernel(1:nker1, 1:nker2, 1:nker3)
-      ENDIF
+      END IF
 
       !De-allocations
       DEALLOCATE (kernel)
@@ -552,7 +552,7 @@ CONTAINS
    SUBROUTINE calculates_green_opt(n, n_scf, itype_scf, intorder, xval, yval, c, mu, hres, g_mu)
       INTEGER, INTENT(in)                                :: n, n_scf, itype_scf, intorder
       REAL(KIND=dp), DIMENSION(0:n_scf), INTENT(in)      :: xval, yval
-      REAL(KIND=dp), DIMENSION(intorder+1), INTENT(in)   :: c
+      REAL(KIND=dp), DIMENSION(intorder + 1), INTENT(in)   :: c
       REAL(KIND=dp), INTENT(in)                          :: mu, hres
       REAL(KIND=dp), DIMENSION(n), INTENT(out)           :: g_mu
 
@@ -693,7 +693,7 @@ CONTAINS
    SUBROUTINE calculates_green_opt_muzero(n, n_scf, intorder, xval, yval, c, hres, green)
       INTEGER, INTENT(in)                                :: n, n_scf, intorder
       REAL(KIND=dp), DIMENSION(0:n_scf), INTENT(in)      :: xval, yval
-      REAL(KIND=dp), DIMENSION(intorder+1), INTENT(in)   :: c
+      REAL(KIND=dp), DIMENSION(intorder + 1), INTENT(in)   :: c
       REAL(KIND=dp), INTENT(in)                          :: hres
       REAL(KIND=dp), DIMENSION(n), INTENT(out)           :: green
 
@@ -1040,7 +1040,7 @@ CONTAINS
 ! **************************************************************************************************
    SUBROUTINE inserthalf(n1, n3, lot, nfft, i1, zf, zw)
       INTEGER, INTENT(in)                                :: n1, n3, lot, nfft, i1
-      REAL(KIND=dp), DIMENSION(n1/2+1, n3/2+1), &
+      REAL(KIND=dp), DIMENSION(n1/2 + 1, n3/2 + 1), &
          INTENT(in)                                      :: zf
       REAL(KIND=dp), DIMENSION(2, lot, n3/2), &
          INTENT(out)                                     :: zw
@@ -1099,7 +1099,7 @@ CONTAINS
       INTEGER, INTENT(in)                                :: n1, n2, n3, nd1, nd2, nd3, nk1, nk2, &
                                                             nk3, nproc, iproc
       REAL(KIND=dp), &
-         DIMENSION(n1/2+1, n3/2+1, nd2/nproc), &
+         DIMENSION(n1/2 + 1, n3/2 + 1, nd2/nproc), &
          INTENT(in)                                      :: zf
       REAL(KIND=dp), DIMENSION(nk1, nk2, nk3/nproc), &
          INTENT(inout)                                   :: zr
@@ -1200,7 +1200,7 @@ CONTAINS
                   CALL fftstp(lot, nfft, n3/2, lot, n3/2, zw(1, 1, inzee), zw(1, 1, 3 - inzee), &
                               trig3, after3(i), now3(i), before3(i), 1)
                   inzee = 3 - inzee
-               ENDDO
+               END DO
                !output: I1,i3,J2,(Jp2)
 
                !unpacking FFT in order to restore correct result,
@@ -1209,7 +1209,7 @@ CONTAINS
                CALL scramble_unpack(i1, j2, lot, nfft, n1, n3, nd2, nproc, nd3, zw(1, 1, inzee), zmpi2, cosinarr)
                !output: I1,J2,i3,(Jp2)
             END DO
-         ENDIF
+         END IF
       END DO
 
       !Interprocessor data transposition
@@ -1220,7 +1220,7 @@ CONTAINS
                           zmpi1, 2*n1*(nd2/nproc)*(nd3/nproc), &
                           mpi_group)
          ! output: I1,J2,j3,Jp2,(jp3)
-      ENDIF
+      END IF
 
       DO j3 = 1, nd3/nproc
          !this condition ensures that we manage only the interesting part for the FFT
@@ -1243,7 +1243,7 @@ CONTAINS
                   CALL mpiswitch(j3, nfft, Jp2st, J2st, lot, n1, nd2, nd3, nproc, zmpi2, zw(1, 1, 1))
                ELSE
                   CALL mpiswitch(j3, nfft, Jp2st, J2st, lot, n1, nd2, nd3, nproc, zmpi1, zw(1, 1, 1))
-               ENDIF
+               END IF
                !output: J2,Jp2,I1,j3,(jp3)
 
                !performing FFT
@@ -1253,7 +1253,7 @@ CONTAINS
                   CALL fftstp(lot, nfft, n1, lot, n1, zw(1, 1, inzee), zw(1, 1, 3 - inzee), &
                               trig1, after1(i), now1(i), before1(i), 1)
                   inzee = 3 - inzee
-               ENDDO
+               END DO
                !storing the last step into zt
                i = ic1
                CALL fftstp(lot, nfft, n1, lzt, n1, zw(1, 1, inzee), zt(1, j, 1), &
@@ -1282,13 +1282,13 @@ CONTAINS
                   CALL fftstp(lot, nfft, n2, lot, n2, zw(1, 1, inzee), zw(1, 1, 3 - inzee), &
                               trig2, after2(i), now2(i), before2(i), 1)
                   inzee = 3 - inzee
-               ENDDO
+               END DO
 
                CALL realcopy(lot, nfft, n2, nk1, nk2, zw(1, 1, inzee), zr(j, 1, j3))
 
             END DO
             !output: i1,i2,j3,(jp3)
-         ENDIF
+         END IF
       END DO
 
       !De-allocations
@@ -1377,11 +1377,11 @@ CONTAINS
 !> \param zw ...
 ! **************************************************************************************************
             SUBROUTINE mpiswitch(j3, nfft, Jp2st, J2st, lot, n1, nd2, nd3, nproc, zmpi1, zw)
-      INTEGER                                            :: j3, nfft, Jp2st, J2st, lot, n1, nd2, &
-                                                            nd3, nproc
-      REAL(KIND=dp) :: zmpi1(2, n1, nd2/nproc, nd3/nproc, nproc), zw(2, lot, n1)
+               INTEGER                                            :: j3, nfft, Jp2st, J2st, lot, n1, nd2, &
+                                                                     nd3, nproc
+               REAL(KIND=dp) :: zmpi1(2, n1, nd2/nproc, nd3/nproc, nproc), zw(2, lot, n1)
 
-      INTEGER                                            :: I1, J2, JP2, mfft
+               INTEGER                                            :: I1, J2, JP2, mfft
 
                mfft = 0
                DO 300, Jp2 = Jp2st, nproc
@@ -1391,7 +1391,7 @@ CONTAINS
                         Jp2st = Jp2
                         J2st = J2
                         RETURN
-                     ENDIF
+                     END IF
                      DO 100, I1 = 1, n1
                         zw(1, mfft, I1) = zmpi1(1, I1, J2, j3, Jp2)
                         zw(2, mfft, I1) = zmpi1(2, I1, J2, j3, Jp2)
@@ -1411,7 +1411,7 @@ CONTAINS
 ! **************************************************************************************************
                         SUBROUTINE gequad(p, w, urange, drange, acc)
 !
-      REAL(KIND=dp)                                      :: p(*), w(*), urange, drange, acc
+                           REAL(KIND=dp)                                      :: p(*), w(*), urange, drange, acc
 
 !
 !

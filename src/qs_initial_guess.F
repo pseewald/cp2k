@@ -11,94 +11,94 @@
 !>       2006.03 Moved here from qs_scf.F [Joost VandeVondele]
 ! **************************************************************************************************
 MODULE qs_initial_guess
-   USE atom_kind_orbitals,              ONLY: calculate_atomic_orbitals
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              cp_dbcsr_sm_fm_multiply,&
-                                              cp_fm_to_dbcsr_row_template
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_get,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: &
-        cp_fm_create, cp_fm_get_info, cp_fm_get_submatrix, cp_fm_init_random, cp_fm_p_type, &
-        cp_fm_release, cp_fm_set_all, cp_fm_set_submatrix, cp_fm_to_fm, cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add_on_diag, dbcsr_checksum, dbcsr_copy, dbcsr_dot, dbcsr_filter, dbcsr_get_diag, &
-        dbcsr_get_info, dbcsr_get_num_blocks, dbcsr_get_occupation, dbcsr_iterator_blocks_left, &
-        dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
-        dbcsr_multiply, dbcsr_nfullrows_total, dbcsr_p_type, dbcsr_release, dbcsr_scale, &
-        dbcsr_set, dbcsr_set_diag, dbcsr_type, dbcsr_verify_matrix
-   USE external_potential_types,        ONLY: all_potential_type,&
-                                              gth_potential_type,&
-                                              sgp_potential_type
-   USE hfx_types,                       ONLY: hfx_type
-   USE input_constants,                 ONLY: atomic_guess,&
-                                              core_guess,&
-                                              history_guess,&
-                                              mopac_guess,&
-                                              no_guess,&
-                                              random_guess,&
-                                              restart_guess,&
-                                              sparse_guess
-   USE input_cp2k_hfx,                  ONLY: ri_mo
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE kpoint_io,                       ONLY: read_kpoints_restart
-   USE kpoint_types,                    ONLY: kpoint_type
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_sum
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_dftb_utils,                   ONLY: get_dftb_atom_param
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_mo_io,                        ONLY: read_mo_set,&
-                                              wfn_restart_file_name
-   USE qs_mo_methods,                   ONLY: calculate_density_matrix,&
-                                              make_basis_lowdin,&
-                                              make_basis_simple,&
-                                              make_basis_sm
-   USE qs_mo_occupation,                ONLY: set_mo_occupation
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type,&
-                                              mo_set_restrict,&
-                                              reassign_allocated_mos
-   USE qs_mom_methods,                  ONLY: do_mom_guess
-   USE qs_rho_methods,                  ONLY: qs_rho_update_rho
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf_methods,                  ONLY: eigensolver,&
-                                              eigensolver_simple
-   USE qs_scf_types,                    ONLY: block_davidson_diag_method_nr,&
-                                              block_krylov_diag_method_nr,&
-                                              general_diag_method_nr,&
-                                              ot_diag_method_nr,&
-                                              qs_scf_env_type
-   USE qs_wf_history_methods,           ONLY: wfi_update
-   USE scf_control_types,               ONLY: scf_control_type
-   USE util,                            ONLY: sort
-   USE xtb_types,                       ONLY: get_xtb_atom_param,&
-                                              xtb_atom_type
+   USE atom_kind_orbitals, ONLY: calculate_atomic_orbitals
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  cp_dbcsr_sm_fm_multiply, &
+                                  cp_fm_to_dbcsr_row_template
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_get, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: &
+      cp_fm_create, cp_fm_get_info, cp_fm_get_submatrix, cp_fm_init_random, cp_fm_p_type, &
+      cp_fm_release, cp_fm_set_all, cp_fm_set_submatrix, cp_fm_to_fm, cp_fm_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add_on_diag, dbcsr_checksum, dbcsr_copy, dbcsr_dot, dbcsr_filter, dbcsr_get_diag, &
+      dbcsr_get_info, dbcsr_get_num_blocks, dbcsr_get_occupation, dbcsr_iterator_blocks_left, &
+      dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
+      dbcsr_multiply, dbcsr_nfullrows_total, dbcsr_p_type, dbcsr_release, dbcsr_scale, &
+      dbcsr_set, dbcsr_set_diag, dbcsr_type, dbcsr_verify_matrix
+   USE external_potential_types, ONLY: all_potential_type, &
+                                       gth_potential_type, &
+                                       sgp_potential_type
+   USE hfx_types, ONLY: hfx_type
+   USE input_constants, ONLY: atomic_guess, &
+                              core_guess, &
+                              history_guess, &
+                              mopac_guess, &
+                              no_guess, &
+                              random_guess, &
+                              restart_guess, &
+                              sparse_guess
+   USE input_cp2k_hfx, ONLY: ri_mo
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE kpoint_io, ONLY: read_kpoints_restart
+   USE kpoint_types, ONLY: kpoint_type
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_sum
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_dftb_utils, ONLY: get_dftb_atom_param
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_mo_io, ONLY: read_mo_set, &
+                       wfn_restart_file_name
+   USE qs_mo_methods, ONLY: calculate_density_matrix, &
+                            make_basis_lowdin, &
+                            make_basis_simple, &
+                            make_basis_sm
+   USE qs_mo_occupation, ONLY: set_mo_occupation
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type, &
+                          mo_set_restrict, &
+                          reassign_allocated_mos
+   USE qs_mom_methods, ONLY: do_mom_guess
+   USE qs_rho_methods, ONLY: qs_rho_update_rho
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf_methods, ONLY: eigensolver, &
+                             eigensolver_simple
+   USE qs_scf_types, ONLY: block_davidson_diag_method_nr, &
+                           block_krylov_diag_method_nr, &
+                           general_diag_method_nr, &
+                           ot_diag_method_nr, &
+                           qs_scf_env_type
+   USE qs_wf_history_methods, ONLY: wfi_update
+   USE scf_control_types, ONLY: scf_control_type
+   USE util, ONLY: sort
+   USE xtb_types, ONLY: get_xtb_atom_param, &
+                        xtb_atom_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -139,9 +139,9 @@ CONTAINS
 
       CHARACTER(LEN=default_path_length)                 :: file_name, filename
       INTEGER :: atom_a, blk, density_guess, group, handle, homo, i, iatom, ic, icol, id_nr, &
-         ikind, irow, iseed(4), ispin, istart_col, istart_row, j, last_read, n, n_cols, n_rows, &
-         nao, natom, natoms, natoms_tmp, nblocks, nelectron, nmo, nmo_tmp, not_read, nsgf, nspin, &
-         nvec, ounit, qs_env_id, safe_density_guess, size_atomic_kind_set, z
+                 ikind, irow, iseed(4), ispin, istart_col, istart_row, j, last_read, n, n_cols, n_rows, &
+                 nao, natom, natoms, natoms_tmp, nblocks, nelectron, nmo, nmo_tmp, not_read, nsgf, nspin, &
+                 nvec, ounit, qs_env_id, safe_density_guess, size_atomic_kind_set, z
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: first_sgf, kind_of, last_sgf
       INTEGER, DIMENSION(2)                              :: nelectron_spin
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, elec_conf, nelec_kind, &
@@ -220,7 +220,7 @@ CONTAINS
 
       IF (dft_control%switch_surf_dip) THEN
          CALL get_qs_env(qs_env, mos_last_converged=mos_last_converged)
-      ENDIF
+      END IF
 
       ! just initialize the first image, the other density are set to zero
       DO ispin = 1, dft_control%nspins
@@ -248,8 +248,8 @@ CONTAINS
       IF (ASSOCIATED(x_data)) THEN
          IF (x_data(1, 1)%do_hfx_ri) THEN
             IF (x_data(1, 1)%ri_data%flavor == ri_mo) do_hfx_ri_mo = .TRUE.
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       IF (ASSOCIATED(scf_env%krylov_space)) do_std_diag = (scf_env%krylov_space%eps_std_diag > 0.0_dp)
 
@@ -302,7 +302,7 @@ CONTAINS
             IF (para_env%ionode) THEN
                CALL wfn_restart_file_name(file_name, exist, dft_section, logger)
             END IF
-         ENDIF
+         END IF
          CALL mp_bcast(exist, para_env%source, para_env%group)
          CALL mp_bcast(file_name, para_env%source, para_env%group)
          IF (.NOT. exist) THEN
@@ -316,7 +316,7 @@ CONTAINS
       ELSE IF (density_guess == history_guess) THEN
          IF (do_kpoints) THEN
             CPABORT("calculate_first_density_matrix: history_guess not implemented for k-points")
-         ENDIF
+         END IF
          IF (para_env%ionode) &
             CALL wfn_restart_file_name(file_name, exist, dft_section, logger)
          CALL mp_bcast(exist, para_env%source, para_env%group)
@@ -366,8 +366,8 @@ CONTAINS
                          "It is always advisable to perform SURFACE_DIPOLE_CORRECTION "// &
                          "after a simulation without the surface dipole correction "// &
                          "and using the ensuing wavefunction restart file. ")
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       IF (density_guess == restart_guess) THEN
 
@@ -403,10 +403,10 @@ CONTAINS
                   ELSE
                      ! ortho so that one can restart for different positions (basis sets?)
                      CALL make_basis_sm(mo_coeff, homo, s_sparse(1)%matrix)
-                  ENDIF
+                  END IF
                   ! only alpha spin is kept for restricted
                   IF (dft_control%restricted) EXIT
-               ENDDO
+               END DO
                IF (dft_control%restricted) CALL mo_set_restrict(mo_array)
 
                IF (.NOT. scf_control%diagonalization%mom) THEN
@@ -416,30 +416,30 @@ CONTAINS
                                                tot_zeff_corr=tot_corr_zeff)
                      ELSE
                         CALL set_mo_occupation(mo_array, smear=qs_env%scf_control%smear)
-                     ENDIF
+                     END IF
                   ELSE
                      CALL set_mo_occupation(mo_array, smear=qs_env%scf_control%smear)
-                  ENDIF
-               ENDIF
+                  END IF
+               END IF
 
                DO ispin = 1, nspin
 
                   IF (scf_control%use_ot .OR. scf_env%method == ot_diag_method_nr) THEN !fm->dbcsr
                      CALL copy_fm_to_dbcsr(mo_array(ispin)%mo_set%mo_coeff, &
                                            mo_array(ispin)%mo_set%mo_coeff_b) !fm->dbcsr
-                  ENDIF !fm->dbcsr
+                  END IF !fm->dbcsr
 
                   CALL calculate_density_matrix(mo_array(ispin)%mo_set, &
                                                 p_rmpv(ispin)%matrix)
-               ENDDO
-            ENDIF ! natom_mismatch
+               END DO
+            END IF ! natom_mismatch
 
          END IF
 
          ! Maximum Overlap Method
          IF (scf_control%diagonalization%mom) THEN
             CALL do_mom_guess(nspin, mo_array, scf_control, p_rmpv)
-         ENDIF
+         END IF
 
          did_guess = .TRUE.
       END IF
@@ -466,7 +466,7 @@ CONTAINS
                   ELSE
                      ! ortho so that one can restart for different positions (basis sets?)
                      CALL make_basis_sm(mo_coeff, homo, s_sparse(1)%matrix)
-                  ENDIF
+                  END IF
                   ! only alpha spin is kept for restricted
                   IF (dft_control%restricted) EXIT
                END DO
@@ -475,7 +475,7 @@ CONTAINS
                DO ispin = 1, nspin
                   CALL set_mo_occupation(mo_set=mo_array(ispin)%mo_set, &
                                          smear=qs_env%scf_control%smear)
-               ENDDO
+               END DO
 
                DO ispin = 1, nspin
                   IF (scf_control%use_ot .OR. scf_env%method == ot_diag_method_nr) THEN !fm->dbcsr
@@ -483,7 +483,7 @@ CONTAINS
                                            mo_array(ispin)%mo_set%mo_coeff_b) !fm->dbcsr
                   END IF !fm->dbcsr
                   CALL calculate_density_matrix(mo_array(ispin)%mo_set, p_rmpv(ispin)%matrix)
-               ENDDO
+               END DO
 
                ! Write to extrapolation pipeline
                CALL wfi_update(wf_history=qs_env%wf_history, qs_env=qs_env, dt=1.0_dp)
@@ -503,26 +503,26 @@ CONTAINS
                CALL make_basis_simple(mo_coeff, nmo)
             ELSE
                CALL make_basis_sm(mo_coeff, nmo, s_sparse(1)%matrix)
-            ENDIF
+            END IF
             ! only alpha spin is kept for restricted
             IF (dft_control%restricted) EXIT
-         ENDDO
+         END DO
          IF (dft_control%restricted) CALL mo_set_restrict(mo_array)
 
          DO ispin = 1, nspin
             CALL set_mo_occupation(mo_set=mo_array(ispin)%mo_set, &
                                    smear=qs_env%scf_control%smear)
-         ENDDO
+         END DO
 
          DO ispin = 1, nspin
 
             IF (scf_control%use_ot .OR. scf_env%method == ot_diag_method_nr) THEN !fm->dbcsr
                CALL copy_fm_to_dbcsr(mo_array(ispin)%mo_set%mo_coeff, &
                                      mo_array(ispin)%mo_set%mo_coeff_b) !fm->dbcsr
-            ENDIF !fm->dbcsr
+            END IF !fm->dbcsr
 
             CALL calculate_density_matrix(mo_array(ispin)%mo_set, p_rmpv(ispin)%matrix)
-         ENDDO
+         END DO
 
          did_guess = .TRUE.
       END IF
@@ -531,7 +531,7 @@ CONTAINS
 
          IF (do_kpoints) THEN
             CPABORT("calculate_first_density_matrix: core_guess not implemented for k-points")
-         ENDIF
+         END IF
 
          IF (.NOT. ASSOCIATED(work1)) THEN
             need_wm = .TRUE.
@@ -709,9 +709,9 @@ CONTAINS
 
                         CALL calculate_density_matrix(mo_array(ispin)%mo_set, &
                                                       p_rmpv(ispin)%matrix)
-                     ENDIF
-                  ENDIF
-               ENDIF
+                     END IF
+                  END IF
+               END IF
 
             END IF
 
@@ -734,7 +734,7 @@ CONTAINS
 
          IF (scf_control%diagonalization%mom) THEN
             CALL do_mom_guess(nspin, mo_array, scf_control, p_rmpv)
-         ENDIF
+         END IF
 
          CALL cp_print_key_finished_output(ounit, logger, subsys_section, &
                                            "PRINT%KINDS")
@@ -748,7 +748,7 @@ CONTAINS
          IF (.NOT. scf_control%use_ot) CPABORT("OT needed!")
          IF (do_kpoints) THEN
             CPABORT("calculate_first_density_matrix: sparse_guess not implemented for k-points")
-         ENDIF
+         END IF
 
          eps = 1.0E-5_dp
 
@@ -800,7 +800,7 @@ CONTAINS
                                    pmat(ikind)%mat(:, :, 2)*rscale
                   END IF
                END IF
-            ENDDO
+            END DO
             CALL dbcsr_iterator_stop(iter)
 
             !CALL dbcsr_verify_matrix(p_rmpv(ispin)%matrix)
@@ -850,7 +850,7 @@ CONTAINS
                   CALL get_qs_kind(qs_kind, nsgf=nsgf, elec_conf=elec_conf, &
                                    basis_set=orb_basis_set, zeff=zeff)
                   nelec_kind(ikind) = SUM(elec_conf)
-               ENDDO
+               END DO
                CALL sort(nelec_kind, size_atomic_kind_set, sort_kind)
                !
                ! a -very- naive sparse guess
@@ -880,12 +880,12 @@ CONTAINS
                      END IF
                      DO j = 1, n_cols
                         CALL dlarnv(1, iseed, n_rows, buff(1, j))
-                     ENDDO
+                     END DO
                      CALL cp_fm_set_submatrix(mo_coeff, buff, istart_row, istart_col, &
                                               n_rows, n_cols)
                      istart_col = istart_col + n_cols
-                  ENDDO
-               ENDDO
+                  END DO
+               END DO
 
                IF (istart_col .LE. nmo) THEN
                   CPABORT("Wrong2!")
@@ -899,7 +899,7 @@ CONTAINS
                      CALL cp_fm_get_submatrix(mo_coeff, buff, 1, i, nao, 1)
                      IF (SUM(buff**2) .LT. 1E-10_dp) THEN
                         WRITE (*, *) 'wrong', i, SUM(buff**2)
-                     ENDIF
+                     END IF
                      length = SQRT(DOT_PRODUCT(buff(:, 1), buff(:, 1)))
                      buff(:, :) = buff(:, :)/length
                      DO j = i + 1, nmo
@@ -911,18 +911,18 @@ CONTAINS
                            DO ikind = 1, nao
                               IF (ABS(mo_coeff%local_data(ikind, i)) .GT. 1e-10_dp) THEN
                                  WRITE (*, *) 'c1', ikind, mo_coeff%local_data(ikind, i)
-                              ENDIF
+                              END IF
                               IF (ABS(mo_coeff%local_data(ikind, j)) .GT. 1e-10_dp) THEN
                                  WRITE (*, *) 'c2', ikind, mo_coeff%local_data(ikind, j)
-                              ENDIF
-                           ENDDO
+                              END IF
+                           END DO
                            CPABORT("")
-                        ENDIF
-                     ENDDO
-                  ENDDO
+                        END IF
+                     END DO
+                  END DO
                   DEALLOCATE (buff, buff2)
 
-               ENDIF
+               END IF
                !
                CALL cp_fm_to_dbcsr_row_template(mo_dbcsr, mo_coeff, s_sparse(1)%matrix)
                !CALL dbcsr_verify_matrix(mo_dbcsr)
@@ -1054,8 +1054,8 @@ CONTAINS
          DO ispin = 1, nspin
             CALL reassign_allocated_mos(mos_last_converged(ispin)%mo_set, &
                                         mo_array(ispin)%mo_set)
-         ENDDO
-      ENDIF
+         END DO
+      END IF
 
       IF (density_guess == no_guess) THEN
          did_guess = .TRUE.
@@ -1156,7 +1156,7 @@ CONTAINS
                END IF
                nocc(ispin) = nocc(ispin) + nok(ispin, ikind)
             END IF
-         ENDDO
+         END DO
          CALL dbcsr_iterator_stop(iter)
 
          CALL dbcsr_dot(matrix_p, matrix_s, trps1)
@@ -1266,7 +1266,7 @@ CONTAINS
          CALL dbcsr_iterator_next_block(iter, irow, icol, block)
          ikind = kind_of(irow)
          IF (icol .EQ. irow) block(:, :) = fmat(ikind)%mat(:, :, 1)
-      ENDDO
+      END DO
       CALL dbcsr_iterator_stop(iter)
 
       ! cleanup
@@ -1343,7 +1343,7 @@ CONTAINS
          maxocc = 2.0_dp
       ELSE
          maxocc = 1.0_dp
-      ENDIF
+      END IF
 
       ALLOCATE (first_sgf(natom))
 

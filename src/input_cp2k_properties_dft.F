@@ -13,52 +13,52 @@
 ! **************************************************************************************************
 MODULE input_cp2k_properties_dft
 
-   USE bibliography,                    ONLY: Futera2017,&
-                                              Iannuzzi2005,&
-                                              Kondov2007,&
-                                              Luber2014,&
-                                              Putrino2000,&
-                                              Putrino2002,&
-                                              Sebastiani2001,&
-                                              Weber2009
-   USE cp_output_handling,              ONLY: add_last_numeric,&
-                                              cp_print_key_section_create,&
-                                              debug_print_level,&
-                                              high_print_level,&
-                                              low_print_level,&
-                                              medium_print_level,&
-                                              silent_print_level
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE input_constants,                 ONLY: &
-        current_gauge_atom, current_gauge_r, current_gauge_r_and_step_func, &
-        current_orb_center_atom, current_orb_center_box, current_orb_center_common, &
-        current_orb_center_wannier, do_et_ddapc, do_full_density, do_no_et, do_spin_density, &
-        gto_cartesian, gto_spherical, oe_gllb, oe_lb, oe_none, oe_saop, oe_shift, &
-        ot_precond_full_all, ot_precond_full_kinetic, ot_precond_full_single, &
-        ot_precond_full_single_inverse, ot_precond_none, ot_precond_s_inverse, &
-        tddfpt_dipole_berry, tddfpt_dipole_length, tddfpt_dipole_velocity, tddfpt_kernel_full, &
-        tddfpt_kernel_stda, use_mom_ref_coac, use_mom_ref_com, use_mom_ref_user, use_mom_ref_zero
-   USE input_cp2k_atprop,               ONLY: create_atprop_section
-   USE input_cp2k_dft,                  ONLY: create_ddapc_restraint_section,&
-                                              create_interp_section,&
-                                              create_mgrid_section
-   USE input_cp2k_loc,                  ONLY: create_localize_section
-   USE input_cp2k_resp,                 ONLY: create_resp_section
-   USE input_cp2k_xc,                   ONLY: create_xc_section
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: integer_t,&
-                                              lchar_t,&
-                                              logical_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: s2a
+   USE bibliography, ONLY: Futera2017, &
+                           Iannuzzi2005, &
+                           Kondov2007, &
+                           Luber2014, &
+                           Putrino2000, &
+                           Putrino2002, &
+                           Sebastiani2001, &
+                           Weber2009
+   USE cp_output_handling, ONLY: add_last_numeric, &
+                                 cp_print_key_section_create, &
+                                 debug_print_level, &
+                                 high_print_level, &
+                                 low_print_level, &
+                                 medium_print_level, &
+                                 silent_print_level
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE input_constants, ONLY: &
+      current_gauge_atom, current_gauge_r, current_gauge_r_and_step_func, &
+      current_orb_center_atom, current_orb_center_box, current_orb_center_common, &
+      current_orb_center_wannier, do_et_ddapc, do_full_density, do_no_et, do_spin_density, &
+      gto_cartesian, gto_spherical, oe_gllb, oe_lb, oe_none, oe_saop, oe_shift, &
+      ot_precond_full_all, ot_precond_full_kinetic, ot_precond_full_single, &
+      ot_precond_full_single_inverse, ot_precond_none, ot_precond_s_inverse, &
+      tddfpt_dipole_berry, tddfpt_dipole_length, tddfpt_dipole_velocity, tddfpt_kernel_full, &
+      tddfpt_kernel_stda, use_mom_ref_coac, use_mom_ref_com, use_mom_ref_user, use_mom_ref_zero
+   USE input_cp2k_atprop, ONLY: create_atprop_section
+   USE input_cp2k_dft, ONLY: create_ddapc_restraint_section, &
+                             create_interp_section, &
+                             create_mgrid_section
+   USE input_cp2k_loc, ONLY: create_localize_section
+   USE input_cp2k_resp, ONLY: create_resp_section
+   USE input_cp2k_xc, ONLY: create_xc_section
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: integer_t, &
+                              lchar_t, &
+                              logical_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -13,17 +13,17 @@
 ! **************************************************************************************************
 MODULE debug_os_integrals
 
-   USE ai_overlap,                      ONLY: overlap
-   USE ai_overlap3,                     ONLY: overlap3
-   USE ai_overlap3_debug,               ONLY: init_os_overlap3,&
-                                              os_overlap3
-   USE ai_overlap_aabb,                 ONLY: overlap_aabb
-   USE ai_overlap_debug,                ONLY: init_os_overlap2,&
-                                              os_overlap2
-   USE kinds,                           ONLY: dp
-   USE orbital_pointers,                ONLY: coset,&
-                                              indco,&
-                                              ncoset
+   USE ai_overlap, ONLY: overlap
+   USE ai_overlap3, ONLY: overlap3
+   USE ai_overlap3_debug, ONLY: init_os_overlap3, &
+                                os_overlap3
+   USE ai_overlap_aabb, ONLY: overlap_aabb
+   USE ai_overlap_debug, ONLY: init_os_overlap2, &
+                               os_overlap2
+   USE kinds, ONLY: dp
+   USE orbital_pointers, ONLY: coset, &
+                               indco, &
+                               ncoset
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -386,7 +386,7 @@ CONTAINS
    SUBROUTINE overlap_aabb_test_simple()
 
       INTEGER :: i, iax, iay, iaz, ibx, iby, ibz, j, k, l, la_max, la_max1, la_max2, la_min, &
-         la_min1, la_min2, lb_max, lb_max1, lb_max2, lb_min, lb_min1, lb_min2, lds, ma, maxl, mb
+                 la_min1, la_min2, lb_max, lb_max1, lb_max2, lb_min, lb_min1, lb_min2, lds, ma, maxl, mb
       INTEGER, DIMENSION(3)                              :: na, naa, nb, nbb
       REAL(KIND=dp)                                      :: dab, dmax, res1, xa, xa1, xa2, xb, xb1, &
                                                             xb2
@@ -572,7 +572,7 @@ CONTAINS
                                                 nbb = indco(1:3, k) + indco(1:3, l)
                                                 IF (ALL(na == naa) .AND. ALL(nb == nbb)) THEN
                                                    dmax = MAX(dmax, ABS(res1 - saabb(coa1 + i, coa2 + j, cob1 + k, cob2 + l)))
-                                                ENDIF
+                                                END IF
                                              END DO
                                           END DO
                                        END DO

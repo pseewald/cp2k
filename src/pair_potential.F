@@ -15,42 +15,42 @@
 ! **************************************************************************************************
 MODULE pair_potential
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE fparser,                         ONLY: finalizef,&
-                                              initf,&
-                                              parsef
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE pair_potential_types,            ONLY: &
-        b4_type, bm_type, compare_pot, ea_type, ft_type, ftd_type, gal_type, gp_type, gw_type, &
-        ip_type, list_pot, lj_charmm_type, lj_type, multi_type, nn_type, pair_potential_pp_type, &
-        pair_potential_single_type, potential_single_allocation, quip_type, siepmann_type, &
-        tersoff_type, wl_type
-   USE pair_potential_util,             ONLY: ener_pot,&
-                                              ener_zbl,&
-                                              zbl_matching_polinomial
-   USE physcon,                         ONLY: bohr,&
-                                              evolt,&
-                                              kjmol
-   USE splines_methods,                 ONLY: init_spline,&
-                                              init_splinexy,&
-                                              potential_s
-   USE splines_types,                   ONLY: spline_data_p_type,&
-                                              spline_data_type,&
-                                              spline_env_create,&
-                                              spline_environment_type,&
-                                              spline_factor_create,&
-                                              spline_factor_release,&
-                                              spline_factor_type
-   USE string_table,                    ONLY: str2id
-   USE util,                            ONLY: sort
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE fparser, ONLY: finalizef, &
+                      initf, &
+                      parsef
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE pair_potential_types, ONLY: &
+      b4_type, bm_type, compare_pot, ea_type, ft_type, ftd_type, gal_type, gp_type, gw_type, &
+      ip_type, list_pot, lj_charmm_type, lj_type, multi_type, nn_type, pair_potential_pp_type, &
+      pair_potential_single_type, potential_single_allocation, quip_type, siepmann_type, &
+      tersoff_type, wl_type
+   USE pair_potential_util, ONLY: ener_pot, &
+                                  ener_zbl, &
+                                  zbl_matching_polinomial
+   USE physcon, ONLY: bohr, &
+                      evolt, &
+                      kjmol
+   USE splines_methods, ONLY: init_spline, &
+                              init_splinexy, &
+                              potential_s
+   USE splines_types, ONLY: spline_data_p_type, &
+                            spline_data_type, &
+                            spline_env_create, &
+                            spline_environment_type, &
+                            spline_factor_create, &
+                            spline_factor_release, &
+                            spline_factor_type
+   USE string_table, ONLY: str2id
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -179,7 +179,7 @@ CONTAINS
                      ip = 0
                   END IF
                END IF
-            ENDIF
+            END IF
             ! Setup of Exclusion Types
             pot%no_pp = .TRUE.
             pot%no_mb = .TRUE.
@@ -312,7 +312,7 @@ CONTAINS
             x = x - dx2
          END DO
          x = x + dx2
-      ENDDO
+      END DO
       locut = locut_found
 
    END SUBROUTINE get_spline_cutoff
@@ -378,7 +378,7 @@ CONTAINS
          fixed_spline_points = .FALSE.
          npoints = 20
          IF (.NOT. found_locut) npoints = 2
-      ENDIF
+      END IF
       spline_data => spl_p(1)%spline_data
       DO WHILE (.TRUE.)
          CALL init_splinexy(spline_data, npoints + 1)
@@ -999,7 +999,7 @@ CONTAINS
          pot%spl_f%rcutsq_f = 1.0_dp
          pot%spl_f%rscale = 1.0_dp
          pot%spl_f%fscale = 1.0_dp
-      ENDDO
+      END DO
 
       IF (ANY(potential_single_allocation == pot_target)) THEN
          DO i = 1, nvalues
@@ -1027,7 +1027,7 @@ CONTAINS
                   pot%spl_f%fscale(1) = l_epsilon/m_epsilon
                END IF
             END IF
-         ENDDO
+         END DO
       END IF
 
       DO i = 1, nvalues

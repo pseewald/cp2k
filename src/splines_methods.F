@@ -13,12 +13,12 @@
 ! **************************************************************************************************
 MODULE splines_methods
 
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE kinds,                           ONLY: dp
-   USE splines_types,                   ONLY: spline_data_p_type,&
-                                              spline_data_type,&
-                                              spline_factor_type
+   USE cp_log_handling, ONLY: cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE kinds, ONLY: dp
+   USE splines_types, ONLY: spline_data_p_type, &
+                            spline_data_type, &
+                            spline_factor_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

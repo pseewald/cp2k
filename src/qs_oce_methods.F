@@ -15,30 +15,30 @@
 ! **************************************************************************************************
 MODULE qs_oce_methods
 
-   USE ai_overlap,                      ONLY: overlap
-   USE ao_util,                         ONLY: exp_radius
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE block_p_types,                   ONLY: block_p_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              pi
-   USE orbital_pointers,                ONLY: indco,&
-                                              init_orbital_pointers,&
-                                              nco,&
-                                              ncoset,&
-                                              nso
+   USE ai_overlap, ONLY: overlap
+   USE ao_util, ONLY: exp_radius
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE block_p_types, ONLY: block_p_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: dfac, &
+                            pi
+   USE orbital_pointers, ONLY: indco, &
+                               init_orbital_pointers, &
+                               nco, &
+                               ncoset, &
+                               nso
    USE orbital_transformation_matrices, ONLY: orbtramat
-   USE particle_types,                  ONLY: particle_type
-   USE paw_proj_set_types,              ONLY: get_paw_proj_set,&
-                                              paw_proj_set_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE sap_kind_types,                  ONLY: clist_type,&
-                                              sap_int_type,&
-                                              sap_sort
+   USE particle_types, ONLY: particle_type
+   USE paw_proj_set_types, ONLY: get_paw_proj_set, &
+                                 paw_proj_set_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE sap_kind_types, ONLY: clist_type, &
+                             sap_int_type, &
+                             sap_sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -80,9 +80,9 @@ CONTAINS
       REAL(dp), INTENT(IN)                               :: eps_fit
 
       INTEGER :: first_col, ic, ico, ider, ig1, igau, ip, ipgf, is, isgfb, isgfb_cnt, iso, isp, &
-         jc, jset, lds, lm, lpoint, lprj, lsgfb, lsgfb_cnt, lshell, lx, ly, lz, m, m1, maxcob, &
-         maxder, maxlb, maxlprj, maxnprja, maxsoa, msab, n, ncob, np_car, np_sph, nsatbas, nseta, &
-         nsetb, nsoatot, ntotsgfb, sgf_hard_only
+                 jc, jset, lds, lm, lpoint, lprj, lsgfb, lsgfb_cnt, lshell, lx, ly, lz, m, m1, maxcob, &
+                 maxder, maxlb, maxlprj, maxnprja, maxsoa, msab, n, ncob, np_car, np_sph, nsatbas, nseta, &
+                 nsetb, nsoatot, ntotsgfb, sgf_hard_only
       INTEGER, DIMENSION(:), POINTER                     :: fp_cara, fp_spha, lb_max, lb_min, npgfb, &
                                                             nprjla, nsgfb
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfb
@@ -134,7 +134,7 @@ CONTAINS
       calculate_forces = .FALSE.
       IF (nder > 0) THEN
          calculate_forces = .TRUE.
-      ENDIF
+      END IF
 
       lm = MAX(maxlb, maxlprj)
       lds = ncoset(lm + nder + 1)
@@ -159,7 +159,7 @@ CONTAINS
             DO jc = isgfb, lsgfb
                nsgf_cnt = nsgf_cnt + 1
                sgf_list(nsgf_cnt) = jc
-            ENDDO
+            END DO
 
             ! check if this function is hard
             radius = exp_radius(lb_max(jset), MAXVAL(zetb(1:npgfb(jset), jset)), eps_fit, 1.0_dp)
@@ -190,8 +190,8 @@ CONTAINS
                      lz = indco(3, ico + ncoset(lprj - 1))
                      c2s(iso, ico) = orbtramat(lprj)%c2s(iso, ico)/SQRT((4.0_dp*pi)/dfac(2*lprj + 1)* &
                                                                         dfac(2*lx - 1)*dfac(2*ly - 1)*dfac(2*lz - 1))
-                  ENDDO
-               ENDDO
+                  END DO
+               END DO
                DO ider = 1, maxder
                   is = (ider - 1)*SIZE(spa_tmp, 1)
                   isp = (ider - 1)*maxcob*nsetb
@@ -208,10 +208,10 @@ CONTAINS
                         ovs(m:m + nso(lprj) - 1, igau:igau + n - 1) = &
                            MATMUL(c2s(1:nso(lprj), 1:nco(lprj)), &
                                   spa_tmp(lpoint:lpoint + nco(lprj) - 1, ig1:ig1 + n - 1))
-                     ENDDO
-                  ENDDO
-               ENDDO
-            ENDDO
+                     END DO
+                  END DO
+               END DO
+            END DO
 
             IF (paw_atom_b) THEN
                CALL get_paw_proj_set(paw_proj_set=paw_proj_b, zisomin=zisominb)
@@ -223,11 +223,11 @@ CONTAINS
                            is = maxcob*(ider - 1)
                            isp = (ider - 1)*maxcob*nsetb
                            ovs(:, igau + 1 + isp + m1:igau + nco(lshell) + isp + m1) = 0.0_dp
-                        ENDDO
-                     ENDIF
-                  ENDDO
+                        END DO
+                     END IF
+                  END DO
                END DO
-            ENDIF
+            END IF
 
             ! *** Contraction step (integrals and derivatives)
             DO ider = 1, maxder
@@ -248,11 +248,11 @@ CONTAINS
                   oces(ider)%block(1:nsatbas, isgfb_cnt:isgfb_cnt + nsgfb(jset) - 1) + &
                   MATMUL(TRANSPOSE(csprj(1:np_sph, 1:nsatbas)), &
                          spa_sb(1:np_sph, isgfb:isgfb + nsgfb(jset) - 1))
-            ENDDO
+            END DO
             isgfb_cnt = isgfb_cnt + nsgfb(jset)
          END IF ! radius
          m1 = m1 + maxcob
-      ENDDO !jset
+      END DO !jset
 
       ! check if the screened functions are all soft
       sgf_soft_only = .FALSE.
@@ -315,12 +315,12 @@ CONTAINS
          DO jc = isgfa, lsgfa
             nsgf_cnt = nsgf_cnt + 1
             sgf_list(nsgf_cnt) = jc
-         ENDDO
+         END DO
          n = maxsoa*(iset - 1)
 
          prjloc_h(n + 1:n + maxsoa, isgfa:lsgfa) = local_oce_h(1:maxsoa, isgfa:lsgfa)
          prjloc_s(n + 1:n + maxsoa, isgfa:lsgfa) = local_oce_s(1:maxsoa, isgfa:lsgfa)
-      ENDDO
+      END DO
 
       DO i = 1, nsgfa
          DO j = 1, nsatbas
@@ -363,8 +363,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'build_oce_matrices'
 
       INTEGER :: atom_a, atom_b, handle, i, iac, ikind, ilist, jkind, jneighbor, ldai, ldsab, &
-         maxco, maxder, maxl, maxlgto, maxlprj, maxprj, maxsgf, maxsoa, maxsob, mlprj, natom, &
-         ncoa_sum, nkind, nlist, nneighbor, nsatbas, nseta, nsetb, nsgf_cnt, nsgfa, nsobtot, slot
+                 maxco, maxder, maxl, maxlgto, maxlprj, maxprj, maxsgf, maxsoa, maxsob, mlprj, natom, &
+                 ncoa_sum, nkind, nlist, nneighbor, nsatbas, nseta, nsetb, nsgf_cnt, nsgfa, nsobtot, slot
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: sgf_list
       INTEGER, DIMENSION(3)                              :: cell_b
       INTEGER, DIMENSION(:), POINTER                     :: fp_car, fp_sph, la_max, la_min, npgfa, &
@@ -387,7 +387,7 @@ CONTAINS
          CALL timeset(routineN//"_forces", handle)
       ELSE
          CALL timeset(routineN, handle)
-      ENDIF
+      END IF
 
       IF (ASSOCIATED(sap_oce)) THEN
 
@@ -560,7 +560,7 @@ CONTAINS
                   clist%maxac = MAXVAL(ABS(clist%acint(:, :, 1)))
                   clist%maxach = 0._dp
                   clist%sgf_list(1:nsgf_cnt) = sgf_list(1:nsgf_cnt)
-               ENDIF
+               END IF
                DO i = 1, maxder
                   DEALLOCATE (oceh(i)%block, oces(i)%block)
                END DO
@@ -582,7 +582,7 @@ CONTAINS
                   clist%maxac = MAXVAL(ABS(clist%acint(:, :, 1)))
                   clist%maxach = 0._dp
                   clist%sgf_list(1:nsgf_cnt) = sgf_list(1:nsgf_cnt)
-               ENDIF
+               END IF
                DO i = 1, maxder
                   DEALLOCATE (oces(i)%block)
                END DO
@@ -666,8 +666,8 @@ CONTAINS
             ! soft
             CALL dgemm('N', 'N', na, nso, nb, fac, blk(1, 1), ldb, s_b(1, 1), nb, 0.0_dp, buf1(1), na)
             CALL dgemm('T', 'N', nso, nso, na, 1.0_dp, s_a(1, 1), na, buf1(1), na, 1.0_dp, proj_s(1, 1), nso)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
    END SUBROUTINE proj_blk
 

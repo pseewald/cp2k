@@ -13,12 +13,12 @@
 ! **************************************************************************************************
 MODULE qs_integral_utils
 
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE orbital_pointers,                ONLY: init_orbital_pointers
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE orbital_pointers, ONLY: init_orbital_pointers
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -14,8 +14,8 @@
 ! **************************************************************************************************
 MODULE xc_functionals_utilities
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

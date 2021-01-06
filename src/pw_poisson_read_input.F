@@ -13,29 +13,29 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE pw_poisson_read_input
-   USE cell_types,                      ONLY: use_perd_none,&
-                                              use_perd_x,&
-                                              use_perd_xy,&
-                                              use_perd_xyz,&
-                                              use_perd_xz,&
-                                              use_perd_y,&
-                                              use_perd_yz,&
-                                              use_perd_z
-   USE dirichlet_bc_types,              ONLY: xy_plane,&
-                                              xz_plane,&
-                                              yz_plane
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE ps_wavelet_types,                ONLY: WAVELET0D,&
-                                              WAVELET2D,&
-                                              WAVELET3D
-   USE pw_poisson_types,                ONLY: &
-        do_ewald_none, pw_poisson_analytic, pw_poisson_implicit, pw_poisson_mt, &
-        pw_poisson_multipole, pw_poisson_none, pw_poisson_parameter_type, pw_poisson_periodic, &
-        pw_poisson_wavelet
+   USE cell_types, ONLY: use_perd_none, &
+                         use_perd_x, &
+                         use_perd_xy, &
+                         use_perd_xyz, &
+                         use_perd_xz, &
+                         use_perd_y, &
+                         use_perd_yz, &
+                         use_perd_z
+   USE dirichlet_bc_types, ONLY: xy_plane, &
+                                 xz_plane, &
+                                 yz_plane
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE ps_wavelet_types, ONLY: WAVELET0D, &
+                               WAVELET2D, &
+                               WAVELET3D
+   USE pw_poisson_types, ONLY: &
+      do_ewald_none, pw_poisson_analytic, pw_poisson_implicit, pw_poisson_mt, &
+      pw_poisson_multipole, pw_poisson_none, pw_poisson_parameter_type, pw_poisson_periodic, &
+      pw_poisson_wavelet
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -225,7 +225,7 @@ CONTAINS
                                                             xaa_annular_explicit
       REAL(dp)                                           :: eps, zeta
       REAL(dp), DIMENSION(:), POINTER :: aa_cuboidal_xxtnt, aa_cuboidal_yxtnt, aa_cuboidal_zxtnt, &
-         xaa_annular_bctr, xaa_annular_brad, xaa_annular_xxtnt
+                                         xaa_annular_bctr, xaa_annular_brad, xaa_annular_xxtnt
       TYPE(section_vals_type), POINTER                   :: aa_cuboidal_section, xaa_annular_section
 
       CALL section_vals_val_get(dielectric_section, "DIELECTRIC_CORE_CORRECTION", &
@@ -313,7 +313,7 @@ CONTAINS
       TYPE(pw_poisson_parameter_type), INTENT(INOUT)     :: params
 
       INTEGER :: aa_cylindrical_apxtyp, aa_cylindrical_nsides, i, n_aac_rep, n_aacyl_rep, &
-         n_aap_rep, n_p_rep, parallel_axis, parallel_plane
+                 n_aap_rep, n_p_rep, parallel_axis, parallel_plane
       INTEGER, DIMENSION(:), POINTER                     :: aa_cuboidal_nprtn, aa_cylindrical_nprtn, &
                                                             aa_planar_nprtn, planar_nprtn
       LOGICAL                                            :: aa_cuboidal_explicit, &
@@ -324,8 +324,8 @@ CONTAINS
                                                             intercept, osc_frac, phase, sigma, &
                                                             thickness, v_D
       REAL(dp), DIMENSION(:), POINTER :: aa_cuboidal_xxtnt, aa_cuboidal_yxtnt, aa_cuboidal_zxtnt, &
-         aa_cylindrical_bctr, aa_cylindrical_xtnt, aa_planar_xxtnt, aa_planar_yxtnt, &
-         aa_planar_zxtnt, planar_Avtx, planar_Bvtx, planar_Cvtx
+                                         aa_cylindrical_bctr, aa_cylindrical_xtnt, aa_planar_xxtnt, aa_planar_yxtnt, &
+                                         aa_planar_zxtnt, planar_Avtx, planar_Bvtx, planar_Cvtx
       TYPE(section_vals_type), POINTER                   :: aa_cuboidal_section, &
                                                             aa_cylindrical_section, &
                                                             aa_planar_section, planar_section

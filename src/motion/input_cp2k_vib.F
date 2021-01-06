@@ -13,32 +13,32 @@
 !> \author [tlaino]
 ! **************************************************************************************************
 MODULE input_cp2k_vib
-   USE cp_output_handling,              ONLY: add_last_numeric,&
-                                              cp_print_key_section_create,&
-                                              debug_print_level,&
-                                              low_print_level,&
-                                              medium_print_level,&
-                                              silent_print_level
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE input_constants,                 ONLY: do_rep_blocked,&
-                                              do_rep_interleaved,&
-                                              ms_guess_atomic,&
-                                              ms_guess_bfgs,&
-                                              ms_guess_molden,&
-                                              ms_guess_restart,&
-                                              ms_guess_restart_vec
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: integer_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: s2a
+   USE cp_output_handling, ONLY: add_last_numeric, &
+                                 cp_print_key_section_create, &
+                                 debug_print_level, &
+                                 low_print_level, &
+                                 medium_print_level, &
+                                 silent_print_level
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE input_constants, ONLY: do_rep_blocked, &
+                              do_rep_interleaved, &
+                              ms_guess_atomic, &
+                              ms_guess_bfgs, &
+                              ms_guess_molden, &
+                              ms_guess_restart, &
+                              ms_guess_restart_vec
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: integer_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: s2a
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

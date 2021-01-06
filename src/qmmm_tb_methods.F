@@ -10,65 +10,65 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE qmmm_tb_methods
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              dftb_control_type,&
-                                              xtb_control_type
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_get_block_p, dbcsr_iterator_blocks_left, &
-        dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
-        dbcsr_p_type, dbcsr_set
-   USE ewald_environment_types,         ONLY: ewald_env_create,&
-                                              ewald_env_get,&
-                                              ewald_env_release,&
-                                              ewald_env_set,&
-                                              ewald_environment_type,&
-                                              read_ewald_section
-   USE ewald_pw_types,                  ONLY: ewald_pw_create,&
-                                              ewald_pw_release,&
-                                              ewald_pw_type
-   USE input_constants,                 ONLY: do_fist_pol_none
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE mulliken,                        ONLY: mulliken_charges
-   USE particle_types,                  ONLY: allocate_particle_set,&
-                                              deallocate_particle_set,&
-                                              particle_type
-   USE pw_poisson_types,                ONLY: do_ewald_ewald,&
-                                              do_ewald_none,&
-                                              do_ewald_pme,&
-                                              do_ewald_spme
-   USE qmmm_types_low,                  ONLY: qmmm_env_qm_type,&
-                                              qmmm_pot_p_type,&
-                                              qmmm_pot_type
-   USE qmmm_util,                       ONLY: spherical_cutoff_factor
-   USE qs_dftb_coulomb,                 ONLY: gamma_rab_sr
-   USE qs_dftb_matrices,                ONLY: build_dftb_overlap
-   USE qs_dftb_types,                   ONLY: qs_dftb_atom_type
-   USE qs_dftb_utils,                   ONLY: get_dftb_atom_param
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_qmmm_types,                ONLY: qs_ks_qmmm_env_type
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_neighbor_lists,               ONLY: build_qs_neighbor_lists
-   USE qs_overlap,                      ONLY: build_overlap_matrix
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE spme,                            ONLY: spme_forces,&
-                                              spme_potential
-   USE xtb_types,                       ONLY: get_xtb_atom_param,&
-                                              xtb_atom_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type, &
+                               dftb_control_type, &
+                               xtb_control_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_get_block_p, dbcsr_iterator_blocks_left, &
+      dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
+      dbcsr_p_type, dbcsr_set
+   USE ewald_environment_types, ONLY: ewald_env_create, &
+                                      ewald_env_get, &
+                                      ewald_env_release, &
+                                      ewald_env_set, &
+                                      ewald_environment_type, &
+                                      read_ewald_section
+   USE ewald_pw_types, ONLY: ewald_pw_create, &
+                             ewald_pw_release, &
+                             ewald_pw_type
+   USE input_constants, ONLY: do_fist_pol_none
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE mulliken, ONLY: mulliken_charges
+   USE particle_types, ONLY: allocate_particle_set, &
+                             deallocate_particle_set, &
+                             particle_type
+   USE pw_poisson_types, ONLY: do_ewald_ewald, &
+                               do_ewald_none, &
+                               do_ewald_pme, &
+                               do_ewald_spme
+   USE qmmm_types_low, ONLY: qmmm_env_qm_type, &
+                             qmmm_pot_p_type, &
+                             qmmm_pot_type
+   USE qmmm_util, ONLY: spherical_cutoff_factor
+   USE qs_dftb_coulomb, ONLY: gamma_rab_sr
+   USE qs_dftb_matrices, ONLY: build_dftb_overlap
+   USE qs_dftb_types, ONLY: qs_dftb_atom_type
+   USE qs_dftb_utils, ONLY: get_dftb_atom_param
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_qmmm_types, ONLY: qs_ks_qmmm_env_type
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_neighbor_lists, ONLY: build_qs_neighbor_lists
+   USE qs_overlap, ONLY: build_overlap_matrix
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE spme, ONLY: spme_forces, &
+                   spme_potential
+   USE xtb_types, ONLY: get_xtb_atom_param, &
+                        xtb_atom_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -836,7 +836,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'deriv_tb_qmmm_matrix_pc'
 
       INTEGER :: atom_a, blk, do_ipol, ewald_type, handle, i, iatom, ikind, imm, imp, indmm, ipot, &
-         iqm, jatom, natom, natorb, nkind, nmm, nspins, number_qm_atoms
+                 iqm, jatom, natom, natorb, nkind, nmm, nspins, number_qm_atoms
       INTEGER, DIMENSION(:), POINTER                     :: list
       LOGICAL                                            :: defined, do_dftb, do_multipoles, do_xtb, &
                                                             found

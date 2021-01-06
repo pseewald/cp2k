@@ -14,37 +14,37 @@
 ! **************************************************************************************************
 MODULE dirichlet_bc_methods
 
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE dirichlet_bc_types,              ONLY: &
-        AA_CUBOIDAL, AA_PLANAR, CIRCUMSCRIBED, CYLINDRICAL, INSCRIBED, PLANAR, &
-        dbc_parameters_dealloc, dirichlet_bc_p_type, dirichlet_bc_type, tile_p_type, x_axis, &
-        xy_plane, xz_plane, y_axis, yz_plane, z_axis
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi,&
-                                              twopi
-   USE mathlib,                         ONLY: inv_3x3,&
-                                              matvec_3x3,&
-                                              vector_product
-   USE message_passing,                 ONLY: mp_max,&
-                                              mp_sum
-   USE physcon,                         ONLY: angstrom
-   USE ps_implicit_types,               ONLY: MIXED_BC,&
-                                              MIXED_PERIODIC_BC,&
-                                              NEUMANN_BC,&
-                                              PERIODIC_BC
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_zero
-   USE pw_poisson_types,                ONLY: pw_poisson_parameter_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE,&
-                                              pw_type
-   USE rs_methods,                      ONLY: setup_grid_axes
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE dirichlet_bc_types, ONLY: &
+      AA_CUBOIDAL, AA_PLANAR, CIRCUMSCRIBED, CYLINDRICAL, INSCRIBED, PLANAR, &
+      dbc_parameters_dealloc, dirichlet_bc_p_type, dirichlet_bc_type, tile_p_type, x_axis, &
+      xy_plane, xz_plane, y_axis, yz_plane, z_axis
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi, &
+                            twopi
+   USE mathlib, ONLY: inv_3x3, &
+                      matvec_3x3, &
+                      vector_product
+   USE message_passing, ONLY: mp_max, &
+                              mp_sum
+   USE physcon, ONLY: angstrom
+   USE ps_implicit_types, ONLY: MIXED_BC, &
+                                MIXED_PERIODIC_BC, &
+                                NEUMANN_BC, &
+                                PERIODIC_BC
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_zero
+   USE pw_poisson_types, ONLY: pw_poisson_parameter_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE, &
+                       pw_type
+   USE rs_methods, ONLY: setup_grid_axes
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -78,7 +78,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'dirichlet_boundary_region_setup'
 
       INTEGER :: apx_type, dbc_id, handle, ind_end, ind_start, j, l, n_aa_cuboidal, &
-         n_aa_cylindrical, n_aa_planar, n_dbcs, n_planar, parallel_axis, parallel_plane, unit_nr
+                 n_aa_cylindrical, n_aa_planar, n_dbcs, n_planar, parallel_axis, parallel_plane, unit_nr
       INTEGER, DIMENSION(3)                              :: n_prtn, npts
       INTEGER, DIMENSION(:), POINTER                     :: aa_cylindrical_nsides
       LOGICAL                                            :: is_periodic, verbose
@@ -100,7 +100,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       dr = pw_pool%pw_grid%dr
       npts = pw_pool%pw_grid%npts
@@ -308,7 +308,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       SELECT CASE (dirichlet_bc%dbc_geom)
       CASE (PLANAR)
@@ -478,7 +478,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       xlb = x_xtnt(1); xub = x_xtnt(2)
       ylb = y_xtnt(1); yub = y_xtnt(2)
@@ -582,7 +582,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       forb_xtnt1 = x_xtnt(1) .LT. cell_xtnts(1, 1)
       forb_xtnt2 = x_xtnt(2) .GT. cell_xtnts(2, 1)
@@ -676,7 +676,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       D = A + (C - B)
       AB = B - A; AC = C - A; AD = D - A; BC = C - B
@@ -815,8 +815,8 @@ CONTAINS
                                                             Lz, theta
       REAL(dp), DIMENSION(3)                             :: A, B, C, D, normal_vec, unit_normal
       TYPE(cp_logger_type), POINTER                      :: logger
-      REAL(dp), DIMENSION(SIZE(dbcs)+1)                  :: alpha, alpha_rotd, xlb, xub, ylb, yub, &
-                                                            zlb, zub
+      REAL(dp), DIMENSION(SIZE(dbcs) + 1)                  :: alpha, alpha_rotd, xlb, xub, ylb, yub, &
+                                                              zlb, zub
 
       CALL timeset(routineN, handle)
 
@@ -825,7 +825,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       Lx = cell_xtnts(2, 1) - cell_xtnts(1, 1)
       Ly = cell_xtnts(2, 2) - cell_xtnts(1, 2)

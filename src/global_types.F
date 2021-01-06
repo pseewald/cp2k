@@ -20,12 +20,12 @@
 ! **************************************************************************************************
 MODULE global_types
 
-   USE cp_blacs_env,                    ONLY: BLACS_GRID_SQUARE
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE machine,                         ONLY: m_walltime
-   USE parallel_rng_types,              ONLY: rng_stream_type
+   USE cp_blacs_env, ONLY: BLACS_GRID_SQUARE
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE machine, ONLY: m_walltime
+   USE parallel_rng_types, ONLY: rng_stream_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

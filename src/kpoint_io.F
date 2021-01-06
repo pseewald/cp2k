@@ -12,40 +12,40 @@
 ! **************************************************************************************************
 MODULE kpoint_io
 
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_read_unformatted,&
-                                              cp_fm_type,&
-                                              cp_fm_write_unformatted
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_info,&
-                                              dbcsr_p_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: default_path_length
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE message_passing,                 ONLY: mp_bcast
-   USE orbital_pointers,                ONLY: nso
-   USE particle_types,                  ONLY: particle_type
-   USE qs_dftb_types,                   ONLY: qs_dftb_atom_type
-   USE qs_dftb_utils,                   ONLY: get_dftb_atom_param
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_mo_io,                        ONLY: wfn_restart_file_name
-   USE qs_scf_types,                    ONLY: qs_scf_env_type
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_read_unformatted, &
+                          cp_fm_type, &
+                          cp_fm_write_unformatted
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_get_info, &
+                        dbcsr_p_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: default_path_length
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE message_passing, ONLY: mp_bcast
+   USE orbital_pointers, ONLY: nso
+   USE particle_types, ONLY: particle_type
+   USE qs_dftb_types, ONLY: qs_dftb_atom_type
+   USE qs_dftb_utils, ONLY: get_dftb_atom_param
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_mo_io, ONLY: wfn_restart_file_name
+   USE qs_scf_types, ONLY: qs_scf_env_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -377,7 +377,7 @@ CONTAINS
       LOGICAL, INTENT(OUT)                               :: natom_mismatch
 
       INTEGER :: group, ic, image, ispin, nao, nao_read, natom_read, ni, nimages, nset_max, &
-         nshell_max, nspin, nspin_read, source, version_read
+                 nshell_max, nspin, nspin_read, source, version_read
       INTEGER, DIMENSION(3)                              :: cell
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL                                            :: natom_match
@@ -458,7 +458,7 @@ CONTAINS
             IF (ispin == nspin_read) EXIT
          END DO
 
-      ENDIF
+      END IF
 
    END SUBROUTINE read_kpoints_restart_low
 

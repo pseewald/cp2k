@@ -13,16 +13,16 @@
 ! **************************************************************************************************
 MODULE input_cp2k_distribution
 
-   USE input_constants,                 ONLY: model_block_count,&
-                                              model_block_lmax,&
-                                              model_block_surface
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_create,&
-                                              section_type
-   USE string_utilities,                ONLY: s2a
+   USE input_constants, ONLY: model_block_count, &
+                              model_block_lmax, &
+                              model_block_surface
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_create, &
+                                  section_type
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

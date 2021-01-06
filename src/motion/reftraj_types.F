@@ -14,14 +14,14 @@
 ! **************************************************************************************************
 MODULE reftraj_types
 
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    dp
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

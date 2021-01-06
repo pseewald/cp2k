@@ -18,60 +18,60 @@
 ! **************************************************************************************************
 MODULE force_fields_util
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type
-   USE colvar_types,                    ONLY: dist_colvar_id
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_environment_type
-   USE fist_nonbond_env_types,          ONLY: fist_nonbond_env_create,&
-                                              fist_nonbond_env_set,&
-                                              fist_nonbond_env_type
-   USE force_field_kind_types,          ONLY: &
-        allocate_bend_kind_set, allocate_bond_kind_set, allocate_impr_kind_set, &
-        allocate_opbend_kind_set, allocate_torsion_kind_set, allocate_ub_kind_set, bend_kind_type, &
-        bond_kind_type, deallocate_bend_kind_set, deallocate_bond_kind_set, do_ff_undef, &
-        impr_kind_dealloc_ref, impr_kind_type, opbend_kind_type, torsion_kind_dealloc_ref, &
-        torsion_kind_type, ub_kind_dealloc_ref, ub_kind_type
-   USE force_field_types,               ONLY: amber_info_type,&
-                                              charmm_info_type,&
-                                              force_field_type,&
-                                              gromos_info_type,&
-                                              input_info_type
-   USE force_fields_all,                ONLY: &
-        force_field_pack_bend, force_field_pack_bond, force_field_pack_charge, &
-        force_field_pack_charges, force_field_pack_damp, force_field_pack_eicut, &
-        force_field_pack_impr, force_field_pack_nonbond, force_field_pack_nonbond14, &
-        force_field_pack_opbend, force_field_pack_pol, force_field_pack_radius, &
-        force_field_pack_shell, force_field_pack_splines, force_field_pack_tors, &
-        force_field_pack_ub, force_field_unique_bend, force_field_unique_bond, &
-        force_field_unique_impr, force_field_unique_opbend, force_field_unique_tors, &
-        force_field_unique_ub
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE molecule_kind_types,             ONLY: &
-        atom_type, bend_type, bond_type, colvar_constraint_type, g3x3_constraint_type, &
-        g4x6_constraint_type, get_molecule_kind, impr_type, molecule_kind_type, opbend_type, &
-        set_molecule_kind, torsion_type, ub_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              molecule_type
-   USE pair_potential_types,            ONLY: pair_potential_pp_type
-   USE particle_types,                  ONLY: particle_type
-   USE qmmm_types_low,                  ONLY: qmmm_env_mm_type
-   USE shell_potential_types,           ONLY: shell_kind_type
-   USE string_utilities,                ONLY: compress
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type
+   USE colvar_types, ONLY: dist_colvar_id
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_environment_type
+   USE fist_nonbond_env_types, ONLY: fist_nonbond_env_create, &
+                                     fist_nonbond_env_set, &
+                                     fist_nonbond_env_type
+   USE force_field_kind_types, ONLY: &
+      allocate_bend_kind_set, allocate_bond_kind_set, allocate_impr_kind_set, &
+      allocate_opbend_kind_set, allocate_torsion_kind_set, allocate_ub_kind_set, bend_kind_type, &
+      bond_kind_type, deallocate_bend_kind_set, deallocate_bond_kind_set, do_ff_undef, &
+      impr_kind_dealloc_ref, impr_kind_type, opbend_kind_type, torsion_kind_dealloc_ref, &
+      torsion_kind_type, ub_kind_dealloc_ref, ub_kind_type
+   USE force_field_types, ONLY: amber_info_type, &
+                                charmm_info_type, &
+                                force_field_type, &
+                                gromos_info_type, &
+                                input_info_type
+   USE force_fields_all, ONLY: &
+      force_field_pack_bend, force_field_pack_bond, force_field_pack_charge, &
+      force_field_pack_charges, force_field_pack_damp, force_field_pack_eicut, &
+      force_field_pack_impr, force_field_pack_nonbond, force_field_pack_nonbond14, &
+      force_field_pack_opbend, force_field_pack_pol, force_field_pack_radius, &
+      force_field_pack_shell, force_field_pack_splines, force_field_pack_tors, &
+      force_field_pack_ub, force_field_unique_bend, force_field_unique_bond, &
+      force_field_unique_impr, force_field_unique_opbend, force_field_unique_tors, &
+      force_field_unique_ub
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE molecule_kind_types, ONLY: &
+      atom_type, bend_type, bond_type, colvar_constraint_type, g3x3_constraint_type, &
+      g4x6_constraint_type, get_molecule_kind, impr_type, molecule_kind_type, opbend_type, &
+      set_molecule_kind, torsion_type, ub_type
+   USE molecule_types, ONLY: get_molecule, &
+                             molecule_type
+   USE pair_potential_types, ONLY: pair_potential_pp_type
+   USE particle_types, ONLY: particle_type
+   USE qmmm_types_low, ONLY: qmmm_env_mm_type
+   USE shell_potential_types, ONLY: shell_kind_type
+   USE string_utilities, ONLY: compress
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -499,8 +499,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'clean_intra_force_kind'
 
       INTEGER :: atm2_a, atm2_b, atm2_c, atm_a, atm_b, atm_c, atm_d, counter, handle, i, ibend, &
-         ibond, icolv, ig3x3, ig4x6, iimpr, ikind, iopbend, itorsion, iub, iw, j, k, nbend, nbond, &
-         newkind, ng3x3, ng4x6, nimpr, nopbend, ntorsion, nub
+                 ibond, icolv, ig3x3, ig4x6, iimpr, ikind, iopbend, itorsion, iub, iw, j, k, nbend, nbond, &
+                 newkind, ng3x3, ng4x6, nimpr, nopbend, ntorsion, nub
       INTEGER, POINTER                                   :: bad1(:), bad2(:)
       LOGICAL                                            :: unsetme, valid_kind
       TYPE(bend_kind_type), DIMENSION(:), POINTER        :: bend_kind_set, new_bend_kind_set

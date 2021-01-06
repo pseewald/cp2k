@@ -12,10 +12,10 @@
 !> \authors JGH
 ! **************************************************************************************************
 MODULE lri_compression
-   USE kinds,                           ONLY: dp,&
-                                              sp
-   USE lri_environment_types,           ONLY: carray,&
-                                              int_container
+   USE kinds, ONLY: dp, &
+                    sp
+   USE lri_environment_types, ONLY: carray, &
+                                    int_container
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

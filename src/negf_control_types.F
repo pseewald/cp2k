@@ -10,25 +10,25 @@
 ! **************************************************************************************************
 
 MODULE negf_control_types
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE input_constants,                 ONLY: negf_run
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi
-   USE molecule_kind_types,             ONLY: get_molecule_kind,&
-                                              molecule_kind_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              molecule_type
-   USE negf_alloc_types,                ONLY: negf_allocatable_ivector
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: kelvin
-   USE string_utilities,                ONLY: integer_to_string
-   USE util,                            ONLY: sort
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE input_constants, ONLY: negf_run
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi
+   USE molecule_kind_types, ONLY: get_molecule_kind, &
+                                  molecule_kind_type
+   USE molecule_types, ONLY: get_molecule, &
+                             molecule_type
+   USE negf_alloc_types, ONLY: negf_allocatable_ivector
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: kelvin
+   USE string_utilities, ONLY: integer_to_string
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -202,7 +202,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'read_negf_control'
 
       CHARACTER(len=default_string_length) :: contact_id_str, eta_current_str, eta_max_str, &
-         npoles_current_str, npoles_min_str, temp_current_str, temp_min_str
+                                              npoles_current_str, npoles_min_str, temp_current_str, temp_min_str
       INTEGER                                            :: delta_npoles_min, handle, i2_rep, i_rep, &
                                                             n2_rep, n_rep, natoms_current, &
                                                             natoms_total, run_type
@@ -470,7 +470,7 @@ CONTAINS
       CHARACTER(len=default_string_length), &
          DIMENSION(:), POINTER                           :: cptr
       INTEGER :: first_atom, handle, iatom, ikind, imol, iname, irep, last_atom, natoms_current, &
-         natoms_max, natoms_total, nkinds, nmols, nnames, nrep_list, nrep_molname
+                 natoms_max, natoms_total, nkinds, nmols, nnames, nrep_list, nrep_molname
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: inds
       INTEGER, DIMENSION(:), POINTER                     :: iptr
       LOGICAL                                            :: is_list, is_molname

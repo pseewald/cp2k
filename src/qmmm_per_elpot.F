@@ -13,40 +13,40 @@ MODULE qmmm_per_elpot
 !> \par History
 !>      07.2005 created [tlaino]
 !> \author Teodoro Laino
-   USE ao_util,                         ONLY: exp_radius
-   USE cell_types,                      ONLY: cell_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE ewald_environment_types,         ONLY: ewald_env_create,&
-                                              ewald_env_get,&
-                                              ewald_env_set,&
-                                              ewald_environment_type,&
-                                              read_ewald_section
-   USE ewald_pw_types,                  ONLY: ewald_pw_create,&
-                                              ewald_pw_type
-   USE ewald_spline_util,               ONLY: Setup_Ewald_Spline
-   USE input_constants,                 ONLY: do_qmmm_coulomb,&
-                                              do_qmmm_gauss,&
-                                              do_qmmm_pcharge,&
-                                              do_qmmm_swave
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE pw_poisson_types,                ONLY: do_ewald_ewald,&
-                                              do_ewald_none,&
-                                              do_ewald_pme,&
-                                              do_ewald_spme
-   USE qmmm_gaussian_types,             ONLY: qmmm_gaussian_p_type,&
-                                              qmmm_gaussian_type
-   USE qmmm_types_low,                  ONLY: qmmm_per_pot_p_type,&
-                                              qmmm_per_pot_type,&
-                                              qmmm_pot_p_type
+   USE ao_util, ONLY: exp_radius
+   USE cell_types, ONLY: cell_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE ewald_environment_types, ONLY: ewald_env_create, &
+                                      ewald_env_get, &
+                                      ewald_env_set, &
+                                      ewald_environment_type, &
+                                      read_ewald_section
+   USE ewald_pw_types, ONLY: ewald_pw_create, &
+                             ewald_pw_type
+   USE ewald_spline_util, ONLY: Setup_Ewald_Spline
+   USE input_constants, ONLY: do_qmmm_coulomb, &
+                              do_qmmm_gauss, &
+                              do_qmmm_pcharge, &
+                              do_qmmm_swave
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE pw_poisson_types, ONLY: do_ewald_ewald, &
+                               do_ewald_none, &
+                               do_ewald_pme, &
+                               do_ewald_spme
+   USE qmmm_gaussian_types, ONLY: qmmm_gaussian_p_type, &
+                                  qmmm_gaussian_type
+   USE qmmm_types_low, ONLY: qmmm_per_pot_p_type, &
+                             qmmm_per_pot_type, &
+                             qmmm_pot_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -183,7 +183,7 @@ CONTAINS
                            Ak = pgf%Ak(Ig)*Pi**(3.0_dp/2.0_dp)*Gk**3.0_dp
                            LG(idim) = LG(idim) - Ak*EXP(-(g*Gk)**2.0_dp/4.0_dp)
                         END DO
-                     ENDIF
+                     END IF
                      LG(idim) = fs*LG(idim)*1.0_dp/Vol
                      gx(idim) = fac(1)*REAL(ix, KIND=dp)
                      gy(idim) = fac(2)*REAL(iy, KIND=dp)

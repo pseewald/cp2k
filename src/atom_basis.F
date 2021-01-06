@@ -6,33 +6,33 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE atom_basis
-   USE atom_fit,                        ONLY: atom_fit_basis
-   USE atom_output,                     ONLY: atom_print_basis,&
-                                              atom_print_info,&
-                                              atom_print_method,&
-                                              atom_print_potential
-   USE atom_types,                      ONLY: &
-        atom_basis_type, atom_integrals, atom_optimization_type, atom_orbitals, atom_p_type, &
-        atom_potential_type, atom_state, create_atom_orbs, create_atom_type, init_atom_basis, &
-        init_atom_potential, lmat, read_atom_opt_section, release_atom_basis, &
-        release_atom_potential, release_atom_type, set_atom
-   USE atom_utils,                      ONLY: atom_consistent_method,&
-                                              atom_set_occupation,&
-                                              get_maxl_occ,&
-                                              get_maxn_occ
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE input_constants,                 ONLY: do_analytic
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE periodic_table,                  ONLY: nelem,&
-                                              ptable
+   USE atom_fit, ONLY: atom_fit_basis
+   USE atom_output, ONLY: atom_print_basis, &
+                          atom_print_info, &
+                          atom_print_method, &
+                          atom_print_potential
+   USE atom_types, ONLY: &
+      atom_basis_type, atom_integrals, atom_optimization_type, atom_orbitals, atom_p_type, &
+      atom_potential_type, atom_state, create_atom_orbs, create_atom_type, init_atom_basis, &
+      init_atom_potential, lmat, read_atom_opt_section, release_atom_basis, &
+      release_atom_potential, release_atom_type, set_atom
+   USE atom_utils, ONLY: atom_consistent_method, &
+                         atom_set_occupation, &
+                         get_maxl_occ, &
+                         get_maxn_occ
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE input_constants, ONLY: do_analytic
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE periodic_table, ONLY: nelem, &
+                             ptable
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

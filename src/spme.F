@@ -13,47 +13,47 @@
 ! **************************************************************************************************
 MODULE spme
 
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE atprop_types,                    ONLY: atprop_type
-   USE bibliography,                    ONLY: Essmann1995,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type,&
-                                              real_to_scaled
-   USE dgs,                             ONLY: dg_sum_patch,&
-                                              dg_sum_patch_force_1d,&
-                                              dg_sum_patch_force_3d
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_environment_type
-   USE ewald_pw_types,                  ONLY: ewald_pw_get,&
-                                              ewald_pw_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fourpi
-   USE particle_types,                  ONLY: particle_type
-   USE pme_tools,                       ONLY: get_center,&
-                                              set_list
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_grids,                        ONLY: get_pw_grid_info
-   USE pw_methods,                      ONLY: pw_copy,&
-                                              pw_derive,&
-                                              pw_integral_a2b,&
-                                              pw_transfer
-   USE pw_poisson_methods,              ONLY: pw_poisson_rebuild,&
-                                              pw_poisson_solve
-   USE pw_poisson_types,                ONLY: greens_fn_type,&
-                                              pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
-   USE realspace_grid_types,            ONLY: &
-        pw2rs, realspace_grid_desc_type, realspace_grid_p_type, realspace_grid_type, rs2pw, &
-        rs_grid_create, rs_grid_release, rs_grid_set_box, rs_grid_zero, rs_pw_transfer
-   USE shell_potential_types,           ONLY: shell_kind_type
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE atprop_types, ONLY: atprop_type
+   USE bibliography, ONLY: Essmann1995, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type, &
+                         real_to_scaled
+   USE dgs, ONLY: dg_sum_patch, &
+                  dg_sum_patch_force_1d, &
+                  dg_sum_patch_force_3d
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_environment_type
+   USE ewald_pw_types, ONLY: ewald_pw_get, &
+                             ewald_pw_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fourpi
+   USE particle_types, ONLY: particle_type
+   USE pme_tools, ONLY: get_center, &
+                        set_list
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_grids, ONLY: get_pw_grid_info
+   USE pw_methods, ONLY: pw_copy, &
+                         pw_derive, &
+                         pw_integral_a2b, &
+                         pw_transfer
+   USE pw_poisson_methods, ONLY: pw_poisson_rebuild, &
+                                 pw_poisson_solve
+   USE pw_poisson_types, ONLY: greens_fn_type, &
+                               pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_type
+   USE realspace_grid_types, ONLY: &
+      pw2rs, realspace_grid_desc_type, realspace_grid_p_type, realspace_grid_type, rs2pw, &
+      rs_grid_create, rs_grid_release, rs_grid_set_box, rs_grid_zero, rs_pw_transfer
+   USE shell_potential_types, ONLY: shell_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -849,7 +849,7 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: n
       REAL(KIND=dp), DIMENSION(3), INTENT(IN)            :: delta
       REAL(KIND=dp), INTENT(IN)                          :: q
-      REAL(KIND=dp), DIMENSION(-(n-1):n-1, 0:n-1), &
+      REAL(KIND=dp), DIMENSION(-(n - 1):n - 1, 0:n - 1), &
          INTENT(IN)                                      :: coeff
 
       INTEGER, PARAMETER                                 :: nmax = 12
@@ -857,7 +857,7 @@ CONTAINS
       INTEGER                                            :: i, i1, i2, i3, j, l
       REAL(KIND=dp)                                      :: r2, r3
       REAL(KIND=dp), DIMENSION(3, -nmax:nmax)            :: w_assign
-      REAL(KIND=dp), DIMENSION(3, 0:nmax-1)              :: deltal
+      REAL(KIND=dp), DIMENSION(3, 0:nmax - 1)              :: deltal
       REAL(KIND=dp), DIMENSION(3, 1:nmax)                :: f_assign
 
       IF (n > nmax) THEN

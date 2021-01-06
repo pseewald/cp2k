@@ -10,53 +10,53 @@
 !>      for the atomic density in the basis set of spherical primitives
 ! **************************************************************************************************
 MODULE qs_vxc_atom
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_constants,                 ONLY: tddfpt_excitations,&
-                                              tddfpt_triplet,&
-                                              xc_none
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_sum
-   USE orbital_pointers,                ONLY: indso,&
-                                              nsoset
-   USE paw_proj_set_types,              ONLY: get_paw_proj_set,&
-                                              paw_proj_set_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_grid_atom,                    ONLY: grid_atom_type
-   USE qs_harmonics_atom,               ONLY: get_none0_cg_list,&
-                                              harmonics_atom_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              has_nlcc,&
-                                              qs_kind_type
-   USE qs_linres_types,                 ONLY: nablavks_atom_type
-   USE qs_local_rho_types,              ONLY: local_rho_type
-   USE qs_rho_atom_types,               ONLY: get_rho_atom,&
-                                              rho_atom_coeff,&
-                                              rho_atom_type
-   USE util,                            ONLY: get_limit
-   USE xc_atom,                         ONLY: fill_rho_set,&
-                                              vxc_of_r_new,&
-                                              xc_2nd_deriv_of_r,&
-                                              xc_rho_set_atom_update
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_create,&
-                                              xc_dset_release,&
-                                              xc_dset_zero_all
-   USE xc_derivatives,                  ONLY: xc_functionals_get_needs
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_create,&
-                                              xc_rho_set_release,&
-                                              xc_rho_set_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_constants, ONLY: tddfpt_excitations, &
+                              tddfpt_triplet, &
+                              xc_none
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_sum
+   USE orbital_pointers, ONLY: indso, &
+                               nsoset
+   USE paw_proj_set_types, ONLY: get_paw_proj_set, &
+                                 paw_proj_set_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_grid_atom, ONLY: grid_atom_type
+   USE qs_harmonics_atom, ONLY: get_none0_cg_list, &
+                                harmonics_atom_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            has_nlcc, &
+                            qs_kind_type
+   USE qs_linres_types, ONLY: nablavks_atom_type
+   USE qs_local_rho_types, ONLY: local_rho_type
+   USE qs_rho_atom_types, ONLY: get_rho_atom, &
+                                rho_atom_coeff, &
+                                rho_atom_type
+   USE util, ONLY: get_limit
+   USE xc_atom, ONLY: fill_rho_set, &
+                      vxc_of_r_new, &
+                      xc_2nd_deriv_of_r, &
+                      xc_rho_set_atom_update
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_create, &
+                                      xc_dset_release, &
+                                      xc_dset_zero_all
+   USE xc_derivatives, ONLY: xc_functionals_get_needs
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_create, &
+                               xc_rho_set_release, &
+                               xc_rho_set_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -542,7 +542,7 @@ CONTAINS
                                    l_val=lsd_singlets)
          CALL section_vals_val_get(input, "DFT%TDDFPT%RES_ETYPE", &
                                    i_val=res_etype)
-      ENDIF
+      END IF
       xc_fun_section => section_vals_get_subs_vals(xc_section, &
                                                    "XC_FUNCTIONAL")
       IF (lsd) THEN
@@ -568,9 +568,9 @@ CONTAINS
          IF (PRESENT(do_triplet)) THEN
             IF (nspins == 1 .AND. do_triplet) THEN
                lsd = .TRUE.
-            ENDIF
-         ENDIF
-      ENDIF
+            END IF
+         END IF
+      END IF
 
 !  Here starts the loop over all the atoms
       DO ikind = 1, SIZE(atomic_kind_set)
@@ -699,7 +699,7 @@ CONTAINS
             ELSE
                CALL gaVxcgb_noGC(vxc_h, vxc_s, qs_kind_set(ikind), &
                                  rho1_atom, nspins)
-            ENDIF
+            END IF
 
             NULLIFY (r_h, r_s, dr_h, dr_s)
 
@@ -1171,8 +1171,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'gaVxcgb_noGC'
 
       INTEGER :: handle, ia, ic, icg, ipgf1, ipgf2, ir, iset1, iset2, iso, iso1, iso2, ispin, l, &
-         ld, lmax12, lmax_expansion, lmin12, m1, m2, max_iso_not0, max_iso_not0_local, max_s_harm, &
-         maxl, maxso, n1, n2, na, ngau1, ngau2, nngau1, nr, nset, size1
+                 ld, lmax12, lmax_expansion, lmin12, m1, m2, max_iso_not0, max_iso_not0_local, max_s_harm, &
+                 maxl, maxso, n1, n2, na, ngau1, ngau2, nngau1, nr, nset, size1
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: cg_n_list
       INTEGER, ALLOCATABLE, DIMENSION(:, :, :)           :: cg_list
       INTEGER, DIMENSION(:), POINTER                     :: lmax, lmin, npgf
@@ -1344,9 +1344,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'gaVxcgb_GC'
 
       INTEGER :: dmax_iso_not0_local, handle, ia, ic, icg, ipgf1, ipgf2, ir, iset1, iset2, iso, &
-         iso1, iso2, ispin, l, lmax12, lmax_expansion, lmin12, m1, m2, max_iso_not0, &
-         max_iso_not0_local, max_s_harm, maxl, maxso, n1, n2, na, ngau1, ngau2, nngau1, nr, nset, &
-         size1
+                 iso1, iso2, ispin, l, lmax12, lmax_expansion, lmin12, m1, m2, max_iso_not0, &
+                 max_iso_not0_local, max_s_harm, maxl, maxso, n1, n2, na, ngau1, ngau2, nngau1, nr, nset, &
+                 size1
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: cg_n_list, dcg_n_list
       INTEGER, ALLOCATABLE, DIMENSION(:, :, :)           :: cg_list, dcg_list
       INTEGER, DIMENSION(:), POINTER                     :: lmax, lmin, npgf
@@ -1499,9 +1499,9 @@ CONTAINS
                                                      vxg_s(3, ia, ir, ispin)* &
                                                      gg(ir, l)*urad
 
-                              ENDDO ! ir
-                           ENDDO ! ia
-                        ENDDO ! l
+                              END DO ! ir
+                           END DO ! ia
+                        END DO ! l
 
                         matso_h = 0.0_dp
                         matso_s = 0.0_dp

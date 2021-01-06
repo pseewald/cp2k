@@ -15,45 +15,45 @@
 !> \author Vladimir Rybkin
 ! **************************************************************************************************
 MODULE rpa_axk
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_scale
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_copy, dbcsr_create, dbcsr_init_p, dbcsr_multiply, dbcsr_p_type, dbcsr_release, &
-        dbcsr_set, dbcsr_trace, dbcsr_type, dbcsr_type_no_symmetry
-   USE hfx_energy_potential,            ONLY: integrate_four_center
-   USE hfx_types,                       ONLY: hfx_create,&
-                                              hfx_release,&
-                                              hfx_type
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE mp2_types,                       ONLY: integ_mat_buffer_type,&
-                                              mp2_type
-   USE particle_types,                  ONLY: particle_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
-   USE rpa_communication,               ONLY: fm_redistribute,&
-                                              gamma_fm_to_dbcsr
-   USE util,                            ONLY: get_limit
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_scale
+   USE cp_fm_diag, ONLY: choose_eigv_solver
+   USE cp_fm_struct, ONLY: cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_copy, dbcsr_create, dbcsr_init_p, dbcsr_multiply, dbcsr_p_type, dbcsr_release, &
+      dbcsr_set, dbcsr_trace, dbcsr_type, dbcsr_type_no_symmetry
+   USE hfx_energy_potential, ONLY: integrate_four_center
+   USE hfx_types, ONLY: hfx_create, &
+                        hfx_release, &
+                        hfx_type
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE mp2_types, ONLY: integ_mat_buffer_type, &
+                        mp2_type
+   USE particle_types, ONLY: particle_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
+   USE rpa_communication, ONLY: fm_redistribute, &
+                                gamma_fm_to_dbcsr
+   USE util, ONLY: get_limit
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -103,8 +103,8 @@ CONTAINS
       TYPE(cp_fm_type), POINTER                          :: fm_mat_Q, fm_mat_Q_gemm
       INTEGER, INTENT(IN)                                :: dimen_RI, dimen_ia
       TYPE(cp_para_env_type), POINTER                    :: para_env_sub, para_env_RPA
-      INTEGER, DIMENSION(-para_env_RPA%num_pe:2*&
-         para_env_RPA%num_pe-1), INTENT(IN)              :: RPA_proc_map
+      INTEGER, DIMENSION(-para_env_RPA%num_pe:2* &
+                         para_env_RPA%num_pe - 1), INTENT(IN)              :: RPA_proc_map
       REAL(KIND=dp), DIMENSION(:), INTENT(IN)            :: Eig
       TYPE(cp_fm_type), POINTER                          :: fm_mat_S
       INTEGER, INTENT(IN)                                :: homo, virtual
@@ -123,8 +123,8 @@ CONTAINS
       REAL(KIND=dp), PARAMETER                           :: thresh = 0.0000001_dp
 
       INTEGER :: avirt, color_sub, handle, i_global, iib, iitmp(2), iocc, j_global, jjb, kkb, &
-         L_counter, my_group_L_end, my_group_L_size, my_group_L_start, ncol_local, ngroup, &
-         nrow_local
+                 L_counter, my_group_L_end, my_group_L_size, my_group_L_start, ncol_local, ngroup, &
+                 nrow_local
       TYPE(cp_fm_type), POINTER                          :: fm_mat_Gamma_3, fm_mat_Q_tmp, &
                                                             fm_mat_R_half, fm_mat_R_half_gemm, &
                                                             fm_mat_U
@@ -188,8 +188,8 @@ CONTAINS
                     - 1.0_dp/(eigenval(iib)*(eigenval(iib) + 1.0_dp)))
          ELSE
             eigenval(iib) = 0.707_dp
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       CALL cp_fm_column_scale(fm_mat_U, eigenval)
 
@@ -321,7 +321,7 @@ CONTAINS
                            matrix_type=dbcsr_type_no_symmetry)
          CALL dbcsr_copy(dbcsr_Gamma_munu_P(L_counter)%matrix, mat_munu%matrix)
          CALL dbcsr_set(dbcsr_Gamma_munu_P(L_counter)%matrix, 0.0_dp)
-      ENDDO
+      END DO
 
       !! Loup over auxiliary basis functions: multiplication
       L_counter = 0
@@ -336,7 +336,7 @@ CONTAINS
                              0.0_dp, dbcsr_Gamma_munu_P(L_counter)%matrix, filter_eps=eps_filter)
          !
          CALL dbcsr_trace(dbcsr_Gamma_munu_P(L_counter)%matrix, trace_corr)
-      ENDDO
+      END DO
 
       ! Gamma_3 not needed anymore
       L_counter = 0
@@ -344,7 +344,7 @@ CONTAINS
          L_counter = L_counter + 1
          CALL dbcsr_release(dbcsr_Gamma_3(L_counter)%matrix)
          DEALLOCATE (dbcsr_Gamma_3(L_counter)%matrix)
-      ENDDO
+      END DO
       DEALLOCATE (dbcsr_Gamma_3)
 
       ! Contract DM with exchange integrals
@@ -365,7 +365,7 @@ CONTAINS
          CALL dbcsr_release(dbcsr_Gamma_munu_P(L_counter)%matrix)
          DEALLOCATE (dbcsr_Gamma_inu_P(L_counter)%matrix)
          DEALLOCATE (dbcsr_Gamma_munu_P(L_counter)%matrix)
-      ENDDO
+      END DO
       DEALLOCATE (dbcsr_Gamma_inu_P)
       DEALLOCATE (dbcsr_Gamma_munu_P)
 
@@ -463,7 +463,7 @@ CONTAINS
                              0.0_dp, dbcsr_Gamma_munu_P(aux)%matrix, filter_eps=eps_filter)
          CALL dbcsr_trace(dbcsr_Gamma_munu_P(aux)%matrix, e_axk_p)
          axk_corr = axk_corr + e_axk_P
-      ENDDO
+      END DO
 
       CALL dbcsr_release(mat_2d(1, 1)%matrix)
       ! release rho stuff

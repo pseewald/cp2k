@@ -9,28 +9,28 @@
 !> \brief Subroutines to compute Green functions
 ! **************************************************************************************************
 MODULE negf_green_methods
-   USE cp_cfm_basic_linalg,             ONLY: cp_cfm_gemm,&
-                                              cp_cfm_lu_invert,&
-                                              cp_cfm_norm,&
-                                              cp_cfm_scale,&
-                                              cp_cfm_scale_and_add,&
-                                              cp_cfm_scale_and_add_fm,&
-                                              cp_cfm_transpose
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_get_info,&
-                                              cp_cfm_release,&
-                                              cp_cfm_to_cfm,&
-                                              cp_cfm_type,&
-                                              cp_fm_to_cfm
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_get,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: gaussi,&
-                                              z_mone,&
-                                              z_one,&
-                                              z_zero
+   USE cp_cfm_basic_linalg, ONLY: cp_cfm_gemm, &
+                                  cp_cfm_lu_invert, &
+                                  cp_cfm_norm, &
+                                  cp_cfm_scale, &
+                                  cp_cfm_scale_and_add, &
+                                  cp_cfm_scale_and_add_fm, &
+                                  cp_cfm_transpose
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_get_info, &
+                           cp_cfm_release, &
+                           cp_cfm_to_cfm, &
+                           cp_cfm_type, &
+                           cp_fm_to_cfm
+   USE cp_fm_struct, ONLY: cp_fm_struct_get, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: gaussi, &
+                            z_mone, &
+                            z_one, &
+                            z_zero
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

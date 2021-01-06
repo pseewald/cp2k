@@ -14,7 +14,7 @@
 ! **************************************************************************************************
 MODULE uff_vdw_radii_table
 
-   USE kinds,                           ONLY: dp
+   USE kinds, ONLY: dp
 #include "base/base_uses.f90"
 
    IMPLICIT NONE

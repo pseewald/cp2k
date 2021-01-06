@@ -12,90 +12,90 @@
 !>      03.2019 separated from mp2_ri_gpw [Frederick Stein]
 ! **************************************************************************************************
 MODULE mp2_ri_2c
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell
-   USE constants_operator,              ONLY: operator_coulomb
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_type
-   USE cp_cfm_basic_linalg,             ONLY: cp_cfm_cholesky_decompose,&
-                                              cp_cfm_gemm,&
-                                              cp_cfm_scale_and_add_fm,&
-                                              cp_cfm_triangular_invert
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_get_info,&
-                                              cp_cfm_release,&
-                                              cp_cfm_to_fm,&
-                                              cp_cfm_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              cp_dbcsr_dist2d_to_dist,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_eri_mme_interface,            ONLY: cp_eri_mme_param
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_triangular_invert
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver,&
-                                              cp_fm_syevx
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: &
-        cp_fm_copy_general, cp_fm_create, cp_fm_get_info, cp_fm_indxg2p, cp_fm_p_type, &
-        cp_fm_release, cp_fm_set_all, cp_fm_to_fm, cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_para_env,                     ONLY: cp_para_env_create,&
-                                              cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_create, dbcsr_deallocate_matrix, dbcsr_desymmetrize, dbcsr_distribution_release, &
-        dbcsr_distribution_type, dbcsr_p_type, dbcsr_reserve_all_blocks, dbcsr_set, dbcsr_type, &
-        dbcsr_type_antisymmetric, dbcsr_type_no_symmetry, dbcsr_type_symmetric
-   USE distribution_2d_types,           ONLY: distribution_2d_type
-   USE group_dist_types,                ONLY: create_group_dist,&
-                                              get_group_dist,&
-                                              group_dist_d1_type,&
-                                              release_group_dist
-   USE input_constants,                 ONLY: do_eri_gpw,&
-                                              do_eri_mme,&
-                                              do_eri_os,&
-                                              do_potential_coulomb,&
-                                              do_potential_id,&
-                                              do_potential_long
-   USE kinds,                           ONLY: dp
-   USE kpoint_coulomb_2c,               ONLY: build_2c_coulomb_matrix_kp
-   USE kpoint_methods,                  ONLY: rskp_transform
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE libint_2c_3c,                    ONLY: libint_potential_type
-   USE message_passing,                 ONLY: mp_alltoall,&
-                                              mp_bcast,&
-                                              mp_comm_split_direct,&
-                                              mp_sendrecv,&
-                                              mp_sum
-   USE mp2_eri,                         ONLY: mp2_eri_2c_integrate
-   USE mp2_eri_gpw,                     ONLY: mp2_eri_2c_integrate_gpw
-   USE mp2_types,                       ONLY: integ_mat_buffer_type
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
-   USE qs_interactions,                 ONLY: init_interaction_radii
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_types,                     ONLY: set_ks_env
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type,&
-                                              release_neighbor_list_sets
-   USE qs_tensors,                      ONLY: build_2c_integrals,&
-                                              build_2c_neighbor_lists
-   USE rpa_communication,               ONLY: communicate_buffer
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cell_types, ONLY: cell_type, &
+                         get_cell
+   USE constants_operator, ONLY: operator_coulomb
+   USE cp_blacs_env, ONLY: cp_blacs_env_create, &
+                           cp_blacs_env_release, &
+                           cp_blacs_env_type
+   USE cp_cfm_basic_linalg, ONLY: cp_cfm_cholesky_decompose, &
+                                  cp_cfm_gemm, &
+                                  cp_cfm_scale_and_add_fm, &
+                                  cp_cfm_triangular_invert
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_get_info, &
+                           cp_cfm_release, &
+                           cp_cfm_to_fm, &
+                           cp_cfm_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  cp_dbcsr_dist2d_to_dist, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_eri_mme_interface, ONLY: cp_eri_mme_param
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_triangular_invert
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose
+   USE cp_fm_diag, ONLY: choose_eigv_solver, &
+                         cp_fm_syevx
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: &
+      cp_fm_copy_general, cp_fm_create, cp_fm_get_info, cp_fm_indxg2p, cp_fm_p_type, &
+      cp_fm_release, cp_fm_set_all, cp_fm_to_fm, cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_para_env, ONLY: cp_para_env_create, &
+                          cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_create, dbcsr_deallocate_matrix, dbcsr_desymmetrize, dbcsr_distribution_release, &
+      dbcsr_distribution_type, dbcsr_p_type, dbcsr_reserve_all_blocks, dbcsr_set, dbcsr_type, &
+      dbcsr_type_antisymmetric, dbcsr_type_no_symmetry, dbcsr_type_symmetric
+   USE distribution_2d_types, ONLY: distribution_2d_type
+   USE group_dist_types, ONLY: create_group_dist, &
+                               get_group_dist, &
+                               group_dist_d1_type, &
+                               release_group_dist
+   USE input_constants, ONLY: do_eri_gpw, &
+                              do_eri_mme, &
+                              do_eri_os, &
+                              do_potential_coulomb, &
+                              do_potential_id, &
+                              do_potential_long
+   USE kinds, ONLY: dp
+   USE kpoint_coulomb_2c, ONLY: build_2c_coulomb_matrix_kp
+   USE kpoint_methods, ONLY: rskp_transform
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE libint_2c_3c, ONLY: libint_potential_type
+   USE message_passing, ONLY: mp_alltoall, &
+                              mp_bcast, &
+                              mp_comm_split_direct, &
+                              mp_sendrecv, &
+                              mp_sum
+   USE mp2_eri, ONLY: mp2_eri_2c_integrate
+   USE mp2_eri_gpw, ONLY: mp2_eri_2c_integrate_gpw
+   USE mp2_types, ONLY: integ_mat_buffer_type
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_integral_utils, ONLY: basis_set_list_setup
+   USE qs_interactions, ONLY: init_interaction_radii
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_types, ONLY: set_ks_env
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type, &
+                                     release_neighbor_list_sets
+   USE qs_tensors, ONLY: build_2c_integrals, &
+                         build_2c_neighbor_lists
+   USE rpa_communication, ONLY: communicate_buffer
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"
@@ -541,7 +541,7 @@ CONTAINS
          nimg = dft_control%nimages
       ELSE
          nimg = 1
-      ENDIF
+      END IF
 
       ALLOCATE (mat_2c(nimg))
       CALL dbcsr_create(mat_2c(1), "(RI|RI)", dbcsr_dist, dbcsr_type_symmetric, &
@@ -549,7 +549,7 @@ CONTAINS
 
       DO img = 2, nimg
          CALL dbcsr_create(mat_2c(img), template=mat_2c(1))
-      ENDDO
+      END DO
 
       CALL build_2c_integrals(mat_2c, 0.0_dp, qs_env, sab_RI, basis_set_RI, basis_set_RI, &
                               ri_metric, do_kpoints=do_kpoints)
@@ -561,7 +561,7 @@ CONTAINS
       DO img = 1, nimg
          ALLOCATE (matrix_s_RI_aux_transl(1, img)%matrix)
          matrix_s_RI_aux_transl(1, img)%matrix = mat_2c(img)
-      ENDDO
+      END DO
 
       CALL set_ks_env(qs_env%ks_env, matrix_s_RI_aux_kp=matrix_s_RI_aux_transl)
 
@@ -715,9 +715,9 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'compute_2c_integrals'
 
       INTEGER :: best_group_size, color_L, comm_exchange, comm_L, group_size, handle, handle2, i, &
-         i_global, iatom, iiB, ikind, iproc, j_global, jjB, natom, ncol_local, nkind, nrow_local, &
-         nsgf, potential_type, proc_receive, proc_receive_static, proc_send, proc_send_static, &
-         proc_shift, rec_L_end, rec_L_size, rec_L_start, strat_group_size, sub_sub_color
+                 i_global, iatom, iiB, ikind, iproc, j_global, jjB, natom, ncol_local, nkind, nrow_local, &
+                 nsgf, potential_type, proc_receive, proc_receive_static, proc_send, proc_send_static, &
+                 proc_shift, rec_L_end, rec_L_size, rec_L_start, strat_group_size, sub_sub_color
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of, proc_map
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_indices
       LOGICAL                                            :: my_do_im_time
@@ -796,7 +796,7 @@ CONTAINS
 
       ELSE
          CPABORT("unknown ERI method")
-      ENDIF
+      END IF
 
       CALL timestop(handle2)
 
@@ -1136,8 +1136,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'fill_fm_L_from_L_loc_non_blocking'
 
       INTEGER :: dummy_proc, handle, handle2, i_entry_rec, i_row, i_row_global, iproc, j_col, &
-         j_col_global, LLL, MMM, ncol_block, ncol_local, npcol, nprow, nrow_block, nrow_local, &
-         proc_send, send_pcol, send_prow
+                 j_col_global, LLL, MMM, ncol_block, ncol_local, npcol, nprow, nrow_block, nrow_local, &
+                 proc_send, send_pcol, send_prow
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: entry_counter, num_entries_rec, &
                                                             num_entries_send
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_indices
@@ -1404,7 +1404,7 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'inversion_of_S_and_mult_with_chol_dec_of_V'
       COMPLEX(KIND=dp), PARAMETER :: cone = CMPLX(1.0_dp, 0.0_dp, KIND=dp), &
-         czero = CMPLX(0.0_dp, 0.0_dp, KIND=dp), ione = CMPLX(0.0_dp, 1.0_dp, KIND=dp)
+                                     czero = CMPLX(0.0_dp, 0.0_dp, KIND=dp), ione = CMPLX(0.0_dp, 1.0_dp, KIND=dp)
 
       INTEGER                                            :: handle, i_global, iiB, ikp, info_chol, &
                                                             j_global, jjB, ncol_local, nkp, &

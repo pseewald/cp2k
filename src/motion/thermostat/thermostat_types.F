@@ -10,30 +10,30 @@
 !> \author teo [tlaino] - University of Zurich - 09.2007
 ! **************************************************************************************************
 MODULE thermostat_types
-   USE al_system_types,                 ONLY: al_dealloc,&
-                                              al_init,&
-                                              al_system_type
-   USE csvr_system_types,               ONLY: csvr_dealloc,&
-                                              csvr_init,&
-                                              csvr_system_type
-   USE extended_system_types,           ONLY: lnhc_dealloc,&
-                                              lnhc_init,&
-                                              lnhc_parameters_type
-   USE gle_system_types,                ONLY: gle_dealloc,&
-                                              gle_init,&
-                                              gle_type
-   USE input_constants,                 ONLY: do_region_global,&
-                                              do_region_massive,&
-                                              do_thermo_al,&
-                                              do_thermo_csvr,&
-                                              do_thermo_gle,&
-                                              do_thermo_nose
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE simpar_types,                    ONLY: simpar_type
+   USE al_system_types, ONLY: al_dealloc, &
+                              al_init, &
+                              al_system_type
+   USE csvr_system_types, ONLY: csvr_dealloc, &
+                                csvr_init, &
+                                csvr_system_type
+   USE extended_system_types, ONLY: lnhc_dealloc, &
+                                    lnhc_init, &
+                                    lnhc_parameters_type
+   USE gle_system_types, ONLY: gle_dealloc, &
+                               gle_init, &
+                               gle_type
+   USE input_constants, ONLY: do_region_global, &
+                              do_region_massive, &
+                              do_thermo_al, &
+                              do_thermo_csvr, &
+                              do_thermo_gle, &
+                              do_thermo_nose
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE simpar_types, ONLY: simpar_type
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE

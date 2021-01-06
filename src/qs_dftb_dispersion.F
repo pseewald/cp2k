@@ -10,37 +10,37 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE qs_dftb_dispersion
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE atprop_types,                    ONLY: atprop_array_init,&
-                                              atprop_type
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              dftb_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_constants,                 ONLY: dispersion_d3,&
-                                              dispersion_uff
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE qs_dftb_types,                   ONLY: qs_dftb_atom_type,&
-                                              qs_dftb_pairpot_type
-   USE qs_dftb_utils,                   ONLY: get_dftb_atom_param
-   USE qs_dispersion_pairpot,           ONLY: calculate_dispersion_pairpot
-   USE qs_dispersion_types,             ONLY: qs_dispersion_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE atprop_types, ONLY: atprop_array_init, &
+                           atprop_type
+   USE cp_control_types, ONLY: dft_control_type, &
+                               dftb_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_constants, ONLY: dispersion_d3, &
+                              dispersion_uff
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE qs_dftb_types, ONLY: qs_dftb_atom_type, &
+                            qs_dftb_pairpot_type
+   USE qs_dftb_utils, ONLY: get_dftb_atom_param
+   USE qs_dispersion_pairpot, ONLY: calculate_dispersion_pairpot
+   USE qs_dispersion_types, ONLY: qs_dispersion_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

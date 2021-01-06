@@ -13,15 +13,15 @@
 ! **************************************************************************************************
 MODULE molsym
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE mathlib,                         ONLY: angle,&
-                                              build_rotmat,&
-                                              jacobi,&
-                                              reflect_vector,&
-                                              rotate_vector,&
-                                              unit_matrix,&
-                                              vector_product
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE mathlib, ONLY: angle, &
+                      build_rotmat, &
+                      jacobi, &
+                      reflect_vector, &
+                      rotate_vector, &
+                      unit_matrix, &
+                      vector_product
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -926,7 +926,7 @@ CONTAINS
          ELSE
             sym%point_group_symbol = "C1"
          END IF
-      ENDIF
+      END IF
 
    END SUBROUTINE get_point_group_symbol
 

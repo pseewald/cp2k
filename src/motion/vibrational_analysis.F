@@ -18,66 +18,66 @@
 !> \author Teodoro Laino 08.2006
 ! **************************************************************************************************
 MODULE vibrational_analysis
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_type
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_set_element,&
-                                              cp_fm_type,&
-                                              cp_fm_write_unformatted
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_result_methods,               ONLY: get_results
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE f77_interface,                   ONLY: f_env_add_defaults,&
-                                              f_env_rm_defaults,&
-                                              f_env_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE grrm_utils,                      ONLY: write_grrm
-   USE header,                          ONLY: vib_header
-   USE input_constants,                 ONLY: do_rep_blocked
-   USE input_section_types,             ONLY: section_type,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi
-   USE mathlib,                         ONLY: diamat_all
-   USE mode_selective,                  ONLY: ms_vb_anal
-   USE molden_utils,                    ONLY: write_vibrations_molden
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: fixd_constraint_type,&
-                                              get_molecule_kind,&
-                                              molecule_kind_type
-   USE motion_utils,                    ONLY: rot_ana,&
-                                              thrs_motion
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_methods,                ONLY: write_particle_matrix
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: &
-        a_bohr, boltzmann, e_mass, h_bar, hertz, kelvin, kjmol, massunit, n_avogadro, pascal, &
-        vibfac, wavenumbers
-   USE replica_methods,                 ONLY: rep_env_calc_e_f,&
-                                              rep_env_create
-   USE replica_types,                   ONLY: rep_env_release,&
-                                              replica_env_type
-   USE scine_utils,                     ONLY: write_scine
-   USE util,                            ONLY: sort
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE cp_blacs_env, ONLY: cp_blacs_env_create, &
+                           cp_blacs_env_release, &
+                           cp_blacs_env_type
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_set_element, &
+                          cp_fm_type, &
+                          cp_fm_write_unformatted
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_result_methods, ONLY: get_results
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE f77_interface, ONLY: f_env_add_defaults, &
+                            f_env_rm_defaults, &
+                            f_env_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE global_types, ONLY: global_environment_type
+   USE grrm_utils, ONLY: write_grrm
+   USE header, ONLY: vib_header
+   USE input_constants, ONLY: do_rep_blocked
+   USE input_section_types, ONLY: section_type, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi
+   USE mathlib, ONLY: diamat_all
+   USE mode_selective, ONLY: ms_vb_anal
+   USE molden_utils, ONLY: write_vibrations_molden
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_type
+   USE molecule_kind_types, ONLY: fixd_constraint_type, &
+                                  get_molecule_kind, &
+                                  molecule_kind_type
+   USE motion_utils, ONLY: rot_ana, &
+                           thrs_motion
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_methods, ONLY: write_particle_matrix
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: &
+      a_bohr, boltzmann, e_mass, h_bar, hertz, kelvin, kjmol, massunit, n_avogadro, pascal, &
+      vibfac, wavenumbers
+   USE replica_methods, ONLY: rep_env_calc_e_f, &
+                              rep_env_create
+   USE replica_types, ONLY: rep_env_release, &
+                            replica_env_type
+   USE scine_utils, ONLY: write_scine
+   USE util, ONLY: sort
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -108,8 +108,8 @@ CONTAINS
 
       CHARACTER(LEN=default_string_length)               :: description
       INTEGER :: handle, i, icoord, icoordm, icoordp, ierr, imap, ip1, ip2, iparticle1, &
-         iparticle2, iseq, iw, j, k, natoms, ncoord, nfrozen, nrep, nres, nRotTrM, nvib, &
-         output_unit, output_unit_eig, prep, print_grrm, print_scine, proc_dist_type
+                 iparticle2, iseq, iw, j, k, natoms, ncoord, nfrozen, nrep, nres, nRotTrM, nvib, &
+                 output_unit, output_unit_eig, prep, print_grrm, print_scine, proc_dist_type
       INTEGER, DIMENSION(:), POINTER                     :: Clist, Mlist
       LOGICAL                                            :: calc_intens, calc_thchdata, &
                                                             do_mode_tracking, keep_rotations, &
@@ -357,13 +357,13 @@ CONTAINS
             DO i = 1, natoms
                imap = Mlist(i)
                particles(imap)%r(1:3) = pos0((i - 1)*3 + 1:(i - 1)*3 + 3)
-            ENDDO
+            END DO
             DO j = 1, nrep
                DO i = 1, ncoord
                   imap = Clist(i)
                   rep_env%r(imap, j) = pos0(i)
                END DO
-            ENDDO
+            END DO
             CALL rep_env_calc_e_f(rep_env, calc_f=.TRUE.)
             j = 1
             minimum_energy = rep_env%f(rep_env%ndim + 1, j)
@@ -406,12 +406,12 @@ CONTAINS
                DO i = 1, natoms
                   imap = Mlist(i)
                   particles(imap)%f(1:3) = rep_env%f((imap - 1)*3 + 1:(imap - 1)*3 + 3, 1)
-               ENDDO
+               END DO
                ALLOCATE (Hint1(ncoord, ncoord), rmass(ncoord))
                DO i = 1, natoms
                   imap = Mlist(i)
                   rmass(3*(imap - 1) + 1:3*(imap - 1) + 3) = mass(imap)
-               ENDDO
+               END DO
                DO i = 1, ncoord
                   DO j = 1, ncoord
                      Hint1(j, i) = Hessian(j, i)*rmass(i)*rmass(j)*1.0E-6_dp
@@ -431,7 +431,7 @@ CONTAINS
                DO i = 1, natoms
                   imap = Mlist(i)
                   particles(imap)%f(1:3) = rep_env%f((imap - 1)*3 + 1:(imap - 1)*3 + 3, 1)
-               ENDDO
+               END DO
                nfrozen = SIZE(particles) - natoms
                CPASSERT(nfrozen == 0)
                CALL write_scine(print_scine, f_env%force_env, particles, minimum_energy, hessian=Hessian)
@@ -512,7 +512,7 @@ CONTAINS
                END IF
                IF (.NOT. something_frozen .AND. calc_thchdata) THEN
                   CALL get_thch_values(H_eigval2, iw, mass, nvib, inertia, 1, minimum_energy, tc_temp, tc_press)
-               ENDIF
+               END IF
                CALL write_vibrations_molden(input, particles, H_eigval2, D, intensities, calc_intens, &
                                             dump_only_positive=.FALSE., logger=logger, list=Mlist)
             ELSE
@@ -795,10 +795,10 @@ CONTAINS
 
       INTEGER                                            :: i, natoms, sym_num
       REAL(KIND=dp) :: el_entropy, entropy, exp_min_one, fact, fact2, freq_arg, freq_arg2, &
-         freqsum, Gibbs, heat_capacity, inertia_kg(3), mass_tot, one_min_exp, partition_function, &
-         rot_cv, rot_energy, rot_entropy, rot_part_func, rotvibtra, tran_cv, tran_energy, &
-         tran_enthalpy, tran_entropy, tran_part_func, vib_cv, vib_energy, vib_entropy, &
-         vib_part_func, zpe
+                       freqsum, Gibbs, heat_capacity, inertia_kg(3), mass_tot, one_min_exp, partition_function, &
+                       rot_cv, rot_energy, rot_entropy, rot_part_func, rotvibtra, tran_cv, tran_energy, &
+                       tran_enthalpy, tran_entropy, tran_part_func, vib_cv, vib_energy, vib_entropy, &
+                       vib_part_func, zpe
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: mass_kg
 
 !    temp = 273.150_dp ! in Kelvin
@@ -807,7 +807,7 @@ CONTAINS
       freqsum = 0.0_dp
       DO i = 1, nvib
          freqsum = freqsum + freqs(i)
-      ENDDO
+      END DO
 
 !   ZPE
       zpe = 0.5_dp*(h_bar*2._dp*pi)*freqsum*(hertz/wavenumbers)*n_avogadro
@@ -872,7 +872,7 @@ CONTAINS
          vib_entropy = vib_entropy + freq_arg/exp_min_one - LOG(one_min_exp)
 !      vib_cv = vib_cv + fact*fact*freqs(i)*freqs(i)*exp(fact*freqs(i))/(exp(fact*freqs(i))-1.0_dp)/(exp(fact*freqs(i))-1.0_dp)
          vib_cv = vib_cv + freq_arg*freq_arg*EXP(freq_arg)/exp_min_one/exp_min_one
-      ENDDO
+      END DO
       vib_energy = vib_energy*n_avogadro ! it contains already ZPE
       vib_entropy = vib_entropy*(n_avogadro*boltzmann)
       vib_cv = vib_cv*(n_avogadro*boltzmann)
@@ -915,7 +915,7 @@ CONTAINS
          WRITE (UNIT=iw, FMT="(T2,'VIB|', T20, 'Gibbs energy correction [kJ/mol]:',T60,F26.8)") Gibbs/1000.0_dp
          WRITE (UNIT=iw, FMT="(T2,'VIB|', T20, 'Heat capacity [kJ/(mol*K)]:',T70,F16.8)") heat_capacity/1000.0_dp
          WRITE (UNIT=iw, FMT="(/)")
-      ENDIF
+      END IF
 
    END SUBROUTINE get_thch_values
 

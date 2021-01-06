@@ -8,35 +8,35 @@
 ! **************************************************************************************************
 MODULE qs_mixing_utils
 
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_create,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set,&
-                                              dbcsr_type,&
-                                              dbcsr_type_symmetric
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_max,&
-                                              mp_min
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_density_mixing_types,         ONLY: broyden_mixing_new_nr,&
-                                              broyden_mixing_nr,&
-                                              gspace_mixing_nr,&
-                                              mixing_storage_type,&
-                                              multisecant_mixing_nr,&
-                                              pulay_mixing_nr
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_rho_atom_types,               ONLY: rho_atom_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf_methods,                  ONLY: cp_sm_mix
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_create, &
+                        dbcsr_p_type, &
+                        dbcsr_set, &
+                        dbcsr_type, &
+                        dbcsr_type_symmetric
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_max, &
+                              mp_min
+   USE pw_types, ONLY: pw_p_type
+   USE qs_density_mixing_types, ONLY: broyden_mixing_new_nr, &
+                                      broyden_mixing_nr, &
+                                      gspace_mixing_nr, &
+                                      mixing_storage_type, &
+                                      multisecant_mixing_nr, &
+                                      pulay_mixing_nr
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_rho_atom_types, ONLY: rho_atom_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf_methods, ONLY: cp_sm_mix
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -157,8 +157,8 @@ CONTAINS
                                     name="SCF DENSITY", matrix_type=dbcsr_type_symmetric, nze=0)
                   CALL cp_dbcsr_alloc_block_from_nbl(p_mix_new(i, ic)%matrix, sab_orb)
                   CALL dbcsr_set(p_mix_new(i, ic)%matrix, 0.0_dp)
-               ENDDO
-            ENDDO
+               END DO
+            END DO
          END IF
       END IF
 
@@ -174,8 +174,8 @@ CONTAINS
                                        name="SCF DENSITY", matrix_type=dbcsr_type_symmetric, nze=0)
                      CALL cp_dbcsr_alloc_block_from_nbl(p_delta(i, ic)%matrix, sab_orb)
                      CALL dbcsr_set(p_delta(i, ic)%matrix, 0.0_dp)
-                  ENDDO
-               ENDDO
+                  END DO
+               END DO
             END IF
             CPASSERT(ASSOCIATED(mixing_store))
          END IF
@@ -257,7 +257,7 @@ CONTAINS
                                           name="SCF DENSITY", matrix_type=dbcsr_type_symmetric, nze=0)
                         CALL cp_dbcsr_alloc_block_from_nbl(mixing_store%rho_ao_in(i, ic)%matrix, sab_orb)
                         CALL dbcsr_set(mixing_store%rho_ao_in(i, ic)%matrix, 0.0_dp)
-                     ENDDO
+                     END DO
                   END DO
                END IF
                IF (.NOT. ASSOCIATED(mixing_store%rho_ao_mix)) THEN
@@ -325,7 +325,7 @@ CONTAINS
                            CALL cp_dbcsr_alloc_block_from_nbl(mixing_store%rho_ao_in_buffer(ispin, ic, i)%matrix, sab_orb)
                            CALL dbcsr_set(mixing_store%rho_ao_in_buffer(ispin, ic, i)%matrix, 0.0_dp)
                         END DO
-                     ENDDO
+                     END DO
                   END DO
                END IF
                IF (dft_control%qs_control%gapw) THEN
@@ -385,7 +385,7 @@ CONTAINS
                                           name="SCF DENSITY", matrix_type=dbcsr_type_symmetric, nze=0)
                         CALL cp_dbcsr_alloc_block_from_nbl(mixing_store%rho_ao_in_old(i, ic)%matrix, sab_orb)
                         CALL dbcsr_set(mixing_store%rho_ao_in_old(i, ic)%matrix, 0.0_dp)
-                     ENDDO
+                     END DO
                   END DO
                END IF
 
@@ -398,7 +398,7 @@ CONTAINS
                                           name="SCF DENSITY", matrix_type=dbcsr_type_symmetric, nze=0)
                         CALL cp_dbcsr_alloc_block_from_nbl(mixing_store%rho_ao_lastres(i, ic)%matrix, sab_orb)
                         CALL dbcsr_set(mixing_store%rho_ao_lastres(i, ic)%matrix, 0.0_dp)
-                     ENDDO
+                     END DO
                   END DO
                END IF
 
@@ -447,7 +447,7 @@ CONTAINS
                            CALL cp_dbcsr_alloc_block_from_nbl(mixing_store%rho_ao_res_buffer(ispin, ic, i)%matrix, sab_orb)
                            CALL dbcsr_set(mixing_store%rho_ao_res_buffer(ispin, ic, i)%matrix, 0.0_dp)
                         END DO
-                     ENDDO
+                     END DO
                   END DO
                END IF
             END IF

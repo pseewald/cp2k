@@ -34,31 +34,31 @@
 !>      CJM
 ! **************************************************************************************************
 MODULE pw_grids
-   USE ISO_C_BINDING,                   ONLY: C_F_POINTER,&
-                                              C_INT,&
-                                              C_LOC,&
-                                              C_PTR,&
-                                              C_SIZE_T
-   USE kinds,                           ONLY: dp,&
-                                              int_8,&
-                                              int_size
-   USE mathconstants,                   ONLY: twopi
-   USE mathlib,                         ONLY: det_3x3,&
-                                              inv_3x3
-   USE message_passing,                 ONLY: &
-        mp_allgather, mp_cart_coords, mp_cart_create, mp_cart_rank, mp_comm_compare, mp_comm_dup, &
-        mp_comm_free, mp_comm_self, mp_dims_create, mp_environ, mp_max, mp_min, mp_sum
-   USE pw_grid_info,                    ONLY: pw_find_cutoff,&
-                                              pw_grid_bounds_from_n,&
-                                              pw_grid_init_setup
-   USE pw_grid_types,                   ONLY: FULLSPACE,&
-                                              HALFSPACE,&
-                                              PW_MODE_DISTRIBUTED,&
-                                              PW_MODE_LOCAL,&
-                                              map_pn,&
-                                              pw_grid_type
-   USE util,                            ONLY: get_limit,&
-                                              sort
+   USE ISO_C_BINDING, ONLY: C_F_POINTER, &
+                            C_INT, &
+                            C_LOC, &
+                            C_PTR, &
+                            C_SIZE_T
+   USE kinds, ONLY: dp, &
+                    int_8, &
+                    int_size
+   USE mathconstants, ONLY: twopi
+   USE mathlib, ONLY: det_3x3, &
+                      inv_3x3
+   USE message_passing, ONLY: &
+      mp_allgather, mp_cart_coords, mp_cart_create, mp_cart_rank, mp_comm_compare, mp_comm_dup, &
+      mp_comm_free, mp_comm_self, mp_dims_create, mp_environ, mp_max, mp_min, mp_sum
+   USE pw_grid_info, ONLY: pw_find_cutoff, &
+                           pw_grid_bounds_from_n, &
+                           pw_grid_init_setup
+   USE pw_grid_types, ONLY: FULLSPACE, &
+                            HALFSPACE, &
+                            PW_MODE_DISTRIBUTED, &
+                            PW_MODE_LOCAL, &
+                            map_pn, &
+                            pw_grid_type
+   USE util, ONLY: get_limit, &
+                   sort
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -440,7 +440,7 @@ CONTAINS
       TYPE(pw_grid_type), INTENT(INOUT), POINTER         :: pw_grid
 
       CHARACTER(len=*), PARAMETER :: routineN = 'pw_grid_create_ghatmap', &
-         routineP = moduleN//':'//routineN
+                                     routineP = moduleN//':'//routineN
 
       INTEGER                                            :: gpt, handle, l, m, mn, n, ngpts
       INTEGER, DIMENSION(:), POINTER                     :: nmapl, nmapm, nmapn, npts, pmapl, pmapm, &
@@ -838,7 +838,7 @@ CONTAINS
          blocked_local = blocked
       ELSE
          blocked_local = do_pw_grid_blocked_free
-      ENDIF
+      END IF
 
       pw_grid%para%blocked = .FALSE.
 
@@ -892,9 +892,9 @@ CONTAINS
                   pw_grid%para%rs_dims(2) = np/pw_grid%para%rs_dims(1)
                ELSE
                   pw_grid%para%rs_dims(1) = np/pw_grid%para%rs_dims(2)
-               ENDIF
-            ENDIF
-         ENDIF
+               END IF
+            END IF
+         END IF
          ! reset if the distribution can not be fulfilled
          IF (PRODUCT(pw_grid%para%rs_dims) .NE. np) pw_grid%para%rs_dims = (/0, 0/)
          ! reset if the distribution can not be dealt with (/1,np/)
@@ -911,17 +911,17 @@ CONTAINS
                   itmp = pw_grid%para%rs_dims(1)
                   pw_grid%para%rs_dims(1) = pw_grid%para%rs_dims(2)
                   pw_grid%para%rs_dims(2) = itmp
-               ENDIF
+               END IF
                ! but should avoid having the first index 1 in all cases
                IF (pw_grid%para%rs_dims(1) == 1) THEN
                   itmp = pw_grid%para%rs_dims(1)
                   pw_grid%para%rs_dims(1) = pw_grid%para%rs_dims(2)
                   pw_grid%para%rs_dims(2) = itmp
-               ENDIF
+               END IF
             ELSE
                pw_grid%para%rs_dims = (/np, 1/)
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          ! now fix the blocking if we have a choice
          SELECT CASE (blocked_local)
@@ -934,7 +934,7 @@ CONTAINS
                blocking = .FALSE.
             ELSE
                blocking = .TRUE.
-            ENDIF
+            END IF
          CASE DEFAULT
             CPABORT("")
          END SELECT
@@ -1288,8 +1288,8 @@ CONTAINS
             yz_index(1, icount) = ii
             yz_index(2, icount) = jj
             icount = icount + 1
-         ENDIF
-      ENDIF
+         END IF
+      END IF
       DO im = 1, MAX(ic + 1, jc + 1)
          ii = ic - im
          DO jj = jc - im, jc + im
@@ -1298,8 +1298,8 @@ CONTAINS
                   yz_index(1, icount) = ii
                   yz_index(2, icount) = jj
                   icount = icount + 1
-               ENDIF
-            ENDIF
+               END IF
+            END IF
          END DO
          ii = ic + im
          DO jj = jc - im, jc + im
@@ -1308,8 +1308,8 @@ CONTAINS
                   yz_index(1, icount) = ii
                   yz_index(2, icount) = jj
                   icount = icount + 1
-               ENDIF
-            ENDIF
+               END IF
+            END IF
          END DO
          jj = jc - im
          DO ii = ic - im + 1, ic + im - 1
@@ -1318,8 +1318,8 @@ CONTAINS
                   yz_index(1, icount) = ii
                   yz_index(2, icount) = jj
                   icount = icount + 1
-               ENDIF
-            ENDIF
+               END IF
+            END IF
          END DO
          jj = jc + im
          DO ii = ic - im + 1, ic + im - 1
@@ -1328,8 +1328,8 @@ CONTAINS
                   yz_index(1, icount) = ii
                   yz_index(2, icount) = jj
                   icount = icount + 1
-               ENDIF
-            ENDIF
+               END IF
+            END IF
          END DO
       END DO
 
@@ -1369,7 +1369,7 @@ CONTAINS
          length_x = 0
          length_y = 0
          length_z = 0
-      ENDIF
+      END IF
 
       length_x = length_x*twopi
       length_y = length_y*twopi
@@ -1450,7 +1450,7 @@ CONTAINS
       IF (pw_grid%para%mode == PW_MODE_DISTRIBUTED) THEN
          CALL mp_sum(gpt, pw_grid%para%group)
          CALL mp_sum(yz_mask, pw_grid%para%group)
-      ENDIF
+      END IF
       pw_grid%ngpts_cut = gpt
 
    END SUBROUTINE pw_grid_count
@@ -1602,7 +1602,7 @@ CONTAINS
          gpt_global = gpt
          CALL mp_sum(gpt_global, pw_grid%para%group)
          CPASSERT(pw_grid%ngpts_cut == gpt_global)
-      ENDIF
+      END IF
 
       pw_grid%have_g0 = .FALSE.
       pw_grid%first_gne0 = 1
@@ -1808,12 +1808,12 @@ CONTAINS
          real_tmp(1, i) = pw_grid%g(1, idx(i))
          real_tmp(2, i) = pw_grid%g(2, idx(i))
          real_tmp(3, i) = pw_grid%g(3, idx(i))
-      ENDDO
+      END DO
       DO i = 1, ng
          pw_grid%g(1, i) = real_tmp(1, i)
          pw_grid%g(2, i) = real_tmp(2, i)
          pw_grid%g(3, i) = real_tmp(3, i)
-      ENDDO
+      END DO
       DEALLOCATE (real_tmp)
 
       ALLOCATE (int_tmp(3, ng))
@@ -1821,12 +1821,12 @@ CONTAINS
          int_tmp(1, i) = pw_grid%g_hat(1, idx(i))
          int_tmp(2, i) = pw_grid%g_hat(2, idx(i))
          int_tmp(3, i) = pw_grid%g_hat(3, idx(i))
-      ENDDO
+      END DO
       DO i = 1, ng
          pw_grid%g_hat(1, i) = int_tmp(1, i)
          pw_grid%g_hat(2, i) = int_tmp(2, i)
          pw_grid%g_hat(3, i) = int_tmp(3, i)
-      ENDDO
+      END DO
       DEALLOCATE (int_tmp)
 
       DEALLOCATE (idx)

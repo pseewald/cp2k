@@ -9,20 +9,20 @@
 !> \brief Utility routines for qs_scf
 ! **************************************************************************************************
 MODULE qs_scf_post_scf
-   USE basis_set_output,                ONLY: print_basis_set_file
-   USE cp_control_types,                ONLY: dft_control_type
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE localization_tb,                 ONLY: wfn_localization_tb
-   USE lri_optimize_ri_basis,           ONLY: optimize_lri_basis
-   USE qs_band_structure,               ONLY: calculate_band_structure
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_scf_post_gpw,                 ONLY: scf_post_calculation_gpw
-   USE qs_scf_post_se,                  ONLY: scf_post_calculation_se
-   USE qs_scf_post_tb,                  ONLY: scf_post_calculation_tb
-   USE qs_scf_types,                    ONLY: qs_scf_env_type
+   USE basis_set_output, ONLY: print_basis_set_file
+   USE cp_control_types, ONLY: dft_control_type
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE localization_tb, ONLY: wfn_localization_tb
+   USE lri_optimize_ri_basis, ONLY: optimize_lri_basis
+   USE qs_band_structure, ONLY: calculate_band_structure
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_scf_post_gpw, ONLY: scf_post_calculation_gpw
+   USE qs_scf_post_se, ONLY: scf_post_calculation_se
+   USE qs_scf_post_tb, ONLY: scf_post_calculation_tb
+   USE qs_scf_types, ONLY: qs_scf_env_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -70,7 +70,7 @@ CONTAINS
             CALL scf_post_calculation_gpw(qs_env, wf_type=wf_type)
          ELSE
             CALL scf_post_calculation_gpw(qs_env)
-         ENDIF
+         END IF
       END IF
 
       CALL calculate_band_structure(qs_env)

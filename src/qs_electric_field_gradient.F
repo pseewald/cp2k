@@ -13,65 +13,65 @@
 !> \author JGH (03-05-2006)
 ! **************************************************************************************************
 MODULE qs_electric_field_gradient
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE eigenvalueproblems,              ONLY: diagonalise
-   USE input_section_types,             ONLY: section_get_lval,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fac,&
-                                              fourpi
-   USE message_passing,                 ONLY: mp_sum
-   USE orbital_pointers,                ONLY: indso,&
-                                              nsoset
-   USE particle_types,                  ONLY: particle_type
-   USE paw_proj_set_types,              ONLY: get_paw_proj_set,&
-                                              paw_proj_set_type
-   USE physcon,                         ONLY: a_bohr,&
-                                              e_charge,&
-                                              joule
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_dr2,&
-                                              pw_integral_ab,&
-                                              pw_smoothing,&
-                                              pw_structure_factor,&
-                                              pw_transfer
-   USE pw_poisson_methods,              ONLY: pw_poisson_solve
-   USE pw_poisson_types,                ONLY: pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_spline_utils,                 ONLY: &
-        Eval_Interp_Spl3_pbc, Eval_d_Interp_Spl3_pbc, find_coeffs, pw_spline_do_precond, &
-        pw_spline_precond_create, pw_spline_precond_release, pw_spline_precond_set_kind, &
-        pw_spline_precond_type, spl3_pbc
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_gapw_densities,               ONLY: prepare_gapw_den
-   USE qs_harmonics_atom,               ONLY: get_none0_cg_list,&
-                                              harmonics_atom_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_methods,                   ONLY: calc_rho_tot_gspace
-   USE qs_rho_atom_types,               ONLY: rho_atom_type
-   USE qs_rho_types,                    ONLY: qs_rho_type
-   USE util,                            ONLY: get_limit,&
-                                              sort
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE eigenvalueproblems, ONLY: diagonalise
+   USE input_section_types, ONLY: section_get_lval, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fac, &
+                            fourpi
+   USE message_passing, ONLY: mp_sum
+   USE orbital_pointers, ONLY: indso, &
+                               nsoset
+   USE particle_types, ONLY: particle_type
+   USE paw_proj_set_types, ONLY: get_paw_proj_set, &
+                                 paw_proj_set_type
+   USE physcon, ONLY: a_bohr, &
+                      e_charge, &
+                      joule
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_dr2, &
+                         pw_integral_ab, &
+                         pw_smoothing, &
+                         pw_structure_factor, &
+                         pw_transfer
+   USE pw_poisson_methods, ONLY: pw_poisson_solve
+   USE pw_poisson_types, ONLY: pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_spline_utils, ONLY: &
+      Eval_Interp_Spl3_pbc, Eval_d_Interp_Spl3_pbc, find_coeffs, pw_spline_do_precond, &
+      pw_spline_precond_create, pw_spline_precond_release, pw_spline_precond_set_kind, &
+      pw_spline_precond_type, spl3_pbc
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_gapw_densities, ONLY: prepare_gapw_den
+   USE qs_harmonics_atom, ONLY: get_none0_cg_list, &
+                                harmonics_atom_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_methods, ONLY: calc_rho_tot_gspace
+   USE qs_rho_atom_types, ONLY: rho_atom_type
+   USE qs_rho_types, ONLY: qs_rho_type
+   USE util, ONLY: get_limit, &
+                   sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -355,7 +355,7 @@ CONTAINS
                WRITE (UNIT=unit_nr, FMT="(T12,A,T15,6F11.5)") &
                   "AT", ((efg_tensor(i, j, iatom) - efg_pw(i, j, iatom), i=1, j), j=1, 3)
             END IF
-         ENDDO
+         END DO
          IF (unit_nr > 0) THEN
             WRITE (UNIT=unit_nr, FMT=*)
          END IF
@@ -380,7 +380,7 @@ CONTAINS
                (efg_diagval(1, iatom) - efg_diagval(2, iatom))/efg_diagval(3, iatom)
             WRITE (UNIT=unit_nr, FMT=*)
          END IF
-      ENDDO
+      END DO
 
       CALL pw_pool_give_back_pw(auxbas_pw_pool, v_hartree_gspace%pw)
       IF (.NOT. efg_interpolation) THEN
@@ -431,8 +431,8 @@ CONTAINS
       INTEGER, INTENT(IN)                                :: natom, nspins
 
       INTEGER :: i, i1, i2, iat, iatom, icg, ipgf1, ipgf2, iset1, iset2, iso, iso1, iso1_first, &
-         iso1_last, iso2, iso2_first, iso2_last, l, l_iso, llmax, m1s, m2s, m_iso, max_iso_not0, &
-         max_iso_not0_local, max_s_harm, maxl, maxso, mepos, n1s, n2s, nset, num_pe, size1, size2
+                 iso1_last, iso2, iso2_first, iso2_last, l, l_iso, llmax, m1s, m2s, m_iso, max_iso_not0, &
+                 max_iso_not0_local, max_s_harm, maxl, maxso, mepos, n1s, n2s, nset, num_pe, size1, size2
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: cg_n_list
       INTEGER, ALLOCATABLE, DIMENSION(:, :, :)           :: cg_list
       INTEGER, DIMENSION(2)                              :: bo
@@ -533,7 +533,7 @@ CONTAINS
                         CPC_sphere(i1:i1 + size1 - 1, i2:i2 + size2 - 1) = &
                            CPC_sphere(i1:i1 + size1 - 1, i2:i2 + size2 - 1) - &
                            coeff(iso1_first:iso1_last, iso2_first:iso2_last)
-                     ENDDO ! i
+                     END DO ! i
 
                      DO iso = 1, max_iso_not0_local
                         l_iso = indso(1, iso)
@@ -547,17 +547,17 @@ CONTAINS
                               vlimit(iatom, m_iso) = vlimit(iatom, m_iso) + &
                                                      vgg(l/2)*CPC_sphere(iso1, iso2)*my_CG(iso1, iso2, iso)
                            END IF
-                        ENDDO ! icg
-                     ENDDO ! iso
+                        END DO ! icg
+                     END DO ! iso
 
-                  ENDDO ! iat
+                  END DO ! iat
 
-               ENDDO ! ipgf2
-            ENDDO ! ipgf1
+               END DO ! ipgf2
+            END DO ! ipgf1
             m2s = m2s + maxso
-         ENDDO ! iset2
+         END DO ! iset2
          m1s = m1s + maxso
-      ENDDO ! iset1
+      END DO ! iset1
 
       CALL mp_sum(vlimit, para_env%group)
 

@@ -11,35 +11,35 @@
 ! **************************************************************************************************
 MODULE qs_dispersion_utils
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE input_constants,                 ONLY: vdw_nl_DRSLL,&
-                                              vdw_nl_LMKLL,&
-                                              vdw_nl_RVV10,&
-                                              vdw_pairpot_dftd2,&
-                                              vdw_pairpot_dftd3,&
-                                              vdw_pairpot_dftd3bj,&
-                                              xc_vdw_fun_nonloc,&
-                                              xc_vdw_fun_pairpot
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE physcon,                         ONLY: bohr,&
-                                              kjmol
-   USE qs_dispersion_pairpot,           ONLY: qs_scaling_dftd3,&
-                                              qs_scaling_dftd3bj,&
-                                              qs_scaling_init
-   USE qs_dispersion_types,             ONLY: qs_atom_dispersion_type,&
-                                              qs_dispersion_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE input_constants, ONLY: vdw_nl_DRSLL, &
+                              vdw_nl_LMKLL, &
+                              vdw_nl_RVV10, &
+                              vdw_pairpot_dftd2, &
+                              vdw_pairpot_dftd3, &
+                              vdw_pairpot_dftd3bj, &
+                              xc_vdw_fun_nonloc, &
+                              xc_vdw_fun_pairpot
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE physcon, ONLY: bohr, &
+                      kjmol
+   USE qs_dispersion_pairpot, ONLY: qs_scaling_dftd3, &
+                                    qs_scaling_dftd3bj, &
+                                    qs_scaling_init
+   USE qs_dispersion_types, ONLY: qs_atom_dispersion_type, &
+                                  qs_dispersion_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

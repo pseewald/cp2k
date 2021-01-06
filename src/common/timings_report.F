@@ -16,34 +16,34 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE timings_report
-   USE callgraph,                       ONLY: callgraph_item_type,&
-                                              callgraph_items
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp,&
-                                              int_8
-   USE list,                            ONLY: list_destroy,&
-                                              list_get,&
-                                              list_init,&
-                                              list_isready,&
-                                              list_pop,&
-                                              list_push,&
-                                              list_size
-   USE list_routinereport,              ONLY: list_routinereport_type
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_max,&
-                                              mp_maxloc,&
-                                              mp_sum
-   USE routine_map,                     ONLY: routine_map_get,&
-                                              routine_map_haskey
-   USE timings,                         ONLY: get_timer_env
-   USE timings_base_type,               ONLY: call_stat_type,&
-                                              routine_report_type,&
-                                              routine_stat_type
-   USE timings_types,                   ONLY: timer_env_type
-   USE util,                            ONLY: sort
+   USE callgraph, ONLY: callgraph_item_type, &
+                        callgraph_items
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: default_string_length, &
+                    dp, &
+                    int_8
+   USE list, ONLY: list_destroy, &
+                   list_get, &
+                   list_init, &
+                   list_isready, &
+                   list_pop, &
+                   list_push, &
+                   list_size
+   USE list_routinereport, ONLY: list_routinereport_type
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_max, &
+                              mp_maxloc, &
+                              mp_sum
+   USE routine_map, ONLY: routine_map_get, &
+                          routine_map_haskey
+   USE timings, ONLY: get_timer_env
+   USE timings_base_type, ONLY: call_stat_type, &
+                                routine_report_type, &
+                                routine_stat_type
+   USE timings_types, ONLY: timer_env_type
+   USE util, ONLY: sort
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -150,7 +150,7 @@ CONTAINS
             local_routine_id = MINLOC(collected, dim=1)
             r_stat => list_get(timer_env%routine_stats, local_routine_id)
             routineN = r_stat%routineN
-         ENDIF
+         END IF
          CALL mp_bcast(routineN, sending_rank, para_env%group)
 
          ! Create new report for routineN
@@ -202,7 +202,7 @@ CONTAINS
          r_report%max_erank = INT(dbuf(2))
 
          CALL mp_sum(r_report%sum_ecost, para_env%group)
-      ENDDO
+      END DO
 
    END SUBROUTINE collect_reports_from_ranks
 
@@ -264,7 +264,7 @@ CONTAINS
       ELSE
          WRITE (UNIT=iw, FMT="(T2,A,T35,A,T41,A,T45,2A18)") &
             "SUBROUTINE", "CALLS", " ASD", "SELF "//label, "TOTAL "//label
-      ENDIF
+      END IF
 
       WRITE (UNIT=iw, FMT="(T33,A)") &
          "MAXIMUM       AVERAGE  MAXIMUM  AVERAGE  MAXIMUM"
@@ -279,7 +279,7 @@ CONTAINS
          ELSE
             max_costs(i) = r_report_i%max_icost
          END IF
-      ENDDO
+      END DO
       ALLOCATE (indices(num_routines))
       CALL sort(max_costs, num_routines, indices)
 
@@ -298,7 +298,7 @@ CONTAINS
       ELSE
          WRITE (UNIT=fmt, FMT="(A,I0,A)") &
             "(T2,A30,1X,I7,1X,F4.1,4(1X,F8.", decimals, "))"
-      ENDIF
+      END IF
 
       !write output
       DO i = num_routines, 1, -1
@@ -327,7 +327,7 @@ CONTAINS
                   r_report_j%max_ecost, &
                   r_report_j%sum_icost/para_env%num_pe, &
                   r_report_j%max_icost
-            ENDIF
+            END IF
          END IF
       END DO
       WRITE (UNIT=iw, FMT="(T2,A,/)") REPEAT("-", 79)

@@ -13,43 +13,43 @@
 !> \author MJM
 ! **************************************************************************************************
 MODULE mc_control
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE f77_interface,                   ONLY: create_force_env,&
-                                              destroy_force_env,&
-                                              f_env_add_defaults,&
-                                              f_env_rm_defaults,&
-                                              f_env_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_retain,&
-                                              force_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE input_section_types,             ONLY: section_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mc_misc,                         ONLY: mc_make_dat_file_new
-   USE mc_types,                        ONLY: get_mc_molecule_info,&
-                                              get_mc_par,&
-                                              mc_input_file_type,&
-                                              mc_molecule_info_type,&
-                                              mc_simpar_type,&
-                                              set_mc_par
-   USE message_passing,                 ONLY: mp_bcast
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: atom_type,&
-                                              get_molecule_kind,&
-                                              molecule_kind_type
-   USE parallel_rng_types,              ONLY: rng_stream_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE physcon,                         ONLY: angstrom
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         get_cell
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_logger_get_default_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE f77_interface, ONLY: create_force_env, &
+                            destroy_force_env, &
+                            f_env_add_defaults, &
+                            f_env_rm_defaults, &
+                            f_env_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_retain, &
+                              force_env_type
+   USE global_types, ONLY: global_environment_type
+   USE input_section_types, ONLY: section_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mc_misc, ONLY: mc_make_dat_file_new
+   USE mc_types, ONLY: get_mc_molecule_info, &
+                       get_mc_par, &
+                       mc_input_file_type, &
+                       mc_molecule_info_type, &
+                       mc_simpar_type, &
+                       set_mc_par
+   USE message_passing, ONLY: mp_bcast
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_type
+   USE molecule_kind_types, ONLY: atom_type, &
+                                  get_molecule_kind, &
+                                  molecule_kind_type
+   USE parallel_rng_types, ONLY: rng_stream_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE physcon, ONLY: angstrom
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -142,10 +142,10 @@ CONTAINS
                      TRIM(ADJUSTL(name)), &
                      particles%els(iparticle)%r(1:3)*angstrom
                   iparticle = iparticle + 1
-               ENDDO
-            ENDDO
-         ENDDO
-      ENDIF
+               END DO
+            END DO
+         END DO
+      END IF
 
       CALL close_file(unit_number=unit)
 
@@ -219,7 +219,7 @@ CONTAINS
          READ (unit, *) temperature, nunits_tot
          READ (unit, *) ensemble
          READ (unit, *) nchains(1:nmol_types)
-      ENDIF
+      END IF
       CALL mp_bcast(nstart, source, group)
       CALL mp_bcast(temperature, source, group)
       CALL mp_bcast(nunits_tot, source, group)
@@ -233,27 +233,27 @@ CONTAINS
                'not the same as the input file.'
             WRITE (iw, *) 'Input file temperature =', mc_temp
             WRITE (iw, *) 'Restart file temperature =', temperature
-         ENDIF
+         END IF
          CPABORT("Temperature difference between restart and input")
-      ENDIF
+      END IF
       IF (nunits_tot .NE. mc_nunits_tot) THEN
          IF (ionode) THEN
             WRITE (iw, *) 'The total number of units in the restart ', &
                'file is not the same as the input file.'
             WRITE (iw, *) 'Input file units =', mc_nunits_tot
             WRITE (iw, *) 'Restart file units =', nunits_tot
-         ENDIF
+         END IF
          mc_nunits_tot = nunits_tot
-      ENDIF
+      END IF
       IF (ensemble .NE. mc_ensemble) THEN
          IF (ionode) THEN
             WRITE (iw, *) 'The ensemble in the restart file is ', &
                'not the same as the input file.'
             WRITE (iw, *) 'Input file ensemble =', mc_ensemble
             WRITE (iw, *) 'Restart file ensemble =', ensemble
-         ENDIF
+         END IF
          CPABORT("Ensembles different between restart and input")
-      ENDIF
+      END IF
 
       ! get the cell length and coordinates
       CALL force_env_get(force_env, cell=cell, subsys=subsys)
@@ -265,7 +265,7 @@ CONTAINS
          READ (unit, *) box_length(1:3) ! in angstroms
          READ (unit, *)
          box_length(1:3) = box_length(1:3)/angstrom ! convert to a.u.
-      ENDIF
+      END IF
       CALL mp_bcast(box_length, source, group)
       IF (ABS(box_length(1) - abc(1)) .GT. 0.0001E0_dp .OR. &
           ABS(box_length(2) - abc(2)) .GT. 0.0001E0_dp .OR. &
@@ -275,8 +275,8 @@ CONTAINS
                'not the same as the input file.'
             WRITE (iw, *) 'Input file cell length =', abc(1:3)*angstrom
             WRITE (iw, *) 'Restart file cell length =', box_length(1:3)*angstrom
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! allocate the array holding the coordinates, and read in the coordinates,
       ! and write the dat file so we can make a new force_env
@@ -287,13 +287,13 @@ CONTAINS
          DO iunit = 1, nunits(1)
             r(1:3, iunit) = (/REAL(iunit, dp), REAL(iunit, dp), REAL(iunit, dp)/)
             atom_symbols(iunit) = atom_names(iunit, 1)
-         ENDDO
+         END DO
 
          IF (ionode) THEN
             CALL mc_make_dat_file_new(r(:, :), atom_symbols, 0, &
                                       box_length(:), dat_file, nchains(:), mc_input_file)
             CALL close_file(unit_number=unit)
-         ENDIF
+         END IF
       ELSE
          ALLOCATE (r(3, nunits_tot))
          ALLOCATE (atom_symbols(nunits_tot))
@@ -302,15 +302,15 @@ CONTAINS
             DO ipart = 1, nunits_tot
                READ (unit, *) atom_symbols(ipart), r(1:3, ipart)
                r(1:3, ipart) = r(1:3, ipart)/angstrom
-            ENDDO
+            END DO
 
             CALL close_file(unit_number=unit)
 
             CALL mc_make_dat_file_new(r(:, :), atom_symbols, nunits_tot, &
                                       box_length(:), dat_file, nchains(:), mc_input_file)
 
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       CALL set_mc_par(mc_par, nstart=nstart)
 
@@ -318,8 +318,8 @@ CONTAINS
       IF (ionode) THEN
          DO i = 1, nstart + 1
             rand = rng_stream%next()
-         ENDDO
-      ENDIF
+         END DO
+      END IF
 
       ! end the timing
       CALL timestop(handle)

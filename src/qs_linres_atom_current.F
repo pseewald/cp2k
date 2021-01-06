@@ -15,58 +15,58 @@
 !> \author MI
 ! **************************************************************************************************
 MODULE qs_linres_atom_current
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_p_type
-   USE input_constants,                 ONLY: current_gauge_atom,&
-                                              current_gauge_r,&
-                                              current_gauge_r_and_step_func
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE orbital_pointers,                ONLY: indso,&
-                                              nsoset
-   USE particle_types,                  ONLY: particle_type
-   USE paw_proj_set_types,              ONLY: get_paw_proj_set,&
-                                              paw_proj_set_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_grid_atom,                    ONLY: grid_atom_type
-   USE qs_harmonics_atom,               ONLY: get_none0_cg_list,&
-                                              harmonics_atom_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_linres_op,                    ONLY: fac_vecp,&
-                                              set_vecp,&
-                                              set_vecp_rev
-   USE qs_linres_types,                 ONLY: allocate_jrho_atom_rad,&
-                                              allocate_jrho_coeff,&
-                                              current_env_type,&
-                                              get_current_env,&
-                                              jrho_atom_type,&
-                                              set2zero_jrho_atom_rad
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE qs_oce_methods,                  ONLY: proj_blk
-   USE qs_oce_types,                    ONLY: oce_matrix_type
-   USE qs_rho_atom_types,               ONLY: rho_atom_coeff
-   USE sap_kind_types,                  ONLY: alist_pre_align_blk,&
-                                              alist_type,&
-                                              get_alist
-   USE util,                            ONLY: get_limit
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_get_block_p, &
+                        dbcsr_p_type
+   USE input_constants, ONLY: current_gauge_atom, &
+                              current_gauge_r, &
+                              current_gauge_r_and_step_func
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE orbital_pointers, ONLY: indso, &
+                               nsoset
+   USE particle_types, ONLY: particle_type
+   USE paw_proj_set_types, ONLY: get_paw_proj_set, &
+                                 paw_proj_set_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_grid_atom, ONLY: grid_atom_type
+   USE qs_harmonics_atom, ONLY: get_none0_cg_list, &
+                                harmonics_atom_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_linres_op, ONLY: fac_vecp, &
+                           set_vecp, &
+                           set_vecp_rev
+   USE qs_linres_types, ONLY: allocate_jrho_atom_rad, &
+                              allocate_jrho_coeff, &
+                              current_env_type, &
+                              get_current_env, &
+                              jrho_atom_type, &
+                              set2zero_jrho_atom_rad
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE qs_oce_methods, ONLY: proj_blk
+   USE qs_oce_types, ONLY: oce_matrix_type
+   USE qs_rho_atom_types, ONLY: rho_atom_coeff
+   USE sap_kind_types, ONLY: alist_pre_align_blk, &
+                             alist_type, &
+                             get_alist
+   USE util, ONLY: get_limit
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, &
 !$                    omp_get_thread_num, &
@@ -116,9 +116,9 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'calculate_jrho_atom_coeff'
 
       INTEGER :: bo(2), handle, iac, iat, iatom, ibc, idir2, ii, iii, ikind, ispin, istat, jatom, &
-         jkind, kac, katom, kbc, kkind, len_CPC, len_PC1, max_gau, max_nsgf, mepos, n_cont_a, &
-         n_cont_b, nat, natom, nkind, nsatbas, nsgfa, nsgfb, nso, nsoctot, nspins, num_pe, &
-         output_unit
+                 jkind, kac, katom, kbc, kkind, len_CPC, len_PC1, max_gau, max_nsgf, mepos, n_cont_a, &
+                 n_cont_b, nat, natom, nkind, nsatbas, nsgfa, nsgfb, nso, nsoctot, nspins, num_pe, &
+                 output_unit
       INTEGER, DIMENSION(3)                              :: cell_b
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, list_a, list_b
       LOGICAL                                            :: den_found, dista, distab, distb, &
@@ -177,7 +177,7 @@ CONTAINS
       idir2 = 1
       IF (idir .NE. iB) THEN
          CALL set_vecp_rev(idir, iB, idir2)
-      ENDIF
+      END IF
       CALL set_vecp(iB, ii, iii)
 
       ! Set pointers for the different gauge
@@ -215,10 +215,10 @@ CONTAINS
                   jrho1_atom_set(iatom)%cjc_ii_s(ispin)%r_coef = 0.0_dp
                   jrho1_atom_set(iatom)%cjc_iii_h(ispin)%r_coef = 0.0_dp
                   jrho1_atom_set(iatom)%cjc_iii_s(ispin)%r_coef = 0.0_dp
-               ENDIF
-            ENDDO ! ispin
-         ENDDO ! iat
-      ENDDO ! ikind
+               END IF
+            END DO ! ispin
+         END DO ! iat
+      END DO ! ikind
 
       ! Three centers
       ALLOCATE (basis_set_list(nkind))
@@ -314,7 +314,7 @@ CONTAINS
             NULLIFY (jp_RARnu(ispin)%r_coef, jp2_RARnu(ispin)%r_coef)
             ALLOCATE (jp_RARnu(ispin)%r_coef(nsgfa, nsgfb), &
                       jp2_RARnu(ispin)%r_coef(nsgfa, nsgfb))
-         ENDDO
+         END DO
 
          ! Take the block \mu\nu of jpab, jpab_ii and jpab_iii
          jmax = 0._dp
@@ -339,7 +339,7 @@ CONTAINS
                                    row=iatom, col=jatom, block=d_block(ispin)%r_coef, &
                                    found=den_found)
             jmax = jmax + MAXVAL(ABS(d_block(ispin)%r_coef))
-         ENDDO
+         END DO
 
          ! Loop over atoms
          DO kkind = 1, nkind
@@ -392,7 +392,7 @@ CONTAINS
 !$                   CALL omp_set_lock(alloc_lock(katom))
                      IF (.NOT. ASSOCIATED(jrho1_atom_set(katom)%cjc0_h(1)%r_coef)) THEN
                         CALL allocate_jrho_coeff(jrho1_atom_set, katom, nsoctot)
-                     ENDIF
+                     END IF
 !$                   CALL omp_unset_lock(alloc_lock(katom))
 
                      ! Compute the modified Qai matrix as
@@ -406,7 +406,7 @@ CONTAINS
                                    jp_RARnu(ispin)%r_coef(1, 1), 1)
                         CALL DAXPY(nsgfa*nsgfb, rbc(iii), c_block(ispin)%r_coef(1, 1), 1, &
                                    jp_RARnu(ispin)%r_coef(1, 1), 1)
-                     ENDDO
+                     END DO
 
                      ! Get the d_A's for the hard and soft densities.
                      IF (iatom == katom .AND. ALL(alist_ac%clist(kac)%cell == 0)) THEN
@@ -487,17 +487,17 @@ CONTAINS
                         !------------------------------------------------------------------
 !$                      CALL omp_unset_lock(proj_blk_lock((katom - 1)*nspins + ispin))
 
-                     ENDDO ! ispin
+                     END DO ! ispin
 
                      EXIT !search loop over jatom-katom list
                   END IF
                END DO
             END DO
 
-         ENDDO ! kkind
+         END DO ! kkind
          DO ispin = 1, nspins
             DEALLOCATE (jp_RARnu(ispin)%r_coef, jp2_RARnu(ispin)%r_coef)
-         ENDDO
+         END DO
       END DO
       ! Wait for all threads to finish the loop before locks can be freed
 !$OMP BARRIER
@@ -556,71 +556,71 @@ CONTAINS
 
             IF (iat .GE. bo(1) .AND. iat .LE. bo(2) .AND. is_not_associated) THEN
                CALL allocate_jrho_coeff(jrho1_atom_set, iatom, nsoctot)
-            ENDIF
+            END IF
 
             DO ispin = 1, nspins
 
                tmp_coeff => jrho1_atom_set(iatom)%cjc0_h(ispin)%r_coef
                IF (is_not_associated) THEN
                   zero_coeff = 0.0_dp; tmp_coeff => zero_coeff
-               ENDIF
+               END IF
                CALL mp_sum(tmp_coeff, para_env%group)
 
                tmp_coeff => jrho1_atom_set(iatom)%cjc0_s(ispin)%r_coef
                IF (is_not_associated) THEN
                   zero_coeff = 0.0_dp; tmp_coeff => zero_coeff
-               ENDIF
+               END IF
                CALL mp_sum(tmp_coeff, para_env%group)
 
                tmp_coeff => jrho1_atom_set(iatom)%cjc_h(ispin)%r_coef
                IF (is_not_associated) THEN
                   zero_coeff = 0.0_dp; tmp_coeff => zero_coeff
-               ENDIF
+               END IF
 
                CALL mp_sum(tmp_coeff, para_env%group)
                tmp_coeff => jrho1_atom_set(iatom)%cjc_s(ispin)%r_coef
                IF (is_not_associated) THEN
                   zero_coeff = 0.0_dp; tmp_coeff => zero_coeff
-               ENDIF
+               END IF
                CALL mp_sum(tmp_coeff, para_env%group)
 
                tmp_coeff => jrho1_atom_set(iatom)%cjc_ii_h(ispin)%r_coef
                IF (is_not_associated) THEN
                   zero_coeff = 0.0_dp; tmp_coeff => zero_coeff
-               ENDIF
+               END IF
                CALL mp_sum(tmp_coeff, para_env%group)
 
                tmp_coeff => jrho1_atom_set(iatom)%cjc_ii_s(ispin)%r_coef
                IF (is_not_associated) THEN
                   zero_coeff = 0.0_dp; tmp_coeff => zero_coeff
-               ENDIF
+               END IF
                CALL mp_sum(tmp_coeff, para_env%group)
 
                tmp_coeff => jrho1_atom_set(iatom)%cjc_iii_h(ispin)%r_coef
                IF (is_not_associated) THEN
                   zero_coeff = 0.0_dp; tmp_coeff => zero_coeff
-               ENDIF
+               END IF
                CALL mp_sum(tmp_coeff, para_env%group)
 
                tmp_coeff => jrho1_atom_set(iatom)%cjc_iii_s(ispin)%r_coef
                IF (is_not_associated) THEN
                   zero_coeff = 0.0_dp; tmp_coeff => zero_coeff
-               ENDIF
+               END IF
                CALL mp_sum(tmp_coeff, para_env%group)
 
                IF (ASSOCIATED(jrho1_atom_set(iatom)%cjc0_h(ispin)%r_coef)) &
                   nbr_dbl = nbr_dbl + 8.0_dp*REAL(SIZE(jrho1_atom_set(iatom)%cjc0_h(ispin)%r_coef), dp)
-            ENDDO ! ispin
-         ENDDO ! iat
+            END DO ! ispin
+         END DO ! iat
 
          DEALLOCATE (zero_coeff)
 
-      ENDDO ! ikind
+      END DO ! ikind
 
       output_unit = cp_logger_get_default_io_unit()
       IF (output_unit > 0) THEN
          WRITE (output_unit, '(A,E8.2)') 'calculate_jrho_atom_coeff: nbr_dbl=', nbr_dbl
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -641,11 +641,11 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'calculate_jrho_atom_rad'
 
       INTEGER :: damax_iso_not0, damax_iso_not0_local, handle, i1, i2, iat, iatom, icg, ikind, &
-         ipgf1, ipgf2, ir, iset1, iset2, iso, iso1, iso1_first, iso1_last, iso2, iso2_first, &
-         iso2_last, ispin, l, l_iso, llmax, lmax12, lmax_expansion, lmin12, m1s, m2s, m_iso, &
-         max_iso_not0, max_iso_not0_local, max_max_iso_not0, max_nso, max_s_harm, maxl, maxlgto, &
-         maxso, mepos, n1s, n2s, na, natom, natom_tot, nkind, nr, nset, nspins, num_pe, size1, &
-         size2
+                 ipgf1, ipgf2, ir, iset1, iset2, iso, iso1, iso1_first, iso1_last, iso2, iso2_first, &
+                 iso2_last, ispin, l, l_iso, llmax, lmax12, lmax_expansion, lmin12, m1s, m2s, m_iso, &
+                 max_iso_not0, max_iso_not0_local, max_max_iso_not0, max_nso, max_s_harm, maxl, maxlgto, &
+                 maxso, mepos, n1s, n2s, na, natom, natom_tot, nkind, nr, nset, nspins, num_pe, size1, &
+                 size2
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: cg_n_list, dacg_n_list
       INTEGER, ALLOCATABLE, DIMENSION(:, :, :)           :: cg_list, dacg_list
       INTEGER, DIMENSION(2)                              :: bo
@@ -655,11 +655,11 @@ CONTAINS
       REAL(dp)                                           :: hard_radius
       REAL(dp), ALLOCATABLE, DIMENSION(:)                :: g1, g2, gauge_h, gauge_s
       REAL(dp), ALLOCATABLE, DIMENSION(:, :) :: cjc0_h_block, cjc0_s_block, cjc_h_block, &
-         cjc_ii_h_block, cjc_ii_s_block, cjc_iii_h_block, cjc_iii_s_block, cjc_s_block, dgg_1, gg, &
-         gg_lm1
+                                         cjc_ii_h_block, cjc_ii_s_block, cjc_iii_h_block, cjc_iii_s_block, cjc_s_block, dgg_1, gg, &
+                                                gg_lm1
       REAL(dp), DIMENSION(:, :), POINTER :: coeff, Fr_a_h, Fr_a_h_ii, Fr_a_h_iii, Fr_a_s, &
-         Fr_a_s_ii, Fr_a_s_iii, Fr_b_h, Fr_b_h_ii, Fr_b_h_iii, Fr_b_s, Fr_b_s_ii, Fr_b_s_iii, &
-         Fr_h, Fr_s, zet
+                                            Fr_a_s_ii, Fr_a_s_iii, Fr_b_h, Fr_b_h_ii, Fr_b_h_iii, Fr_b_s, Fr_b_s_ii, Fr_b_s_iii, &
+                                            Fr_h, Fr_s, zet
       REAL(dp), DIMENSION(:, :, :), POINTER              :: my_CG
       REAL(dp), DIMENSION(:, :, :, :), POINTER           :: my_CG_dxyz_asym
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -769,8 +769,8 @@ CONTAINS
                   gauge_s(ir) = grid_atom%rad(ir)
                ELSE
                   gauge_s(ir) = gauge_h(ir)
-               ENDIF
-            ENDDO
+               END IF
+            END DO
          CASE (current_gauge_atom)
             ! d(r)=A
             gauge_h(1:nr) = HUGE(0e0_dp) !0e0_dp
@@ -835,20 +835,20 @@ CONTAINS
                         ELSE
                            gg(1:nr, lmin12) = grid_atom%rad2l(1:nr, lmin12)*g1(1:nr)*g2(1:nr)
                            gg_lm1(1:nr, lmin12) = grid_atom%rad2l(1:nr, lmin12 - 1)*g1(1:nr)*g2(1:nr)
-                        ENDIF
+                        END IF
                         !
                         DO l = lmin12 + 1, lmax12
                            gg(1:nr, l) = grid_atom%rad(1:nr)*gg(1:nr, l - 1)
                            gg_lm1(1:nr, l) = gg(1:nr, l - 1)
-                        ENDDO
+                        END DO
                         !
                         DO l = lmin12, lmax12
                            dgg_1(1:nr, l) = 2.0_dp*(zet(ipgf1, iset1) - zet(ipgf2, iset2))&
                                            &              *gg(1:nr, l)*grid_atom%rad(1:nr)
-                        ENDDO
+                        END DO
                      ELSE
                         CYCLE
-                     ENDIF ! lmin12
+                     END IF ! lmin12
                      !
                      DO iat = bo(1), bo(2)
                         iatom = atom_list(iat)
@@ -923,8 +923,8 @@ CONTAINS
                               IF (.NOT. is_set_to_0(iatom, ispin)) THEN
                                  CALL set2zero_jrho_atom_rad(jrho1_atom, ispin)
                                  is_set_to_0(iatom, ispin) = .TRUE.
-                              ENDIF
-                           ENDIF
+                              END IF
+                           END IF
                            !------------------------------------------------------------------
                            !
                            Fr_h => jrho1_atom%jrho_h(ispin)%r_coef
@@ -961,7 +961,7 @@ CONTAINS
                                  IF (.NOT. (iso2 > 0 .AND. iso1 > 0)) THEN
                                     WRITE (*, *) 'iso1=', iso1, ' iso2=', iso2, ' iso=', iso, ' icg=', icg
                                     WRITE (*, *) '.... will stop!'
-                                 ENDIF
+                                 END IF
                                  CPASSERT(iso2 > 0 .AND. iso1 > 0)
                                  !
                                  l = indso(1, iso1) + indso(1, iso2)
@@ -969,7 +969,7 @@ CONTAINS
                                     WRITE (*, *) 'calculate_jrho_atom_rad: 1 l', l
                                     WRITE (*, *) 'calculate_jrho_atom_rad: 1 lmax_expansion', lmax_expansion
                                     WRITE (*, *) '.... will stop!'
-                                 ENDIF
+                                 END IF
                                  CPASSERT(l <= lmax_expansion)
                                  !------------------------------------------------------------------
                                  ! P0
@@ -992,7 +992,7 @@ CONTAINS
                                     Fr_s(1:nr, iso) = Fr_s(1:nr, iso) + &
                                                       gg(1:nr, l)*cjc0_s_block(iso1, iso2)* &
                                                       my_CG(iso1, iso2, iso)*(grid_atom%rad(1:nr) - gauge_s(1:nr))
-                                 ENDIF
+                                 END IF
                                  !------------------------------------------------------------------
                                  ! Rai
                                  !
@@ -1030,7 +1030,7 @@ CONTAINS
                                                            dgg_1(1:nr, l)*gauge_s(1:nr)* &
                                                            cjc_ii_s_block(iso1, iso2)* &
                                                            my_CG(iso1, iso2, iso)
-                                 ENDIF
+                                 END IF
                                  !------------------------------------------------------------------
                                  ! Rbi
                                  !
@@ -1056,11 +1056,11 @@ CONTAINS
                                                             dgg_1(1:nr, l)*gauge_s(1:nr)* &
                                                             cjc_iii_s_block(iso1, iso2)* &
                                                             my_CG(iso1, iso2, iso)
-                                 ENDIF
+                                 END IF
                                  !------------------------------------------------------------------
-                              ENDDO !icg
+                              END DO !icg
                               !
-                           ENDDO ! iso
+                           END DO ! iso
                            !
                            !
                            DO iso = 1, damax_iso_not0_local
@@ -1075,7 +1075,7 @@ CONTAINS
                                  IF (.NOT. (iso2 > 0 .AND. iso1 > 0)) THEN
                                     WRITE (*, *) 'iso1=', iso1, ' iso2=', iso2, ' iso=', iso, ' icg=', icg
                                     WRITE (*, *) '.... will stop!'
-                                 ENDIF
+                                 END IF
                                  CPASSERT(iso2 > 0 .AND. iso1 > 0)
                                  !
                                  l = indso(1, iso1) + indso(1, iso2)
@@ -1083,7 +1083,7 @@ CONTAINS
                                     WRITE (*, *) 'calculate_jrho_atom_rad: 1 l', l
                                     WRITE (*, *) 'calculate_jrho_atom_rad: 1 lmax_expansion', lmax_expansion
                                     WRITE (*, *) '.... will stop!'
-                                 ENDIF
+                                 END IF
                                  CPASSERT(l <= lmax_expansion)
                                  !------------------------------------------------------------------
                                  ! Daij
@@ -1123,7 +1123,7 @@ CONTAINS
                                                            gg_lm1(1:nr, l)*gauge_s(1:nr)* &
                                                            cjc_ii_s_block(iso1, iso2)* &
                                                            my_CG_dxyz_asym(idir, iso1, iso2, iso)
-                                 ENDIF
+                                 END IF
                                  !------------------------------------------------------------------
                                  ! Dbij
                                  !
@@ -1149,27 +1149,27 @@ CONTAINS
                                                             gg_lm1(1:nr, l)*gauge_s(1:nr)* &
                                                             cjc_iii_s_block(iso1, iso2)* &
                                                             my_CG_dxyz_asym(idir, iso1, iso2, iso)
-                                 ENDIF
+                                 END IF
                                  !------------------------------------------------------------------
-                              ENDDO ! icg
-                           ENDDO ! iso
+                              END DO ! icg
+                           END DO ! iso
                            !
-                        ENDDO ! ispin
-                     ENDDO ! iat
+                        END DO ! ispin
+                     END DO ! iat
                      !
                      !------------------------------------------------------------------
                      !
-                  ENDDO !ipgf2
-               ENDDO ! ipgf1
+                  END DO !ipgf2
+               END DO ! ipgf1
                m2s = m2s + maxso
-            ENDDO ! iset2
+            END DO ! iset2
             m1s = m1s + maxso
-         ENDDO ! iset1
+         END DO ! iset1
          !
          DEALLOCATE (cjc0_h_block, cjc0_s_block, cjc_h_block, cjc_s_block, cjc_ii_h_block, cjc_ii_s_block, &
                      cjc_iii_h_block, cjc_iii_s_block, g1, g2, gg, gg_lm1, dgg_1, gauge_h, gauge_s, &
                      cg_list, cg_n_list, dacg_list, dacg_n_list)
-      ENDDO ! ikind
+      END DO ! ikind
       !
       !
       DEALLOCATE (is_set_to_0)
@@ -1287,7 +1287,7 @@ CONTAINS
       IF (idir .NE. iB) THEN
          CALL set_vecp_rev(idir, iB, idir2)
          scale = fac_vecp(idir, iB, idir2)
-      ENDIF
+      END IF
       !
       ! Set the gauge
       CALL get_gauge()
@@ -1339,10 +1339,10 @@ CONTAINS
                   !
                   jrho_s(ir, ia) = jrho_s(ir, ia) + rad_part*slm(ia, iso)
                   !------------------------------------------------------------------
-               ENDIF
-            ENDDO ! ia
-         ENDDO ! iso
-      ENDDO ! ir
+               END IF
+            END DO ! ia
+         END DO ! iso
+      END DO ! ir
       !
       DEALLOCATE (g)
       !
@@ -1352,17 +1352,17 @@ CONTAINS
 !> \brief ...
 ! **************************************************************************************************
       SUBROUTINE get_gauge()
-      INTEGER                                            :: iatom, ixyz, jatom
-      REAL(dp)                                           :: ab, pa, pb, point(3), pra(3), prb(3), &
-                                                            res, tmp
-      REAL(dp), ALLOCATABLE, DIMENSION(:)                :: buf
+         INTEGER                                            :: iatom, ixyz, jatom
+         REAL(dp)                                           :: ab, pa, pb, point(3), pra(3), prb(3), &
+                                                               res, tmp
+         REAL(dp), ALLOCATABLE, DIMENSION(:)                :: buf
 
          ALLOCATE (buf(natm_gauge))
          DO ir = 1, nr
          DO ia = 1, na
             DO ixyz = 1, 3
                g(ixyz, ir, ia) = 0.0_dp
-            ENDDO
+            END DO
             point(1) = r(ir)*a(1, ia)
             point(2) = r(ir)*a(2, ia)
             point(3) = r(ir)*a(3, ia)
@@ -1381,19 +1381,19 @@ CONTAINS
                   tmp = 0.5_dp*(3.0_dp - tmp**2)*tmp
                   tmp = 0.5_dp*(3.0_dp - tmp**2)*tmp
                   buf(iatom) = buf(iatom)*0.5_dp*(1.0_dp - tmp)
-               ENDDO
-            ENDDO
+               END DO
+            END DO
             DO ixyz = 1, 3
                res = 0.0_dp
                DO iatom = 1, natm_gauge
                   res = res + ratom(ixyz, iatom)*buf(iatom)
-               ENDDO
+               END DO
                res = res/SUM(buf(1:natm_gauge))
                !
                g(ixyz, ir, ia) = res
-            ENDDO
-         ENDDO
-         ENDDO
+            END DO
+         END DO
+         END DO
          DEALLOCATE (buf)
       END SUBROUTINE get_gauge
    END SUBROUTINE calculate_jrho_atom_ang
@@ -1481,8 +1481,8 @@ CONTAINS
                   IF (SUM(r(:)**2) .LE. (4.0_dp*hard_radius*hard_radius)) THEN
                      natm_gauge = natm_gauge + 1
                      ratom(:, natm_gauge) = r(:)
-                  ENDIF
-               ENDDO
+                  END IF
+               END DO
 
                DO ispin = 1, nspins
                   jrho1_atom%jrho_vec_rad_h(idir, ispin)%r_coef = 0.0_dp

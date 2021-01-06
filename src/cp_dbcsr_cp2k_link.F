@@ -12,46 +12,46 @@
 !>         01.2014 created
 ! **************************************************************************************************
 MODULE cp_dbcsr_cp2k_link
-   USE ao_util,                         ONLY: exp_radius
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE bibliography,                    ONLY: Borstnik2014,&
-                                              Schuett2016,&
-                                              cite_reference
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: max_elements_per_block
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_finalize, dbcsr_get_block_p, dbcsr_get_default_config, dbcsr_get_matrix_type, &
-        dbcsr_has_symmetry, dbcsr_reserve_blocks, dbcsr_set, dbcsr_set_config, dbcsr_type, &
-        dbcsr_type_no_symmetry
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp,&
-                                              real_8
-   USE orbital_pointers,                ONLY: nso
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_ks_types,                     ONLY: get_ks_env,&
-                                              qs_ks_env_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              get_neighbor_list_set_p,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE string_utilities,                ONLY: s2a
+   USE ao_util, ONLY: exp_radius
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE bibliography, ONLY: Borstnik2014, &
+                           Schuett2016, &
+                           cite_reference
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: max_elements_per_block
+   USE dbcsr_api, ONLY: &
+      dbcsr_finalize, dbcsr_get_block_p, dbcsr_get_default_config, dbcsr_get_matrix_type, &
+      dbcsr_has_symmetry, dbcsr_reserve_blocks, dbcsr_set, dbcsr_set_config, dbcsr_type, &
+      dbcsr_type_no_symmetry
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp, &
+                    real_8
+   USE orbital_pointers, ONLY: nso
+   USE qs_integral_utils, ONLY: basis_set_list_setup
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_ks_types, ONLY: get_ks_env, &
+                          qs_ks_env_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     get_neighbor_list_set_p, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -524,7 +524,7 @@ CONTAINS
             ALLOCATE (cols((blk_cnt + nadd)*2))
             cols(1:blk_cnt) = tmp(1:blk_cnt)
             DEALLOCATE (tmp)
-         ENDIF
+         END IF
          IF (alloc_full) THEN
             blk_cnt = blk_cnt + 1
             rows(blk_cnt) = iatom
@@ -587,7 +587,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'cp_dbcsr_to_csr_screening'
 
       INTEGER :: atom_a, atom_b, handle, iatom, icol, ikind, ipgf, irow, iset, isgf, ishell, &
-         jatom, jkind, jpgf, jset, jsgf, jshell, natom, nkind, nset_a, nset_b
+                 jatom, jkind, jpgf, jset, jsgf, jshell, natom, nkind, nset_a, nset_b
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind
       INTEGER, DIMENSION(:), POINTER                     :: npgf_a, npgf_b, nshell_a, nshell_b
       INTEGER, DIMENSION(:, :), POINTER                  :: l_a, l_b
@@ -717,19 +717,19 @@ CONTAINS
                                  ELSE
                                     screen_blk(jsgf + 1:jsgf + nso(l_b(jshell, jset)), &
                                                isgf + 1:isgf + nso(l_a(ishell, iset))) = 1.0_dp
-                                 ENDIF
+                                 END IF
                                  EXIT gto_loop
-                              ENDIF
-                           ENDIF
-                        ENDDO
-                     ENDDO gto_loop
+                              END IF
+                           END IF
+                        END DO
+                     END DO gto_loop
                      jsgf = jsgf + nso(l_b(jshell, jset))
-                  ENDDO
-               ENDDO
+                  END DO
+               END DO
                isgf = isgf + nso(l_a(ishell, iset))
-            ENDDO
-         ENDDO
-      ENDDO
+            END DO
+         END DO
+      END DO
 
       CALL neighbor_list_iterator_release(nl_iterator)
       DEALLOCATE (basis_set_list_a, basis_set_list_b)

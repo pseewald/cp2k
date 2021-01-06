@@ -17,46 +17,46 @@
 !> \author Matthias Krack (03.09.2001,25.06.2003)
 ! **************************************************************************************************
 MODULE qs_overlap
-   USE ai_contraction,                  ONLY: block_add,&
-                                              contraction,&
-                                              decontraction,&
-                                              force_trace
-   USE ai_overlap,                      ONLY: overlap_ab
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE block_p_types,                   ONLY: block_p_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_create, dbcsr_distribution_type, dbcsr_filter, dbcsr_finalize, dbcsr_get_block_p, &
-        dbcsr_p_type, dbcsr_type, dbcsr_type_antisymmetric, dbcsr_type_no_symmetry, &
-        dbcsr_type_symmetric
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp,&
-                                              int_8
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE orbital_pointers,                ONLY: indco,&
-                                              ncoset
-   USE orbital_symbols,                 ONLY: cgf_symbol
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_integral_utils,               ONLY: basis_set_list_setup,&
-                                              get_memory_usage
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_ks_types,                     ONLY: get_ks_env,&
-                                              qs_ks_env_type
-   USE qs_neighbor_list_types,          ONLY: get_neighbor_list_set_p,&
-                                              neighbor_list_set_p_type
-   USE string_utilities,                ONLY: compress,&
-                                              uppercase
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
+   USE ai_contraction, ONLY: block_add, &
+                             contraction, &
+                             decontraction, &
+                             force_trace
+   USE ai_overlap, ONLY: overlap_ab
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE block_p_types, ONLY: block_p_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set
+   USE dbcsr_api, ONLY: &
+      dbcsr_create, dbcsr_distribution_type, dbcsr_filter, dbcsr_finalize, dbcsr_get_block_p, &
+      dbcsr_p_type, dbcsr_type, dbcsr_type_antisymmetric, dbcsr_type_no_symmetry, &
+      dbcsr_type_symmetric
+   USE kinds, ONLY: default_string_length, &
+                    dp, &
+                    int_8
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE orbital_pointers, ONLY: indco, &
+                               ncoset
+   USE orbital_symbols, ONLY: cgf_symbol
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_integral_utils, ONLY: basis_set_list_setup, &
+                                get_memory_usage
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_ks_types, ONLY: get_ks_env, &
+                          qs_ks_env_type
+   USE qs_neighbor_list_types, ONLY: get_neighbor_list_set_p, &
+                                     neighbor_list_set_p_type
+   USE string_utilities, ONLY: compress, &
+                               uppercase
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
 
 !$ USE OMP_LIB, ONLY: omp_lock_kind, &
 !$                    omp_init_lock, omp_set_lock, &
@@ -184,7 +184,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'build_overlap_matrix_low'
 
       INTEGER :: atom_a, handle, i, iatom, ic, icol, ikind, irow, iset, jatom, jkind, jset, ldsab, &
-         maxder, maxs, n1, n2, ncoa, ncob, nder, nimg, nkind, nseta, nsetb, sgfa, sgfb, slot
+                 maxder, maxs, n1, n2, ncoa, ncob, nder, nimg, nkind, nseta, nsetb, sgfa, sgfb, slot
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, kind_of
       INTEGER, DIMENSION(3)                              :: cell
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, lb_min, npgfa, &
@@ -517,7 +517,7 @@ CONTAINS
       IF (do_forces .AND. use_virial) THEN
          virial%pv_overlap = virial%pv_overlap + pv_thread
          virial%pv_virial = virial%pv_virial + pv_thread
-      ENDIF
+      END IF
 
       IF (dokp) THEN
          DO i = 1, maxs
@@ -525,14 +525,14 @@ CONTAINS
                CALL dbcsr_finalize(matrixkp_s(i, ic)%matrix)
                CALL dbcsr_filter(matrixkp_s(i, ic)%matrix, &
                                  dft_control%qs_control%eps_filter_matrix)
-            ENDDO
-         ENDDO
+            END DO
+         END DO
       ELSE
          DO i = 1, maxs
             CALL dbcsr_finalize(matrix_s(i)%matrix)
             CALL dbcsr_filter(matrix_s(i)%matrix, &
                               dft_control%qs_control%eps_filter_matrix)
-         ENDDO
+         END DO
       END IF
 
       ! *** Release work storage ***

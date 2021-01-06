@@ -11,8 +11,8 @@
 ! **************************************************************************************************
 MODULE mc_environment_types
 
-   USE force_env_types,                 ONLY: force_env_type
-   USE mc_types,                        ONLY: mc_simpar_type
+   USE force_env_types, ONLY: force_env_type
+   USE mc_types, ONLY: mc_simpar_type
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE

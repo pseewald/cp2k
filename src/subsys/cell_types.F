@@ -13,14 +13,14 @@
 !> \author Matthias KracK (16.01.2002, based on a earlier version of CJM, JGH)
 ! **************************************************************************************************
 MODULE cell_types
-   USE cp_units,                        ONLY: cp_unit_to_cp2k,&
-                                              cp_units_rad
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: degree,&
-                                              sqrt3
-   USE mathlib,                         ONLY: angle,&
-                                              det_3x3,&
-                                              inv_3x3
+   USE cp_units, ONLY: cp_unit_to_cp2k, &
+                       cp_units_rad
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: degree, &
+                            sqrt3
+   USE mathlib, ONLY: angle, &
+                      det_3x3, &
+                      inv_3x3
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

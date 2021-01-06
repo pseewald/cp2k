@@ -14,19 +14,19 @@
 ! **************************************************************************************************
 MODULE xc_perdew86
 
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_functionals_utilities,        ONLY: calc_rs_pw,&
-                                              set_util
-   USE xc_input_constants,              ONLY: pz_orig
-   USE xc_perdew_zunger,                ONLY: pz_lda_eval
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_functionals_utilities, ONLY: calc_rs_pw, &
+                                       set_util
+   USE xc_input_constants, ONLY: pz_orig
+   USE xc_perdew_zunger, ONLY: pz_lda_eval
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -77,7 +77,7 @@ CONTAINS
          debug_flag = debug
       ELSE
          debug_flag = .FALSE.
-      ENDIF
+      END IF
 
    END SUBROUTINE p86_init
 
@@ -128,8 +128,8 @@ CONTAINS
       REAL(KIND=dp)                                      :: drho_cutoff, rho_cutoff
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: rs
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER :: e_0, e_ndrho, e_ndrho_ndrho, &
-         e_ndrho_ndrho_ndrho, e_rho, e_rho_ndrho, e_rho_ndrho_ndrho, e_rho_rho, e_rho_rho_ndrho, &
-         e_rho_rho_rho, grho, rho
+                                           e_ndrho_ndrho_ndrho, e_rho, e_rho_ndrho, e_rho_ndrho_ndrho, e_rho_rho, e_rho_rho_ndrho, &
+                                                    e_rho_rho_rho, grho, rho
       TYPE(xc_derivative_type), POINTER                  :: deriv
 
       CALL timeset(routineN, handle)
@@ -381,7 +381,7 @@ CONTAINS
 
       INTEGER                                            :: ip
       REAL(KIND=dp) :: cr, d2cr, d2p, d2phir, d2phirg, d2pq, d2q, d2z, d3cr, d3phir, d3pq, d3q, &
-         d3z, dcr, dphig, dphigr, dphir, dpq, dpv, dq, dz, ep, g, or, oz, p, phi, pq, q, r, x
+                       d3z, dcr, dphig, dphigr, dphir, dpq, dpv, dq, dz, ep, g, or, oz, p, phi, pq, q, r, x
 
 !$OMP PARALLEL DO PRIVATE(ip,x, r, cr, phi, ep, g, or, p, q, dpv, dq, dphir, dcr, dphig) &
 !$OMP             PRIVATE(dphigr, d2phir, d3phir, d2cr, d3cr, d2p, d2q, d2phirg, d3q) &

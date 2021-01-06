@@ -9,33 +9,33 @@
 !> \author T.Laino
 ! **************************************************************************************************
 MODULE qs_ks_qmmm_methods
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cube_utils,                      ONLY: cube_info_type,&
-                                              init_cube_info
-   USE d3_poly,                         ONLY: init_d3_poly_module
-   USE input_constants,                 ONLY: do_qmmm_gauss,&
-                                              do_qmmm_swave
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_retain
-   USE pw_methods,                      ONLY: pw_integral_ab
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE,&
-                                              pw_p_type
-   USE qmmm_types_low,                  ONLY: qmmm_env_qm_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_ks_qmmm_types,                ONLY: qs_ks_qmmm_env_type,&
-                                              qs_ks_qmmm_release
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cube_utils, ONLY: cube_info_type, &
+                         init_cube_info
+   USE d3_poly, ONLY: init_d3_poly_module
+   USE input_constants, ONLY: do_qmmm_gauss, &
+                              do_qmmm_swave
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_retain
+   USE pw_methods, ONLY: pw_integral_ab
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_type
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE, &
+                       pw_p_type
+   USE qmmm_types_low, ONLY: qmmm_env_qm_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_ks_qmmm_types, ONLY: qs_ks_qmmm_env_type, &
+                               qs_ks_qmmm_release
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -219,7 +219,7 @@ CONTAINS
       CALL timeset(routineN, handle)
 
       fac = v_qmmm%pw%pw_grid%dvol*scale
-      v_hartree%pw%cr3d = v_hartree%pw%cr3d+fac*v_qmmm%pw%cr3d
+      v_hartree%pw%cr3d = v_hartree%pw%cr3d + fac*v_qmmm%pw%cr3d
 
       CALL timestop(handle)
    END SUBROUTINE qmmm_modify_hartree_pot

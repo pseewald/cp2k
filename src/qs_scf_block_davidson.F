@@ -17,45 +17,45 @@
 ! **************************************************************************************************
 MODULE qs_scf_block_davidson
 
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              cp_dbcsr_m_by_n_from_row_template,&
-                                              cp_dbcsr_m_by_n_from_template,&
-                                              cp_dbcsr_sm_fm_multiply
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_scale_and_add,&
-                                              cp_fm_symm,&
-                                              cp_fm_transpose,&
-                                              cp_fm_triangular_invert,&
-                                              cp_fm_upper_to_full
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose,&
-                                              cp_fm_cholesky_restore
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver,&
-                                              cp_fm_power
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_diag,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_to_fm_submat,&
-                                              cp_fm_type,&
-                                              cp_fm_vectorsnorm
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_get_diag, dbcsr_get_info, dbcsr_init_p, &
-        dbcsr_multiply, dbcsr_norm, dbcsr_norm_column, dbcsr_release_p, dbcsr_scale_by_vector, &
-        dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_real_default, dbcsr_type_symmetric
-   USE kinds,                           ONLY: dp
-   USE machine,                         ONLY: m_walltime
-   USE message_passing,                 ONLY: mp_sum
-   USE preconditioner,                  ONLY: apply_preconditioner
-   USE preconditioner_types,            ONLY: preconditioner_type
-   USE qs_block_davidson_types,         ONLY: davidson_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  cp_dbcsr_m_by_n_from_row_template, &
+                                  cp_dbcsr_m_by_n_from_template, &
+                                  cp_dbcsr_sm_fm_multiply
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_scale_and_add, &
+                                 cp_fm_symm, &
+                                 cp_fm_transpose, &
+                                 cp_fm_triangular_invert, &
+                                 cp_fm_upper_to_full
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose, &
+                             cp_fm_cholesky_restore
+   USE cp_fm_diag, ONLY: choose_eigv_solver, &
+                         cp_fm_power
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_diag, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_to_fm_submat, &
+                          cp_fm_type, &
+                          cp_fm_vectorsnorm
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_get_diag, dbcsr_get_info, dbcsr_init_p, &
+      dbcsr_multiply, dbcsr_norm, dbcsr_norm_column, dbcsr_release_p, dbcsr_scale_by_vector, &
+      dbcsr_type, dbcsr_type_no_symmetry, dbcsr_type_real_default, dbcsr_type_symmetric
+   USE kinds, ONLY: dp
+   USE machine, ONLY: m_walltime
+   USE message_passing, ONLY: mp_sum
+   USE preconditioner, ONLY: apply_preconditioner
+   USE preconditioner_types, ONLY: preconditioner_type
+   USE qs_block_davidson_types, ONLY: davidson_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -87,7 +87,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'generate_extended_space'
 
       INTEGER :: handle, homo, i_first, i_last, imo, iter, j, jj, max_iter, n, nao, nmat, nmat2, &
-         nmo, nmo_converged, nmo_not_converged, nset, nset_conv, nset_not_conv
+                 nmo, nmo_converged, nmo_not_converged, nset, nset_conv, nset_not_conv
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: iconv, inotconv
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: iconv_set, inotconv_set
       LOGICAL                                            :: converged, do_apply_preconditioner
@@ -334,7 +334,7 @@ CONTAINS
                CALL apply_preconditioner(preconditioner, c_z, c_pz)
             ELSE
                CALL cp_fm_to_fm(c_z, c_pz)
-            ENDIF
+            END IF
          ELSE
             CALL cp_fm_to_fm(c_z, c_pz)
          END IF
@@ -483,7 +483,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'generate_extended_space_sparse'
 
       INTEGER :: handle, homo, i_first, i_last, imo, iter, j, jj, k, max_iter, n, nao, nmat, &
-         nmat2, nmo, nmo_converged, nmo_not_converged, nset, nset_conv, nset_not_conv
+                 nmat2, nmo, nmo_converged, nmo_not_converged, nset, nset_conv, nset_not_conv
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: iconv, inotconv
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: iconv_set, inotconv_set
       LOGICAL                                            :: converged, do_apply_preconditioner
@@ -492,7 +492,7 @@ CONTAINS
       REAL(dp), DIMENSION(:), POINTER                    :: eigenvalues
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_tmp
       TYPE(cp_fm_type), POINTER :: h_block, matrix_mm_fm, matrix_mmt_fm, matrix_nm_fm, &
-         matrix_z_fm, mo_coeff, mo_conv_fm, mo_notconv_fm, s_block, v_block, w_block
+                                   matrix_z_fm, mo_coeff, mo_conv_fm, mo_notconv_fm, s_block, v_block, w_block
       TYPE(dbcsr_type), POINTER                          :: c_out, matrix_hc, matrix_mm, matrix_pz, &
                                                             matrix_sc, matrix_z, mo_coeff_b, &
                                                             mo_conv, mo_notconv, smo_conv

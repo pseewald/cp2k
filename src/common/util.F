@@ -12,11 +12,11 @@
 !> \author CJM & JGH
 ! **************************************************************************************************
 MODULE util
-   USE cp_array_sort,                   ONLY: cp_1d_i4_sort,&
-                                              cp_1d_i8_sort,&
-                                              cp_1d_r_sort,&
-                                              cp_1d_s_sort
-   USE kinds,                           ONLY: dp
+   USE cp_array_sort, ONLY: cp_1d_i4_sort, &
+                            cp_1d_i8_sort, &
+                            cp_1d_r_sort, &
+                            cp_1d_s_sort
+   USE kinds, ONLY: dp
 
    IMPLICIT NONE
 

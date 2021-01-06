@@ -7,30 +7,30 @@
 
 ! **************************************************************************************************
 MODULE atom_sgp
-   USE ai_onecenter,                    ONLY: sg_overlap
-   USE atom_types,                      ONLY: &
-        atom_basis_gridrep, atom_basis_type, atom_ecppot_type, atom_p_type, atom_type, &
-        create_opmat, init_atom_basis_default_pp, opmat_type, release_atom_basis, release_opmat
-   USE atom_upf,                        ONLY: atom_upfpot_type
-   USE atom_utils,                      ONLY: integrate_grid,&
-                                              numpot_matrix
-   USE input_constants,                 ONLY: ecp_pseudo,&
-                                              gaussian,&
-                                              gth_pseudo,&
-                                              no_pseudo,&
-                                              upf_pseudo
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_type
-   USE kahan_sum,                       ONLY: accurate_dot_product
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              fourpi,&
-                                              rootpi,&
-                                              sqrt2
-   USE mathlib,                         ONLY: diamat_all,&
-                                              get_pseudo_inverse_diag
-   USE powell,                          ONLY: opt_state_type,&
-                                              powell_optimize
+   USE ai_onecenter, ONLY: sg_overlap
+   USE atom_types, ONLY: &
+      atom_basis_gridrep, atom_basis_type, atom_ecppot_type, atom_p_type, atom_type, &
+      create_opmat, init_atom_basis_default_pp, opmat_type, release_atom_basis, release_opmat
+   USE atom_upf, ONLY: atom_upfpot_type
+   USE atom_utils, ONLY: integrate_grid, &
+                         numpot_matrix
+   USE input_constants, ONLY: ecp_pseudo, &
+                              gaussian, &
+                              gth_pseudo, &
+                              no_pseudo, &
+                              upf_pseudo
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_type
+   USE kahan_sum, ONLY: accurate_dot_product
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: dfac, &
+                            fourpi, &
+                            rootpi, &
+                            sqrt2
+   USE mathlib, ONLY: diamat_all, &
+                      get_pseudo_inverse_diag
+   USE powell, ONLY: opt_state_type, &
+                     powell_optimize
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -692,8 +692,8 @@ CONTAINS
             CALL release_atom_basis(gbasis)
             DEALLOCATE (pgauss, pproa, pprob)
             DEALLOCATE (al, cl, smat, sinv, tmat, cmat)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       IF (upf_pot%core_correction) THEN
          sgp_pot%has_nlcc = .TRUE.
@@ -1116,7 +1116,7 @@ CONTAINS
          sinv = 0.0_dp
          CALL get_pseudo_inverse_diag(smat(1:nl, 1:nl), sinv(1:nl, 1:nl), 1.e-12_dp)
          cl(1:nl) = MATMUL(sinv(1:nl, 1:nl), tv(1:nl))
-      ENDIF
+      END IF
       !
       vgauss = 0.0_dp
       DO ir = 1, nl

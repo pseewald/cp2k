@@ -12,13 +12,13 @@
 !> \author JHU
 ! **************************************************************************************************
 MODULE input_cp2k_atprop
-   USE bibliography,                    ONLY: Kikuchi2009
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_create,&
-                                              section_type
+   USE bibliography, ONLY: Kikuchi2009
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_create, &
+                                  section_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

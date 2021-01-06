@@ -6,48 +6,48 @@
 !--------------------------------------------------------------------------------------------------!
 ! **************************************************************************************************
 MODULE hartree_local_methods
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE atprop_types,                    ONLY: atprop_array_init,&
-                                              atprop_type
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE hartree_local_types,             ONLY: allocate_ecoul_1center,&
-                                              ecoul_1center_type,&
-                                              hartree_local_type,&
-                                              set_ecoul_1c
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fourpi,&
-                                              pi
-   USE message_passing,                 ONLY: mp_sum
-   USE orbital_pointers,                ONLY: indso,&
-                                              nsoset
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_poisson_types,                ONLY: pw_poisson_periodic,&
-                                              pw_poisson_type
-   USE qs_charges_types,                ONLY: qs_charges_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_grid_atom,                    ONLY: grid_atom_type
-   USE qs_harmonics_atom,               ONLY: get_none0_cg_list,&
-                                              harmonics_atom_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_local_rho_types,              ONLY: get_local_rho,&
-                                              local_rho_type,&
-                                              rhoz_type
-   USE qs_rho0_types,                   ONLY: get_rho0_mpole,&
-                                              rho0_atom_type,&
-                                              rho0_mpole_type
-   USE qs_rho_atom_types,               ONLY: get_rho_atom,&
-                                              rho_atom_coeff,&
-                                              rho_atom_type
-   USE util,                            ONLY: get_limit
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE atprop_types, ONLY: atprop_array_init, &
+                           atprop_type
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE hartree_local_types, ONLY: allocate_ecoul_1center, &
+                                  ecoul_1center_type, &
+                                  hartree_local_type, &
+                                  set_ecoul_1c
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fourpi, &
+                            pi
+   USE message_passing, ONLY: mp_sum
+   USE orbital_pointers, ONLY: indso, &
+                               nsoset
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_poisson_types, ONLY: pw_poisson_periodic, &
+                               pw_poisson_type
+   USE qs_charges_types, ONLY: qs_charges_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_grid_atom, ONLY: grid_atom_type
+   USE qs_harmonics_atom, ONLY: get_none0_cg_list, &
+                                harmonics_atom_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_local_rho_types, ONLY: get_local_rho, &
+                                 local_rho_type, &
+                                 rhoz_type
+   USE qs_rho0_types, ONLY: get_rho0_mpole, &
+                            rho0_atom_type, &
+                            rho0_mpole_type
+   USE qs_rho_atom_types, ONLY: get_rho_atom, &
+                                rho_atom_coeff, &
+                                rho_atom_type
+   USE util, ONLY: get_limit
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -220,8 +220,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'Vh_1c_gg_integrals'
 
       INTEGER :: bo(2), handle, iat, iatom, ikind, ipgf1, is1, iset1, iso, l_ang, llmax, lmax0, &
-         lmax_0, m1, max_iso, max_iso_not0, max_s_harm, maxl, maxso, mepos, n1, nat, natom, &
-         nchan_0, nkind, nr, nset, nsotot, nspins, num_pe
+                 lmax_0, m1, max_iso, max_iso_not0, max_s_harm, maxl, maxso, mepos, n1, nat, natom, &
+                 nchan_0, nkind, nr, nset, nsotot, nspins, num_pe
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: cg_n_list
       INTEGER, ALLOCATABLE, DIMENSION(:, :, :)           :: cg_list
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, lmax, lmin, npgf

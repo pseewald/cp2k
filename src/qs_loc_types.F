@@ -24,23 +24,23 @@
 ! **************************************************************************************************
 MODULE qs_loc_types
 
-   USE cell_types,                      ONLY: cell_release,&
-                                              cell_retain,&
-                                              cell_type
-   USE cp_array_utils,                  ONLY: cp_2d_r_p_type
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_release
-   USE cp_para_env,                     ONLY: cp_para_env_release,&
-                                              cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_deallocate_matrix,&
-                                              dbcsr_p_type
-   USE distribution_1d_types,           ONLY: distribution_1d_release,&
-                                              distribution_1d_retain,&
-                                              distribution_1d_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE particle_types,                  ONLY: particle_type
+   USE cell_types, ONLY: cell_release, &
+                         cell_retain, &
+                         cell_type
+   USE cp_array_utils, ONLY: cp_2d_r_p_type
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_release
+   USE cp_para_env, ONLY: cp_para_env_release, &
+                          cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_deallocate_matrix, &
+                        dbcsr_p_type
+   USE distribution_1d_types, ONLY: distribution_1d_release, &
+                                    distribution_1d_retain, &
+                                    distribution_1d_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE particle_types, ONLY: particle_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -235,7 +235,7 @@ CONTAINS
          DO i = 1, SIZE(qs_loc_env%op_sm_set, 2)
             DO j = 1, SIZE(qs_loc_env%op_sm_set, 1)
                CALL dbcsr_deallocate_matrix(qs_loc_env%op_sm_set(j, i)%matrix)
-            ENDDO
+            END DO
          END DO
          DEALLOCATE (qs_loc_env%op_sm_set)
       END IF
@@ -326,16 +326,16 @@ CONTAINS
          IF (localized_wfn_control%ref_count == 0) THEN
             IF (ASSOCIATED(localized_wfn_control%loc_states)) THEN
                DEALLOCATE (localized_wfn_control%loc_states)
-            ENDIF
+            END IF
             IF (ASSOCIATED(localized_wfn_control%centers_set(1)%array)) THEN
                DEALLOCATE (localized_wfn_control%centers_set(1)%array)
-            ENDIF
+            END IF
             IF (ASSOCIATED(localized_wfn_control%centers_set(2)%array)) THEN
                DEALLOCATE (localized_wfn_control%centers_set(2)%array)
-            ENDIF
+            END IF
             localized_wfn_control%ref_count = 0
             DEALLOCATE (localized_wfn_control)
-         ENDIF
+         END IF
       END IF
    END SUBROUTINE localized_wfn_control_release
 

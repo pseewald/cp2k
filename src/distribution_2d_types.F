@@ -14,15 +14,15 @@
 ! **************************************************************************************************
 MODULE distribution_2d_types
 
-   USE cp_array_utils,                  ONLY: cp_1d_i_p_type,&
-                                              cp_1d_i_write
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_release,&
-                                              cp_blacs_env_retain,&
-                                              cp_blacs_env_type,&
-                                              cp_blacs_env_write
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE machine,                         ONLY: m_flush
+   USE cp_array_utils, ONLY: cp_1d_i_p_type, &
+                             cp_1d_i_write
+   USE cp_blacs_env, ONLY: cp_blacs_env_release, &
+                           cp_blacs_env_retain, &
+                           cp_blacs_env_type, &
+                           cp_blacs_env_write
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE machine, ONLY: m_flush
 #include "base/base_uses.f90"
 
    IMPLICIT NONE
@@ -270,8 +270,8 @@ CONTAINS
                DEALLOCATE (distribution_2d%n_local_cols)
             END IF
             DEALLOCATE (distribution_2d)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
       NULLIFY (distribution_2d)
    END SUBROUTINE distribution_2d_release
 

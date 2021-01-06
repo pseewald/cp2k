@@ -12,20 +12,20 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE cp_gemm_interface
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm_bc,&
-                                              copy_fm_to_dbcsr_bc
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_gemm
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_get_mm_type,&
-                                              cp_fm_type
-   USE dbcsr_api,                       ONLY: dbcsr_multiply,&
-                                              dbcsr_release,&
-                                              dbcsr_type
-   USE input_constants,                 ONLY: do_dbcsr,&
-                                              do_pdgemm
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_min
-   USE string_utilities,                ONLY: uppercase
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm_bc, &
+                                  copy_fm_to_dbcsr_bc
+   USE cp_fm_basic_linalg, ONLY: cp_fm_gemm
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_get_mm_type, &
+                          cp_fm_type
+   USE dbcsr_api, ONLY: dbcsr_multiply, &
+                        dbcsr_release, &
+                        dbcsr_type
+   USE input_constants, ONLY: do_dbcsr, &
+                              do_pdgemm
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_min
+   USE string_utilities, ONLY: uppercase
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

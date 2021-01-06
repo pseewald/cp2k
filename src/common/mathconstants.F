@@ -15,7 +15,7 @@
 ! **************************************************************************************************
 MODULE mathconstants
 
-   USE kinds,                           ONLY: dp
+   USE kinds, ONLY: dp
 
    IMPLICIT NONE
 

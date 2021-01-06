@@ -18,57 +18,57 @@
 !> \author CJM
 ! **************************************************************************************************
 MODULE force_fields_input
-   USE bibliography,                    ONLY: Clabaut2020,&
-                                              Siepmann1995,&
-                                              Tersoff1988,&
-                                              Tosi1964a,&
-                                              Tosi1964b,&
-                                              Yamada2000,&
-                                              cite_reference
-   USE cp_linked_list_input,            ONLY: cp_sll_val_next,&
-                                              cp_sll_val_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE damping_dipole_types,            ONLY: damping_info_type
-   USE force_field_kind_types,          ONLY: do_ff_amber,&
-                                              do_ff_charmm,&
-                                              do_ff_g87,&
-                                              do_ff_g96,&
-                                              do_ff_opls,&
-                                              do_ff_undef,&
-                                              legendre_data_type
-   USE force_field_types,               ONLY: force_field_type,&
-                                              input_info_type
-   USE force_fields_util,               ONLY: get_generic_info
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_list_get,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE input_val_types,                 ONLY: val_get,&
-                                              val_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi
-   USE mathlib,                         ONLY: invert_matrix
-   USE memory_utilities,                ONLY: reallocate
-   USE pair_potential_types,            ONLY: &
-        b4_type, bm_type, do_potential_single_allocation, ea_type, eam_pot_type, ft_pot_type, &
-        ft_type, ftd_type, gal_type, gp_type, gw_type, ip_type, ipbv_pot_type, lj_charmm_type, &
-        no_potential_single_allocation, pair_potential_p_type, pair_potential_reallocate, &
-        potential_single_allocation, quip_type, siepmann_type, tersoff_type, wl_type
-   USE shell_potential_types,           ONLY: shell_p_create,&
-                                              shell_p_type
-   USE string_utilities,                ONLY: uppercase
+   USE bibliography, ONLY: Clabaut2020, &
+                           Siepmann1995, &
+                           Tersoff1988, &
+                           Tosi1964a, &
+                           Tosi1964b, &
+                           Yamada2000, &
+                           cite_reference
+   USE cp_linked_list_input, ONLY: cp_sll_val_next, &
+                                   cp_sll_val_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE damping_dipole_types, ONLY: damping_info_type
+   USE force_field_kind_types, ONLY: do_ff_amber, &
+                                     do_ff_charmm, &
+                                     do_ff_g87, &
+                                     do_ff_g96, &
+                                     do_ff_opls, &
+                                     do_ff_undef, &
+                                     legendre_data_type
+   USE force_field_types, ONLY: force_field_type, &
+                                input_info_type
+   USE force_fields_util, ONLY: get_generic_info
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_list_get, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE input_val_types, ONLY: val_get, &
+                              val_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi
+   USE mathlib, ONLY: invert_matrix
+   USE memory_utilities, ONLY: reallocate
+   USE pair_potential_types, ONLY: &
+      b4_type, bm_type, do_potential_single_allocation, ea_type, eam_pot_type, ft_pot_type, &
+      ft_type, ftd_type, gal_type, gp_type, gw_type, ip_type, ipbv_pot_type, lj_charmm_type, &
+      no_potential_single_allocation, pair_potential_p_type, pair_potential_reallocate, &
+      potential_single_allocation, quip_type, siepmann_type, tersoff_type, wl_type
+   USE shell_potential_types, ONLY: shell_p_create, &
+                                    shell_p_type
+   USE string_utilities, ONLY: uppercase
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -99,7 +99,7 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                    :: para_env
 
       INTEGER :: nb4, nbends, nbm, nbmhft, nbmhftd, nbonds, nchg, neam, ngal, ngd, ngp, nimpr, &
-         nipbv, nlj, nopbend, nquip, nshell, nsiepmann, ntersoff, ntors, ntot, nubs, nwl
+                 nipbv, nlj, nopbend, nquip, nshell, nsiepmann, ntersoff, ntors, ntot, nubs, nwl
       LOGICAL                                            :: explicit, unique_spline
       REAL(KIND=dp)                                      :: min_eps_spline_allowed
       TYPE(input_info_type), POINTER                     :: inp_info
@@ -522,7 +522,7 @@ CONTAINS
          ipbv%a(15) = -79705131323.98_dp
       ELSE
          CPABORT("IPBV only for WATER")
-      ENDIF
+      END IF
    END SUBROUTINE set_IPBV_ff
 
 ! **************************************************************************************************
@@ -552,7 +552,7 @@ CONTAINS
          ft%d = cp_unit_to_cp2k(145.427_dp, "eV*angstrom^8")
       ELSE
          CPABORT("BMHFT only for NaCl")
-      ENDIF
+      END IF
 
    END SUBROUTINE set_BMHFT_ff
 
@@ -1518,7 +1518,7 @@ CONTAINS
 
       IF (n_damp > 0) THEN
          ALLOCATE (damping_list(1:n_damp))
-      ENDIF
+      END IF
 
 ! *** Reads DIPOLE sections *****
       start_damp = 0
@@ -1856,11 +1856,11 @@ CONTAINS
             IF (torsion_phi0(start + isec) .NE. 0.0_dp) THEN
                CALL cp_warn(__LOCATION__, "PHI0 parameter was non-zero "// &
                             "for an OPLS-type TORSION.  It will be ignored.")
-            ENDIF
+            END IF
             IF (MODULO(torsion_m(start + isec), 2) .EQ. 0) THEN
                ! For even M, negate the cosine using a Pi phase factor
                torsion_phi0(start + isec) = pi
-            ENDIF
+            END IF
             ! the K parameter appears as K/2 in the OPLS parameterisation
             torsion_k(start + isec) = torsion_k(start + isec)*0.5_dp
          END IF

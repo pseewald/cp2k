@@ -12,118 +12,118 @@
 !> \author Nico Holmberg [01.2017]
 ! **************************************************************************************************
 MODULE mixed_cdft_methods
-   USE ao_util,                         ONLY: exp_radius_very_extended
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_array_utils,                  ONLY: cp_1d_i_p_type,&
-                                              cp_1d_r_p_type,&
-                                              cp_2d_r_p_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_diag,                   ONLY: cp_dbcsr_syevd
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_invert,&
-                                              cp_fm_transpose
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type,&
-                                              cp_fm_write_formatted
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_init_p, dbcsr_p_type, dbcsr_release, &
-        dbcsr_release_p, dbcsr_scale, dbcsr_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type,&
-                                              use_qmmm,&
-                                              use_qmmmx,&
-                                              use_qs_force
-   USE grid_api,                        ONLY: GRID_FUNC_AB,&
-                                              collocate_pgf_product
-   USE hirshfeld_methods,               ONLY: create_shape_function
-   USE hirshfeld_types,                 ONLY: hirshfeld_type
-   USE input_constants,                 ONLY: &
-        becke_cutoff_element, becke_cutoff_global, cdft_alpha_constraint, cdft_beta_constraint, &
-        cdft_charge_constraint, cdft_magnetization_constraint, mix_cdft, mixed_cdft_parallel, &
-        mixed_cdft_parallel_nobuild, mixed_cdft_serial, outer_scf_becke_constraint
-   USE input_section_types,             ONLY: section_get_lval,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE machine,                         ONLY: m_walltime
-   USE mathlib,                         ONLY: diamat_all
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_irecv,&
-                                              mp_isend,&
-                                              mp_sum,&
-                                              mp_test,&
-                                              mp_testall,&
-                                              mp_wait,&
-                                              mp_waitall
-   USE mixed_cdft_types,                ONLY: mixed_cdft_result_type_set,&
-                                              mixed_cdft_settings_type,&
-                                              mixed_cdft_type,&
-                                              mixed_cdft_type_create,&
-                                              mixed_cdft_work_type_release
-   USE mixed_cdft_utils,                ONLY: &
-        hfun_zero, map_permutation_to_states, mixed_cdft_assemble_block_diag, &
-        mixed_cdft_diagonalize_blocks, mixed_cdft_get_blocks, mixed_cdft_init_structures, &
-        mixed_cdft_parse_settings, mixed_cdft_print_couplings, mixed_cdft_read_block_diag, &
-        mixed_cdft_redistribute_arrays, mixed_cdft_release_work, mixed_cdft_transfer_settings
-   USE mixed_environment_types,         ONLY: get_mixed_env,&
-                                              mixed_environment_type,&
-                                              set_mixed_env
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_scale
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE
-   USE qs_cdft_types,                   ONLY: cdft_control_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_mo_io,                        ONLY: read_mo_set,&
-                                              wfn_restart_file_name
-   USE qs_mo_methods,                   ONLY: make_basis_simple,&
-                                              make_basis_sm
-   USE qs_mo_types,                     ONLY: allocate_mo_set,&
-                                              deallocate_mo_set,&
-                                              mo_set_p_type,&
-                                              set_mo_set
-   USE realspace_grid_types,            ONLY: realspace_grid_type,&
-                                              rs2pw,&
-                                              rs_grid_release,&
-                                              rs_grid_retain,&
-                                              rs_grid_zero,&
-                                              rs_pw_transfer
-   USE util,                            ONLY: sort
+   USE ao_util, ONLY: exp_radius_very_extended
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_array_utils, ONLY: cp_1d_i_p_type, &
+                             cp_1d_r_p_type, &
+                             cp_2d_r_p_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_diag, ONLY: cp_dbcsr_syevd
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_sm_fm_multiply
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_invert, &
+                                 cp_fm_transpose
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_type, &
+                          cp_fm_write_formatted
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_realspace_grid_cube, ONLY: cp_pw_to_cube
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_init_p, dbcsr_p_type, dbcsr_release, &
+      dbcsr_release_p, dbcsr_scale, dbcsr_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type, &
+                              use_qmmm, &
+                              use_qmmmx, &
+                              use_qs_force
+   USE grid_api, ONLY: GRID_FUNC_AB, &
+                       collocate_pgf_product
+   USE hirshfeld_methods, ONLY: create_shape_function
+   USE hirshfeld_types, ONLY: hirshfeld_type
+   USE input_constants, ONLY: &
+      becke_cutoff_element, becke_cutoff_global, cdft_alpha_constraint, cdft_beta_constraint, &
+      cdft_charge_constraint, cdft_magnetization_constraint, mix_cdft, mixed_cdft_parallel, &
+      mixed_cdft_parallel_nobuild, mixed_cdft_serial, outer_scf_becke_constraint
+   USE input_section_types, ONLY: section_get_lval, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE machine, ONLY: m_walltime
+   USE mathlib, ONLY: diamat_all
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_irecv, &
+                              mp_isend, &
+                              mp_sum, &
+                              mp_test, &
+                              mp_testall, &
+                              mp_wait, &
+                              mp_waitall
+   USE mixed_cdft_types, ONLY: mixed_cdft_result_type_set, &
+                               mixed_cdft_settings_type, &
+                               mixed_cdft_type, &
+                               mixed_cdft_type_create, &
+                               mixed_cdft_work_type_release
+   USE mixed_cdft_utils, ONLY: &
+      hfun_zero, map_permutation_to_states, mixed_cdft_assemble_block_diag, &
+      mixed_cdft_diagonalize_blocks, mixed_cdft_get_blocks, mixed_cdft_init_structures, &
+      mixed_cdft_parse_settings, mixed_cdft_print_couplings, mixed_cdft_read_block_diag, &
+      mixed_cdft_redistribute_arrays, mixed_cdft_release_work, mixed_cdft_transfer_settings
+   USE mixed_environment_types, ONLY: get_mixed_env, &
+                                      mixed_environment_type, &
+                                      set_mixed_env
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_scale
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE
+   USE qs_cdft_types, ONLY: cdft_control_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_mo_io, ONLY: read_mo_set, &
+                       wfn_restart_file_name
+   USE qs_mo_methods, ONLY: make_basis_simple, &
+                            make_basis_sm
+   USE qs_mo_types, ONLY: allocate_mo_set, &
+                          deallocate_mo_set, &
+                          mo_set_p_type, &
+                          set_mo_set
+   USE realspace_grid_types, ONLY: realspace_grid_type, &
+                                   rs2pw, &
+                                   rs_grid_release, &
+                                   rs_grid_retain, &
+                                   rs_grid_zero, &
+                                   rs_pw_transfer
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -451,7 +451,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_build_weight_parallel'
 
       INTEGER :: handle, handle2, i, iforce_eval, ind, INDEX(6), iounit, j, lb_min, &
-         my_special_work, natom, nforce_eval, recv_offset, ub_max
+                 my_special_work, natom, nforce_eval, recv_offset, ub_max
       INTEGER, DIMENSION(2, 3)                           :: bo
       INTEGER, DIMENSION(:), POINTER                     :: lb, req_total, sendbuffer_i, ub
       REAL(KIND=dp)                                      :: t1, t2
@@ -1165,8 +1165,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_cdft_interaction_matrices'
 
       INTEGER :: check_ao(2), check_mo(2), handle, iforce_eval, ipermutation, ispin, istate, ivar, &
-         j, jstate, k, moeigvalunit, mounit, nao, ncol_local, nforce_eval, nmo, npermutations, &
-         nrow_local, nspins, nvar
+                 j, jstate, k, moeigvalunit, mounit, nao, ncol_local, nforce_eval, nmo, npermutations, &
+                 nrow_local, nspins, nvar
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ncol_mo, nrow_mo
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: homo
       LOGICAL                                            :: nelectron_mismatch, print_mo, &
@@ -2306,8 +2306,8 @@ CONTAINS
 
       CHARACTER(len=2)                                   :: element_symbol
       INTEGER :: atom_a, bounds(2), handle, i, iatom, iex, iforce_eval, ikind, iounit, ithread, j, &
-         jatom, katom, my_work, my_work_size, natom, nforce_eval, nkind, np(3), npme, nthread, &
-         numexp, offset_dlb, unit_nr
+                 jatom, katom, my_work, my_work_size, natom, nforce_eval, nkind, np(3), npme, nthread, &
+                 numexp, offset_dlb, unit_nr
       INTEGER, DIMENSION(2, 3)                           :: bo, bo_conf
       INTEGER, DIMENSION(:), POINTER                     :: atom_list, cores, stride
       LOGICAL                                            :: build, mpi_io
@@ -2410,7 +2410,7 @@ CONTAINS
             is_constraint(catom(i)) = .TRUE.
          IF (in_memory .OR. mixed_cdft%first_iteration) &
             coefficients(catom(i)) = cdft_control%group(1)%coeff(i)
-      ENDDO
+      END DO
       CALL pw_env_get(pw_env=mixed_cdft%pw_env, auxbas_pw_pool=auxbas_pw_pool)
       bo = auxbas_pw_pool%pw_grid%bounds_local
       np = auxbas_pw_pool%pw_grid%npts
@@ -2566,11 +2566,11 @@ CONTAINS
                      IF (MODULO(iatom, rs_cavity%desc%group_size) == rs_cavity%desc%my_pos) THEN
                         npme = npme + 1
                         cores(npme) = iatom
-                     ENDIF
+                     END IF
                   ELSE
                      npme = npme + 1
                      cores(npme) = iatom
-                  ENDIF
+                  END IF
                END DO
                DO j = 1, npme
                   iatom = cores(j)
@@ -2594,7 +2594,7 @@ CONTAINS
                                                 radius=radius, ga_gb_function=GRID_FUNC_AB, &
                                                 use_subpatch=.TRUE., &
                                                 subpatch_pattern=0)
-                  ENDIF
+                  END IF
                END DO
             END DO
             DEALLOCATE (cores)
@@ -2754,11 +2754,11 @@ CONTAINS
                                                             uninitialized = -7000
 
       INTEGER :: actually_sent, exhausted_work, handle, i, ind, iounit, ispecial, j, max_targets, &
-         more_work, my_pos, my_special_work, my_target, no_overloaded, no_underloaded, nsend, &
-         nsend_limit, nsend_max, offset, offset_proc, offset_special, req(4), send_total, tags(2)
+                 more_work, my_pos, my_special_work, my_target, no_overloaded, no_underloaded, nsend, &
+                 nsend_limit, nsend_max, offset, offset_proc, offset_special, req(4), send_total, tags(2)
       INTEGER, DIMENSION(:), POINTER :: buffsize, cumulative_work, expected_work, load_imbalance, &
-         nrecv, nsend_proc, req_recv, req_total, sendbuffer, should_warn, tmp, work_index, &
-         work_size
+                                        nrecv, nsend_proc, req_recv, req_total, sendbuffer, should_warn, tmp, work_index, &
+                                        work_size
       INTEGER, DIMENSION(:, :), POINTER                  :: targets, tmp_bo
       LOGICAL                                            :: consistent
       LOGICAL, DIMENSION(:), POINTER                     :: mask_recv, mask_send, touched
@@ -3532,8 +3532,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'mixed_becke_constraint_low'
 
       INTEGER :: handle, i, iatom, icomm, iforce_eval, index, iounit, ip, ispecial, iwork, j, &
-         jatom, jcomm, k, my_special_work, my_work, natom, nbuffs, nforce_eval, np(3), &
-         nsent_total, nskipped, nwork, offset, offset_repl
+                 jatom, jcomm, k, my_special_work, my_work, natom, nbuffs, nforce_eval, np(3), &
+                 nsent_total, nskipped, nwork, offset, offset_repl
       INTEGER, DIMENSION(:), POINTER                     :: req_recv, req_total, work, work_dlb
       INTEGER, DIMENSION(:, :), POINTER                  :: nsent, req_send
       LOGICAL                                            :: completed_recv, should_communicate

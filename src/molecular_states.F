@@ -10,50 +10,50 @@
 !> \author CJM
 ! **************************************************************************************************
 MODULE molecular_states
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE bibliography,                    ONLY: Hunt2003,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_element,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE dbcsr_api,                       ONLY: dbcsr_type
-   USE input_section_types,             ONLY: section_get_ivals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_maxloc
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_type
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_collocate_density,            ONLY: calculate_wavefunction
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE bibliography, ONLY: Hunt2003, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_sm_fm_multiply
+   USE cp_fm_diag, ONLY: choose_eigv_solver
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_element, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_realspace_grid_cube, ONLY: cp_pw_to_cube
+   USE dbcsr_api, ONLY: dbcsr_type
+   USE input_section_types, ONLY: section_get_ivals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_maxloc
+   USE molecule_types, ONLY: molecule_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_type
+   USE pw_types, ONLY: pw_p_type
+   USE qs_collocate_density, ONLY: calculate_wavefunction
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -152,7 +152,7 @@ CONTAINS
          ALLOCATE (eval_range(2))
          eval_range(1) = -HUGE(0.0_dp)
          eval_range(2) = +HUGE(0.0_dp)
-      ENDIF
+      END IF
       CALL section_vals_val_get(loc_print_section, "MOLECULAR_STATES%MARK_STATES", &
                                 n_rep_val=n_rep)
       IF (n_rep .GT. 0) THEN
@@ -179,8 +179,8 @@ CONTAINS
          WRITE (unit_report, *) SIZE(mo_eigenvalues), " number of states "
          DO i = 1, SIZE(mo_eigenvalues)
             WRITE (unit_report, *) mo_eigenvalues(i)
-         ENDDO
-      ENDIF
+         END DO
+      END IF
 
       !-----------------------------------------------------------------------------
       !-----------------------------------------------------------------------------
@@ -206,7 +206,7 @@ CONTAINS
             nstates(1) = molecule_set(imol)%lmi(ispin)%nstates
          ELSE
             nstates(1) = 0
-         ENDIF
+         END IF
          nstates(2) = para_env%mepos
 
          CALL mp_maxloc(nstates, para_env%group)
@@ -278,8 +278,8 @@ CONTAINS
             WRITE (unit_report, *) imol, ns, " imol, number of states"
             DO k = 1, ns
                WRITE (unit_report, *) evals(k)
-            ENDDO
-         ENDIF
+            END DO
+         END IF
 
          CALL cp_gemm('N', 'N', nrow_global, ns, ns, 1.0_dp, &
                       b, e_vectors, 0.0_dp, rot_e_vectors)
@@ -303,11 +303,11 @@ CONTAINS
                   CALL cp_fm_get_element(D_igk, i, k, tmp)
                   IF (unit_report > 0) THEN
                      WRITE (unit_report, *) tmp**2
-                  ENDIF
-               ENDDO
-            ENDDO
+                  END IF
+               END DO
+            END DO
             CALL cp_fm_release(D_igk)
-         ENDIF
+         END IF
 
          IF (BTEST(cp_print_key_should_output(logger%iter_info, loc_print_section, &
                                               "MOLECULAR_STATES%CUBES"), cp_p_file)) THEN
@@ -340,7 +340,7 @@ CONTAINS
                CALL cp_print_key_finished_output(unit_nr, logger, loc_print_section, &
                                                  "MOLECULAR_STATES%CUBES", mpi_io=mpi_io)
             END DO
-         ENDIF
+         END IF
 
          DEALLOCATE (evals)
          CALL cp_fm_release(b)

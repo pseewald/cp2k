@@ -15,17 +15,17 @@
 ! **************************************************************************************************
 MODULE molecule_types
 
-   USE colvar_types,                    ONLY: colvar_counters,&
-                                              colvar_release,&
-                                              colvar_type
-   USE kinds,                           ONLY: dp
-   USE molecule_kind_types,             ONLY: colvar_constraint_type,&
-                                              fixd_constraint_type,&
-                                              g3x3_constraint_type,&
-                                              g4x6_constraint_type,&
-                                              get_molecule_kind,&
-                                              molecule_kind_type,&
-                                              vsite_constraint_type
+   USE colvar_types, ONLY: colvar_counters, &
+                           colvar_release, &
+                           colvar_type
+   USE kinds, ONLY: dp
+   USE molecule_kind_types, ONLY: colvar_constraint_type, &
+                                  fixd_constraint_type, &
+                                  g3x3_constraint_type, &
+                                  g4x6_constraint_type, &
+                                  get_molecule_kind, &
+                                  molecule_kind_type, &
+                                  vsite_constraint_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -169,7 +169,7 @@ CONTAINS
                NULLIFY (gci%lcolv(i)%colvar, gci%lcolv(i)%colvar_old)
             END DO
             DEALLOCATE (gci%lcolv)
-         ENDIF
+         END IF
 
          IF (ASSOCIATED(gci%lg3x3)) &
             DEALLOCATE (gci%lg3x3)
@@ -181,7 +181,7 @@ CONTAINS
             DEALLOCATE (gci%fixd_list)
 
          DEALLOCATE (gci)
-      ENDIF
+      END IF
    END SUBROUTINE deallocate_global_constraint
 
 ! **************************************************************************************************
@@ -234,10 +234,10 @@ CONTAINS
                DO j = 1, SIZE(molecule_set(imolecule)%lmi)
                   IF (ASSOCIATED(molecule_set(imolecule)%lmi(j)%states)) THEN
                      DEALLOCATE (molecule_set(imolecule)%lmi(j)%states)
-                  ENDIF
+                  END IF
                END DO
                DEALLOCATE (molecule_set(imolecule)%lmi)
-            ENDIF
+            END IF
             IF (ASSOCIATED(molecule_set(imolecule)%lci)) THEN
                IF (ASSOCIATED(molecule_set(imolecule)%lci%lcolv)) THEN
                   DO j = 1, SIZE(molecule_set(imolecule)%lci%lcolv)
@@ -247,16 +247,16 @@ CONTAINS
                      NULLIFY (molecule_set(imolecule)%lci%lcolv(j)%colvar_old)
                   END DO
                   DEALLOCATE (molecule_set(imolecule)%lci%lcolv)
-               ENDIF
+               END IF
                IF (ASSOCIATED(molecule_set(imolecule)%lci%lg3x3)) THEN
                   DEALLOCATE (molecule_set(imolecule)%lci%lg3x3)
-               ENDIF
+               END IF
                IF (ASSOCIATED(molecule_set(imolecule)%lci%lg4x6)) THEN
                   DEALLOCATE (molecule_set(imolecule)%lci%lg4x6)
-               ENDIF
+               END IF
                DEALLOCATE (molecule_set(imolecule)%lci)
-            ENDIF
-         ENDDO
+            END IF
+         END DO
          DEALLOCATE (molecule_set)
 
       ELSE
@@ -317,22 +317,22 @@ CONTAINS
                lcolv => molecule%lci%lcolv
             ELSE
                CPABORT("The pointer lci is not associated")
-            ENDIF
-         ENDIF
+            END IF
+         END IF
          IF (PRESENT(lg3x3)) THEN
             IF (ASSOCIATED(molecule%lci)) THEN
                lg3x3 => molecule%lci%lg3x3
             ELSE
                CPABORT("The pointer lci is not associated")
-            ENDIF
-         ENDIF
+            END IF
+         END IF
          IF (PRESENT(lg4x6)) THEN
             IF (ASSOCIATED(molecule%lci)) THEN
                lg4x6 => molecule%lci%lg4x6
             ELSE
                CPABORT("The pointer lci is not associated")
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
       ELSE
 
@@ -378,22 +378,22 @@ CONTAINS
                molecule%lci%lcolv => lcolv
             ELSE
                CPABORT("The pointer lci is not associated")
-            ENDIF
-         ENDIF
+            END IF
+         END IF
          IF (PRESENT(lg3x3)) THEN
             IF (ASSOCIATED(molecule%lci)) THEN
                molecule%lci%lg3x3 => lg3x3
             ELSE
                CPABORT("The pointer lci is not associated")
-            ENDIF
-         ENDIF
+            END IF
+         END IF
          IF (PRESENT(lg4x6)) THEN
             IF (ASSOCIATED(molecule%lci)) THEN
                molecule%lci%lg4x6 => lg4x6
             ELSE
                CPABORT("The pointer lci is not associated")
-            ENDIF
-         ENDIF
+            END IF
+         END IF
       ELSE
 
          CPABORT("The pointer molecule is not associated")
@@ -472,7 +472,7 @@ CONTAINS
          CALL get_molecule(molecule=molecule, first_atom=first_atom, last_atom=last_atom)
          DO iatom = first_atom, last_atom
             atom_to_mol(iatom) = imol
-         ENDDO ! iatom
+         END DO ! iatom
       END DO ! imol
 
    END SUBROUTINE molecule_of_atom
@@ -497,7 +497,7 @@ CONTAINS
 
       TYPE(molecule_type), DIMENSION(:), POINTER         :: molecule_set
       INTEGER, DIMENSION(:), INTENT(OUT), OPTIONAL :: atom_to_mol, mol_to_first_atom, &
-         mol_to_last_atom, mol_to_nelectrons, mol_to_nbasis, mol_to_charge, mol_to_multiplicity
+                                              mol_to_last_atom, mol_to_nelectrons, mol_to_nbasis, mol_to_charge, mol_to_multiplicity
 
       INTEGER                                            :: first_atom, iatom, imol, last_atom, &
                                                             nbasis, nelec
@@ -514,7 +514,7 @@ CONTAINS
          IF (PRESENT(mol_to_nelectrons)) THEN
             CALL get_molecule_kind(imol_kind, nelectron=nelec)
             mol_to_nelectrons(imol) = nelec
-         ENDIF
+         END IF
 
          IF (PRESENT(mol_to_multiplicity)) THEN
             ! RZK-warning: At the moment we can only get the total number
@@ -531,32 +531,32 @@ CONTAINS
                mol_to_multiplicity(imol) = 1
             ELSE
                mol_to_multiplicity(imol) = 2
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          IF (PRESENT(mol_to_charge)) THEN
             CALL get_molecule_kind(imol_kind, charge=charge)
             mol_to_charge(imol) = NINT(charge)
-         ENDIF
+         END IF
 
          IF (PRESENT(mol_to_nbasis)) THEN
             CALL get_molecule_kind(imol_kind, nsgf=nbasis)
             mol_to_nbasis(imol) = nbasis
-         ENDIF
+         END IF
 
          IF (PRESENT(mol_to_first_atom)) THEN
             mol_to_first_atom(imol) = first_atom
-         ENDIF
+         END IF
 
          IF (PRESENT(mol_to_last_atom)) THEN
             mol_to_last_atom(imol) = last_atom
-         ENDIF
+         END IF
 
          IF (PRESENT(atom_to_mol)) THEN
             DO iatom = first_atom, last_atom
                atom_to_mol(iatom) = imol
-            ENDDO ! iatom
-         ENDIF
+            END DO ! iatom
+         END IF
 
       END DO ! imol
 

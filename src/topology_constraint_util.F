@@ -11,55 +11,55 @@
 !>     jgh (23-05-2004) Last atom of molecule information added
 ! **************************************************************************************************
 MODULE topology_constraint_util
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              is_hydrogen
-   USE cell_types,                      ONLY: use_perd_x,&
-                                              use_perd_xy,&
-                                              use_perd_xyz,&
-                                              use_perd_xz,&
-                                              use_perd_y,&
-                                              use_perd_yz,&
-                                              use_perd_z
-   USE colvar_methods,                  ONLY: colvar_eval_mol_f
-   USE colvar_types,                    ONLY: &
-        colvar_clone, colvar_counters, colvar_create, colvar_p_reallocate, colvar_release, &
-        colvar_setup, colvar_type, dist_colvar_id, torsion_colvar_id, xyz_diag_colvar_id, &
-        xyz_outerdiag_colvar_id
-   USE colvar_utils,                    ONLY: post_process_colvar
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE input_constants,                 ONLY: do_constr_atomic,&
-                                              do_constr_molec
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE molecule_kind_types,             ONLY: &
-        atom_type, bond_type, colvar_constraint_type, fixd_constraint_type, g3x3_constraint_type, &
-        g4x6_constraint_type, get_molecule_kind, molecule_kind_type, set_molecule_kind, &
-        setup_colvar_counters, vsite_constraint_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              global_constraint_type,&
-                                              local_colvar_constraint_type,&
-                                              local_constraint_type,&
-                                              local_g3x3_constraint_type,&
-                                              local_g4x6_constraint_type,&
-                                              molecule_type,&
-                                              set_molecule
-   USE particle_types,                  ONLY: particle_type
-   USE qmmm_ff_fist,                    ONLY: qmmm_ff_precond_only_qm
-   USE qmmm_types_low,                  ONLY: qmmm_env_mm_type
-   USE topology_types,                  ONLY: constr_list_type,&
-                                              constraint_info_type,&
-                                              topology_parameters_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                is_hydrogen
+   USE cell_types, ONLY: use_perd_x, &
+                         use_perd_xy, &
+                         use_perd_xyz, &
+                         use_perd_xz, &
+                         use_perd_y, &
+                         use_perd_yz, &
+                         use_perd_z
+   USE colvar_methods, ONLY: colvar_eval_mol_f
+   USE colvar_types, ONLY: &
+      colvar_clone, colvar_counters, colvar_create, colvar_p_reallocate, colvar_release, &
+      colvar_setup, colvar_type, dist_colvar_id, torsion_colvar_id, xyz_diag_colvar_id, &
+      xyz_outerdiag_colvar_id
+   USE colvar_utils, ONLY: post_process_colvar
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE input_constants, ONLY: do_constr_atomic, &
+                              do_constr_molec
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE molecule_kind_types, ONLY: &
+      atom_type, bond_type, colvar_constraint_type, fixd_constraint_type, g3x3_constraint_type, &
+      g4x6_constraint_type, get_molecule_kind, molecule_kind_type, set_molecule_kind, &
+      setup_colvar_counters, vsite_constraint_type
+   USE molecule_types, ONLY: get_molecule, &
+                             global_constraint_type, &
+                             local_colvar_constraint_type, &
+                             local_constraint_type, &
+                             local_g3x3_constraint_type, &
+                             local_g4x6_constraint_type, &
+                             molecule_type, &
+                             set_molecule
+   USE particle_types, ONLY: particle_type
+   USE qmmm_ff_fist, ONLY: qmmm_ff_precond_only_qm
+   USE qmmm_types_low, ONLY: qmmm_env_mm_type
+   USE topology_types, ONLY: constr_list_type, &
+                             constraint_info_type, &
+                             topology_parameters_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -99,13 +99,13 @@ CONTAINS
       CHARACTER(LEN=default_string_length), &
          DIMENSION(:), POINTER                           :: atom_typeh, cnds
       INTEGER :: cind, first, first_atom, gind, handle, handle2, i, ii, itype, iw, j, k, k1loc, &
-         k2loc, kk, last, last_atom, m, n_start_colv, natom, nbond, ncolv_glob, ncolv_mol, &
-         nfixd_list_gci, nfixd_restart, nfixd_restraint, nfixed_atoms, ng3x3, ng3x3_restraint, &
-         ng4x6, ng4x6_restraint, nhdist, nmolecule, nrep, nvsite, nvsite_restraint, offset
+                 k2loc, kk, last, last_atom, m, n_start_colv, natom, nbond, ncolv_glob, ncolv_mol, &
+                 nfixd_list_gci, nfixd_restart, nfixd_restraint, nfixed_atoms, ng3x3, ng3x3_restraint, &
+                 ng4x6, ng4x6_restraint, nhdist, nmolecule, nrep, nvsite, nvsite_restraint, offset
       INTEGER, DIMENSION(:), POINTER                     :: constr_x_glob, inds, molecule_list
       LOGICAL :: exclude_mm, exclude_qm, fix_atom_mm, fix_atom_molname, fix_atom_qm, &
-         fix_atom_qmmm, fix_fixed_atom, found_molname, is_qm, ishbond, ldummy, &
-         restart_restraint_clv, restart_restraint_pos, use_clv_info
+                 fix_atom_qmmm, fix_fixed_atom, found_molname, is_qm, ishbond, ldummy, &
+                 restart_restraint_clv, restart_restraint_pos, use_clv_info
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: missed_molname
       REAL(KIND=dp)                                      :: rmod, rvec(3)
       REAL(KIND=dp), DIMENSION(:), POINTER               :: hdist, r
@@ -168,7 +168,7 @@ CONTAINS
             NULLIFY (lci%lcolv)
             NULLIFY (lci%lg3x3)
             NULLIFY (lci%lg4x6)
-         ENDIF
+         END IF
          CALL set_molecule(molecule, lci=lci)
       END DO
       ALLOCATE (gci)
@@ -618,7 +618,7 @@ CONTAINS
                                    nmolecule=nmolecule, molecule_list=molecule_list, name=molname)
             is_qm = qmmm_ff_precond_only_qm(id1=molname)
             WHERE (molname .EQ. cons_info%fixed_molnames)
-            missed_molname = .FALSE.
+               missed_molname = .FALSE.
             END WHERE
             ! Try to figure out how many atoms of the list belong to this molecule_kind
             nfixed_atoms = 0
@@ -634,7 +634,7 @@ CONTAINS
                         IF ((.NOT. is_qm) .AND. cons_info%fixed_exclude_mm(k)) fix_atom_molname = .FALSE.
                      END IF
                   END DO
-               ENDIF
+               END IF
                DO k = first, last
                   fix_atom_qmmm = .FALSE.
                   IF (PRESENT(qmmm_env)) THEN
@@ -672,7 +672,7 @@ CONTAINS
                            EXIT
                         END IF
                      END DO
-                  ENDIF
+                  END IF
                   DO k = first, last
                      ! FIXED LIST ATOMS
                      fix_fixed_atom = .FALSE.

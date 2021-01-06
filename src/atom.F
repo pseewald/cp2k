@@ -7,25 +7,25 @@
 
 ! **************************************************************************************************
 MODULE atom
-   USE atom_basis,                      ONLY: atom_basis_opt
-   USE atom_energy,                     ONLY: atom_energy_opt
-   USE atom_pseudo,                     ONLY: atom_pseudo_opt
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE header,                          ONLY: atom_footer,&
-                                              atom_header
-   USE input_constants,                 ONLY: atom_basis_run,&
-                                              atom_energy_run,&
-                                              atom_no_run,&
-                                              atom_pseudo_run
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length
-   USE periodic_table,                  ONLY: nelem,&
-                                              ptable
+   USE atom_basis, ONLY: atom_basis_opt
+   USE atom_energy, ONLY: atom_energy_opt
+   USE atom_pseudo, ONLY: atom_pseudo_opt
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE header, ONLY: atom_footer, &
+                     atom_header
+   USE input_constants, ONLY: atom_basis_run, &
+                              atom_energy_run, &
+                              atom_no_run, &
+                              atom_pseudo_run
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length
+   USE periodic_table, ONLY: nelem, &
+                             ptable
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

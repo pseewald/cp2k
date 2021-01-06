@@ -13,15 +13,15 @@
 ! **************************************************************************************************
 MODULE outer_scf_control_types
 
-   USE input_constants,                 ONLY: outer_scf_optimizer_broyden,&
-                                              outer_scf_optimizer_newton,&
-                                              outer_scf_optimizer_newton_ls
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE qs_cdft_opt_types,               ONLY: cdft_opt_type,&
-                                              cdft_opt_type_create,&
-                                              cdft_opt_type_read
+   USE input_constants, ONLY: outer_scf_optimizer_broyden, &
+                              outer_scf_optimizer_newton, &
+                              outer_scf_optimizer_newton_ls
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE qs_cdft_opt_types, ONLY: cdft_opt_type, &
+                                cdft_opt_type_create, &
+                                cdft_opt_type_read
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

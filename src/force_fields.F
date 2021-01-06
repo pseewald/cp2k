@@ -17,42 +17,42 @@
 !> \author CJM
 ! **************************************************************************************************
 MODULE force_fields
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE ewald_environment_types,         ONLY: ewald_environment_type
-   USE fist_nonbond_env_types,          ONLY: fist_nonbond_env_type
-   USE force_field_kind_types,          ONLY: do_ff_amber,&
-                                              do_ff_charmm,&
-                                              do_ff_g87,&
-                                              do_ff_g96,&
-                                              do_ff_undef
-   USE force_field_types,               ONLY: deallocate_ff_type,&
-                                              force_field_type,&
-                                              init_ff_type
-   USE force_fields_ext,                ONLY: read_force_field_amber,&
-                                              read_force_field_charmm,&
-                                              read_force_field_gromos
-   USE force_fields_input,              ONLY: read_force_field_section
-   USE force_fields_util,               ONLY: clean_intra_force_kind,&
-                                              force_field_pack,&
-                                              force_field_qeff_output
-   USE input_constants,                 ONLY: do_skip_14
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_types,                  ONLY: particle_type
-   USE qmmm_types_low,                  ONLY: qmmm_env_mm_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cell_types, ONLY: cell_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE ewald_environment_types, ONLY: ewald_environment_type
+   USE fist_nonbond_env_types, ONLY: fist_nonbond_env_type
+   USE force_field_kind_types, ONLY: do_ff_amber, &
+                                     do_ff_charmm, &
+                                     do_ff_g87, &
+                                     do_ff_g96, &
+                                     do_ff_undef
+   USE force_field_types, ONLY: deallocate_ff_type, &
+                                force_field_type, &
+                                init_ff_type
+   USE force_fields_ext, ONLY: read_force_field_amber, &
+                               read_force_field_charmm, &
+                               read_force_field_gromos
+   USE force_fields_input, ONLY: read_force_field_section
+   USE force_fields_util, ONLY: clean_intra_force_kind, &
+                                force_field_pack, &
+                                force_field_qeff_output
+   USE input_constants, ONLY: do_skip_14
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: molecule_type
+   USE particle_types, ONLY: particle_type
+   USE qmmm_types_low, ONLY: qmmm_env_mm_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

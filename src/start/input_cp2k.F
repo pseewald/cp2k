@@ -12,50 +12,50 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE input_cp2k
-   USE cp_eri_mme_interface,            ONLY: create_eri_mme_test_section
-   USE cp_output_handling,              ONLY: add_last_numeric,&
-                                              cp_print_key_section_create,&
-                                              low_print_level,&
-                                              medium_print_level,&
-                                              silent_print_level
-   USE dbcsr_api,                       ONLY: dbcsr_test_binary_io,&
-                                              dbcsr_test_mm,&
-                                              dbcsr_type_complex_4,&
-                                              dbcsr_type_complex_8,&
-                                              dbcsr_type_real_4,&
-                                              dbcsr_type_real_8
-   USE input_constants,                 ONLY: &
-        do_diag_syevd, do_diag_syevx, do_mat_random, do_mat_read, do_pwgrid_ns_fullspace, &
-        do_pwgrid_ns_halfspace, do_pwgrid_spherical, ehrenfest, numerical
-   USE input_cp2k_atom,                 ONLY: create_atom_section
-   USE input_cp2k_force_eval,           ONLY: create_force_eval_section
-   USE input_cp2k_global,               ONLY: create_global_section
-   USE input_cp2k_motion,               ONLY: create_motion_section
-   USE input_cp2k_negf,                 ONLY: create_negf_section
-   USE input_cp2k_rsgrid,               ONLY: create_rsgrid_section
-   USE input_cp2k_vib,                  ONLY: create_vib_section
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_optimize_basis,            ONLY: create_optimize_basis_section
-   USE input_optimize_input,            ONLY: create_optimize_input_section
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: char_t,&
-                                              integer_t,&
-                                              lchar_t,&
-                                              logical_t
-   USE kinds,                           ONLY: dp
-   USE pw_grids,                        ONLY: do_pw_grid_blocked_false,&
-                                              do_pw_grid_blocked_free,&
-                                              do_pw_grid_blocked_true
-   USE shg_integrals_test,              ONLY: create_shg_integrals_test_section
-   USE string_utilities,                ONLY: newline,&
-                                              s2a
-   USE swarm_input,                     ONLY: create_swarm_section
+   USE cp_eri_mme_interface, ONLY: create_eri_mme_test_section
+   USE cp_output_handling, ONLY: add_last_numeric, &
+                                 cp_print_key_section_create, &
+                                 low_print_level, &
+                                 medium_print_level, &
+                                 silent_print_level
+   USE dbcsr_api, ONLY: dbcsr_test_binary_io, &
+                        dbcsr_test_mm, &
+                        dbcsr_type_complex_4, &
+                        dbcsr_type_complex_8, &
+                        dbcsr_type_real_4, &
+                        dbcsr_type_real_8
+   USE input_constants, ONLY: &
+      do_diag_syevd, do_diag_syevx, do_mat_random, do_mat_read, do_pwgrid_ns_fullspace, &
+      do_pwgrid_ns_halfspace, do_pwgrid_spherical, ehrenfest, numerical
+   USE input_cp2k_atom, ONLY: create_atom_section
+   USE input_cp2k_force_eval, ONLY: create_force_eval_section
+   USE input_cp2k_global, ONLY: create_global_section
+   USE input_cp2k_motion, ONLY: create_motion_section
+   USE input_cp2k_negf, ONLY: create_negf_section
+   USE input_cp2k_rsgrid, ONLY: create_rsgrid_section
+   USE input_cp2k_vib, ONLY: create_vib_section
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_optimize_basis, ONLY: create_optimize_basis_section
+   USE input_optimize_input, ONLY: create_optimize_input_section
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: char_t, &
+                              integer_t, &
+                              lchar_t, &
+                              logical_t
+   USE kinds, ONLY: dp
+   USE pw_grids, ONLY: do_pw_grid_blocked_false, &
+                       do_pw_grid_blocked_free, &
+                       do_pw_grid_blocked_true
+   USE shg_integrals_test, ONLY: create_shg_integrals_test_section
+   USE string_utilities, ONLY: newline, &
+                               s2a
+   USE swarm_input, ONLY: create_swarm_section
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

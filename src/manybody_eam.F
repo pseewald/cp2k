@@ -12,24 +12,24 @@
 ! **************************************************************************************************
 MODULE manybody_eam
 
-   USE bibliography,                    ONLY: Foiles1986,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE fist_neighbor_list_types,        ONLY: fist_neighbor_type,&
-                                              neighbor_kind_pairs_type
-   USE fist_nonbond_env_types,          ONLY: eam_type,&
-                                              fist_nonbond_env_get,&
-                                              fist_nonbond_env_set,&
-                                              fist_nonbond_env_type,&
-                                              pos_type
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: matvec_3x3
-   USE message_passing,                 ONLY: mp_sum
-   USE pair_potential_types,            ONLY: ea_type,&
-                                              eam_pot_type,&
-                                              pair_potential_pp_type
-   USE particle_types,                  ONLY: particle_type
+   USE bibliography, ONLY: Foiles1986, &
+                           cite_reference
+   USE cell_types, ONLY: cell_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE fist_neighbor_list_types, ONLY: fist_neighbor_type, &
+                                       neighbor_kind_pairs_type
+   USE fist_nonbond_env_types, ONLY: eam_type, &
+                                     fist_nonbond_env_get, &
+                                     fist_nonbond_env_set, &
+                                     fist_nonbond_env_type, &
+                                     pos_type
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: matvec_3x3
+   USE message_passing, ONLY: mp_sum
+   USE pair_potential_types, ONLY: ea_type, &
+                                   eam_pot_type, &
+                                   pair_potential_pp_type
+   USE particle_types, ONLY: particle_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -101,12 +101,12 @@ CONTAINS
          IF (.NOT. ASSOCIATED(eam_data)) THEN
             ALLOCATE (eam_data(nparticle))
             CALL fist_nonbond_env_set(fist_nonbond_env, eam_data=eam_data)
-         ENDIF
+         END IF
          DO i = 1, nparticle
             eam_data(i)%rho = 0.0_dp
             eam_data(i)%f_embed = 0.0_dp
-         ENDDO
-      ENDIF
+         END DO
+      END IF
 
       ! Only if EAM potential are present
       IF (do_eam) THEN
@@ -190,7 +190,7 @@ CONTAINS
          index = eam_b%npoints
       ELSEIF (index < 1) THEN
          index = 1
-      ENDIF
+      END IF
       qq = rab - eam_b%rval(index)
       rhoi = eam_b%rho(index) + qq*eam_b%rhop(index)
 
@@ -200,7 +200,7 @@ CONTAINS
          index = eam_a%npoints
       ELSEIF (index < 1) THEN
          index = 1
-      ENDIF
+      END IF
       qq = rab - eam_a%rval(index)
       rhoj = eam_a%rho(index) + qq*eam_a%rhop(index)
 
@@ -237,7 +237,7 @@ CONTAINS
          index = eam_a%npoints
       ELSEIF (index < 1) THEN
          index = 1
-      ENDIF
+      END IF
       qq = rab - eam_a%rval(index)
       IF (index == eam_a%npoints) THEN
          denspi = eam_a%rhop(index) + qq*(eam_a%rhop(index) - eam_a%rhop(index - 1))/eam_a%drar
@@ -251,7 +251,7 @@ CONTAINS
          index = eam_b%npoints
       ELSEIF (index < 1) THEN
          index = 1
-      ENDIF
+      END IF
       qq = rab - eam_b%rval(index)
       IF (index == eam_b%npoints) THEN
          denspj = eam_b%rhop(index) + qq*(eam_b%rhop(index) - eam_b%rhop(index - 1))/eam_b%drar

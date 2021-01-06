@@ -13,14 +13,14 @@
 ! **************************************************************************************************
 MODULE task_list_types
 
-   USE grid_api,                        ONLY: grid_basis_set_type,&
-                                              grid_buffer_type,&
-                                              grid_free_basis_set,&
-                                              grid_free_buffer,&
-                                              grid_free_task_list,&
-                                              grid_task_list_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
+   USE grid_api, ONLY: grid_basis_set_type, &
+                       grid_buffer_type, &
+                       grid_free_basis_set, &
+                       grid_free_buffer, &
+                       grid_free_task_list, &
+                       grid_task_list_type
+   USE kinds, ONLY: dp, &
+                    int_8
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -124,7 +124,7 @@ CONTAINS
       IF (.NOT. ASSOCIATED(tasks)) THEN
          ALLOCATE (tasks(new_size))
          RETURN
-      ENDIF
+      END IF
 
       IF (new_size <= SIZE(tasks)) RETURN
 
@@ -149,51 +149,51 @@ CONTAINS
 
       IF (ASSOCIATED(task_list%tasks)) THEN
          DEALLOCATE (task_list%tasks)
-      ENDIF
+      END IF
       IF (ASSOCIATED(task_list%taskstart)) THEN
          DEALLOCATE (task_list%taskstart)
-      ENDIF
+      END IF
       IF (ASSOCIATED(task_list%taskstop)) THEN
          DEALLOCATE (task_list%taskstop)
-      ENDIF
+      END IF
       IF (ASSOCIATED(task_list%npairs)) THEN
          DEALLOCATE (task_list%npairs)
-      ENDIF
+      END IF
 
       IF (ASSOCIATED(task_list%atom_pair_send)) THEN
          DEALLOCATE (task_list%atom_pair_send)
-      ENDIF
+      END IF
       IF (ASSOCIATED(task_list%pair_offsets_send)) THEN
          DEALLOCATE (task_list%pair_offsets_send)
-      ENDIF
+      END IF
       IF (ASSOCIATED(task_list%rank_offsets_send)) THEN
          DEALLOCATE (task_list%rank_offsets_send)
-      ENDIF
+      END IF
       IF (ASSOCIATED(task_list%rank_sizes_send)) THEN
          DEALLOCATE (task_list%rank_sizes_send)
-      ENDIF
+      END IF
 
       IF (ASSOCIATED(task_list%atom_pair_recv)) THEN
          DEALLOCATE (task_list%atom_pair_recv)
-      ENDIF
+      END IF
       IF (ASSOCIATED(task_list%pair_offsets_recv)) THEN
          DEALLOCATE (task_list%pair_offsets_recv)
-      ENDIF
+      END IF
       IF (ASSOCIATED(task_list%rank_offsets_recv)) THEN
          DEALLOCATE (task_list%rank_offsets_recv)
-      ENDIF
+      END IF
       IF (ASSOCIATED(task_list%rank_sizes_recv)) THEN
          DEALLOCATE (task_list%rank_sizes_recv)
-      ENDIF
+      END IF
       CALL grid_free_task_list(task_list%grid_task_list)
       CALL grid_free_buffer(task_list%pab_buffer)
       CALL grid_free_buffer(task_list%hab_buffer)
       IF (ASSOCIATED(task_list%grid_basis_sets)) THEN
          DO i = 1, SIZE(task_list%grid_basis_sets)
             CALL grid_free_basis_set(task_list%grid_basis_sets(i))
-         ENDDO
+         END DO
          DEALLOCATE (task_list%grid_basis_sets)
-      ENDIF
+      END IF
 
       DEALLOCATE (task_list)
    END SUBROUTINE deallocate_task_list

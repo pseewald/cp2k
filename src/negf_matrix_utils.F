@@ -10,27 +10,27 @@
 ! **************************************************************************************************
 
 MODULE negf_matrix_utils
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_scale_and_add
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_get_submatrix,&
-                                              cp_fm_set_submatrix,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_deallocate_matrix, dbcsr_get_block_p, dbcsr_get_info, &
-        dbcsr_init_p, dbcsr_p_type, dbcsr_set, dbcsr_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_irecv,&
-                                              mp_isend,&
-                                              mp_sum,&
-                                              mp_wait
-   USE negf_alloc_types,                ONLY: negf_allocatable_rvector
-   USE negf_atom_map,                   ONLY: negf_atom_map_type
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
+   USE cp_fm_basic_linalg, ONLY: cp_fm_scale_and_add
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_get_submatrix, &
+                          cp_fm_set_submatrix, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_deallocate_matrix, dbcsr_get_block_p, dbcsr_get_info, &
+      dbcsr_init_p, dbcsr_p_type, dbcsr_set, dbcsr_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_irecv, &
+                              mp_isend, &
+                              mp_sum, &
+                              mp_wait
+   USE negf_alloc_types, ONLY: negf_allocatable_rvector
+   USE negf_atom_map, ONLY: negf_atom_map_type
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -101,7 +101,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'negf_copy_fm_submat_to_dbcsr'
 
       INTEGER :: first_sgf_col, first_sgf_row, handle, iatom_col, iatom_row, icol, irow, &
-         natoms_col, natoms_row, ncols, nparticles, nrows
+                 natoms_col, natoms_row, ncols, nparticles, nrows
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: nsgfs
       LOGICAL                                            :: found
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: fm_block
@@ -191,7 +191,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'negf_copy_sym_dbcsr_to_fm_submat'
 
       INTEGER :: handle, iatom_col, iatom_row, icol, irow, natoms_col, natoms_row, ncols_fm, &
-         nparticles, nrows_fm, offset_sgf_col, offset_sgf_row
+                 nparticles, nrows_fm, offset_sgf_col, offset_sgf_row
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: nsgfs
       LOGICAL                                            :: found
       REAL(kind=dp), ALLOCATABLE, DIMENSION(:, :)        :: r2d

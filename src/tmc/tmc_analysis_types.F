@@ -13,12 +13,12 @@
 ! **************************************************************************************************
 
 MODULE tmc_analysis_types
-   USE cell_types,                      ONLY: cell_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE tmc_tree_types,                  ONLY: tree_type
-   USE tmc_types,                       ONLY: tmc_atom_type
+   USE cell_types, ONLY: cell_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE tmc_tree_types, ONLY: tree_type
+   USE tmc_types, ONLY: tmc_atom_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

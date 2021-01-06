@@ -10,69 +10,69 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE qs_dftb_matrices
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE atprop_types,                    ONLY: atprop_array_init,&
-                                              atprop_type
-   USE block_p_types,                   ONLY: block_p_type
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              dftb_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set
-   USE cp_dbcsr_output,                 ONLY: cp_dbcsr_write_sparse_matrix
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_convert_offsets_to_sizes, dbcsr_copy, dbcsr_create, &
-        dbcsr_distribution_type, dbcsr_dot, dbcsr_finalize, dbcsr_get_block_p, dbcsr_multiply, &
-        dbcsr_p_type, dbcsr_type, dbcsr_type_antisymmetric, dbcsr_type_symmetric
-   USE efield_tb_methods,               ONLY: efield_tb_matrix
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE message_passing,                 ONLY: mp_sum
-   USE mulliken,                        ONLY: mulliken_charges
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_dftb_coulomb,                 ONLY: build_dftb_coulomb
-   USE qs_dftb_types,                   ONLY: qs_dftb_atom_type,&
-                                              qs_dftb_pairpot_type
-   USE qs_dftb_utils,                   ONLY: compute_block_sk,&
-                                              get_dftb_atom_param,&
-                                              iptr,&
-                                              urep_egr
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_ks_types,                     ONLY: get_ks_env,&
-                                              qs_ks_env_type,&
-                                              set_ks_env
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE atprop_types, ONLY: atprop_array_init, &
+                           atprop_type
+   USE block_p_types, ONLY: block_p_type
+   USE cp_control_types, ONLY: dft_control_type, &
+                               dftb_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set
+   USE cp_dbcsr_output, ONLY: cp_dbcsr_write_sparse_matrix
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_convert_offsets_to_sizes, dbcsr_copy, dbcsr_create, &
+      dbcsr_distribution_type, dbcsr_dot, dbcsr_finalize, dbcsr_get_block_p, dbcsr_multiply, &
+      dbcsr_p_type, dbcsr_type, dbcsr_type_antisymmetric, dbcsr_type_symmetric
+   USE efield_tb_methods, ONLY: efield_tb_matrix
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE message_passing, ONLY: mp_sum
+   USE mulliken, ONLY: mulliken_charges
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_dftb_coulomb, ONLY: build_dftb_coulomb
+   USE qs_dftb_types, ONLY: qs_dftb_atom_type, &
+                            qs_dftb_pairpot_type
+   USE qs_dftb_utils, ONLY: compute_block_sk, &
+                            get_dftb_atom_param, &
+                            iptr, &
+                            urep_egr
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_ks_types, ONLY: get_ks_env, &
+                          qs_ks_env_type, &
+                          set_ks_env
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -103,8 +103,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'build_dftb_matrices'
 
       INTEGER :: after, atom_a, atom_b, handle, i, iatom, ic, icol, ikind, img, irow, iw, jatom, &
-         jkind, l1, l2, la, lb, llm, lmaxi, lmaxj, m, n1, n2, n_urpoly, natom, natorb_a, natorb_b, &
-         nderivatives, ngrd, ngrdcut, nimg, nkind, spdim
+                 jkind, l1, l2, la, lb, llm, lmaxi, lmaxj, m, n1, n2, n_urpoly, natom, natorb_a, natorb_b, &
+                 nderivatives, ngrd, ngrdcut, nimg, nkind, spdim
       INTEGER, DIMENSION(3)                              :: cell
       INTEGER, DIMENSION(:), POINTER                     :: atom_of_kind
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
@@ -367,7 +367,7 @@ CONTAINS
                         CPASSERT(ASSOCIATED(dsblocks(i + 1)%block))
                         dsblocks(i + 1)%block = dsblocks(i + 1)%block + dsblock
                      END IF
-                  ENDDO
+                  END DO
                   IF (use_virial) THEN
 !deb iatom=jatom f0=0.5*f0
                      IF (iatom == jatom) f0 = 0.5_dp*f0
@@ -435,12 +435,12 @@ CONTAINS
          DO img = 1, nimg
             CALL dbcsr_finalize(matrix_s(i, img)%matrix)
          END DO
-      ENDDO
+      END DO
       DO i = 1, SIZE(matrix_h, 1)
          DO img = 1, nimg
             CALL dbcsr_finalize(matrix_h(i, img)%matrix)
          END DO
-      ENDDO
+      END DO
 
       ! set repulsive energy
       CALL mp_sum(erep, para_env%group)
@@ -650,11 +650,11 @@ CONTAINS
                             mo_coeff_b=mo_coeff, occupation_numbers=occupation_numbers)
             IF (.NOT. mo_array(ispin)%mo_set%use_mo_coeff_b) THEN
                CPABORT("")
-            ENDIF
+            END IF
             CALL dbcsr_multiply('n', 'n', 1.0_dp, ks_matrix(ispin, 1)%matrix, mo_coeff, &
                                 0.0_dp, mo_derivs(ispin)%matrix)
-         ENDDO
-      ENDIF
+         END DO
+      END IF
 
       CALL timestop(handle)
 
@@ -675,7 +675,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'build_dftb_overlap'
 
       INTEGER :: handle, i, iatom, icol, ikind, indder, irow, j, jatom, jkind, l1, l2, la, lb, &
-         llm, lmaxi, lmaxj, m, n1, n2, natom, natorb_a, natorb_b, ngrd, ngrdcut, nkind
+                 llm, lmaxi, lmaxj, m, n1, n2, natom, natorb_a, natorb_b, ngrd, ngrdcut, nkind
       LOGICAL                                            :: defined, found
       REAL(KIND=dp)                                      :: ddr, dgrd, dr, f0
       REAL(KIND=dp), DIMENSION(0:3)                      :: skself
@@ -827,7 +827,7 @@ CONTAINS
                         dsblocks(indder)%block = dsblocks(indder)%block + &
                                                  (dsblock1(:, :, i) - 2.0_dp*sblock)/ddr**2
                      END IF
-                  ENDDO
+                  END DO
 
                   IF (nderivative .GT. 1) THEN
                      DO i = 1, 2
@@ -862,7 +862,7 @@ CONTAINS
 
       DO i = 1, SIZE(matrix_s, 1)
          CALL dbcsr_finalize(matrix_s(i)%matrix)
-      ENDDO
+      END DO
 
       CALL timestop(handle)
 

@@ -12,43 +12,43 @@
 ! **************************************************************************************************
 MODULE helium_sampling
 
-   USE cp_external_control,             ONLY: external_control
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_add_iter_level,&
-                                              cp_iterate,&
-                                              cp_rm_iter_level
-   USE global_types,                    ONLY: global_environment_type
-   USE helium_common,                   ONLY: &
-        helium_boxmean_3d, helium_calc_plength, helium_calc_rdf, helium_calc_rho, helium_com, &
-        helium_eval_expansion, helium_pbc, helium_rotate, helium_set_rdf_coord_system, &
-        helium_spline, helium_total_moment_of_inertia, helium_total_projected_area, &
-        helium_total_winding_number, helium_update_transition_matrix
-   USE helium_interactions,             ONLY: helium_bead_solute_e_f,&
-                                              helium_calc_energy,&
-                                              helium_solute_e_f
-   USE helium_io,                       ONLY: &
-        helium_print_accepts, helium_print_action, helium_print_coordinates, helium_print_energy, &
-        helium_print_force, helium_print_perm, helium_print_plength, helium_print_rdf, &
-        helium_print_rho, helium_print_vector, helium_write_line
-   USE helium_types,                    ONLY: e_id_total,&
-                                              helium_solvent_p_type,&
-                                              helium_solvent_type
-   USE helium_worm,                     ONLY: helium_sample_worm
-   USE input_constants,                 ONLY: &
-        helium_forces_average, helium_forces_last, helium_mdist_exponential, &
-        helium_mdist_gaussian, helium_mdist_linear, helium_mdist_quadratic, helium_mdist_singlev, &
-        helium_mdist_uniform, helium_sampling_ceperley, helium_sampling_worm
-   USE input_cp2k_restarts,             ONLY: write_restart
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE machine,                         ONLY: m_walltime
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_sum
-   USE physcon,                         ONLY: angstrom
-   USE pint_public,                     ONLY: pint_com_pos
-   USE pint_types,                      ONLY: pint_env_type
-   USE splines_types,                   ONLY: spline_data_type
+   USE cp_external_control, ONLY: external_control
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_add_iter_level, &
+                                 cp_iterate, &
+                                 cp_rm_iter_level
+   USE global_types, ONLY: global_environment_type
+   USE helium_common, ONLY: &
+      helium_boxmean_3d, helium_calc_plength, helium_calc_rdf, helium_calc_rho, helium_com, &
+      helium_eval_expansion, helium_pbc, helium_rotate, helium_set_rdf_coord_system, &
+      helium_spline, helium_total_moment_of_inertia, helium_total_projected_area, &
+      helium_total_winding_number, helium_update_transition_matrix
+   USE helium_interactions, ONLY: helium_bead_solute_e_f, &
+                                  helium_calc_energy, &
+                                  helium_solute_e_f
+   USE helium_io, ONLY: &
+      helium_print_accepts, helium_print_action, helium_print_coordinates, helium_print_energy, &
+      helium_print_force, helium_print_perm, helium_print_plength, helium_print_rdf, &
+      helium_print_rho, helium_print_vector, helium_write_line
+   USE helium_types, ONLY: e_id_total, &
+                           helium_solvent_p_type, &
+                           helium_solvent_type
+   USE helium_worm, ONLY: helium_sample_worm
+   USE input_constants, ONLY: &
+      helium_forces_average, helium_forces_last, helium_mdist_exponential, &
+      helium_mdist_gaussian, helium_mdist_linear, helium_mdist_quadratic, helium_mdist_singlev, &
+      helium_mdist_uniform, helium_sampling_ceperley, helium_sampling_worm
+   USE input_cp2k_restarts, ONLY: write_restart
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE machine, ONLY: m_walltime
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_sum
+   USE physcon, ONLY: angstrom
+   USE pint_public, ONLY: pint_com_pos
+   USE pint_types, ONLY: pint_env_type
+   USE splines_types, ONLY: spline_data_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

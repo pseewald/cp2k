@@ -12,7 +12,7 @@
 ! **************************************************************************************************
 MODULE virial_types
 
-   USE kinds,                           ONLY: dp
+   USE kinds, ONLY: dp
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -232,8 +232,8 @@ CONTAINS
 
       TYPE(virial_type), POINTER                         :: virial
       REAL(KIND=dp), DIMENSION(3, 3), OPTIONAL :: pv_total, pv_kinetic, pv_virial, pv_xc, &
-         pv_fock_4c, pv_constraint, pv_overlap, pv_ekinetic, pv_ppl, pv_ppnl, pv_ecore_overlap, &
-         pv_ehartree, pv_exc, pv_exx, pv_vdw, pv_mp2, pv_nlcc, pv_gapw, pv_lrigpw
+                                            pv_fock_4c, pv_constraint, pv_overlap, pv_ekinetic, pv_ppl, pv_ppnl, pv_ecore_overlap, &
+                                                  pv_ehartree, pv_exc, pv_exx, pv_vdw, pv_mp2, pv_nlcc, pv_gapw, pv_lrigpw
       LOGICAL, OPTIONAL                                  :: pv_availability, pv_calculate, pv_numer, &
                                                             pv_diagonal
 
@@ -297,7 +297,7 @@ CONTAINS
          virial%ref_count = virial%ref_count - 1
          IF (virial%ref_count == 0) THEN
             DEALLOCATE (virial)
-         ENDIF
+         END IF
          NULLIFY (virial)
       END IF
 

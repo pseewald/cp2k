@@ -17,8 +17,8 @@
 ! **************************************************************************************************
 MODULE linear_systems
 
-   USE kinds,                           ONLY: dp
-   USE lapack,                          ONLY: lapack_sgesv
+   USE kinds, ONLY: dp
+   USE lapack, ONLY: lapack_sgesv
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

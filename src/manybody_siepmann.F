@@ -16,27 +16,27 @@
 ! **************************************************************************************************
 MODULE manybody_siepmann
 
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE fist_neighbor_list_types,        ONLY: fist_neighbor_type,&
-                                              neighbor_kind_pairs_type
-   USE fist_nonbond_env_types,          ONLY: pos_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: matvec_3x3
-   USE message_passing,                 ONLY: mp_sum
-   USE pair_potential_types,            ONLY: pair_potential_pp_type,&
-                                              pair_potential_single_type,&
-                                              siepmann_pot_type,&
-                                              siepmann_type
-   USE particle_types,                  ONLY: particle_type
-   USE util,                            ONLY: sort
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE fist_neighbor_list_types, ONLY: fist_neighbor_type, &
+                                       neighbor_kind_pairs_type
+   USE fist_nonbond_env_types, ONLY: pos_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: matvec_3x3
+   USE message_passing, ONLY: mp_sum
+   USE pair_potential_types, ONLY: pair_potential_pp_type, &
+                                   pair_potential_single_type, &
+                                   siepmann_pot_type, &
+                                   siepmann_type
+   USE particle_types, ONLY: particle_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -355,8 +355,8 @@ CONTAINS
             index_h1 = iatom
          ELSEIF (count_h == 2) THEN
             index_h2 = iatom
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       IF (count_h == 0) THEN
          IF (siepmann%allow_o_formation) THEN
@@ -364,24 +364,24 @@ CONTAINS
             siep_Phi_ij = 0.0_dp
          ELSE
             CPABORT("No H atoms for O found")
-         ENDIF
+         END IF
       ELSEIF (count_h == 1) THEN
          IF (siepmann%allow_oh_formation) THEN
             IF (PRESENT(nr_oh)) nr_oh = nr_oh + 1
             siep_Phi_ij = 0.0_dp
          ELSE
             CPABORT("Only one H atom of O atom found")
-         ENDIF
+         END IF
       ELSEIF (count_h == 3) THEN
          IF (siepmann%allow_h3o_formation) THEN
             IF (PRESENT(nr_h3o)) nr_h3o = nr_h3o + 1
             siep_Phi_ij = 0.0_dp
          ELSE
             CPABORT("Three H atoms for O atom found")
-         ENDIF
+         END IF
       ELSEIF (count_h > 3) THEN
          CPABORT("Error in Siepmann-Sprik part: too many H atoms for O")
-      ENDIF
+      END IF
 
       IF (count_h == 2) THEN
          !dipole vector rix of the H2O molecule
@@ -393,7 +393,7 @@ CONTAINS
          IF (cosphi < -1.0_dp) cosphi = -1.0_dp
          IF (cosphi > +1.0_dp) cosphi = +1.0_dp
          siep_Phi_ij = EXP(-8.0_dp*((cosphi - 1)/4.0_dp)**4)
-      ENDIF
+      END IF
    END FUNCTION siep_Phi_ij
 
 ! **************************************************************************************************
@@ -458,8 +458,8 @@ CONTAINS
             index_h1 = iatom
          ELSEIF (count_h == 2) THEN
             index_h2 = iatom
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       IF (count_h == 0 .AND. .NOT. siepmann%allow_o_formation) THEN
          CPABORT("No H atoms for O found")
@@ -469,7 +469,7 @@ CONTAINS
          CPABORT("Three H atoms for O atom found")
       ELSEIF (count_h > 3) THEN
          CPABORT("Error in Siepmann-Sprik part: too many H atoms for O")
-      ENDIF
+      END IF
 
       IF (count_h == 2) THEN
          !dipole vector rix of the H2O molecule
@@ -515,7 +515,7 @@ CONTAINS
                           " not implemented")
          END IF
 
-      ENDIF
+      END IF
    END SUBROUTINE siep_Phi_ij_d
 
 ! **************************************************************************************************
@@ -852,13 +852,13 @@ CONTAINS
 
       IF (iw > 0 .AND. nr_ions > 0 .AND. print_oh) THEN
          WRITE (iw, '(/,A,T71,I10,/)') " SIEPMANN: number of OH- ions at surface", nr_ions
-      ENDIF
+      END IF
       IF (iw > 0 .AND. nr_ions > 0 .AND. print_h3o) THEN
          WRITE (iw, '(/,A,T71,I10,/)') " SIEPMANN: number of H3O+ ions at surface", nr_ions
-      ENDIF
+      END IF
       IF (iw > 0 .AND. nr_ions > 0 .AND. print_o) THEN
          WRITE (iw, '(/,A,T71,I10,/)') " SIEPMANN: number of O^2- ions at surface", nr_ions
-      ENDIF
+      END IF
 
       CALL cp_print_key_finished_output(iw, logger, mm_section, "PRINT%PROGRAM_RUN_INFO")
 

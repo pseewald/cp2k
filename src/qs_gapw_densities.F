@@ -7,26 +7,26 @@
 
 ! **************************************************************************************************
 MODULE qs_gapw_densities
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              gapw_control_type
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE qs_charges_types,                ONLY: qs_charges_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_local_rho_types,              ONLY: local_rho_type
-   USE qs_rho0_ggrid,                   ONLY: put_rho0_on_grid
-   USE qs_rho0_methods,                 ONLY: calculate_rho0_atom
-   USE qs_rho0_types,                   ONLY: rho0_atom_type,&
-                                              rho0_mpole_type
-   USE qs_rho_atom_methods,             ONLY: calculate_rho_atom
-   USE qs_rho_atom_types,               ONLY: rho_atom_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cp_control_types, ONLY: dft_control_type, &
+                               gapw_control_type
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE qs_charges_types, ONLY: qs_charges_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_local_rho_types, ONLY: local_rho_type
+   USE qs_rho0_ggrid, ONLY: put_rho0_on_grid
+   USE qs_rho0_methods, ONLY: calculate_rho0_atom
+   USE qs_rho0_types, ONLY: rho0_atom_type, &
+                            rho0_mpole_type
+   USE qs_rho_atom_methods, ONLY: calculate_rho_atom
+   USE qs_rho_atom_types, ONLY: rho_atom_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -138,7 +138,7 @@ CONTAINS
             CALL calculate_rho0_atom(gapw_control, rho_atom_set, rho0_atom_set, rho0_mpole, &
                                      atom_list, natom, ikind, my_kind_set(ikind), rho0_h_tot)
 
-      ENDDO
+      END DO
 
       !Do not mess with charges if using a non-default kind_set
       IF (.NOT. extern) THEN

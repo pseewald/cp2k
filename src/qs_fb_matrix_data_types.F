@@ -7,23 +7,23 @@
 
 MODULE qs_fb_matrix_data_types
 
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE qs_fb_buffer_types,              ONLY: fb_buffer_add,&
-                                              fb_buffer_create,&
-                                              fb_buffer_d_obj,&
-                                              fb_buffer_get,&
-                                              fb_buffer_has_data,&
-                                              fb_buffer_nullify,&
-                                              fb_buffer_release,&
-                                              fb_buffer_replace
-   USE qs_fb_hash_table_types,          ONLY: fb_hash_table_add,&
-                                              fb_hash_table_create,&
-                                              fb_hash_table_get,&
-                                              fb_hash_table_has_data,&
-                                              fb_hash_table_nullify,&
-                                              fb_hash_table_obj,&
-                                              fb_hash_table_release
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE qs_fb_buffer_types, ONLY: fb_buffer_add, &
+                                 fb_buffer_create, &
+                                 fb_buffer_d_obj, &
+                                 fb_buffer_get, &
+                                 fb_buffer_has_data, &
+                                 fb_buffer_nullify, &
+                                 fb_buffer_release, &
+                                 fb_buffer_replace
+   USE qs_fb_hash_table_types, ONLY: fb_hash_table_add, &
+                                     fb_hash_table_create, &
+                                     fb_hash_table_get, &
+                                     fb_hash_table_has_data, &
+                                     fb_hash_table_nullify, &
+                                     fb_hash_table_obj, &
+                                     fb_hash_table_release
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

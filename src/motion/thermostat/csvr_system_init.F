@@ -10,23 +10,23 @@
 ! **************************************************************************************************
 MODULE csvr_system_init
 
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE csvr_system_mapping,             ONLY: csvr_to_barostat_mapping,&
-                                              csvr_to_particle_mapping,&
-                                              csvr_to_shell_mapping
-   USE csvr_system_types,               ONLY: csvr_system_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: global_constraint_type,&
-                                              molecule_type
-   USE parallel_rng_types,              ONLY: rng_record_length,&
-                                              rng_stream_type_from_record
-   USE simpar_types,                    ONLY: simpar_type
-   USE thermostat_types,                ONLY: thermostat_info_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE csvr_system_mapping, ONLY: csvr_to_barostat_mapping, &
+                                  csvr_to_particle_mapping, &
+                                  csvr_to_shell_mapping
+   USE csvr_system_types, ONLY: csvr_system_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: global_constraint_type, &
+                             molecule_type
+   USE parallel_rng_types, ONLY: rng_record_length, &
+                                 rng_stream_type_from_record
+   USE simpar_types, ONLY: simpar_type
+   USE thermostat_types, ONLY: thermostat_info_type
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE

@@ -13,32 +13,32 @@
 !> \author Dorothea Golze
 ! **************************************************************************************************
 MODULE lri_environment_init
-   USE ao_util,                         ONLY: exp_radius
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: copy_gto_basis_set,&
-                                              gto_basis_set_type
-   USE bibliography,                    ONLY: Golze2017a,&
-                                              Golze2017b,&
-                                              cite_reference
-   USE cp_control_types,                ONLY: dft_control_type
-   USE generic_shg_integrals,           ONLY: int_overlap_aba_shg
-   USE generic_shg_integrals_init,      ONLY: contraction_matrix_shg,&
-                                              contraction_matrix_shg_mix,&
-                                              get_clebsch_gordon_coefficients
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE lri_environment_types,           ONLY: deallocate_bas_properties,&
-                                              lri_env_create,&
-                                              lri_environment_type
-   USE mathconstants,                   ONLY: fac,&
-                                              pi
-   USE mathlib,                         ONLY: invert_matrix
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
+   USE ao_util, ONLY: exp_radius
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: copy_gto_basis_set, &
+                              gto_basis_set_type
+   USE bibliography, ONLY: Golze2017a, &
+                           Golze2017b, &
+                           cite_reference
+   USE cp_control_types, ONLY: dft_control_type
+   USE generic_shg_integrals, ONLY: int_overlap_aba_shg
+   USE generic_shg_integrals_init, ONLY: contraction_matrix_shg, &
+                                         contraction_matrix_shg_mix, &
+                                         get_clebsch_gordon_coefficients
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE lri_environment_types, ONLY: deallocate_bas_properties, &
+                                    lri_env_create, &
+                                    lri_environment_type
+   USE mathconstants, ONLY: fac, &
+                            pi
+   USE mathlib, ONLY: invert_matrix
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -128,7 +128,7 @@ CONTAINS
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
 
       INTEGER :: i, i1, i2, iat, ikind, ip, ipgf, iset, ishell, jp, l, lmax_ikind_orb, &
-         lmax_ikind_ri, maxl_orb, maxl_ri, n1, n2, natom, nbas, nkind, nribas, nspin
+                 lmax_ikind_ri, maxl_orb, maxl_ri, n1, n2, natom, nbas, nkind, nribas, nspin
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of
       REAL(KIND=dp)                                      :: gcc, rad, rai, raj, xradius, zeta
       REAL(KIND=dp), DIMENSION(:), POINTER               :: int_aux, norm
@@ -171,7 +171,7 @@ CONTAINS
                                                  lri_env%cg_shg%cg_none0_list, &
                                                  lri_env%cg_shg%ncg_none0, &
                                                  maxl_orb, maxl_ri)
-         ENDIF
+         END IF
          CALL lri_basis_init(lri_env)
          ! distant pair approximation
          IF (lri_env%distant_pair_approximation) THEN
@@ -576,7 +576,7 @@ CONTAINS
                                     ovlp(isgf, jsgf) = ovlp(isgf, jsgf) + norm_i*norm_j*ppl*cci*ccj*oo
                                  END DO
                               END DO
-                           ENDIF
+                           END IF
                         END DO
                      END DO
                   END IF

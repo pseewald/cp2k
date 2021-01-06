@@ -25,28 +25,28 @@
 ! **************************************************************************************************
 
 MODULE tmc_move_handle
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi
-   USE physcon,                         ONLY: au2a => angstrom
-   USE string_utilities,                ONLY: uppercase
-   USE tmc_move_types,                  ONLY: &
-        move_types_create, move_types_release, mv_type_MD, mv_type_NMC_moves, mv_type_atom_swap, &
-        mv_type_atom_trans, mv_type_gausian_adapt, mv_type_mol_rot, mv_type_mol_trans, &
-        mv_type_proton_reorder, mv_type_swap_conf, mv_type_volume_move, tmc_move_type
-   USE tmc_stati,                       ONLY: task_type_MC,&
-                                              task_type_gaussian_adaptation,&
-                                              task_type_ideal_gas
-   USE tmc_tree_types,                  ONLY: global_tree_type,&
-                                              status_accepted_result,&
-                                              status_rejected_result,&
-                                              tree_type
-   USE tmc_types,                       ONLY: tmc_param_type
+   USE cp_log_handling, ONLY: cp_to_string
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi
+   USE physcon, ONLY: au2a => angstrom
+   USE string_utilities, ONLY: uppercase
+   USE tmc_move_types, ONLY: &
+      move_types_create, move_types_release, mv_type_MD, mv_type_NMC_moves, mv_type_atom_swap, &
+      mv_type_atom_trans, mv_type_gausian_adapt, mv_type_mol_rot, mv_type_mol_trans, &
+      mv_type_proton_reorder, mv_type_swap_conf, mv_type_volume_move, tmc_move_type
+   USE tmc_stati, ONLY: task_type_MC, &
+                        task_type_gaussian_adaptation, &
+                        task_type_ideal_gas
+   USE tmc_tree_types, ONLY: global_tree_type, &
+                             status_accepted_result, &
+                             status_rejected_result, &
+                             tree_type
+   USE tmc_types, ONLY: tmc_param_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

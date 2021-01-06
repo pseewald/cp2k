@@ -6,59 +6,59 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE input_restart_force_eval
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              real_to_scaled
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_linked_list_input,            ONLY: cp_sll_val_create,&
-                                              cp_sll_val_get_length,&
-                                              cp_sll_val_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE eip_environment_types,           ONLY: eip_env_get
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type,&
-                                              multiple_fe_list,&
-                                              use_eip_force,&
-                                              use_nnp_force,&
-                                              use_qmmm,&
-                                              use_qs_force
-   USE input_constants,                 ONLY: do_coord_cp2k,&
-                                              ehrenfest,&
-                                              mol_dyn_run,&
-                                              mon_car_run,&
-                                              pint_run,&
-                                              use_rt_restart
-   USE input_cp2k_restarts_util,        ONLY: section_velocity_val_set
-   USE input_restart_rng,               ONLY: section_rng_val_set
-   USE input_section_types,             ONLY: &
-        section_get_keyword_index, section_type, section_vals_add_values, section_vals_get, &
-        section_vals_get_subs_vals, section_vals_get_subs_vals3, section_vals_remove_values, &
-        section_vals_type, section_vals_val_get, section_vals_val_set, section_vals_val_unset
-   USE input_val_types,                 ONLY: val_create,&
-                                              val_release,&
-                                              val_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE message_passing,                 ONLY: mp_sum
-   USE molecule_kind_types,             ONLY: get_molecule_kind
-   USE molecule_list_types,             ONLY: molecule_list_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              molecule_type
-   USE multipole_types,                 ONLY: multipole_type
-   USE nnp_environment_types,           ONLY: nnp_env_get
-   USE parallel_rng_types,              ONLY: rng_record_length
-   USE particle_list_types,             ONLY: particle_list_type
-   USE qmmm_ff_fist,                    ONLY: qmmm_ff_precond_only_qm
-   USE qs_environment_types,            ONLY: get_qs_env
-   USE string_utilities,                ONLY: string_to_ascii
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         real_to_scaled
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_linked_list_input, ONLY: cp_sll_val_create, &
+                                   cp_sll_val_get_length, &
+                                   cp_sll_val_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE eip_environment_types, ONLY: eip_env_get
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type, &
+                              multiple_fe_list, &
+                              use_eip_force, &
+                              use_nnp_force, &
+                              use_qmmm, &
+                              use_qs_force
+   USE input_constants, ONLY: do_coord_cp2k, &
+                              ehrenfest, &
+                              mol_dyn_run, &
+                              mon_car_run, &
+                              pint_run, &
+                              use_rt_restart
+   USE input_cp2k_restarts_util, ONLY: section_velocity_val_set
+   USE input_restart_rng, ONLY: section_rng_val_set
+   USE input_section_types, ONLY: &
+      section_get_keyword_index, section_type, section_vals_add_values, section_vals_get, &
+      section_vals_get_subs_vals, section_vals_get_subs_vals3, section_vals_remove_values, &
+      section_vals_type, section_vals_val_get, section_vals_val_set, section_vals_val_unset
+   USE input_val_types, ONLY: val_create, &
+                              val_release, &
+                              val_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE message_passing, ONLY: mp_sum
+   USE molecule_kind_types, ONLY: get_molecule_kind
+   USE molecule_list_types, ONLY: molecule_list_type
+   USE molecule_types, ONLY: get_molecule, &
+                             molecule_type
+   USE multipole_types, ONLY: multipole_type
+   USE nnp_environment_types, ONLY: nnp_env_get
+   USE parallel_rng_types, ONLY: rng_record_length
+   USE particle_list_types, ONLY: particle_list_type
+   USE qmmm_ff_fist, ONLY: qmmm_ff_precond_only_qm
+   USE qs_environment_types, ONLY: get_qs_env
+   USE string_utilities, ONLY: string_to_ascii
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -128,8 +128,8 @@ CONTAINS
                                                              i_rep_section=i_force_eval(iforce_eval))
                CALL update_subsys(subsys_section, force_env, skip_vel_section, &
                                   write_binary_restart_file)
-            ENDDO
-         ENDIF
+            END DO
+         END IF
       END IF
 
       rng_section => section_vals_get_subs_vals(subsys_section, "RNG_INIT")
@@ -412,7 +412,7 @@ CONTAINS
       IF (use_ref_cell) THEN
          work_section => section_vals_get_subs_vals(subsys_section, "CELL%CELL_REF")
          CALL update_cell_section(cell, cell_section=work_section)
-      ENDIF
+      END IF
 
       ! Updating multipoles
       IF (ASSOCIATED(multipoles)) THEN

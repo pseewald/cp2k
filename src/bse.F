@@ -11,24 +11,24 @@
 !>      04.2017 created [Jan Wilhelm]
 ! **************************************************************************************************
 MODULE bse
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_upper_to_full
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose,&
-                                              cp_fm_cholesky_invert
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE group_dist_types,                ONLY: get_group_dist,&
-                                              group_dist_d1_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_alltoall,&
-                                              mp_sum
-   USE mp2_types,                       ONLY: integ_mat_buffer_type
-   USE rpa_communication,               ONLY: communicate_buffer
+   USE cp_fm_basic_linalg, ONLY: cp_fm_upper_to_full
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose, &
+                             cp_fm_cholesky_invert
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE group_dist_types, ONLY: get_group_dist, &
+                               group_dist_d1_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_alltoall, &
+                              mp_sum
+   USE mp2_types, ONLY: integ_mat_buffer_type
+   USE rpa_communication, ONLY: communicate_buffer
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -484,8 +484,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'allocate_and_fill_local_array'
 
       INTEGER :: combi_index, end_RI, handle, handle1, i_comm, i_entry, iiB, imepos, jjB, &
-         level_big_size, level_small_size, ncol_local, nrow_local, num_comm_cycles, RI_index, &
-         size_RI, start_RI
+                 level_big_size, level_small_size, ncol_local, nrow_local, num_comm_cycles, RI_index, &
+                 size_RI, start_RI
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: entry_counter, mepos_from_RI_index, &
                                                             num_entries_rec, num_entries_send
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_indices

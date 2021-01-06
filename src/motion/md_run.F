@@ -12,94 +12,94 @@
 !> \author Matthias Krack (07.11.2002)
 ! **************************************************************************************************
 MODULE md_run
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE averages_types,                  ONLY: average_quantities_type
-   USE barostat_types,                  ONLY: barostat_type,&
-                                              create_barostat_type,&
-                                              release_barostat_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_external_control,             ONLY: external_control
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_add_iter_level,&
-                                              cp_iterate,&
-                                              cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr,&
-                                              cp_rm_iter_level
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE force_env_methods,               ONLY: force_env_calc_energy_force
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE free_energy_methods,             ONLY: free_energy_evaluate
-   USE free_energy_types,               ONLY: fe_env_create,&
-                                              free_energy_type
-   USE global_types,                    ONLY: global_environment_type
-   USE input_constants,                 ONLY: &
-        ehrenfest, langevin_ensemble, npe_f_ensemble, npe_i_ensemble, &
-        nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, npt_f_ensemble, npt_i_ensemble, &
-        reftraj_ensemble
-   USE input_cp2k_check,                ONLY: remove_restart_info
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_remove_values,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE machine,                         ONLY: m_walltime
-   USE md_ener_types,                   ONLY: create_md_ener,&
-                                              md_ener_type,&
-                                              release_md_ener
-   USE md_energies,                     ONLY: initialize_md_ener,&
-                                              md_ener_reftraj,&
-                                              md_energy,&
-                                              md_write_output
-   USE md_environment_types,            ONLY: get_md_env,&
-                                              md_env_create,&
-                                              md_env_release,&
-                                              md_environment_type,&
-                                              need_per_atom_wiener_process,&
-                                              set_md_env
-   USE md_util,                         ONLY: md_output
-   USE md_vel_utils,                    ONLY: angvel_control,&
-                                              comvel_control,&
-                                              setup_velocities,&
-                                              temperature_control
-   USE mdctrl_methods,                  ONLY: mdctrl_callback
-   USE mdctrl_types,                    ONLY: mdctrl_type
-   USE metadynamics,                    ONLY: metadyn_finalise_plumed,&
-                                              metadyn_forces,&
-                                              metadyn_initialise_plumed,&
-                                              metadyn_write_colvar
-   USE metadynamics_types,              ONLY: set_meta_env
-   USE particle_list_types,             ONLY: particle_list_type
-   USE qs_environment_methods,          ONLY: qs_env_time_update
-   USE reftraj_types,                   ONLY: create_reftraj,&
-                                              reftraj_type,&
-                                              release_reftraj
-   USE reftraj_util,                    ONLY: initialize_reftraj,&
-                                              write_output_reftraj
-   USE rt_propagation,                  ONLY: rt_prop_setup
-   USE simpar_methods,                  ONLY: read_md_section
-   USE simpar_types,                    ONLY: create_simpar_type,&
-                                              release_simpar_type,&
-                                              simpar_type
-   USE thermal_region_types,            ONLY: release_thermal_regions,&
-                                              thermal_regions_type
-   USE thermal_region_utils,            ONLY: create_thermal_regions,&
-                                              print_thermal_regions_langevin
-   USE thermostat_methods,              ONLY: create_thermostats
-   USE thermostat_types,                ONLY: release_thermostats,&
-                                              thermostats_type
-   USE velocity_verlet_control,         ONLY: velocity_verlet
-   USE virial_methods,                  ONLY: virial_evaluate
-   USE virial_types,                    ONLY: virial_type
-   USE wiener_process,                  ONLY: create_wiener_process,&
-                                              create_wiener_process_cv
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE averages_types, ONLY: average_quantities_type
+   USE barostat_types, ONLY: barostat_type, &
+                             create_barostat_type, &
+                             release_barostat_type
+   USE cell_types, ONLY: cell_type
+   USE cp_external_control, ONLY: external_control
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_add_iter_level, &
+                                 cp_iterate, &
+                                 cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr, &
+                                 cp_rm_iter_level
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE force_env_methods, ONLY: force_env_calc_energy_force
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE free_energy_methods, ONLY: free_energy_evaluate
+   USE free_energy_types, ONLY: fe_env_create, &
+                                free_energy_type
+   USE global_types, ONLY: global_environment_type
+   USE input_constants, ONLY: &
+      ehrenfest, langevin_ensemble, npe_f_ensemble, npe_i_ensemble, &
+      nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, npt_f_ensemble, npt_i_ensemble, &
+      reftraj_ensemble
+   USE input_cp2k_check, ONLY: remove_restart_info
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_remove_values, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE machine, ONLY: m_walltime
+   USE md_ener_types, ONLY: create_md_ener, &
+                            md_ener_type, &
+                            release_md_ener
+   USE md_energies, ONLY: initialize_md_ener, &
+                          md_ener_reftraj, &
+                          md_energy, &
+                          md_write_output
+   USE md_environment_types, ONLY: get_md_env, &
+                                   md_env_create, &
+                                   md_env_release, &
+                                   md_environment_type, &
+                                   need_per_atom_wiener_process, &
+                                   set_md_env
+   USE md_util, ONLY: md_output
+   USE md_vel_utils, ONLY: angvel_control, &
+                           comvel_control, &
+                           setup_velocities, &
+                           temperature_control
+   USE mdctrl_methods, ONLY: mdctrl_callback
+   USE mdctrl_types, ONLY: mdctrl_type
+   USE metadynamics, ONLY: metadyn_finalise_plumed, &
+                           metadyn_forces, &
+                           metadyn_initialise_plumed, &
+                           metadyn_write_colvar
+   USE metadynamics_types, ONLY: set_meta_env
+   USE particle_list_types, ONLY: particle_list_type
+   USE qs_environment_methods, ONLY: qs_env_time_update
+   USE reftraj_types, ONLY: create_reftraj, &
+                            reftraj_type, &
+                            release_reftraj
+   USE reftraj_util, ONLY: initialize_reftraj, &
+                           write_output_reftraj
+   USE rt_propagation, ONLY: rt_prop_setup
+   USE simpar_methods, ONLY: read_md_section
+   USE simpar_types, ONLY: create_simpar_type, &
+                           release_simpar_type, &
+                           simpar_type
+   USE thermal_region_types, ONLY: release_thermal_regions, &
+                                   thermal_regions_type
+   USE thermal_region_utils, ONLY: create_thermal_regions, &
+                                   print_thermal_regions_langevin
+   USE thermostat_methods, ONLY: create_thermostats
+   USE thermostat_types, ONLY: release_thermostats, &
+                               thermostats_type
+   USE velocity_verlet_control, ONLY: velocity_verlet
+   USE virial_methods, ONLY: virial_evaluate
+   USE virial_types, ONLY: virial_type
+   USE wiener_process, ONLY: create_wiener_process, &
+                             create_wiener_process_cv
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -151,7 +151,7 @@ CONTAINS
                              hmc_e_initial=hmc_e_initial, hmc_e_final=hmc_e_final)
       ELSE
          CALL qs_mol_dyn_low(md_env, md_section, motion_section, force_env, globenv, mdctrl=mdctrl)
-      ENDIF
+      END IF
       CALL md_env_release(md_env)
 
       ! Clean restartable sections..
@@ -203,7 +203,7 @@ CONTAINS
       TYPE(particle_list_type), POINTER                  :: particles
       TYPE(reftraj_type), POINTER                        :: reftraj
       TYPE(section_vals_type), POINTER :: constraint_section, force_env_section, &
-         free_energy_section, global_section, reftraj_section, subsys_section, work_section
+                                          free_energy_section, global_section, reftraj_section, subsys_section, work_section
       TYPE(simpar_type), POINTER                         :: simpar
       TYPE(thermal_regions_type), POINTER                :: thermal_regions
       TYPE(thermostats_type), POINTER                    :: thermostats
@@ -288,7 +288,7 @@ CONTAINS
       ! Set V0 if needed
       IF (simpar%ensemble == nph_uniaxial_ensemble .OR. simpar%ensemble == nph_uniaxial_damped_ensemble) THEN
          IF (simpar%v0 == 0._dp) simpar%v0 = cell%deth
-      ENDIF
+      END IF
 
       ! Initialize velocities possibly applying constraints at the zeroth MD step
       CALL section_vals_val_get(motion_section, "PRINT%RESTART%SPLIT_RESTART_FILE", &
@@ -385,7 +385,7 @@ CONTAINS
             ELSE
                IF (force_env%meta_env%langevin) THEN
                   CALL create_wiener_process_cv(force_env%meta_env)
-               ENDIF
+               END IF
                IF (force_env%meta_env%well_tempered) THEN
                   force_env%meta_env%wttemperature = simpar%temp_ext
                   IF (force_env%meta_env%wtgamma > EPSILON(1._dp)) THEN
@@ -398,17 +398,17 @@ CONTAINS
                                          " please, verify that DELTA_T=(WTGAMMA-1)*TEMPERATURE")
                      ELSE
                         force_env%meta_env%delta_t = dummy
-                     ENDIF
+                     END IF
                   ELSE
                      force_env%meta_env%wtgamma = 1._dp &
                                                   + force_env%meta_env%delta_t/force_env%meta_env%wttemperature
-                  ENDIF
+                  END IF
                   force_env%meta_env%invdt = 1._dp/force_env%meta_env%delta_t
-               ENDIF
+               END IF
                CALL metadyn_forces(force_env)
                CALL metadyn_write_colvar(force_env)
             END IF
-         ENDIF
+         END IF
 
          IF (simpar%do_respa) THEN
             CALL force_env_calc_energy_force(force_env%sub_force_env(1)%force_env, &
@@ -518,7 +518,7 @@ CONTAINS
                CALL md_output(md_env, md_section, force_env%root_section, .FALSE.)
             ELSE
                CALL md_output(md_env, md_section, force_env%root_section, should_stop)
-            ENDIF
+            END IF
             EXIT
          END IF
 

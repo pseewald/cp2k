@@ -13,35 +13,35 @@
 !> \author Teodoro Laino
 ! **************************************************************************************************
 MODULE ewald_spline_util
-   USE cell_types,                      ONLY: cell_create,&
-                                              cell_release,&
-                                              cell_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE pw_grid_types,                   ONLY: HALFSPACE,&
-                                              pw_grid_type
-   USE pw_grids,                        ONLY: pw_grid_create,&
-                                              pw_grid_setup
-   USE pw_methods,                      ONLY: pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create,&
-                                              pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_spline_utils,                 ONLY: &
-        Eval_Interp_Spl3_pbc, Eval_d_Interp_Spl3_pbc, find_coeffs, pw_spline_do_precond, &
-        pw_spline_precond_create, pw_spline_precond_release, pw_spline_precond_set_kind, &
-        pw_spline_precond_type, spl3_pbc
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE,&
-                                              pw_type
+   USE cell_types, ONLY: cell_create, &
+                         cell_release, &
+                         cell_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE pw_grid_types, ONLY: HALFSPACE, &
+                            pw_grid_type
+   USE pw_grids, ONLY: pw_grid_create, &
+                       pw_grid_setup
+   USE pw_methods, ONLY: pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create, &
+                            pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_spline_utils, ONLY: &
+      Eval_Interp_Spl3_pbc, Eval_d_Interp_Spl3_pbc, find_coeffs, pw_spline_do_precond, &
+      pw_spline_precond_create, pw_spline_precond_release, pw_spline_precond_set_kind, &
+      pw_spline_precond_type, spl3_pbc
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE, &
+                       pw_type
 !NB parallelization
 #include "./base/base_uses.f90"
 
@@ -153,8 +153,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'eval_pw_TabLR'
 
       INTEGER :: act_nx, act_ny, aint_precond, handle, i, iii, is, j, js, k, ks, Lg_loc_max, &
-         Lg_loc_min, max_iter, my_i, my_j, my_k, n1, n2, n3, n_extra, NLg_loc, nxlim, nylim, &
-         nzlim, precond_kind
+                 Lg_loc_min, max_iter, my_i, my_j, my_k, n1, n2, n3, n_extra, NLg_loc, nxlim, nylim, &
+                 nzlim, precond_kind
       INTEGER, DIMENSION(2, 3)                           :: gbo
       LOGICAL                                            :: success
       REAL(KIND=dp)                                      :: dr1, dr2, dr3, eps_r, eps_x, xs1, xs2, &
@@ -293,7 +293,7 @@ CONTAINS
          !NB parallelization
       ELSE ! no work for this node, just zero contribution
          grid%cr3d(gbo(1, 1):nxlim, gbo(1, 2):nylim, gbo(1, 3):nzlim) = 0.0_dp
-      ENDIF ! NLg_loc > 0
+      END IF ! NLg_loc > 0
 
       CALL mp_sum(grid%cr3d(gbo(1, 1):nxlim, gbo(1, 2):nylim, gbo(1, 3):nzlim), grid%pw_grid%para%group)
 

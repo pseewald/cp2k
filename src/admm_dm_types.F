@@ -12,12 +12,12 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE admm_dm_types
-   USE cp_control_types,                ONLY: admm_control_type
-   USE dbcsr_api,                       ONLY: dbcsr_release,&
-                                              dbcsr_type
-   USE input_constants,                 ONLY: do_admm_basis_projection,&
-                                              do_admm_purify_mcweeny
-   USE kinds,                           ONLY: dp
+   USE cp_control_types, ONLY: admm_control_type
+   USE dbcsr_api, ONLY: dbcsr_release, &
+                        dbcsr_type
+   USE input_constants, ONLY: do_admm_basis_projection, &
+                              do_admm_purify_mcweeny
+   USE kinds, ONLY: dp
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -87,7 +87,7 @@ CONTAINS
                END DO
             END DO
          END DO
-      ENDIF
+      END IF
    END SUBROUTINE admm_dm_create
 
 ! **************************************************************************************************
@@ -103,7 +103,7 @@ CONTAINS
       IF (ASSOCIATED(admm_dm%matrix_a)) THEN
          CALL dbcsr_release(admm_dm%matrix_a)
          DEALLOCATE (admm_dm%matrix_a)
-      ENDIF
+      END IF
 
       IF (ASSOCIATED(admm_dm%block_map)) &
          DEALLOCATE (admm_dm%block_map)

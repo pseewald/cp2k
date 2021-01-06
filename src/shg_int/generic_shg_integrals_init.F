@@ -14,17 +14,17 @@
 !> \author Dorothea Golze
 ! **************************************************************************************************
 MODULE generic_shg_integrals_init
-   USE basis_set_types,                 ONLY: gto_basis_set_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fac,&
-                                              ifac,&
-                                              pi
-   USE memory_utilities,                ONLY: reallocate
-   USE orbital_pointers,                ONLY: indso,&
-                                              nsoset
-   USE spherical_harmonics,             ONLY: clebsch_gordon,&
-                                              clebsch_gordon_deallocate,&
-                                              clebsch_gordon_init
+   USE basis_set_types, ONLY: gto_basis_set_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fac, &
+                            ifac, &
+                            pi
+   USE memory_utilities, ONLY: reallocate
+   USE orbital_pointers, ONLY: indso, &
+                               nsoset
+   USE spherical_harmonics, ONLY: clebsch_gordon, &
+                                  clebsch_gordon_deallocate, &
+                                  clebsch_gordon_init
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -138,8 +138,8 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(:, :, :, :), POINTER      :: scon_mix
 
       INTEGER :: forb, fri, iil, il, ipgf, iset, ishell, jpgf, jset, jshell, l, l1, l2, lmax_orb, &
-         lmax_ri, maxpgf_orb, maxpgf_ri, maxshell_orb, maxshell_ri, nf_orb, nf_ri, nl, nl_max, &
-         nset_orb, nset_ri
+                 lmax_ri, maxpgf_orb, maxpgf_ri, maxshell_orb, maxshell_ri, nf_orb, nf_ri, nl, nl_max, &
+                 nset_orb, nset_ri
       INTEGER, DIMENSION(:), POINTER                     :: npgf_orb, npgf_ri, nshell_orb, nshell_ri
       REAL(KIND=dp)                                      :: cjf, const, const1, const2, gcc_orb, &
                                                             gcc_ri, prefac, scon1, scon2, zet
@@ -215,7 +215,7 @@ CONTAINS
                      DO iil = 1, il
                         shg_fac(iil) = fac(l + iil - 1)*ifac(l)*REAL(l, dp) &
                                        *fac(il)/fac(il - iil)/fac(iil)
-                     ENDDO
+                     END DO
                      DO ipgf = 1, npgf_orb(iset)
                         forb = orb_index(ipgf, ishell, iset)
                         gcc_orb = orb_basis%gcc(ipgf, ishell, iset)
@@ -229,14 +229,14 @@ CONTAINS
                            prefac = const*cjf*scon1*scon2
                            DO iil = 0, il
                               scon_mix(iil + 1, fri, forb, il + 1) = prefac*shg_fac(iil)/zet**iil
-                           ENDDO
-                        ENDDO
-                     ENDDO
-                  ENDDO
-               ENDDO
-            ENDDO
-         ENDDO
-      ENDDO
+                           END DO
+                        END DO
+                     END DO
+                  END DO
+               END DO
+            END DO
+         END DO
+      END DO
 
       DEALLOCATE (norm_orb, norm_ri, shg_fac)
 
@@ -280,15 +280,15 @@ CONTAINS
             DO j = 1, m
                shg_fac(j) = fac(l + j - 1)*ifac(l)*REAL(l, dp) &
                             *fac(m)/fac(m - j)/fac(j)
-            ENDDO
+            END DO
             DO ipgf = 1, npgf(iset)
                DO j = 0, m
                   scon_rx2m(ipgf, j + 1, ishell, iset) = scon_shg(ipgf, ishell, iset) &
                                                          *shg_fac(j)/zet(ipgf, iset)**j
-               ENDDO
-            ENDDO
-         ENDDO
-      ENDDO
+               END DO
+            END DO
+         END DO
+      END DO
 
       DEALLOCATE (shg_fac)
 
@@ -362,7 +362,7 @@ CONTAINS
                            iso = nsoset(lp - 1) + lp + 1 - ABS(mp)
                         END IF
                         my_cg(iso1, iso2, iso) = rga(il, 1)
-                     ENDIF
+                     END IF
                      IF (mp /= mm .AND. ABS(mm) <= lp) THEN
                         IF (mm >= 0) THEN
                            iso = nsoset(lp - 1) + lp + 1 + mm
@@ -370,7 +370,7 @@ CONTAINS
                            iso = nsoset(lp - 1) + lp + 1 - ABS(mm)
                         END IF
                         my_cg(iso1, iso2, iso) = rga(il, 2)
-                     ENDIF
+                     END IF
                   END DO
                   nlist = 0
                   DO ilist = 1, nsfunc
@@ -379,15 +379,15 @@ CONTAINS
                         IF (nlist > nlist_max) THEN
                            CALL reallocate(cg_none0_list, 1, nsfunc1, 1, nsfunc2, 1, nlist)
                            nlist_max = nlist
-                        ENDIF
+                        END IF
                         cg_none0_list(iso1, iso2, nlist) = ilist
-                     ENDIF
-                  ENDDO
+                     END IF
+                  END DO
                   ncg_none0(iso1, iso2) = nlist
-               ENDDO ! iso2
-            ENDDO ! lc2
-         ENDDO ! iso1
-      ENDDO ! lc1
+               END DO ! iso2
+            END DO ! lc2
+         END DO ! iso1
+      END DO ! lc1
 
       DEALLOCATE (rga)
       CALL clebsch_gordon_deallocate()

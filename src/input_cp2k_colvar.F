@@ -11,34 +11,34 @@
 !> \author teo & fawzi
 ! **************************************************************************************************
 MODULE input_cp2k_colvar
-   USE bibliography,                    ONLY: Branduardi2007
-   USE colvar_types,                    ONLY: &
-        do_clv_fix_point, do_clv_geo_center, do_clv_x, do_clv_xy, do_clv_xyz, do_clv_xz, do_clv_y, &
-        do_clv_yz, do_clv_z, plane_def_atoms, plane_def_vec
-   USE cp_output_handling,              ONLY: add_last_numeric,&
-                                              cp_print_key_section_create,&
-                                              high_print_level,&
-                                              low_print_level
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE input_constants,                 ONLY: gaussian,&
-                                              numerical,&
-                                              rmsd_all,&
-                                              rmsd_list,&
-                                              rmsd_weightlist
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: char_t,&
-                                              integer_t,&
-                                              lchar_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: s2a
+   USE bibliography, ONLY: Branduardi2007
+   USE colvar_types, ONLY: &
+      do_clv_fix_point, do_clv_geo_center, do_clv_x, do_clv_xy, do_clv_xyz, do_clv_xz, do_clv_y, &
+      do_clv_yz, do_clv_z, plane_def_atoms, plane_def_vec
+   USE cp_output_handling, ONLY: add_last_numeric, &
+                                 cp_print_key_section_create, &
+                                 high_print_level, &
+                                 low_print_level
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE input_constants, ONLY: gaussian, &
+                              numerical, &
+                              rmsd_all, &
+                              rmsd_list, &
+                              rmsd_weightlist
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: char_t, &
+                              integer_t, &
+                              lchar_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -242,7 +242,7 @@ CONTAINS
          CALL create_colvar_comb_section(subsection)
          CALL section_add_subsection(section, subsection)
          CALL section_release(subsection)
-      ENDIF
+      END IF
 
    END SUBROUTINE create_colvar_var_section
 

@@ -13,50 +13,50 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE mao_methods
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE basis_set_container_types,       ONLY: add_basis_set_to_container
-   USE basis_set_types,                 ONLY: create_primitive_basis_set,&
-                                              get_gto_basis_set,&
-                                              gto_basis_set_p_type,&
-                                              gto_basis_set_type,&
-                                              write_gto_basis_set
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              cp_dbcsr_plus_fm_fm_t,&
-                                              dbcsr_allocate_matrix_set
-   USE cp_fm_diag,                      ONLY: cp_fm_geeig
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_create, dbcsr_desymmetrize, dbcsr_distribution_type, dbcsr_dot, dbcsr_get_block_p, &
-        dbcsr_get_info, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
-        dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, &
-        dbcsr_p_type, dbcsr_release, dbcsr_reserve_diag_blocks, dbcsr_set, dbcsr_type, &
-        dbcsr_type_no_symmetry
-   USE input_constants,                 ONLY: mao_basis_ext,&
-                                              mao_basis_orb,&
-                                              mao_basis_prim
-   USE iterate_matrix,                  ONLY: invert_Hotelling
-   USE kinds,                           ONLY: dp
-   USE kpoint_methods,                  ONLY: rskp_transform
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE lapack,                          ONLY: lapack_ssyev,&
-                                              lapack_ssygv
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_interactions,                 ONLY: init_interaction_radii_orb_basis
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE basis_set_container_types, ONLY: add_basis_set_to_container
+   USE basis_set_types, ONLY: create_primitive_basis_set, &
+                              get_gto_basis_set, &
+                              gto_basis_set_p_type, &
+                              gto_basis_set_type, &
+                              write_gto_basis_set
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  cp_dbcsr_plus_fm_fm_t, &
+                                  dbcsr_allocate_matrix_set
+   USE cp_fm_diag, ONLY: cp_fm_geeig
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_create, dbcsr_desymmetrize, dbcsr_distribution_type, dbcsr_dot, dbcsr_get_block_p, &
+      dbcsr_get_info, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
+      dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, &
+      dbcsr_p_type, dbcsr_release, dbcsr_reserve_diag_blocks, dbcsr_set, dbcsr_type, &
+      dbcsr_type_no_symmetry
+   USE input_constants, ONLY: mao_basis_ext, &
+                              mao_basis_orb, &
+                              mao_basis_prim
+   USE iterate_matrix, ONLY: invert_Hotelling
+   USE kinds, ONLY: dp
+   USE kpoint_methods, ONLY: rskp_transform
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE lapack, ONLY: lapack_ssyev, &
+                     lapack_ssygv
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_interactions, ONLY: init_interaction_radii_orb_basis
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -16,11 +16,11 @@
 !> \author Fawzi Mohamed (first version)
 ! **************************************************************************************************
 MODULE cp_lbfgs
-   USE bibliography,                    ONLY: Byrd1995,&
-                                              cite_reference
-   USE cp_files,                        ONLY: open_file
-   USE kinds,                           ONLY: dp
-   USE machine,                         ONLY: m_walltime
+   USE bibliography, ONLY: Byrd1995, &
+                           cite_reference
+   USE cp_files, ONLY: open_file
+   USE kinds, ONLY: dp
+   USE machine, ONLY: m_walltime
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -267,7 +267,7 @@ CONTAINS
             upper_bound(i) = x(i) + trust_radius
             nbd(i) = 2
          END DO
-      ENDIF
+      END IF
 
       CALL mainlb(n, m, x, lower_bound, upper_bound, nbd, f, g, factr, pgtol, &
                   wa(lws), wa(lwy), wa(lsy), wa(lss), wa(lwt), &
@@ -384,7 +384,7 @@ CONTAINS
       REAL(KIND=dp), INTENT(in)                          :: lower_bound(n), upper_bound(n)
       INTEGER                                            :: nbd(n)
       REAL(KIND=dp) :: f, g(n), factr, pgtol, ws(n, m), wy(n, m), sy(m, m), ss(m, m), wt(m, m), &
-         wn(2*m, 2*m), snd(2*m, 2*m), z(n), r(n), d(n), t(n), xp(n), wa(8*m)
+                       wn(2*m, 2*m), snd(2*m, 2*m), z(n), r(n), d(n), t(n), xp(n), wa(8*m)
       INTEGER                                            :: INDEX(n), iwhere(n), indx2(n)
       CHARACTER(LEN=60)                                  :: task
       INTEGER                                            :: iprint
@@ -403,7 +403,7 @@ CONTAINS
       LOGICAL                                            :: boxed, constrained, first, updatd, wrk, &
                                                             x_projected
       REAL(KIND=dp) :: cachyt, cpu1, cpu2, ddot, ddum, dnorm, dr, dtd, epsmch, fold, g_inf_norm, &
-         gd, gdold, lnscht, rr, sbtime, step_max, stp, theta, time, time1, time2, tol, xstep
+                       gd, gdold, lnscht, rr, sbtime, step_max, stp, theta, time, time1, time2, tol, xstep
 
 !     References:
 !
@@ -652,7 +652,7 @@ CONTAINS
                        iwhere, wrk, updatd, constrained, iprint, iter)
             nact = n - nfree
 
-         ENDIF
+         END IF
 
 !     If there are no free variables or B=theta*I, then
 !                                        skip the subspace minimization.
@@ -734,7 +734,7 @@ CONTAINS
             d(i) = z(i) - x(i)
          END DO
          CALL timer(cpu1)
-      ENDIF
+      END IF
       IF (.NOT. first .OR. .NOT. (task(1:5) == 'NEW_X')) THEN
          CALL lnsrlb(n, lower_bound, upper_bound, nbd, x, f, fold, gd, gdold, g, d, r, t, z, stp, dnorm, &
                      dtd, xstep, step_max, iter, ifun, iback, nfgv, info, task, &
@@ -806,7 +806,7 @@ CONTAINS
                             cpu1, cachyt, sbtime, lnscht, time1, gd, step_max, g_inf_norm, stp, gdold, dtd)
             RETURN
          END IF
-      ENDIF
+      END IF
 
 !     Test for termination.
 
@@ -2324,7 +2324,7 @@ CONTAINS
          ifun = 0
          iback = 0
          csave = 'START'
-      ENDIF
+      END IF
       gd = ddot(n, g, 1, d, 1)
       IF (ifun == 0) THEN
          gdold = gd
@@ -3363,8 +3363,8 @@ CONTAINS
 
             task = 'FG'
 
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
 !     Save local variables.
 
@@ -3907,7 +3907,7 @@ CONTAINS
 !> \author Samuel Andermatt (01.15)
 ! **************************************************************************************************
 
-      SUBROUTINE save_local(lsave,isave,dsave,x_projected,constrained,boxed,updatd,nintol,itfile,iback,nskip,head,col,itail,&
+   SUBROUTINE save_local(lsave,isave,dsave,x_projected,constrained,boxed,updatd,nintol,itfile,iback,nskip,head,col,itail,&
                   iter, iupdat, nseg, nfgv, info, ifun, iword, nfree, nact, ileave, nenter, theta, fold, tol, dnorm, epsmch, cpu1, &
                          cachyt, sbtime, lnscht, time1, gd, step_max, g_inf_norm, stp, gdold, dtd)
       LOGICAL, INTENT(out)                               :: lsave(4)

@@ -8,43 +8,43 @@
 ! **************************************************************************************************
 MODULE qs_gspace_mixing
 
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_add,&
-                                              dbcsr_copy,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set,&
-                                              dbcsr_type
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: invert_matrix
-   USE message_passing,                 ONLY: mp_sum
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_integrate_function,&
-                                              pw_scale,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_density_mixing_types,         ONLY: broyden_mixing_new_nr,&
-                                              broyden_mixing_nr,&
-                                              cp_1d_z_p_type,&
-                                              gspace_mixing_nr,&
-                                              mixing_storage_type,&
-                                              multisecant_mixing_nr,&
-                                              pulay_mixing_nr
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_rho_atom_types,               ONLY: rho_atom_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf_methods,                  ONLY: cp_sm_mix
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_add, &
+                        dbcsr_copy, &
+                        dbcsr_p_type, &
+                        dbcsr_set, &
+                        dbcsr_type
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: invert_matrix
+   USE message_passing, ONLY: mp_sum
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_integrate_function, &
+                         pw_scale, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_density_mixing_types, ONLY: broyden_mixing_new_nr, &
+                                      broyden_mixing_nr, &
+                                      cp_1d_z_p_type, &
+                                      gspace_mixing_nr, &
+                                      mixing_storage_type, &
+                                      multisecant_mixing_nr, &
+                                      pulay_mixing_nr
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_rho_atom_types, ONLY: rho_atom_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf_methods, ONLY: cp_sm_mix
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -898,7 +898,7 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: IWORK
       LOGICAL                                            :: only_kerker, skip_bq
       REAL(dp) :: alpha, beta, delta, delta_p, delta_rhog, delta_rhog_p, f_mix, imp, imp_j, &
-         inv_err, norm, norm_ig, rep, rep_j, sqt_uvol, sqt_vol, uvol, vol, wc, wmax
+                  inv_err, norm, norm_ig, rep, rep_j, sqt_uvol, sqt_vol, uvol, vol, wc, wmax
       REAL(dp), ALLOCATABLE, DIMENSION(:)                :: aval, work_dgesdd
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: a, au, av, b, bq, work
       REAL(dp), DIMENSION(:), POINTER                    :: p_metric
@@ -1044,14 +1044,14 @@ CONTAINS
 
             DO jb = 1, nb
                fmat(ib, jb) = fmat(jb, ib)
-            ENDDO
+            END DO
 
             DO jb = 1, nb
                a(jb, jb) = weight(jb, ispin)*weight(jb, ispin)*fmat(jb, jb)
                DO kb = 1, jb - 1
                   a(jb, kb) = weight(jb, ispin)*weight(kb, ispin)*fmat(jb, kb)
                   a(kb, jb) = weight(jb, ispin)*weight(kb, ispin)*fmat(kb, jb)
-               ENDDO
+               END DO
             END DO
             IF (.TRUE.) THEN
                b = 0.0_dp
@@ -1073,9 +1073,9 @@ CONTAINS
                      aval(kb) = 0.0_dp
                   ELSE
                      aval(kb) = 1.0_dp/aval(kb)
-                  ENDIF
+                  END IF
                   av(kb, :) = av(kb, :)*aval(kb)
-               ENDDO
+               END DO
                CALL DGEMM('T', 'T', ib - 1, ib - 1, ib - 1, 1.0_dp, av, ib - 1, au, ib - 1, 0.0_dp, b, ib - 1)
                DEALLOCATE (iwork, aval, au, av, work_dgesdd, work)
             END IF
@@ -1214,7 +1214,7 @@ CONTAINS
                                                             nbuffer, ng, ng_global, nspin
       LOGICAL                                            :: use_zgemm, use_zgemm_rev
       REAL(dp) :: alpha, f_mix, gn_norm, gn_norm_old, inv_err, n_low, n_up, pgn_norm, prec, &
-         r_step, reg_par, sigma_max, sigma_tilde, step_size
+                  r_step, reg_par, sigma_max, sigma_tilde, step_size
       REAL(dp), ALLOCATABLE, DIMENSION(:)                :: norm_res, norm_res_low, norm_res_up
       REAL(dp), ALLOCATABLE, DIMENSION(:, :)             :: b_matrix, binv_matrix
       REAL(dp), DIMENSION(:), POINTER                    :: g2

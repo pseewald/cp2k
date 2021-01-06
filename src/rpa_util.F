@@ -11,65 +11,65 @@
 !>      06.2019 Moved from rpa_ri_gpw.F [Frederick Stein]
 ! **************************************************************************************************
 MODULE rpa_util
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_type
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_release,&
-                                              cp_cfm_set_all,&
-                                              cp_cfm_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_syrk,&
-                                              cp_fm_transpose
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_copy_general,&
-                                              cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_para_env,                     ONLY: cp_para_env_create,&
-                                              cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_create,&
-                                              dbcsr_filter,&
-                                              dbcsr_get_info,&
-                                              dbcsr_multiply,&
-                                              dbcsr_p_type,&
-                                              dbcsr_release,&
-                                              dbcsr_set,&
-                                              dbcsr_type
-   USE dbcsr_tensor_api,                ONLY: dbcsr_t_destroy,&
-                                              dbcsr_t_type
-   USE hfx_types,                       ONLY: block_ind_type,&
-                                              dealloc_containers,&
-                                              hfx_compression_type
-   USE input_constants,                 ONLY: wfc_mm_style_gemm,&
-                                              wfc_mm_style_syrk
-   USE kinds,                           ONLY: dp
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE machine,                         ONLY: m_walltime
-   USE mathconstants,                   ONLY: z_zero
-   USE message_passing,                 ONLY: mp_comm_split_direct,&
-                                              mp_sum
-   USE mp2_laplace,                     ONLY: calc_fm_mat_S_laplace
-   USE mp2_types,                       ONLY: integ_mat_buffer_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE rpa_communication,               ONLY: fm_redistribute
-   USE rpa_gw_kpoints,                  ONLY: compute_wkp_W
+   USE cell_types, ONLY: cell_type, &
+                         get_cell
+   USE cp_blacs_env, ONLY: cp_blacs_env_create, &
+                           cp_blacs_env_release, &
+                           cp_blacs_env_type
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_release, &
+                           cp_cfm_set_all, &
+                           cp_cfm_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_fm_basic_linalg, ONLY: cp_fm_syrk, &
+                                 cp_fm_transpose
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_copy_general, &
+                          cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_para_env, ONLY: cp_para_env_create, &
+                          cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_create, &
+                        dbcsr_filter, &
+                        dbcsr_get_info, &
+                        dbcsr_multiply, &
+                        dbcsr_p_type, &
+                        dbcsr_release, &
+                        dbcsr_set, &
+                        dbcsr_type
+   USE dbcsr_tensor_api, ONLY: dbcsr_t_destroy, &
+                               dbcsr_t_type
+   USE hfx_types, ONLY: block_ind_type, &
+                        dealloc_containers, &
+                        hfx_compression_type
+   USE input_constants, ONLY: wfc_mm_style_gemm, &
+                              wfc_mm_style_syrk
+   USE kinds, ONLY: dp
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE machine, ONLY: m_walltime
+   USE mathconstants, ONLY: z_zero
+   USE message_passing, ONLY: mp_comm_split_direct, &
+                              mp_sum
+   USE mp2_laplace, ONLY: calc_fm_mat_S_laplace
+   USE mp2_types, ONLY: integ_mat_buffer_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE rpa_communication, ONLY: fm_redistribute
+   USE rpa_gw_kpoints, ONLY: compute_wkp_W
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -612,9 +612,9 @@ CONTAINS
       TYPE(integ_mat_buffer_type), ALLOCATABLE, &
          DIMENSION(:), INTENT(INOUT)                     :: buffer_rec, buffer_send
       INTEGER, INTENT(IN)                                :: number_of_send
-      INTEGER, DIMENSION(0:para_env_RPA%num_pe-1), &
+      INTEGER, DIMENSION(0:para_env_RPA%num_pe - 1), &
          INTENT(IN)                                      :: map_send_size, map_rec_size
-      INTEGER, DIMENSION(2, 0:para_env_RPA%num_pe-1), &
+      INTEGER, DIMENSION(2, 0:para_env_RPA%num_pe - 1), &
          INTENT(IN)                                      :: local_size_source
       INTEGER, INTENT(INOUT)                             :: my_num_dgemm_call
       REAL(KIND=dp), INTENT(INOUT)                       :: my_flop_rate
@@ -787,9 +787,9 @@ CONTAINS
       TYPE(integ_mat_buffer_type), DIMENSION(:), &
          INTENT(INOUT)                                   :: buffer_rec, buffer_send
       INTEGER, INTENT(IN)                                :: number_of_send
-      INTEGER, DIMENSION(0:para_env_RPA%num_pe-1), &
+      INTEGER, DIMENSION(0:para_env_RPA%num_pe - 1), &
          INTENT(IN)                                      :: map_send_size, map_rec_size
-      INTEGER, DIMENSION(2, 0:para_env_RPA%num_pe-1), &
+      INTEGER, DIMENSION(2, 0:para_env_RPA%num_pe - 1), &
          INTENT(IN)                                      :: local_size_source
       REAL(KIND=dp), INTENT(INOUT)                       :: my_flop_rate
 
@@ -1161,8 +1161,8 @@ CONTAINS
       DO i_size = 1, SIZE(t_3c_O, 1)
          DO j_size = 1, SIZE(t_3c_O, 2)
             CALL dbcsr_t_destroy(t_3c_O(i_size, j_size))
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       DEALLOCATE (t_3c_O)
       CALL dbcsr_t_destroy(t_3c_M)
@@ -1183,9 +1183,9 @@ CONTAINS
          DO j_size = 1, SIZE(t_3c_O_compressed, 2)
             DO i_mem = 1, cut_memory
                CALL dealloc_containers(t_3c_O_compressed(i_size, j_size, i_mem), unused)
-            ENDDO
-         ENDDO
-      ENDDO
+            END DO
+         END DO
+      END DO
       DEALLOCATE (t_3c_O_compressed)
 
       CALL timestop(handle)

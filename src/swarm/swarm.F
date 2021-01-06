@@ -10,34 +10,34 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE swarm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE input_section_types,             ONLY: section_type,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length
-   USE swarm_master,                    ONLY: swarm_master_finalize,&
-                                              swarm_master_init,&
-                                              swarm_master_steer,&
-                                              swarm_master_type
-   USE swarm_message,                   ONLY: swarm_message_add,&
-                                              swarm_message_free,&
-                                              swarm_message_get,&
-                                              swarm_message_type
-   USE swarm_mpi,                       ONLY: swarm_mpi_finalize,&
-                                              swarm_mpi_init,&
-                                              swarm_mpi_recv_command,&
-                                              swarm_mpi_recv_report,&
-                                              swarm_mpi_send_command,&
-                                              swarm_mpi_send_report,&
-                                              swarm_mpi_type
-   USE swarm_worker,                    ONLY: swarm_worker_execute,&
-                                              swarm_worker_finalize,&
-                                              swarm_worker_init,&
-                                              swarm_worker_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE global_types, ONLY: global_environment_type
+   USE input_section_types, ONLY: section_type, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length
+   USE swarm_master, ONLY: swarm_master_finalize, &
+                           swarm_master_init, &
+                           swarm_master_steer, &
+                           swarm_master_type
+   USE swarm_message, ONLY: swarm_message_add, &
+                            swarm_message_free, &
+                            swarm_message_get, &
+                            swarm_message_type
+   USE swarm_mpi, ONLY: swarm_mpi_finalize, &
+                        swarm_mpi_init, &
+                        swarm_mpi_recv_command, &
+                        swarm_mpi_recv_report, &
+                        swarm_mpi_send_command, &
+                        swarm_mpi_send_report, &
+                        swarm_mpi_type
+   USE swarm_worker, ONLY: swarm_worker_execute, &
+                           swarm_worker_finalize, &
+                           swarm_worker_init, &
+                           swarm_worker_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -88,7 +88,7 @@ CONTAINS
          IF (iw > 0) WRITE (iw, "(A)") " SWARM| Running in master / workers mode."
          !printkey iw passed on for output from swarm_mpi_init()
          CALL swarm_parallel_driver(n_workers, input_declaration, root_section, input_path, para_env, globenv, iw)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
    END SUBROUTINE run_swarm
@@ -256,7 +256,7 @@ CONTAINS
             CALL swarm_message_add(report, "status", "wait_done")
          ELSE
             CYCLE
-         ENDIF
+         END IF
 
          CALL swarm_master_steer(master, report, cmd)
          CALL swarm_message_free(report)
@@ -268,7 +268,7 @@ CONTAINS
          ELSE
             CALL swarm_mpi_send_command(swarm_mpi, cmd)
             IF (TRIM(command) == "shutdown") i_shutdowns = i_shutdowns + 1
-         ENDIF
+         END IF
          CALL swarm_message_free(cmd)
       END DO
 

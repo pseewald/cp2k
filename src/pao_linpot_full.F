@@ -10,12 +10,12 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE pao_linpot_full
-   USE basis_set_types,                 ONLY: gto_basis_set_type
-   USE kinds,                           ONLY: dp
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
+   USE basis_set_types, ONLY: gto_basis_set_type
+   USE kinds, ONLY: dp
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -70,8 +70,8 @@ CONTAINS
          kterm = kterm + 1
          V_blocks(i, j, kterm) = 1.0_dp
          V_blocks(j, i, kterm) = 1.0_dp
-      ENDDO
-      ENDDO
+      END DO
+      END DO
 
       CPASSERT(kterm == nterms)
    END SUBROUTINE linpot_full_calc_terms

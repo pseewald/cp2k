@@ -12,28 +12,28 @@
 ! **************************************************************************************************
 MODULE manybody_gal
 
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE fist_neighbor_list_types,        ONLY: fist_neighbor_type,&
-                                              neighbor_kind_pairs_type
-   USE fist_nonbond_env_types,          ONLY: pos_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: matvec_3x3
-   USE message_passing,                 ONLY: mp_sum
-   USE pair_potential_types,            ONLY: gal_pot_type,&
-                                              gal_type,&
-                                              pair_potential_pp_type,&
-                                              pair_potential_single_type
-   USE particle_types,                  ONLY: particle_type
-   USE util,                            ONLY: sort
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE fist_neighbor_list_types, ONLY: fist_neighbor_type, &
+                                       neighbor_kind_pairs_type
+   USE fist_nonbond_env_types, ONLY: pos_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: matvec_3x3
+   USE message_passing, ONLY: mp_sum
+   USE pair_potential_types, ONLY: gal_pot_type, &
+                                   gal_type, &
+                                   pair_potential_pp_type, &
+                                   pair_potential_single_type
+   USE particle_types, ONLY: particle_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -325,14 +325,14 @@ CONTAINS
             index_h1 = iatom
          ELSEIF (count_h == 2) THEN
             index_h2 = iatom
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       ! Abort if the oxygen is not part of a water molecule (2 H)
       IF (count_h /= 2) THEN
          CALL cp_abort(__LOCATION__, &
                        " Error: Found "//cp_to_string(count_h)//" H atoms for O atom "//cp_to_string(iparticle))
-      ENDIF
+      END IF
 
       rih1(:) = pbc(r_last_update_pbc(iparticle)%r(:), r_last_update_pbc(index_h1)%r(:), cell)
       rih2(:) = pbc(r_last_update_pbc(iparticle)%r(:), r_last_update_pbc(index_h2)%r(:), cell)
@@ -355,7 +355,7 @@ CONTAINS
 
          CALL cp_print_key_finished_output(index_outfile, logger, mm_section, &
                                            "PRINT%PROGRAM_RUN_INFO")
-      ENDIF
+      END IF
 
    END FUNCTION angular
 
@@ -382,8 +382,8 @@ CONTAINS
 
       CHARACTER(LEN=2)                                   :: element_symbol
       REAL(KIND=dp) :: anglepart, cosalpha, dGauss(3), drji, drjicosalpha(3), drjisinalpha(3), &
-         dTT(3), dweight(3), gcn_weight, gcn_weight2, nvec(3), prefactor, rji(3), rji_hat(3), &
-         sinalpha, sum_weight, Vgaussian, weight
+                       dTT(3), dweight(3), gcn_weight, gcn_weight2, nvec(3), prefactor, rji(3), rji_hat(3), &
+                       sinalpha, sum_weight, Vgaussian, weight
       TYPE(section_vals_type), POINTER                   :: mm_section
 
       CALL get_atomic_kind(atomic_kind=particle_set(iparticle)%atomic_kind, &
@@ -595,14 +595,14 @@ CONTAINS
             index_h1 = iatom
          ELSEIF (count_h == 2) THEN
             index_h2 = iatom
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       ! Abort if the oxygen is not part of a water molecule (2 H)
       IF (count_h /= 2) THEN
          CALL cp_abort(__LOCATION__, &
                        " Error: Found "//cp_to_string(count_h)//" H atoms for O atom "//cp_to_string(iparticle))
-      ENDIF
+      END IF
 
       rji(:) = pbc(r_last_update_pbc(jparticle)%r(:), r_last_update_pbc(iparticle)%r(:), cell)
       rji_hat(:) = rji(:)/SQRT(DOT_PRODUCT(rji, rji)) ! hat = pure directional component of a given vector
@@ -788,13 +788,13 @@ CONTAINS
 
       IF (iw > 0 .AND. nr_ions > 0 .AND. print_oh) THEN
          WRITE (iw, '(/,A,T71,I10,/)') " gal: number of OH- ions at surface", nr_ions
-      ENDIF
+      END IF
       IF (iw > 0 .AND. nr_ions > 0 .AND. print_h3o) THEN
          WRITE (iw, '(/,A,T71,I10,/)') " gal: number of H3O+ ions at surface", nr_ions
-      ENDIF
+      END IF
       IF (iw > 0 .AND. nr_ions > 0 .AND. print_o) THEN
          WRITE (iw, '(/,A,T71,I10,/)') " gal: number of O^2- ions at surface", nr_ions
-      ENDIF
+      END IF
 
       CALL cp_print_key_finished_output(iw, logger, mm_section, "PRINT%PROGRAM_RUN_INFO")
 

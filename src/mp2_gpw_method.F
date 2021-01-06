@@ -11,56 +11,56 @@
 !>      10.2011 created [Joost VandeVondele and Mauro Del Ben]
 ! **************************************************************************************************
 MODULE mp2_gpw_method
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              cp_dbcsr_m_by_n_from_template
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_para_env,                     ONLY: cp_para_env_create,&
-                                              cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_create, dbcsr_get_info, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
-        dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, &
-        dbcsr_p_type, dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry
-   USE group_dist_types,                ONLY: create_group_dist,&
-                                              get_group_dist,&
-                                              group_dist_d1_type,&
-                                              release_group_dist
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE machine,                         ONLY: m_memory
-   USE message_passing,                 ONLY: mp_comm_split_direct,&
-                                              mp_max,&
-                                              mp_min,&
-                                              mp_sendrecv,&
-                                              mp_sum
-   USE mp2_eri_gpw,                     ONLY: calc_potential_gpw,&
-                                              cleanup_gpw,&
-                                              prepare_gpw
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_type
-   USE pw_poisson_types,                ONLY: pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE,&
-                                              pw_p_type,&
-                                              pw_release
-   USE qs_collocate_density,            ONLY: calculate_wavefunction
-   USE qs_environment_types,            ONLY: qs_environment_type
-   USE qs_integrate_potential,          ONLY: integrate_v_rspace
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE task_list_types,                 ONLY: task_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cell_types, ONLY: cell_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  cp_dbcsr_m_by_n_from_template
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE cp_para_env, ONLY: cp_para_env_create, &
+                          cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_create, dbcsr_get_info, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
+      dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, &
+      dbcsr_p_type, dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_no_symmetry
+   USE group_dist_types, ONLY: create_group_dist, &
+                               get_group_dist, &
+                               group_dist_d1_type, &
+                               release_group_dist
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE machine, ONLY: m_memory
+   USE message_passing, ONLY: mp_comm_split_direct, &
+                              mp_max, &
+                              mp_min, &
+                              mp_sendrecv, &
+                              mp_sum
+   USE mp2_eri_gpw, ONLY: calc_potential_gpw, &
+                          cleanup_gpw, &
+                          prepare_gpw
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_type
+   USE pw_poisson_types, ONLY: pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE, &
+                       pw_p_type, &
+                       pw_release
+   USE qs_collocate_density, ONLY: calculate_wavefunction
+   USE qs_environment_types, ONLY: qs_environment_type
+   USE qs_integrate_potential, ONLY: integrate_v_rspace
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE task_list_types, ONLY: task_list_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -139,15 +139,15 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'mp2_gpw_compute'
 
       INTEGER :: a, a_group_counter, b, b_global, b_group_counter, blk, col, col_offset, col_size, &
-         color_counter, comm_exchange, EX_end, EX_end_send, EX_start, EX_start_send, &
-         group_counter, handle, handle2, handle3, i, i_counter, i_group_counter, index_proc_shift, &
-         j, max_b_size, max_batch_size_A, max_batch_size_I, max_row_col_local, mepos_in_EX_group, &
-         my_A_batch_size, my_A_virtual_end, my_A_virtual_start, my_B_size, my_B_virtual_end, &
-         my_B_virtual_start, my_I_batch_size, my_I_occupied_end, my_I_occupied_start, &
-         my_q_position, ncol_local, nfullcols_total, nfullrows_total, ngroup, nrow_local, p
+                 color_counter, comm_exchange, EX_end, EX_end_send, EX_start, EX_start_send, &
+                 group_counter, handle, handle2, handle3, i, i_counter, i_group_counter, index_proc_shift, &
+                 j, max_b_size, max_batch_size_A, max_batch_size_I, max_row_col_local, mepos_in_EX_group, &
+                 my_A_batch_size, my_A_virtual_end, my_A_virtual_start, my_B_size, my_B_virtual_end, &
+                 my_B_virtual_start, my_I_batch_size, my_I_occupied_end, my_I_occupied_start, &
+                 my_q_position, ncol_local, nfullcols_total, nfullrows_total, ngroup, nrow_local, p
       INTEGER :: p_best, potential_type, proc_receive, proc_send, q, q_best, row, row_offset, &
-         row_size, size_EX, size_EX_send, size_of_exchange_group, sub_sub_color, virtual, &
-         virtual_beta, wfn_calc, wfn_calc_best
+                 row_size, size_EX, size_EX_send, size_of_exchange_group, sub_sub_color, virtual, &
+                 virtual_beta, wfn_calc, wfn_calc_best
       INTEGER(KIND=int_8)                                :: mem
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: proc_map, sub_proc_map, vector_B_sizes, &
                                                             vector_batch_A_size_group, &
@@ -296,8 +296,8 @@ CONTAINS
             wfn_calc_best = wfn_calc
             p_best = p
             q_best = q
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       max_batch_size_I = (homo + p_best - 1)/p_best
       max_batch_size_A = (virtual + q_best - 1)/q_best
@@ -307,7 +307,7 @@ CONTAINS
             "MP2_GPW| max. batch size for the occupied states:", max_batch_size_I
          WRITE (UNIT=unit_nr, FMT="(T3,A,T77,i4)") &
             "MP2_GPW| max. batch size for the virtual states:", max_batch_size_A
-      ENDIF
+      END IF
 
       CALL get_vector_batch(vector_batch_I_size_group, p_best, max_batch_size_I, homo)
       CALL get_vector_batch(vector_batch_A_size_group, q_best, max_batch_size_A, virtual)
@@ -488,9 +488,9 @@ CONTAINS
                   ! Compute the coulomb MP2 energy
                   Emp2_Cou = Emp2_Cou - 2.0_dp*data_block(j, b)**2/ &
                              (Eigenval(a) + Eigenval(homo + col_offset + b - 1) - Eigenval(i) - Eigenval(row_offset + j - 1))
-               ENDDO
-               ENDDO
-            ENDDO
+               END DO
+               END DO
+            END DO
             CALL dbcsr_iterator_stop(iter)
             IF (do_alpha_beta) THEN
                ! Compute the coulomb only= SO = MP2 alpha-beta  MP2 energy component
@@ -504,9 +504,9 @@ CONTAINS
                      ! Compute the coulomb MP2 energy alpha beta case
                      Emp2_AB = Emp2_AB - data_block(j, b)**2/ &
                      (Eigenval(a) + Eigenval_beta(homo_beta + col_offset + b - 1) - Eigenval(i) - Eigenval_beta(row_offset + j - 1))
-                  ENDDO
-                  ENDDO
-               ENDDO
+                  END DO
+                  END DO
+               END DO
                CALL dbcsr_iterator_stop(iter)
             END IF
             CALL timestop(handle3)
@@ -575,7 +575,7 @@ CONTAINS
             CALL timestop(handle3)
          END IF
 
-      ENDDO
+      END DO
       CALL timestop(handle2)
 
       CALL mp_sum(Emp2_Cou, para_env%group)
@@ -812,7 +812,7 @@ CONTAINS
 
       TYPE(cp_para_env_type), POINTER                    :: para_env_sub
       INTEGER, INTENT(IN) :: dimen, my_I_occupied_start, my_I_occupied_end, my_I_batch_size, &
-         my_A_virtual_start, my_A_virtual_end, my_A_batch_size
+                             my_A_virtual_start, my_A_virtual_end, my_A_batch_size
       TYPE(dbcsr_type), POINTER                          :: mo_coeff_o, mo_coeff_v
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :), &
          INTENT(OUT)                                     :: my_Cocc, my_Cvirt
@@ -848,7 +848,7 @@ CONTAINS
                END DO
             END IF
          END DO
-      ENDDO
+      END DO
       CALL dbcsr_iterator_stop(iter)
 
       CALL mp_sum(my_Cocc, para_env_sub%group)
@@ -868,7 +868,7 @@ CONTAINS
                END DO
             END IF
          END DO
-      ENDDO
+      END DO
       CALL dbcsr_iterator_stop(iter)
 
       CALL mp_sum(my_Cvirt, para_env_sub%group)

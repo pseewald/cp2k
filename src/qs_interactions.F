@@ -16,34 +16,34 @@
 ! **************************************************************************************************
 MODULE qs_interactions
 
-   USE ao_util,                         ONLY: exp_radius
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type,&
-                                              set_gto_basis_set
-   USE cp_control_types,                ONLY: qs_control_type,&
-                                              semi_empirical_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE external_potential_types,        ONLY: all_potential_type,&
-                                              get_potential,&
-                                              gth_potential_type,&
-                                              set_potential,&
-                                              sgp_potential_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE paw_proj_set_types,              ONLY: get_paw_proj_set,&
-                                              paw_proj_set_type,&
-                                              set_paw_proj_set
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE string_utilities,                ONLY: uppercase
+   USE ao_util, ONLY: exp_radius
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type, &
+                              set_gto_basis_set
+   USE cp_control_types, ONLY: qs_control_type, &
+                               semi_empirical_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE external_potential_types, ONLY: all_potential_type, &
+                                       get_potential, &
+                                       gth_potential_type, &
+                                       set_potential, &
+                                       sgp_potential_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE paw_proj_set_types, ONLY: get_paw_proj_set, &
+                                 paw_proj_set_type, &
+                                 set_paw_proj_set
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE string_utilities, ONLY: uppercase
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -79,14 +79,14 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'init_interaction_radii'
 
       INTEGER :: handle, i, iexp_ppl, ikind, ip, iprj_ppnl, j, l, lppl, lppnl, lprj, lprj_ppnl, &
-         maxl, n_local, nexp_lpot, nexp_lsd, nexp_ppl, nkind, nloc
+                 maxl, n_local, nexp_lpot, nexp_lsd, nexp_ppl, nkind, nloc
       INTEGER, DIMENSION(1:10)                           :: nrloc
       INTEGER, DIMENSION(:), POINTER                     :: nct_lpot, nct_lsd, nprj, nprj_ppnl
       LOGICAL                                            :: ecp_local, llsd, lpot, paw_atom
       LOGICAL, DIMENSION(0:5)                            :: is_nonlocal
       REAL(dp), DIMENSION(1:10)                          :: aloc, bloc
       REAL(KIND=dp) :: alpha_core_charge, alpha_ppl, ccore_charge, cerf_ppl, core_charge_radius, &
-         cval, ppl_radius, ppnl_radius, rcprj, zeta
+                       cval, ppl_radius, ppnl_radius, rcprj, zeta
       REAL(KIND=dp), DIMENSION(:), POINTER               :: a_local, a_nonlocal, alpha_lpot, &
                                                             alpha_lsd, alpha_ppnl, c_local, &
                                                             cexp_ppl
@@ -96,8 +96,8 @@ CONTAINS
       TYPE(all_potential_type), POINTER                  :: all_potential
       TYPE(gth_potential_type), POINTER                  :: gth_potential
       TYPE(gto_basis_set_type), POINTER :: aux_basis_set, aux_fit_basis_set, aux_gw_basis, &
-         harris_basis, lri_basis, mao_basis, orb_basis_set, ri_aux_basis_set, ri_basis, &
-         ri_xas_basis, soft_basis
+                                           harris_basis, lri_basis, mao_basis, orb_basis_set, ri_aux_basis_set, ri_basis, &
+                                           ri_xas_basis, soft_basis
       TYPE(paw_proj_set_type), POINTER                   :: paw_proj_set
       TYPE(sgp_potential_type), POINTER                  :: sgp_potential
 
@@ -350,8 +350,8 @@ CONTAINS
                                           exp_radius(lprj, zeta, qs_control%eps_pgf_orb, &
                                                      1.0_dp, rlow=rzetprj(ip, lprj)))
                   rcprj = MAX(rcprj, rzetprj(ip, lprj))
-               ENDDO
-            ENDDO
+               END DO
+            END DO
             CALL set_paw_proj_set(paw_proj_set=paw_proj_set, &
                                   rzetprj=rzetprj, &
                                   rcprj=rcprj)

@@ -14,55 +14,55 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE replica_methods
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_add_iter_level
-   USE cp_para_env,                     ONLY: cp_cart_create,&
-                                              cp_para_env_create
-   USE cp_para_types,                   ONLY: cp_para_cart_type,&
-                                              cp_para_env_type
-   USE cp_result_types,                 ONLY: cp_result_create,&
-                                              cp_result_retain
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_set,&
-                                              cp_subsys_type
-   USE f77_interface,                   ONLY: calc_force,&
-                                              create_force_env,&
-                                              f_env_add_defaults,&
-                                              f_env_rm_defaults,&
-                                              f_env_type,&
-                                              get_nparticle,&
-                                              get_pos,&
-                                              set_vel
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              use_qs_force
-   USE input_section_types,             ONLY: section_type,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set,&
-                                              section_vals_write
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE message_passing,                 ONLY: mp_cart_create,&
-                                              mp_cart_sub,&
-                                              mp_comm_null,&
-                                              mp_sum
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_wf_history_methods,           ONLY: wfi_create,&
-                                              wfi_create_for_kp
-   USE qs_wf_history_types,             ONLY: wfi_retain
-   USE replica_types,                   ONLY: rep_env_sync,&
-                                              rep_env_sync_results,&
-                                              rep_envs_add_rep_env,&
-                                              rep_envs_get_rep_env,&
-                                              replica_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_add_iter_level
+   USE cp_para_env, ONLY: cp_cart_create, &
+                          cp_para_env_create
+   USE cp_para_types, ONLY: cp_para_cart_type, &
+                            cp_para_env_type
+   USE cp_result_types, ONLY: cp_result_create, &
+                              cp_result_retain
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_set, &
+                              cp_subsys_type
+   USE f77_interface, ONLY: calc_force, &
+                            create_force_env, &
+                            f_env_add_defaults, &
+                            f_env_rm_defaults, &
+                            f_env_type, &
+                            get_nparticle, &
+                            get_pos, &
+                            set_vel
+   USE force_env_types, ONLY: force_env_get, &
+                              use_qs_force
+   USE input_section_types, ONLY: section_type, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set, &
+                                  section_vals_write
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE message_passing, ONLY: mp_cart_create, &
+                              mp_cart_sub, &
+                              mp_comm_null, &
+                              mp_sum
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_wf_history_methods, ONLY: wfi_create, &
+                                    wfi_create_for_kp
+   USE qs_wf_history_types, ONLY: wfi_retain
+   USE replica_types, ONLY: rep_env_sync, &
+                            rep_env_sync_results, &
+                            rep_envs_add_rep_env, &
+                            rep_envs_get_rep_env, &
+                            replica_env_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -102,7 +102,7 @@ CONTAINS
 
       CHARACTER(len=default_path_length)                 :: input_file_path, output_file_path
       INTEGER :: comm_cart, comm_f, comm_inter_rep, forcedim, i, i0, ierr, ip, ir, irep, lp, &
-         my_prep, new_env_id, nparticle, nrep_local, unit_nr
+                 my_prep, new_env_id, nparticle, nrep_local, unit_nr
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: gridinfo
       INTEGER, DIMENSION(2)                              :: dims, pos
       LOGICAL, DIMENSION(2)                              :: rdim
@@ -160,7 +160,7 @@ CONTAINS
                gridinfo(forcedim, i), ")"
          END DO
          WRITE (unit_nr, *)
-      ENDIF
+      END IF
       DEALLOCATE (gridinfo)
       IF (ASSOCIATED(rep_env)) THEN
          last_rep_env_id = last_rep_env_id + 1

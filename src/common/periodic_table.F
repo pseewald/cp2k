@@ -18,8 +18,8 @@
 ! **************************************************************************************************
 MODULE periodic_table
 
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: uppercase
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: uppercase
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

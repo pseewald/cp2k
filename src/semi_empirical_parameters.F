@@ -41,18 +41,18 @@
 ! **************************************************************************************************
 MODULE semi_empirical_parameters
 
-   USE input_constants,                 ONLY: &
-        do_method_am1, do_method_mndod, do_method_pchg, do_method_pdg, do_method_pm3, &
-        do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_rm1
-   USE kinds,                           ONLY: dp
-   USE periodic_table,                  ONLY: ptable
-   USE physcon,                         ONLY: angstrom,&
-                                              evolt,&
-                                              kcalmol
-   USE semi_empirical_par_utils,        ONLY: calpar,&
-                                              convert_param_to_cp2k,&
-                                              valence_electrons
-   USE semi_empirical_types,            ONLY: semi_empirical_type
+   USE input_constants, ONLY: &
+      do_method_am1, do_method_mndod, do_method_pchg, do_method_pdg, do_method_pm3, &
+      do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_rm1
+   USE kinds, ONLY: dp
+   USE periodic_table, ONLY: ptable
+   USE physcon, ONLY: angstrom, &
+                      evolt, &
+                      kcalmol
+   USE semi_empirical_par_utils, ONLY: calpar, &
+                                       convert_param_to_cp2k, &
+                                       valence_electrons
+   USE semi_empirical_types, ONLY: semi_empirical_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

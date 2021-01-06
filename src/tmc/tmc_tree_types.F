@@ -30,7 +30,7 @@
 ! **************************************************************************************************
 
 MODULE tmc_tree_types
-   USE kinds,                           ONLY: dp
+   USE kinds, ONLY: dp
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

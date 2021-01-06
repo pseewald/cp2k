@@ -9,9 +9,9 @@
 !> \brief Optimizer for the atomic code
 ! **************************************************************************************************
 MODULE atom_optimization
-   USE atom_types,                      ONLY: atom_optimization_type
-   USE kinds,                           ONLY: dp
-   USE lapack,                          ONLY: lapack_sgelss
+   USE atom_types, ONLY: atom_optimization_type
+   USE kinds, ONLY: dp
+   USE lapack, ONLY: lapack_sgelss
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

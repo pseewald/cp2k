@@ -12,20 +12,20 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE cp_fm_pool_types
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_release,&
-                                              cp_fm_struct_retain,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_linked_list_fm,               ONLY: cp_sll_fm_dealloc,&
-                                              cp_sll_fm_get_first_el,&
-                                              cp_sll_fm_insert_el,&
-                                              cp_sll_fm_next,&
-                                              cp_sll_fm_rm_first_el,&
-                                              cp_sll_fm_type
-   USE cp_log_handling,                 ONLY: cp_to_string
+   USE cp_fm_struct, ONLY: cp_fm_struct_release, &
+                           cp_fm_struct_retain, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE cp_linked_list_fm, ONLY: cp_sll_fm_dealloc, &
+                                cp_sll_fm_get_first_el, &
+                                cp_sll_fm_insert_el, &
+                                cp_sll_fm_next, &
+                                cp_sll_fm_rm_first_el, &
+                                cp_sll_fm_type
+   USE cp_log_handling, ONLY: cp_to_string
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

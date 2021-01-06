@@ -24,80 +24,80 @@
 !> \author CJM
 ! **************************************************************************************************
 MODULE integrator
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE barostat_types,                  ONLY: barostat_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              init_cell,&
-                                              parse_cell_line
-   USE constraint,                      ONLY: rattle_control,&
-                                              shake_control,&
-                                              shake_roll_control,&
-                                              shake_update_targets
-   USE constraint_fxd,                  ONLY: fix_atom_control
-   USE constraint_util,                 ONLY: getold,&
-                                              pv_constraint
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_read_line
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE eigenvalueproblems,              ONLY: diagonalise
-   USE extended_system_dynamics,        ONLY: shell_scale_comv
-   USE extended_system_types,           ONLY: npt_info_type
-   USE force_env_methods,               ONLY: force_env_calc_energy_force
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE input_constants,                 ONLY: ehrenfest,&
-                                              npe_f_ensemble,&
-                                              npe_i_ensemble
-   USE integrator_utils,                ONLY: &
-        allocate_old, allocate_tmp, damp_v, damp_veps, deallocate_old, get_s_ds, &
-        old_variables_type, rattle_roll_setup, set, tmp_variables_type, update_dealloc_tmp, &
-        update_pv, update_veps, variable_timestep, vv_first, vv_second
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: matmul_3x3,&
-                                              transpose_3d
-   USE md_environment_types,            ONLY: get_md_env,&
-                                              md_environment_type,&
-                                              set_md_env
-   USE metadynamics,                    ONLY: metadyn_integrator,&
-                                              metadyn_velocities_colvar
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_list_types,             ONLY: molecule_list_type
-   USE molecule_types,                  ONLY: global_constraint_type,&
-                                              molecule_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type,&
-                                              update_particle_set
-   USE physcon,                         ONLY: bohr,&
-                                              femtoseconds
-   USE qmmm_util,                       ONLY: apply_qmmm_walls_reflective
-   USE qmmmx_update,                    ONLY: qmmmx_update_force_env
-   USE qs_environment_types,            ONLY: get_qs_env
-   USE reftraj_types,                   ONLY: reftraj_type
-   USE reftraj_util,                    ONLY: compute_msd_reftraj
-   USE rt_propagation_methods,          ONLY: propagation_step
-   USE rt_propagation_output,           ONLY: rt_prop_output
-   USE rt_propagation_types,            ONLY: rt_prop_type
-   USE shell_opt,                       ONLY: optimize_shell_core
-   USE simpar_types,                    ONLY: simpar_type
-   USE thermal_region_types,            ONLY: thermal_region_type,&
-                                              thermal_regions_type
-   USE thermostat_methods,              ONLY: apply_thermostat_baro,&
-                                              apply_thermostat_particles,&
-                                              apply_thermostat_shells
-   USE thermostat_types,                ONLY: thermostat_type
-   USE virial_methods,                  ONLY: virial_evaluate
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE barostat_types, ONLY: barostat_type
+   USE cell_types, ONLY: cell_type, &
+                         init_cell, &
+                         parse_cell_line
+   USE constraint, ONLY: rattle_control, &
+                         shake_control, &
+                         shake_roll_control, &
+                         shake_update_targets
+   USE constraint_fxd, ONLY: fix_atom_control
+   USE constraint_util, ONLY: getold, &
+                              pv_constraint
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_read_line
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE eigenvalueproblems, ONLY: diagonalise
+   USE extended_system_dynamics, ONLY: shell_scale_comv
+   USE extended_system_types, ONLY: npt_info_type
+   USE force_env_methods, ONLY: force_env_calc_energy_force
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE global_types, ONLY: global_environment_type
+   USE input_constants, ONLY: ehrenfest, &
+                              npe_f_ensemble, &
+                              npe_i_ensemble
+   USE integrator_utils, ONLY: &
+      allocate_old, allocate_tmp, damp_v, damp_veps, deallocate_old, get_s_ds, &
+      old_variables_type, rattle_roll_setup, set, tmp_variables_type, update_dealloc_tmp, &
+      update_pv, update_veps, variable_timestep, vv_first, vv_second
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: matmul_3x3, &
+                      transpose_3d
+   USE md_environment_types, ONLY: get_md_env, &
+                                   md_environment_type, &
+                                   set_md_env
+   USE metadynamics, ONLY: metadyn_integrator, &
+                           metadyn_velocities_colvar
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_type
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_list_types, ONLY: molecule_list_type
+   USE molecule_types, ONLY: global_constraint_type, &
+                             molecule_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type, &
+                             update_particle_set
+   USE physcon, ONLY: bohr, &
+                      femtoseconds
+   USE qmmm_util, ONLY: apply_qmmm_walls_reflective
+   USE qmmmx_update, ONLY: qmmmx_update_force_env
+   USE qs_environment_types, ONLY: get_qs_env
+   USE reftraj_types, ONLY: reftraj_type
+   USE reftraj_util, ONLY: compute_msd_reftraj
+   USE rt_propagation_methods, ONLY: propagation_step
+   USE rt_propagation_output, ONLY: rt_prop_output
+   USE rt_propagation_types, ONLY: rt_prop_type
+   USE shell_opt, ONLY: optimize_shell_core
+   USE simpar_types, ONLY: simpar_type
+   USE thermal_region_types, ONLY: thermal_region_type, &
+                                   thermal_regions_type
+   USE thermostat_methods, ONLY: apply_thermostat_baro, &
+                                 apply_thermostat_particles, &
+                                 apply_thermostat_shells
+   USE thermostat_types, ONLY: thermostat_type
+   USE virial_methods, ONLY: virial_evaluate
+   USE virial_types, ONLY: virial_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -130,7 +130,7 @@ CONTAINS
       TYPE(md_environment_type), POINTER                 :: md_env
 
       INTEGER :: iparticle, iparticle_kind, iparticle_local, iparticle_reg, ireg, nparticle, &
-         nparticle_kind, nparticle_local, nshell
+                 nparticle_kind, nparticle_local, nshell
       INTEGER, POINTER                                   :: itimes
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: do_langevin
       REAL(KIND=dp)                                      :: c, c1, c2, c3, c4, dm, dt, gam, mass, &
@@ -250,7 +250,7 @@ CONTAINS
             iparticle = local_particles%list(iparticle_kind)%array(iparticle_local)
             IF (do_langevin(iparticle)) THEN
                sigma = var_w(iparticle)*mass
-               ASSOCIATE (rng_stream=>local_particles%local_particle_set(iparticle_kind)% &
+               ASSOCIATE (rng_stream => local_particles%local_particle_set(iparticle_kind)% &
                           rng(iparticle_local))
                   w(1, iparticle) = rng_stream%stream%next(variance=sigma)
                   w(2, iparticle) = rng_stream%stream%next(variance=sigma)
@@ -529,7 +529,7 @@ CONTAINS
 
          IF (ehrenfest_md) THEN
             CALL rt_prop_output(force_env%qs_env, ehrenfest, delta_iter=force_env%qs_env%rtp%delta_iter)
-         ENDIF
+         END IF
 
          ! Metadynamics
          CALL metadyn_integrator(force_env, itimes, tmp%vel)
@@ -781,8 +781,8 @@ CONTAINS
          IF (force_env%meta_env%langevin) THEN
             ALLOCATE (rand(force_env%meta_env%n_colvar))
             rand(:) = 0.0_dp
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       !  Allocate work storage for positions and velocities
       IF (shell_present) THEN
@@ -823,10 +823,10 @@ CONTAINS
          IF (force_env%meta_env%langevin) THEN
             DO ivar = 1, force_env%meta_env%n_colvar
                rand(ivar) = force_env%meta_env%rng(ivar)%next()
-            ENDDO
+            END DO
             CALL metadyn_velocities_colvar(force_env, rand)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! Velocity Verlet (first part)
       CALL vv_first(tmp, atomic_kind_set, local_particles, particle_set, &
@@ -895,8 +895,8 @@ CONTAINS
       IF (ASSOCIATED(force_env%meta_env)) THEN
          IF (force_env%meta_env%langevin) THEN
             DEALLOCATE (rand)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! Update constraint virial
       IF (simpar%constraint) CALL pv_constraint(gci, local_molecules, &
@@ -989,8 +989,8 @@ CONTAINS
          IF (force_env%meta_env%langevin) THEN
             ALLOCATE (rand(force_env%meta_env%n_colvar))
             rand(:) = 0.0_dp
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       !  Allocate work storage for positions and velocities
       IF (shell_present) THEN
@@ -1028,10 +1028,10 @@ CONTAINS
          IF (force_env%meta_env%langevin) THEN
             DO ivar = 1, force_env%meta_env%n_colvar
                rand(ivar) = force_env%meta_env%rng(ivar)%next()
-            ENDDO
+            END DO
             CALL metadyn_velocities_colvar(force_env, rand)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! Velocity Verlet (first part)
       CALL vv_first(tmp, atomic_kind_set, local_particles, particle_set, &
@@ -1135,8 +1135,8 @@ CONTAINS
       IF (ASSOCIATED(force_env%meta_env)) THEN
          IF (force_env%meta_env%langevin) THEN
             DEALLOCATE (rand)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! Update constraint virial
       IF (simpar%constraint) CALL pv_constraint(gci, local_molecules, &
@@ -1247,8 +1247,8 @@ CONTAINS
          IF (force_env%meta_env%langevin) THEN
             ALLOCATE (rand(force_env%meta_env%n_colvar))
             rand(:) = 0.0_dp
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       IF (shell_present) THEN
          CALL cp_subsys_get(subsys=subsys, &
@@ -1301,7 +1301,7 @@ CONTAINS
                      molecule_kind_set, particle_set, cell)
       ELSE
          roll_tol_thrs = EPSILON(0.0_dp)
-      ENDIF
+      END IF
       roll_tol = -roll_tol_thrs
 
       !    *** Velocity Verlet for Langeving *** v(t)--> v(t+1/2)
@@ -1309,10 +1309,10 @@ CONTAINS
          IF (force_env%meta_env%langevin) THEN
             DO ivar = 1, force_env%meta_env%n_colvar
                rand(ivar) = force_env%meta_env%rng(ivar)%next()
-            ENDDO
+            END DO
             CALL metadyn_velocities_colvar(force_env, rand)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       SR: DO WHILE (ABS(roll_tol) >= roll_tol_thrs) ! SHAKE-ROLL LOOP
 
@@ -1397,7 +1397,7 @@ CONTAINS
          CALL set(old, atomic_kind_set, particle_set, tmp%vel, local_particles, cell, npt, 'F')
       ELSE
          roll_tol_thrs = EPSILON(0.0_dp)
-      ENDIF
+      END IF
       roll_tol = -roll_tol_thrs
 
       RR: DO WHILE (ABS(roll_tol) >= roll_tol_thrs) ! RATTLE-ROLL LOOP
@@ -1465,8 +1465,8 @@ CONTAINS
       IF (ASSOCIATED(force_env%meta_env)) THEN
          IF (force_env%meta_env%langevin) THEN
             DEALLOCATE (rand)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       IF (first_time) THEN
          first_time = .FALSE.
@@ -1727,7 +1727,7 @@ CONTAINS
                      molecule_kind_set, particle_set, cell)
       ELSE
          roll_tol_thrs = EPSILON(0.0_dp)
-      ENDIF
+      END IF
       roll_tol = -roll_tol_thrs
 
       SR: DO WHILE (ABS(roll_tol) >= roll_tol_thrs) ! SHAKE-ROLL LOOP
@@ -1816,7 +1816,7 @@ CONTAINS
          CALL set(old, atomic_kind_set, particle_set, tmp%vel, local_particles, cell, npt, 'F')
       ELSE
          roll_tol_thrs = EPSILON(0.0_dp)
-      ENDIF
+      END IF
       roll_tol = -roll_tol_thrs
 
       RR: DO WHILE (ABS(roll_tol) >= roll_tol_thrs) ! RATTLE-ROLL LOOP
@@ -1973,7 +1973,7 @@ CONTAINS
                      molecule_kind_set, particle_set, cell)
       ELSE
          roll_tol_thrs = EPSILON(0.0_dp)
-      ENDIF
+      END IF
       roll_tol = -roll_tol_thrs
 
       SR: DO WHILE (ABS(roll_tol) >= roll_tol_thrs) ! SHAKE-ROLL LOOP
@@ -2062,7 +2062,7 @@ CONTAINS
          CALL set(old, atomic_kind_set, particle_set, tmp%vel, local_particles, cell, npt, 'F')
       ELSE
          roll_tol_thrs = EPSILON(0.0_dp)
-      ENDIF
+      END IF
       roll_tol = -roll_tol_thrs
 
       RR: DO WHILE (ABS(roll_tol) >= roll_tol_thrs) ! RATTLE-ROLL LOOP
@@ -2251,7 +2251,7 @@ CONTAINS
                      molecule_kind_set, particle_set, cell)
       ELSE
          roll_tol_thrs = EPSILON(0.0_dp)
-      ENDIF
+      END IF
       roll_tol = -roll_tol_thrs
 
       SR: DO WHILE (ABS(roll_tol) >= roll_tol_thrs) ! SHAKE-ROLL LOOP
@@ -2344,7 +2344,7 @@ CONTAINS
          CALL set(old, atomic_kind_set, particle_set, tmp%vel, local_particles, cell, npt, 'F')
       ELSE
          roll_tol_thrs = EPSILON(0.0_dp)
-      ENDIF
+      END IF
       roll_tol = -roll_tol_thrs
 
       RR: DO WHILE (ABS(roll_tol) >= roll_tol_thrs) ! RATTLE-ROLL LOOP

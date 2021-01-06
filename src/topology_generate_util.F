@@ -11,56 +11,56 @@
 !>     Teodor Laino 09.2006 - Major rewriting with linear scaling routines
 ! **************************************************************************************************
 MODULE topology_generate_util
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              deallocate_atomic_kind_set,&
-                                              set_atomic_kind
-   USE cell_types,                      ONLY: pbc
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE fist_neighbor_list_types,        ONLY: fist_neighbor_deallocate,&
-                                              fist_neighbor_type
-   USE fist_neighbor_lists,             ONLY: build_fist_neighbor_lists
-   USE input_constants,                 ONLY: do_add,&
-                                              do_bondparm_covalent,&
-                                              do_bondparm_vdw,&
-                                              do_conn_off,&
-                                              do_conn_user,&
-                                              do_remove
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathlib,                         ONLY: matvec_3x3
-   USE memory_utilities,                ONLY: reallocate
-   USE particle_types,                  ONLY: allocate_particle_set,&
-                                              deallocate_particle_set,&
-                                              particle_type
-   USE periodic_table,                  ONLY: get_ptable_info
-   USE qmmm_types_low,                  ONLY: qmmm_env_mm_type
-   USE string_table,                    ONLY: id2str,&
-                                              s2s,&
-                                              str2id
-   USE string_utilities,                ONLY: integer_to_string,&
-                                              uppercase
-   USE topology_types,                  ONLY: atom_info_type,&
-                                              connectivity_info_type,&
-                                              topology_parameters_type
-   USE topology_util,                   ONLY: array1_list_type,&
-                                              array2_list_type,&
-                                              find_molecule,&
-                                              give_back_molecule,&
-                                              reorder_list_array,&
-                                              reorder_structure
-   USE util,                            ONLY: find_boundary,&
-                                              sort
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                deallocate_atomic_kind_set, &
+                                set_atomic_kind
+   USE cell_types, ONLY: pbc
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE fist_neighbor_list_types, ONLY: fist_neighbor_deallocate, &
+                                       fist_neighbor_type
+   USE fist_neighbor_lists, ONLY: build_fist_neighbor_lists
+   USE input_constants, ONLY: do_add, &
+                              do_bondparm_covalent, &
+                              do_bondparm_vdw, &
+                              do_conn_off, &
+                              do_conn_user, &
+                              do_remove
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathlib, ONLY: matvec_3x3
+   USE memory_utilities, ONLY: reallocate
+   USE particle_types, ONLY: allocate_particle_set, &
+                             deallocate_particle_set, &
+                             particle_type
+   USE periodic_table, ONLY: get_ptable_info
+   USE qmmm_types_low, ONLY: qmmm_env_mm_type
+   USE string_table, ONLY: id2str, &
+                           s2s, &
+                           str2id
+   USE string_utilities, ONLY: integer_to_string, &
+                               uppercase
+   USE topology_types, ONLY: atom_info_type, &
+                             connectivity_info_type, &
+                             topology_parameters_type
+   USE topology_util, ONLY: array1_list_type, &
+                            array2_list_type, &
+                            find_molecule, &
+                            give_back_molecule, &
+                            reorder_list_array, &
+                            reorder_structure
+   USE util, ONLY: find_boundary, &
+                   sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -110,7 +110,7 @@ CONTAINS
       ALLOCATE (atom_bond_list(natom))
       DO I = 1, natom
          ALLOCATE (atom_bond_list(I)%array1(0))
-      ENDDO
+      END DO
       N = 0
       IF (ASSOCIATED(conn_info%bond_a)) N = SIZE(conn_info%bond_a) - nbond_prev
       CALL reorder_structure(atom_bond_list, conn_info%bond_a(nbond_prev + 1:) - natom_prev, &
@@ -128,7 +128,7 @@ CONTAINS
       END DO
       DO I = 1, natom
          DEALLOCATE (atom_bond_list(I)%array1)
-      ENDDO
+      END DO
       DEALLOCATE (atom_bond_list)
 
    END SUBROUTINE topology_generate_molname
@@ -189,8 +189,8 @@ CONTAINS
       INTEGER, PARAMETER                                 :: nblock = 100
 
       INTEGER :: atom_in_kind, atom_in_mol, first, handle, handle2, i, iatm, iatom, iend, ifirst, &
-         ilast, inum, istart, itype, iw, j, jump1, jump2, last, max_mol_num, mol_num, mol_res, &
-         mol_typ, myind, N, natom, nlocl, ntype, resid
+                 ilast, inum, istart, itype, iw, j, jump1, jump2, last, max_mol_num, mol_num, mol_res, &
+                 mol_typ, myind, N, natom, nlocl, ntype, resid
       INTEGER, DIMENSION(:), POINTER                     :: qm_atom_index, wrk1, wrk2
       LOGICAL                                            :: do_again, found, my_qmmm
       TYPE(array1_list_type), ALLOCATABLE, DIMENSION(:)  :: atom_bond_list
@@ -289,14 +289,14 @@ CONTAINS
       ALLOCATE (atom_bond_list(natom))
       DO I = 1, natom
          ALLOCATE (atom_bond_list(I)%array1(0))
-      ENDDO
+      END DO
       N = 0
       IF (ASSOCIATED(conn_info%bond_a)) N = SIZE(conn_info%bond_a)
       CALL reorder_structure(atom_bond_list, conn_info%bond_a, conn_info%bond_b, N)
       CALL find_molecule(atom_bond_list, atom_info%map_mol_num, atom_info%id_molname)
       DO I = 1, natom
          DEALLOCATE (atom_bond_list(I)%array1)
-      ENDDO
+      END DO
       DEALLOCATE (atom_bond_list)
       IF (iw > 0) WRITE (iw, '(/,T2,A)') "End of molecule generation"
 
@@ -570,7 +570,7 @@ CONTAINS
 
       CHARACTER(LEN=2)                                   :: upper_sym_1
       INTEGER :: cbond, handle, handle2, i, iatm1, iatm2, iatom, ibond, idim, iw, j, jatom, k, &
-         n_bonds, n_heavy_bonds, n_hydr_bonds, n_rep, natom, npairs, output_unit
+                 n_bonds, n_heavy_bonds, n_hydr_bonds, n_rep, natom, npairs, output_unit
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: bond_a, bond_b, list, map_nb
       INTEGER, DIMENSION(:), POINTER                     :: isolated_atoms, tmp_v
       LOGICAL                                            :: connectivity_ok, explicit, print_info
@@ -711,7 +711,7 @@ CONTAINS
       DO I = 1, natom
          ALLOCATE (bond_list(I)%array1(0))
          ALLOCATE (bond_list(I)%array2(0))
-      ENDDO
+      END DO
       CALL reorder_structure(bond_list, bond_a, bond_b, map_nb, SIZE(bond_a))
       DEALLOCATE (bond_a)
       DEALLOCATE (bond_b)
@@ -870,7 +870,7 @@ CONTAINS
       DO I = 1, natom
          DEALLOCATE (bond_list(I)%array1)
          DEALLOCATE (bond_list(I)%array2)
-      ENDDO
+      END DO
       DEALLOCATE (bond_list)
       DEALLOCATE (pbc_coord)
       DEALLOCATE (radius)
@@ -950,7 +950,7 @@ CONTAINS
       ALLOCATE (bond_list(natom))
       DO I = 1, natom
          ALLOCATE (bond_list(I)%array1(0))
-      ENDDO
+      END DO
       CALL reorder_structure(bond_list, bond_a, bond_b, SIZE(bond_a))
       ALLOCATE (mol_map(natom))
       ALLOCATE (mol_map_o(natom))
@@ -1050,7 +1050,7 @@ CONTAINS
       DEALLOCATE (wrk)
       DO I = 1, natom
          DEALLOCATE (bond_list(I)%array1)
-      ENDDO
+      END DO
       DEALLOCATE (bond_list)
       CALL timestop(handle)
    END FUNCTION check_generate_mol
@@ -1358,7 +1358,7 @@ CONTAINS
       ! if nothing there stay within bounds
       IF (istart <= ndim) THEN
          IF (Ilist1(istart) > tmp(1) .AND. (istart /= 1)) istart = istart - 1
-      ENDIF
+      END IF
       DO iend = istart, ndim
          IF (Ilist1(iend) /= tmp(1)) EXIT
       END DO
@@ -1523,7 +1523,7 @@ CONTAINS
          ALLOCATE (bond_list(natom))
          DO I = 1, natom
             ALLOCATE (bond_list(I)%array1(0))
-         ENDDO
+         END DO
          CALL reorder_structure(bond_list, conn_info%bond_a, conn_info%bond_b, nbond)
          ! All the dirty job is handled by this routine.. for bends it_levl is equal 3
          CALL timeset(routineN//"_1", handle2)
@@ -1537,7 +1537,7 @@ CONTAINS
          CALL timestop(handle2)
          DO I = 1, natom
             DEALLOCATE (bond_list(I)%array1)
-         ENDDO
+         END DO
          DEALLOCATE (bond_list)
          IF (output_unit > 0) THEN
             WRITE (output_unit, '(T2,"GENERATE|",1X,A,T71,I10)') " Preliminary Number of Bends generated:", &
@@ -1797,7 +1797,7 @@ CONTAINS
          ALLOCATE (bond_list(natom))
          DO I = 1, natom
             ALLOCATE (bond_list(I)%array1(0))
-         ENDDO
+         END DO
          CALL reorder_structure(bond_list, conn_info%bond_a, conn_info%bond_b, nbond)
          ! All the dirty job is handled by this routine.. for torsions it_levl is equal 4
          CALL match_iterative_path(Iarray1=bond_list, &
@@ -1811,7 +1811,7 @@ CONTAINS
                                    Oarray4=conn_info%phi_d)
          DO I = 1, natom
             DEALLOCATE (bond_list(I)%array1)
-         ENDDO
+         END DO
          DEALLOCATE (bond_list)
          IF (output_unit > 0) THEN
             WRITE (output_unit, '(T2,"GENERATE|",1X,A,T71,I10)') " Preliminary Number of Torsions generated:", &
@@ -1886,7 +1886,7 @@ CONTAINS
          ALLOCATE (bond_list(natom))
          DO I = 1, natom
             ALLOCATE (bond_list(I)%array1(0))
-         ENDDO
+         END DO
          CALL reorder_structure(bond_list, conn_info%bond_a, conn_info%bond_b, nbond)
          DO I = 1, natom
             ! Count all atoms with three bonds
@@ -1922,7 +1922,7 @@ CONTAINS
          END DO
          DO I = 1, natom
             DEALLOCATE (bond_list(I)%array1)
-         ENDDO
+         END DO
          DEALLOCATE (bond_list)
          ! External defined impropers (useful for complex connectivity)
          impr_section => section_vals_get_subs_vals(subsys_section, "TOPOLOGY%GENERATE%IMPROPER")
@@ -1982,7 +1982,7 @@ CONTAINS
       ALLOCATE (bond_list(natom))
       DO i = 1, natom
          ALLOCATE (bond_list(i)%array1(0))
-      ENDDO
+      END DO
       nbond = SIZE(conn_info%bond_a)
       CALL reorder_structure(bond_list, conn_info%bond_a, conn_info%bond_b, nbond)
 
@@ -1990,7 +1990,7 @@ CONTAINS
       ALLOCATE (theta_list(natom))
       DO i = 1, natom
          ALLOCATE (theta_list(i)%array1(0))
-      ENDDO
+      END DO
       ntheta = SIZE(conn_info%theta_a)
       CALL reorder_structure(theta_list, conn_info%theta_a, conn_info%theta_c, ntheta)
 
@@ -1998,7 +1998,7 @@ CONTAINS
       ALLOCATE (phi_list(natom))
       DO i = 1, natom
          ALLOCATE (phi_list(i)%array1(0))
-      ENDDO
+      END DO
       nphi = SIZE(conn_info%phi_a)
       CALL reorder_structure(phi_list, conn_info%phi_a, conn_info%phi_d, nphi)
 
@@ -2031,17 +2031,17 @@ CONTAINS
       ! Deallocate bond_list
       DO i = 1, natom
          DEALLOCATE (bond_list(i)%array1)
-      ENDDO
+      END DO
       DEALLOCATE (bond_list)
       ! Deallocate theta_list
       DO i = 1, natom
          DEALLOCATE (theta_list(i)%array1)
-      ENDDO
+      END DO
       DEALLOCATE (theta_list)
       ! Deallocate phi_list
       DO i = 1, natom
          DEALLOCATE (phi_list(i)%array1)
-      ENDDO
+      END DO
       DEALLOCATE (phi_list)
 
       ! Final output

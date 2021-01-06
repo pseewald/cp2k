@@ -13,48 +13,48 @@
 !>
 ! **************************************************************************************************
 MODULE atom_types
-   USE atom_upf,                        ONLY: atom_read_upf,&
-                                              atom_release_upf,&
-                                              atom_upfpot_type
-   USE bessel_lib,                      ONLY: bessel0
-   USE bibliography,                    ONLY: Limpanuparb2011,&
-                                              cite_reference
-   USE cp_linked_list_input,            ONLY: cp_sll_val_next,&
-                                              cp_sll_val_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object,&
-                                              parser_read_line,&
-                                              parser_search_string,&
-                                              parser_test_next_token
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE input_constants,                 ONLY: &
-        barrier_conf, contracted_gto, do_gapw_log, do_numeric, do_potential_coulomb, &
-        do_potential_long, do_potential_mix_cl, do_potential_short, do_semi_analytic, ecp_pseudo, &
-        gaussian, geometrical_gto, gth_pseudo, no_conf, no_pseudo, numerical, poly_conf, &
-        sgp_pseudo, slater, upf_pseudo
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_list_get,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE input_val_types,                 ONLY: val_get,&
-                                              val_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              fac,&
-                                              pi,&
-                                              rootpi
-   USE periodic_table,                  ONLY: get_ptable_info,&
-                                              ptable
-   USE qs_grid_atom,                    ONLY: allocate_grid_atom,&
-                                              create_grid_atom,&
-                                              deallocate_grid_atom,&
-                                              grid_atom_type
-   USE string_utilities,                ONLY: remove_word,&
-                                              uppercase
+   USE atom_upf, ONLY: atom_read_upf, &
+                       atom_release_upf, &
+                       atom_upfpot_type
+   USE bessel_lib, ONLY: bessel0
+   USE bibliography, ONLY: Limpanuparb2011, &
+                           cite_reference
+   USE cp_linked_list_input, ONLY: cp_sll_val_next, &
+                                   cp_sll_val_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object, &
+                                parser_read_line, &
+                                parser_search_string, &
+                                parser_test_next_token
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE input_constants, ONLY: &
+      barrier_conf, contracted_gto, do_gapw_log, do_numeric, do_potential_coulomb, &
+      do_potential_long, do_potential_mix_cl, do_potential_short, do_semi_analytic, ecp_pseudo, &
+      gaussian, geometrical_gto, gth_pseudo, no_conf, no_pseudo, numerical, poly_conf, &
+      sgp_pseudo, slater, upf_pseudo
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_list_get, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE input_val_types, ONLY: val_get, &
+                              val_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: dfac, &
+                            fac, &
+                            pi, &
+                            rootpi
+   USE periodic_table, ONLY: get_ptable_info, &
+                             ptable
+   USE qs_grid_atom, ONLY: allocate_grid_atom, &
+                           create_grid_atom, &
+                           deallocate_grid_atom, &
+                           grid_atom_type
+   USE string_utilities, ONLY: remove_word, &
+                               uppercase
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -379,14 +379,14 @@ CONTAINS
 
       INTEGER, PARAMETER                                 :: nua = 40, nup = 16
       REAL(KIND=dp), DIMENSION(nua), PARAMETER :: ugbs = (/0.007299_dp, 0.013705_dp, 0.025733_dp, &
-         0.048316_dp, 0.090718_dp, 0.170333_dp, 0.319819_dp, 0.600496_dp, 1.127497_dp, 2.117000_dp,&
-         3.974902_dp, 7.463317_dp, 14.013204_dp, 26.311339_dp, 49.402449_dp, 92.758561_dp, &
-         174.164456_dp, 327.013024_dp, 614.003114_dp, 1152.858743_dp, 2164.619772_dp, &
-         4064.312984_dp, 7631.197056_dp, 14328.416324_dp, 26903.186074_dp, 50513.706789_dp, &
-         94845.070265_dp, 178082.107320_dp, 334368.848683_dp, 627814.487663_dp, 1178791.123851_dp, &
-         2213310.684886_dp, 4155735.557141_dp, 7802853.046713_dp, 14650719.428954_dp, &
-         27508345.793637_dp, 51649961.080194_dp, 96978513.342764_dp, 182087882.613702_dp, &
-         341890134.751331_dp/)
+                                        0.048316_dp, 0.090718_dp, 0.170333_dp, 0.319819_dp, 0.600496_dp, 1.127497_dp, 2.117000_dp, &
+                                                 3.974902_dp, 7.463317_dp, 14.013204_dp, 26.311339_dp, 49.402449_dp, 92.758561_dp, &
+                                                      174.164456_dp, 327.013024_dp, 614.003114_dp, 1152.858743_dp, 2164.619772_dp, &
+                                                4064.312984_dp, 7631.197056_dp, 14328.416324_dp, 26903.186074_dp, 50513.706789_dp, &
+                                         94845.070265_dp, 178082.107320_dp, 334368.848683_dp, 627814.487663_dp, 1178791.123851_dp, &
+                                                      2213310.684886_dp, 4155735.557141_dp, 7802853.046713_dp, 14650719.428954_dp, &
+                                                  27508345.793637_dp, 51649961.080194_dp, 96978513.342764_dp, 182087882.613702_dp, &
+                                                           341890134.751331_dp/)
 
       CHARACTER(LEN=default_string_length)               :: basis_fn, basis_name
       INTEGER                                            :: basistype, i, j, k, l, ll, m, ngp, nl, &
@@ -434,7 +434,7 @@ CONTAINS
                nu = nup
             ELSE
                nu = nua
-            ENDIF
+            END IF
             basis%nbas = nu
             basis%nprim = nu
             ALLOCATE (basis%am(nu, 0:lmat))
@@ -524,7 +524,7 @@ CONTAINS
             ELSE
                ! use the Clementi extra large basis
                CALL Clementi_geobas(zval, cval, aval, basis%nbas, starti)
-            ENDIF
+            END IF
             basis%nprim = basis%nbas
          ELSE
             basis%nbas = 0
@@ -708,14 +708,14 @@ CONTAINS
 
       INTEGER, PARAMETER                                 :: nua = 40, nup = 20
       REAL(KIND=dp), DIMENSION(nua), PARAMETER :: ugbs = (/0.007299_dp, 0.013705_dp, 0.025733_dp, &
-         0.048316_dp, 0.090718_dp, 0.170333_dp, 0.319819_dp, 0.600496_dp, 1.127497_dp, 2.117000_dp,&
-         3.974902_dp, 7.463317_dp, 14.013204_dp, 26.311339_dp, 49.402449_dp, 92.758561_dp, &
-         174.164456_dp, 327.013024_dp, 614.003114_dp, 1152.858743_dp, 2164.619772_dp, &
-         4064.312984_dp, 7631.197056_dp, 14328.416324_dp, 26903.186074_dp, 50513.706789_dp, &
-         94845.070265_dp, 178082.107320_dp, 334368.848683_dp, 627814.487663_dp, 1178791.123851_dp, &
-         2213310.684886_dp, 4155735.557141_dp, 7802853.046713_dp, 14650719.428954_dp, &
-         27508345.793637_dp, 51649961.080194_dp, 96978513.342764_dp, 182087882.613702_dp, &
-         341890134.751331_dp/)
+                                        0.048316_dp, 0.090718_dp, 0.170333_dp, 0.319819_dp, 0.600496_dp, 1.127497_dp, 2.117000_dp, &
+                                                 3.974902_dp, 7.463317_dp, 14.013204_dp, 26.311339_dp, 49.402449_dp, 92.758561_dp, &
+                                                      174.164456_dp, 327.013024_dp, 614.003114_dp, 1152.858743_dp, 2164.619772_dp, &
+                                                4064.312984_dp, 7631.197056_dp, 14328.416324_dp, 26903.186074_dp, 50513.706789_dp, &
+                                         94845.070265_dp, 178082.107320_dp, 334368.848683_dp, 627814.487663_dp, 1178791.123851_dp, &
+                                                      2213310.684886_dp, 4155735.557141_dp, 7802853.046713_dp, 14650719.428954_dp, &
+                                                  27508345.793637_dp, 51649961.080194_dp, 96978513.342764_dp, 182087882.613702_dp, &
+                                                           341890134.751331_dp/)
 
       INTEGER                                            :: i, k, l, m, ngp, nr, nu, quadtype
       REAL(KIND=dp)                                      :: al, ear, rk
@@ -1041,7 +1041,7 @@ CONTAINS
       IF (PRESENT(fmat)) THEN
          IF (ASSOCIATED(atom%fmat)) CALL release_opmat(atom%fmat)
          atom%fmat => fmat
-      ENDIF
+      END IF
 
    END SUBROUTINE set_atom
 
@@ -2195,9 +2195,9 @@ CONTAINS
       CHARACTER(LEN=240)                                 :: line
       CHARACTER(LEN=242)                                 :: line2
       CHARACTER(LEN=LEN(basis_set_name))                 :: bsname
-      CHARACTER(LEN=LEN(basis_set_name)+2)               :: bsname2
+      CHARACTER(LEN=LEN(basis_set_name) + 2)               :: bsname2
       CHARACTER(LEN=LEN(element_symbol))                 :: symbol
-      CHARACTER(LEN=LEN(element_symbol)+2)               :: symbol2
+      CHARACTER(LEN=LEN(element_symbol) + 2)               :: symbol2
       INTEGER                                            :: i, ii, ipgf, irep, iset, ishell, j, k, &
                                                             lshell, nj, nmin, ns, nset, strlen1, &
                                                             strlen2
@@ -2544,9 +2544,9 @@ CONTAINS
       CHARACTER(LEN=242)                                 :: line2
       CHARACTER(len=5*default_string_length)             :: line_att
       CHARACTER(LEN=LEN(element_symbol))                 :: symbol
-      CHARACTER(LEN=LEN(element_symbol)+2)               :: symbol2
+      CHARACTER(LEN=LEN(element_symbol) + 2)               :: symbol2
       CHARACTER(LEN=LEN(pseudo_name))                    :: apname
-      CHARACTER(LEN=LEN(pseudo_name)+2)                  :: apname2
+      CHARACTER(LEN=LEN(pseudo_name) + 2)                  :: apname2
       INTEGER                                            :: i, ic, ipot, j, l, nlmax, strlen1, &
                                                             strlen2
       INTEGER, DIMENSION(0:lmat)                         :: elec_conf

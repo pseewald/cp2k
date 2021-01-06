@@ -13,40 +13,40 @@
 !> \author Matthias KracK (16.01.2002, based on a earlier version of CJM, JGH)
 ! **************************************************************************************************
 MODULE cell_methods
-   USE cell_types,                      ONLY: &
-        cell_clone, cell_create, cell_release, cell_sym_none, cell_type, get_cell, init_cell, &
-        set_cell_param, use_perd_none, use_perd_x, use_perd_xy, use_perd_xyz, use_perd_xz, &
-        use_perd_y, use_perd_yz, use_perd_z
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object,&
-                                              parser_search_string
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE cp_units,                        ONLY: cp_unit_from_cp2k,&
-                                              cp_unit_to_cp2k
-   USE input_constants,                 ONLY: do_cell_cif,&
-                                              do_cell_cp2k,&
-                                              do_cell_xsc
-   USE input_cp2k_subsys,               ONLY: create_cell_section
-   USE input_enumeration_types,         ONLY: enum_i2c,&
-                                              enumeration_type
-   USE input_keyword_types,             ONLY: keyword_get,&
-                                              keyword_type
-   USE input_section_types,             ONLY: &
-        section_get_keyword, section_release, section_type, section_vals_get, &
-        section_vals_get_subs_vals, section_vals_type, section_vals_val_get, section_vals_val_set, &
-        section_vals_val_unset
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: degree
-   USE mathlib,                         ONLY: angle
+   USE cell_types, ONLY: &
+      cell_clone, cell_create, cell_release, cell_sym_none, cell_type, get_cell, init_cell, &
+      set_cell_param, use_perd_none, use_perd_x, use_perd_xy, use_perd_xyz, use_perd_xz, &
+      use_perd_y, use_perd_yz, use_perd_z
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object, &
+                                parser_search_string
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE cp_units, ONLY: cp_unit_from_cp2k, &
+                       cp_unit_to_cp2k
+   USE input_constants, ONLY: do_cell_cif, &
+                              do_cell_cp2k, &
+                              do_cell_xsc
+   USE input_cp2k_subsys, ONLY: create_cell_section
+   USE input_enumeration_types, ONLY: enum_i2c, &
+                                      enumeration_type
+   USE input_keyword_types, ONLY: keyword_get, &
+                                  keyword_type
+   USE input_section_types, ONLY: &
+      section_get_keyword, section_release, section_type, section_vals_get, &
+      section_vals_get_subs_vals, section_vals_type, section_vals_val_get, section_vals_val_set, &
+      section_vals_val_unset
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mathconstants, ONLY: degree
+   USE mathlib, ONLY: angle
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

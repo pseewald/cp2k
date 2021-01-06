@@ -11,44 +11,44 @@
 !>      state of the unperturbed system as the initial state.
 ! **************************************************************************************************
 MODULE qs_tddfpt_module
-   USE bibliography,                    ONLY: Iannuzzi2005,&
-                                              cite_reference
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE header,                          ONLY: tddfpt_header
-   USE input_constants,                 ONLY: oe_gllb,&
-                                              oe_lb,&
-                                              oe_none,&
-                                              oe_saop,&
-                                              oe_sic,&
-                                              tddfpt_excitations
-   USE input_section_types,             ONLY: section_get_ival,&
-                                              section_vals_create,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_release,&
-                                              section_vals_retain,&
-                                              section_vals_set_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_ks_methods,                   ONLY: qs_ks_build_kohn_sham_matrix
-   USE qs_ks_types,                     ONLY: qs_ks_env_type,&
-                                              set_ks_env
-   USE qs_p_env_types,                  ONLY: qs_p_env_type
-   USE qs_rho_types,                    ONLY: qs_rho_type
-   USE qs_scf_types,                    ONLY: qs_scf_env_type
-   USE qs_tddfpt_eigensolver,           ONLY: eigensolver
-   USE qs_tddfpt_types,                 ONLY: tddfpt_env_type
-   USE qs_tddfpt_utils,                 ONLY: find_contributions,&
-                                              tddfpt_cleanup,&
-                                              tddfpt_init
-   USE xc_pot_saop,                     ONLY: add_saop_pot
+   USE bibliography, ONLY: Iannuzzi2005, &
+                           cite_reference
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE header, ONLY: tddfpt_header
+   USE input_constants, ONLY: oe_gllb, &
+                              oe_lb, &
+                              oe_none, &
+                              oe_saop, &
+                              oe_sic, &
+                              tddfpt_excitations
+   USE input_section_types, ONLY: section_get_ival, &
+                                  section_vals_create, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_release, &
+                                  section_vals_retain, &
+                                  section_vals_set_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_ks_methods, ONLY: qs_ks_build_kohn_sham_matrix
+   USE qs_ks_types, ONLY: qs_ks_env_type, &
+                          set_ks_env
+   USE qs_p_env_types, ONLY: qs_p_env_type
+   USE qs_rho_types, ONLY: qs_rho_type
+   USE qs_scf_types, ONLY: qs_scf_env_type
+   USE qs_tddfpt_eigensolver, ONLY: eigensolver
+   USE qs_tddfpt_types, ONLY: tddfpt_env_type
+   USE qs_tddfpt_utils, ONLY: find_contributions, &
+                              tddfpt_cleanup, &
+                              tddfpt_init
+   USE xc_pot_saop, ONLY: add_saop_pot
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

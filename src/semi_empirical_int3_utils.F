@@ -12,11 +12,11 @@
 ! **************************************************************************************************
 MODULE semi_empirical_int3_utils
 
-   USE input_constants,                 ONLY: do_method_pchg
-   USE kinds,                           ONLY: dp
-   USE semi_empirical_int_arrays,       ONLY: clm_d,&
-                                              indexb
-   USE semi_empirical_types,            ONLY: semi_empirical_type
+   USE input_constants, ONLY: do_method_pchg
+   USE kinds, ONLY: dp
+   USE semi_empirical_int_arrays, ONLY: clm_d, &
+                                        indexb
+   USE semi_empirical_types, ONLY: semi_empirical_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -37,10 +37,10 @@ MODULE semi_empirical_int3_utils
 ! **************************************************************************************************
       FUNCTION eval_func(r, l1, l2, add) RESULT(res)
          USE kinds, ONLY: dp
-      REAL(KIND=dp), INTENT(IN)                          :: r
-      INTEGER, INTENT(IN)                                :: l1, l2
-      REAL(KIND=dp), INTENT(IN)                          :: add
-      REAL(KIND=dp)                                      :: res
+         REAL(KIND=dp), INTENT(IN)                          :: r
+         INTEGER, INTENT(IN)                                :: l1, l2
+         REAL(KIND=dp), INTENT(IN)                          :: add
+         REAL(KIND=dp)                                      :: res
 
       END FUNCTION eval_func
    END INTERFACE

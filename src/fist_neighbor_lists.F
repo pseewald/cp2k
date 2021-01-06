@@ -18,45 +18,45 @@
 ! **************************************************************************************************
 MODULE fist_neighbor_lists
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell,&
-                                              pbc,&
-                                              plane_distance,&
-                                              scaled_to_real
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE exclusion_types,                 ONLY: exclusion_type
-   USE fist_neighbor_list_types,        ONLY: fist_neighbor_add,&
-                                              fist_neighbor_deallocate,&
-                                              fist_neighbor_init,&
-                                              fist_neighbor_type,&
-                                              neighbor_kind_pairs_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathlib,                         ONLY: matvec_3x3
-   USE memory_utilities,                ONLY: reallocate
-   USE particle_types,                  ONLY: particle_type
-   USE qmmm_ff_fist,                    ONLY: qmmm_ff_precond_only_qm
-   USE string_utilities,                ONLY: compress
-   USE subcell_types,                   ONLY: allocate_subcell,&
-                                              deallocate_subcell,&
-                                              give_ijk_subcell,&
-                                              reorder_atoms_subcell,&
-                                              subcell_type
-   USE util,                            ONLY: sort
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE cell_types, ONLY: cell_type, &
+                         get_cell, &
+                         pbc, &
+                         plane_distance, &
+                         scaled_to_real
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE exclusion_types, ONLY: exclusion_type
+   USE fist_neighbor_list_types, ONLY: fist_neighbor_add, &
+                                       fist_neighbor_deallocate, &
+                                       fist_neighbor_init, &
+                                       fist_neighbor_type, &
+                                       neighbor_kind_pairs_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathlib, ONLY: matvec_3x3
+   USE memory_utilities, ONLY: reallocate
+   USE particle_types, ONLY: particle_type
+   USE qmmm_ff_fist, ONLY: qmmm_ff_precond_only_qm
+   USE string_utilities, ONLY: compress
+   USE subcell_types, ONLY: allocate_subcell, &
+                            deallocate_subcell, &
+                            give_ijk_subcell, &
+                            reorder_atoms_subcell, &
+                            subcell_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -147,7 +147,7 @@ CONTAINS
       ! for the local particles are needed, which would imply a huge memory savings for fist
       IF (PRESENT(exclusions)) THEN
          CPASSERT(present_local_particles)
-      ENDIF
+      END IF
 
       ! Allocate work storage
       nkind = SIZE(atomic_kind_set)
@@ -292,9 +292,9 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'build_neighbor_lists'
 
       INTEGER :: a_i, a_j, a_k, atom_a, atom_b, b_i, b_j, b_k, b_pi, b_pj, b_pk, bg_i, bg_j, bg_k, &
-         handle, i, i1, iatom_local, icell, icellmap, id_kind, ii, ii_start, ij, ij_start, ik, &
-         ik_start, ikind, imap, imax_cell, invcellmap, iw, ix, j, j1, jatom_local, jcell, jkind, &
-         jx, k, kcell, kx, natom_local_a, ncellmax, nkind, nkind00, tmpdim, xdim, ydim, zdim
+                 handle, i, i1, iatom_local, icell, icellmap, id_kind, ii, ii_start, ij, ij_start, ik, &
+                 ik_start, ikind, imap, imax_cell, invcellmap, iw, ix, j, j1, jatom_local, jcell, jkind, &
+                 jx, k, kcell, kx, natom_local_a, ncellmax, nkind, nkind00, tmpdim, xdim, ydim, zdim
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of, work
       INTEGER, ALLOCATABLE, DIMENSION(:, :, :)           :: cellmap
       INTEGER, DIMENSION(3)                              :: isubcell, ncell, nsubcell, periodic
@@ -373,11 +373,11 @@ CONTAINS
                      neighbor_kind_pair%cell_vector(1) = icell
                      neighbor_kind_pair%cell_vector(2) = jcell
                      neighbor_kind_pair%cell_vector(3) = kcell
-                  ENDIF
-               ENDDO
-            ENDDO
-         ENDDO
-      ENDDO
+                  END IF
+               END DO
+            END DO
+         END DO
+      END DO
       ! Mapping the spherical interaction between subcells
       ALLOCATE (sphcub(-isubcell(1):isubcell(1), &
                        -isubcell(2):isubcell(2), &

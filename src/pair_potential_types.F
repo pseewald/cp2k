@@ -13,16 +13,16 @@
 ! **************************************************************************************************
 MODULE pair_potential_types
 
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE splines_types,                   ONLY: spline_data_p_copy,&
-                                              spline_data_p_release,&
-                                              spline_data_p_type,&
-                                              spline_factor_copy,&
-                                              spline_factor_release,&
-                                              spline_factor_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE splines_types, ONLY: spline_data_p_copy, &
+                            spline_data_p_release, &
+                            spline_data_p_type, &
+                            spline_factor_copy, &
+                            spline_factor_release, &
+                            spline_factor_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -926,7 +926,7 @@ CONTAINS
 
       INTEGER                                            :: i, ipot, lb1_old, std_dim, ub1_old
       LOGICAL :: check, lbmhft, lbmhftd, lbuck4r, lbuckmo, leam, lgal, lgoodwin, lgp, lipbv, llj, &
-         llj_charmm, lquip, lsiepmann, ltersoff, lwilliams
+                 llj_charmm, lquip, lsiepmann, ltersoff, lwilliams
       TYPE(pair_potential_p_type), POINTER               :: work
 
       NULLIFY (work)

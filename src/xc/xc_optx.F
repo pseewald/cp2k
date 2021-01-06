@@ -12,17 +12,17 @@
 !> \author Joost VandeVondele [03.2004]
 ! **************************************************************************************************
 MODULE xc_optx
-   USE cp_array_utils,                  ONLY: cp_3d_r_p_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
+   USE cp_array_utils, ONLY: cp_3d_r_p_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -182,7 +182,7 @@ CONTAINS
          NULLIFY (e_ndrho(ispin)%array)
          NULLIFY (rho(ispin)%array)
          NULLIFY (ndrho(ispin)%array)
-      ENDDO
+      END DO
 
       CALL section_vals_val_get(optx_params, "scale_x", r_val=sx)
       CALL section_vals_val_get(optx_params, "a1", r_val=a1)
@@ -225,7 +225,7 @@ CONTAINS
                             npoints=npoints, epsilon_rho=epsilon_rho, &
                             epsilon_drho=epsilon_drho, sx=sx, &
                             a1=a1, a2=a2, gam=gam)
-      ENDDO
+      END DO
    END SUBROUTINE optx_lsd_eval
 
 ! **************************************************************************************************

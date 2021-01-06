@@ -13,24 +13,24 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE input_cp2k_external
-   USE bibliography,                    ONLY: Tozer1996,&
-                                              Zhao1994
-   USE input_constants,                 ONLY: use_coulomb,&
-                                              use_diff,&
-                                              use_no
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: char_t,&
-                                              lchar_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: s2a
+   USE bibliography, ONLY: Tozer1996, &
+                           Zhao1994
+   USE input_constants, ONLY: use_coulomb, &
+                              use_diff, &
+                              use_no
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: char_t, &
+                              lchar_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

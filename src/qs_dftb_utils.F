@@ -11,16 +11,16 @@
 ! **************************************************************************************************
 MODULE qs_dftb_utils
 
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE qs_dftb_types,                   ONLY: qs_dftb_atom_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE qs_dftb_types, ONLY: qs_dftb_atom_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -549,8 +549,8 @@ CONTAINS
 !> \version 1.0
 ! **************************************************************************************************
       SUBROUTINE skss(skpar, mat)
-      REAL(dp), INTENT(in)                               :: skpar(:)
-      REAL(dp), INTENT(inout)                            :: mat(:, :)
+         REAL(dp), INTENT(in)                               :: skpar(:)
+         REAL(dp), INTENT(inout)                            :: mat(:, :)
 
          mat(1, 1) = mat(1, 1) + skpar(1)
          !
@@ -565,13 +565,13 @@ CONTAINS
 !> \version 1.0
 ! **************************************************************************************************
       SUBROUTINE sksp(skpar, mat, ind, transposed)
-      REAL(dp), INTENT(in)                               :: skpar(:)
-      REAL(dp), INTENT(inout)                            :: mat(:, :)
-      INTEGER, INTENT(in)                                :: ind(0:, 0:, 0:)
-      LOGICAL, INTENT(in)                                :: transposed
+         REAL(dp), INTENT(in)                               :: skpar(:)
+         REAL(dp), INTENT(inout)                            :: mat(:, :)
+         INTEGER, INTENT(in)                                :: ind(0:, 0:, 0:)
+         LOGICAL, INTENT(in)                                :: transposed
 
-      INTEGER                                            :: l
-      REAL(dp)                                           :: skp
+         INTEGER                                            :: l
+         REAL(dp)                                           :: skp
 
          skp = skpar(ind(1, 0, 0))
          IF (transposed) THEN
@@ -593,12 +593,12 @@ CONTAINS
 !> \param ind ...
 ! **************************************************************************************************
       SUBROUTINE skpp(skpar, mat, ind)
-      REAL(dp), INTENT(in)                               :: skpar(:)
-      REAL(dp), INTENT(inout)                            :: mat(:, :)
-      INTEGER, INTENT(in)                                :: ind(0:, 0:, 0:)
+         REAL(dp), INTENT(in)                               :: skpar(:)
+         REAL(dp), INTENT(inout)                            :: mat(:, :)
+         INTEGER, INTENT(in)                                :: ind(0:, 0:, 0:)
 
-      INTEGER                                            :: ii, ir, is, k, l
-      REAL(dp)                                           :: epp(6), matel(6), skppp, skpps
+         INTEGER                                            :: ii, ir, is, k, l
+         REAL(dp)                                           :: epp(6), matel(6), skppp, skpps
 
          epp(1:3) = rr2(1:3)
          DO l = 1, 3
@@ -633,13 +633,13 @@ CONTAINS
 !> \param transposed ...
 ! **************************************************************************************************
       SUBROUTINE sksd(skpar, mat, ind, transposed)
-      REAL(dp), INTENT(in)                               :: skpar(:)
-      REAL(dp), INTENT(inout)                            :: mat(:, :)
-      INTEGER, INTENT(in)                                :: ind(0:, 0:, 0:)
-      LOGICAL, INTENT(in)                                :: transposed
+         REAL(dp), INTENT(in)                               :: skpar(:)
+         REAL(dp), INTENT(inout)                            :: mat(:, :)
+         INTEGER, INTENT(in)                                :: ind(0:, 0:, 0:)
+         LOGICAL, INTENT(in)                                :: transposed
 
-      INTEGER                                            :: l
-      REAL(dp)                                           :: d4, d5, es(5), r3, sksds
+         INTEGER                                            :: l
+         REAL(dp)                                           :: d4, d5, es(5), r3, sksds
 
          sksds = skpar(ind(2, 0, 0))
          r3 = SQRT(3._dp)
@@ -671,14 +671,14 @@ CONTAINS
 !> \param transposed ...
 ! **************************************************************************************************
       SUBROUTINE skpd(skpar, mat, ind, transposed)
-      REAL(dp), INTENT(in)                               :: skpar(:)
-      REAL(dp), INTENT(inout)                            :: mat(:, :)
-      INTEGER, INTENT(in)                                :: ind(0:, 0:, 0:)
-      LOGICAL, INTENT(in)                                :: transposed
+         REAL(dp), INTENT(in)                               :: skpar(:)
+         REAL(dp), INTENT(inout)                            :: mat(:, :)
+         INTEGER, INTENT(in)                                :: ind(0:, 0:, 0:)
+         LOGICAL, INTENT(in)                                :: transposed
 
-      INTEGER                                            :: ir, is, k, l, m
-      REAL(dp)                                           :: d3, d4, d5, d6, dm(15), epd(13, 2), r3, &
-                                                            sktmp
+         INTEGER                                            :: ir, is, k, l, m
+         REAL(dp)                                           :: d3, d4, d5, d6, dm(15), epd(13, 2), r3, &
+                                                               sktmp
 
          r3 = SQRT(3.0_dp)
          d3 = rr2(1) + rr2(2)
@@ -747,12 +747,12 @@ CONTAINS
 !> \param ind ...
 ! **************************************************************************************************
       SUBROUTINE skdd(skpar, mat, ind)
-      REAL(dp), INTENT(in)                               :: skpar(:)
-      REAL(dp), INTENT(inout)                            :: mat(:, :)
-      INTEGER, INTENT(in)                                :: ind(0:, 0:, 0:)
+         REAL(dp), INTENT(in)                               :: skpar(:)
+         REAL(dp), INTENT(inout)                            :: mat(:, :)
+         INTEGER, INTENT(in)                                :: ind(0:, 0:, 0:)
 
-      INTEGER                                            :: ii, ir, is, k, l, m
-      REAL(dp)                                           :: d3, d4, d5, dd(3), dm(15), e(15, 3), r3
+         INTEGER                                            :: ii, ir, is, k, l, m
+         REAL(dp)                                           :: d3, d4, d5, dd(3), dm(15), e(15, 3), r3
 
          r3 = SQRT(3._dp)
          d3 = rr2(1) + rr2(2)
@@ -852,7 +852,7 @@ CONTAINS
          IF (dift .LT. dif) THEN
             ns = i
             dif = dift
-         ENDIF
+         END IF
          c(i) = ya(i)
          d(i) = ya(i)
       END DO
@@ -875,7 +875,7 @@ CONTAINS
          ELSE
             dy = d(ns)
             ns = ns - 1
-         ENDIF
+         END IF
          y = y + dy
       END DO
 !
@@ -975,7 +975,7 @@ CONTAINS
                         erep = erep + scoeff(isp, jsp + 1)*rz**(jsp)
                      ELSE
                         erep = erep + surr(jsp - 3)*rz**(jsp)
-                     ENDIF
+                     END IF
                   END DO
                   IF (dograd) THEN
                      DO jsp = 1, nsp
@@ -983,7 +983,7 @@ CONTAINS
                            de_z = de_z + jsp*scoeff(isp, jsp + 1)*rz**(jsp - 1)
                         ELSE
                            de_z = de_z + jsp*surr(jsp - 3)*rz**(jsp - 1)
-                        ENDIF
+                        END IF
                      END DO
                   END IF
                END IF

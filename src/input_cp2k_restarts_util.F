@@ -6,18 +6,18 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE input_cp2k_restarts_util
-   USE cp_linked_list_input,            ONLY: cp_sll_val_create,&
-                                              cp_sll_val_get_length,&
-                                              cp_sll_val_type
-   USE input_section_types,             ONLY: section_get_keyword_index,&
-                                              section_type,&
-                                              section_vals_add_values,&
-                                              section_vals_type
-   USE input_val_types,                 ONLY: val_create,&
-                                              val_release,&
-                                              val_type
-   USE kinds,                           ONLY: dp
-   USE particle_list_types,             ONLY: particle_list_type
+   USE cp_linked_list_input, ONLY: cp_sll_val_create, &
+                                   cp_sll_val_get_length, &
+                                   cp_sll_val_type
+   USE input_section_types, ONLY: section_get_keyword_index, &
+                                  section_type, &
+                                  section_vals_add_values, &
+                                  section_vals_type
+   USE input_val_types, ONLY: val_create, &
+                              val_release, &
+                              val_type
+   USE kinds, ONLY: dp
+   USE particle_list_types, ONLY: particle_list_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

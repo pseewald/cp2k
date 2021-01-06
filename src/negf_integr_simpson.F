@@ -9,31 +9,31 @@
 !> \brief Adaptive Simpson's rule algorithm to integrate a complex-valued function in a complex plane
 ! **************************************************************************************************
 MODULE negf_integr_simpson
-   USE cp_cfm_basic_linalg,             ONLY: cp_cfm_scale,&
-                                              cp_cfm_scale_and_add
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_get_info,&
-                                              cp_cfm_p_type,&
-                                              cp_cfm_release,&
-                                              cp_cfm_retain,&
-                                              cp_cfm_set_all,&
-                                              cp_cfm_to_cfm,&
-                                              cp_cfm_type
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_trace
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi,&
-                                              z_one,&
-                                              z_zero
-   USE negf_integr_utils,               ONLY: contour_shape_arc,&
-                                              contour_shape_linear,&
-                                              equidistant_nodes_a_b,&
-                                              rescale_normalised_nodes
-   USE util,                            ONLY: sort
+   USE cp_cfm_basic_linalg, ONLY: cp_cfm_scale, &
+                                  cp_cfm_scale_and_add
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_get_info, &
+                           cp_cfm_p_type, &
+                           cp_cfm_release, &
+                           cp_cfm_retain, &
+                           cp_cfm_set_all, &
+                           cp_cfm_to_cfm, &
+                           cp_cfm_type
+   USE cp_fm_basic_linalg, ONLY: cp_fm_trace
+   USE cp_fm_struct, ONLY: cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi, &
+                            z_one, &
+                            z_zero
+   USE negf_integr_utils, ONLY: contour_shape_arc, &
+                                contour_shape_linear, &
+                                equidistant_nodes_a_b, &
+                                rescale_normalised_nodes
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

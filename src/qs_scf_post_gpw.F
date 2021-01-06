@@ -13,196 +13,196 @@
 !> \author Joost VandeVondele (10.2003)
 ! **************************************************************************************************
 MODULE qs_scf_post_gpw
-   USE admm_types,                      ONLY: admm_type
-   USE admm_utils,                      ONLY: admm_correct_for_eigenvalues,&
-                                              admm_uncorrect_for_eigenvalues
-   USE ai_onecenter,                    ONLY: sg_overlap
-   USE atom_kind_orbitals,              ONLY: calculate_atomic_density
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_dbcsr_output,                 ONLY: cp_dbcsr_write_sparse_matrix
-   USE cp_ddapc_util,                   ONLY: get_ddapc
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_init_random,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_fm_vect,                      ONLY: cp_fm_vect_dealloc
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE dbcsr_api,                       ONLY: dbcsr_p_type,&
-                                              dbcsr_type
-   USE dct,                             ONLY: pw_shrink
-   USE et_coupling_types,               ONLY: set_et_coupling_type
-   USE hirshfeld_methods,               ONLY: comp_hirshfeld_charges,&
-                                              comp_hirshfeld_i_charges,&
-                                              create_shape_function,&
-                                              write_hirshfeld_charges
-   USE hirshfeld_types,                 ONLY: create_hirshfeld_type,&
-                                              hirshfeld_type,&
-                                              release_hirshfeld_type,&
-                                              set_hirshfeld_info
-   USE input_constants,                 ONLY: do_loc_both,&
-                                              do_loc_homo,&
-                                              do_loc_lumo,&
-                                              ot_precond_full_all,&
-                                              radius_covalent,&
-                                              radius_user,&
-                                              ref_charge_atomic,&
-                                              ref_charge_mulliken
-   USE input_section_types,             ONLY: section_get_ival,&
-                                              section_get_ivals,&
-                                              section_get_lval,&
-                                              section_get_rval,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE kpoint_types,                    ONLY: kpoint_type
-   USE lapack,                          ONLY: lapack_sgesv
-   USE mao_wfn_analysis,                ONLY: mao_analysis
-   USE mathconstants,                   ONLY: pi
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_sum
-   USE minbas_wfn_analysis,             ONLY: minbas_analysis
-   USE molden_utils,                    ONLY: write_mos_molden
-   USE molecule_types,                  ONLY: molecule_type
-   USE mulliken,                        ONLY: mulliken_charges
-   USE orbital_pointers,                ONLY: indso
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: angstrom,&
-                                              evolt
-   USE population_analyses,             ONLY: lowdin_population_analysis,&
-                                              mulliken_population_analysis
-   USE preconditioner_types,            ONLY: preconditioner_type
-   USE ps_implicit_types,               ONLY: MIXED_BC,&
-                                              MIXED_PERIODIC_BC,&
-                                              NEUMANN_BC,&
-                                              PERIODIC_BC
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_grids,                        ONLY: get_pw_grid_info
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_derive,&
-                                              pw_integrate_function,&
-                                              pw_scale,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_poisson_methods,              ONLY: pw_poisson_solve
-   USE pw_poisson_types,                ONLY: pw_poisson_implicit,&
-                                              pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
-   USE qs_active_space_methods,         ONLY: active_space_main
-   USE qs_chargemol,                    ONLY: write_wfx
-   USE qs_collocate_density,            ONLY: calculate_wavefunction
-   USE qs_commutators,                  ONLY: build_com_hr_matrix
-   USE qs_core_energies,                ONLY: calculate_ptrace
-   USE qs_dos,                          ONLY: calculate_dos,&
-                                              calculate_dos_kp
-   USE qs_electric_field_gradient,      ONLY: qs_efg_calc
-   USE qs_elf_methods,                  ONLY: qs_elf_calc
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_energy_window,                ONLY: energy_windows
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_epr_hyp,                      ONLY: qs_epr_hyp_calc
-   USE qs_grid_atom,                    ONLY: grid_atom_type
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_methods,                   ONLY: calc_rho_tot_gspace,&
-                                              qs_ks_update_qs_env
-   USE qs_ks_types,                     ONLY: qs_ks_did_change
-   USE qs_loc_dipole,                   ONLY: loc_dipole
-   USE qs_loc_states,                   ONLY: get_localization_info
-   USE qs_loc_types,                    ONLY: qs_loc_env_create,&
-                                              qs_loc_env_destroy,&
-                                              qs_loc_env_new_type
-   USE qs_loc_utils,                    ONLY: loc_write_restart,&
-                                              qs_loc_control_init,&
-                                              qs_loc_env_init,&
-                                              qs_loc_init,&
-                                              retain_history
-   USE qs_local_properties,             ONLY: qs_local_energy,&
-                                              qs_local_stress
-   USE qs_mo_io,                        ONLY: write_dm_binary_restart,&
-                                              write_mo_set
-   USE qs_mo_methods,                   ONLY: calculate_subspace_eigenvalues,&
-                                              make_mo_eig
-   USE qs_mo_occupation,                ONLY: set_mo_occupation
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_moments,                      ONLY: qs_moment_berry_phase,&
-                                              qs_moment_locop
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              get_neighbor_list_set_p,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE qs_ot_eigensolver,               ONLY: ot_eigensolver
-   USE qs_pdos,                         ONLY: calculate_projected_dos
-   USE qs_resp,                         ONLY: resp_fit
-   USE qs_rho0_types,                   ONLY: get_rho0_mpole,&
-                                              mpole_rho_atom,&
-                                              rho0_mpole_type
-   USE qs_rho_atom_types,               ONLY: rho_atom_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf_csr_write,                ONLY: write_ks_matrix_csr,&
-                                              write_s_matrix_csr
-   USE qs_scf_types,                    ONLY: ot_method_nr,&
-                                              qs_scf_env_type
-   USE qs_scf_wfn_mix,                  ONLY: wfn_mix
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
-   USE qs_wannier90,                    ONLY: wannier90_interface
-   USE s_square_methods,                ONLY: compute_s_square
-   USE scf_control_types,               ONLY: scf_control_type
-   USE stm_images,                      ONLY: th_stm_image
-   USE transport,                       ONLY: qs_scf_post_transport
-   USE virial_types,                    ONLY: virial_type
-   USE voronoi_interface,               ONLY: entry_voronoi_or_bqb
-   USE xray_diffraction,                ONLY: calculate_rhotot_elec_gspace,&
-                                              xray_diffraction_spectrum
+   USE admm_types, ONLY: admm_type
+   USE admm_utils, ONLY: admm_correct_for_eigenvalues, &
+                         admm_uncorrect_for_eigenvalues
+   USE ai_onecenter, ONLY: sg_overlap
+   USE atom_kind_orbitals, ONLY: calculate_atomic_density
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cell_types, ONLY: cell_type
+   USE cp_array_utils, ONLY: cp_1d_r_p_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_dbcsr_output, ONLY: cp_dbcsr_write_sparse_matrix
+   USE cp_ddapc_util, ONLY: get_ddapc
+   USE cp_fm_diag, ONLY: choose_eigv_solver
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_init_random, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_fm_vect, ONLY: cp_fm_vect_dealloc
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_realspace_grid_cube, ONLY: cp_pw_to_cube
+   USE dbcsr_api, ONLY: dbcsr_p_type, &
+                        dbcsr_type
+   USE dct, ONLY: pw_shrink
+   USE et_coupling_types, ONLY: set_et_coupling_type
+   USE hirshfeld_methods, ONLY: comp_hirshfeld_charges, &
+                                comp_hirshfeld_i_charges, &
+                                create_shape_function, &
+                                write_hirshfeld_charges
+   USE hirshfeld_types, ONLY: create_hirshfeld_type, &
+                              hirshfeld_type, &
+                              release_hirshfeld_type, &
+                              set_hirshfeld_info
+   USE input_constants, ONLY: do_loc_both, &
+                              do_loc_homo, &
+                              do_loc_lumo, &
+                              ot_precond_full_all, &
+                              radius_covalent, &
+                              radius_user, &
+                              ref_charge_atomic, &
+                              ref_charge_mulliken
+   USE input_section_types, ONLY: section_get_ival, &
+                                  section_get_ivals, &
+                                  section_get_lval, &
+                                  section_get_rval, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE kpoint_types, ONLY: kpoint_type
+   USE lapack, ONLY: lapack_sgesv
+   USE mao_wfn_analysis, ONLY: mao_analysis
+   USE mathconstants, ONLY: pi
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_sum
+   USE minbas_wfn_analysis, ONLY: minbas_analysis
+   USE molden_utils, ONLY: write_mos_molden
+   USE molecule_types, ONLY: molecule_type
+   USE mulliken, ONLY: mulliken_charges
+   USE orbital_pointers, ONLY: indso
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: angstrom, &
+                      evolt
+   USE population_analyses, ONLY: lowdin_population_analysis, &
+                                  mulliken_population_analysis
+   USE preconditioner_types, ONLY: preconditioner_type
+   USE ps_implicit_types, ONLY: MIXED_BC, &
+                                MIXED_PERIODIC_BC, &
+                                NEUMANN_BC, &
+                                PERIODIC_BC
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_grids, ONLY: get_pw_grid_info
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_derive, &
+                         pw_integrate_function, &
+                         pw_scale, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_poisson_methods, ONLY: pw_poisson_solve
+   USE pw_poisson_types, ONLY: pw_poisson_implicit, &
+                               pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_type
+   USE qs_active_space_methods, ONLY: active_space_main
+   USE qs_chargemol, ONLY: write_wfx
+   USE qs_collocate_density, ONLY: calculate_wavefunction
+   USE qs_commutators, ONLY: build_com_hr_matrix
+   USE qs_core_energies, ONLY: calculate_ptrace
+   USE qs_dos, ONLY: calculate_dos, &
+                     calculate_dos_kp
+   USE qs_electric_field_gradient, ONLY: qs_efg_calc
+   USE qs_elf_methods, ONLY: qs_elf_calc
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_energy_window, ONLY: energy_windows
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_epr_hyp, ONLY: qs_epr_hyp_calc
+   USE qs_grid_atom, ONLY: grid_atom_type
+   USE qs_integral_utils, ONLY: basis_set_list_setup
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_methods, ONLY: calc_rho_tot_gspace, &
+                            qs_ks_update_qs_env
+   USE qs_ks_types, ONLY: qs_ks_did_change
+   USE qs_loc_dipole, ONLY: loc_dipole
+   USE qs_loc_states, ONLY: get_localization_info
+   USE qs_loc_types, ONLY: qs_loc_env_create, &
+                           qs_loc_env_destroy, &
+                           qs_loc_env_new_type
+   USE qs_loc_utils, ONLY: loc_write_restart, &
+                           qs_loc_control_init, &
+                           qs_loc_env_init, &
+                           qs_loc_init, &
+                           retain_history
+   USE qs_local_properties, ONLY: qs_local_energy, &
+                                  qs_local_stress
+   USE qs_mo_io, ONLY: write_dm_binary_restart, &
+                       write_mo_set
+   USE qs_mo_methods, ONLY: calculate_subspace_eigenvalues, &
+                            make_mo_eig
+   USE qs_mo_occupation, ONLY: set_mo_occupation
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_moments, ONLY: qs_moment_berry_phase, &
+                         qs_moment_locop
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     get_neighbor_list_set_p, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE qs_ot_eigensolver, ONLY: ot_eigensolver
+   USE qs_pdos, ONLY: calculate_projected_dos
+   USE qs_resp, ONLY: resp_fit
+   USE qs_rho0_types, ONLY: get_rho0_mpole, &
+                            mpole_rho_atom, &
+                            rho0_mpole_type
+   USE qs_rho_atom_types, ONLY: rho_atom_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf_csr_write, ONLY: write_ks_matrix_csr, &
+                               write_s_matrix_csr
+   USE qs_scf_types, ONLY: ot_method_nr, &
+                           qs_scf_env_type
+   USE qs_scf_wfn_mix, ONLY: wfn_mix
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
+   USE qs_wannier90, ONLY: wannier90_interface
+   USE s_square_methods, ONLY: compute_s_square
+   USE scf_control_types, ONLY: scf_control_type
+   USE stm_images, ONLY: th_stm_image
+   USE transport, ONLY: qs_scf_post_transport
+   USE virial_types, ONLY: virial_type
+   USE voronoi_interface, ONLY: entry_voronoi_or_bqb
+   USE xray_diffraction, ONLY: calculate_rhotot_elec_gspace, &
+                               xray_diffraction_spectrum
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -249,8 +249,8 @@ CONTAINS
                                                             nlumos, nmo, output_unit, unit_nr
       INTEGER, DIMENSION(:, :, :), POINTER               :: marked_states
       LOGICAL :: check_write, compute_lumos, do_homo, do_kpoints, do_mo_cubes, do_stm, &
-         do_wannier_cubes, has_homo, has_lumo, loc_explicit, loc_print_explicit, my_localized_wfn, &
-         p_loc, p_loc_homo, p_loc_lumo
+                 do_wannier_cubes, has_homo, has_lumo, loc_explicit, loc_print_explicit, my_localized_wfn, &
+                 p_loc, p_loc_homo, p_loc_lumo
       REAL(dp)                                           :: e_kin
       REAL(KIND=dp)                                      :: gap, homo_lumo(2, 2)
       REAL(KIND=dp), DIMENSION(:), POINTER               :: mo_eigenvalues
@@ -259,7 +259,7 @@ CONTAINS
       TYPE(cp_1d_r_p_type), DIMENSION(:), POINTER        :: occupied_evals, unoccupied_evals, &
                                                             unoccupied_evals_stm
       TYPE(cp_fm_p_type), DIMENSION(:), POINTER :: homo_localized, lumo_localized, lumo_ptr, &
-         mo_loc_history, occupied_orbs, unoccupied_orbs, unoccupied_orbs_stm
+                                                   mo_loc_history, occupied_orbs, unoccupied_orbs, unoccupied_orbs_stm
       TYPE(cp_fm_type), POINTER                          :: mo_coeff
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: ks_rmpv, matrix_s, mo_derivs
@@ -294,8 +294,8 @@ CONTAINS
             WRITE (UNIT=output_unit, FMT='(/,(T1,A))') REPEAT("-", 40)
             WRITE (UNIT=output_unit, FMT='(/,(T3,A,T19,A,T25,A))') "Properties from ", wf_type, " density"
             WRITE (UNIT=output_unit, FMT='(/,(T1,A))') REPEAT("-", 40)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! Writes the data that is already available in qs_env
       CALL get_qs_env(qs_env, scf_env=scf_env)
@@ -349,7 +349,7 @@ CONTAINS
                                         extension=".Log")
          IF (unit_nr > 0) THEN
             WRITE (unit_nr, '(T3,A,T55,F25.14)') "Electronic kinetic energy:", e_kin
-         ENDIF
+         END IF
          CALL cp_print_key_finished_output(unit_nr, logger, input, &
                                            "DFT%PRINT%KINETIC_ENERGY")
       END IF
@@ -476,8 +476,8 @@ CONTAINS
                CALL qs_scf_post_occ_cubes(input, dft_section, dft_control, logger, qs_env, &
                                           mo_coeff, wf_g, wf_r, particles, homo, ispin)
             END DO
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! Initialize the localization environment, needed e.g. for wannier functions and molecular states
       ! Gets localization info for the occupied orbs
@@ -516,7 +516,7 @@ CONTAINS
             IF (qs_loc_env_homo%localized_wfn_control%use_history) THEN
                CALL retain_history(mo_loc_history, homo_localized)
                CALL set_qs_env(qs_env, mo_loc_history=mo_loc_history)
-            ENDIF
+            END IF
 
             !write restart for localization of occupied orbitals
             CALL loc_write_restart(qs_loc_env_homo, loc_print_section, mos, &
@@ -529,7 +529,7 @@ CONTAINS
                CALL loc_dipole(input, dft_control, qs_loc_env_homo, logger, qs_env)
             END IF
          END IF
-      ENDIF
+      END IF
 
       ! Gets the lumos, and eigenvalues for the lumos, and localize them if requested
       IF (do_kpoints) THEN
@@ -629,7 +629,7 @@ CONTAINS
                                       evals=unoccupied_evals)
                lumo_ptr => lumo_localized
             END IF
-         ENDIF
+         END IF
 
          IF (has_homo .AND. has_lumo) THEN
             IF (output_unit > 0) WRITE (output_unit, *) " "
@@ -639,9 +639,9 @@ CONTAINS
                   IF (output_unit > 0) WRITE (output_unit, '(T2,A,F12.6)') &
                      "HOMO - LUMO gap [eV] :", gap*evolt
                END IF
-            ENDDO
-         ENDIF
-      ENDIF
+            END DO
+         END IF
+      END IF
 
       ! Deallocate grids needed to compute wavefunctions
       IF (((do_mo_cubes .OR. do_wannier_cubes) .AND. (nlumo /= 0 .OR. nhomo /= 0)) .OR. p_loc) THEN
@@ -675,13 +675,13 @@ CONTAINS
                DEALLOCATE (unoccupied_evals(ispin)%array)
                IF (.NOT. dft_control%do_tddfpt_calculation) &
                   CALL cp_fm_release(unoccupied_orbs(ispin)%matrix)
-            ENDDO
+            END DO
             DEALLOCATE (unoccupied_evals)
             IF (.NOT. dft_control%do_tddfpt_calculation) THEN
                DEALLOCATE (unoccupied_orbs)
             END IF
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       !stm images
       IF (do_stm) THEN
@@ -702,7 +702,7 @@ CONTAINS
                DO ispin = 1, dft_control%nspins
                   DEALLOCATE (unoccupied_evals_stm(ispin)%array)
                   CALL cp_fm_release(unoccupied_orbs_stm(ispin)%matrix)
-               ENDDO
+               END DO
                DEALLOCATE (unoccupied_evals_stm)
                DEALLOCATE (unoccupied_orbs_stm)
             END IF
@@ -812,8 +812,8 @@ CONTAINS
             ! this one can for sure not be right (as it has to match a given C0)
             IF (local_preconditioner%in_use == ot_precond_full_all) THEN
                NULLIFY (local_preconditioner)
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          ! ** If we do ADMM, we add have to modify the kohn-sham matrix
          IF (dft_control%do_admm) THEN
@@ -993,7 +993,7 @@ CONTAINS
             CALL cp_pw_to_cube(wf_r%pw, unit_nr, title, particles=particles, &
                                stride=section_get_ivals(dft_section, "PRINT%MO_CUBES%STRIDE"), mpi_io=mpi_io)
             CALL cp_print_key_finished_output(unit_nr, logger, input, "DFT%PRINT%MO_CUBES", mpi_io=mpi_io)
-         ENDDO
+         END DO
          IF (ASSOCIATED(list_index)) DEALLOCATE (list_index)
       END IF
 
@@ -1078,8 +1078,8 @@ CONTAINS
             CALL cp_pw_to_cube(wf_r%pw, unit_nr, title, particles=particles, &
                                stride=section_get_ivals(dft_section, "PRINT%MO_CUBES%STRIDE"), mpi_io=mpi_io)
             CALL cp_print_key_finished_output(unit_nr, logger, input, "DFT%PRINT%MO_CUBES", mpi_io=mpi_io)
-         ENDDO
-      ENDIF
+         END DO
+      END IF
 
       CALL timestop(handle)
 
@@ -1192,7 +1192,7 @@ CONTAINS
             END IF
             CALL cp_print_key_finished_output(unit_nr=unit_nr, logger=logger, &
                                               basis_section=input, print_key_path="DFT%PRINT%MOMENTS")
-         ENDIF
+         END IF
 
       END IF
 
@@ -1505,7 +1505,7 @@ CONTAINS
             ! optimizations
             WRITE (unit_nr, '(T2,A28,2A25)') "", "Tot. Ener.", "S Cond. Numb."
             WRITE (unit_nr, '(T2,A28,2E25.17)') "BASIS_MOLOPT_QUANTITIES", energy%total, S_cond_number
-         ENDIF
+         END IF
 
          CALL cp_print_key_finished_output(unit_nr, logger, input, &
                                            "DFT%PRINT%BASIS_MOLOPT_QUANTITIES")
@@ -1699,8 +1699,8 @@ CONTAINS
             ELSE
                CALL get_qs_env(qs_env, mos=mos)
                CALL calculate_dos(mos, qs_env, dft_section)
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          ! *** at the end of scf print out the projected dos per kind
          IF (BTEST(cp_print_key_should_output(logger%iter_info, dft_section, "PRINT%PDOS") &
@@ -1725,7 +1725,7 @@ CONTAINS
                            mo_coeff_deriv => qs_env%mo_derivs(ispin)%matrix
                         ELSE
                            mo_coeff_deriv => NULL()
-                        ENDIF
+                        END IF
 
                         CALL calculate_subspace_eigenvalues(mo_coeff, ks_rmpv(ispin)%matrix, mo_eigenvalues, &
                                                             do_rotation=.TRUE., &
@@ -1748,8 +1748,8 @@ CONTAINS
                   END IF
 
                END DO
-            ENDIF
-         ENDIF
+            END IF
+         END IF
       END IF
 
       !   *** Integrated absolute spin density and spin contamination ***
@@ -1801,8 +1801,8 @@ CONTAINS
                   "Ideal and single determinant S**2 : ", s_square_ideal, s_square
                energy%s_square = s_square
             END IF
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       CALL timestop(handle)
 
@@ -1823,10 +1823,10 @@ CONTAINS
       CHARACTER(LEN=default_path_length)                 :: filename, mpi_filename, my_pos_cube
       CHARACTER(LEN=default_string_length)               :: name
       INTEGER :: after, handle, i, iat, id, ikind, img, iso, ispin, iw, l, nd(3), ngto, niso, &
-         nkind, np, nr, output_unit, print_level, should_print_bqb, should_print_voro, unit_nr, &
-         unit_nr_voro
+                 nkind, np, nr, output_unit, print_level, should_print_bqb, should_print_voro, unit_nr, &
+                 unit_nr_voro
       LOGICAL :: append_cube, do_kpoints, mpi_io, omit_headers, print_it, print_total_density, &
-         rho_r_valid, voro_print_txt, write_ks, write_xc, xrd_interface
+                 rho_r_valid, voro_print_txt, write_ks, write_xc, xrd_interface
       REAL(KIND=dp)                                      :: q_max, rho_hard, rho_soft, rho_total, &
                                                             rho_total_rspace, udvol, volume
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: bfun
@@ -2010,7 +2010,7 @@ CONTAINS
                   ELSE
                      nr = 0
                      niso = 0
-                  ENDIF
+                  END IF
                   CALL mp_sum(nr, para_env%group)
                   CALL mp_sum(niso, para_env%group)
 
@@ -2246,7 +2246,7 @@ CONTAINS
       IF (BTEST(cp_print_key_should_output(logger%iter_info, &
                                            dft_section, "PRINT%ENERGY_WINDOWS"), cp_p_file) .AND. .NOT. do_kpoints) THEN
          CALL energy_windows(qs_env)
-      ENDIF
+      END IF
 
       ! Print the hartree potential
       IF (BTEST(cp_print_key_should_output(logger%iter_info, input, &
@@ -2282,7 +2282,7 @@ CONTAINS
                                            "DFT%PRINT%V_HARTREE_CUBE", mpi_io=mpi_io)
 
          CALL pw_pool_give_back_pw(auxbas_pw_pool, aux_r%pw)
-      ENDIF
+      END IF
 
       ! Print the external potential
       IF (BTEST(cp_print_key_should_output(logger%iter_info, input, &
@@ -2313,8 +2313,8 @@ CONTAINS
                                               "DFT%PRINT%EXTERNAL_POTENTIAL_CUBE", mpi_io=mpi_io)
 
             CALL pw_pool_give_back_pw(auxbas_pw_pool, aux_r%pw)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! Print the Electrical Field Components
       IF (BTEST(cp_print_key_should_output(logger%iter_info, input, &
@@ -2505,12 +2505,12 @@ CONTAINS
          should_print_voro = 1
       ELSE
          should_print_voro = 0
-      ENDIF
+      END IF
       IF (BTEST(cp_print_key_should_output(logger%iter_info, print_key_bqb), cp_p_file)) THEN
          should_print_bqb = 1
       ELSE
          should_print_bqb = 0
-      ENDIF
+      END IF
       IF ((should_print_voro /= 0) .OR. (should_print_bqb /= 0)) THEN
 
          ! we check if real space density is available
@@ -2548,7 +2548,7 @@ CONTAINS
                END IF
             ELSE
                unit_nr_voro = 0
-            ENDIF
+            END IF
 
             CALL entry_voronoi_or_bqb(should_print_voro, should_print_bqb, print_key_voro, print_key_bqb, &
                                       unit_nr_voro, qs_env, mb_rho)
@@ -2945,7 +2945,7 @@ CONTAINS
       INTEGER                                            :: boundary_condition, handle, i, j, &
                                                             n_cstr, n_tiles, unit_nr
       LOGICAL :: append_cube, do_cstr_charge_cube, do_dielectric_cube, do_dirichlet_bc_cube, &
-         has_dirichlet_bc, has_implicit_ps, mpi_io, tile_cubes
+                 has_dirichlet_bc, has_implicit_ps, mpi_io, tile_cubes
       TYPE(particle_list_type), POINTER                  :: particles
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_p_type)                                    :: aux_r
@@ -3003,7 +3003,7 @@ CONTAINS
                                            "DFT%PRINT%IMPLICIT_PSOLVER%DIELECTRIC_CUBE", mpi_io=mpi_io)
 
          CALL pw_pool_give_back_pw(auxbas_pw_pool, aux_r%pw)
-      ENDIF
+      END IF
 
       ! Write Dirichlet constraint charges into a cube file
       do_cstr_charge_cube = BTEST(cp_print_key_should_output(logger%iter_info, input, &
@@ -3051,7 +3051,7 @@ CONTAINS
                                            "DFT%PRINT%IMPLICIT_PSOLVER%DIRICHLET_CSTR_CHARGE_CUBE", mpi_io=mpi_io)
 
          CALL pw_pool_give_back_pw(auxbas_pw_pool, aux_r%pw)
-      ENDIF
+      END IF
 
       ! Write Dirichlet type constranits into cube files
       do_dirichlet_bc_cube = BTEST(cp_print_key_should_output(logger%iter_info, input, &
@@ -3126,7 +3126,7 @@ CONTAINS
          END IF
 
          CALL pw_pool_give_back_pw(auxbas_pw_pool, aux_r%pw)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -3222,7 +3222,7 @@ CONTAINS
             interact_adjm((ind - 1)*4 + 2) = colind
             interact_adjm((ind - 1)*4 + 3) = ikind
             interact_adjm((ind - 1)*4 + 4) = jkind
-         ENDDO
+         END DO
 
          CALL mp_sum(interact_adjm, para_env%group)
 
@@ -3298,7 +3298,7 @@ CONTAINS
 
          CALL pw_pool_give_back_pw(auxbas_pw_pool, v_hartree_gspace%pw)
          CALL pw_pool_give_back_pw(auxbas_pw_pool, rho_tot_gspace%pw)
-      ENDIF
+      END IF
 
    END SUBROUTINE update_hartree_with_mp2
 

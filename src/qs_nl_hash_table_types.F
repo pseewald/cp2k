@@ -26,9 +26,9 @@
 ! **************************************************************************************************
 MODULE qs_nl_hash_table_types
 
-   USE kinds,                           ONLY: int_8
-   USE qs_hash_table_functions,         ONLY: hash_table_matching_prime
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_task_type
+   USE kinds, ONLY: int_8
+   USE qs_hash_table_functions, ONLY: hash_table_matching_prime
+   USE qs_neighbor_list_types, ONLY: neighbor_list_task_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -133,7 +133,7 @@ CONTAINS
       ! If a task exists, we make our new task point to that i.e. adding it to the beginning of the list
       IF (ASSOCIATED(hash_table%obj%table(islot)%val)) THEN
          val%next => hash_table%obj%table(islot)%val
-      ENDIF
+      END IF
 
       ! store the (maybe new) first item in the list in the hash table
       hash_table%obj%table(islot)%val => val

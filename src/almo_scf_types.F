@@ -13,18 +13,18 @@
 !> \author Rustam Z Khaliullin
 ! **************************************************************************************************
 MODULE almo_scf_types
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_release,&
-                                              dbcsr_type
-   USE domain_submatrix_types,          ONLY: domain_map_type,&
-                                              domain_submatrix_type
-   USE input_constants,                 ONLY: &
-        cg_dai_yuan, cg_fletcher, cg_fletcher_reeves, cg_hager_zhang, cg_hestenes_stiefel, &
-        cg_liu_storey, cg_polak_ribiere, cg_zero, optimizer_diis, optimizer_pcg, optimizer_trustr, &
-        trustr_cauchy, trustr_dogleg, trustr_steihaug, xalmo_prec_domain, xalmo_prec_full, &
-        xalmo_prec_zero
-   USE kinds,                           ONLY: dp
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_release, &
+                        dbcsr_type
+   USE domain_submatrix_types, ONLY: domain_map_type, &
+                                     domain_submatrix_type
+   USE input_constants, ONLY: &
+      cg_dai_yuan, cg_fletcher, cg_fletcher_reeves, cg_hager_zhang, cg_hestenes_stiefel, &
+      cg_liu_storey, cg_polak_ribiere, cg_zero, optimizer_diis, optimizer_pcg, optimizer_trustr, &
+      trustr_cauchy, trustr_dogleg, trustr_steihaug, xalmo_prec_domain, xalmo_prec_full, &
+      xalmo_prec_zero
+   USE kinds, ONLY: dp
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -458,7 +458,7 @@ CONTAINS
 
             WRITE (unit_nr, '(T4,A,T48,I33)') "maximum DIIS history:", optimizer%ndiis
 
-         ENDIF
+         END IF
 
          IF (optimizer%optimizer_type .EQ. optimizer_trustr .OR. &
              optimizer%optimizer_type .EQ. optimizer_pcg) THEN
@@ -496,7 +496,7 @@ CONTAINS
             END SELECT
             WRITE (unit_nr, '(T4,A,T48,A33)') "conjugator:", TRIM(conj_string)
 
-         ENDIF
+         END IF
 
          IF (optimizer%optimizer_type .EQ. optimizer_pcg) THEN
 
@@ -507,9 +507,9 @@ CONTAINS
             IF (optimizer%neglect_threshold .GT. 0.0_dp) THEN
                WRITE (unit_nr, '(T4,A,T48,E33.3)') "low-curvature threshold:", &
                   optimizer%neglect_threshold
-            ENDIF
+            END IF
 
-         ENDIF
+         END IF
 
          IF (optimizer%optimizer_type .EQ. optimizer_trustr) THEN
 
@@ -532,9 +532,9 @@ CONTAINS
             WRITE (unit_nr, '(T4,A,T48,E33.3)') "rho of no update lies between .0 and .25:", &
                optimizer%rho_do_not_update
 
-         ENDIF
+         END IF
 
-      ENDIF
+      END IF
 
    END SUBROUTINE print_optimizer_options
 
@@ -558,10 +558,10 @@ CONTAINS
       DO ispin = 1, SIZE(almo_scf_env%almo_history%matrix_t)
          DO istore = 1, MIN(almo_scf_env%almo_history%istore, almo_scf_env%almo_history%nstore)
             CALL dbcsr_release(almo_scf_env%almo_history%matrix_p_up_down(ispin, istore))
-         ENDDO
+         END DO
          IF (almo_scf_env%almo_history%istore .GT. 0) &
             CALL dbcsr_release(almo_scf_env%almo_history%matrix_t(ispin))
-      ENDDO
+      END DO
       DEALLOCATE (almo_scf_env%almo_history%matrix_p_up_down)
       DEALLOCATE (almo_scf_env%almo_history%matrix_t)
       ! delete xalmo history
@@ -569,10 +569,10 @@ CONTAINS
          DO istore = 1, MIN(almo_scf_env%xalmo_history%istore, almo_scf_env%xalmo_history%nstore)
             CALL dbcsr_release(almo_scf_env%xalmo_history%matrix_p_up_down(ispin, istore))
             !CALL dbcsr_release(almo_scf_env%xalmo_history%matrix_x(ispin, istore))
-         ENDDO
+         END DO
          IF (almo_scf_env%xalmo_history%istore .GT. 0) &
             CALL dbcsr_release(almo_scf_env%xalmo_history%matrix_t(ispin))
-      ENDDO
+      END DO
       DEALLOCATE (almo_scf_env%xalmo_history%matrix_p_up_down)
       !DEALLOCATE (almo_scf_env%xalmo_history%matrix_x)
       DEALLOCATE (almo_scf_env%xalmo_history%matrix_t)

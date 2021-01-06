@@ -9,44 +9,44 @@
 !> \brief routines that fit parameters for /from atomic calculations
 ! **************************************************************************************************
 MODULE atom_fit
-   USE atom_electronic_structure,       ONLY: calculate_atom
-   USE atom_operators,                  ONLY: atom_int_release,&
-                                              atom_int_setup,&
-                                              atom_ppint_release,&
-                                              atom_ppint_setup,&
-                                              atom_relint_release,&
-                                              atom_relint_setup
-   USE atom_output,                     ONLY: atom_print_basis,&
-                                              atom_print_basis_file,&
-                                              atom_write_pseudo_param
-   USE atom_types,                      ONLY: &
-        GTO_BASIS, STO_BASIS, atom_basis_type, atom_gthpot_type, atom_integrals, atom_p_type, &
-        atom_potential_type, atom_type, create_opgrid, create_opmat, lmat, opgrid_type, &
-        opmat_type, release_opgrid, release_opmat, set_atom
-   USE atom_utils,                      ONLY: &
-        atom_completeness, atom_condnumber, atom_consistent_method, atom_core_density, &
-        atom_denmat, atom_density, atom_orbital_charge, atom_orbital_max, atom_orbital_nodes, &
-        atom_wfnr0, get_maxn_occ, integrate_grid
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE input_constants,                 ONLY: do_analytic,&
-                                              do_rhf_atom,&
-                                              do_rks_atom,&
-                                              do_rohf_atom,&
-                                              do_uhf_atom,&
-                                              do_uks_atom
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE lapack,                          ONLY: lapack_sgesv
-   USE mathconstants,                   ONLY: fac,&
-                                              fourpi,&
-                                              pi
-   USE periodic_table,                  ONLY: ptable
-   USE physcon,                         ONLY: bohr,&
-                                              evolt
-   USE powell,                          ONLY: opt_state_type,&
-                                              powell_optimize
+   USE atom_electronic_structure, ONLY: calculate_atom
+   USE atom_operators, ONLY: atom_int_release, &
+                             atom_int_setup, &
+                             atom_ppint_release, &
+                             atom_ppint_setup, &
+                             atom_relint_release, &
+                             atom_relint_setup
+   USE atom_output, ONLY: atom_print_basis, &
+                          atom_print_basis_file, &
+                          atom_write_pseudo_param
+   USE atom_types, ONLY: &
+      GTO_BASIS, STO_BASIS, atom_basis_type, atom_gthpot_type, atom_integrals, atom_p_type, &
+      atom_potential_type, atom_type, create_opgrid, create_opmat, lmat, opgrid_type, &
+      opmat_type, release_opgrid, release_opmat, set_atom
+   USE atom_utils, ONLY: &
+      atom_completeness, atom_condnumber, atom_consistent_method, atom_core_density, &
+      atom_denmat, atom_density, atom_orbital_charge, atom_orbital_max, atom_orbital_nodes, &
+      atom_wfnr0, get_maxn_occ, integrate_grid
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE input_constants, ONLY: do_analytic, &
+                              do_rhf_atom, &
+                              do_rks_atom, &
+                              do_rohf_atom, &
+                              do_uhf_atom, &
+                              do_uks_atom
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE lapack, ONLY: lapack_sgesv
+   USE mathconstants, ONLY: fac, &
+                            fourpi, &
+                            pi
+   USE periodic_table, ONLY: ptable
+   USE physcon, ONLY: bohr, &
+                      evolt
+   USE powell, ONLY: opt_state_type, &
+                     powell_optimize
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -499,8 +499,8 @@ CONTAINS
       INTEGER, DIMENSION(0:lmat)                         :: ncore
       LOGICAL                                            :: explicit, noopt_nlcc, preopt_nlcc
       REAL(KIND=dp) :: afun, charge, de, deig, drho, dx, eig, fopt, oc, pchg, peig, pv, rcm, rcov, &
-         rmax, semicore_level, step_size_scaling, t_ener, t_psir0, t_semi, t_valence, t_virt, &
-         w_ener, w_node, w_psir0, w_semi, w_valence, w_virt, wtot
+                       rmax, semicore_level, step_size_scaling, t_ener, t_psir0, t_semi, t_valence, t_virt, &
+                       w_ener, w_node, w_psir0, w_semi, w_valence, w_virt, wtot
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: x, xi
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: wem
       REAL(KIND=dp), ALLOCATABLE, &
@@ -1634,7 +1634,7 @@ CONTAINS
                               afun = afun + pv
                            END IF
                         END IF
-                     ENDIF
+                     END IF
                   END DO
                END DO
             END IF

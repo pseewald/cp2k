@@ -12,47 +12,47 @@
 !> \author Matthias Krack (04.07.2000)
 ! **************************************************************************************************
 MODULE external_potential_types
-   USE ao_util,                         ONLY: exp_radius
-   USE bibliography,                    ONLY: Goedecker1996,&
-                                              Hartwigsen1998,&
-                                              Krack2000,&
-                                              Krack2005,&
-                                              cite_reference
-   USE cp_linked_list_input,            ONLY: cp_sll_val_next,&
-                                              cp_sll_val_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object,&
-                                              parser_search_string,&
-                                              parser_test_next_token
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_list_get,&
-                                              section_vals_type,&
-                                              section_vals_val_set
-   USE input_val_types,                 ONLY: val_get,&
-                                              val_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              fac,&
-                                              pi,&
-                                              rootpi
-   USE mathlib,                         ONLY: symmetrize_matrix
-   USE memory_utilities,                ONLY: reallocate
-   USE orbital_pointers,                ONLY: co,&
-                                              coset,&
-                                              init_orbital_pointers,&
-                                              nco,&
-                                              ncoset,&
-                                              nso
+   USE ao_util, ONLY: exp_radius
+   USE bibliography, ONLY: Goedecker1996, &
+                           Hartwigsen1998, &
+                           Krack2000, &
+                           Krack2005, &
+                           cite_reference
+   USE cp_linked_list_input, ONLY: cp_sll_val_next, &
+                                   cp_sll_val_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object, &
+                                parser_search_string, &
+                                parser_test_next_token
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_list_get, &
+                                  section_vals_type, &
+                                  section_vals_val_set
+   USE input_val_types, ONLY: val_get, &
+                              val_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mathconstants, ONLY: dfac, &
+                            fac, &
+                            pi, &
+                            rootpi
+   USE mathlib, ONLY: symmetrize_matrix
+   USE memory_utilities, ONLY: reallocate
+   USE orbital_pointers, ONLY: co, &
+                               coset, &
+                               init_orbital_pointers, &
+                               nco, &
+                               ncoset, &
+                               nso
    USE orbital_transformation_matrices, ONLY: orbtramat
-   USE periodic_table,                  ONLY: ptable
-   USE string_utilities,                ONLY: remove_word,&
-                                              uppercase
+   USE periodic_table, ONLY: ptable
+   USE string_utilities, ONLY: remove_word, &
+                               uppercase
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -1255,7 +1255,7 @@ CONTAINS
             ELSE
                potential%description(2) = "Full atomic charge"
             END IF
-         ENDIF
+         END IF
       END IF
 
    END SUBROUTINE init_all_potential
@@ -1388,9 +1388,9 @@ CONTAINS
       CHARACTER(LEN=242)                                 :: line2
       CHARACTER(len=5*default_string_length)             :: line_att
       CHARACTER(LEN=LEN(element_symbol))                 :: symbol
-      CHARACTER(LEN=LEN(element_symbol)+2)               :: symbol2
+      CHARACTER(LEN=LEN(element_symbol) + 2)               :: symbol2
       CHARACTER(LEN=LEN(potential_name))                 :: apname
-      CHARACTER(LEN=LEN(potential_name)+2)               :: apname2
+      CHARACTER(LEN=LEN(potential_name) + 2)               :: apname2
       INTEGER                                            :: irep, l, strlen1, strlen2
       INTEGER, DIMENSION(:), POINTER                     :: elec_conf
       LOGICAL                                            :: found, is_ok, match, read_from_input
@@ -1570,9 +1570,9 @@ CONTAINS
       CHARACTER(LEN=242)                                 :: line2
       CHARACTER(len=5*default_string_length)             :: line_att
       CHARACTER(LEN=LEN(element_symbol))                 :: symbol
-      CHARACTER(LEN=LEN(element_symbol)+2)               :: symbol2
+      CHARACTER(LEN=LEN(element_symbol) + 2)               :: symbol2
       CHARACTER(LEN=LEN(potential_name))                 :: apname
-      CHARACTER(LEN=LEN(potential_name)+2)               :: apname2
+      CHARACTER(LEN=LEN(potential_name) + 2)               :: apname2
       INTEGER                                            :: igau, ipol, irep, l, ngau, npol, &
                                                             strlen1, strlen2
       LOGICAL                                            :: found, is_ok, match, read_from_input
@@ -1755,9 +1755,9 @@ CONTAINS
       CHARACTER(LEN=242)                                 :: line2
       CHARACTER(len=5*default_string_length)             :: line_att
       CHARACTER(LEN=LEN(element_symbol))                 :: symbol
-      CHARACTER(LEN=LEN(element_symbol)+2)               :: symbol2
+      CHARACTER(LEN=LEN(element_symbol) + 2)               :: symbol2
       CHARACTER(LEN=LEN(potential_name))                 :: apname
-      CHARACTER(LEN=LEN(potential_name)+2)               :: apname2
+      CHARACTER(LEN=LEN(potential_name) + 2)               :: apname2
       INTEGER                                            :: i, ic, ipot, irep, istr, j, l, lppnl, &
                                                             lprj_ppnl_max, maxlppl, n, nppnl, &
                                                             nprj_ppnl, nprj_ppnl_max, strlen1, &
@@ -1830,7 +1830,7 @@ CONTAINS
                   match = .TRUE.
                   i = i + 1 + INDEX(line2(i + 1:), " ")
                   potential%aliases = line2(i:) ! copy all names into aliases field
-               ENDIF
+               END IF
             END IF
             IF (match) THEN
                !         *** Read the electronic configuration ***
@@ -2599,10 +2599,10 @@ CONTAINS
          IF (PRESENT(elec_conf)) THEN
             IF (ASSOCIATED(potential%elec_conf)) THEN
                DEALLOCATE (potential%elec_conf)
-            ENDIF
+            END IF
             ALLOCATE (potential%elec_conf(0:SIZE(elec_conf) - 1))
             potential%elec_conf(:) = elec_conf(:)
-         ENDIF
+         END IF
          IF (PRESENT(nprj_ppnl)) potential%nprj_ppnl => nprj_ppnl
          IF (PRESENT(cprj)) potential%cprj => cprj
          IF (PRESENT(cprj_ppnl)) potential%cprj_ppnl => cprj_ppnl
@@ -2699,10 +2699,10 @@ CONTAINS
          IF (PRESENT(elec_conf)) THEN
             IF (ASSOCIATED(potential%elec_conf)) THEN
                DEALLOCATE (potential%elec_conf)
-            ENDIF
+            END IF
             ALLOCATE (potential%elec_conf(0:SIZE(elec_conf) - 1))
             potential%elec_conf(:) = elec_conf(:)
-         ENDIF
+         END IF
 
          IF (PRESENT(z)) potential%z = z
          IF (PRESENT(zeff)) potential%zeff = zeff

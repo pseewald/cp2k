@@ -14,10 +14,10 @@
 !>           module made publicly available
 ! **************************************************************************************************
 MODULE statistical_methods
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE global_types,                    ONLY: global_environment_type
-   USE kinds,                           ONLY: dp
-   USE util,                            ONLY: sort
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE global_types, ONLY: global_environment_type
+   USE kinds, ONLY: dp
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -49,14 +49,14 @@ CONTAINS
       REAL(KIND=dp), INTENT(OUT)                         :: w, pw
 
       REAL(KIND=dp), PARAMETER :: c1(6) = (/0.000000_dp, 0.221157_dp, -0.147981_dp, -2.071190_dp, &
-         4.434685_dp, -2.706056_dp/), c2(6) = (/0.000000_dp, 0.042981_dp, -0.293762_dp, &
-         -1.752461_dp, 5.682633_dp, -3.582633_dp/), &
-         c3(4) = (/0.544000_dp, -0.399780_dp, 0.025054_dp, -0.6714E-3_dp/), &
-         c4(4) = (/1.3822_dp, -0.77857_dp, 0.062767_dp, -0.0020322_dp/), &
-         c5(4) = (/-1.5861_dp, -0.31082_dp, -0.083751_dp, 0.0038915_dp/), &
-         c6(3) = (/-0.4803_dp, -0.082676_dp, 0.0030302_dp/), g(2) = (/-2.273_dp, 0.459_dp/), &
-         one = 1.0_dp, pi6 = 1.909859_dp, qtr = 0.25_dp, small = EPSILON(0.0_dp), &
-         sqrth = 0.70711_dp
+                                            4.434685_dp, -2.706056_dp/), c2(6) = (/0.000000_dp, 0.042981_dp, -0.293762_dp, &
+                                                                                   -1.752461_dp, 5.682633_dp, -3.582633_dp/), &
+                                  c3(4) = (/0.544000_dp, -0.399780_dp, 0.025054_dp, -0.6714E-3_dp/), &
+                                  c4(4) = (/1.3822_dp, -0.77857_dp, 0.062767_dp, -0.0020322_dp/), &
+                                  c5(4) = (/-1.5861_dp, -0.31082_dp, -0.083751_dp, 0.0038915_dp/), &
+                                  c6(3) = (/-0.4803_dp, -0.082676_dp, 0.0030302_dp/), g(2) = (/-2.273_dp, 0.459_dp/), &
+                                  one = 1.0_dp, pi6 = 1.909859_dp, qtr = 0.25_dp, small = EPSILON(0.0_dp), &
+                                  sqrth = 0.70711_dp
       REAL(KIND=dp), PARAMETER :: stqr = 1.047198_dp, th = 0.375_dp, two = 2.0_dp, zero = 0.0_dp
 
       INTEGER                                            :: i, i1, j, n2, output_unit
@@ -210,13 +210,13 @@ CONTAINS
       REAL(KIND=dp), INTENT(OUT)                         :: normal_dev
 
       REAL(KIND=dp), PARAMETER :: a0 = 3.3871327179E+00_dp, a1 = 5.0434271938E+01_dp, &
-         a2 = 1.5929113202E+02_dp, a3 = 5.9109374720E+01_dp, b1 = 1.7895169469E+01_dp, &
-         b2 = 7.8757757664E+01_dp, b3 = 6.7187563600E+01_dp, c0 = 1.4234372777E+00_dp, &
-         c1 = 2.7568153900E+00_dp, c2 = 1.3067284816E+00_dp, c3 = 1.7023821103E-01_dp, &
-         const1 = 0.180625_dp, const2 = 1.6_dp, d1 = 7.3700164250E-01_dp, &
-         d2 = 1.2021132975E-01_dp, e0 = 6.6579051150E+00_dp, e1 = 3.0812263860E+00_dp, &
-         e2 = 4.2868294337E-01_dp, e3 = 1.7337203997E-02_dp, f1 = 2.4197894225E-01_dp, &
-         f2 = 1.2258202635E-02_dp, half = 0.5_dp, one = 1.0_dp
+                                  a2 = 1.5929113202E+02_dp, a3 = 5.9109374720E+01_dp, b1 = 1.7895169469E+01_dp, &
+                                  b2 = 7.8757757664E+01_dp, b3 = 6.7187563600E+01_dp, c0 = 1.4234372777E+00_dp, &
+                                  c1 = 2.7568153900E+00_dp, c2 = 1.3067284816E+00_dp, c3 = 1.7023821103E-01_dp, &
+                                  const1 = 0.180625_dp, const2 = 1.6_dp, d1 = 7.3700164250E-01_dp, &
+                                  d2 = 1.2021132975E-01_dp, e0 = 6.6579051150E+00_dp, e1 = 3.0812263860E+00_dp, &
+                                  e2 = 4.2868294337E-01_dp, e3 = 1.7337203997E-02_dp, f1 = 2.4197894225E-01_dp, &
+                                  f2 = 1.2258202635E-02_dp, half = 0.5_dp, one = 1.0_dp
       REAL(KIND=dp), PARAMETER :: split1 = 0.425_dp, split2 = 5.0_dp, zero = 0.0_dp
 
       REAL(KIND=dp)                                      :: q, r
@@ -268,12 +268,12 @@ CONTAINS
       REAL(KIND=dp)                                      :: fn_val
 
       REAL(KIND=dp), PARAMETER :: a1 = 5.75885480458_dp, a2 = 2.62433121679_dp, &
-         a3 = 5.92885724438_dp, b1 = -29.8213557807_dp, b2 = 48.6959930692_dp, c1 = -3.8052E-8_dp, &
-         c2 = 3.98064794E-4_dp, c3 = -0.151679116635_dp, c4 = 4.8385912808_dp, &
-         c5 = 0.742380924027_dp, c6 = 3.99019417011_dp, con = 1.28_dp, d1 = 1.00000615302_dp, &
-         d2 = 1.98615381364_dp, d3 = 5.29330324926_dp, d4 = -15.1508972451_dp, &
-         d5 = 30.789933034_dp, half = 0.5_dp, ltone = 7.0_dp, one = 1.0_dp, p = 0.398942280444_dp, &
-         q = 0.39990348504_dp, r = 0.398942280385_dp, utzero = 18.66_dp, zero = 0.0_dp
+                                  a3 = 5.92885724438_dp, b1 = -29.8213557807_dp, b2 = 48.6959930692_dp, c1 = -3.8052E-8_dp, &
+                                  c2 = 3.98064794E-4_dp, c3 = -0.151679116635_dp, c4 = 4.8385912808_dp, &
+                                  c5 = 0.742380924027_dp, c6 = 3.99019417011_dp, con = 1.28_dp, d1 = 1.00000615302_dp, &
+                                  d2 = 1.98615381364_dp, d3 = 5.29330324926_dp, d4 = -15.1508972451_dp, &
+                                  d5 = 30.789933034_dp, half = 0.5_dp, ltone = 7.0_dp, one = 1.0_dp, p = 0.398942280444_dp, &
+                                  q = 0.39990348504_dp, r = 0.398942280385_dp, utzero = 18.66_dp, zero = 0.0_dp
 
       LOGICAL                                            :: up
       REAL(KIND=dp)                                      :: y, z
@@ -283,18 +283,18 @@ CONTAINS
       IF (z < zero) THEN
          up = .NOT. up
          z = -z
-      ENDIF
+      END IF
       IF (.NOT. (z <= ltone .OR. up .AND. z <= utzero)) THEN
          fn_val = zero
          IF (.NOT. up) fn_val = one - fn_val
          RETURN
-      ENDIF
+      END IF
       y = half*z*z
       IF (z <= con) THEN
          fn_val = r*EXP(-y)/(z + c1 + d1/(z + c2 + d2/(z + c3 + d3/(z + c4 + d4/(z + c5 + d5/(z + c6))))))
       ELSE
          fn_val = half - z*(p - q*y/(y + a1 + b1/(y + a2 + b2/(y + a3))))
-      ENDIF
+      END IF
       IF (.NOT. up) fn_val = one - fn_val
 
    END FUNCTION alnorm
@@ -327,7 +327,7 @@ CONTAINS
       IF (nord == 2) THEN
          fn_val = fn_val + p
          RETURN
-      ENDIF
+      END IF
       n2 = nord - 2
       j = n2 + 1
       DO i = 1, n2

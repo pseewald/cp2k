@@ -14,11 +14,11 @@
 ! **************************************************************************************************
 MODULE mathlib
 
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: euler,&
-                                              fac,&
-                                              pi
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: euler, &
+                            fac, &
+                            pi
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -268,7 +268,7 @@ CONTAINS
          denom = 1.0_dp
          DO i = 1, SIZE(k)
             denom = denom*fac(k(i))
-         ENDDO
+         END DO
          res = fac(n)/denom
       ELSE
          res = 0.0_dp
@@ -595,7 +595,7 @@ CONTAINS
          my_triangle = cholesky_triangle
       ELSE
          my_triangle = "U"
-      ENDIF
+      END IF
 
       ! do cholesky decomposition
       IF (.NOT. PRESENT(cholesky_triangle)) THEN
@@ -603,7 +603,7 @@ CONTAINS
          IF (info /= 0) THEN
             CPABORT("DPOTRF failed")
          END IF
-      ENDIF
+      END IF
 
       ! do inversion using the cholesky decomposition
       CALL dpotri(my_triangle, n, a, n, info)
@@ -614,12 +614,12 @@ CONTAINS
       IF (my_triangle == "U") THEN
          DO i = 1, n - 1
             a(i + 1:n, i) = a(i, i + 1:n)
-         ENDDO
+         END DO
       ELSE
          DO i = 1, n - 1
             a(i, i + 1:n) = a(i + 1:n, i)
-         ENDDO
-      ENDIF
+         END DO
+      END IF
 
       CALL timestop(handle)
 
@@ -677,7 +677,7 @@ CONTAINS
          do_improve = improve
       ELSE
          do_improve = .TRUE.
-      ENDIF
+      END IF
 
       ! Get the dimension of matrix a
       n = SIZE(a, 1)
@@ -776,7 +776,7 @@ CONTAINS
             IF (ABS(eval_error - old_eval_error) <= EPSILON(1.0_dp)) EXIT
 
          END DO
-      ENDIF
+      END IF
 
       ! Release work storage
       DEALLOCATE (work)
@@ -1013,8 +1013,8 @@ CONTAINS
             sig_plus(i, i) = 1._dp/sig(i)
          ELSE
             sig_plus(i, i) = 0.0_dp
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       ! build pseudoinverse: V*sig_plus*UT
       CALL dgemm("N", "T", n, n, n, 1._dp, sig_plus, n, u, n, 0._dp, temp_mat, n)
@@ -1079,8 +1079,8 @@ CONTAINS
             dinv(i, i) = 1.0_dp/eig(i)
          ELSE
             dinv(i, i) = 0._dp
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       ! build pseudoinverse: U*dinv*UT
       CALL dgemm("N", "T", n, n, n, 1._dp, dinv, n, a, n, 0._dp, temp_mat, n)
@@ -1311,18 +1311,18 @@ CONTAINS
       ELSE
          s = ab
          l = aa
-      ENDIF
+      END IF
       IF (s .NE. 0) THEN
          DO
             rem = MOD(l, s)
             IF (rem == 0) EXIT
             l = s
             s = rem
-         ENDDO
+         END DO
          GCD = s
       ELSE
          GCD = l
-      ENDIF
+      END IF
    END FUNCTION gcd
 
 ! **************************************************************************************************
@@ -1487,7 +1487,7 @@ CONTAINS
 
       INTEGER, PARAMETER                                 :: maxit = 100
       REAL(dp), PARAMETER :: eps = 6.e-14_dp, euler = 0.5772156649015328606065120_dp, &
-         fpmin = TINY(0.0_dp)
+                             fpmin = TINY(0.0_dp)
 
       INTEGER                                            :: i, ii, nm1
       REAL(dp)                                           :: a, b, c, d, del, fact, h, psi
@@ -1805,8 +1805,8 @@ CONTAINS
 !> \param df ...
 ! **************************************************************************************************
       ELEMENTAL SUBROUTINE eval_transc_func(r, eps, omega, fn, df)
-      REAL(dp), INTENT(in)                               :: r, eps, omega
-      REAL(dp), INTENT(out)                              :: fn, df
+         REAL(dp), INTENT(in)                               :: r, eps, omega
+         REAL(dp), INTENT(out)                              :: fn, df
 
          fn = erfc(omega*r) - r*eps
          df = -omega*2*EXP(-omega**2*r**2)/SQRT(pi) - eps

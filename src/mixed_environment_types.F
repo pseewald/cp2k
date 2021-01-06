@@ -9,49 +9,49 @@
 !> \author fschiff SEPT-11-06
 ! **************************************************************************************************
 MODULE mixed_environment_types
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_create,&
-                                              atomic_kind_list_release,&
-                                              atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cell_types,                      ONLY: cell_release,&
-                                              cell_retain,&
-                                              cell_type
-   USE cp_log_handling,                 ONLY: cp_logger_p_type,&
-                                              cp_logger_release
-   USE cp_para_env,                     ONLY: cp_para_env_release,&
-                                              cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_env_p_type,&
-                                              cp_para_env_type
-   USE cp_result_types,                 ONLY: cp_result_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_release,&
-                                              cp_subsys_retain,&
-                                              cp_subsys_set,&
-                                              cp_subsys_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE input_section_types,             ONLY: section_vals_release,&
-                                              section_vals_retain,&
-                                              section_vals_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mixed_cdft_types,                ONLY: mixed_cdft_type,&
-                                              mixed_cdft_type_release
-   USE mixed_energy_types,              ONLY: deallocate_mixed_energy,&
-                                              mixed_energy_type
-   USE molecule_kind_list_types,        ONLY: molecule_kind_list_create,&
-                                              molecule_kind_list_release,&
-                                              molecule_kind_list_type
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_list_types,             ONLY: molecule_list_create,&
-                                              molecule_list_release,&
-                                              molecule_list_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_list_types,             ONLY: particle_list_create,&
-                                              particle_list_release,&
-                                              particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE qs_rho_types,                    ONLY: qs_rho_p_type
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_create, &
+                                     atomic_kind_list_release, &
+                                     atomic_kind_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cell_types, ONLY: cell_release, &
+                         cell_retain, &
+                         cell_type
+   USE cp_log_handling, ONLY: cp_logger_p_type, &
+                              cp_logger_release
+   USE cp_para_env, ONLY: cp_para_env_release, &
+                          cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_env_p_type, &
+                            cp_para_env_type
+   USE cp_result_types, ONLY: cp_result_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_release, &
+                              cp_subsys_retain, &
+                              cp_subsys_set, &
+                              cp_subsys_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE input_section_types, ONLY: section_vals_release, &
+                                  section_vals_retain, &
+                                  section_vals_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mixed_cdft_types, ONLY: mixed_cdft_type, &
+                               mixed_cdft_type_release
+   USE mixed_energy_types, ONLY: deallocate_mixed_energy, &
+                                 mixed_energy_type
+   USE molecule_kind_list_types, ONLY: molecule_kind_list_create, &
+                                       molecule_kind_list_release, &
+                                       molecule_kind_list_type
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_list_types, ONLY: molecule_list_create, &
+                                  molecule_list_release, &
+                                  molecule_list_type
+   USE molecule_types, ONLY: molecule_type
+   USE particle_list_types, ONLY: particle_list_create, &
+                                  particle_list_release, &
+                                  particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE qs_rho_types, ONLY: qs_rho_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

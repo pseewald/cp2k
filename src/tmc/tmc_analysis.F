@@ -14,54 +14,54 @@
 ! **************************************************************************************************
 
 MODULE tmc_analysis
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell,&
-                                              pbc
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE force_fields_input,              ONLY: read_chrg_section
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi
-   USE mathlib,                         ONLY: diag
-   USE physcon,                         ONLY: a_mass,&
-                                              au2a => angstrom,&
-                                              boltzmann,&
-                                              joule,&
-                                              massunit
-   USE tmc_analysis_types,              ONLY: &
-        ana_type_default, ana_type_ice, ana_type_sym_xyz, atom_pairs_type, dipole_moment_type, &
-        pair_correl_type, search_pair_in_list, tmc_ana_density_create, tmc_ana_density_file_name, &
-        tmc_ana_dipole_analysis_create, tmc_ana_dipole_moment_create, tmc_ana_displacement_create, &
-        tmc_ana_env_create, tmc_ana_pair_correl_create, tmc_ana_pair_correl_file_name, &
-        tmc_analysis_env
-   USE tmc_calculations,                ONLY: get_scaled_cell,&
-                                              nearest_distance
-   USE tmc_file_io,                     ONLY: analyse_files_close,&
-                                              analyse_files_open,&
-                                              expand_file_name_char,&
-                                              expand_file_name_temp,&
-                                              read_element_from_file,&
-                                              write_dipoles_in_file
-   USE tmc_stati,                       ONLY: TMC_STATUS_OK,&
-                                              TMC_STATUS_WAIT_FOR_NEW_TASK,&
-                                              tmc_default_restart_in_file_name,&
-                                              tmc_default_restart_out_file_name,&
-                                              tmc_default_trajectory_file_name,&
-                                              tmc_default_unspecified_name
-   USE tmc_tree_build,                  ONLY: allocate_new_sub_tree_node,&
-                                              deallocate_sub_tree_node
-   USE tmc_tree_types,                  ONLY: read_subtree_elem_unformated,&
-                                              tree_type,&
-                                              write_subtree_elem_unformated
-   USE tmc_types,                       ONLY: tmc_atom_type,&
-                                              tmc_param_type
+   USE cell_types, ONLY: cell_type, &
+                         get_cell, &
+                         pbc
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_to_string
+   USE force_fields_input, ONLY: read_chrg_section
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi
+   USE mathlib, ONLY: diag
+   USE physcon, ONLY: a_mass, &
+                      au2a => angstrom, &
+                      boltzmann, &
+                      joule, &
+                      massunit
+   USE tmc_analysis_types, ONLY: &
+      ana_type_default, ana_type_ice, ana_type_sym_xyz, atom_pairs_type, dipole_moment_type, &
+      pair_correl_type, search_pair_in_list, tmc_ana_density_create, tmc_ana_density_file_name, &
+      tmc_ana_dipole_analysis_create, tmc_ana_dipole_moment_create, tmc_ana_displacement_create, &
+      tmc_ana_env_create, tmc_ana_pair_correl_create, tmc_ana_pair_correl_file_name, &
+      tmc_analysis_env
+   USE tmc_calculations, ONLY: get_scaled_cell, &
+                               nearest_distance
+   USE tmc_file_io, ONLY: analyse_files_close, &
+                          analyse_files_open, &
+                          expand_file_name_char, &
+                          expand_file_name_temp, &
+                          read_element_from_file, &
+                          write_dipoles_in_file
+   USE tmc_stati, ONLY: TMC_STATUS_OK, &
+                        TMC_STATUS_WAIT_FOR_NEW_TASK, &
+                        tmc_default_restart_in_file_name, &
+                        tmc_default_restart_out_file_name, &
+                        tmc_default_trajectory_file_name, &
+                        tmc_default_unspecified_name
+   USE tmc_tree_build, ONLY: allocate_new_sub_tree_node, &
+                             deallocate_sub_tree_node
+   USE tmc_tree_types, ONLY: read_subtree_elem_unformated, &
+                             tree_type, &
+                             write_subtree_elem_unformated
+   USE tmc_types, ONLY: tmc_atom_type, &
+                        tmc_param_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -885,7 +885,7 @@ CONTAINS
       TYPE(tmc_analysis_env), POINTER                    :: ana_env
 
       CHARACTER(LEN=*), PARAMETER :: fmt_my = '(T2,A,"| ",A,T41,A40)', plabel = "TMC_ANA", &
-         routineN = 'print_density_3d'
+                                     routineN = 'print_density_3d'
 
       CHARACTER(LEN=default_path_length)                 :: file_name, file_name_vari
       INTEGER                                            :: bin_x, bin_y, bin_z, file_ptr_dens, &

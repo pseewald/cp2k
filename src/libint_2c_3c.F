@@ -12,23 +12,23 @@
 ! **************************************************************************************************
 
 MODULE libint_2c_3c
-   USE gamma,                           ONLY: fgamma => fgamma_0
-   USE input_constants,                 ONLY: do_potential_coulomb,&
-                                              do_potential_id,&
-                                              do_potential_short,&
-                                              do_potential_truncated
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE libint_wrapper,                  ONLY: cp_libint_get_2eris,&
-                                              cp_libint_get_3eris,&
-                                              cp_libint_set_params_eri,&
-                                              cp_libint_t,&
-                                              prim_data_f_size
-   USE mathconstants,                   ONLY: pi
-   USE orbital_pointers,                ONLY: nco,&
-                                              ncoset
-   USE t_c_g0,                          ONLY: get_lmax_init,&
-                                              t_c_g0_n
+   USE gamma, ONLY: fgamma => fgamma_0
+   USE input_constants, ONLY: do_potential_coulomb, &
+                              do_potential_id, &
+                              do_potential_short, &
+                              do_potential_truncated
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE libint_wrapper, ONLY: cp_libint_get_2eris, &
+                             cp_libint_get_3eris, &
+                             cp_libint_set_params_eri, &
+                             cp_libint_t, &
+                             prim_data_f_size
+   USE mathconstants, ONLY: pi
+   USE orbital_pointers, ONLY: nco, &
+                               ncoset
+   USE t_c_g0, ONLY: get_lmax_init, &
+                     t_c_g0_n
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -121,7 +121,7 @@ CONTAINS
       REAL(dp), INTENT(OUT), OPTIONAL                    :: int_abc_ext
 
       INTEGER :: a_mysize(1), a_offset, a_start, b_offset, b_start, c_offset, c_start, i, ipgf, j, &
-         jpgf, k, kpgf, li, lj, lk, ncoa, ncob, ncoc, op, p1, p2, p3
+                 jpgf, k, kpgf, li, lj, lk, ncoa, ncob, ncoc, op, p1, p2, p3
       REAL(dp)                                           :: dr_ab, dr_ac, dr_bc, zeti, zetj, zetk
       REAL(dp), DIMENSION(:), POINTER                    :: p_work
       TYPE(params_3c), POINTER                           :: params
@@ -141,11 +141,11 @@ CONTAINS
       ELSEIF (op == do_potential_coulomb) THEN
          dr_bc = 1000000.0_dp
          dr_ac = 1000000.0_dp
-      ENDIF
+      END IF
 
       IF (PRESENT(int_abc_ext)) THEN
          int_abc_ext = 0.0_dp
-      ENDIF
+      END IF
 
       !Note: we want to compute all possible integrals based on the 3-centers (ab|c) before
       !      having to switch to (ba|c) (or the other way around) due to angular momenta in libint
@@ -213,7 +213,7 @@ CONTAINS
                                  END DO
                               END DO
                            END DO
-                        ENDIF
+                        END IF
 
                      END DO !lk
                   END DO !lj
@@ -258,7 +258,7 @@ CONTAINS
                                  END DO
                               END DO
                            END DO
-                        ENDIF
+                        END IF
 
                      END DO !lk
                   END DO !li
@@ -445,7 +445,7 @@ CONTAINS
          dr_ab = potential_parameter%cutoff_radius*cutoff_screen_factor
       ELSEIF (potential_parameter%potential_type == do_potential_coulomb) THEN
          dr_ab = 1000000.0_dp
-      ENDIF
+      END IF
 
       !Looping over the pgfs
       DO ipgf = 1, npgfa

@@ -12,14 +12,14 @@
 !> \author Luca Bellucci and Teodoro Laino - created [tlaino] - 01.2008
 ! **************************************************************************************************
 MODULE dimer_utils
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE dimer_types,                     ONLY: dimer_env_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_remove_values,&
-                                              section_vals_type,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: dp
-   USE memory_utilities,                ONLY: reallocate
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE dimer_types, ONLY: dimer_env_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_remove_values, &
+                                  section_vals_type, &
+                                  section_vals_val_set
+   USE kinds, ONLY: dp
+   USE memory_utilities, ONLY: reallocate
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

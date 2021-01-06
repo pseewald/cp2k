@@ -15,7 +15,7 @@
 !>      03.2020 created [Jan Wilhelm]
 ! **************************************************************************************************
 MODULE minimax_exp_gw
-   USE kinds,                           ONLY: dp
+   USE kinds, ONLY: dp
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

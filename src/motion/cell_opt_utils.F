@@ -12,45 +12,45 @@
 !>      03.2008 - Teodoro Laino [tlaino] - University of Zurich - Cell Optimization
 ! **************************************************************************************************
 MODULE cell_opt_utils
-   USE cell_types,                      ONLY: &
-        cell_sym_cubic, cell_sym_hexagonal, cell_sym_monoclinic, cell_sym_monoclinic_gamma_ab, &
-        cell_sym_orthorhombic, cell_sym_rhombohedral, cell_sym_tetragonal_ab, &
-        cell_sym_tetragonal_ac, cell_sym_tetragonal_bc, cell_sym_triclinic, cell_type, &
-        get_cell_param, set_cell_param
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_create,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_release,&
-                                              cp_logger_set,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_units,                        ONLY: cp_units_rad
-   USE input_constants,                 ONLY: fix_none,&
-                                              fix_x,&
-                                              fix_xy,&
-                                              fix_xz,&
-                                              fix_y,&
-                                              fix_yz,&
-                                              fix_z
-   USE input_cp2k_global,               ONLY: create_global_section
-   USE input_enumeration_types,         ONLY: enum_i2c,&
-                                              enumeration_type
-   USE input_keyword_types,             ONLY: keyword_get,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_get_keyword,&
-                                              section_release,&
-                                              section_type,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: sqrt3
-   USE mathlib,                         ONLY: angle
+   USE cell_types, ONLY: &
+      cell_sym_cubic, cell_sym_hexagonal, cell_sym_monoclinic, cell_sym_monoclinic_gamma_ab, &
+      cell_sym_orthorhombic, cell_sym_rhombohedral, cell_sym_tetragonal_ab, &
+      cell_sym_tetragonal_ac, cell_sym_tetragonal_bc, cell_sym_triclinic, cell_type, &
+      get_cell_param, set_cell_param
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_create, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_release, &
+                              cp_logger_set, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_units, ONLY: cp_units_rad
+   USE input_constants, ONLY: fix_none, &
+                              fix_x, &
+                              fix_xy, &
+                              fix_xz, &
+                              fix_y, &
+                              fix_yz, &
+                              fix_z
+   USE input_cp2k_global, ONLY: create_global_section
+   USE input_enumeration_types, ONLY: enum_i2c, &
+                                      enumeration_type
+   USE input_keyword_types, ONLY: keyword_get, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_get_keyword, &
+                                  section_release, &
+                                  section_type, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mathconstants, ONLY: sqrt3
+   USE mathlib, ONLY: angle
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -220,11 +220,11 @@ CONTAINS
          pres_ext_tens = MATMUL(TRANSPOSE(rot), pres_ext_tens)
          DO i = 1, 3
             pres_ext = pres_ext + pres_ext_tens(i, i)
-         ENDDO
+         END DO
          pres_ext = pres_ext/3.0_dp
          DO i = 1, 3
             pres_ext_tens(i, i) = pres_ext_tens(i, i) - pres_ext
-         ENDDO
+         END DO
       ELSE
          pres_ext = pvals(1)
       END IF
@@ -284,7 +284,7 @@ CONTAINS
       pres_int = 0.0_dp
       DO i = 1, 3
          pres_int = pres_int + ptens(i, i)
-      ENDDO
+      END DO
       pres_int = pres_int/3.0_dp
 
       SELECT CASE (my_constraint_id)

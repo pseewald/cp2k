@@ -27,12 +27,12 @@
 !-----------------------------------------------------------------------------!
 MODULE ai_onecenter
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              fac,&
-                                              gamma0,&
-                                              gamma1,&
-                                              pi
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: dfac, &
+                            fac, &
+                            gamma0, &
+                            gamma1, &
+                            pi
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -1034,7 +1034,7 @@ CONTAINS
             DO k = 1, SIZE(r)
                upmat(ip, iq) = upmat(ip, iq) + &
                                (wr(k)*ra(k, ip)*rb(k, iq)*erf(a*r(k))/r(k))
-            ENDDO
+            END DO
          END DO
       END DO
 

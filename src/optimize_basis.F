@@ -5,60 +5,60 @@
 !   SPDX-License-Identifier: GPL-2.0-or-later                                                      !
 !--------------------------------------------------------------------------------------------------!
 MODULE optimize_basis
-   USE admm_methods,                    ONLY: admm_fit_mo_coeffs
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_release
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_para_env,                     ONLY: cp_para_env_create,&
-                                              cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE f77_interface,                   ONLY: create_force_env,&
-                                              destroy_force_env,&
-                                              f_env_add_defaults,&
-                                              f_env_get_from_id,&
-                                              f_env_rm_defaults,&
-                                              f_env_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE input_cp2k_read,                 ONLY: empty_initial_variables,&
-                                              read_input
-   USE input_section_types,             ONLY: section_type,&
-                                              section_vals_release,&
-                                              section_vals_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE machine,                         ONLY: m_chdir,&
-                                              m_getcwd,&
-                                              m_walltime
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_comm_free,&
-                                              mp_comm_split,&
-                                              mp_sum,&
-                                              mp_sync
-   USE optbas_fenv_manipulation,        ONLY: allocate_mo_sets,&
-                                              calculate_ks_matrix,&
-                                              calculate_overlap,&
-                                              calculate_overlap_inverse,&
-                                              create_opt_admm_env,&
-                                              modify_input_settings,&
-                                              update_basis_set
-   USE optbas_opt_utils,                ONLY: evaluate_energy,&
-                                              evaluate_fval
-   USE optimize_basis_types,            ONLY: basis_optimization_type,&
-                                              deallocate_basis_optimization_type,&
-                                              subset_type
-   USE optimize_basis_utils,            ONLY: get_set_and_basis_id,&
-                                              optimize_basis_init_read_input,&
-                                              update_derived_basis_sets
-   USE powell,                          ONLY: powell_optimize
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_neighbor_lists,               ONLY: build_qs_neighbor_lists
+   USE admm_methods, ONLY: admm_fit_mo_coeffs
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_release
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_para_env, ONLY: cp_para_env_create, &
+                          cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE f77_interface, ONLY: create_force_env, &
+                            destroy_force_env, &
+                            f_env_add_defaults, &
+                            f_env_get_from_id, &
+                            f_env_rm_defaults, &
+                            f_env_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE input_cp2k_read, ONLY: empty_initial_variables, &
+                              read_input
+   USE input_section_types, ONLY: section_type, &
+                                  section_vals_release, &
+                                  section_vals_type
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE machine, ONLY: m_chdir, &
+                      m_getcwd, &
+                      m_walltime
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_comm_free, &
+                              mp_comm_split, &
+                              mp_sum, &
+                              mp_sync
+   USE optbas_fenv_manipulation, ONLY: allocate_mo_sets, &
+                                       calculate_ks_matrix, &
+                                       calculate_overlap, &
+                                       calculate_overlap_inverse, &
+                                       create_opt_admm_env, &
+                                       modify_input_settings, &
+                                       update_basis_set
+   USE optbas_opt_utils, ONLY: evaluate_energy, &
+                               evaluate_fval
+   USE optimize_basis_types, ONLY: basis_optimization_type, &
+                                   deallocate_basis_optimization_type, &
+                                   subset_type
+   USE optimize_basis_utils, ONLY: get_set_and_basis_id, &
+                                   optimize_basis_init_read_input, &
+                                   update_derived_basis_sets
+   USE powell, ONLY: powell_optimize
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_neighbor_lists, ONLY: build_qs_neighbor_lists
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -115,7 +115,7 @@ CONTAINS
 
       INTEGER                                            :: handle, n_groups_created, opt_group
       INTEGER, DIMENSION(:), POINTER                     :: group_distribution_p
-      INTEGER, DIMENSION(0:para_env%num_pe-1), TARGET    :: group_distribution
+      INTEGER, DIMENSION(0:para_env%num_pe - 1), TARGET    :: group_distribution
 
       CALL timeset(routineN, handle)
       group_distribution_p => group_distribution

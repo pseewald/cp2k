@@ -13,94 +13,94 @@
 !> \author MI (05.2005)
 ! **************************************************************************************************
 MODULE xas_tp_scf
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_array_utils,                  ONLY: cp_2d_r_p_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_external_control,             ONLY: external_control
-   USE cp_fm_types,                     ONLY: cp_fm_get_submatrix,&
-                                              cp_fm_init_random,&
-                                              cp_fm_set_submatrix,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_add_iter_level,&
-                                              cp_iterate,&
-                                              cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr,&
-                                              cp_rm_iter_level
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_p_type
-   USE input_constants,                 ONLY: ot_precond_full_kinetic,&
-                                              ot_precond_solver_default,&
-                                              xas_dscf
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE machine,                         ONLY: m_flush,&
-                                              m_walltime
-   USE message_passing,                 ONLY: mp_sync
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE preconditioner,                  ONLY: make_preconditioner
-   USE preconditioner_types,            ONLY: destroy_preconditioner,&
-                                              init_preconditioner,&
-                                              preconditioner_type
-   USE qs_charges_types,                ONLY: qs_charges_type
-   USE qs_density_mixing_types,         ONLY: broyden_mixing_new_nr,&
-                                              broyden_mixing_nr,&
-                                              direct_mixing_nr,&
-                                              gspace_mixing_nr,&
-                                              multisecant_mixing_nr,&
-                                              no_mixing_nr,&
-                                              pulay_mixing_nr
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_gspace_mixing,                ONLY: gspace_mixing
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_ks_methods,                   ONLY: qs_ks_update_qs_env
-   USE qs_ks_types,                     ONLY: qs_ks_did_change,&
-                                              qs_ks_env_type
-   USE qs_loc_methods,                  ONLY: qs_loc_driver
-   USE qs_loc_types,                    ONLY: get_qs_loc_env,&
-                                              localized_wfn_control_type,&
-                                              qs_loc_env_new_type
-   USE qs_mixing_utils,                 ONLY: self_consistency_check
-   USE qs_mo_methods,                   ONLY: calculate_density_matrix,&
-                                              calculate_subspace_eigenvalues
-   USE qs_mo_occupation,                ONLY: set_mo_occupation
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_ot_eigensolver,               ONLY: ot_eigensolver
-   USE qs_rho_methods,                  ONLY: qs_rho_update_rho
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf,                          ONLY: scf_env_cleanup,&
-                                              scf_env_do_scf
-   USE qs_scf_diagonalization,          ONLY: general_eigenproblem
-   USE qs_scf_initialization,           ONLY: qs_scf_env_initialize
-   USE qs_scf_methods,                  ONLY: scf_env_density_mixing
-   USE qs_scf_output,                   ONLY: qs_scf_print_summary
-   USE qs_scf_types,                    ONLY: general_diag_method_nr,&
-                                              qs_scf_env_type,&
-                                              scf_env_release
-   USE scf_control_types,               ONLY: scf_control_type
-   USE xas_control,                     ONLY: xas_control_type
-   USE xas_env_types,                   ONLY: get_xas_env,&
-                                              set_xas_env,&
-                                              xas_environment_type
-   USE xas_restart,                     ONLY: find_excited_core_orbital,&
-                                              xas_write_restart
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_array_utils, ONLY: cp_2d_r_p_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_external_control, ONLY: external_control
+   USE cp_fm_types, ONLY: cp_fm_get_submatrix, &
+                          cp_fm_init_random, &
+                          cp_fm_set_submatrix, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_add_iter_level, &
+                                 cp_iterate, &
+                                 cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr, &
+                                 cp_rm_iter_level
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_p_type
+   USE input_constants, ONLY: ot_precond_full_kinetic, &
+                              ot_precond_solver_default, &
+                              xas_dscf
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE machine, ONLY: m_flush, &
+                      m_walltime
+   USE message_passing, ONLY: mp_sync
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE preconditioner, ONLY: make_preconditioner
+   USE preconditioner_types, ONLY: destroy_preconditioner, &
+                                   init_preconditioner, &
+                                   preconditioner_type
+   USE qs_charges_types, ONLY: qs_charges_type
+   USE qs_density_mixing_types, ONLY: broyden_mixing_new_nr, &
+                                      broyden_mixing_nr, &
+                                      direct_mixing_nr, &
+                                      gspace_mixing_nr, &
+                                      multisecant_mixing_nr, &
+                                      no_mixing_nr, &
+                                      pulay_mixing_nr
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_gspace_mixing, ONLY: gspace_mixing
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_ks_methods, ONLY: qs_ks_update_qs_env
+   USE qs_ks_types, ONLY: qs_ks_did_change, &
+                          qs_ks_env_type
+   USE qs_loc_methods, ONLY: qs_loc_driver
+   USE qs_loc_types, ONLY: get_qs_loc_env, &
+                           localized_wfn_control_type, &
+                           qs_loc_env_new_type
+   USE qs_mixing_utils, ONLY: self_consistency_check
+   USE qs_mo_methods, ONLY: calculate_density_matrix, &
+                            calculate_subspace_eigenvalues
+   USE qs_mo_occupation, ONLY: set_mo_occupation
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_ot_eigensolver, ONLY: ot_eigensolver
+   USE qs_rho_methods, ONLY: qs_rho_update_rho
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf, ONLY: scf_env_cleanup, &
+                     scf_env_do_scf
+   USE qs_scf_diagonalization, ONLY: general_eigenproblem
+   USE qs_scf_initialization, ONLY: qs_scf_env_initialize
+   USE qs_scf_methods, ONLY: scf_env_density_mixing
+   USE qs_scf_output, ONLY: qs_scf_print_summary
+   USE qs_scf_types, ONLY: general_diag_method_nr, &
+                           qs_scf_env_type, &
+                           scf_env_release
+   USE scf_control_types, ONLY: scf_control_type
+   USE xas_control, ONLY: xas_control_type
+   USE xas_env_types, ONLY: get_xas_env, &
+                            set_xas_env, &
+                            xas_environment_type
+   USE xas_restart, ONLY: find_excited_core_orbital, &
+                          xas_write_restart
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -253,7 +253,7 @@ CONTAINS
             ELSE
                hole_spin = 2
                occ_spin = 1
-            ENDIF
+            END IF
             CALL set_mo_occupation(mo_set=mos(hole_spin)%mo_set, &
                                    smear=scf_control%smear, &
                                    xas_env=xas_env)
@@ -269,7 +269,7 @@ CONTAINS
             DO ispin = 1, nspin
                energy%kTS = energy%kTS + mos(ispin)%mo_set%kTS
                energy%efermi = energy%efermi + mos(ispin)%mo_set%mu
-            ENDDO
+            END DO
             energy%efermi = energy%efermi/REAL(nspin, KIND=dp)
 
          END SELECT
@@ -345,7 +345,7 @@ CONTAINS
                ! does not yet handle k-points
                CALL dbcsr_copy(rho_ao_kp(ispin, 1)%matrix, scf_env%p_mix_new(ispin, 1)%matrix)
             END DO
-         ENDIF
+         END IF
 
          ! ** update qs_env%rho
          CALL qs_rho_update_rho(rho, qs_env=qs_env)
@@ -404,7 +404,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'cls_prepare_states'
 
       INTEGER :: handle, i, ikind, isgf, ispin, istate, j, my_kind, my_spin, my_state, nao, natom, &
-         nexc_search, nmo, nvirtual2, uno_iter, xas_estate
+                 nexc_search, nmo, nvirtual2, uno_iter, xas_estate
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: first_sgf
       INTEGER, DIMENSION(:), POINTER                     :: mykind_of_kind
       REAL(dp), DIMENSION(:, :), POINTER                 :: centers_wfn
@@ -609,7 +609,7 @@ CONTAINS
                           source_start=1, target_start=1)
          DO istate = 1, nmo
             all_evals(istate) = eigenvalues(istate)
-         ENDDO
+         END DO
          IF (nvirtual2 .GT. 0) THEN
             CALL cp_fm_to_fm(uno_orbs, all_vectors, ncol=nvirtual2, &
                              source_start=1, target_start=1 + nmo)
@@ -689,7 +689,7 @@ CONTAINS
             CALL get_xas_env(xas_env=xas_env, scf_env=scf_env)
          ELSE
             CALL qs_scf_env_initialize(qs_env, scf_env, scf_control, scf_section)
-         ENDIF
+         END IF
 
          CALL scf_env_do_scf(scf_env=scf_env, scf_control=scf_control, qs_env=qs_env, &
                              converged=converged, should_stop=should_stop)
@@ -720,7 +720,7 @@ CONTAINS
                        source_start=1, target_start=1)
       DO istate = 1, nmo
          all_evals(istate) = eigenvalues(istate)
-      ENDDO
+      END DO
 
       IF (nvirtual2 /= 0) THEN
          IF (output_unit > 0) THEN

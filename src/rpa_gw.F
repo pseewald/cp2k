@@ -11,90 +11,90 @@
 !>      03.2019 created [Frederick Stein]
 ! **************************************************************************************************
 MODULE rpa_gw
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell
-   USE cp_cfm_types,                    ONLY: cp_cfm_p_type,&
-                                              cp_cfm_release
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_scale_and_add,&
-                                              cp_fm_upper_to_full
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose,&
-                                              cp_fm_cholesky_invert
-   USE cp_fm_diag,                      ONLY: cp_fm_syevd
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_desymmetrize, dbcsr_filter, &
-        dbcsr_get_info, dbcsr_init_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
-        dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, &
-        dbcsr_p_type, dbcsr_release_p, dbcsr_scalar, dbcsr_scale, dbcsr_set, dbcsr_type, &
-        dbcsr_type_no_symmetry
-   USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_batched_contract_finalize, dbcsr_t_batched_contract_init, dbcsr_t_clear, &
-        dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_create, &
-        dbcsr_t_destroy, dbcsr_t_get_block, dbcsr_t_get_info, dbcsr_t_iterator_blocks_left, &
-        dbcsr_t_iterator_next_block, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, &
-        dbcsr_t_iterator_type, dbcsr_t_nblks_total, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, &
-        dbcsr_t_pgrid_type, dbcsr_t_type
-   USE hfx_types,                       ONLY: block_ind_type,&
-                                              dealloc_containers,&
-                                              hfx_compression_type
-   USE input_constants,                 ONLY: gw_pade_approx,&
-                                              gw_two_pole_model,&
-                                              ri_rpa_g0w0_crossing_bisection,&
-                                              ri_rpa_g0w0_crossing_newton,&
-                                              ri_rpa_g0w0_crossing_z_shot
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_create,&
-                                              kpoint_release,&
-                                              kpoint_sym_create,&
-                                              kpoint_type
-   USE mathconstants,                   ONLY: fourpi,&
-                                              pi,&
-                                              twopi
-   USE message_passing,                 ONLY: mp_sum,&
-                                              mp_sync
-   USE mp2_types,                       ONLY: mp2_type
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: evolt
-   USE qs_band_structure,               ONLY: calculate_kp_orbitals
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_env_release,&
-                                              qs_environment_type
-   USE qs_gamma2kp,                     ONLY: create_kp_from_gamma
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_type
-   USE qs_moments,                      ONLY: build_berry_moment_matrix
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type,&
-                                              release_neighbor_list_sets
-   USE qs_neighbor_lists,               ONLY: setup_neighbor_list
-   USE qs_overlap,                      ONLY: build_overlap_matrix_simple
-   USE qs_tensors,                      ONLY: decompress_tensor
-   USE qs_tensors_types,                ONLY: create_2c_tensor
-   USE rpa_gw_im_time_util,             ONLY: get_tensor_3c_overl_int_gw
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cell_types, ONLY: cell_type, &
+                         get_cell
+   USE cp_cfm_types, ONLY: cp_cfm_p_type, &
+                           cp_cfm_release
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_fm_basic_linalg, ONLY: cp_fm_scale_and_add, &
+                                 cp_fm_upper_to_full
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose, &
+                             cp_fm_cholesky_invert
+   USE cp_fm_diag, ONLY: cp_fm_syevd
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_desymmetrize, dbcsr_filter, &
+      dbcsr_get_info, dbcsr_init_p, dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, &
+      dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, &
+      dbcsr_p_type, dbcsr_release_p, dbcsr_scalar, dbcsr_scale, dbcsr_set, dbcsr_type, &
+      dbcsr_type_no_symmetry
+   USE dbcsr_tensor_api, ONLY: &
+      dbcsr_t_batched_contract_finalize, dbcsr_t_batched_contract_init, dbcsr_t_clear, &
+      dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_create, &
+      dbcsr_t_destroy, dbcsr_t_get_block, dbcsr_t_get_info, dbcsr_t_iterator_blocks_left, &
+      dbcsr_t_iterator_next_block, dbcsr_t_iterator_start, dbcsr_t_iterator_stop, &
+      dbcsr_t_iterator_type, dbcsr_t_nblks_total, dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, &
+      dbcsr_t_pgrid_type, dbcsr_t_type
+   USE hfx_types, ONLY: block_ind_type, &
+                        dealloc_containers, &
+                        hfx_compression_type
+   USE input_constants, ONLY: gw_pade_approx, &
+                              gw_two_pole_model, &
+                              ri_rpa_g0w0_crossing_bisection, &
+                              ri_rpa_g0w0_crossing_newton, &
+                              ri_rpa_g0w0_crossing_z_shot
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_create, &
+                           kpoint_release, &
+                           kpoint_sym_create, &
+                           kpoint_type
+   USE mathconstants, ONLY: fourpi, &
+                            pi, &
+                            twopi
+   USE message_passing, ONLY: mp_sum, &
+                              mp_sync
+   USE mp2_types, ONLY: mp2_type
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: evolt
+   USE qs_band_structure, ONLY: calculate_kp_orbitals
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_env_release, &
+                                   qs_environment_type
+   USE qs_gamma2kp, ONLY: create_kp_from_gamma
+   USE qs_integral_utils, ONLY: basis_set_list_setup
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_type
+   USE qs_moments, ONLY: build_berry_moment_matrix
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type, &
+                                     release_neighbor_list_sets
+   USE qs_neighbor_lists, ONLY: setup_neighbor_list
+   USE qs_overlap, ONLY: build_overlap_matrix_simple
+   USE qs_tensors, ONLY: decompress_tensor
+   USE qs_tensors_types, ONLY: create_2c_tensor
+   USE rpa_gw_im_time_util, ONLY: get_tensor_3c_overl_int_gw
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -193,7 +193,7 @@ CONTAINS
       TYPE(hfx_compression_type), OPTIONAL               :: t_3c_O_mo_compressed_beta
       INTEGER, ALLOCATABLE, DIMENSION(:, :), OPTIONAL    :: t_3c_O_mo_ind_beta
       TYPE(dbcsr_t_type), OPTIONAL :: t_3c_overl_int_gw_RI_beta, t_3c_overl_int_gw_AO_beta, &
-         t_3c_overl_nnP_ic_beta, t_3c_overl_nnP_ic_reflected_beta
+                                      t_3c_overl_nnP_ic_beta, t_3c_overl_nnP_ic_reflected_beta
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'allocate_matrices_gw_im_time'
 
@@ -333,7 +333,7 @@ CONTAINS
       COMPLEX(KIND=dp), ALLOCATABLE, &
          DIMENSION(:, :, :), INTENT(OUT)                 :: vec_Sigma_c_gw
       INTEGER, INTENT(IN) :: color_rpa_group, dimen_nm_gw, gw_corr_lev_occ, gw_corr_lev_virt, &
-         homo, nmo, num_integ_group, num_integ_points, unit_nr
+                             homo, nmo, num_integ_group, num_integ_points, unit_nr
       INTEGER, INTENT(INOUT)                             :: gw_corr_lev_tot, num_fit_points
       REAL(KIND=dp)                                      :: omega_max_fit
       LOGICAL, INTENT(IN)                                :: do_minimax_quad, do_periodic, &
@@ -417,8 +417,8 @@ CONTAINS
             mp2_env%ri_g0w0%nparam_pade = num_fit_points
             IF (unit_nr > 0) WRITE (UNIT=unit_nr, FMT="(T3,A,T74,I7)") &
                "Number of pade parameters:", mp2_env%ri_g0w0%nparam_pade
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! create new arrays containing omega values at which we calculate vec_Sigma_c_gw
       ALLOCATE (vec_omega_fit_gw(num_fit_points))
@@ -773,7 +773,7 @@ CONTAINS
       TYPE(hfx_compression_type), OPTIONAL               :: t_3c_O_mo_compressed_beta
       INTEGER, ALLOCATABLE, DIMENSION(:, :), OPTIONAL    :: t_3c_O_mo_ind_beta
       TYPE(dbcsr_t_type), OPTIONAL :: t_3c_overl_int_gw_RI_beta, t_3c_overl_int_gw_AO_beta, &
-         t_3c_overl_nnP_ic_beta, t_3c_overl_nnP_ic_reflected_beta
+                                      t_3c_overl_nnP_ic_beta, t_3c_overl_nnP_ic_reflected_beta
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'deallocate_matrices_gw_im_time'
 
@@ -821,7 +821,7 @@ CONTAINS
          CALL dbcsr_t_destroy(t_3c_overl_nnP_ic_reflected)
          IF (PRESENT(t_3c_overl_nnP_ic_beta)) CALL dbcsr_t_destroy(t_3c_overl_nnP_ic_beta)
          IF (PRESENT(t_3c_overl_nnP_ic_reflected_beta)) CALL dbcsr_t_destroy(t_3c_overl_nnP_ic_reflected_beta)
-      ENDIF
+      END IF
 
       DEALLOCATE (t_3c_O_mo_ind)
       IF (PRESENT(t_3c_O_mo_ind_beta)) DEALLOCATE (t_3c_O_mo_ind_beta)
@@ -1312,7 +1312,7 @@ CONTAINS
       COMPLEX(KIND=dp), ALLOCATABLE, &
          DIMENSION(:, :, :), INTENT(INOUT)               :: vec_Sigma_c_gw
       INTEGER, INTENT(IN) :: count_ev_sc_GW, gw_corr_lev_occ, gw_corr_lev_tot, gw_corr_lev_virt, &
-         homo, nmo, num_fit_points, num_integ_points
+                             homo, nmo, num_fit_points, num_integ_points
       INTEGER                                            :: num_points_corr
       INTEGER, INTENT(IN)                                :: unit_nr
       LOGICAL, INTENT(IN)                                :: do_apply_ic_corr_to_gw, do_im_time, &
@@ -1336,7 +1336,7 @@ CONTAINS
          INTENT(IN)                                      :: weights_cos_tf_t_to_w, &
                                                             weights_sin_tf_t_to_w
       TYPE(cp_fm_type), POINTER :: fm_mo_coeff_occ_scaled, fm_mo_coeff_virt_scaled, &
-         fm_mo_coeff_occ, fm_mo_coeff_virt, fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, mo_coeff
+                                   fm_mo_coeff_occ, fm_mo_coeff_virt, fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau, mo_coeff
       TYPE(cp_fm_p_type), DIMENSION(:), POINTER          :: fm_mat_W
       TYPE(cp_para_env_type), POINTER                    :: para_env, para_env_RPA
       TYPE(dbcsr_p_type), INTENT(IN)                     :: mat_dm, mat_SinvVSinv
@@ -1772,7 +1772,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'compute_eps_head_Berry'
 
       INTEGER :: col, col_end_in_block, col_offset, col_size, handle, i_col, i_row, ikp, nkp, row, &
-         row_offset, row_size, row_start_in_block
+                 row_offset, row_size, row_start_in_block
       REAL(KIND=dp)                                      :: abs_k_square, cell_volume, &
                                                             correct_kpoint(3), cos_square, &
                                                             eigen_diff, relative_kpoint(3), &
@@ -1942,13 +1942,13 @@ CONTAINS
       TYPE(cell_type), POINTER                           :: cell
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_aux_aux
       TYPE(cp_fm_type), POINTER :: fm_mat_eigv_P, fm_mat_P, fm_mat_P_sqrt_inv, &
-         fm_mat_s_aux_aux_inv, fm_mat_scaled_eigv_P, fm_mat_work_aux_aux
+                                   fm_mat_s_aux_aux_inv, fm_mat_scaled_eigv_P, fm_mat_work_aux_aux
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s, matrix_s_aux_aux, &
                                                             matrix_s_aux_orb
       TYPE(dbcsr_type), POINTER :: cosmat, cosmat_desymm, mat_mo_coeff_aux, mat_mo_coeff_aux_2, &
-         mat_mo_coeff_Gamma_all, mat_mo_coeff_Gamma_occ_and_GW, mat_mo_coeff_im, mat_mo_coeff_re, &
-         mat_work_aux_orb, mat_work_aux_orb_2, matrix_P, matrix_P_sqrt, matrix_P_sqrt_inv, &
-         matrix_s_inv_aux_aux, sinmat, sinmat_desymm, tmp
+                                   mat_mo_coeff_Gamma_all, mat_mo_coeff_Gamma_occ_and_GW, mat_mo_coeff_im, mat_mo_coeff_re, &
+                                   mat_work_aux_orb, mat_work_aux_orb_2, matrix_P, matrix_P_sqrt, matrix_P_sqrt_inv, &
+                                   matrix_s_inv_aux_aux, sinmat, sinmat_desymm, tmp
       TYPE(gto_basis_set_p_type), DIMENSION(:), POINTER  :: gw_aux_basis_set_list, orb_basis_set_list
       TYPE(gto_basis_set_type), POINTER                  :: basis_set_gw_aux
       TYPE(neighbor_list_set_p_type), DIMENSION(:), &
@@ -2905,7 +2905,7 @@ CONTAINS
 
       COMPLEX(KIND=dp), ALLOCATABLE, DIMENSION(:)        :: avg_self_energy
       INTEGER :: degeneracy, first_degenerate_level, i_deg_level, i_level_gw, j_deg_level, jquad, &
-         num_deg_levels, num_integ_points, num_levels_gw
+                 num_deg_levels, num_integ_points, num_levels_gw
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: list_degenerate_levels
 
       num_levels_gw = SIZE(vec_Sigma_c_gw, 1)
@@ -3086,7 +3086,7 @@ CONTAINS
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ipiv
       LOGICAL                                            :: could_exit
       REAL(KIND=dp) :: chi2, chi2_old, delta, deriv_val_real, e_fermi, gw_energ, Ldown, &
-         level_energ_GW, Lup, range_step, ScalParam, sign_occ_virt, stat_error
+                       level_energ_GW, Lup, range_step, ScalParam, sign_occ_virt, stat_error
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: Lambda_Im, Lambda_Re, stat_errors, &
                                                             vec_N_gw, vec_omega_fit_gw_sign
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: mat_N_gw
@@ -3553,13 +3553,13 @@ CONTAINS
          DO jquad = 1, num_fit_points
             Sigma_c_gw_reorder(jquad) = vec_Sigma_c_gw(n_level_gw, jquad)
             vec_omega_fit_gw_sign_reorder(jquad) = vec_omega_fit_gw_sign(jquad)
-         ENDDO
+         END DO
       ELSE
          DO jquad = 1, num_fit_points
             Sigma_c_gw_reorder(jquad) = vec_Sigma_c_gw(n_level_gw, num_fit_points - jquad + 1)
             vec_omega_fit_gw_sign_reorder(jquad) = vec_omega_fit_gw_sign(num_fit_points - jquad + 1)
-         ENDDO
-      ENDIF
+         END DO
+      END IF
 
       !*** evaluate parameters for pade approximation
       ALLOCATE (coeff_pade(nparam_pade))
@@ -3581,7 +3581,7 @@ CONTAINS
                            REAL(sigma_c_pade) + &
                            vec_Sigma_x_minus_vxc_gw(n_level_gw_ref))* &
                           z_value(n_level_gw)
-      ENDIF
+      END IF
 
       !*** perform crossing search
       SELECT CASE (crossing_search)
@@ -3734,7 +3734,7 @@ CONTAINS
          xpoints(iparam) = im_unit*x(idat)
          ypoints(iparam) = y(idat)
          idat = idat + nstep
-      ENDDO
+      END DO
       xpoints(nparam) = im_unit*x(num_fit_points)
       ypoints(nparam) = y(num_fit_points)
 
@@ -3746,12 +3746,12 @@ CONTAINS
          DO idat = iparam, nparam
             g_mat(idat, iparam) = (g_mat(iparam - 1, iparam - 1) - g_mat(idat, iparam - 1))/ &
                                   ((xpoints(idat) - xpoints(iparam - 1))*g_mat(idat, iparam - 1))
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       DO iparam = 1, nparam
          coeff(iparam) = g_mat(iparam, iparam)
-      ENDDO
+      END DO
 
       DEALLOCATE (ypoints)
       DEALLOCATE (g_mat)
@@ -3798,7 +3798,7 @@ CONTAINS
          ELSE
             func_val = re_unit + coeff(iparam)*(re_unit*x_val - xpoints(iparam - 1))/func_val
          END IF
-      ENDDO
+      END DO
 
       func_val = coeff(1)/func_val
 
@@ -3839,7 +3839,7 @@ CONTAINS
          dev_denominator = dev_val
          dev_val = dev_numerator/denominator - (numerator*dev_denominator)/(denominator**2)
          func_val = re_unit + coeff(iparam)*(re_unit*x_val - xpoints(iparam - 1))/func_val
-      ENDDO
+      END DO
 
       dev_val = -1.0_dp*coeff(1)/(func_val**2)*dev_val
       func_val = coeff(1)/func_val
@@ -3847,7 +3847,7 @@ CONTAINS
       IF (PRESENT(z_value)) THEN
          z_value = 1.0_dp - REAL(dev_val)
          z_value = 1.0_dp/z_value
-      ENDIF
+      END IF
       IF (PRESENT(m_value)) m_value = REAL(dev_val)
 
    END SUBROUTINE get_z_and_m_value_pade
@@ -3892,7 +3892,7 @@ CONTAINS
          my_start_val = start_val
       ELSE
          my_start_val = Eigenval_scf
-      ENDIF
+      END IF
 
       qp_energy = my_start_val
       qp_energy_old = my_start_val
@@ -3914,8 +3914,8 @@ CONTAINS
                "MO ", TRIM(n_level_gw_ref_char), " has not been found."
             CPWARN(error_msg)
             EXIT
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       gw_energ = REAL(sigma_c)
 
@@ -3964,7 +3964,7 @@ CONTAINS
          my_start_val = start_val
       ELSE
          my_start_val = Eigenval_scf
-      ENDIF
+      END IF
 
       qp_energy = my_start_val
       qp_energy_old = my_start_val
@@ -3989,8 +3989,8 @@ CONTAINS
                "MO ", TRIM(n_level_gw_ref_char), " has not been found."
             CPWARN(error_msg)
             EXIT
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       gw_energ = REAL(sigma_c)
 
@@ -4033,7 +4033,7 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:), &
          INTENT(INOUT)                                   :: Eigenval_last, Eigenval_scf
       INTEGER, INTENT(IN) :: gw_corr_lev_occ, gw_corr_lev_tot, crossing_search, homo, unit_nr, &
-         count_ev_sc_GW, count_sc_GW0, ikp, nkp_self_energy
+                             count_ev_sc_GW, count_sc_GW0, ikp, nkp_self_energy
       TYPE(kpoint_type), INTENT(IN), POINTER             :: kpoints
       LOGICAL, INTENT(IN), OPTIONAL                      :: do_alpha, do_beta
 
@@ -4647,7 +4647,7 @@ CONTAINS
          INTENT(IN)                                      :: tau_tj, tj
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_s
       TYPE(cp_fm_type), POINTER :: fm_mo_coeff_occ, fm_mo_coeff_virt, fm_mo_coeff_occ_scaled, &
-         fm_mo_coeff_virt_scaled, fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau
+                                   fm_mo_coeff_virt_scaled, fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau
       REAL(KIND=dp), DIMENSION(:), INTENT(IN)            :: Eigenval
       REAL(KIND=dp), INTENT(IN)                          :: eps_filter
       REAL(KIND=dp), INTENT(INOUT)                       :: e_fermi
@@ -4691,7 +4691,7 @@ CONTAINS
       COMPLEX(KIND=dp)                                   :: im_unit
       COMPLEX(KIND=dp), ALLOCATABLE, DIMENSION(:, :)     :: delta_corr_omega
       INTEGER :: gw_lev_end, gw_lev_start, handle, handle3, i, iblk_mo, iquad, jquad, mo_end, &
-         mo_start, n_level_gw, n_level_gw_ref, nblk_mo, unit_nr_prv
+                 mo_start, n_level_gw, n_level_gw_ref, nblk_mo, unit_nr_prv
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: batch_range_mo, dist1, dist2, mo_bsizes, &
                                                             mo_offsets, sizes_AO, sizes_RI
       INTEGER, DIMENSION(2)                              :: mo_bounds, pdims_2d
@@ -4700,8 +4700,8 @@ CONTAINS
                                                             sign_occ_virt, t_i_Clenshaw, tau, &
                                                             weight_cos, weight_i, weight_sin
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :) :: vec_Sigma_c_gw_cos_omega, &
-         vec_Sigma_c_gw_cos_tau, vec_Sigma_c_gw_neg_tau, vec_Sigma_c_gw_pos_tau, &
-         vec_Sigma_c_gw_sin_omega, vec_Sigma_c_gw_sin_tau
+                                                     vec_Sigma_c_gw_cos_tau, vec_Sigma_c_gw_neg_tau, vec_Sigma_c_gw_pos_tau, &
+                                                     vec_Sigma_c_gw_sin_omega, vec_Sigma_c_gw_sin_tau
       TYPE(dbcsr_t_pgrid_type)                           :: pgrid_2d
       TYPE(dbcsr_t_type)                                 :: t_3c_ctr_AO, t_3c_ctr_RI, t_AO_tmp, &
                                                             t_dm, t_greens_fct_occ, &
@@ -4722,7 +4722,7 @@ CONTAINS
          unit_nr_prv = unit_nr
       ELSE
          unit_nr_prv = 0
-      ENDIF
+      END IF
 
       my_do_beta = .FALSE.
       IF (PRESENT(do_beta)) my_do_beta = do_beta
@@ -4837,7 +4837,7 @@ CONTAINS
                                    t_3c_ctr_RI, t_3c_ctr_AO, calculate_ctr_ri=.FALSE.)
 
             CALL trace_sigma_gw(t_3c_ctr_AO, t_3c_ctr_RI, vec_Sigma_c_gw_pos_tau(:, jquad), mo_start, mo_bounds, para_env)
-         ENDDO
+         END DO
          CALL dbcsr_t_batched_contract_finalize(t_3c_overl_int_gw_AO)
          CALL dbcsr_t_batched_contract_finalize(t_3c_overl_int_gw_RI)
          CALL dbcsr_t_batched_contract_finalize(t_3c_ctr_AO)
@@ -4938,7 +4938,7 @@ CONTAINS
                                    t_3c_ctr_RI, t_3c_ctr_AO, calculate_ctr_ri=.TRUE.)
 
             CALL trace_sigma_gw(t_3c_ctr_AO, t_3c_ctr_RI, vec_Sigma_x_gw(mo_start:mo_end, 1), mo_start, mo_bounds, para_env)
-         ENDDO
+         END DO
          CALL dbcsr_t_batched_contract_finalize(t_3c_overl_int_gw_AO)
          CALL dbcsr_t_batched_contract_finalize(t_3c_overl_int_gw_RI)
          CALL dbcsr_t_batched_contract_finalize(t_dm)
@@ -5093,7 +5093,7 @@ CONTAINS
                                bounds_3=ctr_bounds_mo, &
                                unit_nr=unit_nr)
 
-      ENDIF
+      END IF
 
       CALL dbcsr_t_get_info(t_3c_overl_int_gw_AO, nfull_total=bounds_3c)
       ctr_bounds_mo(:, 1) = [1, bounds_3c(2)]
@@ -5137,7 +5137,7 @@ CONTAINS
       LOGICAL                                            :: found
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: block_1, block_2
       REAL(KIND=dp), &
-         DIMENSION(mo_bounds(2)-mo_bounds(1)+1)          :: vec_Sigma_prv
+         DIMENSION(mo_bounds(2) - mo_bounds(1) + 1)          :: vec_Sigma_prv
       TYPE(dbcsr_t_iterator_type)                        :: iter
       TYPE(dbcsr_t_type)                                 :: t3c_1_redist
 
@@ -5162,7 +5162,7 @@ CONTAINS
          ELSE
             n_start_block = 1
             n_start = boff(3) - mo_bounds(1) + 1
-         ENDIF
+         END IF
 
          IF (boff(3) + bsize(3) - 1 > mo_bounds(2)) THEN
             n_end_block = mo_bounds(2) - boff(3) + 1
@@ -5170,7 +5170,7 @@ CONTAINS
          ELSE
             n_end_block = bsize(3)
             n_end = boff(3) + bsize(3) - mo_bounds(1)
-         ENDIF
+         END IF
 
          trace_shape(1) = SIZE(block_1, 1)*SIZE(block_1, 2)
          vec_Sigma_prv(n_start:n_end) = &
@@ -5179,7 +5179,7 @@ CONTAINS
                            RESHAPE(block_2(:, :, n), trace_shape)), &
                n=n_start_block, n_end_block)/)
          DEALLOCATE (block_1, block_2)
-      ENDDO
+      END DO
       CALL dbcsr_t_iterator_stop(iter)
 
       CALL dbcsr_t_destroy(t3c_1_redist)
@@ -5217,7 +5217,7 @@ CONTAINS
 
       TYPE(dbcsr_type), POINTER                          :: mat_greens_fct_occ, mat_greens_fct_virt
       TYPE(cp_fm_type), POINTER :: fm_mo_coeff_occ, fm_mo_coeff_virt, fm_mo_coeff_occ_scaled, &
-         fm_mo_coeff_virt_scaled, fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau
+                                   fm_mo_coeff_virt_scaled, fm_scaled_dm_occ_tau, fm_scaled_dm_virt_tau
       REAL(KIND=dp), DIMENSION(:), INTENT(IN)            :: Eigenval
       INTEGER, INTENT(IN)                                :: nmo
       REAL(KIND=dp), INTENT(IN)                          :: eps_filter, e_fermi, tau

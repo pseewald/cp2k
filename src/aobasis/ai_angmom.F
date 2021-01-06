@@ -16,10 +16,10 @@
 ! **************************************************************************************************
 MODULE ai_angmom
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE orbital_pointers,                ONLY: coset,&
-                                              ncoset
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE orbital_pointers, ONLY: coset, &
+                               ncoset
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

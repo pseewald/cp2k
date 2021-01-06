@@ -16,17 +16,17 @@
 !> \author CJM & JGH
 ! **************************************************************************************************
 MODULE topology_types
-   USE cell_types,                      ONLY: cell_release,&
-                                              cell_type
-   USE colvar_types,                    ONLY: colvar_p_type,&
-                                              colvar_release
-   USE input_constants,                 ONLY: do_bondparm_covalent,&
-                                              do_conn_generate,&
-                                              do_constr_none,&
-                                              do_skip_13
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
+   USE cell_types, ONLY: cell_release, &
+                         cell_type
+   USE colvar_types, ONLY: colvar_p_type, &
+                           colvar_release
+   USE input_constants, ONLY: do_bondparm_covalent, &
+                              do_conn_generate, &
+                              do_constr_none, &
+                              do_skip_13
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

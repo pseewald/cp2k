@@ -12,20 +12,20 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE xc_xbecke88
-   USE bibliography,                    ONLY: Becke1988,&
-                                              cite_reference
-   USE cp_array_utils,                  ONLY: cp_3d_r_p_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
+   USE bibliography, ONLY: Becke1988, &
+                           cite_reference
+   USE cp_array_utils, ONLY: cp_3d_r_p_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -126,8 +126,8 @@ CONTAINS
       INTEGER, DIMENSION(:, :), POINTER                  :: bo
       REAL(kind=dp)                                      :: epsilon_rho, sx
       REAL(kind=dp), DIMENSION(:, :, :), POINTER :: dummy, e_0, e_ndrho, e_ndrho_ndrho, &
-         e_ndrho_ndrho_ndrho, e_ndrho_ndrho_rho, e_ndrho_rho, e_ndrho_rho_rho, e_rho, e_rho_rho, &
-         e_rho_rho_rho, norm_drho, rho, rho_1_3
+                                           e_ndrho_ndrho_ndrho, e_ndrho_ndrho_rho, e_ndrho_rho, e_ndrho_rho_rho, e_rho, e_rho_rho, &
+                                                    e_rho_rho_rho, norm_drho, rho, rho_1_3
       TYPE(xc_derivative_type), POINTER                  :: deriv
 
       CALL timeset(routineN, handle)
@@ -253,16 +253,16 @@ CONTAINS
                             e_ndrho_ndrho_ndrho, grad_deriv, npoints, epsilon_rho, sx)
       INTEGER, INTENT(in)                                :: npoints, grad_deriv
       REAL(kind=dp), DIMENSION(1:npoints), INTENT(inout) :: e_ndrho_ndrho_ndrho, &
-         e_ndrho_ndrho_rho, e_ndrho_rho_rho, e_rho_rho_rho, e_ndrho_ndrho, e_ndrho_rho, e_rho_rho, &
-         e_ndrho, e_rho, e_0
+                                         e_ndrho_ndrho_rho, e_ndrho_rho_rho, e_rho_rho_rho, e_ndrho_ndrho, e_ndrho_rho, e_rho_rho, &
+                                                            e_ndrho, e_rho, e_0
       REAL(kind=dp), DIMENSION(1:npoints), INTENT(in)    :: norm_drho, rho_1_3, rho
       REAL(kind=dp), INTENT(in)                          :: epsilon_rho, sx
 
       INTEGER                                            :: ii
       REAL(kind=dp) :: c, epsilon_rho43, my_rho, my_rho_1_3, t1, t10, t100, t104, t11, t12, t126, &
-         t13, t159, t164, t17, t170, t176, t18, t189, t2, t21, t23, t29, t3, t31, t33, t37, t39, &
-         t40, t43, t44, t49, t5, t51, t54, t6, t64, t67, t7, t72, t74, t75, t79, t83, t86, t90, &
-         t91, t98, t99, x
+                       t13, t159, t164, t17, t170, t176, t18, t189, t2, t21, t23, t29, t3, t31, t33, t37, t39, &
+                       t40, t43, t44, t49, t5, t51, t54, t6, t64, t67, t7, t72, t74, t75, t79, t83, t86, t90, &
+                       t91, t98, t99, x
 
       c = 1.5_dp*(0.75_dp/Pi)**(1.0_dp/3.0_dp)
       t1 = 2**(0.1e1_dp/0.3e1_dp)
@@ -645,8 +645,8 @@ CONTAINS
       REAL(kind=dp)                                      :: epsilon_rho, sx
       REAL(kind=dp), DIMENSION(:, :, :), POINTER         :: dummy, e_0
       TYPE(cp_3d_r_p_type), DIMENSION(2) :: e_ndrho, e_ndrho_ndrho, e_ndrho_ndrho_ndrho, &
-         e_ndrho_ndrho_rho, e_ndrho_rho, e_ndrho_rho_rho, e_rho, e_rho_rho, e_rho_rho_rho, &
-         norm_drho, rho, rho_1_3
+                                            e_ndrho_ndrho_rho, e_ndrho_rho, e_ndrho_rho_rho, e_rho, e_rho_rho, e_rho_rho_rho, &
+                                            norm_drho, rho, rho_1_3
       TYPE(xc_derivative_type), POINTER                  :: deriv
 
       CALL timeset(routineN, handle)
@@ -821,15 +821,15 @@ CONTAINS
                             e_ndrho_ndrho_ndrho_spin, grad_deriv, npoints, epsilon_rho, sx)
       REAL(kind=dp), DIMENSION(*), INTENT(in)            :: rho_spin, rho_1_3_spin, norm_drho_spin
       REAL(kind=dp), DIMENSION(*), INTENT(inout) :: e_0, e_rho_spin, e_ndrho_spin, e_rho_rho_spin, &
-         e_ndrho_rho_spin, e_ndrho_ndrho_spin, e_rho_rho_rho_spin, e_ndrho_rho_rho_spin, &
-         e_ndrho_ndrho_rho_spin, e_ndrho_ndrho_ndrho_spin
+                                                   e_ndrho_rho_spin, e_ndrho_ndrho_spin, e_rho_rho_rho_spin, e_ndrho_rho_rho_spin, &
+                                                    e_ndrho_ndrho_rho_spin, e_ndrho_ndrho_ndrho_spin
       INTEGER, INTENT(in)                                :: grad_deriv, npoints
       REAL(kind=dp), INTENT(in)                          :: epsilon_rho, sx
 
       INTEGER                                            :: ii
       REAL(kind=dp) :: c, epsilon_rho43, my_epsilon_rho, my_rho, t1, t103, t11, t12, t127, t133, &
-         t138, t14, t151, t17, t18, t2, t20, t22, t23, t27, t28, t3, t30, t35, t36, t4, t42, t43, &
-         t44, t5, t51, t53, t57, t58, t59, t6, t63, t64, t66, t67, t7, t75, t76, t79, t8, t87, x
+                       t138, t14, t151, t17, t18, t2, t20, t22, t23, t27, t28, t3, t30, t35, t36, t4, t42, t43, &
+                       t44, t5, t51, t53, t57, t58, t59, t6, t63, t64, t66, t67, t7, t75, t76, t79, t8, t87, x
 
       c = 1.5_dp*(0.75_dp/Pi)**(1.0_dp/3.0_dp)
       my_epsilon_rho = 0.5_dp*epsilon_rho

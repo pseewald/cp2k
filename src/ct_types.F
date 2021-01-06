@@ -12,14 +12,14 @@
 !> \author Rustam Z Khaliullin
 ! **************************************************************************************************
 MODULE ct_types
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_release,&
-                                              dbcsr_type
-   USE input_constants,                 ONLY: cg_polak_ribiere,&
-                                              tensor_orthogonal
-   USE kinds,                           ONLY: dp
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_release, &
+                        dbcsr_type
+   USE input_constants, ONLY: cg_polak_ribiere, &
+                              tensor_orthogonal
+   USE kinds, ONLY: dp
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -224,7 +224,7 @@ CONTAINS
       REAL(KIND=dp), OPTIONAL                            :: eps_convergence, eps_filter
       INTEGER, OPTIONAL                                  :: max_iter
       TYPE(dbcsr_type), OPTIONAL, POINTER :: p_index_up, p_index_down, q_index_up, q_index_down, &
-         matrix_ks, matrix_p, matrix_qp_template, matrix_pq_template, matrix_t, matrix_v
+                                             matrix_ks, matrix_p, matrix_qp_template, matrix_pq_template, matrix_t, matrix_v
       TYPE(dbcsr_type), OPTIONAL                         :: copy_matrix_x
       REAL(KIND=dp), OPTIONAL                            :: energy_correction
       LOGICAL, OPTIONAL                                  :: calculate_energy_corr, converged, &
@@ -285,7 +285,7 @@ CONTAINS
          !CALL dbcsr_copy(copy_matrix_x(ispin),env%matrix_x(ispin))
          CALL dbcsr_copy(copy_matrix_x, env%matrix_x)
          !ENDDO
-      ENDIF
+      END IF
       !IF (PRESENT(matrix_x)) matrix_x => env%matrix_x
       IF (PRESENT(energy_correction)) energy_correction = env%energy_correction
       IF (PRESENT(converged)) converged = env%converged
@@ -345,8 +345,8 @@ CONTAINS
       REAL(KIND=dp), OPTIONAL                            :: eps_convergence, eps_filter
       INTEGER, OPTIONAL                                  :: max_iter
       TYPE(dbcsr_type), OPTIONAL, TARGET :: p_index_up, p_index_down, q_index_up, q_index_down, &
-         matrix_ks, matrix_p, matrix_qp_template, matrix_pq_template, matrix_t, matrix_v, &
-         matrix_x_guess
+                                            matrix_ks, matrix_p, matrix_qp_template, matrix_pq_template, matrix_t, matrix_v, &
+                                            matrix_x_guess
       LOGICAL, OPTIONAL                                  :: calculate_energy_corr
       INTEGER, OPTIONAL                                  :: conjugator
       LOGICAL, OPTIONAL                                  :: qq_preconditioner_full, &

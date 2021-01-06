@@ -12,40 +12,40 @@
 !> \author Mauro Del Ben
 ! **************************************************************************************************
 MODULE mp2_direct_method
-   USE cell_types,                      ONLY: cell_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE hfx_energy_potential,            ONLY: coulomb4
-   USE hfx_load_balance_methods,        ONLY: cost_model,&
-                                              p1_energy,&
-                                              p2_energy,&
-                                              p3_energy
-   USE hfx_pair_list_methods,           ONLY: build_pair_list_mp2
-   USE hfx_types,                       ONLY: hfx_basis_type,&
-                                              hfx_pgf_list,&
-                                              hfx_pgf_product_list,&
-                                              hfx_potential_type,&
-                                              hfx_screen_coeff_type,&
-                                              hfx_type,&
-                                              pair_set_list_type
-   USE input_constants,                 ONLY: do_potential_TShPSC
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE libint_wrapper,                  ONLY: cp_libint_t
-   USE mathconstants,                   ONLY: zero
-   USE message_passing,                 ONLY: mp_max,&
-                                              mp_sendrecv,&
-                                              mp_sum
-   USE mp2_ri_libint,                   ONLY: prepare_integral_calc
-   USE mp2_types,                       ONLY: init_TShPSC_lmax,&
-                                              mp2_biel_type,&
-                                              mp2_type,&
-                                              pair_list_type_mp2
-   USE orbital_pointers,                ONLY: ncoset
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: qs_environment_type
-   USE t_sh_p_s_c,                      ONLY: free_C0
+   USE cell_types, ONLY: cell_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE hfx_energy_potential, ONLY: coulomb4
+   USE hfx_load_balance_methods, ONLY: cost_model, &
+                                       p1_energy, &
+                                       p2_energy, &
+                                       p3_energy
+   USE hfx_pair_list_methods, ONLY: build_pair_list_mp2
+   USE hfx_types, ONLY: hfx_basis_type, &
+                        hfx_pgf_list, &
+                        hfx_pgf_product_list, &
+                        hfx_potential_type, &
+                        hfx_screen_coeff_type, &
+                        hfx_type, &
+                        pair_set_list_type
+   USE input_constants, ONLY: do_potential_TShPSC
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE libint_wrapper, ONLY: cp_libint_t
+   USE mathconstants, ONLY: zero
+   USE message_passing, ONLY: mp_max, &
+                              mp_sendrecv, &
+                              mp_sum
+   USE mp2_ri_libint, ONLY: prepare_integral_calc
+   USE mp2_types, ONLY: init_TShPSC_lmax, &
+                        mp2_biel_type, &
+                        mp2_type, &
+                        pair_list_type_mp2
+   USE orbital_pointers, ONLY: ncoset
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: qs_environment_type
+   USE t_sh_p_s_c, ONLY: free_C0
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -115,17 +115,17 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'mp2_canonical_direct_single_batch'
 
       INTEGER :: case_index, counter_proc, elements_ij_proc_rec, elements_kl_proc, global_counter, &
-         handle, i, i_list_ij, i_list_kl, i_set_list_ij, i_set_list_ij_start, i_set_list_ij_stop, &
-         i_set_list_kl, i_set_list_kl_start, i_set_list_kl_stop, i_start, iatom, iatom_end, &
-         iatom_start, iiB, ij_elem_max, ikind, index_ij_rec, index_ij_send, index_kl, &
-         index_proc_ij, index_proc_shift, iset, jatom, jatom_end, jatom_start, jjB, jkind, jset, &
-         katom, katom_end, katom_start, kkB, kkind, kset, latom, latom_end, latom_start, lkind, &
-         llB, lset, max_num_call_sec_transf, max_pgf, max_set, multiple
+                 handle, i, i_list_ij, i_list_kl, i_set_list_ij, i_set_list_ij_start, i_set_list_ij_stop, &
+                 i_set_list_kl, i_set_list_kl_start, i_set_list_kl_stop, i_start, iatom, iatom_end, &
+                 iatom_start, iiB, ij_elem_max, ikind, index_ij_rec, index_ij_send, index_kl, &
+                 index_proc_ij, index_proc_shift, iset, jatom, jatom_end, jatom_start, jjB, jkind, jset, &
+                 katom, katom_end, katom_start, kkB, kkind, kset, latom, latom_end, latom_start, lkind, &
+                 llB, lset, max_num_call_sec_transf, max_pgf, max_set, multiple
       INTEGER :: my_num_call_sec_transf, natom, ncob, nints, nseta, nsetb, nsgf_max, nspins, &
-         primitive_counter, proc_num, proc_receive, proc_send, R_offset_rec, Rsize_rec, &
-         S_offset_rec, same_size_kl_index, sphi_a_u1, sphi_a_u2, sphi_a_u3, sphi_b_u1, sphi_b_u2, &
-         sphi_b_u3, sphi_c_u1, sphi_c_u2, sphi_c_u3, sphi_d_u1, sphi_d_u2, sphi_d_u3, Ssize_rec, &
-         step_size, total_num_RS_task
+                 primitive_counter, proc_num, proc_receive, proc_send, R_offset_rec, Rsize_rec, &
+                 S_offset_rec, same_size_kl_index, sphi_a_u1, sphi_a_u2, sphi_a_u3, sphi_b_u1, sphi_b_u2, &
+                 sphi_b_u3, sphi_c_u1, sphi_c_u2, sphi_c_u3, sphi_d_u1, sphi_d_u2, sphi_d_u3, Ssize_rec, &
+                 step_size, total_num_RS_task
       INTEGER(int_8)                                     :: estimate_to_store_int, neris_tmp, &
                                                             neris_total, nprim_ints
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of, nimages, proc_map, &
@@ -144,9 +144,9 @@ CONTAINS
                                                             copy_integrals, do_periodic
       LOGICAL, DIMENSION(:, :), POINTER                  :: shm_atomic_pair_list
       REAL(KIND=dp) :: cartesian_estimate, coeffs_kind_max0, cost_tmp, eps_schwarz, ln_10, &
-         log10_eps_schwarz, log10_pmax, max_contraction_val, max_val1, max_val2, max_val2_set, &
-         pmax_atom, pmax_entry, ra(3), rab2, rb(3), rc(3), rcd2, rd(3), screen_kind_ij, &
-         screen_kind_kl
+                       log10_eps_schwarz, log10_pmax, max_contraction_val, max_val1, max_val2, max_val2_set, &
+                       pmax_atom, pmax_entry, ra(3), rab2, rb(3), rc(3), rcd2, rd(3), screen_kind_ij, &
+                       screen_kind_kl
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: cost_RS, cost_RS_temp, ee_buffer1, &
                                                             ee_buffer2, ee_primitives_tmp, &
                                                             ee_work, ee_work2, primitive_integrals
@@ -965,8 +965,8 @@ CONTAINS
       TYPE(mp2_biel_type), INTENT(IN)                    :: mp2_biel
       TYPE(cp_para_env_type), POINTER                    :: para_env
       INTEGER, INTENT(IN)                                :: elements_ij_proc, multiple
-      INTEGER, DIMENSION((-para_env%num_pe):(2*para_env%&
-         num_pe-1)), INTENT(IN)                          :: proc_map
+      INTEGER, DIMENSION((-para_env%num_pe):(2*para_env% &
+                                             num_pe - 1)), INTENT(IN)                          :: proc_map
       REAL(KIND=dp), &
          DIMENSION(dimen, dimen, elements_ij_proc), &
          INTENT(INOUT)                                   :: BIb
@@ -974,12 +974,12 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'transform_occupied_orbitals_second'
 
       INTEGER :: elements_ij_proc_rec, handle, i, index_ij_rec, index_ij_send, index_proc_ij, &
-         index_proc_shift, j, n, proc_receive, proc_send, r, R_global, R_offset, R_offset_rec, &
-         R_start, Rsize_rec, s, S_global, S_offset, S_offset_rec, Ssize_rec
+                 index_proc_shift, j, n, proc_receive, proc_send, r, R_global, R_offset, R_offset_rec, &
+                 R_start, Rsize_rec, s, S_global, S_offset, S_offset_rec, Ssize_rec
       LOGICAL                                            :: case_send_receive
       REAL(KIND=dp)                                      :: C_T_R, C_T_S
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: BIb_RS_mat_rec
-      REAL(KIND=dp), DIMENSION(dimen, Rsize+Ssize)       :: BIb_RS_mat
+      REAL(KIND=dp), DIMENSION(dimen, Rsize + Ssize)       :: BIb_RS_mat
       INTEGER, DIMENSION(5)                              :: size_parameter_rec, size_parameter_send
 
       CALL timeset(routineN, handle)
@@ -1134,8 +1134,8 @@ CONTAINS
       TYPE(mp2_biel_type), INTENT(IN)                    :: mp2_biel
       TYPE(cp_para_env_type), POINTER                    :: para_env
       INTEGER, INTENT(IN)                                :: elements_ij_proc
-      INTEGER, DIMENSION((-para_env%num_pe):(2*para_env%&
-         num_pe-1)), INTENT(IN)                          :: proc_map
+      INTEGER, DIMENSION((-para_env%num_pe):(2*para_env% &
+                                             num_pe - 1)), INTENT(IN)                          :: proc_map
       REAL(KIND=dp), &
          DIMENSION(dimen, dimen, elements_ij_proc), &
          INTENT(INOUT)                                   :: BIb
@@ -1143,13 +1143,13 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'transform_occupied_orbitals_second_big'
 
       INTEGER :: elements_ij_proc_rec, handle, i, index_ij_rec, index_ij_send, index_proc_ij, &
-         index_proc_shift, j, n, proc_receive, proc_send, r, R_global, R_offset, R_offset_rec, &
-         R_start, Rsize_rec, s, S_global, S_offset, S_offset_rec, Ssize_rec
+                 index_proc_shift, j, n, proc_receive, proc_send, r, R_global, R_offset, R_offset_rec, &
+                 R_start, Rsize_rec, s, S_global, S_offset, S_offset_rec, Ssize_rec
       LOGICAL                                            :: case_send_receive
       REAL(KIND=dp)                                      :: C_T_R, C_T_S
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: BIb_RS_mat_rec
       REAL(KIND=dp), &
-         DIMENSION(dimen, Rsize+Ssize, ij_elem_max)      :: BIb_RS_mat
+         DIMENSION(dimen, Rsize + Ssize, ij_elem_max)      :: BIb_RS_mat
       INTEGER, DIMENSION(5)                              :: size_parameter_rec, size_parameter_send
 
       CALL timeset(routineN, handle)

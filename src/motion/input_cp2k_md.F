@@ -12,39 +12,39 @@
 ! **************************************************************************************************
 
 MODULE input_cp2k_md
-   USE bibliography,                    ONLY: &
-        Evans1983, Guidon2008, Kantorovich2008, Kantorovich2008a, Kuhne2007, Minary2003, &
-        Rengaraj2020, Ricci2003, Tuckerman1992, VandeVondele2002, West2006
-   USE cp_output_handling,              ONLY: add_last_numeric,&
-                                              cp_print_key_section_create,&
-                                              debug_print_level,&
-                                              high_print_level,&
-                                              low_print_level,&
-                                              medium_print_level
-   USE cp_units,                        ONLY: cp_unit_to_cp2k
-   USE input_constants,                 ONLY: &
-        isokin_ensemble, langevin_ensemble, md_init_default, md_init_vib, npe_f_ensemble, &
-        npe_i_ensemble, nph_ensemble, nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, &
-        npt_f_ensemble, npt_i_ensemble, nve_ensemble, nvt_adiabatic_ensemble, nvt_ensemble, &
-        reftraj_ensemble
-   USE input_cp2k_barostats,            ONLY: create_barostat_section
-   USE input_cp2k_thermostats,          ONLY: create_region_section,&
-                                              create_thermo_fast_section,&
-                                              create_thermo_slow_section,&
-                                              create_thermostat_section
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: integer_t,&
-                                              lchar_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: s2a
+   USE bibliography, ONLY: &
+      Evans1983, Guidon2008, Kantorovich2008, Kantorovich2008a, Kuhne2007, Minary2003, &
+      Rengaraj2020, Ricci2003, Tuckerman1992, VandeVondele2002, West2006
+   USE cp_output_handling, ONLY: add_last_numeric, &
+                                 cp_print_key_section_create, &
+                                 debug_print_level, &
+                                 high_print_level, &
+                                 low_print_level, &
+                                 medium_print_level
+   USE cp_units, ONLY: cp_unit_to_cp2k
+   USE input_constants, ONLY: &
+      isokin_ensemble, langevin_ensemble, md_init_default, md_init_vib, npe_f_ensemble, &
+      npe_i_ensemble, nph_ensemble, nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, &
+      npt_f_ensemble, npt_i_ensemble, nve_ensemble, nvt_adiabatic_ensemble, nvt_ensemble, &
+      reftraj_ensemble
+   USE input_cp2k_barostats, ONLY: create_barostat_section
+   USE input_cp2k_thermostats, ONLY: create_region_section, &
+                                     create_thermo_fast_section, &
+                                     create_thermo_slow_section, &
+                                     create_thermostat_section
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: integer_t, &
+                              lchar_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: s2a
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

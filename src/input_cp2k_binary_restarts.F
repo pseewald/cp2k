@@ -14,30 +14,30 @@
 ! **************************************************************************************************
 MODULE input_cp2k_binary_restarts
 
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_unit_nr,&
-                                              debug_print_level
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE extended_system_types,           ONLY: lnhc_parameters_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE message_passing,                 ONLY: mp_bcast
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: angstrom
-   USE print_messages,                  ONLY: print_message
-   USE string_table,                    ONLY: id2str,&
-                                              s2s,&
-                                              str2id
-   USE topology_types,                  ONLY: atom_info_type,&
-                                              topology_parameters_type
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_unit_nr, &
+                                 debug_print_level
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE extended_system_types, ONLY: lnhc_parameters_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE message_passing, ONLY: mp_bcast
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: angstrom
+   USE print_messages, ONLY: print_message
+   USE string_table, ONLY: id2str, &
+                           s2s, &
+                           str2id
+   USE topology_types, ONLY: atom_info_type, &
+                             topology_parameters_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -871,7 +871,7 @@ CONTAINS
          INQUIRE (UNIT=unit_number, EXIST=file_exists)
       ELSE
          file_exists = .FALSE.
-      ENDIF
+      END IF
       IF (file_exists) THEN
          INQUIRE (UNIT=unit_number, NAME=file_name)
          WRITE (UNIT=message, FMT="(A)") &

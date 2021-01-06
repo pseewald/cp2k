@@ -9,20 +9,20 @@
 ! **************************************************************************************************
 MODULE qs_tddfpt2_stda_types
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cp_control_types,                ONLY: stda_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE kinds,                           ONLY: dp
-   USE physcon,                         ONLY: evolt
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cp_control_types, ONLY: stda_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE kinds, ONLY: dp
+   USE physcon, ONLY: evolt
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -146,7 +146,7 @@ CONTAINS
                               element_symbol=stda_kernel%kind_param_set(ikind)%kind_param%symbol, &
                               kind_number=stda_kernel%kind_param_set(ikind)%kind_param%kind_number, &
                               z=stda_kernel%kind_param_set(ikind)%kind_param%z)
-      ENDDO
+      END DO
 
       ! HFx_fraction
       stda_kernel%hfx_fraction = stda_control%hfx_fraction
@@ -166,7 +166,7 @@ CONTAINS
          CALL get_qs_kind(qs_kind, basis_set=tmp_basis_set)
          CALL get_gto_basis_set(tmp_basis_set, &
                                 kind_radius=stda_kernel%kind_param_set(ikind)%kind_param%rcut)
-      ENDDO
+      END DO
 
    END SUBROUTINE stda_init_param
 ! **************************************************************************************************
@@ -204,7 +204,7 @@ CONTAINS
          NULLIFY (kind_param)
          CALL allocate_stda_kind_param(kind_param)
          stda_kernel%kind_param_set(ii)%kind_param => kind_param
-      ENDDO
+      END DO
 
    END SUBROUTINE allocate_stda_env
 ! **************************************************************************************************
@@ -223,10 +223,10 @@ CONTAINS
          DO ii = 1, SIZE(stda_kernel%kind_param_set)
             kind_param => stda_kernel%kind_param_set(ii)%kind_param
             CALL deallocate_stda_kind_param(kind_param)
-         ENDDO
+         END DO
          DEALLOCATE (stda_kernel%kind_param_set)
          NULLIFY (stda_kernel%kind_param_set)
-      ENDIF
+      END IF
 
    END SUBROUTINE deallocate_stda_env
 ! **************************************************************************************************

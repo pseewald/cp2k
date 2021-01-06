@@ -6,58 +6,58 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE qs_scf_output
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_output,                 ONLY: cp_dbcsr_write_sparse_matrix
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE input_constants,                 ONLY: &
-        becke_cutoff_element, becke_cutoff_global, cdft_alpha_constraint, cdft_beta_constraint, &
-        cdft_charge_constraint, cdft_magnetization_constraint, outer_scf_becke_constraint, &
-        outer_scf_hirshfeld_constraint, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
-        outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
-        outer_scf_optimizer_sd, outer_scf_optimizer_secant, radius_covalent, radius_default, &
-        radius_single, radius_user, radius_vdw, shape_function_density, shape_function_gaussian
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kahan_sum,                       ONLY: accurate_sum
-   USE kinds,                           ONLY: dp
-   USE machine,                         ONLY: m_flush
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: evolt,&
-                                              kcalmol
-   USE ps_implicit_types,               ONLY: MIXED_BC,&
-                                              MIXED_PERIODIC_BC,&
-                                              NEUMANN_BC,&
-                                              PERIODIC_BC
-   USE pw_env_types,                    ONLY: pw_env_type
-   USE pw_poisson_types,                ONLY: pw_poisson_implicit
-   USE qmmm_image_charge,               ONLY: print_image_coefficients
-   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_write
-   USE qs_cdft_types,                   ONLY: cdft_control_type
-   USE qs_charges_types,                ONLY: qs_charges_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_mo_io,                        ONLY: write_mo_set
-   USE qs_mo_methods,                   ONLY: calculate_magnitude,&
-                                              calculate_orthonormality
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf_types,                    ONLY: qs_scf_env_type,&
-                                              special_diag_method_nr
-   USE scf_control_types,               ONLY: scf_control_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_output, ONLY: cp_dbcsr_write_sparse_matrix
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE input_constants, ONLY: &
+      becke_cutoff_element, becke_cutoff_global, cdft_alpha_constraint, cdft_beta_constraint, &
+      cdft_charge_constraint, cdft_magnetization_constraint, outer_scf_becke_constraint, &
+      outer_scf_hirshfeld_constraint, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
+      outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
+      outer_scf_optimizer_sd, outer_scf_optimizer_secant, radius_covalent, radius_default, &
+      radius_single, radius_user, radius_vdw, shape_function_density, shape_function_gaussian
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kahan_sum, ONLY: accurate_sum
+   USE kinds, ONLY: dp
+   USE machine, ONLY: m_flush
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: evolt, &
+                      kcalmol
+   USE ps_implicit_types, ONLY: MIXED_BC, &
+                                MIXED_PERIODIC_BC, &
+                                NEUMANN_BC, &
+                                PERIODIC_BC
+   USE pw_env_types, ONLY: pw_env_type
+   USE pw_poisson_types, ONLY: pw_poisson_implicit
+   USE qmmm_image_charge, ONLY: print_image_coefficients
+   USE qs_cdft_opt_types, ONLY: cdft_opt_type_write
+   USE qs_cdft_types, ONLY: cdft_control_type
+   USE qs_charges_types, ONLY: qs_charges_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_mo_io, ONLY: write_mo_set
+   USE qs_mo_methods, ONLY: calculate_magnitude, &
+                            calculate_orthonormality
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf_types, ONLY: qs_scf_env_type, &
+                           special_diag_method_nr
+   USE scf_control_types, ONLY: scf_control_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -314,7 +314,7 @@ CONTAINS
                   "Total dipole moment perpendicular to ", &
                   "the slab [electrons-Angstroem]: ", &
                   qs_env%surface_dipole_moment
-            ENDIF
+            END IF
 
             IF (gapw) THEN
                tot1_h = qs_charges%total_rho1_hard(1)
@@ -465,7 +465,7 @@ CONTAINS
             IF (qs_env%qmmm_env_qm%image_charge) THEN
                WRITE (UNIT=output_unit, FMT="(T3,A,T56,F25.14)") &
                   "QM/MM image charge energy:                ", energy%image_charge
-            ENDIF
+            END IF
          END IF
          IF (dft_control%qs_control%mulliken_restraint) THEN
             WRITE (UNIT=output_unit, FMT="(T3,A,T56,F25.14)") &
@@ -485,8 +485,8 @@ CONTAINS
          IF (qmmm) THEN
             IF (qs_env%qmmm_env_qm%image_charge) THEN
                CALL print_image_coefficients(qs_env%image_coeff, qs_env)
-            ENDIF
-         ENDIF
+            END IF
+         END IF
          CALL m_flush(output_unit)
       END IF
 
@@ -567,7 +567,7 @@ CONTAINS
                                               "PRINT%AO_MATRICES/KOHN_SHAM_MATRIX")
          END IF
 
-      ENDDO
+      END DO
 
       IF (BTEST(cp_print_key_should_output(logger%iter_info, &
                                            scf_section, "PRINT%MO_ORTHONORMALITY"), cp_p_file)) THEN
@@ -577,7 +577,7 @@ CONTAINS
             IF (iw > 0) THEN
                WRITE (iw, '(T8,A)') &
                   " K-points: Maximum deviation from MO S-orthonormality not determined"
-            ENDIF
+            END IF
             CALL cp_print_key_finished_output(iw, logger, scf_section, &
                                               "PRINT%MO_ORTHONORMALITY")
          ELSE
@@ -593,11 +593,11 @@ CONTAINS
             IF (iw > 0) THEN
                WRITE (iw, '(T8,A,T61,E20.4)') &
                   " Maximum deviation from MO S-orthonormality", orthonormality
-            ENDIF
+            END IF
             CALL cp_print_key_finished_output(iw, logger, scf_section, &
                                               "PRINT%MO_ORTHONORMALITY")
          END IF
-      ENDIF
+      END IF
       IF (BTEST(cp_print_key_should_output(logger%iter_info, &
                                            scf_section, "PRINT%MO_MAGNITUDE"), cp_p_file)) THEN
          IF (do_kpoints) THEN
@@ -606,7 +606,7 @@ CONTAINS
             IF (iw > 0) THEN
                WRITE (iw, '(T8,A)') &
                   " K-points: Minimum/Maximum MO magnitude not determined"
-            ENDIF
+            END IF
             CALL cp_print_key_finished_output(iw, logger, scf_section, &
                                               "PRINT%MO_MAGNITUDE")
          ELSE
@@ -617,11 +617,11 @@ CONTAINS
             IF (iw > 0) THEN
                WRITE (iw, '(T8,A,T41,2E20.4)') &
                   " Minimum/Maximum MO magnitude ", mo_mag_min, mo_mag_max
-            ENDIF
+            END IF
             CALL cp_print_key_finished_output(iw, logger, scf_section, &
                                               "PRINT%MO_MAGNITUDE")
          END IF
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 

@@ -12,31 +12,31 @@
 !>      10.2014 created [Felix Uhl]
 ! **************************************************************************************************
 MODULE pint_piglet
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k,&
-                                              cp_unit_to_cp2k
-   USE gle_system_dynamics,             ONLY: gle_cholesky_stab,&
-                                              gle_matrix_exp
-   USE input_constants,                 ONLY: matrix_init_cholesky,&
-                                              matrix_init_diagonal,&
-                                              propagator_rpmd
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE message_passing,                 ONLY: mp_bcast
-   USE parallel_rng_types,              ONLY: GAUSSIAN,&
-                                              rng_record_length,&
-                                              rng_stream_type,&
-                                              rng_stream_type_from_record
-   USE pint_io,                         ONLY: pint_write_line
-   USE pint_types,                      ONLY: piglet_therm_type,&
-                                              pint_env_type
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_units, ONLY: cp_unit_from_cp2k, &
+                       cp_unit_to_cp2k
+   USE gle_system_dynamics, ONLY: gle_cholesky_stab, &
+                                  gle_matrix_exp
+   USE input_constants, ONLY: matrix_init_cholesky, &
+                              matrix_init_diagonal, &
+                              propagator_rpmd
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE message_passing, ONLY: mp_bcast
+   USE parallel_rng_types, ONLY: GAUSSIAN, &
+                                 rng_record_length, &
+                                 rng_stream_type, &
+                                 rng_stream_type_from_record
+   USE pint_io, ONLY: pint_write_line
+   USE pint_types, ONLY: piglet_therm_type, &
+                         pint_env_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

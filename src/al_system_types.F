@@ -10,15 +10,15 @@
 !> \author Teodoro Laino - 09.2007 University of Zurich [tlaino]
 ! **************************************************************************************************
 MODULE al_system_types
-   USE bibliography,                    ONLY: Jones2011,&
-                                              cite_reference
-   USE extended_system_types,           ONLY: create_map_info_type,&
-                                              map_info_type,&
-                                              release_map_info_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE simpar_types,                    ONLY: simpar_type
+   USE bibliography, ONLY: Jones2011, &
+                           cite_reference
+   USE extended_system_types, ONLY: create_map_info_type, &
+                                    map_info_type, &
+                                    release_map_info_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE simpar_types, ONLY: simpar_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -112,7 +112,7 @@ CONTAINS
          CALL al_thermo_dealloc(al%nvt)
          CALL release_map_info_type(al%map_info)
          DEALLOCATE (al)
-      ENDIF
+      END IF
 
    END SUBROUTINE al_dealloc
 
@@ -126,7 +126,7 @@ CONTAINS
 
       IF (ASSOCIATED(nvt)) THEN
          DEALLOCATE (nvt)
-      ENDIF
+      END IF
    END SUBROUTINE al_thermo_dealloc
 
 END MODULE al_system_types

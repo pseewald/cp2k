@@ -14,10 +14,10 @@
 !>         2009-04-07 moved from pint_types module to a separate file [lwalewski]
 ! **************************************************************************************************
 MODULE pint_staging
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE pint_types,                      ONLY: staging_env_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE pint_types, ONLY: staging_env_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

@@ -8,55 +8,55 @@
 ! **************************************************************************************************
 MODULE qs_rho0_methods
 
-   USE ao_util,                         ONLY: exp_radius,&
-                                              gaussint_sph,&
-                                              trace_r_AxB
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cp_control_types,                ONLY: gapw_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              fourpi
-   USE memory_utilities,                ONLY: reallocate
-   USE orbital_pointers,                ONLY: indco,&
-                                              indso,&
-                                              nco,&
-                                              ncoset,&
-                                              nso,&
-                                              nsoset
+   USE ao_util, ONLY: exp_radius, &
+                      gaussint_sph, &
+                      trace_r_AxB
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cp_control_types, ONLY: gapw_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: dfac, &
+                            fourpi
+   USE memory_utilities, ONLY: reallocate
+   USE orbital_pointers, ONLY: indco, &
+                               indso, &
+                               nco, &
+                               ncoset, &
+                               nso, &
+                               nsoset
    USE orbital_transformation_matrices, ONLY: orbtramat
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_grid_atom,                    ONLY: grid_atom_type
-   USE qs_harmonics_atom,               ONLY: get_none0_cg_list,&
-                                              harmonics_atom_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type,&
-                                              set_qs_kind
-   USE qs_local_rho_types,              ONLY: allocate_rhoz,&
-                                              calculate_rhoz,&
-                                              local_rho_type,&
-                                              rhoz_type,&
-                                              set_local_rho
-   USE qs_oce_methods,                  ONLY: prj_scatter
-   USE qs_rho0_types,                   ONLY: &
-        allocate_multipoles, allocate_rho0_atom, allocate_rho0_atom_rad, allocate_rho0_mpole, &
-        calculate_g0, get_rho0_mpole, initialize_mpole_rho, mpole_gau_overlap, mpole_rho_atom, &
-        rho0_atom_type, rho0_mpole_type, write_rho0_info
-   USE qs_rho_atom_types,               ONLY: get_rho_atom,&
-                                              rho_atom_coeff,&
-                                              rho_atom_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_grid_atom, ONLY: grid_atom_type
+   USE qs_harmonics_atom, ONLY: get_none0_cg_list, &
+                                harmonics_atom_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type, &
+                            set_qs_kind
+   USE qs_local_rho_types, ONLY: allocate_rhoz, &
+                                 calculate_rhoz, &
+                                 local_rho_type, &
+                                 rhoz_type, &
+                                 set_local_rho
+   USE qs_oce_methods, ONLY: prj_scatter
+   USE qs_rho0_types, ONLY: &
+      allocate_multipoles, allocate_rho0_atom, allocate_rho0_atom_rad, allocate_rho0_mpole, &
+      calculate_g0, get_rho0_mpole, initialize_mpole_rho, mpole_gau_overlap, mpole_rho_atom, &
+      rho0_atom_type, rho0_mpole_type, write_rho0_info
+   USE qs_rho_atom_types, ONLY: get_rho_atom, &
+                                rho_atom_coeff, &
+                                rho_atom_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -91,7 +91,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'calculate_mpole_gau'
 
       INTEGER :: handle, icg, ig1, ig2, ipgf1, ipgf2, iset1, iset2, iso, iso1, iso2, l, l1, l2, &
-         llmax, m1, m2, max_iso_not0_local, max_s_harm, maxl, maxso, n1, n2, nset
+                 llmax, m1, m2, max_iso_not0_local, max_s_harm, maxl, maxso, n1, n2, nset
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: cg_n_list
       INTEGER, ALLOCATABLE, DIMENSION(:, :, :)           :: cg_list
       INTEGER, DIMENSION(:), POINTER                     :: lmax, lmin, npgf
@@ -226,7 +226,7 @@ CONTAINS
          rho0_mp%mp_rho(iatom)%Qlm_tot(1) = rho0_mp%mp_rho(iatom)%Qlm_z
          rho0_mp%mp_rho(iatom)%Q0 = 0.0_dp
          rho0_mp%mp_rho(iatom)%Qlm_car = 0.0_dp
-      ENDDO
+      END DO
 
       IF (.NOT. (.NOT. paw_atom .AND. gapw_control%nopaw_as_gpw)) THEN
          DO iat = 1, natom
@@ -287,7 +287,7 @@ CONTAINS
                DO ir = 1, nr
                   sum1 = sum1 + g_atom%wr(ir)* &
                          rho0_atom_set(iatom)%rho0_rad_h%r_coef(ir, iso)
-               ENDDO
+               END DO
                rho0_h_tot = rho0_h_tot + sum1*harmonics%slm_int(iso)
             END DO ! iso
             IF (paw_atom) THEN
@@ -359,7 +359,7 @@ CONTAINS
 
       CHARACTER(LEN=default_string_length)               :: unit_str
       INTEGER :: handle, iat, iatom, ikind, l, l_rho1_max, laddg, lmaxg, maxl, maxnset, maxso, &
-         nat, natom, nchan_c, nchan_s, nkind, nr, nset, nsotot, output_unit
+                 nat, natom, nchan_c, nchan_s, nkind, nr, nset, nsotot, output_unit
       INTEGER, DIMENSION(:), POINTER                     :: atom_list
       LOGICAL                                            :: paw_atom
       REAL(dp)                                           :: alpha_core, eps_Vrho0, max_rpgf0_s, &

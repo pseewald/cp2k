@@ -12,14 +12,14 @@
 ! **************************************************************************************************
 MODULE free_energy_types
 
-   USE input_constants,                 ONLY: do_fe_ac,&
-                                              do_fe_ui
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
+   USE input_constants, ONLY: do_fe_ac, &
+                              do_fe_ui
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

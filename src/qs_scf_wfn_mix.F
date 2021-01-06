@@ -12,31 +12,31 @@
 !> \author Joost VandeVondele (10.2003)
 ! **************************************************************************************************
 MODULE qs_scf_wfn_mix
-   USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_scale_and_add
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE particle_types,                  ONLY: particle_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_mo_io,                        ONLY: write_mo_set
-   USE qs_mo_methods,                   ONLY: calculate_orthonormality
-   USE qs_mo_types,                     ONLY: deallocate_mo_set,&
-                                              duplicate_mo_set,&
-                                              mo_set_p_type
-   USE qs_scf_types,                    ONLY: qs_scf_env_type,&
-                                              special_diag_method_nr
+   USE cp_dbcsr_operations, ONLY: copy_fm_to_dbcsr
+   USE cp_fm_basic_linalg, ONLY: cp_fm_scale_and_add
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE particle_types, ONLY: particle_type
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_mo_io, ONLY: write_mo_set
+   USE qs_mo_methods, ONLY: calculate_orthonormality
+   USE qs_mo_types, ONLY: deallocate_mo_set, &
+                          duplicate_mo_set, &
+                          mo_set_p_type
+   USE qs_scf_types, ONLY: qs_scf_env_type, &
+                           special_diag_method_nr
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -76,7 +76,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'wfn_mix'
 
       INTEGER :: handle, i_rep, ispin, mark_ind, mark_number, n_rep, orig_mo_index, &
-         orig_spin_index, result_mo_index, result_spin_index
+                 orig_spin_index, result_mo_index, result_spin_index
       LOGICAL                                            :: explicit, orig_is_virtual, overwrite_mos
       REAL(KIND=dp)                                      :: orig_scale, orthonormality, result_scale
       TYPE(cp_fm_struct_type), POINTER                   :: fm_struct_vector
@@ -95,12 +95,12 @@ CONTAINS
             WRITE (output_unit, '()')
             WRITE (output_unit, '(T2,A)') "Performing wfn mixing"
             WRITE (output_unit, '(T2,A)') "====================="
-         ENDIF
+         END IF
 
          ALLOCATE (mos_new(SIZE(mos)))
          DO ispin = 1, SIZE(mos)
             CALL duplicate_mo_set(mos_new(ispin)%mo_set, mos(ispin)%mo_set)
-         ENDDO
+         END DO
 
          ! a single vector matrix structure
          NULLIFY (fm_struct_vector)
@@ -142,7 +142,7 @@ CONTAINS
                                 mos(orig_spin_index)%mo_set%nmo - orig_mo_index + 1, 1)
             ELSE
                CALL cp_fm_to_fm(unoccupied_orbs(orig_spin_index)%matrix, matrix_x, 1, orig_mo_index, 1)
-            ENDIF
+            END IF
 
             ! now get a copy of the target
             CALL cp_fm_to_fm(mos_new(result_spin_index)%mo_set%mo_coeff, matrix_y, &
@@ -155,7 +155,7 @@ CONTAINS
             CALL cp_fm_to_fm(matrix_y, mos_new(result_spin_index)%mo_set%mo_coeff, &
                              1, 1, mos_new(result_spin_index)%mo_set%nmo - result_mo_index + 1)
 
-         ENDDO
+         END DO
 
          CALL cp_fm_release(matrix_x)
          CALL cp_fm_release(matrix_y)
@@ -171,7 +171,7 @@ CONTAINS
             WRITE (output_unit, '(T2,A,T61,E20.4)') &
                "Maximum deviation from MO S-orthonormality", orthonormality
             WRITE (output_unit, '(T2,A)') "Writing new MOs to file"
-         ENDIF
+         END IF
 
          ! *** Write WaveFunction restart file ***
 
@@ -188,10 +188,10 @@ CONTAINS
 
          DO ispin = 1, SIZE(mos_new)
             CALL deallocate_mo_set(mos_new(ispin)%mo_set)
-         ENDDO
+         END DO
          DEALLOCATE (mos_new)
 
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 

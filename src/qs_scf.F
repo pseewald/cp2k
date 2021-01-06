@@ -45,128 +45,128 @@
 !> \author Matthias Krack (30.04.2001)
 ! **************************************************************************************************
 MODULE qs_scf
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_files,                        ONLY: close_file
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_add_default_logger,&
-                                              cp_get_default_logger,&
-                                              cp_logger_release,&
-                                              cp_logger_type,&
-                                              cp_rm_default_logger,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_add_iter_level,&
-                                              cp_iterate,&
-                                              cp_p_file,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr,&
-                                              cp_rm_iter_level
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_result_methods,               ONLY: get_results,&
-                                              test_for_result
-   USE cp_result_types,                 ONLY: cp_result_type
-   USE dbcsr_api,                       ONLY: dbcsr_copy,&
-                                              dbcsr_deallocate_matrix,&
-                                              dbcsr_get_info,&
-                                              dbcsr_init_p,&
-                                              dbcsr_p_type,&
-                                              dbcsr_set,&
-                                              dbcsr_type
-   USE input_constants,                 ONLY: &
-        broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, &
-        broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
-        cdft2ot, history_guess, ot2cdft, ot_precond_full_all, ot_precond_full_single, &
-        ot_precond_full_single_inverse, ot_precond_none, ot_precond_s_inverse, &
-        outer_scf_becke_constraint, outer_scf_hirshfeld_constraint, outer_scf_optimizer_broyden, &
-        outer_scf_optimizer_newton_ls
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE kpoint_io,                       ONLY: write_kpoints_restart
-   USE kpoint_types,                    ONLY: kpoint_type
-   USE machine,                         ONLY: m_flush,&
-                                              m_walltime
-   USE mathlib,                         ONLY: invert_matrix
-   USE message_passing,                 ONLY: mp_send
-   USE particle_types,                  ONLY: particle_type
-   USE preconditioner,                  ONLY: prepare_preconditioner,&
-                                              restart_preconditioner
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_pool_types,                   ONLY: pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE qs_block_davidson_types,         ONLY: block_davidson_deallocate
-   USE qs_cdft_scf_utils,               ONLY: build_diagonal_jacobian,&
-                                              create_tmp_logger,&
-                                              initialize_inverse_jacobian,&
-                                              prepare_jacobian_stencil,&
-                                              print_inverse_jacobian,&
-                                              restart_inverse_jacobian
-   USE qs_cdft_types,                   ONLY: cdft_control_type
-   USE qs_charges_types,                ONLY: qs_charges_type
-   USE qs_density_mixing_types,         ONLY: gspace_mixing_nr
-   USE qs_diis,                         ONLY: qs_diis_b_clear,&
-                                              qs_diis_b_create
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_integrate_potential,          ONLY: integrate_v_rspace
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_ks_methods,                   ONLY: qs_ks_update_qs_env
-   USE qs_ks_types,                     ONLY: qs_ks_did_change,&
-                                              qs_ks_env_type
-   USE qs_mo_io,                        ONLY: write_mo_set
-   USE qs_mo_methods,                   ONLY: calculate_density_matrix,&
-                                              make_basis_simple,&
-                                              make_basis_sm
-   USE qs_mo_occupation,                ONLY: set_mo_occupation
-   USE qs_mo_types,                     ONLY: deallocate_mo_set,&
-                                              duplicate_mo_set,&
-                                              get_mo_set,&
-                                              mo_set_p_type,&
-                                              reassign_allocated_mos
-   USE qs_ot,                           ONLY: qs_ot_new_preconditioner
-   USE qs_ot_scf,                       ONLY: ot_scf_init,&
-                                              ot_scf_read_input
-   USE qs_outer_scf,                    ONLY: outer_loop_gradient,&
-                                              outer_loop_optimize,&
-                                              outer_loop_purge_history,&
-                                              outer_loop_switch,&
-                                              outer_loop_update_qs_env
-   USE qs_rho_methods,                  ONLY: qs_rho_update_rho
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf_initialization,           ONLY: qs_scf_env_initialize
-   USE qs_scf_loop_utils,               ONLY: qs_scf_check_inner_exit,&
-                                              qs_scf_check_outer_exit,&
-                                              qs_scf_density_mixing,&
-                                              qs_scf_inner_finalize,&
-                                              qs_scf_new_mos,&
-                                              qs_scf_new_mos_kp,&
-                                              qs_scf_rho_update,&
-                                              qs_scf_set_loop_flags
-   USE qs_scf_output,                   ONLY: qs_scf_cdft_info,&
-                                              qs_scf_cdft_initial_info,&
-                                              qs_scf_loop_info,&
-                                              qs_scf_loop_print,&
-                                              qs_scf_outer_loop_info,&
-                                              qs_scf_write_mos
-   USE qs_scf_post_scf,                 ONLY: qs_scf_compute_properties
-   USE qs_scf_types,                    ONLY: &
-        block_davidson_diag_method_nr, block_krylov_diag_method_nr, filter_matrix_diag_method_nr, &
-        general_diag_method_nr, ot_diag_method_nr, ot_method_nr, qs_scf_env_type, scf_env_release, &
-        special_diag_method_nr
-   USE qs_wf_history_methods,           ONLY: wfi_purge_history,&
-                                              wfi_update
-   USE scf_control_types,               ONLY: scf_control_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_files, ONLY: close_file
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_log_handling, ONLY: cp_add_default_logger, &
+                              cp_get_default_logger, &
+                              cp_logger_release, &
+                              cp_logger_type, &
+                              cp_rm_default_logger, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_add_iter_level, &
+                                 cp_iterate, &
+                                 cp_p_file, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr, &
+                                 cp_rm_iter_level
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_result_methods, ONLY: get_results, &
+                                test_for_result
+   USE cp_result_types, ONLY: cp_result_type
+   USE dbcsr_api, ONLY: dbcsr_copy, &
+                        dbcsr_deallocate_matrix, &
+                        dbcsr_get_info, &
+                        dbcsr_init_p, &
+                        dbcsr_p_type, &
+                        dbcsr_set, &
+                        dbcsr_type
+   USE input_constants, ONLY: &
+      broyden_type_1, broyden_type_1_explicit, broyden_type_1_explicit_ls, broyden_type_1_ls, &
+      broyden_type_2, broyden_type_2_explicit, broyden_type_2_explicit_ls, broyden_type_2_ls, &
+      cdft2ot, history_guess, ot2cdft, ot_precond_full_all, ot_precond_full_single, &
+      ot_precond_full_single_inverse, ot_precond_none, ot_precond_s_inverse, &
+      outer_scf_becke_constraint, outer_scf_hirshfeld_constraint, outer_scf_optimizer_broyden, &
+      outer_scf_optimizer_newton_ls
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE kpoint_io, ONLY: write_kpoints_restart
+   USE kpoint_types, ONLY: kpoint_type
+   USE machine, ONLY: m_flush, &
+                      m_walltime
+   USE mathlib, ONLY: invert_matrix
+   USE message_passing, ONLY: mp_send
+   USE particle_types, ONLY: particle_type
+   USE preconditioner, ONLY: prepare_preconditioner, &
+                             restart_preconditioner
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_pool_types, ONLY: pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE qs_block_davidson_types, ONLY: block_davidson_deallocate
+   USE qs_cdft_scf_utils, ONLY: build_diagonal_jacobian, &
+                                create_tmp_logger, &
+                                initialize_inverse_jacobian, &
+                                prepare_jacobian_stencil, &
+                                print_inverse_jacobian, &
+                                restart_inverse_jacobian
+   USE qs_cdft_types, ONLY: cdft_control_type
+   USE qs_charges_types, ONLY: qs_charges_type
+   USE qs_density_mixing_types, ONLY: gspace_mixing_nr
+   USE qs_diis, ONLY: qs_diis_b_clear, &
+                      qs_diis_b_create
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_integrate_potential, ONLY: integrate_v_rspace
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_ks_methods, ONLY: qs_ks_update_qs_env
+   USE qs_ks_types, ONLY: qs_ks_did_change, &
+                          qs_ks_env_type
+   USE qs_mo_io, ONLY: write_mo_set
+   USE qs_mo_methods, ONLY: calculate_density_matrix, &
+                            make_basis_simple, &
+                            make_basis_sm
+   USE qs_mo_occupation, ONLY: set_mo_occupation
+   USE qs_mo_types, ONLY: deallocate_mo_set, &
+                          duplicate_mo_set, &
+                          get_mo_set, &
+                          mo_set_p_type, &
+                          reassign_allocated_mos
+   USE qs_ot, ONLY: qs_ot_new_preconditioner
+   USE qs_ot_scf, ONLY: ot_scf_init, &
+                        ot_scf_read_input
+   USE qs_outer_scf, ONLY: outer_loop_gradient, &
+                           outer_loop_optimize, &
+                           outer_loop_purge_history, &
+                           outer_loop_switch, &
+                           outer_loop_update_qs_env
+   USE qs_rho_methods, ONLY: qs_rho_update_rho
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf_initialization, ONLY: qs_scf_env_initialize
+   USE qs_scf_loop_utils, ONLY: qs_scf_check_inner_exit, &
+                                qs_scf_check_outer_exit, &
+                                qs_scf_density_mixing, &
+                                qs_scf_inner_finalize, &
+                                qs_scf_new_mos, &
+                                qs_scf_new_mos_kp, &
+                                qs_scf_rho_update, &
+                                qs_scf_set_loop_flags
+   USE qs_scf_output, ONLY: qs_scf_cdft_info, &
+                            qs_scf_cdft_initial_info, &
+                            qs_scf_loop_info, &
+                            qs_scf_loop_print, &
+                            qs_scf_outer_loop_info, &
+                            qs_scf_write_mos
+   USE qs_scf_post_scf, ONLY: qs_scf_compute_properties
+   USE qs_scf_types, ONLY: &
+      block_davidson_diag_method_nr, block_krylov_diag_method_nr, filter_matrix_diag_method_nr, &
+      general_diag_method_nr, ot_diag_method_nr, ot_method_nr, qs_scf_env_type, scf_env_release, &
+      special_diag_method_nr
+   USE qs_wf_history_methods, ONLY: wfi_purge_history, &
+                                    wfi_update
+   USE scf_control_types, ONLY: scf_control_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -220,7 +220,7 @@ CONTAINS
             CALL get_qs_env(qs_env=qs_env, scf_env=scf_env)
          ELSE
             CALL qs_scf_env_initialize(qs_env, scf_env)
-         ENDIF
+         END IF
 
          IF ((scf_control%density_guess .EQ. history_guess) .AND. (first_step_flag)) THEN
             max_scf_tmp = scf_control%max_scf
@@ -322,9 +322,9 @@ CONTAINS
 
       CHARACTER(LEN=default_string_length)               :: description, name
       INTEGER :: ext_master_id, external_comm, handle, handle2, i_tmp, ic, ispin, iter_count, &
-         output_unit, scf_energy_message_tag, total_steps
+                 output_unit, scf_energy_message_tag, total_steps
       LOGICAL :: diis_step, do_kpoints, energy_only, exit_inner_loop, exit_outer_loop, &
-         inner_loop_converged, just_energy, outer_loop_converged
+                 inner_loop_converged, just_energy, outer_loop_converged
       REAL(KIND=dp)                                      :: t1, t2
       REAL(KIND=dp), DIMENSION(3)                        :: res_val_3
       TYPE(atomic_kind_type), DIMENSION(:), POINTER      :: atomic_kind_set
@@ -392,7 +392,7 @@ CONTAINS
          CALL get_qs_env(qs_env, mos_last_converged=mos_last_converged)
          DO ispin = 1, dft_control%nspins
             CALL reassign_allocated_mos(mos(ispin)%mo_set, mos_last_converged(ispin)%mo_set)
-         ENDDO
+         END DO
          IF (output_unit > 0) WRITE (UNIT=output_unit, FMT="(/,/,T2,A)") &
             "COPIED mos_last_converged ---> mos"
       END IF
@@ -444,8 +444,8 @@ CONTAINS
                dft_control%surf_dip_correct_switch = .FALSE.
                IF (output_unit > 0) WRITE (UNIT=output_unit, FMT="(/,/,T2,A)") &
                   "SURFACE DIPOLE CORRECTION switched off"
-            ENDIF
-         ENDIF
+            END IF
+         END IF
          scf_loop: DO
 
             CALL timeset(routineN//"_inner_loop", handle2)
@@ -552,11 +552,11 @@ CONTAINS
                 (dft_control%surf_dip_correct_switch)) THEN
                DO ispin = 1, dft_control%nspins
                   CALL reassign_allocated_mos(mos_last_converged(ispin)%mo_set, mos(ispin)%mo_set)
-               ENDDO
+               END DO
                IF (output_unit > 0) WRITE (UNIT=output_unit, FMT="(/,/,T2,A)") &
                   "COPIED mos ---> mos_last_converged"
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          IF (exit_outer_loop) EXIT scf_outer_loop
 
@@ -587,8 +587,8 @@ CONTAINS
                CPABORT("mo_coeff_b is not allocated") !fm->dbcsr
             CALL copy_dbcsr_to_fm(mos(ispin)%mo_set%mo_coeff_b, & !fm->dbcsr
                                   mos(ispin)%mo_set%mo_coeff) !fm -> dbcsr
-         ENDIF !fm->dbcsr
-      ENDDO !fm -> dbcsr
+         END IF !fm->dbcsr
+      END DO !fm -> dbcsr
 
       CALL cp_rm_iter_level(logger%iter_info, level_name="QS_SCF")
       CALL timestop(handle)
@@ -640,8 +640,8 @@ CONTAINS
       DO ispin = 1, SIZE(mos) !fm->dbcsr
          IF (mos(1)%mo_set%use_mo_coeff_b) THEN !fm->dbcsr
             CALL copy_dbcsr_to_fm(mos(ispin)%mo_set%mo_coeff_b, mos(ispin)%mo_set%mo_coeff) !fm->dbcsr
-         ENDIF !fm->dbcsr
-      ENDDO !fm->dbcsr
+         END IF !fm->dbcsr
+      END DO !fm->dbcsr
 
       ! this just guarantees that all mo_occupations match the eigenvalues, if smear
       DO ispin = 1, dft_control%nspins
@@ -649,7 +649,7 @@ CONTAINS
          IF (.NOT. scf_control%diagonalization%mom) &
             CALL set_mo_occupation(mo_set=mos(ispin)%mo_set, &
                                    smear=scf_control%smear)
-      ENDDO
+      END DO
 
       SELECT CASE (scf_env%method)
       CASE DEFAULT
@@ -722,13 +722,13 @@ CONTAINS
                         CALL make_basis_simple(mo_coeff, nmo)
                      ELSE
                         CALL make_basis_sm(mo_coeff, nmo, matrix_s(1)%matrix)
-                     ENDIF
-                  ENDDO
-               ENDIF
-            ENDIF
+                     END IF
+                  END DO
+               END IF
+            END IF
          ELSE
             ! dont need any dirty trick for the numerically stable irac algorithm.
-         ENDIF
+         END IF
 
          IF (.NOT. ASSOCIATED(scf_env%qs_ot_env)) THEN
 
@@ -751,7 +751,7 @@ CONTAINS
                                 "activate the OT%ROTATION keyword!")
             ELSE
                scf_env%qs_ot_env(:)%restricted = .FALSE.
-            ENDIF
+            END IF
 
             ! might need the KS matrix to init properly
             CALL qs_ks_update_qs_env(qs_env, just_energy=.FALSE., &
@@ -772,7 +772,7 @@ CONTAINS
                NULLIFY (orthogonality_metric)
             ELSE
                orthogonality_metric => matrix_s(1)%matrix
-            ENDIF
+            END IF
 
             IF (.NOT. reuse_precond) &
                CALL prepare_preconditioner(qs_env, mos, matrix_ks, matrix_s, scf_env%ot_preconditioner, &
@@ -799,27 +799,27 @@ CONTAINS
                DO ispin = 1, SIZE(scf_env%qs_ot_env)
                   CALL qs_ot_new_preconditioner(scf_env%qs_ot_env(ispin), &
                                                 scf_env%ot_preconditioner(ispin)%preconditioner)
-               ENDDO
+               END DO
             CASE (ot_precond_s_inverse, ot_precond_full_single)
                DO ispin = 1, SIZE(scf_env%qs_ot_env)
                   CALL qs_ot_new_preconditioner(scf_env%qs_ot_env(ispin), &
                                                 scf_env%ot_preconditioner(1)%preconditioner)
-               ENDDO
+               END DO
             CASE DEFAULT
                DO ispin = 1, SIZE(scf_env%qs_ot_env)
                   CALL qs_ot_new_preconditioner(scf_env%qs_ot_env(ispin), &
                                                 scf_env%ot_preconditioner(1)%preconditioner)
-               ENDDO
+               END DO
             END SELECT
-         ENDIF
+         END IF
 
          ! if we have non-uniform occupations we should be using rotation
          do_rotation = scf_env%qs_ot_env(1)%settings%do_rotation
          DO ispin = 1, SIZE(mos)
             IF (.NOT. mos(ispin)%mo_set%uniform_occupation) THEN
                CPASSERT(do_rotation)
-            ENDIF
-         ENDDO
+            END IF
+         END DO
       END SELECT
 
       ! another safety check
@@ -827,7 +827,7 @@ CONTAINS
          CPASSERT(scf_env%method == ot_method_nr)
          do_rotation = scf_env%qs_ot_env(1)%settings%do_rotation
          CPASSERT(do_rotation)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -858,9 +858,9 @@ CONTAINS
       IF (ASSOCIATED(scf_env%scf_work1)) THEN
          DO ispin = 1, SIZE(scf_env%scf_work1)
             CALL cp_fm_release(scf_env%scf_work1(ispin)%matrix)
-         ENDDO
+         END DO
          DEALLOCATE (scf_env%scf_work1)
-      ENDIF
+      END IF
       IF (ASSOCIATED(scf_env%scf_work2)) CALL cp_fm_release(scf_env%scf_work2)
       IF (ASSOCIATED(scf_env%ortho)) CALL cp_fm_release(scf_env%ortho)
       IF (ASSOCIATED(scf_env%ortho_m1)) CALL cp_fm_release(scf_env%ortho_m1)
@@ -904,20 +904,20 @@ CONTAINS
 
       IF (ASSOCIATED(scf_env%outer_scf%variables)) THEN
          DEALLOCATE (scf_env%outer_scf%variables)
-      ENDIF
+      END IF
       IF (ASSOCIATED(scf_env%outer_scf%count)) THEN
          DEALLOCATE (scf_env%outer_scf%count)
-      ENDIF
+      END IF
       IF (ASSOCIATED(scf_env%outer_scf%gradient)) THEN
          DEALLOCATE (scf_env%outer_scf%gradient)
-      ENDIF
+      END IF
       IF (ASSOCIATED(scf_env%outer_scf%energy)) THEN
          DEALLOCATE (scf_env%outer_scf%energy)
-      ENDIF
+      END IF
       IF (ASSOCIATED(scf_env%outer_scf%inv_jacobian) .AND. &
           scf_env%outer_scf%deallocate_jacobian) THEN
          DEALLOCATE (scf_env%outer_scf%inv_jacobian)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -1380,7 +1380,7 @@ CONTAINS
                                                             max_linesearch, max_scf, nspins, &
                                                             nsteps, nvar, output_unit
       LOGICAL :: continue_ls, continue_ls_exit, converged, do_linesearch, found_solution, &
-         reached_maxls, should_exit, should_stop, sign_changed
+                 reached_maxls, should_exit, should_stop, sign_changed
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: positive_sign
       REAL(KIND=dp)                                      :: alpha, alpha_ls, factor, norm_ls
       REAL(KIND=dp), DIMENSION(:), POINTER               :: energy

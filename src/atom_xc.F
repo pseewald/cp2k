@@ -11,41 +11,41 @@
 ! **************************************************************************************************
 MODULE atom_xc
 
-   USE atom_types,                      ONLY: atom_basis_type,&
-                                              atom_type,&
-                                              gth_pseudo,&
-                                              opmat_type,&
-                                              sgp_pseudo,&
-                                              upf_pseudo
-   USE atom_utils,                      ONLY: atom_core_density,&
-                                              atom_density,&
-                                              coulomb_potential_numeric,&
-                                              integrate_grid,&
-                                              numpot_matrix
-   USE cp_files,                        ONLY: close_file,&
-                                              get_unit_number,&
-                                              open_file
-   USE input_constants,                 ONLY: xc_none
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fourpi,&
-                                              pi
-   USE xc_atom,                         ONLY: xc_rho_set_atom_update
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_create,&
-                                              xc_dset_get_derivative,&
-                                              xc_dset_release,&
-                                              xc_dset_zero_all
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_derivatives,                  ONLY: xc_functionals_eval,&
-                                              xc_functionals_get_needs
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_create,&
-                                              xc_rho_set_release,&
-                                              xc_rho_set_type
+   USE atom_types, ONLY: atom_basis_type, &
+                         atom_type, &
+                         gth_pseudo, &
+                         opmat_type, &
+                         sgp_pseudo, &
+                         upf_pseudo
+   USE atom_utils, ONLY: atom_core_density, &
+                         atom_density, &
+                         coulomb_potential_numeric, &
+                         integrate_grid, &
+                         numpot_matrix
+   USE cp_files, ONLY: close_file, &
+                       get_unit_number, &
+                       open_file
+   USE input_constants, ONLY: xc_none
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fourpi, &
+                            pi
+   USE xc_atom, ONLY: xc_rho_set_atom_update
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_create, &
+                                      xc_dset_get_derivative, &
+                                      xc_dset_release, &
+                                      xc_dset_zero_all
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_derivatives, ONLY: xc_functionals_eval, &
+                             xc_functionals_get_needs
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_create, &
+                               xc_rho_set_release, &
+                               xc_rho_set_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -121,9 +121,9 @@ CONTAINS
          DO ir = 1, nr
             WRITE (extunit, fmt='(T1,E24.15,T26,E24.15,T51,E24.15,T76,E24.15,T101,E24.15,T126,E24.15)') &
                atom%basis%grid%rad(ir), rho(ir, 1), deltarho(ir), vxc(ir), vxc1(ir), vxc2(ir)
-         ENDDO
+         END DO
          CALL close_file(unit_number=extunit)
-      ENDIF
+      END IF
 
       IF (PRESENT(xcmat)) CALL numpot_matrix(xcmat%op, vxc, atom%basis, 0)
 
@@ -169,9 +169,9 @@ CONTAINS
          DO ir = 1, nr
             WRITE (extunit, fmt='(T1,E24.15,T26,E24.15,T51,E24.15)') &
                atom%basis%grid%rad(ir), rho(ir, 1), vxc(ir)
-         ENDDO
+         END DO
          CALL close_file(unit_number=extunit)
-      ENDIF
+      END IF
 
       atom%energy%exc = fourpi*integrate_grid(vxc, rho(:, 1), atom%basis%grid)
       IF (PRESENT(xcmat)) CALL numpot_matrix(xcmat%op, vxc, atom%basis, 0)
@@ -306,9 +306,9 @@ CONTAINS
                CALL open_file(unit_number=unit_nr, file_status="UNKNOWN", file_action="WRITE", file_name="atom.dat")
                DO i = 1, SIZE(xcpot(:, 1, 1))
                   WRITE (unit_nr, *) atom%basis%grid%rad(i), rho(i, 1), xcpot(i, 1, 1)
-               ENDDO
+               END DO
                CALL close_file(unit_nr)
-            ENDIF
+            END IF
 
             IF (needs%rho) THEN
                deriv => xc_dset_get_derivative(deriv_set, "(rho)", allocate_deriv=.FALSE.)
@@ -318,9 +318,9 @@ CONTAINS
                   CALL open_file(unit_number=unit_nr, file_status="UNKNOWN", file_action="WRITE", file_name="atompot.dat")
                   DO i = 1, SIZE(xcpot(:, 1, 1))
                      WRITE (unit_nr, *) atom%basis%grid%rad(i), rho(i, 1), xcpot(i, 1, 1)
-                  ENDDO
+                  END DO
                   CALL close_file(unit_nr)
-               ENDIF
+               END IF
                DEALLOCATE (rho)
             END IF
             IF (needs%norm_drho) THEN
@@ -331,9 +331,9 @@ CONTAINS
                   CALL open_file(unit_number=unit_nr, file_status="UNKNOWN", file_action="WRITE", file_name="atomdpot.dat")
                   DO i = 1, SIZE(xcpot(:, 1, 1))
                      WRITE (unit_nr, *) atom%basis%grid%rad(i), drho(i, 1), xcpot(i, 1, 1)
-                  ENDDO
+                  END DO
                   CALL close_file(unit_nr)
-               ENDIF
+               END IF
                DEALLOCATE (drho)
             END IF
             IF (needs%tau) THEN
@@ -995,7 +995,7 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'atom_dpot_lda'
       REAL(KIND=dp), PARAMETER :: alx = 0.20_dp, blx = -0.06_dp, &
-         fs = -0.75_dp*(3._dp/pi)**(1._dp/3._dp)
+                                  fs = -0.75_dp*(3._dp/pi)**(1._dp/3._dp)
 
       INTEGER                                            :: handle, ir, nr
       REAL(KIND=dp)                                      :: a, b, fx
@@ -1229,10 +1229,10 @@ CONTAINS
       REAL(dp), DIMENSION(:), INTENT(OUT)                :: exc, vxc
 
       REAL(KIND=dp), PARAMETER :: a0 = 0.4581652932831429E+0_dp, a1 = 0.2217058676663745E+1_dp, &
-         a2 = 0.7405551735357053E+0_dp, a3 = 0.1968227878617998E-1_dp, &
-         b1 = 1.0000000000000000E+0_dp, b2 = 0.4504130959426697E+1_dp, &
-         b3 = 0.1110667363742916E+1_dp, b4 = 0.2359291751427506E-1_dp, f13 = (1.0_dp/3.0_dp), &
-         rsfac = 0.6203504908994000166680065_dp
+                                  a2 = 0.7405551735357053E+0_dp, a3 = 0.1968227878617998E-1_dp, &
+                                  b1 = 1.0000000000000000E+0_dp, b2 = 0.4504130959426697E+1_dp, &
+                                  b3 = 0.1110667363742916E+1_dp, b4 = 0.2359291751427506E-1_dp, f13 = (1.0_dp/3.0_dp), &
+                                  rsfac = 0.6203504908994000166680065_dp
 
       INTEGER                                            :: i, n
       REAL(KIND=dp)                                      :: depade, dpv, dq, epade, p, q, rs
@@ -1276,16 +1276,16 @@ CONTAINS
       REAL(dp), DIMENSION(:), INTENT(OUT)                :: exc, vxca, vxcb
 
       REAL(KIND=dp), PARAMETER :: a0 = 0.4581652932831429E+0_dp, a1 = 0.2217058676663745E+1_dp, &
-         a2 = 0.7405551735357053E+0_dp, a3 = 0.1968227878617998E-1_dp, &
-         b1 = 1.0000000000000000E+0_dp, b2 = 0.4504130959426697E+1_dp, &
-         b3 = 0.1110667363742916E+1_dp, b4 = 0.2359291751427506E-1_dp, &
-         da0 = 0.119086804055547E+0_dp, da1 = 0.6157402568883345E+0_dp, &
-         da2 = 0.1574201515892867E+0_dp, da3 = 0.3532336663397157E-2_dp, &
-         db1 = 0.0000000000000000E+0_dp, db2 = 0.2673612973836267E+0_dp, &
-         db3 = 0.2052004607777787E+0_dp, db4 = 0.4200005045691381E-2_dp, f13 = (1.0_dp/3.0_dp), &
-         f43 = (4.0_dp/3.0_dp)
+                                  a2 = 0.7405551735357053E+0_dp, a3 = 0.1968227878617998E-1_dp, &
+                                  b1 = 1.0000000000000000E+0_dp, b2 = 0.4504130959426697E+1_dp, &
+                                  b3 = 0.1110667363742916E+1_dp, b4 = 0.2359291751427506E-1_dp, &
+                                  da0 = 0.119086804055547E+0_dp, da1 = 0.6157402568883345E+0_dp, &
+                                  da2 = 0.1574201515892867E+0_dp, da3 = 0.3532336663397157E-2_dp, &
+                                  db1 = 0.0000000000000000E+0_dp, db2 = 0.2673612973836267E+0_dp, &
+                                  db3 = 0.2052004607777787E+0_dp, db4 = 0.4200005045691381E-2_dp, f13 = (1.0_dp/3.0_dp), &
+                                  f43 = (4.0_dp/3.0_dp)
       REAL(KIND=dp), PARAMETER :: fxfac = 1.923661050931536319759455_dp, &
-         rsfac = 0.6203504908994000166680065_dp
+                                  rsfac = 0.6203504908994000166680065_dp
 
       INTEGER                                            :: i, n
       REAL(KIND=dp)                                      :: dc, dpv, dq, dr, dx, fa0, fa1, fa2, fa3, &

@@ -24,43 +24,43 @@
 !> \author Teodoro Laino
 ! **************************************************************************************************
 MODULE cp2k_debug
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_result_methods,               ONLY: get_results,&
-                                              test_for_result
-   USE cp_result_types,                 ONLY: cp_result_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE force_env_methods,               ONLY: force_env_calc_energy_force,&
-                                              force_env_calc_num_pressure
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type,&
-                                              use_qs_force
-   USE input_constants,                 ONLY: do_stress_analytical,&
-                                              do_stress_diagonal_anal,&
-                                              do_stress_diagonal_numer,&
-                                              do_stress_numerical
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE particle_methods,                ONLY: write_fist_particle_coordinates,&
-                                              write_qs_particle_coordinates
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE virial_types,                    ONLY: cp_virial,&
-                                              virial_create,&
-                                              virial_release,&
-                                              virial_set,&
-                                              virial_type,&
-                                              zero_virial
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_result_methods, ONLY: get_results, &
+                                test_for_result
+   USE cp_result_types, ONLY: cp_result_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE force_env_methods, ONLY: force_env_calc_energy_force, &
+                                force_env_calc_num_pressure
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type, &
+                              use_qs_force
+   USE input_constants, ONLY: do_stress_analytical, &
+                              do_stress_diagonal_anal, &
+                              do_stress_diagonal_numer, &
+                              do_stress_numerical
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE particle_methods, ONLY: write_fist_particle_coordinates, &
+                               write_qs_particle_coordinates
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE virial_types, ONLY: cp_virial, &
+                           virial_create, &
+                           virial_release, &
+                           virial_set, &
+                           virial_type, &
+                           zero_virial
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

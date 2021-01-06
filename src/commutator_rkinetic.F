@@ -12,26 +12,26 @@
 !> \author Juerg Hutter
 ! **************************************************************************************************
 MODULE commutator_rkinetic
-   USE ai_contraction,                  ONLY: block_add,&
-                                              contraction
-   USE ai_kinetic,                      ONLY: kinetic
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_p_type
-   USE kinds,                           ONLY: dp
-   USE orbital_pointers,                ONLY: coset,&
-                                              ncoset
-   USE qs_integral_utils,               ONLY: basis_set_list_setup,&
-                                              get_memory_usage
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              get_neighbor_list_set_p,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
+   USE ai_contraction, ONLY: block_add, &
+                             contraction
+   USE ai_kinetic, ONLY: kinetic
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE dbcsr_api, ONLY: dbcsr_get_block_p, &
+                        dbcsr_p_type
+   USE kinds, ONLY: dp
+   USE orbital_pointers, ONLY: coset, &
+                               ncoset
+   USE qs_integral_utils, ONLY: basis_set_list_setup, &
+                                get_memory_usage
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     get_neighbor_list_set_p, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"

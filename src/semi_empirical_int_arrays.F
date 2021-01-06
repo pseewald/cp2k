@@ -16,7 +16,7 @@
 ! **************************************************************************************************
 MODULE semi_empirical_int_arrays
 
-   USE kinds,                           ONLY: dp
+   USE kinds, ONLY: dp
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -263,8 +263,8 @@ CONTAINS
 
       INTEGER                                            :: CLM1, CLM1m
       REAL(KIND=dp) :: ALM1, ALMs15_49, ALMs15_49m, ALMs15m, ALMs20_49, ALMs20_49m, ALMs35, &
-         ALMs35m, ALMs45, ALMs5_49, ALMs5_49m, CLM23, CLM23m, CLM43, CLM43m, CLMs13, CLMs13m, &
-         CLMs43, CLMs43m
+                       ALMs35m, ALMs45, ALMs5_49, ALMs5_49m, CLM23, CLM23m, CLM43, CLM43m, CLMs13, CLMs13m, &
+                       CLMs43, CLMs43m
 
       CLM1 = 1
       CLM1m = -1

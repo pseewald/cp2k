@@ -12,24 +12,24 @@
 !> \author MDB
 ! **************************************************************************************************
 MODULE mp2_types
-   USE cp_eri_mme_interface,            ONLY: cp_eri_mme_finalize,&
-                                              cp_eri_mme_param
-   USE cp_fm_types,                     ONLY: cp_fm_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type,&
-                                              dbcsr_type
-   USE hfx_types,                       ONLY: hfx_release,&
-                                              hfx_type,&
-                                              pair_list_element_type
-   USE input_constants,                 ONLY: do_eri_mme,&
-                                              mp2_method_direct,&
-                                              mp2_method_gpw,&
-                                              mp2_method_none,&
-                                              mp2_ri_optimize_basis,&
-                                              ri_mp2_laplace,&
-                                              ri_mp2_method_gpw,&
-                                              ri_rpa_method_gpw
-   USE kinds,                           ONLY: dp
-   USE libint_2c_3c,                    ONLY: libint_potential_type
+   USE cp_eri_mme_interface, ONLY: cp_eri_mme_finalize, &
+                                   cp_eri_mme_param
+   USE cp_fm_types, ONLY: cp_fm_type
+   USE dbcsr_api, ONLY: dbcsr_p_type, &
+                        dbcsr_type
+   USE hfx_types, ONLY: hfx_release, &
+                        hfx_type, &
+                        pair_list_element_type
+   USE input_constants, ONLY: do_eri_mme, &
+                              mp2_method_direct, &
+                              mp2_method_gpw, &
+                              mp2_method_none, &
+                              mp2_ri_optimize_basis, &
+                              ri_mp2_laplace, &
+                              ri_mp2_method_gpw, &
+                              ri_rpa_method_gpw
+   USE kinds, ONLY: dp
+   USE libint_2c_3c, ONLY: libint_potential_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

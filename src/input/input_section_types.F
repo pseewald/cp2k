@@ -13,36 +13,36 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE input_section_types
-   USE cp_linked_list_input,            ONLY: &
-        cp_sll_val_create, cp_sll_val_dealloc, cp_sll_val_get_el_at, cp_sll_val_get_length, &
-        cp_sll_val_get_rest, cp_sll_val_insert_el_at, cp_sll_val_next, cp_sll_val_p_type, &
-        cp_sll_val_rm_el_at, cp_sll_val_set_el_at, cp_sll_val_type
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE input_keyword_types,             ONLY: keyword_describe,&
-                                              keyword_p_type,&
-                                              keyword_release,&
-                                              keyword_retain,&
-                                              keyword_type,&
-                                              keyword_typo_match,&
-                                              write_keyword_xml
-   USE input_val_types,                 ONLY: lchar_t,&
-                                              no_t,&
-                                              val_create,&
-                                              val_duplicate,&
-                                              val_get,&
-                                              val_release,&
-                                              val_type,&
-                                              val_write
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE print_messages,                  ONLY: print_message
-   USE reference_manager,               ONLY: get_citation_key
-   USE string_utilities,                ONLY: a2s,&
-                                              compress,&
-                                              substitute_special_xml_tokens,&
-                                              typo_match,&
-                                              uppercase
+   USE cp_linked_list_input, ONLY: &
+      cp_sll_val_create, cp_sll_val_dealloc, cp_sll_val_get_el_at, cp_sll_val_get_length, &
+      cp_sll_val_get_rest, cp_sll_val_insert_el_at, cp_sll_val_next, cp_sll_val_p_type, &
+      cp_sll_val_rm_el_at, cp_sll_val_set_el_at, cp_sll_val_type
+   USE cp_log_handling, ONLY: cp_to_string
+   USE input_keyword_types, ONLY: keyword_describe, &
+                                  keyword_p_type, &
+                                  keyword_release, &
+                                  keyword_retain, &
+                                  keyword_type, &
+                                  keyword_typo_match, &
+                                  write_keyword_xml
+   USE input_val_types, ONLY: lchar_t, &
+                              no_t, &
+                              val_create, &
+                              val_duplicate, &
+                              val_get, &
+                              val_release, &
+                              val_type, &
+                              val_write
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE print_messages, ONLY: print_message
+   USE reference_manager, ONLY: get_citation_key
+   USE string_utilities, ONLY: a2s, &
+                               compress, &
+                               substitute_special_xml_tokens, &
+                               typo_match, &
+                               uppercase
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -193,7 +193,7 @@ CONTAINS
       IF (PRESENT(citations)) THEN
          ALLOCATE (section%citations(SIZE(citations)))
          section%citations = citations
-      ENDIF
+      END IF
 
       ALLOCATE (section%keywords(-1:my_n_keywords))
       DO i = -1, my_n_keywords
@@ -235,7 +235,7 @@ CONTAINS
          IF (section%ref_count == 0) THEN
             IF (ASSOCIATED(section%citations)) THEN
                DEALLOCATE (section%citations)
-            ENDIF
+            END IF
             IF (ASSOCIATED(section%keywords)) THEN
                DO i = -1, UBOUND(section%keywords, 1)
                   CALL keyword_release(section%keywords(i)%keyword)
@@ -273,8 +273,8 @@ CONTAINS
       IF (length > 0) THEN
          IF (section%description(length) /= ".") THEN
             message = "."
-         ENDIF
-      ENDIF
+         END IF
+      END IF
       IF (section%repeats) THEN
          message = TRIM(message)//" This section can be repeated."
       ELSE
@@ -514,7 +514,7 @@ CONTAINS
                                    "trying to add a keyword with a name ("// &
                                    TRIM(keyword%names(k))//") that was already used in section " &
                                    //TRIM(section%name))
-                  ENDIF
+                  END IF
                END DO
             END DO
          END DO
@@ -728,7 +728,7 @@ CONTAINS
          is_path = .TRUE.
          irep = 1
          my_index = my_index - 1
-      ENDIF
+      END IF
 
       CPASSERT(irep <= SIZE(section_vals%subs_vals, 2))
 
@@ -741,7 +741,7 @@ CONTAINS
       IF (is_path .AND. ASSOCIATED(res)) THEN
          res => section_vals_get_subs_vals(res, subsection_name(my_index + 2:LEN_TRIM(subsection_name)), &
                                            i_rep_section, can_return_null)
-      ENDIF
+      END IF
 
    END FUNCTION section_vals_get_subs_vals
 
@@ -1609,20 +1609,20 @@ CONTAINS
             irank = imax + 1
             DO I = imax, 1, -1
                IF (imatch > matching_rank(I)) irank = i
-            ENDDO
+            END DO
             IF (irank <= imax) THEN
                matching_rank(irank + 1:imax) = matching_rank(irank:imax - 1)
                matching_string(irank + 1:imax) = matching_string(irank:imax - 1)
                matching_rank(irank) = imatch
                matching_string(irank) = line
-            ENDIF
+            END IF
          END IF
 
          IF (section_name == section%name) THEN
             newbonus = 10
          ELSE
             newbonus = 0
-         ENDIF
+         END IF
 
          DO i = -1, section%n_keywords
             IF (ASSOCIATED(section%keywords(i)%keyword)) THEN

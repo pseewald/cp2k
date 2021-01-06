@@ -30,9 +30,9 @@
 ! **************************************************************************************************
 MODULE bibliography
 
-   USE reference_manager,               ONLY: add_reference,&
-                                              cite_reference
-   USE string_utilities,                ONLY: s2a
+   USE reference_manager, ONLY: add_reference, &
+                                cite_reference
+   USE string_utilities, ONLY: s2a
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

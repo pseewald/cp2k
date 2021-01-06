@@ -10,35 +10,35 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE glbopt_worker
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type,&
-                                              pack_subsys_particles,&
-                                              unpack_subsys_particles
-   USE f77_interface,                   ONLY: create_force_env,&
-                                              destroy_force_env,&
-                                              f_env_add_defaults,&
-                                              f_env_rm_defaults,&
-                                              f_env_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE geo_opt,                         ONLY: cp_geo_opt
-   USE global_types,                    ONLY: global_environment_type
-   USE input_section_types,             ONLY: section_type,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE md_run,                          ONLY: qs_mol_dyn
-   USE mdctrl_types,                    ONLY: glbopt_mdctrl_data_type,&
-                                              mdctrl_type
-   USE physcon,                         ONLY: angstrom,&
-                                              kelvin
-   USE swarm_message,                   ONLY: swarm_message_add,&
-                                              swarm_message_get,&
-                                              swarm_message_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type, &
+                              pack_subsys_particles, &
+                              unpack_subsys_particles
+   USE f77_interface, ONLY: create_force_env, &
+                            destroy_force_env, &
+                            f_env_add_defaults, &
+                            f_env_rm_defaults, &
+                            f_env_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE geo_opt, ONLY: cp_geo_opt
+   USE global_types, ONLY: global_environment_type
+   USE input_section_types, ONLY: section_type, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE md_run, ONLY: qs_mol_dyn
+   USE mdctrl_types, ONLY: glbopt_mdctrl_data_type, &
+                           mdctrl_type
+   USE physcon, ONLY: angstrom, &
+                      kelvin
+   USE swarm_message, ONLY: swarm_message_add, &
+                            swarm_message_get, &
+                            swarm_message_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -181,7 +181,7 @@ CONTAINS
       IF (iframe > 1) THEN
          CALL swarm_message_get(cmd, "positions", positions)
          CALL unpack_subsys_particles(worker%subsys, r=positions)
-      ENDIF
+      END IF
 
       ! setup mdctrl callback
       ALLOCATE (mdctrl_data%epot_history(worker%bump_steps_downwards + worker%bump_steps_upwards + 1))

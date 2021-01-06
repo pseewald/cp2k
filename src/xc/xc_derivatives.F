@@ -8,119 +8,119 @@
 ! **************************************************************************************************
 MODULE xc_derivatives
 
-   USE input_section_types,             ONLY: section_vals_duplicate,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals2,&
-                                              section_vals_release,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE xc_b97,                          ONLY: b97_lda_eval,&
-                                              b97_lda_info,&
-                                              b97_lsd_eval,&
-                                              b97_lsd_info
-   USE xc_cs1,                          ONLY: cs1_lda_eval,&
-                                              cs1_lda_info,&
-                                              cs1_lsd_eval,&
-                                              cs1_lsd_info
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type
-   USE xc_exchange_gga,                 ONLY: xgga_eval,&
-                                              xgga_info
-   USE xc_hcth,                         ONLY: hcth_lda_eval,&
-                                              hcth_lda_info
-   USE xc_ke_gga,                       ONLY: ke_gga_info,&
-                                              ke_gga_lda_eval,&
-                                              ke_gga_lsd_eval
-   USE xc_libxc,                        ONLY: libxc_lda_eval,&
-                                              libxc_lda_info,&
-                                              libxc_lsd_eval,&
-                                              libxc_lsd_info
-   USE xc_lyp,                          ONLY: lyp_lda_eval,&
-                                              lyp_lda_info,&
-                                              lyp_lsd_eval,&
-                                              lyp_lsd_info
-   USE xc_lyp_adiabatic,                ONLY: lyp_adiabatic_lda_eval,&
-                                              lyp_adiabatic_lda_info,&
-                                              lyp_adiabatic_lsd_eval,&
-                                              lyp_adiabatic_lsd_info
-   USE xc_optx,                         ONLY: optx_lda_eval,&
-                                              optx_lda_info,&
-                                              optx_lsd_eval,&
-                                              optx_lsd_info
-   USE xc_pade,                         ONLY: pade_info,&
-                                              pade_init,&
-                                              pade_lda_pw_eval,&
-                                              pade_lsd_pw_eval
-   USE xc_pbe,                          ONLY: pbe_lda_eval,&
-                                              pbe_lda_info,&
-                                              pbe_lsd_eval,&
-                                              pbe_lsd_info
-   USE xc_perdew86,                     ONLY: p86_lda_eval,&
-                                              p86_lda_info
-   USE xc_perdew_wang,                  ONLY: perdew_wang_info,&
-                                              perdew_wang_lda_eval,&
-                                              perdew_wang_lsd_eval
-   USE xc_perdew_zunger,                ONLY: pz_info,&
-                                              pz_lda_eval,&
-                                              pz_lsd_eval
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_setall,&
-                                              xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
-   USE xc_sr_lda,                       ONLY: sr_lda_eval,&
-                                              sr_lda_info,&
-                                              sr_lsd_eval
-   USE xc_tfw,                          ONLY: tfw_lda_eval,&
-                                              tfw_lda_info,&
-                                              tfw_lsd_eval,&
-                                              tfw_lsd_info
-   USE xc_thomas_fermi,                 ONLY: thomas_fermi_info,&
-                                              thomas_fermi_lda_eval,&
-                                              thomas_fermi_lsd_eval
-   USE xc_tpss,                         ONLY: tpss_lda_eval,&
-                                              tpss_lda_info
-   USE xc_vwn,                          ONLY: vwn_lda_eval,&
-                                              vwn_lda_info,&
-                                              vwn_lsd_eval
-   USE xc_xalpha,                       ONLY: xalpha_info,&
-                                              xalpha_lda_eval,&
-                                              xalpha_lsd_eval
-   USE xc_xbecke88,                     ONLY: xb88_lda_eval,&
-                                              xb88_lda_info,&
-                                              xb88_lsd_eval,&
-                                              xb88_lsd_info
-   USE xc_xbecke88_long_range,          ONLY: xb88_lr_lda_eval,&
-                                              xb88_lr_lda_info,&
-                                              xb88_lr_lsd_eval,&
-                                              xb88_lr_lsd_info
-   USE xc_xbecke88_lr_adiabatic,        ONLY: xb88_lr_adiabatic_lda_eval,&
-                                              xb88_lr_adiabatic_lda_info,&
-                                              xb88_lr_adiabatic_lsd_eval,&
-                                              xb88_lr_adiabatic_lsd_info
-   USE xc_xbecke_roussel,               ONLY: xbecke_roussel_lda_eval,&
-                                              xbecke_roussel_lda_info,&
-                                              xbecke_roussel_lsd_eval,&
-                                              xbecke_roussel_lsd_info
-   USE xc_xbeef,                        ONLY: xbeef_lda_eval,&
-                                              xbeef_lda_info,&
-                                              xbeef_lsd_eval,&
-                                              xbeef_lsd_info
-   USE xc_xbr_pbe_lda_hole_t_c_lr,      ONLY: xbr_pbe_lda_hole_tc_lr_lda_eval,&
-                                              xbr_pbe_lda_hole_tc_lr_lda_info,&
-                                              xbr_pbe_lda_hole_tc_lr_lsd_eval,&
-                                              xbr_pbe_lda_hole_tc_lr_lsd_info
-   USE xc_xlda_hole_t_c_lr,             ONLY: xlda_hole_t_c_lr_lda_eval,&
-                                              xlda_hole_t_c_lr_lda_info,&
-                                              xlda_hole_t_c_lr_lsd_eval,&
-                                              xlda_hole_t_c_lr_lsd_info
-   USE xc_xpbe_hole_t_c_lr,             ONLY: xpbe_hole_t_c_lr_lda_eval,&
-                                              xpbe_hole_t_c_lr_lda_info,&
-                                              xpbe_hole_t_c_lr_lsd_eval,&
-                                              xpbe_hole_t_c_lr_lsd_info
-   USE xc_xwpbe,                        ONLY: xwpbe_lda_eval,&
-                                              xwpbe_lda_info,&
-                                              xwpbe_lsd_eval,&
-                                              xwpbe_lsd_info
+   USE input_section_types, ONLY: section_vals_duplicate, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals2, &
+                                  section_vals_release, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE xc_b97, ONLY: b97_lda_eval, &
+                     b97_lda_info, &
+                     b97_lsd_eval, &
+                     b97_lsd_info
+   USE xc_cs1, ONLY: cs1_lda_eval, &
+                     cs1_lda_info, &
+                     cs1_lsd_eval, &
+                     cs1_lsd_info
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type
+   USE xc_exchange_gga, ONLY: xgga_eval, &
+                              xgga_info
+   USE xc_hcth, ONLY: hcth_lda_eval, &
+                      hcth_lda_info
+   USE xc_ke_gga, ONLY: ke_gga_info, &
+                        ke_gga_lda_eval, &
+                        ke_gga_lsd_eval
+   USE xc_libxc, ONLY: libxc_lda_eval, &
+                       libxc_lda_info, &
+                       libxc_lsd_eval, &
+                       libxc_lsd_info
+   USE xc_lyp, ONLY: lyp_lda_eval, &
+                     lyp_lda_info, &
+                     lyp_lsd_eval, &
+                     lyp_lsd_info
+   USE xc_lyp_adiabatic, ONLY: lyp_adiabatic_lda_eval, &
+                               lyp_adiabatic_lda_info, &
+                               lyp_adiabatic_lsd_eval, &
+                               lyp_adiabatic_lsd_info
+   USE xc_optx, ONLY: optx_lda_eval, &
+                      optx_lda_info, &
+                      optx_lsd_eval, &
+                      optx_lsd_info
+   USE xc_pade, ONLY: pade_info, &
+                      pade_init, &
+                      pade_lda_pw_eval, &
+                      pade_lsd_pw_eval
+   USE xc_pbe, ONLY: pbe_lda_eval, &
+                     pbe_lda_info, &
+                     pbe_lsd_eval, &
+                     pbe_lsd_info
+   USE xc_perdew86, ONLY: p86_lda_eval, &
+                          p86_lda_info
+   USE xc_perdew_wang, ONLY: perdew_wang_info, &
+                             perdew_wang_lda_eval, &
+                             perdew_wang_lsd_eval
+   USE xc_perdew_zunger, ONLY: pz_info, &
+                               pz_lda_eval, &
+                               pz_lsd_eval
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_setall, &
+                                  xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
+   USE xc_sr_lda, ONLY: sr_lda_eval, &
+                        sr_lda_info, &
+                        sr_lsd_eval
+   USE xc_tfw, ONLY: tfw_lda_eval, &
+                     tfw_lda_info, &
+                     tfw_lsd_eval, &
+                     tfw_lsd_info
+   USE xc_thomas_fermi, ONLY: thomas_fermi_info, &
+                              thomas_fermi_lda_eval, &
+                              thomas_fermi_lsd_eval
+   USE xc_tpss, ONLY: tpss_lda_eval, &
+                      tpss_lda_info
+   USE xc_vwn, ONLY: vwn_lda_eval, &
+                     vwn_lda_info, &
+                     vwn_lsd_eval
+   USE xc_xalpha, ONLY: xalpha_info, &
+                        xalpha_lda_eval, &
+                        xalpha_lsd_eval
+   USE xc_xbecke88, ONLY: xb88_lda_eval, &
+                          xb88_lda_info, &
+                          xb88_lsd_eval, &
+                          xb88_lsd_info
+   USE xc_xbecke88_long_range, ONLY: xb88_lr_lda_eval, &
+                                     xb88_lr_lda_info, &
+                                     xb88_lr_lsd_eval, &
+                                     xb88_lr_lsd_info
+   USE xc_xbecke88_lr_adiabatic, ONLY: xb88_lr_adiabatic_lda_eval, &
+                                       xb88_lr_adiabatic_lda_info, &
+                                       xb88_lr_adiabatic_lsd_eval, &
+                                       xb88_lr_adiabatic_lsd_info
+   USE xc_xbecke_roussel, ONLY: xbecke_roussel_lda_eval, &
+                                xbecke_roussel_lda_info, &
+                                xbecke_roussel_lsd_eval, &
+                                xbecke_roussel_lsd_info
+   USE xc_xbeef, ONLY: xbeef_lda_eval, &
+                       xbeef_lda_info, &
+                       xbeef_lsd_eval, &
+                       xbeef_lsd_info
+   USE xc_xbr_pbe_lda_hole_t_c_lr, ONLY: xbr_pbe_lda_hole_tc_lr_lda_eval, &
+                                         xbr_pbe_lda_hole_tc_lr_lda_info, &
+                                         xbr_pbe_lda_hole_tc_lr_lsd_eval, &
+                                         xbr_pbe_lda_hole_tc_lr_lsd_info
+   USE xc_xlda_hole_t_c_lr, ONLY: xlda_hole_t_c_lr_lda_eval, &
+                                  xlda_hole_t_c_lr_lda_info, &
+                                  xlda_hole_t_c_lr_lsd_eval, &
+                                  xlda_hole_t_c_lr_lsd_info
+   USE xc_xpbe_hole_t_c_lr, ONLY: xpbe_hole_t_c_lr_lda_eval, &
+                                  xpbe_hole_t_c_lr_lda_info, &
+                                  xpbe_hole_t_c_lr_lsd_eval, &
+                                  xpbe_hole_t_c_lr_lsd_info
+   USE xc_xwpbe, ONLY: xwpbe_lda_eval, &
+                       xwpbe_lda_info, &
+                       xwpbe_lsd_eval, &
+                       xwpbe_lsd_info
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -228,19 +228,19 @@ CONTAINS
             CALL optx_lsd_info(reference, shortform, needs, max_deriv)
          ELSE
             CALL optx_lda_info(reference, shortform, needs, max_deriv)
-         ENDIF
+         END IF
       CASE ("LIBXC", "KE_LIBXC")
          IF (lsd) THEN
             CALL libxc_lsd_info(functional, reference, shortform, needs, max_deriv, print_warn)
          ELSE
             CALL libxc_lda_info(functional, reference, shortform, needs, max_deriv, print_warn)
-         ENDIF
+         END IF
       CASE ("CS1")
          IF (lsd) THEN
             CALL cs1_lsd_info(reference, shortform, needs, max_deriv)
          ELSE
             CALL cs1_lda_info(reference, shortform, needs=needs, max_deriv=max_deriv)
-         ENDIF
+         END IF
       CASE ("XGGA")
          CALL section_vals_val_get(functional, "FUNCTIONAL", i_val=i_param)
          CALL xgga_info(i_param, lsd, reference, shortform, needs, max_deriv)
@@ -430,19 +430,19 @@ CONTAINS
             CALL optx_lsd_eval(rho_set, deriv_set, deriv_order, functional)
          ELSE
             CALL optx_lda_eval(rho_set, deriv_set, deriv_order, functional)
-         ENDIF
+         END IF
       CASE ("LIBXC", "KE_LIBXC")
          IF (lsd) THEN
             CALL libxc_lsd_eval(rho_set, deriv_set, deriv_order, functional)
          ELSE
             CALL libxc_lda_eval(rho_set, deriv_set, deriv_order, functional)
-         ENDIF
+         END IF
       CASE ("CS1")
          IF (lsd) THEN
             CALL cs1_lsd_eval(rho_set, deriv_set, deriv_order)
          ELSE
             CALL cs1_lda_eval(rho_set, deriv_set, deriv_order)
-         ENDIF
+         END IF
       CASE ("XGGA")
          CALL section_vals_val_get(functional, "FUNCTIONAL", i_val=i_param)
          CALL xgga_eval(i_param, lsd, rho_set, deriv_set, deriv_order)

@@ -12,23 +12,23 @@
 !> \date   2020-10-10
 ! **************************************************************************************************
 MODULE nnp_acsf
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi
-   USE nnp_environment_types,           ONLY: nnp_acsf_ang_type,&
-                                              nnp_acsf_rad_type,&
-                                              nnp_cut_cos,&
-                                              nnp_cut_tanh,&
-                                              nnp_env_get,&
-                                              nnp_neighbor_type,&
-                                              nnp_type
-   USE periodic_table,                  ONLY: get_ptable_info
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi
+   USE nnp_environment_types, ONLY: nnp_acsf_ang_type, &
+                                    nnp_acsf_rad_type, &
+                                    nnp_cut_cos, &
+                                    nnp_cut_tanh, &
+                                    nnp_env_get, &
+                                    nnp_neighbor_type, &
+                                    nnp_type
+   USE periodic_table, ONLY: get_ptable_info
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -505,10 +505,10 @@ CONTAINS
 
       INTEGER                                            :: i, m, sf
       REAL(KIND=dp) :: angular, costheta, dfcutdr1, dfcutdr2, dfcutdr3, dsymdr1, dsymdr2, dsymdr3, &
-         eta, f, fcut, fcut1, fcut2, fcut3, ftot, g, lam, pref, prefzeta, rsqr1, rsqr2, rsqr3, &
-         symtmp, tmp, tmp1, tmp2, tmp3, tmpzeta, zeta
+                       eta, f, fcut, fcut1, fcut2, fcut3, ftot, g, lam, pref, prefzeta, rsqr1, rsqr2, rsqr3, &
+                       symtmp, tmp, tmp1, tmp2, tmp3, tmpzeta, zeta
       REAL(KIND=dp), DIMENSION(3) :: dangulardx1, dangulardx2, dangulardx3, dcosthetadx1, &
-         dcosthetadx2, dcosthetadx3, dfdx1, dfdx2, dfdx3, dgdx1, dgdx2, dgdx3, dr1dx, dr2dx, dr3dx
+                                     dcosthetadx2, dcosthetadx3, dfdx1, dfdx2, dfdx3, dgdx1, dgdx2, dgdx3, dr1dx, dr2dx, dr3dx
 
       rsqr1 = r1**2
       rsqr2 = r2**2

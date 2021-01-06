@@ -11,36 +11,36 @@
 ! **************************************************************************************************
 MODULE xtb_parameters
 
-   USE basis_set_types,                 ONLY: allocate_sto_basis_set,&
-                                              create_gto_from_sto_basis,&
-                                              deallocate_sto_basis_set,&
-                                              gto_basis_set_type,&
-                                              set_sto_basis_set,&
-                                              sto_basis_set_type
-   USE cp_control_types,                ONLY: xtb_control_type
-   USE cp_linked_list_input,            ONLY: cp_sll_val_next,&
-                                              cp_sll_val_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_list_get,&
-                                              section_vals_type
-   USE input_val_types,                 ONLY: val_get,&
-                                              val_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE periodic_table,                  ONLY: get_ptable_info,&
-                                              ptable
-   USE physcon,                         ONLY: bohr,&
-                                              evolt
-   USE string_utilities,                ONLY: remove_word,&
-                                              uppercase
-   USE xtb_types,                       ONLY: xtb_atom_type
+   USE basis_set_types, ONLY: allocate_sto_basis_set, &
+                              create_gto_from_sto_basis, &
+                              deallocate_sto_basis_set, &
+                              gto_basis_set_type, &
+                              set_sto_basis_set, &
+                              sto_basis_set_type
+   USE cp_control_types, ONLY: xtb_control_type
+   USE cp_linked_list_input, ONLY: cp_sll_val_next, &
+                                   cp_sll_val_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_list_get, &
+                                  section_vals_type
+   USE input_val_types, ONLY: val_get, &
+                              val_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE periodic_table, ONLY: get_ptable_info, &
+                             ptable
+   USE physcon, ONLY: bohr, &
+                      evolt
+   USE string_utilities, ONLY: remove_word, &
+                               uppercase
+   USE xtb_types, ONLY: xtb_atom_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -374,7 +374,7 @@ CONTAINS
                   CALL remove_word(line_att)
                   READ (line_att, *) param%zeta(k)
                   CALL remove_word(line_att)
-               ENDIF
+               END IF
             END IF
          END DO
          IF (found) THEN

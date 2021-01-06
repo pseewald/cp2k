@@ -10,23 +10,23 @@
 !> \author fschiff 11.06
 ! **************************************************************************************************
 MODULE mixed_main
-   USE cp_files,                        ONLY: open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_create,&
-                                              cp_logger_set,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_unit_nr
-   USE cp_para_env,                     ONLY: cp_para_env_create
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length
-   USE message_passing,                 ONLY: mp_comm_split
-   USE mixed_environment,               ONLY: mixed_init
-   USE mixed_environment_types,         ONLY: mixed_env_create,&
-                                              mixed_environment_type,&
-                                              set_mixed_env
+   USE cp_files, ONLY: open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_create, &
+                              cp_logger_set, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_unit_nr
+   USE cp_para_env, ONLY: cp_para_env_create
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length
+   USE message_passing, ONLY: mp_comm_split
+   USE mixed_environment, ONLY: mixed_init
+   USE mixed_environment_types, ONLY: mixed_env_create, &
+                                      mixed_environment_type, &
+                                      set_mixed_env
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -106,7 +106,7 @@ CONTAINS
          CALL mp_comm_split(para_env%group, mixed_env%new_group, mixed_env%ngroups, mixed_env%group_distribution, &
                             n_subgroups=ngroup_wish, &
                             group_partition=group_partition)
-      ENDIF
+      END IF
       IF (output_unit > 0) THEN
          WRITE (output_unit, FMT="(T2,A,T71,I10)") "MIXED_ENV| Number of created MPI groups:", mixed_env%ngroups
          WRITE (output_unit, FMT="(T2,A)", ADVANCE="NO") "MIXED_ENV| Task to group correspondence:"
@@ -116,7 +116,7 @@ CONTAINS
                "  (", i, " : ", mixed_env%group_distribution(i), ")"
          END DO
          WRITE (output_unit, *)
-      ENDIF
+      END IF
       IF (ASSOCIATED(group_partition)) THEN
          DEALLOCATE (group_partition)
       END IF

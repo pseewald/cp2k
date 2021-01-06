@@ -9,33 +9,33 @@
 !> \brief
 ! **************************************************************************************************
 MODULE qs_loc_states
-   USE cp_array_utils,                  ONLY: cp_1d_r_p_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_fm_types,                     ONLY: cp_fm_p_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_should_output
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE molecular_dipoles,               ONLY: calculate_molecular_dipole
-   USE molecular_moments,               ONLY: calculate_molecular_moments
-   USE molecular_states,                ONLY: construct_molecular_states
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_list_types,             ONLY: particle_list_type
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type,&
-                                              set_qs_env
-   USE qs_loc_methods,                  ONLY: qs_loc_driver
-   USE qs_loc_molecules,                ONLY: wfc_to_molecule
-   USE qs_loc_types,                    ONLY: qs_loc_env_new_type
-   USE qs_mo_types,                     ONLY: mo_set_p_type
-   USE wannier_states,                  ONLY: construct_wannier_states
-   USE wannier_states_types,            ONLY: wannier_centres_type
+   USE cp_array_utils, ONLY: cp_1d_r_p_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_fm_types, ONLY: cp_fm_p_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_should_output
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE molecular_dipoles, ONLY: calculate_molecular_dipole
+   USE molecular_moments, ONLY: calculate_molecular_moments
+   USE molecular_states, ONLY: construct_molecular_states
+   USE molecule_types, ONLY: molecule_type
+   USE particle_list_types, ONLY: particle_list_type
+   USE pw_types, ONLY: pw_p_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type, &
+                                   set_qs_env
+   USE qs_loc_methods, ONLY: qs_loc_driver
+   USE qs_loc_molecules, ONLY: wfc_to_molecule
+   USE qs_loc_types, ONLY: qs_loc_env_new_type
+   USE qs_mo_types, ONLY: mo_set_p_type
+   USE wannier_states, ONLY: construct_wannier_states
+   USE wannier_states_types, ONLY: wannier_centres_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -103,8 +103,8 @@ CONTAINS
          CALL get_qs_env(qs_env=qs_env, WannierCentres=wc)
          IF (.NOT. ASSOCIATED(wc)) THEN
             ALLOCATE (wc(dft_control%nspins))
-         ENDIF
-      ENDIF
+         END IF
+      END IF
       !
       DO ispin = 1, dft_control%nspins
          !
@@ -145,14 +145,14 @@ CONTAINS
                IF (.NOT. ASSOCIATED(wc(ispin)%centres)) THEN
                   ALLOCATE (wc(ispin)%WannierHamDiag(ns))
                   ALLOCATE (wc(ispin)%centres(3, ns))
-               ENDIF
+               END IF
 
                wc(ispin)%centres(:, :) = scenter(1 + (ispin - 1)*3:ispin*3, :)
                lstates => qs_loc_env%localized_wfn_control%loc_states(:, ispin)
                CALL construct_wannier_states(mo_local(ispin)%matrix, &
                                              ks_rmpv(ispin)%matrix, qs_env, loc_print_section=loc_print_section, &
                                              WannierCentres=wc(ispin), ns=ns, states=lstates)
-            ENDIF
+            END IF
             ! Compute the molecular states
             IF (BTEST(cp_print_key_should_output(logger%iter_info, loc_print_section, &
                                                  "MOLECULAR_STATES"), cp_p_file)) THEN
@@ -170,9 +170,9 @@ CONTAINS
                   marked_states(:, ispin, mystate) = marked_states_spin(:)
                   DEALLOCATE (marked_states_spin)
                END IF
-            ENDIF
+            END IF
          END IF
-      ENDDO
+      END DO
 
       ! Compute molecular dipoles
       IF (BTEST(cp_print_key_should_output(logger%iter_info, loc_print_section, &
@@ -189,7 +189,7 @@ CONTAINS
       IF (BTEST(cp_print_key_should_output(logger%iter_info, loc_print_section, &
                                            "WANNIER_STATES"), cp_p_file)) THEN
          CALL set_qs_env(qs_env=qs_env, WannierCentres=wc)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 

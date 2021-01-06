@@ -13,100 +13,100 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE xtb_matrices
-   USE ai_contraction,                  ONLY: block_add,&
-                                              contraction
-   USE ai_overlap,                      ONLY: overlap_ab
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE atprop_types,                    ONLY: atprop_array_init,&
-                                              atprop_type
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE block_p_types,                   ONLY: block_p_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              xtb_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set
-   USE cp_dbcsr_output,                 ONLY: cp_dbcsr_write_sparse_matrix
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_dot, dbcsr_finalize, dbcsr_get_block_p, &
-        dbcsr_multiply, dbcsr_p_type, dbcsr_type
-   USE efield_tb_methods,               ONLY: efield_tb_matrix
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_environment_type
-   USE fparser,                         ONLY: evalfd,&
-                                              finalizef
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE message_passing,                 ONLY: mp_minloc,&
-                                              mp_sum
-   USE mulliken,                        ONLY: ao_charges
-   USE orbital_pointers,                ONLY: ncoset
-   USE pair_potential,                  ONLY: init_genpot
-   USE pair_potential_types,            ONLY: not_initialized,&
-                                              pair_potential_p_type,&
-                                              pair_potential_pp_create,&
-                                              pair_potential_pp_release,&
-                                              pair_potential_pp_type,&
-                                              pair_potential_single_clean,&
-                                              pair_potential_single_copy,&
-                                              pair_potential_single_type
-   USE pair_potential_util,             ONLY: ener_pot
-   USE particle_types,                  ONLY: particle_type
-   USE qs_charge_mixing,                ONLY: charge_mixing
-   USE qs_condnum,                      ONLY: overlap_condnum
-   USE qs_dispersion_pairpot,           ONLY: d3_cnumber,&
-                                              dcnum_distribute,&
-                                              dcnum_type
-   USE qs_dispersion_types,             ONLY: qs_dispersion_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_integral_utils,               ONLY: basis_set_list_setup,&
-                                              get_memory_usage
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_ks_types,                     ONLY: get_ks_env,&
-                                              qs_ks_env_type,&
-                                              set_ks_env
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE qs_overlap,                      ONLY: create_sab_matrix
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf_types,                    ONLY: qs_scf_env_type
-   USE string_utilities,                ONLY: compress,&
-                                              uppercase
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
-   USE xtb_coulomb,                     ONLY: build_xtb_coulomb
-   USE xtb_parameters,                  ONLY: xtb_set_kab
-   USE xtb_types,                       ONLY: get_xtb_atom_param,&
-                                              xtb_atom_type
+   USE ai_contraction, ONLY: block_add, &
+                             contraction
+   USE ai_overlap, ONLY: overlap_ab
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE atprop_types, ONLY: atprop_array_init, &
+                           atprop_type
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE block_p_types, ONLY: block_p_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type, &
+                               xtb_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set
+   USE cp_dbcsr_output, ONLY: cp_dbcsr_write_sparse_matrix
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_dot, dbcsr_finalize, dbcsr_get_block_p, &
+      dbcsr_multiply, dbcsr_p_type, dbcsr_type
+   USE efield_tb_methods, ONLY: efield_tb_matrix
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_environment_type
+   USE fparser, ONLY: evalfd, &
+                      finalizef
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE message_passing, ONLY: mp_minloc, &
+                              mp_sum
+   USE mulliken, ONLY: ao_charges
+   USE orbital_pointers, ONLY: ncoset
+   USE pair_potential, ONLY: init_genpot
+   USE pair_potential_types, ONLY: not_initialized, &
+                                   pair_potential_p_type, &
+                                   pair_potential_pp_create, &
+                                   pair_potential_pp_release, &
+                                   pair_potential_pp_type, &
+                                   pair_potential_single_clean, &
+                                   pair_potential_single_copy, &
+                                   pair_potential_single_type
+   USE pair_potential_util, ONLY: ener_pot
+   USE particle_types, ONLY: particle_type
+   USE qs_charge_mixing, ONLY: charge_mixing
+   USE qs_condnum, ONLY: overlap_condnum
+   USE qs_dispersion_pairpot, ONLY: d3_cnumber, &
+                                    dcnum_distribute, &
+                                    dcnum_type
+   USE qs_dispersion_types, ONLY: qs_dispersion_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_integral_utils, ONLY: basis_set_list_setup, &
+                                get_memory_usage
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_ks_types, ONLY: get_ks_env, &
+                          qs_ks_env_type, &
+                          set_ks_env
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE qs_overlap, ONLY: create_sab_matrix
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf_types, ONLY: qs_scf_env_type
+   USE string_utilities, ONLY: compress, &
+                               uppercase
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
+   USE xtb_coulomb, ONLY: build_xtb_coulomb
+   USE xtb_parameters, ONLY: xtb_set_kab
+   USE xtb_types, ONLY: get_xtb_atom_param, &
+                        xtb_atom_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -140,9 +140,9 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'build_xtb_matrices'
 
       INTEGER :: after, atom_a, atom_b, atom_c, handle, i, iatom, ic, icol, ikind, img, ir, irow, &
-         iset, iw, j, jatom, jkind, jset, katom, kkind, la, lb, ldsab, lmaxa, lmaxb, maxder, maxs, &
-         n1, n2, na, natom, natorb_a, natorb_b, nb, ncoa, ncob, nderivatives, nimg, nkind, nsa, &
-         nsb, nseta, nsetb, nshell, sgfa, sgfb, za, zat, zb
+                 iset, iw, j, jatom, jkind, jset, katom, kkind, la, lb, ldsab, lmaxa, lmaxb, maxder, maxs, &
+                 n1, n2, na, natom, natorb_a, natorb_b, nb, ncoa, ncob, nderivatives, nimg, nkind, nsa, &
+                 nsb, nseta, nsetb, nshell, sgfa, sgfb, za, zat, zb
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, atomnumber, kind_of
       INTEGER, DIMENSION(25)                             :: laoa, laob, lval, naoa, naob
       INTEGER, DIMENSION(3)                              :: cell
@@ -151,12 +151,12 @@ CONTAINS
       INTEGER, DIMENSION(:, :), POINTER                  :: first_sgfa, first_sgfb
       INTEGER, DIMENSION(:, :, :), POINTER               :: cell_to_index
       LOGICAL :: defined, diagblock, do_nonbonded, floating_a, found, ghost_a, norml1, norml2, &
-         omit_headers, use_arnoldi, use_virial, xb_inter
+                 omit_headers, use_arnoldi, use_virial, xb_inter
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: floating, ghost
       REAL(KIND=dp) :: alphaa, alphab, derepij, dfp, dhij, dr, drk, drx, ena, enb, enonbonded, &
-         erep, erepij, etaa, etab, exb, f0, f1, fen, fhua, fhub, fhud, foab, hij, k2sh, kab, kcnd, &
-         kcnp, kcns, kd, ken, kf, kg, kia, kjb, kp, ks, ksp, kx2, kxr, rcova, rcovab, rcovb, rrab, &
-         zneffa, zneffb
+                       erep, erepij, etaa, etab, exb, f0, f1, fen, fhua, fhub, fhud, foab, hij, k2sh, kab, kcnd, &
+                       kcnp, kcns, kd, ken, kf, kg, kia, kjb, kp, ks, ksp, kx2, kxr, rcova, rcovab, rcovb, rrab, &
+                       zneffa, zneffb
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: cnumbers, kx
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: dfblock, huckel, kcnlk, owork, rcab
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: oint, sint
@@ -857,7 +857,7 @@ CONTAINS
             CALL dbcsr_finalize(matrix_h(i, img)%matrix)
             CALL dbcsr_finalize(matrix_s(i, img)%matrix)
          END DO
-      ENDDO
+      END DO
 
       exb = 0.0_dp
       IF (xb_inter) THEN
@@ -873,7 +873,7 @@ CONTAINS
          CALL get_qs_env(qs_env=qs_env, sab_xtb_nonbond=sab_xtb_nonbond)
          CALL nonbonded_correction(enonbonded, force, qs_env, xtb_control, sab_xtb_nonbond, &
                                    atomic_kind_set, calculate_forces, use_virial, virial, atprop, atom_of_kind)
-      ENDIF
+      END IF
       ! set repulsive energy
       erep = erep + exb + enonbonded
       IF (xb_inter) energy%xtb_xb_inter = exb
@@ -1209,11 +1209,11 @@ CONTAINS
             CALL get_mo_set(mo_set=mo_array(ispin)%mo_set, mo_coeff_b=mo_coeff)
             IF (.NOT. mo_array(ispin)%mo_set%use_mo_coeff_b) THEN
                CPABORT("")
-            ENDIF
+            END IF
             CALL dbcsr_multiply('n', 'n', 1.0_dp, ks_matrix(ispin, 1)%matrix, mo_coeff, &
                                 0.0_dp, mo_derivs(ispin)%matrix)
-         ENDDO
-      ENDIF
+         END DO
+      END IF
 
       CALL timestop(handle)
 
@@ -1355,7 +1355,7 @@ CONTAINS
                atprop%atecc(iatom) = atprop%atecc(iatom) + 0.5_dp*ener_pot(pot, dr, energy_cutoff)
                atprop%atecc(jatom) = atprop%atecc(jatom) + 0.5_dp*ener_pot(pot, dr, energy_cutoff)
             END IF
-         ENDIF
+         END IF
 
          IF (calculate_forces) THEN
 
@@ -1363,7 +1363,7 @@ CONTAINS
             IF (kk /= 1) THEN
                CALL cp_warn(__LOCATION__, "Generic potential with type > 1 not implemented.")
                CPABORT("pot type")
-            ENDIF
+            END IF
 ! rmin and rmax and rcut
             IF ((pot%set(kk)%rmin /= not_initialized) .AND. (dr < pot%set(kk)%rmin)) CYCLE
             ! An upper boundary for the potential definition was defined
@@ -1413,7 +1413,7 @@ CONTAINS
 
       IF (ASSOCIATED(potparm)) THEN
          CALL pair_potential_pp_release(potparm)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 !
@@ -1480,18 +1480,18 @@ CONTAINS
                   IF (iw > 0) WRITE (iw, *) "    FOUND ", TRIM(name_atm_a), " ", TRIM(name_atm_b)
                   found = .TRUE.
                END DO
-            ENDIF
+            END IF
             IF (.NOT. found) THEN
                CALL pair_potential_single_clean(pot)
-            ENDIF
-         ENDDO !jkind
-      ENDDO !ikind
+            END IF
+         END DO !jkind
+      END DO !ikind
 
       ! Cutoff is defined always as the maximum between the FF and Ewald
       IF (do_ewald) THEN
          CALL ewald_env_get(ewald_env, rcut=ewald_rcut)
          pot%rcutsq = MAX(pot%rcutsq, ewald_rcut*ewald_rcut)
-      ENDIF
+      END IF
 
    END SUBROUTINE force_field_pack_nonbond_pot_correction
 ! **************************************************************************************************

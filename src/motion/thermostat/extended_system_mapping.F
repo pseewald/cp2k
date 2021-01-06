@@ -14,26 +14,26 @@
 ! **************************************************************************************************
 MODULE extended_system_mapping
 
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE extended_system_types,           ONLY: debug_isotropic_limit,&
-                                              lnhc_parameters_type,&
-                                              map_info_type
-   USE input_constants,                 ONLY: &
-        do_thermo_communication, do_thermo_no_communication, do_thermo_only_master, &
-        isokin_ensemble, langevin_ensemble, npe_f_ensemble, npe_i_ensemble, &
-        nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, npt_f_ensemble, npt_i_ensemble, &
-        nve_ensemble, nvt_adiabatic_ensemble, nvt_ensemble, reftraj_ensemble
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: global_constraint_type,&
-                                              molecule_type
-   USE simpar_types,                    ONLY: simpar_type
-   USE thermostat_mapping,              ONLY: adiabatic_mapping_region,&
-                                              init_baro_map_info,&
-                                              thermostat_mapping_region
-   USE thermostat_types,                ONLY: thermostat_info_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE extended_system_types, ONLY: debug_isotropic_limit, &
+                                    lnhc_parameters_type, &
+                                    map_info_type
+   USE input_constants, ONLY: &
+      do_thermo_communication, do_thermo_no_communication, do_thermo_only_master, &
+      isokin_ensemble, langevin_ensemble, npe_f_ensemble, npe_i_ensemble, &
+      nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, npt_f_ensemble, npt_i_ensemble, &
+      nve_ensemble, nvt_adiabatic_ensemble, nvt_ensemble, reftraj_ensemble
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: global_constraint_type, &
+                             molecule_type
+   USE simpar_types, ONLY: simpar_type
+   USE thermostat_mapping, ONLY: adiabatic_mapping_region, &
+                                 init_baro_map_info, &
+                                 thermostat_mapping_region
+   USE thermostat_types, ONLY: thermostat_info_type
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -83,7 +83,7 @@ CONTAINS
             number = 9
          ELSE
             number = 1
-         ENDIF
+         END IF
 
          CALL init_baro_map_info(map_info, number, nhc%loc_num_nhc)
 

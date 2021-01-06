@@ -10,19 +10,19 @@
 !> \author Teodoro Laino - 09.2007 University of Zurich [tlaino]
 ! **************************************************************************************************
 MODULE csvr_system_types
-   USE bibliography,                    ONLY: Bussi2007,&
-                                              cite_reference
-   USE extended_system_types,           ONLY: create_map_info_type,&
-                                              map_info_type,&
-                                              release_map_info_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE parallel_rng_types,              ONLY: GAUSSIAN,&
-                                              next_rng_seed,&
-                                              rng_stream_type
-   USE simpar_types,                    ONLY: simpar_type
-   USE string_utilities,                ONLY: compress
+   USE bibliography, ONLY: Bussi2007, &
+                           cite_reference
+   USE extended_system_types, ONLY: create_map_info_type, &
+                                    map_info_type, &
+                                    release_map_info_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE parallel_rng_types, ONLY: GAUSSIAN, &
+                                 next_rng_seed, &
+                                 rng_stream_type
+   USE simpar_types, ONLY: simpar_type
+   USE string_utilities, ONLY: compress
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -136,7 +136,7 @@ CONTAINS
          CALL csvr_thermo_dealloc(csvr%nvt)
          CALL release_map_info_type(csvr%map_info)
          DEALLOCATE (csvr)
-      ENDIF
+      END IF
 
    END SUBROUTINE csvr_dealloc
 

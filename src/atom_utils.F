@@ -13,46 +13,46 @@
 !>
 ! **************************************************************************************************
 MODULE atom_utils
-   USE ai_onecenter,                    ONLY: sg_overlap,&
-                                              sto_overlap
-   USE ai_overlap,                      ONLY: overlap_ab_s,&
-                                              overlap_ab_sp
-   USE ao_util,                         ONLY: exp_radius
-   USE atom_types,                      ONLY: &
-        CGTO_BASIS, GTO_BASIS, NUM_BASIS, STO_BASIS, atom_basis_type, atom_gthpot_type, &
-        atom_hfx_type, atom_potential_type, atom_state, atom_type, ecp_pseudo, eri, gth_pseudo, &
-        lmat, no_pseudo, sgp_pseudo, upf_pseudo
-   USE basis_set_types,                 ONLY: srules
-   USE cp_files,                        ONLY: close_file,&
-                                              get_unit_number,&
-                                              open_file
-   USE input_constants,                 ONLY: do_rhf_atom,&
-                                              do_rks_atom,&
-                                              do_rohf_atom,&
-                                              do_uhf_atom,&
-                                              do_uks_atom
-   USE kahan_sum,                       ONLY: accurate_dot_product
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE lapack,                          ONLY: lapack_ssyev
-   USE mathconstants,                   ONLY: dfac,&
-                                              fac,&
-                                              fourpi,&
-                                              maxfac,&
-                                              pi,&
-                                              rootpi
-   USE mathlib,                         ONLY: binomial_gen,&
-                                              invmat_symm
-   USE orbital_pointers,                ONLY: deallocate_orbital_pointers,&
-                                              init_orbital_pointers
-   USE orbital_transformation_matrices, ONLY: deallocate_spherical_harmonics,&
+   USE ai_onecenter, ONLY: sg_overlap, &
+                           sto_overlap
+   USE ai_overlap, ONLY: overlap_ab_s, &
+                         overlap_ab_sp
+   USE ao_util, ONLY: exp_radius
+   USE atom_types, ONLY: &
+      CGTO_BASIS, GTO_BASIS, NUM_BASIS, STO_BASIS, atom_basis_type, atom_gthpot_type, &
+      atom_hfx_type, atom_potential_type, atom_state, atom_type, ecp_pseudo, eri, gth_pseudo, &
+      lmat, no_pseudo, sgp_pseudo, upf_pseudo
+   USE basis_set_types, ONLY: srules
+   USE cp_files, ONLY: close_file, &
+                       get_unit_number, &
+                       open_file
+   USE input_constants, ONLY: do_rhf_atom, &
+                              do_rks_atom, &
+                              do_rohf_atom, &
+                              do_uhf_atom, &
+                              do_uks_atom
+   USE kahan_sum, ONLY: accurate_dot_product
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE lapack, ONLY: lapack_ssyev
+   USE mathconstants, ONLY: dfac, &
+                            fac, &
+                            fourpi, &
+                            maxfac, &
+                            pi, &
+                            rootpi
+   USE mathlib, ONLY: binomial_gen, &
+                      invmat_symm
+   USE orbital_pointers, ONLY: deallocate_orbital_pointers, &
+                               init_orbital_pointers
+   USE orbital_transformation_matrices, ONLY: deallocate_spherical_harmonics, &
                                               init_spherical_harmonics
-   USE periodic_table,                  ONLY: nelem,&
-                                              ptable
-   USE physcon,                         ONLY: bohr
-   USE qs_grid_atom,                    ONLY: grid_atom_type
-   USE splines,                         ONLY: spline3ders
-   USE string_utilities,                ONLY: uppercase
+   USE periodic_table, ONLY: nelem, &
+                             ptable
+   USE physcon, ONLY: bohr
+   USE qs_grid_atom, ONLY: grid_atom_type
+   USE splines, ONLY: spline3ders
+   USE string_utilities, ONLY: uppercase
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -501,7 +501,7 @@ CONTAINS
       ELSE
          WRITE (iw, fmt="(' ZMP       | WARNING! Restart file not found')")
          WRITE (iw, fmt="(' ZMP       | WARNING! Starting ZMP calculation form initial atomic guess')")
-      ENDIF
+      END IF
    END SUBROUTINE atom_read_zmp_restart
 
 ! **************************************************************************************************
@@ -541,7 +541,7 @@ CONTAINS
                nr, atom%basis%grid%nr
             IF (iw > 0) WRITE (iw, fmt="(' ZMP       | ERROR! Stopping ZMP calculation')")
             CPABORT("")
-         ENDIF
+         END IF
 
          DO ir = 1, nr
             READ (extunit, *) rr, density(ir)
@@ -551,8 +551,8 @@ CONTAINS
                IF (iw > 0) WRITE (iw, fmt='(" ZMP       |",T14,E24.15,T39,E24.15,T64,E24.15)') &
                   rr, atom%basis%grid%rad(ir), ABS(rr - atom%basis%grid%rad(ir))
                CPABORT("")
-            ENDIF
-         ENDDO
+            END IF
+         END DO
          CALL close_file(unit_number=extunit)
       ELSE
          READ (extunit, *) maxl_occ
@@ -566,9 +566,9 @@ CONTAINS
                READ (extunit, *) (pmatread(j, k, l), j=1, k)
                DO j = 1, k
                   pmatread(k, j, l) = pmatread(j, k, l)
-               ENDDO
-            ENDDO
-         ENDDO
+               END DO
+            END DO
+         END DO
 
          CALL close_file(unit_number=extunit)
 
@@ -588,12 +588,12 @@ CONTAINS
          DO ir = 1, nr
             WRITE (extunit, fmt='(T1,E24.15,T26,E24.15)') &
                atom%basis%grid%rad(ir), density(ir)
-         ENDDO
+         END DO
          DEALLOCATE (pmatread)
 
          CALL close_file(unit_number=extunit)
 
-      ENDIF
+      END IF
 
    END SUBROUTINE atom_read_external_density
 
@@ -628,7 +628,7 @@ CONTAINS
             nr, atom%basis%grid%nr
          IF (iw > 0) WRITE (iw, fmt="(' ZMP       | ERROR! Stopping ZMP calculation')")
          CPABORT("")
-      ENDIF
+      END IF
       DO ir = 1, nr
          READ (extunit, *) rr, vxc(ir)
          IF (ABS(rr - atom%basis%grid%rad(ir)) .GT. atom%zmpvxcgrid_tol) THEN
@@ -637,8 +637,8 @@ CONTAINS
             IF (iw > 0) WRITE (iw, fmt='(" ZMP       |",T14,E24.15,T39,E24.15,T64,E24.15)') &
                rr, atom%basis%grid%rad(ir), ABS(rr - atom%basis%grid%rad(ir))
             CPABORT("")
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
    END SUBROUTINE atom_read_external_vxc
 
@@ -2096,7 +2096,7 @@ CONTAINS
       TYPE(grid_atom_type), INTENT(IN)                   :: grid
 
       INTEGER                                            :: counter, i, l, mc, mm(0:lmat), mo, n, ns
-      INTEGER, DIMENSION(lmat+1, 20)                     :: ne
+      INTEGER, DIMENSION(lmat + 1, 20)                     :: ne
       REAL(KIND=dp)                                      :: a, pf
 
       ! fill out a table with the total number of electrons
@@ -2110,18 +2110,18 @@ CONTAINS
             CPASSERT(ns >= l + mo)
             DO counter = 1, mo
                ne(l + 1, l + counter) = NINT(state%occ(l, counter))
-            ENDDO
+            END DO
          ELSE
             mc = mm(l) ! number of levels in the core
             CPASSERT(SUM(state%occ(l, 1:mc)) == 0)
             CPASSERT(ns >= l + mc)
             DO counter = 1, mc
                ne(l + 1, l + counter) = NINT(state%core(l, counter))
-            ENDDO
+            END DO
             CPASSERT(ns >= l + mc + mo)
             DO counter = mc + 1, mc + mo
                ne(l + 1, l + counter) = NINT(state%occ(l, counter))
-            ENDDO
+            END DO
          END IF
       END DO
 
@@ -2346,7 +2346,7 @@ CONTAINS
 
       INTEGER                                            :: i, j, l, ll, m, n, nbas, nl, nr
       INTEGER, DIMENSION(0:lmat)                         :: nelem, nlmax, nlmin
-      INTEGER, DIMENSION(lmat+1, 7)                      :: ne
+      INTEGER, DIMENSION(lmat + 1, 7)                      :: ne
       REAL(KIND=dp)                                      :: al, c1, c2, pf
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: sfun
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: bmat
@@ -2354,7 +2354,7 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :, :)  :: sint
       REAL(KIND=dp), DIMENSION(0:lmat, 10)               :: snl
       REAL(KIND=dp), DIMENSION(2)                        :: sse
-      REAL(KIND=dp), DIMENSION(lmat+1, 7)                :: sexp
+      REAL(KIND=dp), DIMENSION(lmat + 1, 7)                :: sexp
 
       ne = 0
       nelem = 0
@@ -2487,7 +2487,7 @@ CONTAINS
       REAL(KIND=dp)                                      :: r1, r2, reps, rmax
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: weig, work
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: smat
-      REAL(KIND=dp), DIMENSION(2*lmat+1, 2*lmat+1)       :: sab
+      REAL(KIND=dp), DIMENSION(2*lmat + 1, 2*lmat + 1)       :: sab
       REAL(KIND=dp), DIMENSION(3)                        :: rab
       REAL(KIND=dp), DIMENSION(:), POINTER               :: zeta, zetb
 

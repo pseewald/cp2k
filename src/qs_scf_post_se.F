@@ -14,56 +14,56 @@
 ! **************************************************************************************************
 MODULE qs_scf_post_se
 !
-   USE ai_moments,                      ONLY: moment
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_output,                 ONLY: cp_dbcsr_write_sparse_matrix
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_result_methods,               ONLY: cp_results_erase,&
-                                              put_results
-   USE cp_result_types,                 ONLY: cp_result_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_p_type
-   USE input_section_types,             ONLY: section_get_ival,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: twopi
-   USE message_passing,                 ONLY: mp_sum
-   USE moments_utils,                   ONLY: get_reference_point
-   USE orbital_pointers,                ONLY: coset,&
-                                              ncoset
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: debye
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_methods,                   ONLY: qs_ks_update_qs_env
-   USE qs_ks_types,                     ONLY: qs_ks_did_change
-   USE qs_mo_io,                        ONLY: write_mo_set
-   USE qs_mo_types,                     ONLY: mo_set_p_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
-   USE semi_empirical_types,            ONLY: get_se_param,&
-                                              semi_empirical_type
+   USE ai_moments, ONLY: moment
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: gto_basis_set_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_output, ONLY: cp_dbcsr_write_sparse_matrix
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_result_methods, ONLY: cp_results_erase, &
+                                put_results
+   USE cp_result_types, ONLY: cp_result_type
+   USE dbcsr_api, ONLY: dbcsr_get_block_p, &
+                        dbcsr_p_type
+   USE input_section_types, ONLY: section_get_ival, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: twopi
+   USE message_passing, ONLY: mp_sum
+   USE moments_utils, ONLY: get_reference_point
+   USE orbital_pointers, ONLY: coset, &
+                               ncoset
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: debye
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_methods, ONLY: qs_ks_update_qs_env
+   USE qs_ks_types, ONLY: qs_ks_did_change
+   USE qs_mo_io, ONLY: write_mo_set
+   USE qs_mo_types, ONLY: mo_set_p_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
+   USE semi_empirical_types, ONLY: get_se_param, &
+                                   semi_empirical_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -219,7 +219,7 @@ CONTAINS
                                                             unit_nr
       LOGICAL                                            :: do_berry, found
       REAL(KIND=dp) :: charge_tot, ci(3), dci(3), dipole(3), dipole_deriv(3), drcc(3), dria(3), &
-         dtheta, gvec(3), q, rcc(3), ria(3), tcharge(2), theta, tmp(3), via(3), zeff
+                       dtheta, gvec(3), q, rcc(3), ria(3), tcharge(2), theta, tmp(3), via(3), zeff
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: ncharge
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: mom
       REAL(KIND=dp), DIMENSION(:), POINTER               :: ref_point
@@ -322,7 +322,7 @@ CONTAINS
                      dggamma(j) = dggamma(j)*zeta + ggamma(j)*dzeta
                      ggamma(j) = ggamma(j)*zeta
                   END DO
-               ENDDO
+               END DO
             END DO
             dggamma = dggamma*zphase + ggamma*dzphase
             ggamma = ggamma*zphase
@@ -653,7 +653,7 @@ CONTAINS
       IF (BTEST(cp_print_key_should_output(logger%iter_info, dft_section, "PRINT%PDOS") &
                 , cp_p_file)) THEN
          CPWARN("PDOS not implemented for Semi-Empirical calculations!!")
-      ENDIF
+      END IF
 
       ! Print the total density (electronic + core charge)
       IF (BTEST(cp_print_key_should_output(logger%iter_info, input, &
@@ -683,13 +683,13 @@ CONTAINS
       IF (BTEST(cp_print_key_should_output(logger%iter_info, input, &
                                            "DFT%PRINT%V_HARTREE_CUBE"), cp_p_file)) THEN
          CPWARN("V_HARTREE_CUBE not implemented for Semi-Empirical calculations!!")
-      ENDIF
+      END IF
 
       ! Print the XC potential
       IF (BTEST(cp_print_key_should_output(logger%iter_info, input, &
                                            "DFT%PRINT%V_XC_CUBE"), cp_p_file)) THEN
          CPWARN("V_XC_CUBE not available for Semi-Empirical calculations!!")
-      ENDIF
+      END IF
 
       ! Write the density matrix
       CALL section_vals_val_get(input, "DFT%PRINT%AO_MATRICES%OMIT_HEADERS", l_val=omit_headers)

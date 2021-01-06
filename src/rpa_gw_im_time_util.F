@@ -12,53 +12,53 @@
 ! **************************************************************************************************
 MODULE rpa_gw_im_time_util
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr,&
-                                              cp_dbcsr_m_by_n_from_row_template
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_release,&
-                                              cp_fm_set_element,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add_on_diag, dbcsr_create, dbcsr_distribution_get, dbcsr_distribution_new, &
-        dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_filter, dbcsr_get_diag, &
-        dbcsr_get_info, dbcsr_get_stored_coordinates, dbcsr_init_p, dbcsr_iterator_blocks_left, &
-        dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
-        dbcsr_multiply, dbcsr_p_type, dbcsr_release, dbcsr_release_p, dbcsr_reserve_all_blocks, &
-        dbcsr_scalar, dbcsr_set_diag, dbcsr_type, dbcsr_type_no_symmetry
-   USE dbcsr_tensor_api,                ONLY: &
-        dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_create, &
-        dbcsr_t_default_distvec, dbcsr_t_destroy, dbcsr_t_get_info, dbcsr_t_get_num_blocks, &
-        dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, &
-        dbcsr_t_reserved_block_indices, dbcsr_t_type
-   USE hfx_types,                       ONLY: alloc_containers,&
-                                              block_ind_type,&
-                                              hfx_compression_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE message_passing,                 ONLY: mp_alltoall,&
-                                              mp_dims_create,&
-                                              mp_sum
-   USE mp2_types,                       ONLY: integ_mat_buffer_type
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_tensors,                      ONLY: compress_tensor,&
-                                              decompress_tensor,&
-                                              get_tensor_occupancy
-   USE qs_tensors_types,                ONLY: create_2c_tensor,&
-                                              create_3c_tensor,&
-                                              pgf_block_sizes,&
-                                              split_block_sizes
-   USE rpa_communication,               ONLY: communicate_buffer
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE basis_set_types, ONLY: gto_basis_set_p_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_dbcsr_operations, ONLY: copy_fm_to_dbcsr, &
+                                  cp_dbcsr_m_by_n_from_row_template
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_release, &
+                          cp_fm_set_element, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add_on_diag, dbcsr_create, dbcsr_distribution_get, dbcsr_distribution_new, &
+      dbcsr_distribution_release, dbcsr_distribution_type, dbcsr_filter, dbcsr_get_diag, &
+      dbcsr_get_info, dbcsr_get_stored_coordinates, dbcsr_init_p, dbcsr_iterator_blocks_left, &
+      dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
+      dbcsr_multiply, dbcsr_p_type, dbcsr_release, dbcsr_release_p, dbcsr_reserve_all_blocks, &
+      dbcsr_scalar, dbcsr_set_diag, dbcsr_type, dbcsr_type_no_symmetry
+   USE dbcsr_tensor_api, ONLY: &
+      dbcsr_t_contract, dbcsr_t_copy, dbcsr_t_copy_matrix_to_tensor, dbcsr_t_create, &
+      dbcsr_t_default_distvec, dbcsr_t_destroy, dbcsr_t_get_info, dbcsr_t_get_num_blocks, &
+      dbcsr_t_pgrid_create, dbcsr_t_pgrid_destroy, dbcsr_t_pgrid_type, &
+      dbcsr_t_reserved_block_indices, dbcsr_t_type
+   USE hfx_types, ONLY: alloc_containers, &
+                        block_ind_type, &
+                        hfx_compression_type
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE message_passing, ONLY: mp_alltoall, &
+                              mp_dims_create, &
+                              mp_sum
+   USE mp2_types, ONLY: integ_mat_buffer_type
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_integral_utils, ONLY: basis_set_list_setup
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_tensors, ONLY: compress_tensor, &
+                         decompress_tensor, &
+                         get_tensor_occupancy
+   USE qs_tensors_types, ONLY: create_2c_tensor, &
+                               create_3c_tensor, &
+                               pgf_block_sizes, &
+                               split_block_sizes
+   USE rpa_communication, ONLY: communicate_buffer
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -131,7 +131,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'get_tensor_3c_overl_int_gw'
 
       INTEGER :: cut_memory, handle, i_mem, icol_global, imo, irow_global, min_bsize, &
-         min_bsize_mo, nkind, nmo_blk_gw, npcols, nprows, size_MO, unit_nr_prv
+                 min_bsize_mo, nkind, nmo_blk_gw, npcols, nprows, size_MO, unit_nr_prv
       INTEGER(int_8)                                     :: nze
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dist1, dist2, dist3, sizes_AO, &
                                                             sizes_AO_split, sizes_MO, sizes_MO_1, &
@@ -166,7 +166,7 @@ CONTAINS
          unit_nr_prv = unit_nr
       ELSE
          unit_nr_prv = 0
-      ENDIF
+      END IF
 
       my_do_beta = .FALSE.
       IF (PRESENT(do_beta)) my_do_beta = do_beta
@@ -297,7 +297,7 @@ CONTAINS
                                contract_2=[3], notcontract_2=[1, 2], map_1=[3], map_2=[1, 2], &
                                bounds_2=ibounds, move_data=.FALSE., unit_nr=unit_nr_prv)
 
-      ENDDO
+      END DO
 
       CALL cp_fm_release(fm_mat_mo_coeff_gw)
 
@@ -368,7 +368,7 @@ CONTAINS
 
          DO imo = bounds(1, 1), bounds(2, 1)
             norm(imo) = 1.0_dp/SQRT(norm(imo))
-         ENDDO
+         END DO
 
          CALL dbcsr_create(mat_norm_diag, template=mat_norm)
          CALL dbcsr_release(mat_norm)
@@ -403,7 +403,7 @@ CONTAINS
 
          CALL dbcsr_release_p(mat_mo_coeff_gw_reflected)
 
-      ENDIF
+      END IF
 
       CALL alloc_containers(t_3c_O_mo_compressed, 1)
       ALLOCATE (t_3c_O_mo_ind(dbcsr_t_get_num_blocks(t_3c_overl_int_ao_mo), 3))
@@ -454,10 +454,10 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'reflect_mat_row'
 
       INTEGER :: block, block_size, col, col_rec, col_size, handle, i_atom, i_block, imepos, &
-         j_atom, natom, nblkcols_total, nblkrows_total, offset, row, row_rec, row_reflected, &
-         row_size
+                 j_atom, natom, nblkcols_total, nblkrows_total, offset, row, row_rec, row_reflected, &
+                 row_size
       INTEGER, ALLOCATABLE, DIMENSION(:) :: block_counter, entry_counter, image_atom, &
-         num_blocks_rec, num_blocks_send, num_entries_rec, num_entries_send, sizes_rec, sizes_send
+                                           num_blocks_rec, num_blocks_send, num_entries_rec, num_entries_send, sizes_rec, sizes_send
       INTEGER, DIMENSION(:), POINTER                     :: col_blk_sizes, row_blk_sizes
       INTEGER, DIMENSION(:, :), POINTER                  :: req_array
       LOGICAL                                            :: found_image_atom

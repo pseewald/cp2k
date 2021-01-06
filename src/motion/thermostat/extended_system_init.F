@@ -14,39 +14,39 @@
 ! **************************************************************************************************
 MODULE extended_system_init
 
-   USE cell_types,                      ONLY: cell_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE extended_system_mapping,         ONLY: nhc_to_barostat_mapping,&
-                                              nhc_to_particle_mapping,&
-                                              nhc_to_particle_mapping_fast,&
-                                              nhc_to_particle_mapping_slow,&
-                                              nhc_to_shell_mapping
-   USE extended_system_types,           ONLY: debug_isotropic_limit,&
-                                              lnhc_parameters_type,&
-                                              map_info_type,&
-                                              npt_info_type
-   USE global_types,                    ONLY: global_environment_type
-   USE input_constants,                 ONLY: do_thermo_only_master,&
-                                              npe_f_ensemble,&
-                                              npe_i_ensemble,&
-                                              nph_uniaxial_damped_ensemble,&
-                                              nph_uniaxial_ensemble,&
-                                              npt_f_ensemble,&
-                                              npt_i_ensemble
-   USE input_cp2k_binary_restarts,      ONLY: read_binary_thermostats_nose
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_remove_values,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: global_constraint_type,&
-                                              molecule_type
-   USE simpar_types,                    ONLY: simpar_type
-   USE thermostat_types,                ONLY: thermostat_info_type
-   USE thermostat_utils,                ONLY: get_nhc_energies
+   USE cell_types, ONLY: cell_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE extended_system_mapping, ONLY: nhc_to_barostat_mapping, &
+                                      nhc_to_particle_mapping, &
+                                      nhc_to_particle_mapping_fast, &
+                                      nhc_to_particle_mapping_slow, &
+                                      nhc_to_shell_mapping
+   USE extended_system_types, ONLY: debug_isotropic_limit, &
+                                    lnhc_parameters_type, &
+                                    map_info_type, &
+                                    npt_info_type
+   USE global_types, ONLY: global_environment_type
+   USE input_constants, ONLY: do_thermo_only_master, &
+                              npe_f_ensemble, &
+                              npe_i_ensemble, &
+                              nph_uniaxial_damped_ensemble, &
+                              nph_uniaxial_ensemble, &
+                              npt_f_ensemble, &
+                              npt_i_ensemble
+   USE input_cp2k_binary_restarts, ONLY: read_binary_thermostats_nose
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_remove_values, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: global_constraint_type, &
+                             molecule_type
+   USE simpar_types, ONLY: simpar_type
+   USE thermostat_types, ONLY: thermostat_info_type
+   USE thermostat_utils, ONLY: get_nhc_energies
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -896,7 +896,7 @@ CONTAINS
       IF (number /= 0) THEN
          temp = 2.0_dp*akin/REAL(number, KIND=dp)
          IF (temp > 0.0_dp) temp = SQRT(temp_ext/temp)
-      ENDIF
+      END IF
       DO i = 1, SIZE(npt, 1)
          DO j = i, SIZE(npt, 2)
             npt(j, i)%v = temp*npt(j, i)%v

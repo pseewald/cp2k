@@ -12,42 +12,42 @@
 !> \author Michele Ceriotti 03.2012
 ! **************************************************************************************************
 MODULE ipi_driver
-   USE ISO_C_BINDING,                   ONLY: C_CHAR,&
-                                              C_DOUBLE,&
-                                              C_INT,&
-                                              C_LOC,&
-                                              C_NULL_CHAR,&
-                                              C_PTR
-   USE bibliography,                    ONLY: Ceriotti2014,&
-                                              Kapil2016,&
-                                              cite_reference
-   USE cell_types,                      ONLY: cell_create,&
-                                              cell_release,&
-                                              cell_type,&
-                                              init_cell
-   USE cp_external_control,             ONLY: external_control
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_set,&
-                                              cp_subsys_type
-   USE force_env_methods,               ONLY: force_env_calc_energy_force
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp,&
-                                              int_4
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_irecv,&
-                                              mp_send,&
-                                              mp_sync,&
-                                              mp_testany
-   USE virial_types,                    ONLY: virial_type
+   USE ISO_C_BINDING, ONLY: C_CHAR, &
+                            C_DOUBLE, &
+                            C_INT, &
+                            C_LOC, &
+                            C_NULL_CHAR, &
+                            C_PTR
+   USE bibliography, ONLY: Ceriotti2014, &
+                           Kapil2016, &
+                           cite_reference
+   USE cell_types, ONLY: cell_create, &
+                         cell_release, &
+                         cell_type, &
+                         init_cell
+   USE cp_external_control, ONLY: external_control
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_set, &
+                              cp_subsys_type
+   USE force_env_methods, ONLY: force_env_calc_energy_force
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE global_types, ONLY: global_environment_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp, &
+                    int_4
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_irecv, &
+                              mp_send, &
+                              mp_sync, &
+                              mp_testany
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -76,7 +76,7 @@ MODULE ipi_driver
    INTERFACE
       SUBROUTINE uwait(sec) BIND(C, NAME="uwait")
          USE ISO_C_BINDING, ONLY: C_DOUBLE
-      REAL(C_DOUBLE)                                     :: sec
+         REAL(C_DOUBLE)                                     :: sec
 
       END SUBROUTINE
    END INTERFACE
@@ -173,7 +173,7 @@ CONTAINS
 
       DO i = 1, plen
          cstring(i) = fstring(i:i)
-      ENDDO
+      END DO
       CALL writebuffer_csocket(psockfd, c_loc(cstring(1)), plen)
 
       CALL timestop(handle)
@@ -267,7 +267,7 @@ CONTAINS
       fstring = ""
       DO i = 1, plen
          fstring(i:i) = cstring(i)
-      ENDDO
+      END DO
 
       CALL timestop(handle)
 
@@ -374,7 +374,7 @@ CONTAINS
       IF (output_unit > 0) THEN
          WRITE (output_unit, *) "@ i-PI DRIVER BEING LOADED"
          WRITE (output_unit, *) "@ INPUT DATA: ", TRIM(drv_hostname), drv_port, drv_unix
-      ENDIF
+      END IF
 
       c_hostname = TRIM(drv_hostname)//C_NULL_CHAR
       IF (ionode) CALL open_socket(socket, i_drv_unix, drv_port, c_hostname)
@@ -397,8 +397,8 @@ CONTAINS
             DO iwait = 0, para_env%num_pe - 1
                IF (iwait /= para_env%source) THEN
                   CALL mp_send(msg=wait_msg, dest=iwait, gid=para_env%group, tag=666)
-               ENDIF
-            ENDDO
+               END IF
+            END DO
          ELSE
             CALL mp_irecv(msgout=wait_msg, source=para_env%source, comm=para_env%group, &
                           tag=666, request=wait_req(2))
@@ -406,8 +406,8 @@ CONTAINS
             DO WHILE (.NOT. fwait)
                CALL mp_testany(wait_req(2:), flag=fwait)
                CALL uwait(sleeptime)
-            ENDDO
-         ENDIF
+            END DO
+         END IF
 
          CALL mp_sync(para_env%group)
 
@@ -422,8 +422,8 @@ CONTAINS
                   CALL writebuffer(socket, "HAVEDATA    ", MSGLEN)
                ELSE
                   CALL writebuffer(socket, "READY       ", MSGLEN)
-               ENDIF
-            ENDIF
+               END IF
+            END IF
             CALL mp_sync(para_env%group)
          ELSE IF (TRIM(header) == "POSDATA") THEN
             IF (ionode) THEN
@@ -434,7 +434,7 @@ CONTAINS
                CALL readbuffer(socket, nat)
                cellh = TRANSPOSE(cellh)
                cellih = TRANSPOSE(cellih)
-            ENDIF
+            END IF
             CALL mp_bcast(cellh, para_env%source, para_env%group)
             CALL mp_bcast(cellih, para_env%source, para_env%group)
             CALL mp_bcast(nat, para_env%source, para_env%group)
@@ -491,13 +491,13 @@ CONTAINS
                ! the string. here we just send back zero characters.
                nat = 0
                CALL writebuffer(socket, nat) ! writes out zero for the length of the "extra" field (not implemented yet!)
-            ENDIF
+            END IF
             hasdata = .FALSE.
          ELSE
             IF (output_unit > 0) WRITE (output_unit, *) " @DRIVER MODE:  Socket disconnected, time to exit. "
             EXIT
-         ENDIF
-      ENDDO driver_loop
+         END IF
+      END DO driver_loop
 
       ! clean up
       CALL cell_release(cpcell)

@@ -12,27 +12,27 @@
 !> \author MDB
 ! **************************************************************************************************
 MODULE mp2_setup
-   USE cp_eri_mme_interface,            ONLY: cp_eri_mme_init_read_input
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE input_constants,                 ONLY: &
-        do_eri_mme, do_potential_short, mp2_method_direct, mp2_method_gpw, mp2_method_none, &
-        mp2_ri_optimize_basis, ri_mp2_laplace, ri_mp2_method_gpw, ri_rpa_method_gpw
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: erfc_cutoff
-   USE mp2_types,                       ONLY: mp2_method_direct,&
-                                              mp2_method_gpw,&
-                                              mp2_method_none,&
-                                              mp2_ri_optimize_basis,&
-                                              mp2_type,&
-                                              ri_mp2_laplace,&
-                                              ri_mp2_method_gpw,&
-                                              ri_rpa_method_gpw
+   USE cp_eri_mme_interface, ONLY: cp_eri_mme_init_read_input
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE input_constants, ONLY: &
+      do_eri_mme, do_potential_short, mp2_method_direct, mp2_method_gpw, mp2_method_none, &
+      mp2_ri_optimize_basis, ri_mp2_laplace, ri_mp2_method_gpw, ri_rpa_method_gpw
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: erfc_cutoff
+   USE mp2_types, ONLY: mp2_method_direct, &
+                        mp2_method_gpw, &
+                        mp2_method_none, &
+                        mp2_ri_optimize_basis, &
+                        mp2_type, &
+                        ri_mp2_laplace, &
+                        ri_mp2_method_gpw, &
+                        ri_rpa_method_gpw
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -242,7 +242,7 @@ CONTAINS
       CALL section_vals_val_get(mp2_section, "RI%RI_METRIC%T_C_G_DATA", c_val=mp2_env%ri_metric%filename)
       IF (mp2_env%ri_metric%potential_type == do_potential_short) THEN
          CALL erfc_cutoff(mp2_env%eps_range, mp2_env%ri_metric%omega, mp2_env%ri_metric%cutoff_radius)
-      ENDIF
+      END IF
 
       CALL section_vals_val_get(mp2_section, "RI%OPT_RI_BASIS%_SECTION_PARAMETERS_", l_val=do_opt_ri_basis)
       IF (do_opt_ri_basis) THEN
@@ -293,7 +293,7 @@ CONTAINS
       IF (mp2_env%eri_method .EQ. do_eri_mme) THEN
          eri_mme_section => section_vals_get_subs_vals(mp2_section, "INTEGRALS%ERI_MME")
          CALL cp_eri_mme_init_read_input(eri_mme_section, mp2_env%eri_mme_param)
-      ENDIF
+      END IF
 
       ! Set some parameters in case of P screening
       mp2_env%not_last_hfx = .TRUE.
@@ -321,7 +321,7 @@ CONTAINS
             CPABORT("")
          END SELECT
          WRITE (unit_nr, '(T2,A)') ""
-      ENDIF
+      END IF
 
       CALL cp_print_key_finished_output(unit_nr, logger, mp2_section, &
                                         "MP2%MP2_INFO")

@@ -13,30 +13,30 @@
 !> \author Teodoro Laino
 ! **************************************************************************************************
 MODULE qmmm_gaussian_init
-   USE ao_util,                         ONLY: exp_radius
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE gaussian_gridlevels,             ONLY: gaussian_gridlevel,&
-                                              gridlevel_info_type
-   USE input_constants,                 ONLY: do_qmmm_gauss,&
-                                              do_qmmm_swave
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE memory_utilities,                ONLY: reallocate
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_pool_types,                   ONLY: pw_pool_p_type
-   USE qmmm_gaussian_data,              ONLY: max_geep_lib_gauss,&
-                                              min_geep_lib_gauss
-   USE qmmm_gaussian_input,             ONLY: read_mm_potential,&
-                                              set_mm_potential_erf,&
-                                              set_mm_potential_swave
-   USE qmmm_gaussian_types,             ONLY: qmmm_gaussian_p_type,&
-                                              qmmm_gaussian_type
+   USE ao_util, ONLY: exp_radius
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE gaussian_gridlevels, ONLY: gaussian_gridlevel, &
+                                  gridlevel_info_type
+   USE input_constants, ONLY: do_qmmm_gauss, &
+                              do_qmmm_swave
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE memory_utilities, ONLY: reallocate
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_pool_types, ONLY: pw_pool_p_type
+   USE qmmm_gaussian_data, ONLY: max_geep_lib_gauss, &
+                                 min_geep_lib_gauss
+   USE qmmm_gaussian_input, ONLY: read_mm_potential, &
+                                  set_mm_potential_erf, &
+                                  set_mm_potential_swave
+   USE qmmm_gaussian_types, ONLY: qmmm_gaussian_p_type, &
+                                  qmmm_gaussian_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

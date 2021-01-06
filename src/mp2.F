@@ -12,120 +12,120 @@
 !> \author Mauro Del Ben
 ! **************************************************************************************************
 MODULE mp2
-   USE admm_methods,                    ONLY: admm_mo_merge_ks_matrix
-   USE admm_types,                      ONLY: admm_type
-   USE admm_utils,                      ONLY: admm_correct_for_eigenvalues,&
-                                              admm_uncorrect_for_eigenvalues
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE bibliography,                    ONLY: DelBen2012,&
-                                              DelBen2015b,&
-                                              Rybkin2016,&
-                                              cite_reference
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_cfm_basic_linalg,             ONLY: cp_cfm_gemm,&
-                                              cp_cfm_scale_and_add_fm
-   USE cp_cfm_types,                    ONLY: cp_cfm_create,&
-                                              cp_cfm_get_info,&
-                                              cp_cfm_release,&
-                                              cp_cfm_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_deallocate_matrix_set
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_triangular_invert
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose
-   USE cp_fm_diag,                      ONLY: cp_fm_power
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_get_submatrix,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_env,                     ONLY: cp_para_env_create,&
-                                              cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_desymmetrize, dbcsr_get_diag, dbcsr_get_info, &
-        dbcsr_multiply, dbcsr_p_type, dbcsr_release, dbcsr_release_p, dbcsr_set, dbcsr_type, &
-        dbcsr_type_antisymmetric, dbcsr_type_symmetric
-   USE hfx_energy_potential,            ONLY: integrate_four_center
-   USE hfx_types,                       ONLY: &
-        alloc_containers, dealloc_containers, hfx_basis_info_type, hfx_basis_type, &
-        hfx_container_type, hfx_create_basis_types, hfx_init_container, hfx_release_basis_types, &
-        hfx_type
-   USE input_constants,                 ONLY: &
-        cholesky_inverse, cholesky_off, do_admm_basis_projection, do_admm_purify_none, do_eri_gpw, &
-        do_eri_mme, do_potential_TShPSC, gw_print_exx, gw_read_exx, xc_none
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE kpoint_methods,                  ONLY: rskp_transform
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_env_type,&
-                                              kpoint_type
-   USE machine,                         ONLY: m_flush,&
-                                              m_memory,&
-                                              m_walltime
-   USE mathconstants,                   ONLY: gaussi,&
-                                              z_one,&
-                                              z_zero
-   USE message_passing,                 ONLY: mp_comm_split_direct,&
-                                              mp_max,&
-                                              mp_sum,&
-                                              mp_sync
-   USE mp2_direct_method,               ONLY: mp2_canonical_direct_single_batch
-   USE mp2_gpw,                         ONLY: mp2_gpw_main
-   USE mp2_optimize_ri_basis,           ONLY: optimize_ri_basis_main
-   USE mp2_types,                       ONLY: mp2_biel_type,&
-                                              mp2_method_direct,&
-                                              mp2_method_gpw,&
-                                              mp2_ri_optimize_basis,&
-                                              mp2_type,&
-                                              ri_mp2_laplace,&
-                                              ri_mp2_method_gpw,&
-                                              ri_rpa_method_gpw
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: evolt
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_ks_methods,                   ONLY: qs_ks_build_kohn_sham_matrix
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_matrix_pools,                 ONLY: mpools_create,&
-                                              mpools_rebuild_fm_pools,&
-                                              mpools_release,&
-                                              qs_matrix_pools_type
-   USE qs_mo_types,                     ONLY: allocate_mo_set,&
-                                              deallocate_mo_set,&
-                                              get_mo_set,&
-                                              init_mo_set,&
-                                              mo_set_p_type,&
-                                              mo_set_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_scf_methods,                  ONLY: eigensolver,&
-                                              eigensolver_symm
-   USE qs_scf_types,                    ONLY: qs_scf_env_type
-   USE scf_control_types,               ONLY: scf_control_type
-   USE virial_types,                    ONLY: virial_type
+   USE admm_methods, ONLY: admm_mo_merge_ks_matrix
+   USE admm_types, ONLY: admm_type
+   USE admm_utils, ONLY: admm_correct_for_eigenvalues, &
+                         admm_uncorrect_for_eigenvalues
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE bibliography, ONLY: DelBen2012, &
+                           DelBen2015b, &
+                           Rybkin2016, &
+                           cite_reference
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_cfm_basic_linalg, ONLY: cp_cfm_gemm, &
+                                  cp_cfm_scale_and_add_fm
+   USE cp_cfm_types, ONLY: cp_cfm_create, &
+                           cp_cfm_get_info, &
+                           cp_cfm_release, &
+                           cp_cfm_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_deallocate_matrix_set
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_fm_basic_linalg, ONLY: cp_fm_triangular_invert
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose
+   USE cp_fm_diag, ONLY: cp_fm_power
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_get_submatrix, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_env, ONLY: cp_para_env_create, &
+                          cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_desymmetrize, dbcsr_get_diag, dbcsr_get_info, &
+      dbcsr_multiply, dbcsr_p_type, dbcsr_release, dbcsr_release_p, dbcsr_set, dbcsr_type, &
+      dbcsr_type_antisymmetric, dbcsr_type_symmetric
+   USE hfx_energy_potential, ONLY: integrate_four_center
+   USE hfx_types, ONLY: &
+      alloc_containers, dealloc_containers, hfx_basis_info_type, hfx_basis_type, &
+      hfx_container_type, hfx_create_basis_types, hfx_init_container, hfx_release_basis_types, &
+      hfx_type
+   USE input_constants, ONLY: &
+      cholesky_inverse, cholesky_off, do_admm_basis_projection, do_admm_purify_none, do_eri_gpw, &
+      do_eri_mme, do_potential_TShPSC, gw_print_exx, gw_read_exx, xc_none
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE kpoint_methods, ONLY: rskp_transform
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_env_type, &
+                           kpoint_type
+   USE machine, ONLY: m_flush, &
+                      m_memory, &
+                      m_walltime
+   USE mathconstants, ONLY: gaussi, &
+                            z_one, &
+                            z_zero
+   USE message_passing, ONLY: mp_comm_split_direct, &
+                              mp_max, &
+                              mp_sum, &
+                              mp_sync
+   USE mp2_direct_method, ONLY: mp2_canonical_direct_single_batch
+   USE mp2_gpw, ONLY: mp2_gpw_main
+   USE mp2_optimize_ri_basis, ONLY: optimize_ri_basis_main
+   USE mp2_types, ONLY: mp2_biel_type, &
+                        mp2_method_direct, &
+                        mp2_method_gpw, &
+                        mp2_ri_optimize_basis, &
+                        mp2_type, &
+                        ri_mp2_laplace, &
+                        ri_mp2_method_gpw, &
+                        ri_rpa_method_gpw
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: evolt
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_ks_methods, ONLY: qs_ks_build_kohn_sham_matrix
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_matrix_pools, ONLY: mpools_create, &
+                              mpools_rebuild_fm_pools, &
+                              mpools_release, &
+                              qs_matrix_pools_type
+   USE qs_mo_types, ONLY: allocate_mo_set, &
+                          deallocate_mo_set, &
+                          get_mo_set, &
+                          init_mo_set, &
+                          mo_set_p_type, &
+                          mo_set_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_scf_methods, ONLY: eigensolver, &
+                             eigensolver_symm
+   USE qs_scf_types, ONLY: qs_scf_env_type
+   USE scf_control_types, ONLY: scf_control_type
+   USE virial_types, ONLY: virial_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
 
@@ -154,16 +154,16 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'mp2_main'
 
       INTEGER :: bin, cholesky_method, dimen, handle, handle2, i, i_thread, iatom, ikind, irep, &
-         ispin, max_nset, my_bin_size, n_rep_hf, n_threads, nao, natom, ncol_block, ndep, &
-         nelec_alpha, nelec_beta, nelectron, nfullcols_total, nfullrows_total, nkind, nrow_block, &
-         nspins, unit_nr
+                 ispin, max_nset, my_bin_size, n_rep_hf, n_threads, nao, natom, ncol_block, ndep, &
+                 nelec_alpha, nelec_beta, nelectron, nfullcols_total, nfullrows_total, nkind, nrow_block, &
+                 nspins, unit_nr
       INTEGER(KIND=int_8)                                :: mem
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: kind_of
       LOGICAL :: calc_ex, do_admm, do_admm_rpa_exx, do_dynamic_load_balancing, do_exx, do_gw, &
-         do_kpoints_cubic_RPA, free_hfx_buffer, update_xc_energy
+                 do_kpoints_cubic_RPA, free_hfx_buffer, update_xc_energy
       REAL(KIND=dp) :: E_ex_from_GW, Emp2, Emp2_AA, Emp2_AA_Cou, Emp2_AA_ex, Emp2_AB, Emp2_AB_Cou, &
-         Emp2_AB_ex, Emp2_BB, Emp2_BB_Cou, Emp2_BB_ex, Emp2_Cou, Emp2_ex, Emp2_S, Emp2_T, maxocc, &
-         mem_real, t1, t2, t3
+                       Emp2_AB_ex, Emp2_BB, Emp2_BB_Cou, Emp2_BB_ex, Emp2_Cou, Emp2_ex, Emp2_S, Emp2_T, maxocc, &
+                       mem_real, t1, t2, t3
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: Auto, Auto_alpha, Auto_beta
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: C, C_alpha, C_beta
       REAL(KIND=dp), DIMENSION(:), POINTER               :: mo_eigenvalues
@@ -200,7 +200,7 @@ CONTAINS
       IF (qs_env%mp2_env%hf_fail) THEN
          CALL cp_abort(__LOCATION__, "SCF not converged: "// &
                        "not possible to run MP2")
-      ENDIF
+      END IF
 
       NULLIFY (virial, dft_control, blacs_env, kpoints)
       CALL timeset(routineN, handle)
@@ -272,7 +272,7 @@ CONTAINS
             WRITE (unit_nr, '(T2,A)') '--------------'
             WRITE (unit_nr, *)
          END IF
-      ENDIF
+      END IF
 
       IF (calc_forces) THEN
          CALL cite_reference(DelBen2015b)
@@ -280,13 +280,13 @@ CONTAINS
          IF (mp2_env%method /= ri_mp2_method_gpw) THEN
             CPABORT("No forces/gradients for the selected method.")
          END IF
-      ENDIF
+      END IF
 
       IF (.NOT. do_kpoints_cubic_RPA) THEN
          IF (virial%pv_availability .AND. (.NOT. virial%pv_numer) .AND. mp2_env%eri_method == do_eri_mme) THEN
             CPABORT("analytical stress not implemented with ERI_METHOD = MME")
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       IF (mp2_env%do_im_time .AND. mp2_env%eri_method .NE. do_eri_gpw) THEN
          mp2_env%mp2_num_proc = 1
@@ -297,7 +297,7 @@ CONTAINS
          IF (unit_nr > 0 .AND. mp2_env%mp2_num_proc .NE. -1) &
             WRITE (unit_nr, '(T3,A,T76,I5)') 'Requested number of processes per group:', mp2_env%mp2_num_proc
          mp2_env%mp2_num_proc = para_env%num_pe
-      ENDIF
+      END IF
       IF (.NOT. mp2_env%do_im_time) THEN
          IF (unit_nr > 0) WRITE (unit_nr, '(T3,A,T76,I5)') 'Used number of processes per group:', mp2_env%mp2_num_proc
          IF (unit_nr > 0) WRITE (unit_nr, '(T3,A,T68,F9.2,A4)') 'Maximum allowed memory usage per MPI process:', &
@@ -715,7 +715,7 @@ CONTAINS
                ELSE
                   ! unknown if Emp2_ex is not computed
                   Emp2_T = 0.0_dp
-               ENDIF
+               END IF
             END IF
             IF (unit_nr > 0) WRITE (unit_nr, '(T3,A,T56,F25.14)') 'MP2 Energy SO component (singlet) = ', Emp2_S
             IF (unit_nr > 0) WRITE (unit_nr, '(T3,A,T56,F25.14)') 'MP2 Energy SS component (triplet) = ', Emp2_T
@@ -736,23 +736,23 @@ CONTAINS
          IF (unit_nr > 0 .AND. update_xc_energy) WRITE (unit_nr, '(T3,A,T56,F25.14)') 'RI-RPA energy  =   ', Emp2
          IF (mp2_env%ri_rpa%do_ri_axk) THEN
             IF (unit_nr > 0) WRITE (unit_nr, '(T3,A,T56,F25.14)') 'RI-RPA-AXK energy=', mp2_env%ri_rpa%ener_axk
-         ENDIF
+         END IF
          IF (mp2_env%ri_rpa%do_rse) THEN
             IF (unit_nr > 0) WRITE (unit_nr, '(T3,A,T56,F25.14)') 'Diagonal singles correction (dRSE) = ', &
                mp2_env%ri_rpa%rse_corr_diag
             IF (unit_nr > 0) WRITE (unit_nr, '(T3,A,T56,F25.14)') 'Full singles correction (RSE) =', &
                mp2_env%ri_rpa%rse_corr
-         ENDIF
+         END IF
       END IF
       IF (unit_nr > 0) WRITE (unit_nr, *)
 
       ! we have it !!!!
       IF (mp2_env%ri_rpa%do_ri_axk) THEN
          Emp2 = Emp2 + mp2_env%ri_rpa%ener_axk
-      ENDIF
+      END IF
       IF (mp2_env%ri_rpa%do_rse) THEN
          Emp2 = Emp2 + mp2_env%ri_rpa%rse_corr
-      ENDIF
+      END IF
       energy%mp2 = Emp2
       energy%total = energy%total + Emp2
 
@@ -884,12 +884,12 @@ CONTAINS
       REAL(KIND=dp), PARAMETER                           :: zero = 0.D+00
 
       INTEGER :: batch_number, color_sub, comm_sub, counter, elements_ij_proc, group_counter, &
-         handle, i, i_batch, i_batch_start, i_group_counter, j, j_batch_start, j_group_counter, &
-         last_batch, max_batch_number, max_batch_size, max_set, minimum_memory_needed, &
-         my_batch_size, my_I_batch_size, my_I_occupied_end, my_I_occupied_start, my_J_batch_size, &
-         my_J_occupied_end, my_J_occupied_start, natom, Ni_occupied, Nj_occupied, number_groups, &
-         number_i_subset, number_j_subset, one, sqrt_number_groups, total_I_size_batch_group, &
-         total_J_size_batch_group, virt_i, virt_j
+                 handle, i, i_batch, i_batch_start, i_group_counter, j, j_batch_start, j_group_counter, &
+                 last_batch, max_batch_number, max_batch_size, max_set, minimum_memory_needed, &
+                 my_batch_size, my_I_batch_size, my_I_occupied_end, my_I_occupied_start, my_J_batch_size, &
+                 my_J_occupied_end, my_J_occupied_start, natom, Ni_occupied, Nj_occupied, number_groups, &
+                 number_i_subset, number_j_subset, one, sqrt_number_groups, total_I_size_batch_group, &
+                 total_J_size_batch_group, virt_i, virt_j
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: batch_sizes, batch_sizes_tmp, &
                                                             vector_batch_I_size_group, &
                                                             vector_batch_J_size_group
@@ -1311,13 +1311,13 @@ CONTAINS
       CHARACTER(4)                                       :: occ_virt
       CHARACTER(LEN=40)                                  :: line
       INTEGER :: dimen, gw_corr_lev_occ, gw_corr_lev_virt, handle, homo, i_img, ikp, irep, ispin, &
-         iunit, myfun, myfun_aux, myfun_prim, n_level_gw, n_level_gw_ref, n_rep_hf, nkp, nmo, ns, &
-         nspins, print_exx
+                 iunit, myfun, myfun_aux, myfun_prim, n_level_gw, n_level_gw_ref, n_rep_hf, nkp, nmo, ns, &
+                 nspins, print_exx
       LOGICAL                                            :: charge_constrain_tmp, do_admm_rpa, &
                                                             do_hfx, do_kpoints_cubic_RPA, &
                                                             do_ri_Sigma_x, really_read_line
       REAL(KIND=dp) :: eh1, ehfx, energy_exc, energy_exc1, energy_exc1_aux_fit, &
-         energy_exc_aux_fit, energy_total, exx_minus_vxc, hfx_fraction, t1, t2, tmp
+                       energy_exc_aux_fit, energy_total, exx_minus_vxc, hfx_fraction, t1, t2, tmp
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: vec_Sigma_x_minus_vxc_gw, &
                                                             vec_Sigma_x_minus_vxc_gw_im
       TYPE(admm_type), POINTER                           :: admm_env
@@ -1325,8 +1325,8 @@ CONTAINS
       TYPE(cp_para_env_type), POINTER                    :: para_env
       TYPE(dbcsr_p_type), DIMENSION(:), POINTER          :: matrix_ks, matrix_ks_aux_fit, rho_ao
       TYPE(dbcsr_p_type), DIMENSION(:, :), POINTER :: matrix_ks_2d, matrix_ks_kp_im, &
-         matrix_ks_kp_re, matrix_ks_transl, matrix_sigma_x_minus_vxc, matrix_sigma_x_minus_vxc_im, &
-         rho_ao_2d
+                                         matrix_ks_kp_re, matrix_ks_transl, matrix_sigma_x_minus_vxc, matrix_sigma_x_minus_vxc_im, &
+                                                      rho_ao_2d
       TYPE(dbcsr_type)                                   :: matrix_tmp, matrix_tmp_2, mo_coeff_b
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(kpoint_type), POINTER                         :: kpoints
@@ -1476,8 +1476,8 @@ CONTAINS
 
             END IF
 
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       ! set DFT functional to none and hfx_fraction to zero
       hfx_sections => section_vals_get_subs_vals(input, "DFT%XC%HF")
@@ -1846,7 +1846,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'transform_sigma_x_minus_vxc_to_MO_basis'
 
       INTEGER :: dimen, gw_corr_lev_occ, gw_corr_lev_virt, handle, homo, i_global, iiB, ikp, &
-         ispin, j_global, jjB, ncol_local, nkp, nrow_local, nspins
+                 ispin, j_global, jjB, ncol_local, nkp, nrow_local, nspins
       INTEGER, DIMENSION(2)                              :: kp_range
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_indices
       REAL(KIND=dp)                                      :: imval, reval

@@ -11,51 +11,51 @@
 ! **************************************************************************************************
 MODULE rt_propagator_init
 
-   USE arnoldi_api,                     ONLY: arnoldi_extremal
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              rtp_control_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              cp_dbcsr_plus_fm_fm_t
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_scale,&
-                                              cp_fm_upper_to_full
-   USE cp_fm_diag,                      ONLY: cp_fm_syevd
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_copy, dbcsr_create, dbcsr_deallocate_matrix, dbcsr_filter, dbcsr_multiply, &
-        dbcsr_p_type, dbcsr_scale, dbcsr_set, dbcsr_type
-   USE input_constants,                 ONLY: do_arnoldi,&
-                                              do_bch,&
-                                              do_cn,&
-                                              do_em,&
-                                              do_etrs,&
-                                              do_pade,&
-                                              do_taylor
-   USE iterate_matrix,                  ONLY: matrix_sqrt_Newton_Schulz
-   USE kinds,                           ONLY: dp
-   USE matrix_exp,                      ONLY: get_nsquare_norder
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_mo_types,                     ONLY: mo_set_p_type
-   USE rt_make_propagators,             ONLY: compute_exponential,&
-                                              compute_exponential_sparse,&
-                                              propagate_arnoldi
-   USE rt_propagation_methods,          ONLY: calc_SinvH,&
-                                              put_data_to_history,&
-                                              s_matrices_create
-   USE rt_propagation_types,            ONLY: get_rtp,&
-                                              rt_prop_type
+   USE arnoldi_api, ONLY: arnoldi_extremal
+   USE cp_control_types, ONLY: dft_control_type, &
+                               rtp_control_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  cp_dbcsr_plus_fm_fm_t
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_scale, &
+                                 cp_fm_upper_to_full
+   USE cp_fm_diag, ONLY: cp_fm_syevd
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_copy, dbcsr_create, dbcsr_deallocate_matrix, dbcsr_filter, dbcsr_multiply, &
+      dbcsr_p_type, dbcsr_scale, dbcsr_set, dbcsr_type
+   USE input_constants, ONLY: do_arnoldi, &
+                              do_bch, &
+                              do_cn, &
+                              do_em, &
+                              do_etrs, &
+                              do_pade, &
+                              do_taylor
+   USE iterate_matrix, ONLY: matrix_sqrt_Newton_Schulz
+   USE kinds, ONLY: dp
+   USE matrix_exp, ONLY: get_nsquare_norder
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_mo_types, ONLY: mo_set_p_type
+   USE rt_make_propagators, ONLY: compute_exponential, &
+                                  compute_exponential_sparse, &
+                                  propagate_arnoldi
+   USE rt_propagation_methods, ONLY: calc_SinvH, &
+                                     put_data_to_history, &
+                                     s_matrices_create
+   USE rt_propagation_types, ONLY: get_rtp, &
+                                   rt_prop_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -121,9 +121,9 @@ CONTAINS
          IF (logger%para_env%ionode) THEN
             unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
             WRITE (unit_nr, *) "linear_scaling currently does not support pade exponentials, switching to taylor"
-         ENDIF
+         END IF
          rtp_control%mat_exp = do_taylor
-      ENDIF
+      END IF
       ! We have no clue yet about next H so we use initial H for t and t+dt
       ! Due to different nature of the propagator the prefactor has to be adopted
       SELECT CASE (rtp_control%propagator)
@@ -166,7 +166,7 @@ CONTAINS
          CALL get_rtp(rtp=rtp, rho_old=rho_old)
       ELSE
          CALL get_rtp(rtp=rtp, mos_old=mos_old)
-      ENDIF
+      END IF
       CALL put_data_to_history(rtp, mos=mos_old, s_mat=s_mat, ihist=1, rho=rho_old)
 
    END SUBROUTINE init_propagators

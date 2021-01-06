@@ -29,37 +29,37 @@
 !> \author Matthias Krack (03.04.2001)
 ! **************************************************************************************************
 MODULE qs_integrate_potential_product
-   USE admm_types,                      ONLY: admm_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cube_utils,                      ONLY: cube_info_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE gaussian_gridlevels,             ONLY: gridlevel_info_type
-   USE grid_api,                        ONLY: grid_integrate_task_list
-   USE input_constants,                 ONLY: do_admm_exch_scaling_merlot
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind_set,&
-                                              qs_kind_type
-   USE realspace_grid_types,            ONLY: realspace_grid_p_type,&
-                                              rs_grid_release,&
-                                              rs_grid_retain
-   USE rs_pw_interface,                 ONLY: potential_pw2rs
-   USE task_list_methods,               ONLY: rs_copy_to_buffer,&
-                                              rs_copy_to_matrices,&
-                                              rs_gather_matrices,&
-                                              rs_scatter_matrices
-   USE task_list_types,                 ONLY: task_list_type
-   USE virial_types,                    ONLY: virial_type
+   USE admm_types, ONLY: admm_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cube_utils, ONLY: cube_info_type
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE gaussian_gridlevels, ONLY: gridlevel_info_type
+   USE grid_api, ONLY: grid_integrate_task_list
+   USE input_constants, ONLY: do_admm_exch_scaling_merlot
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_types, ONLY: pw_p_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind_set, &
+                            qs_kind_type
+   USE realspace_grid_types, ONLY: realspace_grid_p_type, &
+                                   rs_grid_release, &
+                                   rs_grid_retain
+   USE rs_pw_interface, ONLY: potential_pw2rs
+   USE task_list_methods, ONLY: rs_copy_to_buffer, &
+                                rs_copy_to_matrices, &
+                                rs_gather_matrices, &
+                                rs_scatter_matrices
+   USE task_list_types, ONLY: task_list_type
+   USE virial_types, ONLY: virial_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num, omp_get_num_threads
 
@@ -270,8 +270,8 @@ CONTAINS
       DO igrid_level = 1, gridlevel_info%ngrid_levels
          IF (rs_v(igrid_level)%rs_grid%desc%distributed) THEN
             distributed_grids = .TRUE.
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 
       ALLOCATE (forces_array(3, natoms))
 
@@ -291,7 +291,7 @@ CONTAINS
             CALL rs_scatter_matrices(deltap, task_list%pab_buffer, task_list, group)
          ELSE
             CALL rs_copy_to_buffer(deltap, task_list%pab_buffer, task_list)
-         ENDIF
+         END IF
          DEALLOCATE (deltap)
       END IF
 
@@ -341,7 +341,7 @@ CONTAINS
          CALL rs_gather_matrices(task_list%hab_buffer, dhmat, task_list, group)
       ELSE
          CALL rs_copy_to_matrices(task_list%hab_buffer, dhmat, task_list)
-      ENDIF
+      END IF
       DEALLOCATE (dhmat)
 
       IF (ASSOCIATED(rs_v)) THEN

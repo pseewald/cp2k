@@ -10,28 +10,28 @@
 !> \author Teodoro Laino
 ! **************************************************************************************************
 MODULE cp_ddapc_methods
-   USE cell_types,                      ONLY: cell_type
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_constants,                 ONLY: weight_type_mass,&
-                                              weight_type_unit
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kahan_sum,                       ONLY: accurate_sum
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fourpi,&
-                                              oorootpi,&
-                                              pi,&
-                                              twopi
-   USE mathlib,                         ONLY: diamat_all,&
-                                              invert_matrix
+   USE cell_types, ONLY: cell_type
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_constants, ONLY: weight_type_mass, &
+                              weight_type_unit
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kahan_sum, ONLY: accurate_sum
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fourpi, &
+                            oorootpi, &
+                            pi, &
+                            twopi
+   USE mathlib, ONLY: diamat_all, &
+                      invert_matrix
 !NB for paralelizaion of ewald_ddapc_pot()
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE pw_spline_utils,                 ONLY: Eval_Interp_Spl3_pbc
-   USE pw_types,                        ONLY: pw_type
-   USE spherical_harmonics,             ONLY: legendre
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE pw_spline_utils, ONLY: Eval_Interp_Spl3_pbc
+   USE pw_types, ONLY: pw_type
+   USE spherical_harmonics, ONLY: legendre
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -137,7 +137,7 @@ CONTAINS
          g2 = rho_tot_g%pw_grid%gsq(ig)
          IF (g2 > gcut2) EXIT
          igmax = ig
-      ENDDO
+      END DO
       IF (igmax .GE. s_dim) THEN
          ALLOCATE (my_bv(s_dim:igmax))
          ALLOCATE (my_bvw(s_dim:igmax))
@@ -218,7 +218,7 @@ CONTAINS
          g2 = rho_tot_g%pw_grid%gsq(ig)
          IF (g2 > gcut2) EXIT
          igmax = ig
-      ENDDO
+      END DO
       IF (igmax .GE. s_dim) THEN
          ALLOCATE (my_Am(s_dim:igmax))
          ALLOCATE (my_Amw(s_dim:igmax))
@@ -303,7 +303,7 @@ CONTAINS
          g2 = rho_tot_g%pw_grid%gsq(ig)
          IF (g2 > gcut2) EXIT
          igmax = ig
-      ENDDO
+      END DO
       IF (igmax .GE. s_dim) THEN
          ALLOCATE (my_dbv(3, s_dim:igmax))
          ALLOCATE (my_dbvw(s_dim:igmax))
@@ -399,7 +399,7 @@ CONTAINS
          g2 = rho_tot_g%pw_grid%gsq(ig)
          IF (g2 > gcut2) EXIT
          igmax = ig
-      ENDDO
+      END DO
 
       Nr = SIZE(radii)
       Np = SIZE(particle_set)
@@ -451,7 +451,7 @@ CONTAINS
                   lhs((ipp - 1)*Nr + 1:(ipp - 1)*Nr + Nr, ig - s_dim + 1) = w(ig)*rho_tot_g%pw_grid%g(icomp, ig)*gfunc(ig, 1:Nr)* &
                                                                             g_dot_rvec_sin(ig - s_dim + 1, iparticle1)
                END DO
-            ENDDO
+            END DO
             ! do main multiply
             CALL DGEMM('N', 'N', nparticles*Nr, Np*Nr, Ng, 1.0D0, lhs(1, 1), nparticles*Nr, rhs(1, 1), &
                        Ng, 1.0D0, dAm((iparticle0 - 1)*Nr + 1, 1, icomp), Np*Nr)
@@ -506,7 +506,7 @@ CONTAINS
          g2 = rho_tot_g%pw_grid%gsq(ig)
          IF (g2 > gcut2) EXIT
          igmax = ig
-      ENDDO
+      END DO
 
       IF (igmax .GE. s_dim) THEN
          ALLOCATE (g_dot_rvec_sin(1:igmax - s_dim + 1, SIZE(particle_set)))
@@ -637,11 +637,11 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'ewald_ddapc_pot'
 
       INTEGER :: ewmdim, handle, idim, idim1, idim2, idimo, igauss1, igauss2, ip1, ip2, &
-         iparticle1, iparticle2, istart_g, k1, k2, k3, n_rep, ndim, nmax1, nmax2, nmax3, r1, r2, &
-         r3, rmax1, rmax2, rmax3
+                 iparticle1, iparticle2, istart_g, k1, k2, k3, n_rep, ndim, nmax1, nmax2, nmax3, r1, r2, &
+                 r3, rmax1, rmax2, rmax3
       LOGICAL                                            :: analyt
       REAL(KIND=dp) :: alpha, eps, ew_neut, fac, fac3, fs, g_ewald, galpha, gsq, gsqi, ij_fac, &
-         my_val, r, r2tmp, r_ewald, rc1, rc12, rc2, rc22, rcut, rcut2, t1, tol, tol1
+                       my_val, r, r2tmp, r_ewald, rc1, rc12, rc2, rc22, rcut, rcut2, t1, tol, tol1
       REAL(KIND=dp), DIMENSION(3)                        :: fvec, gvec, ra, rvec
       REAL(KIND=dp), DIMENSION(:), POINTER               :: EwM
 
@@ -814,7 +814,7 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(:), POINTER               :: radii
 
       INTEGER :: i, idim, idim1, idim2, igauss1, igauss2, ip1, ip2, iparticle1, iparticle2, &
-         istart_g, j, l, lmax, n_rep1, n_rep2, ndim, output_unit, weight
+                 istart_g, j, l, lmax, n_rep1, n_rep2, ndim, output_unit, weight
       INTEGER, DIMENSION(:), POINTER                     :: list
       LOGICAL                                            :: fixed_center
       REAL(KIND=dp)                                      :: center(3), eps_in, eps_out, factor, &

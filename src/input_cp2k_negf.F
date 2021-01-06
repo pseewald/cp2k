@@ -10,31 +10,31 @@
 ! **************************************************************************************************
 
 MODULE input_cp2k_negf
-   USE bibliography,                    ONLY: Bailey2006,&
-                                              Papior2017
-   USE cp_output_handling,              ONLY: cp_print_key_section_create,&
-                                              debug_print_level,&
-                                              high_print_level,&
-                                              low_print_level,&
-                                              medium_print_level,&
-                                              silent_print_level
-   USE input_constants,                 ONLY: negfint_method_cc,&
-                                              negfint_method_simpson
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: char_t,&
-                                              integer_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE physcon,                         ONLY: kelvin
-   USE qs_density_mixing_types,         ONLY: create_mixing_section
-   USE string_utilities,                ONLY: s2a
+   USE bibliography, ONLY: Bailey2006, &
+                           Papior2017
+   USE cp_output_handling, ONLY: cp_print_key_section_create, &
+                                 debug_print_level, &
+                                 high_print_level, &
+                                 low_print_level, &
+                                 medium_print_level, &
+                                 silent_print_level
+   USE input_constants, ONLY: negfint_method_cc, &
+                              negfint_method_simpson
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: char_t, &
+                              integer_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE physcon, ONLY: kelvin
+   USE qs_density_mixing_types, ONLY: create_mixing_section
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

@@ -15,10 +15,10 @@
 ! **************************************************************************************************
 MODULE cp_files
 
-   USE kinds,                           ONLY: default_path_length
-   USE machine,                         ONLY: default_input_unit,&
-                                              default_output_unit,&
-                                              m_getcwd
+   USE kinds, ONLY: default_path_length
+   USE machine, ONLY: default_input_unit, &
+                      default_output_unit, &
+                      m_getcwd
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -316,7 +316,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'open_file'
 
       CHARACTER(LEN=11) :: access_string, action_string, current_action, current_form, &
-         form_string, pad_string, position_string, status_string
+                           form_string, pad_string, position_string, status_string
       CHARACTER(LEN=2*default_path_length)               :: message
       CHARACTER(LEN=default_path_length)                 :: cwd, iomsgstr, real_file_name
       INTEGER                                            :: debug_unit, istat
@@ -573,7 +573,7 @@ CONTAINS
          joined_path = TRIM(path1)//path2
       ELSE
          joined_path = TRIM(path1)//'/'//path2
-      ENDIF
+      END IF
    END FUNCTION join_paths
 
 ! **************************************************************************************************
@@ -592,7 +592,7 @@ CONTAINS
          unit = output_unit
       ELSE
          unit = default_output_unit
-      ENDIF
+      END IF
 
       nc = SIZE(preconnected)
 

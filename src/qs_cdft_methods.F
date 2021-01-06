@@ -12,73 +12,73 @@
 !> \author Nico Holmberg [03.2017]
 ! **************************************************************************************************
 MODULE qs_cdft_methods
-   USE ao_util,                         ONLY: exp_radius_very_extended
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_realspace_grid_cube,          ONLY: cp_cube_to_pw
-   USE cube_utils,                      ONLY: cube_info_type
-   USE grid_api,                        ONLY: GRID_FUNC_AB,&
-                                              collocate_pgf_product
-   USE hirshfeld_types,                 ONLY: get_hirshfeld_info,&
-                                              hirshfeld_type,&
-                                              set_hirshfeld_info
-   USE input_constants,                 ONLY: cdft_alpha_constraint,&
-                                              cdft_beta_constraint,&
-                                              cdft_charge_constraint,&
-                                              cdft_magnetization_constraint,&
-                                              outer_scf_becke_constraint,&
-                                              outer_scf_hirshfeld_constraint
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kahan_sum,                       ONLY: accurate_dot_product,&
-                                              accurate_sum
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_integrate_function
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              REALSPACE,&
-                                              pw_p_type
-   USE qs_cdft_types,                   ONLY: becke_constraint_type,&
-                                              cdft_control_type,&
-                                              cdft_group_type,&
-                                              hirshfeld_constraint_type
-   USE qs_cdft_utils,                   ONLY: becke_constraint_init,&
-                                              cdft_constraint_print,&
-                                              hfun_scale,&
-                                              hirshfeld_constraint_init
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_rho0_types,                   ONLY: get_rho0_mpole,&
-                                              mpole_rho_atom,&
-                                              rho0_mpole_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
-   USE realspace_grid_types,            ONLY: &
-        realspace_grid_desc_type, realspace_grid_p_type, realspace_grid_type, rs2pw, &
-        rs_grid_create, rs_grid_release, rs_grid_retain, rs_grid_zero, rs_pw_transfer
+   USE ao_util, ONLY: exp_radius_very_extended
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_realspace_grid_cube, ONLY: cp_cube_to_pw
+   USE cube_utils, ONLY: cube_info_type
+   USE grid_api, ONLY: GRID_FUNC_AB, &
+                       collocate_pgf_product
+   USE hirshfeld_types, ONLY: get_hirshfeld_info, &
+                              hirshfeld_type, &
+                              set_hirshfeld_info
+   USE input_constants, ONLY: cdft_alpha_constraint, &
+                              cdft_beta_constraint, &
+                              cdft_charge_constraint, &
+                              cdft_magnetization_constraint, &
+                              outer_scf_becke_constraint, &
+                              outer_scf_hirshfeld_constraint
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kahan_sum, ONLY: accurate_dot_product, &
+                        accurate_sum
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_integrate_function
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: REALDATA3D, &
+                       REALSPACE, &
+                       pw_p_type
+   USE qs_cdft_types, ONLY: becke_constraint_type, &
+                            cdft_control_type, &
+                            cdft_group_type, &
+                            hirshfeld_constraint_type
+   USE qs_cdft_utils, ONLY: becke_constraint_init, &
+                            cdft_constraint_print, &
+                            hfun_scale, &
+                            hirshfeld_constraint_init
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_rho0_types, ONLY: get_rho0_mpole, &
+                            mpole_rho_atom, &
+                            rho0_mpole_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
+   USE realspace_grid_types, ONLY: &
+      realspace_grid_desc_type, realspace_grid_p_type, realspace_grid_type, rs2pw, &
+      rs_grid_create, rs_grid_release, rs_grid_retain, rs_grid_zero, rs_pw_transfer
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -1265,11 +1265,11 @@ CONTAINS
                      IF (MODULO(iatom, rs_rho_all%desc%group_size) == rs_rho_all%desc%my_pos) THEN
                         npme = npme + 1
                         cores(npme) = iatom
-                     ENDIF
+                     END IF
                   ELSE
                      npme = npme + 1
                      cores(npme) = iatom
-                  ENDIF
+                  END IF
                END DO
                DO j = 1, npme
                   iatom = cores(j)

@@ -13,28 +13,28 @@
 ! **************************************************************************************************
 
 MODULE tmc_calculations
-   USE cell_types,                      ONLY: cell_copy,&
-                                              cell_type,&
-                                              get_cell,&
-                                              init_cell,&
-                                              pbc
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE f77_interface,                   ONLY: calc_energy,&
-                                              calc_force,&
-                                              set_cell
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE parallel_rng_types,              ONLY: rng_stream_type
-   USE physcon,                         ONLY: boltzmann,&
-                                              joule
-   USE tmc_move_types,                  ONLY: mv_type_MD
-   USE tmc_stati,                       ONLY: task_type_MC,&
-                                              task_type_gaussian_adaptation,&
-                                              task_type_ideal_gas
-   USE tmc_tree_types,                  ONLY: tree_type
-   USE tmc_types,                       ONLY: tmc_atom_type,&
-                                              tmc_env_type,&
-                                              tmc_param_type
+   USE cell_types, ONLY: cell_copy, &
+                         cell_type, &
+                         get_cell, &
+                         init_cell, &
+                         pbc
+   USE cp_log_handling, ONLY: cp_to_string
+   USE f77_interface, ONLY: calc_energy, &
+                            calc_force, &
+                            set_cell
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE parallel_rng_types, ONLY: rng_stream_type
+   USE physcon, ONLY: boltzmann, &
+                      joule
+   USE tmc_move_types, ONLY: mv_type_MD
+   USE tmc_stati, ONLY: task_type_MC, &
+                        task_type_gaussian_adaptation, &
+                        task_type_ideal_gas
+   USE tmc_tree_types, ONLY: tree_type
+   USE tmc_types, ONLY: tmc_atom_type, &
+                        tmc_env_type, &
+                        tmc_param_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -446,7 +446,7 @@ CONTAINS
          ! fewer is maybe more stable
          extrapolate = a**7*b + c
          res_err = e3 - extrapolate
-      ENDIF
+      END IF
       CPASSERT(extrapolate .NE. HUGE(extrapolate))
    CONTAINS
 ! **************************************************************************************************
@@ -455,15 +455,15 @@ CONTAINS
 !> \param x2 ...
 ! **************************************************************************************************
       SUBROUTINE swap(x1, x2)
-      REAL(KIND=dp)                                      :: x1, x2
+         REAL(KIND=dp)                                      :: x1, x2
 
-      REAL(KIND=dp)                                      :: tmp
+         REAL(KIND=dp)                                      :: tmp
 
          IF (x2 > x1) THEN
             tmp = x2
             x2 = x1
             x1 = tmp
-         ENDIF
+         END IF
       END SUBROUTINE swap
    END SUBROUTINE three_point_extrapolate
 

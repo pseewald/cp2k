@@ -13,26 +13,26 @@
 ! **************************************************************************************************
 MODULE s_square_methods
 
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: s2_restraint_type
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_sm_fm_multiply
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE input_constants,                 ONLY: do_s2_constraint,&
-                                              do_s2_restraint
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: s2_restraint_type
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_sm_fm_multiply
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE input_constants, ONLY: do_s2_constraint, &
+                              do_s2_restraint
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -122,8 +122,8 @@ CONTAINS
          DO j = 1, ncol_local
          DO i = 1, nrow_local
             tmp = tmp + local_data(i, j)**2
-         ENDDO
-         ENDDO
+         END DO
+         END DO
          CALL mp_sum(tmp, para_env%group)
          s_square = s_square_ideal + nb - tmp
          IF (PRESENT(mo_derivs)) THEN
@@ -144,7 +144,7 @@ CONTAINS
          ELSE
             CALL cp_fm_release(matrix_sc_b)
             CALL cp_fm_release(matrix_overlap)
-         ENDIF
+         END IF
       CASE DEFAULT
          CPABORT("alpha, beta, what else ?")
       END SELECT
@@ -188,7 +188,7 @@ CONTAINS
          ELSE
             CALL compute_s_square(mos, matrix_s, s_square, s_square_ideal, &
                                   mo_derivs, s2_restraint_control%strength)
-         ENDIF
+         END IF
          energy = s2_restraint_control%strength*(s_square - s2_restraint_control%target)
          s2_restraint_control%s2_order_p = s_square
       CASE (do_s2_restraint) ! not yet implemented

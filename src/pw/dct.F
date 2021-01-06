@@ -15,22 +15,22 @@
 ! **************************************************************************************************
 MODULE dct
 
-   USE fast,                            ONLY: copy_cr
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_allgather,&
-                                              mp_cart_rank,&
-                                              mp_irecv,&
-                                              mp_isend,&
-                                              mp_request_null,&
-                                              mp_wait,&
-                                              mp_waitall
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_grids,                        ONLY: pw_grid_create,&
-                                              pw_grid_setup
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA1D,&
-                                              RECIPROCALSPACE,&
-                                              pw_type
+   USE fast, ONLY: copy_cr
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_allgather, &
+                              mp_cart_rank, &
+                              mp_irecv, &
+                              mp_isend, &
+                              mp_request_null, &
+                              mp_wait, &
+                              mp_waitall
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_grids, ONLY: pw_grid_create, &
+                       pw_grid_setup
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA1D, &
+                       RECIPROCALSPACE, &
+                       pw_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -532,8 +532,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'pw_expand'
 
       INTEGER :: group_size, handle, i, ind, lb1, lb1_loc, lb1_new, lb2, lb2_loc, lb2_new, lb3, &
-         lb3_loc, lb3_new, loc, maxn_sendrecv, rs_group, rs_mpo, ub1, ub1_loc, ub1_new, ub2, &
-         ub2_loc, ub2_new, ub3, ub3_loc, ub3_new
+                 lb3_loc, lb3_new, loc, maxn_sendrecv, rs_group, rs_mpo, ub1, ub1_loc, ub1_new, ub2, &
+                 ub2_loc, ub2_new, ub3, ub3_loc, ub3_new
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: dest_hist, recv_reqs, send_reqs, src_hist
       INTEGER, ALLOCATABLE, DIMENSION(:, :, :)           :: pcs_bnds
       INTEGER, DIMENSION(2, 3)                           :: bounds_local_new
@@ -718,9 +718,9 @@ CONTAINS
 
       COMPLEX(dp), DIMENSION(:, :, :), POINTER           :: cc3d
       INTEGER :: group_size, handle, i, in_space, in_use, lb1_orig, lb1_xpnd, lb2_orig, lb2_xpnd, &
-         lb3_orig, lb3_xpnd, maxn_sendrecv, recv_req, rs_group, rs_mpo, send_lb1, send_lb2, &
-         send_lb3, send_req, send_ub1, send_ub2, send_ub3, ub1_orig, ub1_xpnd, ub2_orig, ub2_xpnd, &
-         ub3_orig, ub3_xpnd
+                 lb3_orig, lb3_xpnd, maxn_sendrecv, recv_req, rs_group, rs_mpo, send_lb1, send_lb2, &
+                 send_lb3, send_req, send_ub1, send_ub2, send_ub3, ub1_orig, ub1_xpnd, ub2_orig, ub2_xpnd, &
+                 ub3_orig, ub3_xpnd
       INTEGER, ALLOCATABLE, DIMENSION(:, :, :)           :: bounds_local_all
       INTEGER, DIMENSION(2, 3)                           :: bounds_local_xpnd
       REAL(dp), DIMENSION(:, :, :), POINTER              :: cr3d, send_crmsg
@@ -837,7 +837,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'flipud'
 
       INTEGER :: handle, i, lb1, lb1_glbl, lb1_new, lb2, lb2_glbl, lb2_new, lb3, lb3_glbl, &
-         lb3_new, ub1, ub1_glbl, ub1_new, ub2, ub2_glbl, ub2_new, ub3, ub3_glbl, ub3_new
+                 lb3_new, ub1, ub1_glbl, ub1_new, ub2, ub2_glbl, ub2_new, ub3, ub3_glbl, ub3_new
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: indx
       INTEGER, DIMENSION(2, 3)                           :: bndsl, bndsl_new
 
@@ -891,7 +891,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'fliplr'
 
       INTEGER :: handle, i, lb1, lb1_glbl, lb1_new, lb2, lb2_glbl, lb2_new, lb3, lb3_glbl, &
-         lb3_new, ub1, ub1_glbl, ub1_new, ub2, ub2_glbl, ub2_new, ub3, ub3_glbl, ub3_new
+                 lb3_new, ub1, ub1_glbl, ub1_new, ub2, ub2_glbl, ub2_new, ub3, ub3_glbl, ub3_new
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: indy
       INTEGER, DIMENSION(2, 3)                           :: bndsl, bndsl_new
 
@@ -945,7 +945,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'flipbf'
 
       INTEGER :: handle, i, lb1, lb1_glbl, lb1_new, lb2, lb2_glbl, lb2_new, lb3, lb3_glbl, &
-         lb3_new, ub1, ub1_glbl, ub1_new, ub2, ub2_glbl, ub2_new, ub3, ub3_glbl, ub3_new
+                 lb3_new, ub1, ub1_glbl, ub1_new, ub2, ub2_glbl, ub2_new, ub3, ub3_glbl, ub3_new
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: indz
       INTEGER, DIMENSION(2, 3)                           :: bndsl, bndsl_new
 
@@ -999,7 +999,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'rot180'
 
       INTEGER :: handle, i, lb1, lb1_glbl, lb1_new, lb2, lb2_glbl, lb2_new, lb3, lb3_glbl, &
-         lb3_new, ub1, ub1_glbl, ub1_new, ub2, ub2_glbl, ub2_new, ub3, ub3_glbl, ub3_new
+                 lb3_new, ub1, ub1_glbl, ub1_new, ub2, ub2_glbl, ub2_new, ub3, ub3_glbl, ub3_new
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: indx, indy
       INTEGER, DIMENSION(2, 3)                           :: bndsl, bndsl_new
 

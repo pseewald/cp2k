@@ -12,26 +12,26 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE ec_env_types
-   USE cp_dbcsr_operations,             ONLY: dbcsr_deallocate_matrix_set
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_release
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: dp
-   USE pw_types,                        ONLY: pw_p_type,&
-                                              pw_release
-   USE qs_dispersion_types,             ONLY: qs_dispersion_release,&
-                                              qs_dispersion_type
-   USE qs_force_types,                  ONLY: deallocate_qs_force,&
-                                              qs_force_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type,&
-                                              release_neighbor_list_sets
-   USE qs_p_env_types,                  ONLY: p_env_release,&
-                                              qs_p_env_type
-   USE qs_period_efield_types,          ONLY: efield_berry_release,&
-                                              efield_berry_type
-   USE task_list_types,                 ONLY: deallocate_task_list,&
-                                              task_list_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_deallocate_matrix_set
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_release
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: dp
+   USE pw_types, ONLY: pw_p_type, &
+                       pw_release
+   USE qs_dispersion_types, ONLY: qs_dispersion_release, &
+                                  qs_dispersion_type
+   USE qs_force_types, ONLY: deallocate_qs_force, &
+                             qs_force_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type, &
+                                     release_neighbor_list_sets
+   USE qs_p_env_types, ONLY: p_env_release, &
+                             qs_p_env_type
+   USE qs_period_efield_types, ONLY: efield_berry_release, &
+                                     efield_berry_type
+   USE task_list_types, ONLY: deallocate_task_list, &
+                              task_list_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

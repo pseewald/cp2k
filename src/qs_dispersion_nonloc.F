@@ -17,38 +17,38 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE qs_dispersion_nonloc
-   USE bibliography,                    ONLY: Dion2004,&
-                                              Romanperez2009,&
-                                              Sabatini2013,&
-                                              cite_reference
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_constants,                 ONLY: vdw_nl_DRSLL,&
-                                              vdw_nl_LMKLL,&
-                                              vdw_nl_RVV10,&
-                                              xc_vdw_fun_nonloc
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_sum
-   USE pw_grid_types,                   ONLY: HALFSPACE,&
-                                              pw_grid_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_derive,&
-                                              pw_transfer
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_type
-   USE qs_dispersion_types,             ONLY: qs_dispersion_type
-   USE virial_types,                    ONLY: virial_type
+   USE bibliography, ONLY: Dion2004, &
+                           Romanperez2009, &
+                           Sabatini2013, &
+                           cite_reference
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_constants, ONLY: vdw_nl_DRSLL, &
+                              vdw_nl_LMKLL, &
+                              vdw_nl_RVV10, &
+                              xc_vdw_fun_nonloc
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_sum
+   USE pw_grid_types, ONLY: HALFSPACE, &
+                            pw_grid_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_derive, &
+                         pw_transfer
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_type
+   USE qs_dispersion_types, ONLY: qs_dispersion_type
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -203,7 +203,7 @@ CONTAINS
          use_virial = virial%pv_calculate .AND. (.NOT. virial%pv_numer)
       ELSE
          use_virial = .FALSE.
-      ENDIF
+      END IF
       IF (use_virial) THEN
          CPASSERT(.NOT. energy_only)
       END IF
@@ -845,7 +845,7 @@ CONTAINS
                   prefactor = u_vdW(i_grid, P_i)*const*tmp_3_4*dP_dq0*dq0_dgradrho(i_grid)
                ELSE
                   prefactor = 0.0_dp
-               ENDIF
+               END IF
             END SELECT
             IF (q0(i_grid) .NE. q_mesh(nqs)) THEN
                h_prefactor(i_grid) = h_prefactor(i_grid) + prefactor
@@ -862,8 +862,8 @@ CONTAINS
                DO l = 1, 3
                   DO m = 1, l
                      virial_thread(l, m) = virial_thread(l, m) - prefactor*drho(i_grid, l)*drho(i_grid, m)
-                  ENDDO
-               ENDDO
+                  END DO
+               END DO
             END IF
 
          END DO ! P_i = 1, nqs
@@ -878,10 +878,10 @@ CONTAINS
             DO m = 1, (l - 1)
                virial%pv_xc(l, m) = virial%pv_xc(l, m) + virial_thread(l, m)
                virial%pv_xc(m, l) = virial%pv_xc(l, m)
-            ENDDO
+            END DO
             m = l
             virial%pv_xc(l, m) = virial%pv_xc(l, m) + virial_thread(l, m)
-         ENDDO
+         END DO
       END IF
 
       CALL timestop(handle)
@@ -967,7 +967,7 @@ CONTAINS
 
       INTEGER, PARAMETER                                 :: m_cut = 12
       REAL(dp), PARAMETER :: LDA_A = 0.031091_dp, LDA_a1 = 0.2137_dp, LDA_b1 = 7.5957_dp, &
-         LDA_b2 = 3.5876_dp, LDA_b3 = 1.6382_dp, LDA_b4 = 0.49294_dp
+                             LDA_b2 = 3.5876_dp, LDA_b3 = 1.6382_dp, LDA_b4 = 0.49294_dp
 
       INTEGER                                            :: i_grid
       REAL(dp)                                           :: dq0_dq, exponent, gradient_correction, &
@@ -1129,7 +1129,7 @@ CONTAINS
 
             dq0_drho(i_grid) = dq0_dq*1.0_dp/(k**2.0)*(dw0_dn*k - dk_dn*w0)
             dq0_dgradrho(i_grid) = dq0_dq*1.0_dp/(2.0_dp*k*w0)*4.0_dp*wg2/gmod2
-         ENDIF
+         END IF
 
       END DO
 
@@ -1150,7 +1150,7 @@ CONTAINS
 
       INTEGER, PARAMETER                                 :: m_cut = 12
       REAL(dp), PARAMETER :: LDA_A = 0.031091_dp, LDA_a1 = 0.2137_dp, LDA_b1 = 7.5957_dp, &
-         LDA_b2 = 3.5876_dp, LDA_b3 = 1.6382_dp, LDA_b4 = 0.49294_dp
+                             LDA_b2 = 3.5876_dp, LDA_b3 = 1.6382_dp, LDA_b4 = 0.49294_dp
 
       INTEGER                                            :: i_grid
       REAL(dp)                                           :: exponent, gradient_correction, kF, &
@@ -1268,7 +1268,7 @@ CONTAINS
                q0(i_grid) = q_min
             END IF
 
-         ENDIF
+         END IF
 
       END DO
 

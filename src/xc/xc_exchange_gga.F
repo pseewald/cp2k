@@ -15,26 +15,26 @@
 ! **************************************************************************************************
 MODULE xc_exchange_gga
 
-   USE cp_array_utils,                  ONLY: cp_3d_r_p_type
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_functionals_utilities,        ONLY: calc_wave_vector,&
-                                              set_util
-   USE xc_input_constants,              ONLY: xgga_b88,&
-                                              xgga_ev93,&
-                                              xgga_opt,&
-                                              xgga_pbe,&
-                                              xgga_pw86,&
-                                              xgga_pw91,&
-                                              xgga_revpbe
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
+   USE cp_array_utils, ONLY: cp_3d_r_p_type
+   USE cp_log_handling, ONLY: cp_to_string
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_functionals_utilities, ONLY: calc_wave_vector, &
+                                       set_util
+   USE xc_input_constants, ONLY: xgga_b88, &
+                                 xgga_ev93, &
+                                 xgga_opt, &
+                                 xgga_pbe, &
+                                 xgga_pw86, &
+                                 xgga_pw91, &
+                                 xgga_revpbe
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -167,8 +167,8 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: s
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: fs
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER :: e_0, e_ndrho, e_ndrho_ndrho, &
-         e_ndrho_ndrho_ndrho, e_rho, e_rho_ndrho, e_rho_ndrho_ndrho, e_rho_rho, e_rho_rho_ndrho, &
-         e_rho_rho_rho
+                                           e_ndrho_ndrho_ndrho, e_rho, e_rho_ndrho, e_rho_ndrho_ndrho, e_rho_rho, e_rho_rho_ndrho, &
+                                                    e_rho_rho_rho
       TYPE(cp_3d_r_p_type), DIMENSION(2)                 :: norm_drho, rho, rho_1_3
       TYPE(xc_derivative_type), POINTER                  :: deriv
 
@@ -553,8 +553,8 @@ CONTAINS
 
       INTEGER                                            :: ip
       REAL(KIND=dp) :: as, asp, beta, bs, f0, p, q, sas, sbs, sbs3, t1, t10, t13, t15, t16, t19, &
-         t2, t22, t24, t25, t32, t34, t36, t39, t4, t40, t41, t44, t48, t49, t5, t6, t65, t8, t87, &
-         t9, x, ys
+                       t2, t22, t24, t25, t32, t34, t36, t39, t4, t40, t41, t44, t48, t49, t5, t6, t65, t8, t87, &
+                       t9, x, ys
 
       beta = 0.0042_dp
       f0 = 1.0_dp/sfac
@@ -860,10 +860,10 @@ CONTAINS
 
       INTEGER                                            :: ip
       REAL(dp) :: t1, t10, t101, t106, t109, t111, t113, t119, t12, t123, t124, t13, t14, t15, &
-         t16, t17, t18, t19, t2, t20, t21, t22, t23, t25, t26, t27, t28, t29, t3, t30, t31, t33, &
-         t35, t37, t38, t39, t4, t40, t44, t47, t48, t5, t50, t51, t53, t55, t56, t57, t58, t59, &
-         t6, t60, t64, t65, t69, t7, t70, t71, t73, t77, t78, t8, t80, t82, t9, t90, t93, t94, &
-         t96, t98
+                  t16, t17, t18, t19, t2, t20, t21, t22, t23, t25, t26, t27, t28, t29, t3, t30, t31, t33, &
+                  t35, t37, t38, t39, t4, t40, t44, t47, t48, t5, t50, t51, t53, t55, t56, t57, t58, t59, &
+                  t6, t60, t64, t65, t69, t7, t70, t71, t73, t77, t78, t8, t80, t82, t9, t90, t93, t94, &
+                  t96, t98
       REAL(KIND=dp)                                      :: a1, a2, a3, a4, a5, b, o, x
 
       o = 1.0_dp

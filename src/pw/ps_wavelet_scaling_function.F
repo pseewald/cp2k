@@ -10,8 +10,8 @@
 !> \author Florian Schiffmann (09.2007,fschiff)
 ! **************************************************************************************************
 MODULE ps_wavelet_scaling_function
-   USE kinds,                           ONLY: dp
-   USE lazy,                            ONLY: lazy_arrays
+   USE kinds, ONLY: dp
+   USE lazy, ONLY: lazy_arrays
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

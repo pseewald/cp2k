@@ -7,31 +7,31 @@
 
 MODULE qs_fb_atomic_matrix_methods
 
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_get_info,&
-                                              dbcsr_get_stored_coordinates,&
-                                              dbcsr_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE message_passing,                 ONLY: mp_alltoall
-   USE qs_fb_atomic_halo_types,         ONLY: fb_atomic_halo_atom_global2halo,&
-                                              fb_atomic_halo_get,&
-                                              fb_atomic_halo_has_data,&
-                                              fb_atomic_halo_list_get,&
-                                              fb_atomic_halo_list_obj,&
-                                              fb_atomic_halo_obj
-   USE qs_fb_com_tasks_types,           ONLY: &
-        TASK_COST, TASK_DEST, TASK_N_RECORDS, TASK_PAIR, TASK_SRC, &
-        fb_com_atom_pairs_calc_buffer_sizes, fb_com_atom_pairs_create, fb_com_atom_pairs_decode, &
-        fb_com_atom_pairs_get, fb_com_atom_pairs_has_data, fb_com_atom_pairs_init, &
-        fb_com_atom_pairs_nullify, fb_com_atom_pairs_obj, fb_com_atom_pairs_release, &
-        fb_com_tasks_build_atom_pairs, fb_com_tasks_create, fb_com_tasks_decode_pair, &
-        fb_com_tasks_encode_pair, fb_com_tasks_get, fb_com_tasks_nullify, fb_com_tasks_obj, &
-        fb_com_tasks_release, fb_com_tasks_set, fb_com_tasks_transpose_dest_src
-   USE qs_fb_matrix_data_types,         ONLY: fb_matrix_data_get,&
-                                              fb_matrix_data_has_data,&
-                                              fb_matrix_data_obj
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_get_block_p, &
+                        dbcsr_get_info, &
+                        dbcsr_get_stored_coordinates, &
+                        dbcsr_type
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE message_passing, ONLY: mp_alltoall
+   USE qs_fb_atomic_halo_types, ONLY: fb_atomic_halo_atom_global2halo, &
+                                      fb_atomic_halo_get, &
+                                      fb_atomic_halo_has_data, &
+                                      fb_atomic_halo_list_get, &
+                                      fb_atomic_halo_list_obj, &
+                                      fb_atomic_halo_obj
+   USE qs_fb_com_tasks_types, ONLY: &
+      TASK_COST, TASK_DEST, TASK_N_RECORDS, TASK_PAIR, TASK_SRC, &
+      fb_com_atom_pairs_calc_buffer_sizes, fb_com_atom_pairs_create, fb_com_atom_pairs_decode, &
+      fb_com_atom_pairs_get, fb_com_atom_pairs_has_data, fb_com_atom_pairs_init, &
+      fb_com_atom_pairs_nullify, fb_com_atom_pairs_obj, fb_com_atom_pairs_release, &
+      fb_com_tasks_build_atom_pairs, fb_com_tasks_create, fb_com_tasks_decode_pair, &
+      fb_com_tasks_encode_pair, fb_com_tasks_get, fb_com_tasks_nullify, fb_com_tasks_obj, &
+      fb_com_tasks_release, fb_com_tasks_set, fb_com_tasks_transpose_dest_src
+   USE qs_fb_matrix_data_types, ONLY: fb_matrix_data_get, &
+                                      fb_matrix_data_has_data, &
+                                      fb_matrix_data_obj
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -138,10 +138,10 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'fb_atmatrix_construct'
 
       INTEGER :: handle, iatom, iatom_in_halo, ii, ind, ipair, ipe, jatom, jatom_in_halo, jj, &
-         ncols_blk, npairs_recv, npairs_send, nrows_blk, numprocs, pe, recv_encode, send_encode
+                 ncols_blk, npairs_recv, npairs_send, nrows_blk, numprocs, pe, recv_encode, send_encode
       INTEGER(KIND=int_8), DIMENSION(:), POINTER         :: pairs_recv, pairs_send
       INTEGER, ALLOCATABLE, DIMENSION(:) :: recv_disps, recv_pair_count, recv_pair_disps, &
-         recv_sizes, send_disps, send_pair_count, send_pair_disps, send_sizes
+                                            recv_sizes, send_disps, send_pair_count, send_pair_disps, send_sizes
       INTEGER, DIMENSION(:), POINTER                     :: col_block_size_data, row_block_size_data
       LOGICAL                                            :: found
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: recv_buf, send_buf
@@ -439,7 +439,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'fb_atmatrix_generate_com_pairs'
 
       INTEGER :: counter, dest, handle, iatom, iatom_global, itask, jatom, jatom_global, &
-         natoms_in_halo, nblkrows_total, nencode, ntasks_recv, ntasks_send, src
+                 natoms_in_halo, nblkrows_total, nencode, ntasks_recv, ntasks_send, src
       INTEGER(KIND=int_8)                                :: pair
       INTEGER(KIND=int_8), DIMENSION(:, :), POINTER      :: tasks_recv, tasks_send
       INTEGER, DIMENSION(:), POINTER                     :: halo_atoms
@@ -633,7 +633,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'fb_atmatrix_generate_com_pairs_2'
 
       INTEGER :: counter, dest, handle, iatom, iatom_global, ihalo, itask, jatom, jatom_global, &
-         natoms_in_halo, nblkrows_total, nencode, nhalos, ntasks_recv, ntasks_send, src
+                 natoms_in_halo, nblkrows_total, nencode, nhalos, ntasks_recv, ntasks_send, src
       INTEGER(KIND=int_8)                                :: pair
       INTEGER(KIND=int_8), DIMENSION(:, :), POINTER      :: tasks_recv, tasks_send
       INTEGER, DIMENSION(:), POINTER                     :: halo_atoms

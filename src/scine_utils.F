@@ -11,14 +11,14 @@
 ! **************************************************************************************************
 MODULE scine_utils
 
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE force_env_types,                 ONLY: force_env_type
-   USE kinds,                           ONLY: dp
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: angstrom
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE force_env_types, ONLY: force_env_type
+   USE kinds, ONLY: dp
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: angstrom
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

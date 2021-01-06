@@ -20,92 +20,92 @@
 !> - 07.2015 new container for basis sets [jgh]
 ! **************************************************************************************************
 MODULE qs_kind_types
-   USE atom_sgp,                        ONLY: atom_sgp_potential_type,&
-                                              atom_sgp_release,&
-                                              sgp_construction
-   USE atom_types,                      ONLY: atom_ecppot_type,&
-                                              lmat,&
-                                              read_ecp_potential
-   USE atom_upf,                        ONLY: atom_read_upf,&
-                                              atom_release_upf,&
-                                              atom_upfpot_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_container_types,       ONLY: add_basis_set_to_container,&
-                                              basis_set_container_type,&
-                                              get_basis_from_container,&
-                                              remove_basis_from_container,&
-                                              remove_basis_set_container
-   USE basis_set_types,                 ONLY: &
-        allocate_gto_basis_set, allocate_sto_basis_set, combine_basis_sets, &
-        create_gto_from_sto_basis, deallocate_gto_basis_set, deallocate_sto_basis_set, &
-        get_gto_basis_set, gto_basis_set_type, init_aux_basis_set, init_orb_basis_set, &
-        read_gto_basis_set, read_sto_basis_set, sto_basis_set_type, write_gto_basis_set, &
-        write_orb_basis_set
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              qs_control_type,&
-                                              xtb_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE external_potential_types,        ONLY: &
-        all_potential_type, allocate_potential, deallocate_potential, get_potential, &
-        gth_potential_type, init_potential, local_potential_type, read_potential, &
-        set_default_all_potential, set_potential, sgp_potential_type, write_potential
-   USE input_constants,                 ONLY: &
-        do_method_am1, do_method_dftb, do_method_mndo, do_method_mndod, do_method_pdg, &
-        do_method_pm3, do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_pw, &
-        do_method_rm1, do_method_xtb, do_qs, do_sirius
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: pi
-   USE orbital_pointers,                ONLY: init_orbital_pointers,&
-                                              nco,&
-                                              ncoset
-   USE paw_proj_set_types,              ONLY: allocate_paw_proj_set,&
-                                              deallocate_paw_proj_set,&
-                                              get_paw_proj_set,&
-                                              paw_proj_set_type,&
-                                              projectors
-   USE periodic_table,                  ONLY: get_ptable_info,&
-                                              ptable
-   USE physcon,                         ONLY: bohr,&
-                                              evolt
-   USE qs_dftb_types,                   ONLY: qs_dftb_atom_type
-   USE qs_dftb_utils,                   ONLY: deallocate_dftb_atom_param,&
-                                              get_dftb_atom_param,&
-                                              write_dftb_atom_param
-   USE qs_dispersion_types,             ONLY: qs_atom_dispersion_type
-   USE qs_grid_atom,                    ONLY: allocate_grid_atom,&
-                                              deallocate_grid_atom,&
-                                              grid_atom_type
-   USE qs_harmonics_atom,               ONLY: allocate_harmonics_atom,&
-                                              deallocate_harmonics_atom,&
-                                              harmonics_atom_type
-   USE semi_empirical_types,            ONLY: get_se_param,&
-                                              semi_empirical_create,&
-                                              semi_empirical_release,&
-                                              semi_empirical_type,&
-                                              write_se_param
-   USE semi_empirical_utils,            ONLY: init_se_param,&
-                                              se_param_set_default
-   USE soft_basis_set,                  ONLY: create_soft_basis
-   USE string_utilities,                ONLY: uppercase
-   USE xtb_parameters,                  ONLY: xtb_set_kab
-   USE xtb_types,                       ONLY: deallocate_xtb_atom_param,&
-                                              get_xtb_atom_param,&
-                                              write_xtb_atom_param,&
-                                              xtb_atom_type
+   USE atom_sgp, ONLY: atom_sgp_potential_type, &
+                       atom_sgp_release, &
+                       sgp_construction
+   USE atom_types, ONLY: atom_ecppot_type, &
+                         lmat, &
+                         read_ecp_potential
+   USE atom_upf, ONLY: atom_read_upf, &
+                       atom_release_upf, &
+                       atom_upfpot_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_container_types, ONLY: add_basis_set_to_container, &
+                                        basis_set_container_type, &
+                                        get_basis_from_container, &
+                                        remove_basis_from_container, &
+                                        remove_basis_set_container
+   USE basis_set_types, ONLY: &
+      allocate_gto_basis_set, allocate_sto_basis_set, combine_basis_sets, &
+      create_gto_from_sto_basis, deallocate_gto_basis_set, deallocate_sto_basis_set, &
+      get_gto_basis_set, gto_basis_set_type, init_aux_basis_set, init_orb_basis_set, &
+      read_gto_basis_set, read_sto_basis_set, sto_basis_set_type, write_gto_basis_set, &
+      write_orb_basis_set
+   USE cp_control_types, ONLY: dft_control_type, &
+                               qs_control_type, &
+                               xtb_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE external_potential_types, ONLY: &
+      all_potential_type, allocate_potential, deallocate_potential, get_potential, &
+      gth_potential_type, init_potential, local_potential_type, read_potential, &
+      set_default_all_potential, set_potential, sgp_potential_type, write_potential
+   USE input_constants, ONLY: &
+      do_method_am1, do_method_dftb, do_method_mndo, do_method_mndod, do_method_pdg, &
+      do_method_pm3, do_method_pm6, do_method_pm6fm, do_method_pnnl, do_method_pw, &
+      do_method_rm1, do_method_xtb, do_qs, do_sirius
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mathconstants, ONLY: pi
+   USE orbital_pointers, ONLY: init_orbital_pointers, &
+                               nco, &
+                               ncoset
+   USE paw_proj_set_types, ONLY: allocate_paw_proj_set, &
+                                 deallocate_paw_proj_set, &
+                                 get_paw_proj_set, &
+                                 paw_proj_set_type, &
+                                 projectors
+   USE periodic_table, ONLY: get_ptable_info, &
+                             ptable
+   USE physcon, ONLY: bohr, &
+                      evolt
+   USE qs_dftb_types, ONLY: qs_dftb_atom_type
+   USE qs_dftb_utils, ONLY: deallocate_dftb_atom_param, &
+                            get_dftb_atom_param, &
+                            write_dftb_atom_param
+   USE qs_dispersion_types, ONLY: qs_atom_dispersion_type
+   USE qs_grid_atom, ONLY: allocate_grid_atom, &
+                           deallocate_grid_atom, &
+                           grid_atom_type
+   USE qs_harmonics_atom, ONLY: allocate_harmonics_atom, &
+                                deallocate_harmonics_atom, &
+                                harmonics_atom_type
+   USE semi_empirical_types, ONLY: get_se_param, &
+                                   semi_empirical_create, &
+                                   semi_empirical_release, &
+                                   semi_empirical_type, &
+                                   write_se_param
+   USE semi_empirical_utils, ONLY: init_se_param, &
+                                   se_param_set_default
+   USE soft_basis_set, ONLY: create_soft_basis
+   USE string_utilities, ONLY: uppercase
+   USE xtb_parameters, ONLY: xtb_set_kab
+   USE xtb_types, ONLY: deallocate_xtb_atom_param, &
+                        get_xtb_atom_param, &
+                        write_xtb_atom_param, &
+                        xtb_atom_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -264,14 +264,14 @@ CONTAINS
             END IF
             IF (ASSOCIATED(qs_kind_set(ikind)%gth_potential)) THEN
                CALL deallocate_potential(qs_kind_set(ikind)%gth_potential)
-            ENDIF
+            END IF
             IF (ASSOCIATED(qs_kind_set(ikind)%sgp_potential)) THEN
                CALL deallocate_potential(qs_kind_set(ikind)%sgp_potential)
-            ENDIF
+            END IF
             IF (ASSOCIATED(qs_kind_set(ikind)%upf_potential)) THEN
                CALL atom_release_upf(qs_kind_set(ikind)%upf_potential)
                DEALLOCATE (qs_kind_set(ikind)%upf_potential)
-            ENDIF
+            END IF
             IF (ASSOCIATED(qs_kind_set(ikind)%se_parameter)) THEN
                CALL semi_empirical_release(qs_kind_set(ikind)%se_parameter)
             END IF
@@ -807,10 +807,10 @@ CONTAINS
 
       TYPE(qs_kind_type), DIMENSION(:), POINTER          :: qs_kind_set
       LOGICAL, INTENT(OUT), OPTIONAL :: all_potential_present, tnadd_potential_present, &
-         gth_potential_present, sgp_potential_present, paw_atom_present, dft_plus_u_atom_present
+                                        gth_potential_present, sgp_potential_present, paw_atom_present, dft_plus_u_atom_present
       INTEGER, INTENT(OUT), OPTIONAL :: maxcgf, maxsgf, maxco, maxco_proj, maxgtops, maxlgto, &
-         maxlprj, maxnset, maxsgf_set, ncgf, npgf, nset, nsgf, nshell, maxpol, maxlppl, maxlppnl, &
-         maxppnl, nelectron
+                                        maxlprj, maxnset, maxsgf_set, ncgf, npgf, nset, nsgf, nshell, maxpol, maxlppl, maxlppnl, &
+                                        maxppnl, nelectron
       INTEGER, INTENT(IN), OPTIONAL                      :: maxder
       INTEGER, INTENT(OUT), OPTIONAL                     :: max_ngrid_rad, max_sph_harm, &
                                                             maxg_iso_not0, lmax_rho0
@@ -914,12 +914,12 @@ CONTAINS
             IF (PRESENT(maxco_proj) .AND. ASSOCIATED(paw_proj_set)) THEN
                CALL get_paw_proj_set(paw_proj_set=paw_proj_set, ncgauprj=imax)
                maxco_proj = MAX(maxco_proj, imax)
-            ENDIF
+            END IF
 
             IF (PRESENT(maxlprj) .AND. ASSOCIATED(paw_proj_set)) THEN
                CALL get_paw_proj_set(paw_proj_set=paw_proj_set, maxl=imax)
                maxlprj = MAX(maxlprj, imax)
-            ENDIF
+            END IF
 
             IF (PRESENT(maxppnl) .AND. ASSOCIATED(gth_potential)) THEN
                CALL get_potential(potential=gth_potential, nppnl=imax)
@@ -1128,11 +1128,11 @@ CONTAINS
 
             IF (PRESENT(max_ngrid_rad)) THEN
                max_ngrid_rad = MAX(max_ngrid_rad, ngrid_rad)
-            ENDIF
+            END IF
 
             IF (PRESENT(max_sph_harm)) THEN
                max_sph_harm = MAX(max_sph_harm, max_s_harm)
-            ENDIF
+            END IF
 
             IF (PRESENT(maxg_iso_not0)) THEN
                maxg_iso_not0 = MAX(maxg_iso_not0, max_iso_not0)
@@ -1211,7 +1211,7 @@ CONTAINS
 
       IF (.NOT. ASSOCIATED(qs_kind_set)) THEN
          CPABORT("init_qs_kind_set: The pointer qs_kind_set is not associated")
-      ENDIF
+      END IF
 
       DO ikind = 1, SIZE(qs_kind_set)
          qs_kind => qs_kind_set(ikind)
@@ -1425,10 +1425,10 @@ CONTAINS
          DIMENSION(maxbas)                               :: basis_set_form, basis_set_name, &
                                                             basis_set_type
       INTEGER :: handle, i, i_rep, iounit, ipaodesc, ipaopot, ipos, j, jj, k_rep, l, m, n_rep, &
-         nb_rep, nexp, ngauss, nlcc, nloc, nnl, norbitals, npaodesc, npaopot, nppnl, nspin, z
+                 nb_rep, nexp, ngauss, nlcc, nloc, nnl, norbitals, npaodesc, npaopot, nppnl, nspin, z
       INTEGER, DIMENSION(:), POINTER                     :: add_el, elec_conf, orbitals
       LOGICAL :: check, explicit, explicit_basis, explicit_kgpot, explicit_potential, nobasis, &
-         section_enabled, subsection_enabled, update_input
+                 section_enabled, subsection_enabled, update_input
       REAL(KIND=dp)                                      :: alpha, ccore, rc, zeff_correction
       REAL(KIND=dp), DIMENSION(3)                        :: error
       REAL(KIND=dp), DIMENSION(:), POINTER               :: a_nl, aloc, anlcc, cloc, cnlcc, nelec
@@ -1440,8 +1440,8 @@ CONTAINS
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(gto_basis_set_type), POINTER                  :: sup_basis_set, tmp_basis_set
       TYPE(section_vals_type), POINTER :: basis_section, bs_section, dft_plus_u_section, &
-         dft_section, enforce_occupation_section, kgpot_section, pao_desc_section, &
-         pao_pot_section, potential_section, spin_section
+                                          dft_section, enforce_occupation_section, kgpot_section, pao_desc_section, &
+                                          pao_pot_section, potential_section, spin_section
       TYPE(sto_basis_set_type), POINTER                  :: sto_basis_set
 
       CALL timeset(routineN, handle)
@@ -1589,7 +1589,7 @@ CONTAINS
                                       r_val=qs_kind%pao_potentials(ipaopot)%beta)
             CALL section_vals_val_get(pao_pot_section, keyword_name="WEIGHT", i_rep_section=ipaopot, &
                                       r_val=qs_kind%pao_potentials(ipaopot)%weight)
-         ENDDO
+         END DO
 
          ! parse PAO_DESCRIPTOR sections
          pao_desc_section => section_vals_get_subs_vals(kind_section, "PAO_DESCRIPTOR", i_rep_section=k_rep)
@@ -1602,7 +1602,7 @@ CONTAINS
                                       r_val=qs_kind%pao_descriptors(ipaodesc)%screening)
             CALL section_vals_val_get(pao_desc_section, keyword_name="WEIGHT", i_rep_section=ipaodesc, &
                                       r_val=qs_kind%pao_descriptors(ipaodesc)%weight)
-         ENDDO
+         END DO
 
          ! parse ELEC_CONF
          CALL section_vals_val_get(kind_section, i_rep_section=k_rep, &
@@ -1611,7 +1611,7 @@ CONTAINS
             CALL section_vals_val_get(kind_section, i_rep_section=k_rep, &
                                       keyword_name="ELEC_CONF", i_vals=elec_conf)
             CALL set_qs_kind(qs_kind, elec_conf=elec_conf)
-         ENDIF
+         END IF
          CALL section_vals_val_get(kind_section, i_rep_section=k_rep, &
                                    keyword_name="CORE_CORRECTION", r_val=zeff_correction)
          ! parse POTENTIAL
@@ -1656,11 +1656,11 @@ CONTAINS
                qs_kind%hard_radius = 1.2_dp
             ELSE
                qs_kind%hard_radius = 0.8_dp*bohr
-            ENDIF
+            END IF
          ELSE
             CALL section_vals_val_get(kind_section, i_rep_section=k_rep, &
                                       keyword_name="HARD_EXP_RADIUS", r_val=qs_kind%hard_radius)
-         ENDIF
+         END IF
 
          ! assign atom dependent defaults, only H special case
          CALL section_vals_val_get(kind_section, i_rep_section=k_rep, n_rep_val=i, &
@@ -1670,7 +1670,7 @@ CONTAINS
          ELSE
             CALL section_vals_val_get(kind_section, i_rep_section=k_rep, &
                                       keyword_name="RHO0_EXP_RADIUS", r_val=qs_kind%hard0_radius)
-         ENDIF
+         END IF
          IF (qs_kind%hard_radius < qs_kind%hard0_radius) &
             CPABORT("rc0 should be <= rc")
 
@@ -2420,7 +2420,7 @@ CONTAINS
          j = SCAN(string(i + 2:), "- ")
          READ (string(i + 2:i + j), '(I3)', iostat=istat) n
          IF (istat == 0) RETURN
-      ENDDO
+      END DO
       n = -1 ! valence electron number not found
    END FUNCTION
 
@@ -2655,10 +2655,10 @@ CONTAINS
       IF (PRESENT(elec_conf)) THEN
          IF (ASSOCIATED(qs_kind%elec_conf)) THEN
             DEALLOCATE (qs_kind%elec_conf)
-         ENDIF
+         END IF
          ALLOCATE (qs_kind%elec_conf(0:SIZE(elec_conf) - 1))
          qs_kind%elec_conf(:) = elec_conf(:)
-      ENDIF
+      END IF
       IF (PRESENT(paw_atom)) qs_kind%paw_atom = paw_atom
       IF (PRESENT(hard_radius)) qs_kind%hard_radius = hard_radius
       IF (PRESENT(hard0_radius)) qs_kind%hard0_radius = hard0_radius
@@ -3215,7 +3215,7 @@ CONTAINS
             CALL get_potential(potential=sgp_potential, has_nlcc=nlcc_present)
             nlcc = nlcc .OR. nlcc_present
          END IF
-      ENDDO
+      END DO
 
    END FUNCTION has_nlcc
 

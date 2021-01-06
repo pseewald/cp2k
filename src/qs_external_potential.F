@@ -10,38 +10,38 @@
 !>        The external field can be generic and is provided by user input
 ! **************************************************************************************************
 MODULE qs_external_potential
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE cp_realspace_grid_cube,          ONLY: cp_cube_to_pw
-   USE force_fields_util,               ONLY: get_generic_info
-   USE fparser,                         ONLY: evalf,&
-                                              evalfd,&
-                                              finalizef,&
-                                              initf,&
-                                              parsef
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE maxwell_solver_interface,        ONLY: maxwell_solver
-   USE message_passing,                 ONLY: mp_bcast
-   USE particle_types,                  ONLY: particle_type
-   USE pw_grid_types,                   ONLY: PW_MODE_LOCAL
-   USE pw_types,                        ONLY: pw_p_type,&
-                                              pw_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE string_utilities,                ONLY: compress
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_to_string
+   USE cp_realspace_grid_cube, ONLY: cp_cube_to_pw
+   USE force_fields_util, ONLY: get_generic_info
+   USE fparser, ONLY: evalf, &
+                      evalfd, &
+                      finalizef, &
+                      initf, &
+                      parsef
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE maxwell_solver_interface, ONLY: maxwell_solver
+   USE message_passing, ONLY: mp_bcast
+   USE particle_types, ONLY: particle_type
+   USE pw_grid_types, ONLY: PW_MODE_LOCAL
+   USE pw_types, ONLY: pw_p_type, &
+                       pw_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE string_utilities, ONLY: compress
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

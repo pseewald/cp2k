@@ -11,17 +11,17 @@
 ! **************************************************************************************************
 MODULE dg_rho0_types
 
-   USE kinds,                           ONLY: dp
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_methods,                      ONLY: pw_zero
-   USE pw_poisson_types,                ONLY: do_ewald_ewald,&
-                                              do_ewald_none,&
-                                              do_ewald_pme,&
-                                              do_ewald_spme
-   USE pw_types,                        ONLY: REALDATA3D,&
-                                              pw_create,&
-                                              pw_p_type,&
-                                              pw_release
+   USE kinds, ONLY: dp
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_methods, ONLY: pw_zero
+   USE pw_poisson_types, ONLY: do_ewald_ewald, &
+                               do_ewald_none, &
+                               do_ewald_pme, &
+                               do_ewald_spme
+   USE pw_types, ONLY: REALDATA3D, &
+                       pw_create, &
+                       pw_p_type, &
+                       pw_release
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

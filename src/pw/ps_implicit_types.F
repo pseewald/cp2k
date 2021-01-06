@@ -14,17 +14,17 @@
 ! **************************************************************************************************
 MODULE ps_implicit_types
 
-   USE dct,                             ONLY: dct_type,&
-                                              dct_type_release
-   USE dielectric_types,                ONLY: dielectric_release,&
-                                              dielectric_type
-   USE dirichlet_bc_types,              ONLY: dbc_release,&
-                                              dirichlet_bc_p_type
-   USE kinds,                           ONLY: dp
-   USE pw_pool_types,                   ONLY: pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: pw_release,&
-                                              pw_type
+   USE dct, ONLY: dct_type, &
+                  dct_type_release
+   USE dielectric_types, ONLY: dielectric_release, &
+                               dielectric_type
+   USE dirichlet_bc_types, ONLY: dbc_release, &
+                                 dirichlet_bc_p_type
+   USE kinds, ONLY: dp
+   USE pw_pool_types, ONLY: pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: pw_release, &
+                       pw_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

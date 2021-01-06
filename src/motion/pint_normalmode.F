@@ -16,14 +16,14 @@
 !>                 [Felix Uhl
 ! **************************************************************************************************
 MODULE pint_normalmode
-   USE input_constants,                 ONLY: propagator_pimd,&
-                                              propagator_rpmd
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi,&
-                                              twopi
-   USE pint_types,                      ONLY: normalmode_env_type
+   USE input_constants, ONLY: propagator_pimd, &
+                              propagator_rpmd
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi, &
+                            twopi
+   USE pint_types, ONLY: normalmode_env_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

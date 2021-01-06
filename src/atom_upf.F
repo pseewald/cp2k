@@ -12,16 +12,16 @@
 !>    * 02.2016 created [Juerg Hutter]
 ! **************************************************************************************************
 MODULE atom_upf
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object,&
-                                              parser_test_next_token
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE periodic_table,                  ONLY: get_ptable_info,&
-                                              ptable
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object, &
+                                parser_test_next_token
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE periodic_table, ONLY: get_ptable_info, &
+                             ptable
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -122,7 +122,7 @@ CONTAINS
       IF (pot%filename(l - 4:l) == '.json') THEN
          pot%zion = 0.0
          RETURN
-      ENDIF
+      END IF
 
       CALL atom_read_upf_v2(pot, upf_filename, readall)
 
@@ -213,7 +213,7 @@ CONTAINS
                CALL parser_get_object(parser, nametag, lower_to_upper=.TRUE.)
                CPASSERT(nametag(1:1) == ">")
                ntag = 1
-            ENDIF
+            END IF
          ELSE IF (ntag == 1) THEN
             ! we are looking for 1st level tags
             IF (nametag(2:8) == "PP_INFO") THEN
@@ -253,7 +253,7 @@ CONTAINS
                ! skip section for now
             ELSEIF (nametag(2:6) == "/UPF>") THEN
                EXIT
-            ENDIF
+            END IF
          END IF
       END DO
       CALL parser_release(parser)

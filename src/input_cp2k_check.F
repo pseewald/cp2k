@@ -12,33 +12,33 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE input_cp2k_check
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE cp_units,                        ONLY: cp_unit_set_create,&
-                                              cp_unit_set_release,&
-                                              cp_unit_set_type
-   USE input_constants,                 ONLY: &
-        do_region_global, do_thermo_al, do_thermo_csvr, do_thermo_gle, do_thermo_nose, &
-        do_thermo_same_as_part, negf_run, npt_f_ensemble, npt_i_ensemble, vdw_nl_LMKLL, &
-        xc_funct_b3lyp, xc_funct_beefvdw, xc_funct_blyp, xc_funct_bp, xc_funct_hcth120, &
-        xc_funct_no_shortcut, xc_funct_olyp, xc_funct_pade, xc_funct_pbe, xc_funct_pbe0, &
-        xc_funct_tpss, xc_funct_xwpbe, xc_none, xc_vdw_fun_nonloc
-   USE input_keyword_types,             ONLY: keyword_type
-   USE input_parsing,                   ONLY: section_vals_parse
-   USE input_section_types,             ONLY: &
-        section_type, section_vals_create, section_vals_get, section_vals_get_subs_vals, &
-        section_vals_get_subs_vals3, section_vals_release, section_vals_remove_values, &
-        section_vals_set_subs_vals, section_vals_type, section_vals_val_get, section_vals_val_set, &
-        section_vals_val_unset
-   USE input_val_types,                 ONLY: logical_t
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE memory_utilities,                ONLY: reallocate
-   USE xc_input_constants,              ONLY: do_vwn5
+   USE cp_log_handling, ONLY: cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE cp_units, ONLY: cp_unit_set_create, &
+                       cp_unit_set_release, &
+                       cp_unit_set_type
+   USE input_constants, ONLY: &
+      do_region_global, do_thermo_al, do_thermo_csvr, do_thermo_gle, do_thermo_nose, &
+      do_thermo_same_as_part, negf_run, npt_f_ensemble, npt_i_ensemble, vdw_nl_LMKLL, &
+      xc_funct_b3lyp, xc_funct_beefvdw, xc_funct_blyp, xc_funct_bp, xc_funct_hcth120, &
+      xc_funct_no_shortcut, xc_funct_olyp, xc_funct_pade, xc_funct_pbe, xc_funct_pbe0, &
+      xc_funct_tpss, xc_funct_xwpbe, xc_none, xc_vdw_fun_nonloc
+   USE input_keyword_types, ONLY: keyword_type
+   USE input_parsing, ONLY: section_vals_parse
+   USE input_section_types, ONLY: &
+      section_type, section_vals_create, section_vals_get, section_vals_get_subs_vals, &
+      section_vals_get_subs_vals3, section_vals_release, section_vals_remove_values, &
+      section_vals_set_subs_vals, section_vals_type, section_vals_val_get, section_vals_val_set, &
+      section_vals_val_unset
+   USE input_val_types, ONLY: logical_t
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE memory_utilities, ONLY: reallocate
+   USE xc_input_constants, ONLY: do_vwn5
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

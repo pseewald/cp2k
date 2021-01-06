@@ -11,34 +11,34 @@
 ! **************************************************************************************************
 MODULE gle_system_dynamics
 
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE extended_system_types,           ONLY: map_info_type
-   USE gle_system_types,                ONLY: gle_thermo_create,&
-                                              gle_type
-   USE input_constants,                 ONLY: &
-        do_thermo_communication, do_thermo_no_communication, isokin_ensemble, langevin_ensemble, &
-        npe_f_ensemble, npe_i_ensemble, nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, &
-        npt_f_ensemble, npt_i_ensemble, nve_ensemble, nvt_ensemble, reftraj_ensemble
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_remove_values,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: global_constraint_type,&
-                                              molecule_type
-   USE parallel_rng_types,              ONLY: rng_record_length,&
-                                              rng_stream_type_from_record
-   USE particle_types,                  ONLY: particle_type
-   USE simpar_types,                    ONLY: simpar_type
-   USE thermostat_mapping,              ONLY: thermostat_mapping_region
-   USE thermostat_types,                ONLY: thermostat_info_type
-   USE thermostat_utils,                ONLY: ke_region_particles,&
-                                              momentum_region_particles,&
-                                              vel_rescale_particles
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE extended_system_types, ONLY: map_info_type
+   USE gle_system_types, ONLY: gle_thermo_create, &
+                               gle_type
+   USE input_constants, ONLY: &
+      do_thermo_communication, do_thermo_no_communication, isokin_ensemble, langevin_ensemble, &
+      npe_f_ensemble, npe_i_ensemble, nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, &
+      npt_f_ensemble, npt_i_ensemble, nve_ensemble, nvt_ensemble, reftraj_ensemble
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_remove_values, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: global_constraint_type, &
+                             molecule_type
+   USE parallel_rng_types, ONLY: rng_record_length, &
+                                 rng_stream_type_from_record
+   USE particle_types, ONLY: particle_type
+   USE simpar_types, ONLY: simpar_type
+   USE thermostat_mapping, ONLY: thermostat_mapping_region
+   USE thermostat_types, ONLY: thermostat_info_type
+   USE thermostat_utils, ONLY: ke_region_particles, &
+                               momentum_region_particles, &
+                               vel_rescale_particles
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -239,27 +239,27 @@ CONTAINS
       tc(1) = 1._dp
       DO i = 1, j
          tc(i + 1) = tc(i)/REAL(i, KIND=dp)
-      ENDDO
+      END DO
 
       !scale
       SM = M*(1._dp/2._dp**k)
       EM = 0._dp
       DO i = 1, n
          EM(i, i) = tc(j + 1)
-      ENDDO
+      END DO
 
       !taylor exp of scaled matrix
       DO p = j, 1, -1
          EM = MATMUL(SM, EM)
          DO i = 1, n
             EM(i, i) = EM(i, i) + tc(p)
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       !square
       DO p = 1, k
          EM = MATMUL(EM, EM)
-      ENDDO
+      END DO
    END SUBROUTINE gle_matrix_exp
 
 ! **************************************************************************************************
@@ -291,20 +291,20 @@ CONTAINS
             L(i, j) = SST(i, j); 
             DO k = 1, j - 1
                L(i, j) = L(i, j) - L(i, k)*L(j, k)*D(k)
-            ENDDO
+            END DO
             IF (ABS(D(j)) > EPSILON(1.0_dp)) L(i, j) = L(i, j)/D(j)
-         ENDDO
+         END DO
          DO k = 1, i - 1
             D(i) = D(i) - L(i, k)*L(i, k)*D(k)
          END DO
-      ENDDO
+      END DO
       DO i = 1, n
          DO j = 1, i
             IF ((ABS(D(j)) > EPSILON(1.0_dp)) .AND. (D(j) > 0.0_dp)) THEN
                S(i, j) = S(i, j) + L(i, j)*SQRT(D(j))
             END IF
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
    END SUBROUTINE gle_cholesky_stab
 

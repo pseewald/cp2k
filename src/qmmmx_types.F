@@ -10,11 +10,11 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE qmmmx_types
-   USE cp_subsys_types,                 ONLY: cp_subsys_type
-   USE kinds,                           ONLY: dp
-   USE qmmm_types,                      ONLY: qmmm_env_get,&
-                                              qmmm_env_release,&
-                                              qmmm_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_type
+   USE kinds, ONLY: dp
+   USE qmmm_types, ONLY: qmmm_env_get, &
+                         qmmm_env_release, &
+                         qmmm_env_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

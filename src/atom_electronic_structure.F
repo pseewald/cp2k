@@ -6,36 +6,36 @@
 !--------------------------------------------------------------------------------------------------!
 
 MODULE atom_electronic_structure
-   USE atom_optimization,               ONLY: atom_history_init,&
-                                              atom_history_release,&
-                                              atom_history_type,&
-                                              atom_history_update,&
-                                              atom_opt_fmat
-   USE atom_output,                     ONLY: atom_print_energies,&
-                                              atom_print_iteration,&
-                                              atom_print_state,&
-                                              atom_print_zmp_iteration
-   USE atom_types,                      ONLY: &
-        atom_type, create_opgrid, create_opmat, ecp_pseudo, gth_pseudo, lmat, no_pseudo, &
-        opgrid_type, opmat_type, release_opgrid, release_opmat, set_atom, setup_hf_section, &
-        sgp_pseudo, upf_pseudo
-   USE atom_utils,                      ONLY: &
-        atom_denmat, atom_density, atom_read_external_density, atom_read_external_vxc, &
-        atom_read_zmp_restart, atom_solve, atom_trace, ceri_contract, coulomb_potential_analytic, &
-        coulomb_potential_numeric, eeri_contract, err_matrix, exchange_numeric, &
-        exchange_semi_analytic, numpot_matrix, slater_density, wigner_slater_functional
-   USE atom_xc,                         ONLY: calculate_atom_ext_vxc,&
-                                              calculate_atom_vxc_lda,&
-                                              calculate_atom_vxc_lsd,&
-                                              calculate_atom_zmp
-   USE input_constants,                 ONLY: &
-        do_analytic, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_nonrel_atom, &
-        do_numeric, do_rhf_atom, do_rks_atom, do_rohf_atom, do_sczoramp_atom, do_semi_analytic, &
-        do_uhf_atom, do_uks_atom, do_zoramp_atom
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
+   USE atom_optimization, ONLY: atom_history_init, &
+                                atom_history_release, &
+                                atom_history_type, &
+                                atom_history_update, &
+                                atom_opt_fmat
+   USE atom_output, ONLY: atom_print_energies, &
+                          atom_print_iteration, &
+                          atom_print_state, &
+                          atom_print_zmp_iteration
+   USE atom_types, ONLY: &
+      atom_type, create_opgrid, create_opmat, ecp_pseudo, gth_pseudo, lmat, no_pseudo, &
+      opgrid_type, opmat_type, release_opgrid, release_opmat, set_atom, setup_hf_section, &
+      sgp_pseudo, upf_pseudo
+   USE atom_utils, ONLY: &
+      atom_denmat, atom_density, atom_read_external_density, atom_read_external_vxc, &
+      atom_read_zmp_restart, atom_solve, atom_trace, ceri_contract, coulomb_potential_analytic, &
+      coulomb_potential_numeric, eeri_contract, err_matrix, exchange_numeric, &
+      exchange_semi_analytic, numpot_matrix, slater_density, wigner_slater_functional
+   USE atom_xc, ONLY: calculate_atom_ext_vxc, &
+                      calculate_atom_vxc_lda, &
+                      calculate_atom_vxc_lsd, &
+                      calculate_atom_zmp
+   USE input_constants, ONLY: &
+      do_analytic, do_dkh0_atom, do_dkh1_atom, do_dkh2_atom, do_dkh3_atom, do_nonrel_atom, &
+      do_numeric, do_rhf_atom, do_rks_atom, do_rohf_atom, do_sczoramp_atom, do_semi_analytic, &
+      do_uhf_atom, do_uks_atom, do_zoramp_atom
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -185,7 +185,7 @@ CONTAINS
          ALLOCATE (ext_density(atom%basis%grid%nr))
          ext_density = 0._dp
          CALL atom_read_external_density(ext_density, atom, iw)
-      ENDIF
+      END IF
 
       ! ZMP starting to read external vxc for the zmp calculation
       need_vxc = atom%read_vxc
@@ -197,7 +197,7 @@ CONTAINS
          ALLOCATE (ext_vxc(atom%basis%grid%nr))
          ext_vxc = 0._dp
          CALL atom_read_external_vxc(ext_vxc, atom, iw)
-      ENDIF
+      END IF
 
       ! check for relativistic method
       reltyp = atom%relativistic
@@ -377,7 +377,7 @@ CONTAINS
                CALL atom_print_zmp_iteration(iter, deps, atom, iw)
             ELSE
                CALL atom_print_iteration(iter, deps, atom%energy%etot, iw)
-            ENDIF
+            END IF
          END IF
 
          IF (deps < eps_scf) THEN

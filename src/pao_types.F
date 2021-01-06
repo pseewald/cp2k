@@ -10,14 +10,14 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE pao_types
-   USE dbcsr_api,                       ONLY: dbcsr_distribution_release,&
-                                              dbcsr_distribution_type,&
-                                              dbcsr_release,&
-                                              dbcsr_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE linesearch,                      ONLY: linesearch_type
+   USE dbcsr_api, ONLY: dbcsr_distribution_release, &
+                        dbcsr_distribution_type, &
+                        dbcsr_release, &
+                        dbcsr_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE linesearch, ONLY: linesearch_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

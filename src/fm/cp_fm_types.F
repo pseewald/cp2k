@@ -13,27 +13,27 @@
 !> \author Matthias Krack (22.05.2001)
 ! **************************************************************************************************
 MODULE cp_fm_types
-   USE cp_blacs_calls,                  ONLY: cp_blacs_dgebr2d,&
-                                              cp_blacs_dgebs2d,&
-                                              cp_blacs_gridexit,&
-                                              cp_blacs_gridinfo,&
-                                              cp_blacs_gridinit
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_equivalent,&
-                                              cp_fm_struct_get,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_retain,&
-                                              cp_fm_struct_type,&
-                                              cp_fm_struct_write_info
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: dp,&
-                                              sp
-   USE message_passing,                 ONLY: &
-        cp2k_is_parallel, mp_allgather, mp_any_source, mp_bcast, mp_irecv, mp_isend, mp_max, &
-        mp_proc_null, mp_recv, mp_request_null, mp_send, mp_sum, mp_waitall
-   USE parallel_rng_types,              ONLY: UNIFORM,&
-                                              rng_stream_type
+   USE cp_blacs_calls, ONLY: cp_blacs_dgebr2d, &
+                             cp_blacs_dgebs2d, &
+                             cp_blacs_gridexit, &
+                             cp_blacs_gridinfo, &
+                             cp_blacs_gridinit
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_fm_struct, ONLY: cp_fm_struct_equivalent, &
+                           cp_fm_struct_get, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_retain, &
+                           cp_fm_struct_type, &
+                           cp_fm_struct_write_info
+   USE cp_log_handling, ONLY: cp_to_string
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: dp, &
+                    sp
+   USE message_passing, ONLY: &
+      cp2k_is_parallel, mp_allgather, mp_any_source, mp_bcast, mp_irecv, mp_isend, mp_max, &
+      mp_proc_null, mp_recv, mp_request_null, mp_send, mp_sum, mp_waitall
+   USE parallel_rng_types, ONLY: UNIFORM, &
+                                 rng_stream_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -199,14 +199,14 @@ CONTAINS
          ALLOCATE (matrix%local_data_sp(nrow_local, ncol_local))
       ELSE
          ALLOCATE (matrix%local_data(nrow_local, ncol_local))
-      ENDIF
+      END IF
 
       ! JVDV we should remove this, as it is up to the user to zero afterwards
       IF (matrix%use_sp) THEN
          matrix%local_data_sp(1:nrow_local, 1:ncol_local) = 0.0_sp
       ELSE
          matrix%local_data(1:nrow_local, 1:ncol_local) = 0.0_dp
-      ENDIF
+      END IF
 
       IF (PRESENT(name)) THEN
          matrix%name = name
@@ -287,7 +287,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'cp_fm_init_random'
 
       INTEGER :: handle, icol_global, icol_local, irow_local, my_ncol, my_start_col, ncol_global, &
-         ncol_local, nrow_global, nrow_local
+                 ncol_local, nrow_global, nrow_local
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, row_indices
       LOGICAL, SAVE                                      :: FIRST = .TRUE.
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: buff
@@ -301,7 +301,7 @@ CONTAINS
       IF (FIRST) THEN
          seed(:, :) = RESHAPE((/1.0_dp, 2.0_dp, 3.0_dp, 4.0_dp, 5.0_dp, 6.0_dp/), (/3, 2/))
          FIRST = .FALSE.
-      ENDIF
+      END IF
       ! guarantee same seed over all tasks
       CALL mp_bcast(seed, 0, matrix%matrix_struct%para_env%group)
 
@@ -335,12 +335,12 @@ CONTAINS
             CALL rng%reset_to_next_substream()
             icol_global = icol_global + 1
             IF (icol_global == col_indices(icol_local)) EXIT
-         ENDDO
+         END DO
          CALL rng%fill(buff)
          DO irow_local = 1, nrow_local
             local_data(irow_local, icol_local) = buff(row_indices(irow_local))
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       DEALLOCATE (buff)
 
@@ -377,7 +377,7 @@ CONTAINS
          matrix%local_data_sp(:, :) = REAL(alpha, sp)
       ELSE
          matrix%local_data(:, :) = alpha
-      ENDIF
+      END IF
 
       IF (PRESENT(beta)) THEN
          CPASSERT(.NOT. matrix%use_sp)
@@ -438,8 +438,8 @@ CONTAINS
                diag(i) = REAL(a_sp(irow_local, icol_local), dp)
             ELSE
                diag(i) = a(irow_local, icol_local)
-            ENDIF
-         ENDIF
+            END IF
+         END IF
       END DO
 #else
       DO i = 1, nrow_global
@@ -447,8 +447,8 @@ CONTAINS
             diag(i) = REAL(matrix%local_data_sp(i, i), dp)
          ELSE
             diag(i) = matrix%local_data(i, i)
-         ENDIF
-      ENDDO
+         END IF
+      END DO
 #endif
       CALL mp_sum(diag, matrix%matrix_struct%para_env%group)
 
@@ -871,10 +871,10 @@ CONTAINS
       IF (PRESENT(local_data)) local_data => matrix%local_data ! not hiding things anymore :-(
       IF (PRESENT(row_indices)) THEN
          CALL cp_fm_struct_get(matrix%matrix_struct, row_indices=row_indices)
-      ENDIF
+      END IF
       IF (PRESENT(col_indices)) THEN
          CALL cp_fm_struct_get(matrix%matrix_struct, col_indices=col_indices)
-      ENDIF
+      END IF
       IF (PRESENT(nrow_locals)) THEN
          nrow_locals => matrix%matrix_struct%nrow_locals
       END IF
@@ -941,7 +941,7 @@ CONTAINS
          a_max = REAL(MAXVAL(ABS(my_block_sp(1:nrow_local, 1:ncol_local))), dp)
       ELSE
          a_max = MAXVAL(ABS(my_block(1:nrow_local, 1:ncol_local)))
-      ENDIF
+      END IF
 
       IF (PRESENT(ir_max)) THEN
          num_pe = matrix%matrix_struct%para_env%num_pe
@@ -962,13 +962,13 @@ CONTAINS
                         my_max = REAL(my_block_sp(j, i), dp)
                         ir_max_local = j
                         ic_max_local = i
-                     ENDIF
+                     END IF
                   ELSE
                      IF (ABS(my_block(j, i)) > my_max) THEN
                         my_max = my_block(j, i)
                         ir_max_local = j
                         ic_max_local = i
-                     ENDIF
+                     END IF
                   END IF
                END DO
             END DO
@@ -1041,8 +1041,8 @@ CONTAINS
       DO j = 1, ncol_local
          DO i = 1, nrow_local
             values(row_indices(i)) = values(row_indices(i)) + ABS(my_block(i, j))
-         ENDDO
-      ENDDO
+         END DO
+      END DO
       CALL mp_sum(values, matrix%matrix_struct%para_env%group)
       a_max = MAXVAL(values)
       DEALLOCATE (values)
@@ -1080,8 +1080,8 @@ CONTAINS
       DO j = 1, ncol_local
          DO i = 1, nrow_local
             norm_array(col_indices(j)) = norm_array(col_indices(j)) + my_block(i, j)*my_block(i, j)
-         ENDDO
-      ENDDO
+         END DO
+      END DO
       CALL mp_sum(norm_array, matrix%matrix_struct%para_env%group)
       norm_array = SQRT(norm_array)
 
@@ -1139,14 +1139,14 @@ CONTAINS
       DO j = 1, ncol_local
          DO i = 1, nrow_local
             sum_array(col_indices(j)) = sum_array(col_indices(j)) + my_block(i, j)
-         ENDDO
-      ENDDO
+         END DO
+      END DO
       ELSE
       DO j = 1, ncol_local
          DO i = 1, nrow_local
             sum_array(row_indices(i)) = sum_array(row_indices(i)) + my_block(i, j)
-         ENDDO
-      ENDDO
+         END DO
+      END DO
       END IF
       CALL mp_sum(sum_array, matrix%matrix_struct%para_env%group)
 
@@ -1210,7 +1210,7 @@ CONTAINS
                              ">. The local_data blocks have different sizes.")
             CALL dcopy(SIZE(source%local_data, 1)*SIZE(source%local_data, 2), &
                        source%local_data, 1, destination%local_data, 1)
-         ENDIF
+         END IF
       ELSE
          CPABORT("")
       END IF
@@ -1424,9 +1424,9 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'cp_fm_start_copy_general'
 
       INTEGER :: dest_p_i, dest_q_j, global_comm, global_rank, global_size, handle, i, j, k, &
-         mpi_rank, ncol_block_dest, ncol_block_src, ncol_local_recv, ncol_local_send, ncols, &
-         nrow_block_dest, nrow_block_src, nrow_local_recv, nrow_local_send, nrows, p, q, &
-         recv_rank, recv_size, send_rank, send_size
+                 mpi_rank, ncol_block_dest, ncol_block_src, ncol_local_recv, ncol_local_send, ncols, &
+                 nrow_block_dest, nrow_block_src, nrow_local_recv, nrow_local_send, nrows, p, q, &
+                 recv_rank, recv_size, send_rank, send_size
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: all_ranks, dest2global, dest_p, dest_q, &
                                                             recv_count, send_count, send_disp, &
                                                             source2global, src_p, src_q
@@ -1435,7 +1435,7 @@ CONTAINS
                                                             src_block, src_block_tmp, src_num_pe
       INTEGER, DIMENSION(6)                              :: recv_req, send_req
       INTEGER, DIMENSION(:), POINTER :: recv_col_indices, recv_disp, recv_request, &
-         recv_row_indices, send_col_indices, send_request, send_row_indices
+                                        recv_row_indices, send_col_indices, send_request, send_row_indices
       INTEGER, DIMENSION(:, :), POINTER                  :: src_blacs2mpi
       REAL(KIND=dp), DIMENSION(:), POINTER               :: recv_buf, send_buf
       TYPE(cp_fm_struct_type), POINTER                   :: recv_dist, send_dist
@@ -1857,7 +1857,7 @@ CONTAINS
          ! Was already done in cp_fm_finish_copy_general
          IF (ASSOCIATED(src_blacs2mpi)) THEN
             DEALLOCATE (src_blacs2mpi)
-         ENDIF
+         END IF
          CALL mp_waitall(send_request(:))
          DEALLOCATE (send_request, send_buf)
          ! Invalidate the stored state
@@ -2108,11 +2108,11 @@ CONTAINS
          ELSE
             IF (ipcol == mypcol) THEN
                CALL mp_send(vecbuf(:), 0, tag, para_env%group)
-            ENDIF
+            END IF
             IF (mypcol == 0) THEN
                CALL mp_recv(vecbuf(:), ipcol, tag, para_env%group)
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          IF (unit > 0) THEN
             DO j = 1, i_block
@@ -2228,11 +2228,11 @@ CONTAINS
          ELSE
             IF (ipcol == mypcol) THEN
                CALL mp_send(vecbuf(:), 0, tag, para_env%group)
-            ENDIF
+            END IF
             IF (mypcol == 0) THEN
                CALL mp_recv(vecbuf(:), ipcol, tag, para_env%group)
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          IF (unit > 0) THEN
             DO j = 1, i_block
@@ -2305,12 +2305,12 @@ CONTAINS
          IF (para_env%mepos == 0) THEN
             DO k = 1, n_cols
                READ (unit) vecbuf(:, k)
-            ENDDO
-         ENDIF
+            END DO
+         END IF
          CALL mp_bcast(vecbuf, 0, para_env%group)
          CALL cp_fm_set_submatrix(fm, vecbuf, start_row=1, start_col=j, n_cols=n_cols)
 
-      ENDDO
+      END DO
 
       DEALLOCATE (vecbuf)
 

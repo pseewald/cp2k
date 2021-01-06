@@ -10,33 +10,33 @@
 !> \author Teodoro Laino, 03.2009
 ! **************************************************************************************************
 MODULE molden_utils
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_get_submatrix
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE input_constants,                 ONLY: gto_cartesian,&
-                                              gto_spherical
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE orbital_pointers,                ONLY: nco,&
-                                              nso
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_get_submatrix
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE input_constants, ONLY: gto_cartesian, &
+                              gto_spherical
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE orbital_pointers, ONLY: nco, &
+                               nso
    USE orbital_transformation_matrices, ONLY: orbtramat
-   USE particle_types,                  ONLY: particle_type
-   USE periodic_table,                  ONLY: get_ptable_info
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_mo_types,                     ONLY: mo_set_p_type
+   USE particle_types, ONLY: particle_type
+   USE periodic_table, ONLY: get_ptable_info
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_mo_types, ONLY: mo_set_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -67,12 +67,12 @@ CONTAINS
       TYPE(section_vals_type), POINTER                   :: print_section
 
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'write_mos_molden'
-      CHARACTER(LEN=molden_lmax+1), PARAMETER            :: angmom = "spdfg"
+      CHARACTER(LEN=molden_lmax + 1), PARAMETER            :: angmom = "spdfg"
 
       CHARACTER(LEN=15)                                  :: fmtstr1
       CHARACTER(LEN=2)                                   :: element_symbol
       INTEGER :: gto_kind, handle, i, iatom, icgf, icol, ikind, ipgf, irow, irow_in, iset, isgf, &
-         ishell, ispin, iw, lshell, ncgf, ncol_global, ndigits, nrow_global, nset, nsgf, z
+                 ishell, ispin, iw, lshell, ncgf, ncol_global, ndigits, nrow_global, nset, nsgf, z
       INTEGER, DIMENSION(:), POINTER                     :: npgf, nshell
       INTEGER, DIMENSION(:, :), POINTER                  :: l
       INTEGER, DIMENSION(molden_ncomax, 0:molden_lmax)   :: orbmap
@@ -107,11 +107,11 @@ CONTAINS
             DO ispin = 1, SIZE(mos)
                IF (.NOT. ASSOCIATED(mos(ispin)%mo_set%mo_coeff_b)) THEN
                   CPASSERT(.FALSE.)
-               ENDIF
+               END IF
                CALL copy_dbcsr_to_fm(mos(ispin)%mo_set%mo_coeff_b, &
                                      mos(ispin)%mo_set%mo_coeff) !fm->dbcsr
-            ENDDO
-         ENDIF
+            END DO
+         END IF
 
          IF (iw > 0) THEN
             WRITE (iw, '(T2,A)') "[Molden Format]"

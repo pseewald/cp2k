@@ -14,45 +14,45 @@
 !>      Teodoro Laino (09.2008) [tlaino] - University of Zurich : Periodic SE
 ! **************************************************************************************************
 MODULE se_fock_matrix_exchange
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type,&
-                                              semi_empirical_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_p_type
-   USE input_constants,                 ONLY: do_se_IS_kdso,&
-                                              do_se_IS_kdso_d
-   USE kinds,                           ONLY: dp
-   USE multipole_types,                 ONLY: do_multipole_none
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE se_fock_matrix_integrals,        ONLY: dfock2E,&
-                                              fock1_2el,&
-                                              fock2E
-   USE semi_empirical_int_arrays,       ONLY: rij_threshold
-   USE semi_empirical_store_int_types,  ONLY: semi_empirical_si_type
-   USE semi_empirical_types,            ONLY: get_se_param,&
-                                              se_int_control_type,&
-                                              se_taper_type,&
-                                              semi_empirical_p_type,&
-                                              semi_empirical_type,&
-                                              setup_se_int_control_type
-   USE semi_empirical_utils,            ONLY: finalize_se_taper,&
-                                              initialize_se_taper
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type, &
+                               semi_empirical_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_get_block_p, &
+                        dbcsr_p_type
+   USE input_constants, ONLY: do_se_IS_kdso, &
+                              do_se_IS_kdso_d
+   USE kinds, ONLY: dp
+   USE multipole_types, ONLY: do_multipole_none
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE se_fock_matrix_integrals, ONLY: dfock2E, &
+                                       fock1_2el, &
+                                       fock2E
+   USE semi_empirical_int_arrays, ONLY: rij_threshold
+   USE semi_empirical_store_int_types, ONLY: semi_empirical_si_type
+   USE semi_empirical_types, ONLY: get_se_param, &
+                                   se_int_control_type, &
+                                   se_taper_type, &
+                                   semi_empirical_p_type, &
+                                   semi_empirical_type, &
+                                   setup_se_int_control_type
+   USE semi_empirical_utils, ONLY: finalize_se_taper, &
+                                   initialize_se_taper
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

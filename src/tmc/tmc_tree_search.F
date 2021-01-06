@@ -13,18 +13,18 @@
 ! **************************************************************************************************
 
 MODULE tmc_tree_search
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE kinds,                           ONLY: dp
-   USE tmc_stati,                       ONLY: TMC_STATUS_WAIT_FOR_NEW_TASK
-   USE tmc_tree_references,             ONLY: add_to_references,&
-                                              search_and_remove_reference_in_list
-   USE tmc_tree_types,                  ONLY: &
-        elem_array_type, global_tree_type, status_accepted, status_accepted_result, &
-        status_calc_approx_ener, status_calculate_MD, status_calculate_NMC_steps, &
-        status_calculate_energy, status_calculated, status_cancel_ener, status_cancel_nmc, &
-        status_canceled_ener, status_canceled_nmc, status_created, status_deleted, &
-        status_deleted_result, status_rejected, status_rejected_result, tree_type
-   USE tmc_types,                       ONLY: tmc_env_type
+   USE cp_log_handling, ONLY: cp_to_string
+   USE kinds, ONLY: dp
+   USE tmc_stati, ONLY: TMC_STATUS_WAIT_FOR_NEW_TASK
+   USE tmc_tree_references, ONLY: add_to_references, &
+                                  search_and_remove_reference_in_list
+   USE tmc_tree_types, ONLY: &
+      elem_array_type, global_tree_type, status_accepted, status_accepted_result, &
+      status_calc_approx_ener, status_calculate_MD, status_calculate_NMC_steps, &
+      status_calculate_energy, status_calculated, status_cancel_ener, status_cancel_nmc, &
+      status_canceled_ener, status_canceled_nmc, status_created, status_deleted, &
+      status_deleted_result, status_rejected, status_rejected_result, tree_type
+   USE tmc_types, ONLY: tmc_env_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

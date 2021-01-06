@@ -7,10 +7,10 @@
 
 MODULE fast
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: z_one,&
-                                              z_zero,&
-                                              zero
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: z_one, &
+                            z_zero, &
+                            zero
 
    IMPLICIT NONE
 

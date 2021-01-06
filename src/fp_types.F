@@ -12,17 +12,17 @@
 !> \author Joost VandeVondele
 ! **************************************************************************************************
 MODULE fp_types
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_release,&
-                                              section_vals_retain,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_release, &
+                                  section_vals_retain, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -106,8 +106,8 @@ CONTAINS
             IF (ASSOCIATED(fp_env%print_section)) CALL section_vals_release(fp_env%print_section)
             fp_env%use_fp = .FALSE.
             DEALLOCATE (fp_env)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
       CALL timestop(handle)
 
    END SUBROUTINE fp_env_release
@@ -163,7 +163,7 @@ CONTAINS
 
          fp_env%print_section => section_vals_get_subs_vals(fp_section, "WEIGHTS")
          CALL section_vals_retain(fp_env%print_section)
-      ENDIF
+      END IF
       CALL timestop(handle)
 
    END SUBROUTINE fp_env_read
@@ -219,10 +219,10 @@ CONTAINS
             ELSE
                WRITE (UNIT=output_unit, FMT="(T2,A,T78,A)") &
                   "FP| Flexible partitioning bias is", "OFF"
-            ENDIF
-         ENDIF
+            END IF
+         END IF
          CALL cp_print_key_finished_output(output_unit, logger, PRINT, "")
-      ENDIF
+      END IF
       CALL timestop(handle)
 
    END SUBROUTINE fp_env_write

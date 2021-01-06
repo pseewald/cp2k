@@ -10,70 +10,70 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE qs_dispersion_pairpot
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE atprop_types,                    ONLY: atprop_array_init,&
-                                              atprop_type
-   USE bibliography,                    ONLY: Goerigk2017,&
-                                              cite_reference,&
-                                              grimme2006,&
-                                              grimme2010,&
-                                              grimme2011
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell,&
-                                              pbc,&
-                                              plane_distance
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_next_line,&
-                                              parser_get_object
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE input_constants,                 ONLY: vdw_pairpot_dftd2,&
-                                              vdw_pairpot_dftd3,&
-                                              vdw_pairpot_dftd3bj,&
-                                              xc_vdw_fun_none,&
-                                              xc_vdw_fun_pairpot
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: twopi
-   USE memory_utilities,                ONLY: reallocate
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_max,&
-                                              mp_shift,&
-                                              mp_sum
-   USE molecule_types,                  ONLY: molecule_type
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: bohr,&
-                                              kcalmol,&
-                                              kjmol
-   USE qs_dispersion_types,             ONLY: dftd2_pp,&
-                                              dftd3_pp,&
-                                              qs_atom_dispersion_type,&
-                                              qs_dispersion_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type,&
-                                              set_qs_kind
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE atprop_types, ONLY: atprop_array_init, &
+                           atprop_type
+   USE bibliography, ONLY: Goerigk2017, &
+                           cite_reference, &
+                           grimme2006, &
+                           grimme2010, &
+                           grimme2011
+   USE cell_types, ONLY: cell_type, &
+                         get_cell, &
+                         pbc, &
+                         plane_distance
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_next_line, &
+                                parser_get_object
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE input_constants, ONLY: vdw_pairpot_dftd2, &
+                              vdw_pairpot_dftd3, &
+                              vdw_pairpot_dftd3bj, &
+                              xc_vdw_fun_none, &
+                              xc_vdw_fun_pairpot
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: twopi
+   USE memory_utilities, ONLY: reallocate
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_max, &
+                              mp_shift, &
+                              mp_sum
+   USE molecule_types, ONLY: molecule_type
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: bohr, &
+                      kcalmol, &
+                      kjmol
+   USE qs_dispersion_types, ONLY: dftd2_pp, &
+                                  dftd3_pp, &
+                                  qs_atom_dispersion_type, &
+                                  qs_dispersion_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type, &
+                            set_qs_kind
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, &
 !$                    omp_get_thread_num, &
@@ -179,7 +179,7 @@ CONTAINS
                dum = 0.5_dp*dispersion_env%r2r4(i)*REAL(i, dp)**0.5_dp
                ! store it as sqrt because the geom. av. is taken
                dispersion_env%r2r4(i) = SQRT(dum)
-            ENDDO
+            END DO
             ! parameters
             dispersion_env%k1 = 16.0_dp
             dispersion_env%k2 = 4._dp/3._dp
@@ -1195,20 +1195,20 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'calculate_dispersion_pairpot'
 
       INTEGER :: atom_a, atom_b, atom_c, atom_d, handle, hashb, hashc, i, ia, iat, iatom, icx, &
-         icy, icz, idmp, ikind, ilist, imol, jatom, jkind, katom, kkind, kstart, latom, lkind, &
-         max_elem, maxc, mepos, na, natom, nb, nc, nkind, num_pe, unit_nr, za, zb, zc
+                 icy, icz, idmp, ikind, ilist, imol, jatom, jkind, katom, kkind, kstart, latom, lkind, &
+                 max_elem, maxc, mepos, na, natom, nb, nc, nkind, num_pe, unit_nr, za, zb, zc
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind, atomnumber, kind_of
       INTEGER, DIMENSION(3)                              :: cell_b, cell_c, ncell, periodic
       INTEGER, DIMENSION(:), POINTER                     :: atom_list
       LOGICAL :: atenergy, atstress, debug, debugall, debugx, domol, exclude_pair, floating_a, &
-         floating_b, floating_c, ghost_a, ghost_b, ghost_c, is000, use_virial
+                 floating_b, floating_c, ghost_a, ghost_b, ghost_c, is000, use_virial
       LOGICAL, ALLOCATABLE, DIMENSION(:)                 :: dodisp, floating, ghost
       REAL(KIND=dp) :: a1, a2, alp6, alp8, ang, c6, c8, c9, cc6ab, cc6bc, cc6ca, cnum, dc6a, dc6b, &
-         dc8a, dc8b, dcc6aba, dcc6abb, dcc6bcb, dcc6bcc, dcc6caa, dcc6cac, dd, de6, de8, de91, &
-         de921, de922, dea, devdw, dfdab6, dfdab8, dfdabc, dfdmp, dr, drk, e6, e6tot, e8, e8tot, &
-         e9, e9tot, elrc6, elrc8, elrc9, eps_cn, er, esrb, evdw, f0ab, fac, fac0, fdab6, fdab8, &
-         fdabc, fdmp, gnorm, gsrb, kgc8, nab, nabc, r0, r0ab, r2ab, r2abc, r2bc, r2ca, r6, r8, &
-         rabc, rc2, rcc, rcut, rs6, rs8, s1, s2, s3, s6, s8, s8i, s9, srbe, ssrb, t1srb, t2srb, xp
+                       dc8a, dc8b, dcc6aba, dcc6abb, dcc6bcb, dcc6bcc, dcc6caa, dcc6cac, dd, de6, de8, de91, &
+                       de921, de922, dea, devdw, dfdab6, dfdab8, dfdabc, dfdmp, dr, drk, e6, e6tot, e8, e8tot, &
+                       e9, e9tot, elrc6, elrc8, elrc9, eps_cn, er, esrb, evdw, f0ab, fac, fac0, fdab6, fdab8, &
+                       fdabc, fdmp, gnorm, gsrb, kgc8, nab, nabc, r0, r0ab, r2ab, r2abc, r2bc, r2ca, r6, r8, &
+                       rabc, rc2, rcc, rcut, rs6, rs8, s1, s2, s3, s6, s8, s8i, s9, srbe, ssrb, t1srb, t2srb, xp
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: atom2mol, c6d2, cnkind, cnumbers, &
                                                             cnumfix, radd2
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: rcpbc
@@ -1364,7 +1364,7 @@ CONTAINS
             DO imol = 1, SIZE(molecule_set)
                DO iat = molecule_set(imol)%first_atom, molecule_set(imol)%last_atom
                   atom2mol(iat) = imol
-               ENDDO
+               END DO
             END DO
          END IF
          ! damping type
@@ -2163,19 +2163,19 @@ CONTAINS
       LOGICAL, INTENT(inout)                             :: found
 
       REAL(KIND=dp), DIMENSION(54), PARAMETER :: c6val = (/0.14_dp, 0.08_dp, 1.61_dp, 1.61_dp, &
-         3.13_dp, 1.75_dp, 1.23_dp, 0.70_dp, 0.75_dp, 0.63_dp, 5.71_dp, 5.71_dp, 10.79_dp, 9.23_dp,&
-         7.84_dp, 5.57_dp, 5.07_dp, 4.61_dp, 10.80_dp, 10.80_dp, 10.80_dp, 10.80_dp, 10.80_dp, &
-         10.80_dp, 10.80_dp, 10.80_dp, 10.80_dp, 10.80_dp, 10.80_dp, 10.80_dp, 16.99_dp, 17.10_dp, &
-         16.37_dp, 12.64_dp, 12.47_dp, 12.01_dp, 24.67_dp, 24.67_dp, 24.67_dp, 24.67_dp, 24.67_dp, &
-         24.67_dp, 24.67_dp, 24.67_dp, 24.67_dp, 24.67_dp, 24.67_dp, 24.67_dp, 37.32_dp, 38.71_dp, &
-         38.44_dp, 31.74_dp, 31.50_dp, 29.99_dp/)
+                                        3.13_dp, 1.75_dp, 1.23_dp, 0.70_dp, 0.75_dp, 0.63_dp, 5.71_dp, 5.71_dp, 10.79_dp, 9.23_dp, &
+                                             7.84_dp, 5.57_dp, 5.07_dp, 4.61_dp, 10.80_dp, 10.80_dp, 10.80_dp, 10.80_dp, 10.80_dp, &
+                                         10.80_dp, 10.80_dp, 10.80_dp, 10.80_dp, 10.80_dp, 10.80_dp, 10.80_dp, 16.99_dp, 17.10_dp, &
+                                         16.37_dp, 12.64_dp, 12.47_dp, 12.01_dp, 24.67_dp, 24.67_dp, 24.67_dp, 24.67_dp, 24.67_dp, &
+                                         24.67_dp, 24.67_dp, 24.67_dp, 24.67_dp, 24.67_dp, 24.67_dp, 24.67_dp, 37.32_dp, 38.71_dp, &
+                                                           38.44_dp, 31.74_dp, 31.50_dp, 29.99_dp/)
       REAL(KIND=dp), DIMENSION(54), PARAMETER :: rval = (/1.001_dp, 1.012_dp, 0.825_dp, 1.408_dp, &
-         1.485_dp, 1.452_dp, 1.397_dp, 1.342_dp, 1.287_dp, 1.243_dp, 1.144_dp, 1.364_dp, 1.639_dp, &
-         1.716_dp, 1.705_dp, 1.683_dp, 1.639_dp, 1.595_dp, 1.485_dp, 1.474_dp, 1.562_dp, 1.562_dp, &
-         1.562_dp, 1.562_dp, 1.562_dp, 1.562_dp, 1.562_dp, 1.562_dp, 1.562_dp, 1.562_dp, 1.650_dp, &
-         1.727_dp, 1.760_dp, 1.771_dp, 1.749_dp, 1.727_dp, 1.628_dp, 1.606_dp, 1.639_dp, 1.639_dp, &
-         1.639_dp, 1.639_dp, 1.639_dp, 1.639_dp, 1.639_dp, 1.639_dp, 1.639_dp, 1.639_dp, 1.672_dp, &
-         1.804_dp, 1.881_dp, 1.892_dp, 1.892_dp, 1.881_dp/)
+                                         1.485_dp, 1.452_dp, 1.397_dp, 1.342_dp, 1.287_dp, 1.243_dp, 1.144_dp, 1.364_dp, 1.639_dp, &
+                                         1.716_dp, 1.705_dp, 1.683_dp, 1.639_dp, 1.595_dp, 1.485_dp, 1.474_dp, 1.562_dp, 1.562_dp, &
+                                         1.562_dp, 1.562_dp, 1.562_dp, 1.562_dp, 1.562_dp, 1.562_dp, 1.562_dp, 1.562_dp, 1.650_dp, &
+                                         1.727_dp, 1.760_dp, 1.771_dp, 1.749_dp, 1.727_dp, 1.628_dp, 1.606_dp, 1.639_dp, 1.639_dp, &
+                                         1.639_dp, 1.639_dp, 1.639_dp, 1.639_dp, 1.639_dp, 1.639_dp, 1.639_dp, 1.639_dp, 1.672_dp, &
+                                                          1.804_dp, 1.881_dp, 1.892_dp, 1.892_dp, 1.881_dp/)
 
 !
 ! GRIMME DISPERSION PARAMETERS
@@ -2248,7 +2248,7 @@ CONTAINS
          c6ab(jat, iat, jadr, iadr, 2) = pars(kk + 4)
          c6ab(jat, iat, jadr, iadr, 3) = pars(kk + 3)
          kk = (nn*5) + 1
-      ENDDO
+      END DO
 
       DEALLOCATE (pars)
 
@@ -2272,13 +2272,13 @@ CONTAINS
       DO WHILE (iat .GT. 100)
          iat = iat - 100
          iadr = iadr + 1
-      ENDDO
+      END DO
 
       i = 100
       DO WHILE (jat .GT. 100)
          jat = jat - 100
          jadr = jadr + 1
-      ENDDO
+      END DO
    END SUBROUTINE limit
 
 ! **************************************************************************************************
@@ -3068,8 +3068,8 @@ CONTAINS
             k = k + 1
             rout(i, j) = r0ab(k)*bohr
             rout(j, i) = r0ab(k)*bohr
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       ! covalent radii (taken from Pyykko and Atsumi, Chem. Eur. J. 15, 2009, 188-197)
       ! values for metals decreased by 10 %
@@ -3263,7 +3263,7 @@ CONTAINS
                IF (r < rsave) THEN
                   rsave = r
                   c6mem = c6
-               ENDIF
+               END IF
                tmp1 = EXP(k3*r)
                dtmpa = -2.0_dp*k3*(cn1 - nci)*tmp1
                dtmpb = -2.0_dp*k3*(cn2 - ncj)*tmp1
@@ -3273,9 +3273,9 @@ CONTAINS
                dwa = dwa + dtmpa
                dzb = dzb + dtmpb*c6
                dwb = dwb + dtmpb
-            ENDIF
-         ENDDO
-      ENDDO
+            END IF
+         END DO
+      END DO
 
       IF (c6 == 0.0_dp) c6mem = 0.0_dp
 
@@ -3287,7 +3287,7 @@ CONTAINS
          c6 = c6mem
          dc6a = 0._dp
          dc6b = 0._dp
-      ENDIF
+      END IF
 
    END SUBROUTINE getc6
 

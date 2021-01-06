@@ -16,7 +16,7 @@
 ! **************************************************************************************************
 MODULE input_constants
 
-   USE kinds,                           ONLY: dp
+   USE kinds, ONLY: dp
 
    IMPLICIT NONE
    PRIVATE

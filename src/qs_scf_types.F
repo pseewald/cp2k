@@ -12,35 +12,35 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE qs_scf_types
-   USE cp_dbcsr_operations,             ONLY: dbcsr_deallocate_matrix_set
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_type
-   USE cp_fm_vect,                      ONLY: cp_fm_vect_dealloc
-   USE dbcsr_api,                       ONLY: dbcsr_deallocate_matrix,&
-                                              dbcsr_p_type,&
-                                              dbcsr_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE outer_scf_control_types,         ONLY: qs_outer_scf_type
-   USE preconditioner_types,            ONLY: destroy_preconditioner,&
-                                              preconditioner_p_type
-   USE qs_block_davidson_types,         ONLY: block_davidson_release,&
-                                              davidson_type
-   USE qs_density_mixing_types,         ONLY: direct_mixing_nr,&
-                                              mixing_storage_create,&
-                                              mixing_storage_release,&
-                                              mixing_storage_type
-   USE qs_diis_types,                   ONLY: qs_diis_b_release,&
-                                              qs_diis_buffer_type
-   USE qs_fb_env_types,                 ONLY: fb_env_has_data,&
-                                              fb_env_nullify,&
-                                              fb_env_obj,&
-                                              fb_env_release
-   USE qs_ot_types,                     ONLY: qs_ot_destroy,&
-                                              qs_ot_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_deallocate_matrix_set
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_type
+   USE cp_fm_vect, ONLY: cp_fm_vect_dealloc
+   USE dbcsr_api, ONLY: dbcsr_deallocate_matrix, &
+                        dbcsr_p_type, &
+                        dbcsr_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE outer_scf_control_types, ONLY: qs_outer_scf_type
+   USE preconditioner_types, ONLY: destroy_preconditioner, &
+                                   preconditioner_p_type
+   USE qs_block_davidson_types, ONLY: block_davidson_release, &
+                                      davidson_type
+   USE qs_density_mixing_types, ONLY: direct_mixing_nr, &
+                                      mixing_storage_create, &
+                                      mixing_storage_release, &
+                                      mixing_storage_type
+   USE qs_diis_types, ONLY: qs_diis_b_release, &
+                            qs_diis_buffer_type
+   USE qs_fb_env_types, ONLY: fb_env_has_data, &
+                              fb_env_nullify, &
+                              fb_env_obj, &
+                              fb_env_release
+   USE qs_ot_types, ONLY: qs_ot_destroy, &
+                          qs_ot_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -553,7 +553,7 @@ CONTAINS
 
             CPASSERT(.TRUE.)
             CALL dbcsr_deallocate_matrix_set(subspace_env%p_matrix_store)
-         ENDIF
+         END IF
          DO i = 1, SIZE(subspace_env%chc_mat)
             CALL cp_fm_release(subspace_env%chc_mat(i)%matrix)
          END DO

@@ -16,60 +16,60 @@
 !> \author CJM & JGH
 ! **************************************************************************************************
 MODULE force_env_types
-   USE cell_types,                      ONLY: cell_type
-   USE cp_log_handling,                 ONLY: cp_add_default_logger,&
-                                              cp_logger_type,&
-                                              cp_rm_default_logger
-   USE cp_para_env,                     ONLY: cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type,&
-                                              pack_subsys_particles
-   USE eip_environment_types,           ONLY: eip_env_get,&
-                                              eip_env_release,&
-                                              eip_environment_type
-   USE embed_types,                     ONLY: embed_env_release,&
-                                              embed_env_type,&
-                                              get_embed_env
-   USE fist_energy_types,               ONLY: fist_energy_type
-   USE fist_environment_types,          ONLY: fist_env_get,&
-                                              fist_env_release,&
-                                              fist_environment_type
-   USE fp_types,                        ONLY: fp_env_release,&
-                                              fp_env_retain,&
-                                              fp_type
-   USE global_types,                    ONLY: global_environment_type,&
-                                              globenv_release
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_release,&
-                                              section_vals_retain,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE metadynamics_types,              ONLY: meta_env_release,&
-                                              meta_env_retain,&
-                                              meta_env_type
-   USE mixed_energy_types,              ONLY: mixed_energy_type
-   USE mixed_environment_types,         ONLY: get_mixed_env,&
-                                              mixed_env_release,&
-                                              mixed_environment_type
-   USE nnp_environment_types,           ONLY: nnp_env_get,&
-                                              nnp_env_release,&
-                                              nnp_type
-   USE pwdft_environment_types,         ONLY: pwdft_energy_type,&
-                                              pwdft_env_get,&
-                                              pwdft_env_release,&
-                                              pwdft_environment_type
-   USE qmmm_types,                      ONLY: qmmm_env_get,&
-                                              qmmm_env_release,&
-                                              qmmm_env_type
-   USE qmmmx_types,                     ONLY: qmmmx_env_get,&
-                                              qmmmx_env_release,&
-                                              qmmmx_env_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_env_release,&
-                                              qs_environment_type
+   USE cell_types, ONLY: cell_type
+   USE cp_log_handling, ONLY: cp_add_default_logger, &
+                              cp_logger_type, &
+                              cp_rm_default_logger
+   USE cp_para_env, ONLY: cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type, &
+                              pack_subsys_particles
+   USE eip_environment_types, ONLY: eip_env_get, &
+                                    eip_env_release, &
+                                    eip_environment_type
+   USE embed_types, ONLY: embed_env_release, &
+                          embed_env_type, &
+                          get_embed_env
+   USE fist_energy_types, ONLY: fist_energy_type
+   USE fist_environment_types, ONLY: fist_env_get, &
+                                     fist_env_release, &
+                                     fist_environment_type
+   USE fp_types, ONLY: fp_env_release, &
+                       fp_env_retain, &
+                       fp_type
+   USE global_types, ONLY: global_environment_type, &
+                           globenv_release
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_release, &
+                                  section_vals_retain, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE metadynamics_types, ONLY: meta_env_release, &
+                                 meta_env_retain, &
+                                 meta_env_type
+   USE mixed_energy_types, ONLY: mixed_energy_type
+   USE mixed_environment_types, ONLY: get_mixed_env, &
+                                      mixed_env_release, &
+                                      mixed_environment_type
+   USE nnp_environment_types, ONLY: nnp_env_get, &
+                                    nnp_env_release, &
+                                    nnp_type
+   USE pwdft_environment_types, ONLY: pwdft_energy_type, &
+                                      pwdft_env_get, &
+                                      pwdft_env_release, &
+                                      pwdft_environment_type
+   USE qmmm_types, ONLY: qmmm_env_get, &
+                         qmmm_env_release, &
+                         qmmm_env_type
+   USE qmmmx_types, ONLY: qmmmx_env_get, &
+                          qmmmx_env_release, &
+                          qmmmx_env_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_env_release, &
+                                   qs_environment_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -463,8 +463,8 @@ CONTAINS
       IF (ASSOCIATED(force_env%fp_env) .AND. PRESENT(potential_energy)) THEN
          IF (force_env%fp_env%use_fp) THEN
             potential_energy = potential_energy + force_env%fp_env%energy
-         ENDIF
-      ENDIF
+         END IF
+      END IF
       IF (PRESENT(potential_energy)) THEN
          potential_energy = potential_energy + force_env%additional_potential
       END IF

@@ -7,36 +7,36 @@
 
 ! **************************************************************************************************
 MODULE atom_admm_methods
-   USE atom_operators,                  ONLY: atom_basis_projection_overlap,&
-                                              atom_int_release,&
-                                              atom_int_setup
-   USE atom_output,                     ONLY: atom_print_basis
-   USE atom_types,                      ONLY: &
-        atom_basis_type, atom_integrals, atom_orbitals, atom_p_type, atom_type, create_atom_orbs, &
-        init_atom_basis, lmat, release_atom_basis, release_atom_orbs
-   USE atom_utils,                      ONLY: atom_consistent_method,&
-                                              atom_denmat,&
-                                              atom_trace,&
-                                              eeri_contract
-   USE atom_xc,                         ONLY: atom_dpot_lda,&
-                                              atom_vxc_lda,&
-                                              atom_vxc_lsd
-   USE input_constants,                 ONLY: do_rhf_atom,&
-                                              do_rks_atom,&
-                                              do_rohf_atom,&
-                                              do_uhf_atom,&
-                                              do_uks_atom,&
-                                              xc_funct_no_shortcut
-   USE input_section_types,             ONLY: section_vals_duplicate,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_get_subs_vals2,&
-                                              section_vals_release,&
-                                              section_vals_remove_values,&
-                                              section_vals_type,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: dp
-   USE mathlib,                         ONLY: invmat_symm,&
-                                              jacobi
+   USE atom_operators, ONLY: atom_basis_projection_overlap, &
+                             atom_int_release, &
+                             atom_int_setup
+   USE atom_output, ONLY: atom_print_basis
+   USE atom_types, ONLY: &
+      atom_basis_type, atom_integrals, atom_orbitals, atom_p_type, atom_type, create_atom_orbs, &
+      init_atom_basis, lmat, release_atom_basis, release_atom_orbs
+   USE atom_utils, ONLY: atom_consistent_method, &
+                         atom_denmat, &
+                         atom_trace, &
+                         eeri_contract
+   USE atom_xc, ONLY: atom_dpot_lda, &
+                      atom_vxc_lda, &
+                      atom_vxc_lsd
+   USE input_constants, ONLY: do_rhf_atom, &
+                              do_rks_atom, &
+                              do_rohf_atom, &
+                              do_uhf_atom, &
+                              do_uks_atom, &
+                              xc_funct_no_shortcut
+   USE input_section_types, ONLY: section_vals_duplicate, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_get_subs_vals2, &
+                                  section_vals_release, &
+                                  section_vals_remove_values, &
+                                  section_vals_type, &
+                                  section_vals_val_set
+   USE kinds, ONLY: dp
+   USE mathlib, ONLY: invmat_symm, &
+                      jacobi
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -68,12 +68,12 @@ CONTAINS
                                                             zval
       LOGICAL                                            :: pp_calc, rhf
       REAL(KIND=dp) :: admm1_k_energy, admm2_k_energy, admmq_k_energy, dfexc_admm1, dfexc_admm2, &
-         dfexc_admmq, dxc, dxk, el1, el2, elq, elref, fexc_optx_admm1, fexc_optx_admm2, &
-         fexc_optx_admmq, fexc_optx_ref, fexc_pbex_admm1, fexc_pbex_admm2, fexc_pbex_admmq, &
-         fexc_pbex_ref, ref_energy, xsi
+                       dfexc_admmq, dxc, dxk, el1, el2, elq, elref, fexc_optx_admm1, fexc_optx_admm2, &
+                       fexc_optx_admmq, fexc_optx_ref, fexc_pbex_admm1, fexc_pbex_admm2, fexc_pbex_admmq, &
+                       fexc_pbex_ref, ref_energy, xsi
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: lamat
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :) :: admm1_k, admm2_k, admm_xcmat, admm_xcmata, &
-         admm_xcmatb, admmq_k, ovlap, ref_k, ref_xcmat, ref_xcmata, ref_xcmatb, sinv, siref, tmat
+                                            admm_xcmatb, admmq_k, ovlap, ref_k, ref_xcmat, ref_xcmata, ref_xcmatb, sinv, siref, tmat
       TYPE(atom_basis_type), POINTER                     :: admm_basis, ref_basis
       TYPE(atom_integrals), POINTER                      :: admm_int, ref_int
       TYPE(atom_orbitals), POINTER                       :: admm1_orbs, admm2_orbs, admmq_orbs, &

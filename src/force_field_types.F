@@ -15,15 +15,15 @@
 ! **************************************************************************************************
 MODULE force_field_types
 
-   USE damping_dipole_types,            ONLY: damping_info_type
-   USE force_field_kind_types,          ONLY: legendre_data_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE pair_potential_types,            ONLY: pair_potential_p_release,&
-                                              pair_potential_p_type
-   USE shell_potential_types,           ONLY: shell_p_release,&
-                                              shell_p_type
+   USE damping_dipole_types, ONLY: damping_info_type
+   USE force_field_kind_types, ONLY: legendre_data_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE pair_potential_types, ONLY: pair_potential_p_release, &
+                                   pair_potential_p_type
+   USE shell_potential_types, ONLY: shell_p_release, &
+                                    shell_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

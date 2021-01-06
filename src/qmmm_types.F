@@ -10,18 +10,18 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE qmmm_types
-   USE cp_subsys_types,                 ONLY: cp_subsys_type
-   USE fist_energy_types,               ONLY: fist_energy_type
-   USE fist_environment_types,          ONLY: fist_env_get,&
-                                              fist_env_release,&
-                                              fist_environment_type
-   USE kinds,                           ONLY: dp
-   USE qmmm_types_low,                  ONLY: qmmm_env_qm_release,&
-                                              qmmm_env_qm_type
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_env_release,&
-                                              qs_environment_type
+   USE cp_subsys_types, ONLY: cp_subsys_type
+   USE fist_energy_types, ONLY: fist_energy_type
+   USE fist_environment_types, ONLY: fist_env_get, &
+                                     fist_env_release, &
+                                     fist_environment_type
+   USE kinds, ONLY: dp
+   USE qmmm_types_low, ONLY: qmmm_env_qm_release, &
+                             qmmm_env_qm_type
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_env_release, &
+                                   qs_environment_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -66,14 +66,14 @@ CONTAINS
       END IF
       IF (PRESENT(subsys)) THEN
          CALL fist_env_get(qmmm_env%fist_env, subsys=subsys)
-      ENDIF
+      END IF
       IF (PRESENT(potential_energy)) THEN
          ! get the underlying energies from primary subsys.  This is the only subsys
          ! for conventional QM/MM, and force-mixing knows to put relevant energy there.
          CALL fist_env_get(qmmm_env%fist_env, thermo=thermo)
          CALL get_qs_env(qmmm_env%qs_env, energy=qs_energy)
          potential_energy = thermo%pot + qs_energy%total
-      ENDIF
+      END IF
    END SUBROUTINE qmmm_env_get
 
 ! **************************************************************************************************

@@ -12,16 +12,16 @@
 ! **************************************************************************************************
 MODULE xc_hcth
 
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
+   USE cp_log_handling, ONLY: cp_to_string
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -189,14 +189,14 @@ CONTAINS
          beta0 = (/7.59570_dp, 3.58760_dp, 1.63820_dp, 0.49294_dp/), &
          beta1 = (/14.11890_dp, 6.19770_dp, 3.36620_dp, 0.62517_dp/)
       REAL(KIND=dp), PARAMETER :: a0 = 0.031091_dp, a1 = 0.015545_dp, alpha0 = 0.21370_dp, &
-         alpha1 = 0.20548_dp, f13 = 1.0_dp/3.0_dp, f43 = 4.0_dp*f13, f83 = 8.0_dp*f13, &
-         gamma_cab = 0.006_dp, gamma_css = 0.200_dp, gamma_xss = 0.004_dp
+                                  alpha1 = 0.20548_dp, f13 = 1.0_dp/3.0_dp, f43 = 4.0_dp*f13, f83 = 8.0_dp*f13, &
+                                  gamma_cab = 0.006_dp, gamma_css = 0.200_dp, gamma_xss = 0.004_dp
 
       INTEGER                                            :: ii
       REAL(KIND=dp) :: cx_vwn_e, cx_vwn_v, dgcabddrho, dgcabdrho, dgcabds, dgcssddrho, dgcssdrho, &
-         dgcssds, dgdrs, dgxssddrho, dgxssdrho, dgxssds, drho, drhos, drsdrho, ecab, ecss, exss, &
-         g, gcab, gcss, gs2, gxss, my_rho, p, q, rho13, rho43, rhos, rhos13, rhos43, rs, rs12, &
-         rsfac, s, s2, two13, u, vcab, vcss, vxss, x, y
+                       dgcssds, dgdrs, dgxssddrho, dgxssdrho, dgxssds, drho, drhos, drsdrho, ecab, ecss, exss, &
+                       g, gcab, gcss, gs2, gxss, my_rho, p, q, rho13, rho43, rhos, rhos13, rhos43, rs, rs12, &
+                       rsfac, s, s2, two13, u, vcab, vcss, vxss, x, y
       REAL(KIND=dp), DIMENSION(0:4)                      :: ccab, ccss, cxss
 
       cx_vwn_e = -0.75_dp*(3.0_dp/pi)**f13

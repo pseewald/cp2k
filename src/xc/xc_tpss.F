@@ -15,21 +15,21 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE xc_tpss
-   USE bibliography,                    ONLY: Tao2003,&
-                                              cite_reference
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
+   USE bibliography, ONLY: Tao2003, &
+                           cite_reference
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -216,31 +216,31 @@ CONTAINS
       INTEGER                                            :: abs_grad_deriv, ii
       LOGICAL                                            :: t571, t639
       REAL(kind=dp) :: A, A_1, A_2, A_s1, A_s1rho, A_s2, A_s2rho, alpha, alpha_1_1, alpha_1_2, &
-         alphanorm_drho, alpharho, alphatau, Arho, b, beta, beta_1_1, beta_1_2, beta_2_1, &
-         beta_2_2, beta_3_1, beta_3_2, beta_4_1, beta_4_2, c, d, e_c_u_0, e_c_u_0rho, e_c_u_1_s1, &
-         e_c_u_1_s1rho, e_c_u_1_s2, e_c_u_1_s2rho, e_var, epsilon_cGGA, epsilon_cGGA_0_1, &
-         epsilon_cGGA_1_0, epsilon_cGGArho, epsilon_cRevPKZB, epsilon_cRevPKZBnorm_drho, &
-         epsilon_cRevPKZBrho, epsilon_cRevPKZBtau, ex_unif, Fx, gamma_var, Hnorm_drho, k_f_s1, &
-         k_f_s1rho, k_s, k_s_s1, k_s_s2, kappa, m, ma, manorm_drho, marho, mb, mbnorm_drho, mbrho
+                       alphanorm_drho, alpharho, alphatau, Arho, b, beta, beta_1_1, beta_1_2, beta_2_1, &
+                       beta_2_2, beta_3_1, beta_3_2, beta_4_1, beta_4_2, c, d, e_c_u_0, e_c_u_0rho, e_c_u_1_s1, &
+                       e_c_u_1_s1rho, e_c_u_1_s2, e_c_u_1_s2rho, e_var, epsilon_cGGA, epsilon_cGGA_0_1, &
+                       epsilon_cGGA_1_0, epsilon_cGGArho, epsilon_cRevPKZB, epsilon_cRevPKZBnorm_drho, &
+                       epsilon_cRevPKZBrho, epsilon_cRevPKZBtau, ex_unif, Fx, gamma_var, Hnorm_drho, k_f_s1, &
+                       k_f_s1rho, k_s, k_s_s1, k_s_s2, kappa, m, ma, manorm_drho, marho, mb, mbnorm_drho, mbrho
       REAL(kind=dp) :: mu, my_ndrho, my_rho, my_tau, p, p_1, p_2, p_3, phi_s1, phi_s2, pnorm_drho, &
-         prho, rs, rs_s1, rs_s1rho, rs_s2, rs_s2rho, rsrho, t, t1, t100, t101, t111, t12, t13, &
-         t138, t14, t140, t143, t145, t146, t147, t151, t152, t16, t161, t168, t177, t186, t187, &
-         t189, t19, t190, t191, t193, t194, t196, t197, t198, t199, t2, t20, t201, t202, t204, &
-         t205, t208, t209, t21, t211, t212, t213, t215, t216, t218, t219, t22, t220, t221, t223, &
-         t224, t226, t227, t230, t231, t233, t234, t235, t238, t239, t241, t242, t243, t245, t246, &
-         t248, t249, t252, t253, t254, t256, t26, t260, t263, t264, t265
+                       prho, rs, rs_s1, rs_s1rho, rs_s2, rs_s2rho, rsrho, t, t1, t100, t101, t111, t12, t13, &
+                       t138, t14, t140, t143, t145, t146, t147, t151, t152, t16, t161, t168, t177, t186, t187, &
+                       t189, t19, t190, t191, t193, t194, t196, t197, t198, t199, t2, t20, t201, t202, t204, &
+                       t205, t208, t209, t21, t211, t212, t213, t215, t216, t218, t219, t22, t220, t221, t223, &
+                       t224, t226, t227, t230, t231, t233, t234, t235, t238, t239, t241, t242, t243, t245, t246, &
+                       t248, t249, t252, t253, t254, t256, t26, t260, t263, t264, t265
       REAL(kind=dp) :: t267, t268, t269, t27, t271, t272, t274, t275, t276, t277, t278, t279, t28, &
-         t280, t281, t284, t286, t288, t29, t290, t291, t293, t294, t295, t299, t3, t301, t302, &
-         t303, t305, t307, t310, t313, t316, t319, t322, t325, t327, t328, t329, t331, t337, t340, &
-         t343, t344, t35, t351, t36, t370, t371, t376, t383, t385, t386, t39, t390, t391, t395, &
-         t396, t398, t4, t403, t404, t406, t41, t410, t411, t419, t42, t430, t437, t445, t450, &
-         t452, t464, t472, t475, t485, t489, t49, t490, t5, t505, t513, t517, t536, t541, t542, &
-         t546, t547, t549, t55, t554, t555, t557, t561, t562, t569, t574
+                       t280, t281, t284, t286, t288, t29, t290, t291, t293, t294, t295, t299, t3, t301, t302, &
+                       t303, t305, t307, t310, t313, t316, t319, t322, t325, t327, t328, t329, t331, t337, t340, &
+                       t343, t344, t35, t351, t36, t370, t371, t376, t383, t385, t386, t39, t390, t391, t395, &
+                       t396, t398, t4, t403, t404, t406, t41, t410, t411, t419, t42, t430, t437, t445, t450, &
+                       t452, t464, t472, t475, t485, t489, t49, t490, t5, t505, t513, t517, t536, t541, t542, &
+                       t546, t547, t549, t55, t554, t555, t557, t561, t562, t569, t574
       REAL(kind=dp) :: t58, t585, t6, t60, t604, t609, t610, t614, t615, t617, t622, t623, t625, &
-         t629, t630, t637, t642, t645, t659, t67, t7, t71, t73, t77, t78, t79, t799, t80, t84, &
-         t85, t89, t9, t94, t95, t96, t_s1, t_s1norm_drho, t_s1rho, t_s2, t_s2norm_drho, t_s2rho, &
-         tau_w, tau_wnorm_drho, tau_wrho, tildeq_b, tildeq_bnorm_drho, tildeq_brho, tildeq_btau, &
-         tnorm_drho, trho, z, znorm_drho, zrho, ztau
+                       t629, t630, t637, t642, t645, t659, t67, t7, t71, t73, t77, t78, t79, t799, t80, t84, &
+                       t85, t89, t9, t94, t95, t96, t_s1, t_s1norm_drho, t_s1rho, t_s2, t_s2norm_drho, t_s2rho, &
+                       tau_w, tau_wnorm_drho, tau_wrho, tildeq_b, tildeq_bnorm_drho, tildeq_brho, tildeq_btau, &
+                       tnorm_drho, trho, z, znorm_drho, zrho, ztau
 
       IF (.FALSE.) THEN
          ! useful for testing, we just hack in a well defined functional of tau, ndrho and rho

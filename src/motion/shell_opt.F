@@ -11,36 +11,36 @@
 ! **************************************************************************************************
 MODULE shell_opt
 
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cg_optimizer,                    ONLY: geoopt_cg
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_add_iter_level,&
-                                              cp_rm_iter_level
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE global_types,                    ONLY: global_environment_type
-   USE gopt_f_types,                    ONLY: gopt_f_create,&
-                                              gopt_f_release,&
-                                              gopt_f_type
-   USE gopt_param_types,                ONLY: gopt_param_read,&
-                                              gopt_param_release,&
-                                              gopt_param_type
-   USE input_constants,                 ONLY: default_shellcore_method_id
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE integrator_utils,                ONLY: tmp_variables_type
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE shell_potential_types,           ONLY: shell_kind_type
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cg_optimizer, ONLY: geoopt_cg
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_add_iter_level, &
+                                 cp_rm_iter_level
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE global_types, ONLY: global_environment_type
+   USE gopt_f_types, ONLY: gopt_f_create, &
+                           gopt_f_release, &
+                           gopt_f_type
+   USE gopt_param_types, ONLY: gopt_param_read, &
+                               gopt_param_release, &
+                               gopt_param_type
+   USE input_constants, ONLY: default_shellcore_method_id
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE integrator_utils, ONLY: tmp_variables_type
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE shell_potential_types, ONLY: shell_kind_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

@@ -10,45 +10,45 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE pao_io
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE basis_set_types,                 ONLY: gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_convert_dbcsr_to_csr, dbcsr_copy, dbcsr_csr_create_from_dbcsr, &
-        dbcsr_csr_dbcsr_blkrow_dist, dbcsr_csr_destroy, dbcsr_csr_type, dbcsr_csr_write, &
-        dbcsr_desymmetrize, dbcsr_get_block_p, dbcsr_get_info, dbcsr_has_symmetry, dbcsr_release, &
-        dbcsr_type
-   USE dm_ls_scf_types,                 ONLY: ls_scf_env_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE message_passing,                 ONLY: mp_bcast,&
-                                              mp_max,&
-                                              mp_sum
-   USE pao_input,                       ONLY: id2str
-   USE pao_param,                       ONLY: pao_param_count
-   USE pao_types,                       ONLY: pao_env_type
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: angstrom
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              pao_potential_type,&
-                                              qs_kind_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE basis_set_types, ONLY: gto_basis_set_type
+   USE cell_types, ONLY: cell_type
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_convert_dbcsr_to_csr, dbcsr_copy, dbcsr_csr_create_from_dbcsr, &
+      dbcsr_csr_dbcsr_blkrow_dist, dbcsr_csr_destroy, dbcsr_csr_type, dbcsr_csr_write, &
+      dbcsr_desymmetrize, dbcsr_get_block_p, dbcsr_get_info, dbcsr_has_symmetry, dbcsr_release, &
+      dbcsr_type
+   USE dm_ls_scf_types, ONLY: ls_scf_env_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE message_passing, ONLY: mp_bcast, &
+                              mp_max, &
+                              mp_sum
+   USE pao_input, ONLY: id2str
+   USE pao_param, ONLY: pao_param_count
+   USE pao_types, ONLY: pao_env_type
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: angstrom
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            pao_potential_type, &
+                            qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -128,7 +128,7 @@ CONTAINS
          ! check kinds
          DO ikind = 1, SIZE(kinds)
             CALL pao_kinds_ensure_equal(pao, qs_env, ikind, kinds(ikind))
-         ENDDO
+         END DO
 
          ! check number of atoms
          IF (SIZE(positions, 1) /= natoms) &
@@ -138,17 +138,17 @@ CONTAINS
          DO iatom = 1, natoms
             IF (atom2kind(iatom) /= particle_set(iatom)%atomic_kind%kind_number) &
                CPABORT("Restart atomic kinds do not match.")
-         ENDDO
+         END DO
 
          ! check positions, warning only
          diff = 0.0_dp
          DO iatom = 1, natoms
             diff = MAX(diff, MAXVAL(ABS(positions(iatom, :) - particle_set(iatom)%r)))
-         ENDDO
+         END DO
          IF (diff > 1e-10) &
             CPWARN("Restarting from different atom positions")
 
-      ENDIF
+      END IF
 
       ! scatter xblocks across ranks to fill pao%matrix_X
       ! this could probably be done more efficiently
@@ -159,13 +159,13 @@ CONTAINS
             CPASSERT(row_blk_sizes(iatom) == SIZE(xblocks(iatom)%p, 1))
             CPASSERT(col_blk_sizes(iatom) == SIZE(xblocks(iatom)%p, 2))
             buffer = xblocks(iatom)%p
-         ENDIF
+         END IF
          CALL mp_bcast(buffer, para_env%source, para_env%group)
          CALL dbcsr_get_block_p(matrix=pao%matrix_X, row=iatom, col=iatom, block=block_X, found=found)
          IF (ASSOCIATED(block_X)) &
             block_X = buffer
          DEALLOCATE (buffer)
-      ENDDO
+      END DO
 
       ! ALLOCATABLEs deallocate themselves
 
@@ -288,7 +288,7 @@ CONTAINS
             CPASSERT(ALLOCATED(kinds))
             DO ikind = 1, nkinds
                IF (TRIM(kinds(ikind)%name) .EQ. TRIM(str_in)) EXIT
-            ENDDO
+            END DO
             CPASSERT(ALLOCATED(atom2kind) .AND. ALLOCATED(positions))
             atom2kind(iatom) = ikind
             positions(iatom, :) = pos_in/angstrom
@@ -310,7 +310,7 @@ CONTAINS
          ELSE
             !CPWARN("Skipping restart header with label: "//TRIM(label))
             READ (unit_nr, fmt=*) label ! just read again and ignore
-         ENDIF
+         END IF
       END DO
       CALL close_file(unit_number=unit_nr)
 
@@ -376,7 +376,7 @@ CONTAINS
             CPWARN("PAO_POT_BETA does not match")
          IF (pao_kind%pao_potentials(ipot)%weight /= pao_potentials(ipot)%weight) &
             CPWARN("PAO_POT_WEIGHT does not match")
-      ENDDO
+      END DO
 
    END SUBROUTINE pao_kinds_ensure_equal
 
@@ -392,7 +392,7 @@ CONTAINS
       REAL(dp)                                           :: energy
 
       CHARACTER(len=*), PARAMETER :: printkey_section = 'DFT%LS_SCF%PAO%PRINT%RESTART', &
-         routineN = 'pao_write_restart'
+                                     routineN = 'pao_write_restart'
 
       INTEGER                                            :: handle, unit_max, unit_nr
       TYPE(cp_logger_type), POINTER                      :: logger
@@ -424,7 +424,7 @@ CONTAINS
 
          CALL pao_write_diagonal_blocks(para_env, pao%matrix_X, "Xblock", unit_nr)
 
-      ENDIF
+      END IF
 
       ! close file
       IF (unit_nr > 0) WRITE (unit_nr, '(A)') "THE_END"
@@ -465,15 +465,15 @@ CONTAINS
                mpi_buffer(:, :) = local_block(:, :)
          ELSE
             mpi_buffer(:, :) = 0.0_dp
-         ENDIF
+         END IF
 
          CALL mp_sum(mpi_buffer, para_env%group)
          IF (unit_nr > 0) THEN
             WRITE (unit_nr, fmt="(A,1X,I10,1X)", advance='no') label, iatom
             WRITE (unit_nr, *) mpi_buffer
-         ENDIF
+         END IF
          DEALLOCATE (mpi_buffer)
-      ENDDO
+      END DO
 
       ! flush
       IF (unit_nr > 0) FLUSH (unit_nr)
@@ -534,8 +534,8 @@ CONTAINS
             WRITE (unit_nr, "(1X,I3)", advance='no') pao_potentials(ipot)%max_projector
             WRITE (unit_nr, "(1X,F20.16)", advance='no') pao_potentials(ipot)%beta
             WRITE (unit_nr, "(1X,F20.16)") pao_potentials(ipot)%weight
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       ! write cell
       WRITE (unit_nr, fmt="(A,5X)", advance='no') "Cell"
@@ -547,7 +547,7 @@ CONTAINS
          kindname = particle_set(iatom)%atomic_kind%name
          WRITE (unit_nr, fmt="(A,5X,I10,5X,A,1X)", advance='no') "Atom ", iatom, TRIM(kindname)
          WRITE (unit_nr, *) particle_set(iatom)%r*angstrom
-      ENDDO
+      END DO
 
    END SUBROUTINE write_restart_header
 

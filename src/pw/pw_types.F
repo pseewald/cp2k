@@ -23,15 +23,15 @@
 ! **************************************************************************************************
 MODULE pw_types
 
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE kinds,                           ONLY: dp
-   USE pw_grid_types,                   ONLY: pw_grid_type
-   USE pw_grids,                        ONLY: pw_grid_release,&
-                                              pw_grid_retain
-   USE timings,                         ONLY: print_stack
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE kinds, ONLY: dp
+   USE pw_grid_types, ONLY: pw_grid_type
+   USE pw_grids, ONLY: pw_grid_release, &
+                       pw_grid_retain
+   USE timings, ONLY: print_stack
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

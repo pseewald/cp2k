@@ -16,37 +16,37 @@
 ! **************************************************************************************************
 MODULE scf_control_types
 
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE input_constants,                 ONLY: &
-        atomic_guess, diag_ot, direct_p_mix, general_roks, high_spin_roks, ot_algo_taylor_or_diag, &
-        outer_scf_basis_center_opt, outer_scf_cdft_constraint, outer_scf_ddapc_constraint, &
-        outer_scf_none, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
-        outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
-        outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
-        outer_scf_s2_constraint, smear_energy_window, smear_fermi_dirac, smear_list
-   USE input_cp2k_dft,                  ONLY: create_scf_section
-   USE input_enumeration_types,         ONLY: enum_i2c,&
-                                              enumeration_type
-   USE input_keyword_types,             ONLY: keyword_get,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_get_keyword,&
-                                              section_release,&
-                                              section_type,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE outer_scf_control_types,         ONLY: outer_scf_control_type,&
-                                              outer_scf_read_parameters
-   USE qs_cdft_opt_types,               ONLY: cdft_opt_type_release
-   USE qs_ot_types,                     ONLY: ot_readwrite_input,&
-                                              qs_ot_settings_init,&
-                                              qs_ot_settings_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE input_constants, ONLY: &
+      atomic_guess, diag_ot, direct_p_mix, general_roks, high_spin_roks, ot_algo_taylor_or_diag, &
+      outer_scf_basis_center_opt, outer_scf_cdft_constraint, outer_scf_ddapc_constraint, &
+      outer_scf_none, outer_scf_optimizer_bisect, outer_scf_optimizer_broyden, &
+      outer_scf_optimizer_diis, outer_scf_optimizer_newton, outer_scf_optimizer_newton_ls, &
+      outer_scf_optimizer_none, outer_scf_optimizer_sd, outer_scf_optimizer_secant, &
+      outer_scf_s2_constraint, smear_energy_window, smear_fermi_dirac, smear_list
+   USE input_cp2k_dft, ONLY: create_scf_section
+   USE input_enumeration_types, ONLY: enum_i2c, &
+                                      enumeration_type
+   USE input_keyword_types, ONLY: keyword_get, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_get_keyword, &
+                                  section_release, &
+                                  section_type, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE outer_scf_control_types, ONLY: outer_scf_control_type, &
+                                      outer_scf_read_parameters
+   USE qs_cdft_opt_types, ONLY: cdft_opt_type_release
+   USE qs_ot_types, ONLY: ot_readwrite_input, &
+                          qs_ot_settings_init, &
+                          qs_ot_settings_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -306,7 +306,7 @@ CONTAINS
          IF (scf_control%ref_count < 1) THEN
             IF (ASSOCIATED(scf_control%smear%list)) THEN
                DEALLOCATE (scf_control%smear%list)
-            ENDIF
+            END IF
             DEALLOCATE (scf_control%smear)
 
             IF (ASSOCIATED(scf_control%outer_scf%cdft_opt_control)) &
@@ -619,7 +619,7 @@ CONTAINS
             IF (scf_control%diagonalization%mom) THEN
                ! TODO extend the output with further parameters
                WRITE (UNIT=output_unit, FMT="(T25,A)") "MOM enabled"
-            ENDIF
+            END IF
 
             IF (scf_control%mixing_method > 0 .AND. .NOT. scf_control%use_ot) THEN
                keyword => section_get_keyword(section, "MIXING%METHOD")

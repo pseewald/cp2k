@@ -12,16 +12,16 @@
 ! **************************************************************************************************
 MODULE aux_basis_set
 
-   USE basis_set_types,                 ONLY: gto_basis_set_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE lapack,                          ONLY: lapack_spotrf
-   USE orbital_pointers,                ONLY: indco,&
-                                              nco,&
-                                              ncoset,&
-                                              nso
-   USE orbital_symbols,                 ONLY: cgf_symbol,&
-                                              sgf_symbol
+   USE basis_set_types, ONLY: gto_basis_set_type
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE lapack, ONLY: lapack_spotrf
+   USE orbital_pointers, ONLY: indco, &
+                               nco, &
+                               ncoset, &
+                               nso
+   USE orbital_symbols, ONLY: cgf_symbol, &
+                              sgf_symbol
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -204,7 +204,7 @@ CONTAINS
                   sgf_symbol(aux_basis%n(ishell, iset), lshell, m)
             END DO
          END DO
-      ENDDO
+      END DO
 
       ! orbital radii (initialize later)
       aux_basis%kind_radius = 0.0_dp

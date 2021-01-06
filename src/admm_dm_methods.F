@@ -12,28 +12,28 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE admm_dm_methods
-   USE admm_dm_types,                   ONLY: admm_dm_type,&
-                                              mcweeny_history_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_operations,             ONLY: dbcsr_deallocate_matrix_set
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_unit_nr
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_frobenius_norm, dbcsr_get_block_p, &
-        dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
-        dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, dbcsr_p_type, dbcsr_release, &
-        dbcsr_scale, dbcsr_set, dbcsr_type
-   USE input_constants,                 ONLY: do_admm_basis_projection,&
-                                              do_admm_blocked_projection
-   USE iterate_matrix,                  ONLY: invert_Hotelling
-   USE kinds,                           ONLY: dp
-   USE pw_types,                        ONLY: pw_p_type
-   USE qs_collocate_density,            ONLY: calculate_rho_elec
-   USE qs_ks_types,                     ONLY: get_ks_env,&
-                                              qs_ks_env_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_set,&
-                                              qs_rho_type
-   USE task_list_types,                 ONLY: task_list_type
+   USE admm_dm_types, ONLY: admm_dm_type, &
+                            mcweeny_history_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_deallocate_matrix_set
+   USE cp_log_handling, ONLY: cp_logger_get_default_unit_nr
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_frobenius_norm, dbcsr_get_block_p, &
+      dbcsr_iterator_blocks_left, dbcsr_iterator_next_block, dbcsr_iterator_start, &
+      dbcsr_iterator_stop, dbcsr_iterator_type, dbcsr_multiply, dbcsr_p_type, dbcsr_release, &
+      dbcsr_scale, dbcsr_set, dbcsr_type
+   USE input_constants, ONLY: do_admm_basis_projection, &
+                              do_admm_blocked_projection
+   USE iterate_matrix, ONLY: invert_Hotelling
+   USE kinds, ONLY: dp
+   USE pw_types, ONLY: pw_p_type
+   USE qs_collocate_density, ONLY: calculate_rho_elec
+   USE qs_ks_types, ONLY: get_ks_env, &
+                          qs_ks_env_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_set, &
+                           qs_rho_type
+   USE task_list_types, ONLY: task_list_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -104,7 +104,7 @@ CONTAINS
          CALL revert_purify_mcweeny(ks_env, matrix_ks_merge)
       ELSE
          CALL get_ks_env(ks_env, matrix_ks_aux_fit=matrix_ks_merge)
-      ENDIF
+      END IF
 
       SELECT CASE (admm_dm%method)
       CASE (do_admm_basis_projection)
@@ -166,11 +166,11 @@ CONTAINS
          IF (.NOT. ASSOCIATED(admm_dm%matrix_A)) THEN
             ALLOCATE (admm_dm%matrix_A)
             CALL dbcsr_create(admm_dm%matrix_A, template=matrix_s_mixed(1)%matrix, matrix_type="N")
-         ENDIF
+         END IF
          CALL dbcsr_multiply("N", "N", 1.0_dp, matrix_s_aux_inv, matrix_s_mixed(1)%matrix, &
                              0.0_dp, admm_dm%matrix_A)
          CALL dbcsr_release(matrix_s_aux_inv)
-      ENDIF
+      END IF
 
       ! Calculate P_aux = A * P * A^T
       CALL dbcsr_create(matrix_tmp, template=admm_dm%matrix_A)
@@ -227,7 +227,7 @@ CONTAINS
             END IF
          END DO
          CALL dbcsr_iterator_stop(iter)
-      ENDDO
+      END DO
 
    END SUBROUTINE map_dm_blocked
 
@@ -347,7 +347,7 @@ CONTAINS
          END DO
          CALL dbcsr_iterator_stop(iter)
          CALL dbcsr_add(matrix_ks(ispin)%matrix, matrix_ks_merge(ispin)%matrix, 1.0_dp, 1.0_dp)
-      ENDDO
+      END DO
 
    END SUBROUTINE merge_dm_blocked
 

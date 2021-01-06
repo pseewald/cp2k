@@ -12,26 +12,26 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE input_cp2k_field
-   USE bibliography,                    ONLY: Souza2002,&
-                                              Stengel2009,&
-                                              Umari2002
-   USE input_constants,                 ONLY: constant_env,&
-                                              custom_env,&
-                                              gaussian,&
-                                              gaussian_env,&
-                                              ramp_env
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: char_t,&
-                                              real_t
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: s2a
+   USE bibliography, ONLY: Souza2002, &
+                           Stengel2009, &
+                           Umari2002
+   USE input_constants, ONLY: constant_env, &
+                              custom_env, &
+                              gaussian, &
+                              gaussian_env, &
+                              ramp_env
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: char_t, &
+                              real_t
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

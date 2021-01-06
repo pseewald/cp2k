@@ -11,13 +11,13 @@
 ! **************************************************************************************************
 MODULE qs_o3c_types
 
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type
-   USE kinds,                           ONLY: dp
-   USE qs_neighbor_list_types,          ONLY: &
-        get_iterator_info, get_neighbor_list_set_p, neighbor_list_iterate, &
-        neighbor_list_iterator_create, neighbor_list_iterator_p_type, &
-        neighbor_list_iterator_release, neighbor_list_set_p_type, nl_set_sub_iterator, &
-        nl_sub_iterate
+   USE basis_set_types, ONLY: gto_basis_set_p_type
+   USE kinds, ONLY: dp
+   USE qs_neighbor_list_types, ONLY: &
+      get_iterator_info, get_neighbor_list_set_p, neighbor_list_iterate, &
+      neighbor_list_iterator_create, neighbor_list_iterator_p_type, &
+      neighbor_list_iterator_release, neighbor_list_set_p_type, nl_set_sub_iterator, &
+      nl_sub_iterate
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

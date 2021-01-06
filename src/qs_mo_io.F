@@ -20,64 +20,64 @@
 ! **************************************************************************************************
 MODULE qs_mo_io
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_type
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_get_submatrix,&
-                                              cp_fm_p_type,&
-                                              cp_fm_set_all,&
-                                              cp_fm_set_submatrix,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_write_unformatted
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_generate_filename,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_binary_write,&
-                                              dbcsr_checksum,&
-                                              dbcsr_create,&
-                                              dbcsr_p_type,&
-                                              dbcsr_release,&
-                                              dbcsr_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kahan_sum,                       ONLY: accurate_sum
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE message_passing,                 ONLY: mp_bcast
-   USE orbital_pointers,                ONLY: indco,&
-                                              nco,&
-                                              nso
-   USE orbital_symbols,                 ONLY: cgf_symbol,&
-                                              sgf_symbol
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_type
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_get_submatrix, &
+                          cp_fm_p_type, &
+                          cp_fm_set_all, &
+                          cp_fm_set_submatrix, &
+                          cp_fm_to_fm, &
+                          cp_fm_write_unformatted
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_generate_filename, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_binary_write, &
+                        dbcsr_checksum, &
+                        dbcsr_create, &
+                        dbcsr_p_type, &
+                        dbcsr_release, &
+                        dbcsr_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kahan_sum, ONLY: accurate_sum
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE message_passing, ONLY: mp_bcast
+   USE orbital_pointers, ONLY: indco, &
+                               nco, &
+                               nso
+   USE orbital_symbols, ONLY: cgf_symbol, &
+                              sgf_symbol
    USE orbital_transformation_matrices, ONLY: orbtramat
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: evolt
-   USE qs_dftb_types,                   ONLY: qs_dftb_atom_type
-   USE qs_dftb_utils,                   ONLY: get_dftb_atom_param
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_mo_methods,                   ONLY: calculate_density_matrix
-   USE qs_mo_occupation,                ONLY: set_mo_occupation
-   USE qs_mo_types,                     ONLY: mo_set_p_type,&
-                                              mo_set_type
-   USE string_utilities,                ONLY: compress
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: evolt
+   USE qs_dftb_types, ONLY: qs_dftb_atom_type
+   USE qs_dftb_utils, ONLY: get_dftb_atom_param
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_mo_methods, ONLY: calculate_density_matrix
+   USE qs_mo_occupation, ONLY: set_mo_occupation
+   USE qs_mo_types, ONLY: mo_set_p_type, &
+                          mo_set_type
+   USE string_utilities, ONLY: compress
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -138,11 +138,11 @@ CONTAINS
             DO ispin = 1, SIZE(mo_array)
                IF (.NOT. ASSOCIATED(mo_array(ispin)%mo_set%mo_coeff_b)) THEN
                   CPASSERT(.FALSE.)
-               ENDIF
+               END IF
                CALL copy_dbcsr_to_fm(mo_array(ispin)%mo_set%mo_coeff_b, &
                                      mo_array(ispin)%mo_set%mo_coeff) !fm->dbcsr
-            ENDDO
-         ENDIF
+            END DO
+         END IF
 
          DO ikey = 1, SIZE(keys)
 
@@ -194,7 +194,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       project_name = logger%iter_info%project_name
       CALL section_vals_val_get(dft_section, "SCF%PRINT%DM_RESTART_WRITE", l_val=do_dm_restart)
@@ -215,11 +215,11 @@ CONTAINS
             cs_pos = dbcsr_checksum(matrix_p_tmp, pos=.TRUE.)
             IF (unit_nr > 0) THEN
                WRITE (unit_nr, '(T2,A,E20.8)') "Writing restart DM "//TRIM(file_name)//" with checksum: ", cs_pos
-            ENDIF
+            END IF
             CALL dbcsr_binary_write(matrix_p_tmp, file_name)
 
             CALL dbcsr_release(matrix_p_tmp)
-         ENDDO
+         END DO
          DEALLOCATE (matrix_p_tmp)
       END IF
 
@@ -246,8 +246,8 @@ CONTAINS
 
       CHARACTER(LEN=*), PARAMETER :: routineN = 'write_rt_mos_to_restart'
       CHARACTER(LEN=43), DIMENSION(2), PARAMETER :: keys = (/ &
-         "REAL_TIME_PROPAGATION%PRINT%RESTART_HISTORY", &
-         "REAL_TIME_PROPAGATION%PRINT%RESTART        "/)
+                                                    "REAL_TIME_PROPAGATION%PRINT%RESTART_HISTORY", &
+                                                    "REAL_TIME_PROPAGATION%PRINT%RESTART        "/)
 
       INTEGER                                            :: handle, ikey, ires
       TYPE(cp_logger_type), POINTER                      :: logger
@@ -474,7 +474,7 @@ CONTAINS
             filename = cp_print_key_generate_filename(logger, print_key, &
                                                       extension=".wfn", my_local=.FALSE.)
          END IF
-      ENDIF
+      END IF
       IF (.NOT. my_xas) THEN
          INQUIRE (FILE=filename, exist=exist)
       END IF
@@ -554,8 +554,8 @@ CONTAINS
             IF (para_env%ionode) CALL close_file(unit_number=restart_unit)
             CALL timestop(handle)
             RETURN
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! Close restart file
       IF (para_env%ionode) CALL close_file(unit_number=restart_unit)
@@ -674,9 +674,9 @@ CONTAINS
       LOGICAL, INTENT(OUT), OPTIONAL                     :: natom_mismatch
 
       INTEGER :: group, homo, homo_read, i, iatom, ikind, imat, irow, iset, iset_read, ishell, &
-         ishell_read, iso, ispin, lfomo_read, lmax, lshell, my_mult, nao, nao_read, natom_read, &
-         nelectron, nelectron_read, nmo, nmo_read, nnshell, nset, nset_max, nshell_max, nspin, &
-         nspin_read, offset_read, source
+                 ishell_read, iso, ispin, lfomo_read, lmax, lshell, my_mult, nao, nao_read, natom_read, &
+                 nelectron, nelectron_read, nmo, nmo_read, nnshell, nset, nset_max, nshell_max, nspin, &
+                 nspin_read, offset_read, source
       INTEGER, DIMENSION(:), POINTER                     :: nset_info, nshell
       INTEGER, DIMENSION(:, :), POINTER                  :: l, nshell_info
       INTEGER, DIMENSION(:, :, :), POINTER               :: nso_info, offset_info
@@ -711,7 +711,7 @@ CONTAINS
             ! this case needs fixing of homo/lfomo/nelec/occupations ...
             IF (nspin_read > nspin) THEN
                CPABORT("Reducing nspin is not possible. ")
-            ENDIF
+            END IF
          END IF
 
          natom_match = (natom_read == natom)
@@ -761,8 +761,8 @@ CONTAINS
             RETURN
          ELSE
             CPABORT("Incorrect number of atoms in restart file. ")
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       CALL mp_bcast(nspin_read, source, group)
 
@@ -1003,8 +1003,8 @@ CONTAINS
       CHARACTER(LEN=38)                                  :: fmtstr3
       CHARACTER(LEN=6), DIMENSION(:), POINTER            :: bsgf_symbol
       INTEGER :: after, first_mo, from, iatom, icgf, ico, icol, ikind, imo, irow, iset, isgf, &
-         ishell, iso, iw, jcol, last_mo, left, lmax, lshell, natom, ncgf, ncol, ncol_global, &
-         nrow_global, nset, nsgf, right, scf_step, to, width
+                 ishell, iso, iw, jcol, last_mo, left, lmax, lshell, natom, ncgf, ncol, ncol_global, &
+                 nrow_global, nset, nsgf, right, scf_step, to, width
       INTEGER, DIMENSION(:), POINTER                     :: mo_index_range, nshell
       INTEGER, DIMENSION(:, :), POINTER                  :: l
       LOGICAL                                            :: ionode, my_last, p_cart, p_eval, p_evec, &

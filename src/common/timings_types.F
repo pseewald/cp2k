@@ -15,10 +15,10 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE timings_types
-   USE callgraph,                       ONLY: callgraph_type
-   USE list_callstackentry,             ONLY: list_callstackentry_type
-   USE list_routinestat,                ONLY: list_routinestat_type
-   USE routine_map,                     ONLY: routine_map_type
+   USE callgraph, ONLY: callgraph_type
+   USE list_callstackentry, ONLY: list_callstackentry_type
+   USE list_routinestat, ONLY: list_routinestat_type
+   USE routine_map, ONLY: routine_map_type
 
    IMPLICIT NONE
    PRIVATE

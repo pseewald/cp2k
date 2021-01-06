@@ -11,28 +11,28 @@
 !> \author Teodoro Laino
 ! **************************************************************************************************
 MODULE qmmm_elpot
-   USE cell_types,                      ONLY: cell_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE input_constants,                 ONLY: do_qmmm_coulomb,&
-                                              do_qmmm_gauss,&
-                                              do_qmmm_pcharge,&
-                                              do_qmmm_swave
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: rootpi
-   USE memory_utilities,                ONLY: reallocate
-   USE qmmm_gaussian_types,             ONLY: qmmm_gaussian_p_type,&
-                                              qmmm_gaussian_type
-   USE qmmm_types_low,                  ONLY: qmmm_Pot_Type,&
-                                              qmmm_pot_p_type
+   USE cell_types, ONLY: cell_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE input_constants, ONLY: do_qmmm_coulomb, &
+                              do_qmmm_gauss, &
+                              do_qmmm_pcharge, &
+                              do_qmmm_swave
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mathconstants, ONLY: rootpi
+   USE memory_utilities, ONLY: reallocate
+   USE qmmm_gaussian_types, ONLY: qmmm_gaussian_p_type, &
+                                  qmmm_gaussian_type
+   USE qmmm_types_low, ONLY: qmmm_Pot_Type, &
+                             qmmm_pot_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -217,7 +217,7 @@ CONTAINS
                Ndim = SIZE(mm_atom_index)
                mm_atom_index(Ndim) = J
                CALL reallocate(mm_atom_index, 1, Ndim + 1)
-            ENDIF
+            END IF
          END DO
          CALL reallocate(mm_atom_index, 1, Ndim)
 

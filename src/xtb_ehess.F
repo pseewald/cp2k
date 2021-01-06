@@ -10,50 +10,50 @@
 !> \author JGH
 ! **************************************************************************************************
 MODULE xtb_ehess
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE atprop_types,                    ONLY: atprop_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_iterator_blocks_left,&
-                                              dbcsr_iterator_next_block,&
-                                              dbcsr_iterator_start,&
-                                              dbcsr_iterator_stop,&
-                                              dbcsr_iterator_type,&
-                                              dbcsr_p_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_environment_type
-   USE ewald_methods_tb,                ONLY: tb_ewald_overlap,&
-                                              tb_spme_evaluate
-   USE ewald_pw_types,                  ONLY: ewald_pw_type
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: oorootpi,&
-                                              pi
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE pw_poisson_types,                ONLY: do_ewald_ewald,&
-                                              do_ewald_none,&
-                                              do_ewald_pme,&
-                                              do_ewald_spme
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_info,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type
-   USE virial_types,                    ONLY: virial_type
-   USE xtb_coulomb,                     ONLY: gamma_rab_sr
-   USE xtb_types,                       ONLY: get_xtb_atom_param,&
-                                              xtb_atom_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE atprop_types, ONLY: atprop_type
+   USE cell_types, ONLY: cell_type, &
+                         get_cell, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_get_block_p, &
+                        dbcsr_iterator_blocks_left, &
+                        dbcsr_iterator_next_block, &
+                        dbcsr_iterator_start, &
+                        dbcsr_iterator_stop, &
+                        dbcsr_iterator_type, &
+                        dbcsr_p_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_environment_type
+   USE ewald_methods_tb, ONLY: tb_ewald_overlap, &
+                               tb_spme_evaluate
+   USE ewald_pw_types, ONLY: ewald_pw_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: oorootpi, &
+                            pi
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE pw_poisson_types, ONLY: do_ewald_ewald, &
+                               do_ewald_none, &
+                               do_ewald_pme, &
+                               do_ewald_spme
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_info, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type
+   USE virial_types, ONLY: virial_type
+   USE xtb_coulomb, ONLY: gamma_rab_sr
+   USE xtb_types, ONLY: get_xtb_atom_param, &
+                        xtb_atom_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -84,7 +84,7 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'xtb_coulomb_hessian'
 
       INTEGER :: blk, ewald_type, handle, i, ia, iatom, icol, ikind, irow, is, j, jatom, jkind, &
-         la, lb, lmaxa, lmaxb, natom, natorb_a, natorb_b, ni, nj, nkind, nmat, za, zb
+                 la, lb, lmaxa, lmaxb, natom, natorb_a, natorb_b, ni, nj, nkind, nmat, za, zb
       INTEGER, DIMENSION(25)                             :: laoa, laob
       INTEGER, DIMENSION(3)                              :: cellind, periodic
       INTEGER, DIMENSION(:), POINTER                     :: kind_of
@@ -265,7 +265,7 @@ CONTAINS
             ksblock = ksblock - gmij*sblock
          END DO
          DEALLOCATE (gcij)
-      ENDDO
+      END DO
       CALL dbcsr_iterator_stop(iter)
 
       IF (dft_control%qs_control%xtb_control%tb3_interaction) THEN
@@ -339,7 +339,7 @@ CONTAINS
             CPASSERT(found)
             ksblock = ksblock + gmij*sblock
          END DO
-      ENDDO
+      END DO
       CALL dbcsr_iterator_stop(iter)
       DEALLOCATE (kind_of)
 

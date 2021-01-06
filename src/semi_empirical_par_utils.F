@@ -15,16 +15,16 @@
 ! **************************************************************************************************
 MODULE semi_empirical_par_utils
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fac
-   USE mathlib,                         ONLY: binomial
-   USE physcon,                         ONLY: bohr,&
-                                              evolt
-   USE semi_empirical_int_arrays,       ONLY: int_ij,&
-                                              int_kl,&
-                                              int_onec2el
-   USE semi_empirical_types,            ONLY: get_se_param,&
-                                              semi_empirical_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fac
+   USE mathlib, ONLY: binomial
+   USE physcon, ONLY: bohr, &
+                      evolt
+   USE semi_empirical_int_arrays, ONLY: int_ij, &
+                                        int_kl, &
+                                        int_onec2el
+   USE semi_empirical_types, ONLY: get_se_param, &
+                                   semi_empirical_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -333,8 +333,8 @@ CONTAINS
 
       INTEGER                                            :: iod, iop, ios, j, jmax, k, l
       REAL(KIND=dp) :: ad, am, aq, d1, d2, d3, dd, df, eisol, gdd1, gp2, gp2c, gpp, gppc, gqq, &
-         gsp, gspc, gss, gssc, hpp, hpp1, hpp2, hsp, hsp1, hsp2, hspc, p, p4, q1, q2, q3, qf, qn, &
-         qq, udd, upp, uss, zp, zs
+                       gsp, gspc, gss, gssc, hpp, hpp1, hpp2, hsp, hsp1, hsp2, hspc, p, p4, q1, q2, q3, qf, qn, &
+                       qq, udd, upp, uss, zp, zs
 
       IF (.NOT. sep%defined) RETURN
       uss = sep%uss

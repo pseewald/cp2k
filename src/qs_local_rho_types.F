@@ -7,18 +7,18 @@
 ! **************************************************************************************************
 MODULE qs_local_rho_types
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fourpi,&
-                                              pi
-   USE memory_utilities,                ONLY: reallocate
-   USE qs_grid_atom,                    ONLY: grid_atom_type
-   USE qs_harmonics_atom,               ONLY: harmonics_atom_type
-   USE qs_rho0_types,                   ONLY: deallocate_rho0_atom,&
-                                              deallocate_rho0_mpole,&
-                                              rho0_atom_type,&
-                                              rho0_mpole_type
-   USE qs_rho_atom_types,               ONLY: deallocate_rho_atom_set,&
-                                              rho_atom_type
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fourpi, &
+                            pi
+   USE memory_utilities, ONLY: reallocate
+   USE qs_grid_atom, ONLY: grid_atom_type
+   USE qs_harmonics_atom, ONLY: harmonics_atom_type
+   USE qs_rho0_types, ONLY: deallocate_rho0_atom, &
+                            deallocate_rho0_mpole, &
+                            rho0_atom_type, &
+                            rho0_mpole_type
+   USE qs_rho_atom_types, ONLY: deallocate_rho_atom_set, &
+                                rho_atom_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -80,7 +80,7 @@ CONTAINS
          NULLIFY (rhoz_set(ikind)%r_coef)
          NULLIFY (rhoz_set(ikind)%dr_coef)
          NULLIFY (rhoz_set(ikind)%vr_coef)
-      ENDDO
+      END DO
 
    END SUBROUTINE allocate_rhoz
 
@@ -226,7 +226,7 @@ CONTAINS
 
          IF (ASSOCIATED(local_rho_set%rhoz_set)) THEN
             CALL deallocate_rhoz(local_rho_set%rhoz_set)
-         ENDIF
+         END IF
 
          DEALLOCATE (local_rho_set)
       END IF
@@ -255,28 +255,28 @@ CONTAINS
       IF (PRESENT(rho_atom_set)) THEN
          IF (ASSOCIATED(local_rho_set%rho_atom_set)) THEN
             CALL deallocate_rho_atom_set(local_rho_set%rho_atom_set)
-         ENDIF
+         END IF
          local_rho_set%rho_atom_set => rho_atom_set
       END IF
 
       IF (PRESENT(rho0_atom_set)) THEN
          IF (ASSOCIATED(local_rho_set%rho0_atom_set)) THEN
             CALL deallocate_rho0_atom(local_rho_set%rho0_atom_set)
-         ENDIF
+         END IF
          local_rho_set%rho0_atom_set => rho0_atom_set
       END IF
 
       IF (PRESENT(rho0_mpole)) THEN
          IF (ASSOCIATED(local_rho_set%rho0_mpole)) THEN
             CALL deallocate_rho0_mpole(local_rho_set%rho0_mpole)
-         ENDIF
+         END IF
          local_rho_set%rho0_mpole => rho0_mpole
       END IF
 
       IF (PRESENT(rhoz_set)) THEN
          IF (ASSOCIATED(local_rho_set%rhoz_set)) THEN
             CALL deallocate_rhoz(local_rho_set%rhoz_set)
-         ENDIF
+         END IF
          local_rho_set%rhoz_set => rhoz_set
       END IF
 

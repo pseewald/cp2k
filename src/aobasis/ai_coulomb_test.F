@@ -13,13 +13,13 @@
 ! **************************************************************************************************
 MODULE ai_coulomb_test
 
-   USE ai_coulomb,                      ONLY: coulomb2
-   USE kinds,                           ONLY: dp
-   USE machine,                         ONLY: m_walltime
-   USE orbital_pointers,                ONLY: deallocate_orbital_pointers,&
-                                              init_orbital_pointers,&
-                                              nco,&
-                                              ncoset
+   USE ai_coulomb, ONLY: coulomb2
+   USE kinds, ONLY: dp
+   USE machine, ONLY: m_walltime
+   USE orbital_pointers, ONLY: deallocate_orbital_pointers, &
+                               init_orbital_pointers, &
+                               nco, &
+                               ncoset
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

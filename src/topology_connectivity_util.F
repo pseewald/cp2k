@@ -12,34 +12,34 @@
 ! **************************************************************************************************
 
 MODULE topology_connectivity_util
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE force_field_kind_types,          ONLY: do_ff_charmm,&
-                                              do_ff_harmonic
-   USE input_constants,                 ONLY: do_conn_g87,&
-                                              do_conn_g96,&
-                                              do_conn_user
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length
-   USE memory_utilities,                ONLY: reallocate
-   USE molecule_kind_types,             ONLY: &
-        allocate_molecule_kind_set, atom_type, bend_type, bond_type, get_molecule_kind, impr_type, &
-        molecule_kind_type, opbend_type, set_molecule_kind, torsion_type, ub_type
-   USE molecule_types,                  ONLY: allocate_molecule_set,&
-                                              get_molecule,&
-                                              local_states_type,&
-                                              molecule_type,&
-                                              set_molecule,&
-                                              set_molecule_set
-   USE string_table,                    ONLY: id2str
-   USE topology_types,                  ONLY: atom_info_type,&
-                                              connectivity_info_type,&
-                                              topology_parameters_type
-   USE util,                            ONLY: sort
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE force_field_kind_types, ONLY: do_ff_charmm, &
+                                     do_ff_harmonic
+   USE input_constants, ONLY: do_conn_g87, &
+                              do_conn_g96, &
+                              do_conn_user
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length
+   USE memory_utilities, ONLY: reallocate
+   USE molecule_kind_types, ONLY: &
+      allocate_molecule_kind_set, atom_type, bend_type, bond_type, get_molecule_kind, impr_type, &
+      molecule_kind_type, opbend_type, set_molecule_kind, torsion_type, ub_type
+   USE molecule_types, ONLY: allocate_molecule_set, &
+                             get_molecule, &
+                             local_states_type, &
+                             molecule_type, &
+                             set_molecule, &
+                             set_molecule_set
+   USE string_table, ONLY: id2str
+   USE topology_types, ONLY: atom_info_type, &
+                             connectivity_info_type, &
+                             topology_parameters_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -71,13 +71,13 @@ CONTAINS
 
       CHARACTER(LEN=default_string_length)               :: name
       INTEGER :: counter, first, handle, handle2, i, ibend, ibond, idim, iimpr, ikind, imol, &
-         inter_bends, inter_bonds, inter_imprs, inter_torsions, inter_ubs, intra_bends, &
-         intra_bonds, intra_imprs, intra_torsions, intra_ubs, inum, ires, istart_mol, istart_typ, &
-         itorsion, ityp, iub, iw, j, j1, j2, j3, j4, jind, last, min_index, natom, nelectron, &
-         nsgf, nval_tot1, nval_tot2, nvar1, nvar2, output_unit, stat
+                 inter_bends, inter_bonds, inter_imprs, inter_torsions, inter_ubs, intra_bends, &
+                 intra_bonds, intra_imprs, intra_torsions, intra_ubs, inum, ires, istart_mol, istart_typ, &
+                 itorsion, ityp, iub, iw, j, j1, j2, j3, j4, jind, last, min_index, natom, nelectron, &
+                 nsgf, nval_tot1, nval_tot2, nvar1, nvar2, output_unit, stat
       INTEGER, DIMENSION(:), POINTER :: c_var_a, c_var_b, c_var_c, c_var_d, c_var_type, &
-         first_list, last_list, map_atom_mol, map_atom_type, map_cvar_mol, map_cvars, map_var_mol, &
-         map_vars, molecule_list
+                                        first_list, last_list, map_atom_mol, map_atom_type, map_cvar_mol, map_cvars, map_var_mol, &
+                                        map_vars, molecule_list
       INTEGER, DIMENSION(:, :), POINTER                  :: bnd_ctype, bnd_type
       LOGICAL                                            :: found, found_last
       TYPE(atom_info_type), POINTER                      :: atom_info

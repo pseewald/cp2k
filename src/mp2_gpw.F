@@ -12,96 +12,96 @@
 !>      07.2019 split from mp2_gpw.F [Frederick Stein]
 ! **************************************************************************************************
 MODULE mp2_gpw
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              get_cell
-   USE cp_blacs_env,                    ONLY: BLACS_GRID_SQUARE,&
-                                              cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: cp_dbcsr_dist2d_to_dist,&
-                                              cp_dbcsr_m_by_n_from_row_template
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_type
-   USE cp_log_handling,                 ONLY: cp_add_default_logger,&
-                                              cp_get_default_logger,&
-                                              cp_logger_create,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_release,&
-                                              cp_logger_set,&
-                                              cp_logger_type,&
-                                              cp_rm_default_logger
-   USE cp_para_env,                     ONLY: cp_para_env_create,&
-                                              cp_para_env_release
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_clear_mempools, dbcsr_copy, dbcsr_create, dbcsr_distribution_release, &
-        dbcsr_distribution_type, dbcsr_filter, dbcsr_init_p, dbcsr_iterator_blocks_left, &
-        dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
-        dbcsr_p_type, dbcsr_release, dbcsr_reserve_all_blocks, dbcsr_type, dbcsr_type_no_symmetry, &
-        dbcsr_type_real_default, dbcsr_type_symmetric
-   USE dbcsr_tensor_api,                ONLY: dbcsr_t_type
-   USE distribution_1d_types,           ONLY: distribution_1d_release,&
-                                              distribution_1d_type
-   USE distribution_2d_types,           ONLY: distribution_2d_release,&
-                                              distribution_2d_type
-   USE distribution_methods,            ONLY: distribute_molecules_1d,&
-                                              distribute_molecules_2d
-   USE group_dist_types,                ONLY: create_group_dist,&
-                                              get_group_dist,&
-                                              group_dist_d1_type,&
-                                              release_group_dist
-   USE hfx_types,                       ONLY: block_ind_type,&
-                                              hfx_compression_type
-   USE input_constants,                 ONLY: &
-        do_eri_gpw, do_eri_mme, do_eri_os, do_potential_coulomb, do_potential_id, &
-        do_potential_long, do_potential_truncated, eri_default, mp2_method_gpw, ri_default, &
-        ri_mp2_method_gpw
-   USE input_section_types,             ONLY: section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE kpoint_types,                    ONLY: kpoint_type
-   USE libint_wrapper,                  ONLY: cp_libint_static_cleanup,&
-                                              cp_libint_static_init
-   USE machine,                         ONLY: default_output_unit,&
-                                              m_flush
-   USE message_passing,                 ONLY: mp_comm_split_direct,&
-                                              mp_max,&
-                                              mp_sendrecv
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE mp2_cphf,                        ONLY: solve_z_vector_eq
-   USE mp2_gpw_method,                  ONLY: mp2_gpw_compute
-   USE mp2_integrals,                   ONLY: mp2_ri_gpw_compute_in
-   USE mp2_ri_gpw,                      ONLY: mp2_ri_gpw_compute_en
-   USE mp2_ri_grad,                     ONLY: calc_ri_mp2_nonsep
-   USE mp2_types,                       ONLY: mp2_type
-   USE particle_methods,                ONLY: get_particle_set
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_integral_utils,               ONLY: basis_set_list_setup
-   USE qs_interactions,                 ONLY: init_interaction_radii
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_ks_types,                     ONLY: qs_ks_env_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type,&
-                                              release_neighbor_list_sets
-   USE qs_neighbor_lists,               ONLY: atom2d_build,&
-                                              atom2d_cleanup,&
-                                              build_neighbor_lists,&
-                                              local_atoms_type,&
-                                              pair_radius_setup
-   USE rpa_main,                        ONLY: rpa_ri_compute_en
-   USE rpa_rse,                         ONLY: rse_energy
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cell_types, ONLY: cell_type, &
+                         get_cell
+   USE cp_blacs_env, ONLY: BLACS_GRID_SQUARE, &
+                           cp_blacs_env_create, &
+                           cp_blacs_env_release, &
+                           cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: cp_dbcsr_dist2d_to_dist, &
+                                  cp_dbcsr_m_by_n_from_row_template
+   USE cp_fm_struct, ONLY: cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_type
+   USE cp_log_handling, ONLY: cp_add_default_logger, &
+                              cp_get_default_logger, &
+                              cp_logger_create, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_release, &
+                              cp_logger_set, &
+                              cp_logger_type, &
+                              cp_rm_default_logger
+   USE cp_para_env, ONLY: cp_para_env_create, &
+                          cp_para_env_release
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_clear_mempools, dbcsr_copy, dbcsr_create, dbcsr_distribution_release, &
+      dbcsr_distribution_type, dbcsr_filter, dbcsr_init_p, dbcsr_iterator_blocks_left, &
+      dbcsr_iterator_next_block, dbcsr_iterator_start, dbcsr_iterator_stop, dbcsr_iterator_type, &
+      dbcsr_p_type, dbcsr_release, dbcsr_reserve_all_blocks, dbcsr_type, dbcsr_type_no_symmetry, &
+      dbcsr_type_real_default, dbcsr_type_symmetric
+   USE dbcsr_tensor_api, ONLY: dbcsr_t_type
+   USE distribution_1d_types, ONLY: distribution_1d_release, &
+                                    distribution_1d_type
+   USE distribution_2d_types, ONLY: distribution_2d_release, &
+                                    distribution_2d_type
+   USE distribution_methods, ONLY: distribute_molecules_1d, &
+                                   distribute_molecules_2d
+   USE group_dist_types, ONLY: create_group_dist, &
+                               get_group_dist, &
+                               group_dist_d1_type, &
+                               release_group_dist
+   USE hfx_types, ONLY: block_ind_type, &
+                        hfx_compression_type
+   USE input_constants, ONLY: &
+      do_eri_gpw, do_eri_mme, do_eri_os, do_potential_coulomb, do_potential_id, &
+      do_potential_long, do_potential_truncated, eri_default, mp2_method_gpw, ri_default, &
+      ri_mp2_method_gpw
+   USE input_section_types, ONLY: section_vals_val_get
+   USE kinds, ONLY: dp
+   USE kpoint_types, ONLY: kpoint_type
+   USE libint_wrapper, ONLY: cp_libint_static_cleanup, &
+                             cp_libint_static_init
+   USE machine, ONLY: default_output_unit, &
+                      m_flush
+   USE message_passing, ONLY: mp_comm_split_direct, &
+                              mp_max, &
+                              mp_sendrecv
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: molecule_type
+   USE mp2_cphf, ONLY: solve_z_vector_eq
+   USE mp2_gpw_method, ONLY: mp2_gpw_compute
+   USE mp2_integrals, ONLY: mp2_ri_gpw_compute_in
+   USE mp2_ri_gpw, ONLY: mp2_ri_gpw_compute_en
+   USE mp2_ri_grad, ONLY: calc_ri_mp2_nonsep
+   USE mp2_types, ONLY: mp2_type
+   USE particle_methods, ONLY: get_particle_set
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_integral_utils, ONLY: basis_set_list_setup
+   USE qs_interactions, ONLY: init_interaction_radii
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_ks_types, ONLY: qs_ks_env_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type, &
+                                     release_neighbor_list_sets
+   USE qs_neighbor_lists, ONLY: atom2d_build, &
+                                atom2d_cleanup, &
+                                build_neighbor_lists, &
+                                local_atoms_type, &
+                                pair_radius_setup
+   USE rpa_main, ONLY: rpa_ri_compute_en
+   USE rpa_rse, ONLY: rse_energy
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -149,17 +149,17 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'mp2_gpw_main'
 
       INTEGER :: blacs_grid_layout, color_sub, comm_sub, dimen, dimen_RI, dimen_RI_red, &
-         eri_method, gw_corr_lev_occ, gw_corr_lev_occ_beta, gw_corr_lev_virt, &
-         gw_corr_lev_virt_beta, handle, homo, homo_beta, local_unit_nr, my_group_L_end, &
-         my_group_L_size, my_group_L_start, nelectron, nelectron_beta, nmo, nspins, &
-         potential_type, ri_metric_type
+                 eri_method, gw_corr_lev_occ, gw_corr_lev_occ_beta, gw_corr_lev_virt, &
+                 gw_corr_lev_virt_beta, handle, homo, homo_beta, local_unit_nr, my_group_L_end, &
+                 my_group_L_size, my_group_L_start, nelectron, nelectron_beta, nmo, nspins, &
+                 potential_type, ri_metric_type
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: ends_array_mc, ends_array_mc_block, &
                                                             starts_array_mc, starts_array_mc_block
       INTEGER, DIMENSION(3)                              :: periodic
       LOGICAL :: blacs_repeatable, do_bse, do_gpw, do_im_time, do_kpoints_cubic_RPA, my_do_gw, &
-         my_do_ri_mp2, my_do_ri_rpa, my_do_ri_sos_laplace_mp2
+                 my_do_ri_mp2, my_do_ri_rpa, my_do_ri_sos_laplace_mp2
       REAL(KIND=dp) :: Emp2_AB, Emp2_BB, Emp2_Cou_BB, Emp2_d2_AB, Emp2_d_AB, Emp2_EX_BB, &
-         eps_gvg_rspace_old, eps_pgf_orb_old, eps_rho_rspace_old
+                       eps_gvg_rspace_old, eps_pgf_orb_old, eps_rho_rspace_old
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:)           :: Eigenval, Eigenval_beta
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :, :)     :: BIb_C, BIb_C_beta, BIb_C_bse_ab, &
                                                             BIb_C_bse_ij, BIb_C_gw, BIb_C_gw_beta
@@ -179,7 +179,7 @@ CONTAINS
       TYPE(dbcsr_t_type)                                 :: t_3c_M
       TYPE(dbcsr_t_type), ALLOCATABLE, DIMENSION(:, :)   :: t_3c_O
       TYPE(dbcsr_type), POINTER :: mo_coeff_all, mo_coeff_all_beta, mo_coeff_gw, mo_coeff_gw_beta, &
-         mo_coeff_o, mo_coeff_o_beta, mo_coeff_v, mo_coeff_v_beta
+                                   mo_coeff_o, mo_coeff_o_beta, mo_coeff_v, mo_coeff_v_beta
       TYPE(dft_control_type), POINTER                    :: dft_control
       TYPE(group_dist_d1_type)                           :: gd_array, gd_B_all, gd_B_occ_bse, &
                                                             gd_B_virt_bse, gd_B_virtual, &
@@ -223,7 +223,7 @@ CONTAINS
 
       IF (do_kpoints_cubic_RPA .AND. mp2_env%ri_rpa%do_ri_g0w0) THEN
          CPABORT("Full RPA k-points (DO_KPOINTS in LOW_SCALING section) not implemented with GW")
-      ENDIF
+      END IF
 
       ! Get the number of spins
       nspins = SIZE(mos_mp2)
@@ -242,7 +242,7 @@ CONTAINS
          CALL get_mo_set(mo_set=mos_mp2(2)%mo_set, nelectron=nelectron_beta, &
                          eigenvalues=mo_eigenvalues_beta, homo=homo_beta, &
                          mo_coeff=mo_coeff_beta)
-      ENDIF
+      END IF
 
       CALL get_mo_set(mo_set=mos(1)%mo_set)
 
@@ -258,7 +258,7 @@ CONTAINS
          local_unit_nr = cp_logger_get_default_unit_nr(logger, local=.FALSE.)
       ELSE
          local_unit_nr = default_output_unit
-      ENDIF
+      END IF
 
       ! get stuff
       CALL get_qs_env(qs_env, &
@@ -281,8 +281,8 @@ CONTAINS
                mp2_env%ri_metric%potential_type = do_potential_id
             ELSE
                mp2_env%ri_metric%potential_type = do_potential_truncated
-            ENDIF
-         ENDIF
+            END IF
+         END IF
 
          ! statically initialize libint
          CALL cp_libint_static_init()
@@ -309,7 +309,7 @@ CONTAINS
          WRITE (UNIT=unit_nr, FMT="(T3,A,T71,F10.1)") &
             "GPW_INFO| Relative density cutoff [a.u.]:", mp2_env%mp2_gpw%relative_cutoff*0.5_dp
          CALL m_flush(unit_nr)
-      ENDIF
+      END IF
 
       ! a logger
       NULLIFY (logger_sub)
@@ -366,7 +366,7 @@ CONTAINS
       IF (nspins == 2) THEN
          ALLOCATE (Eigenval_beta(dimen))
          Eigenval_beta(:) = mo_eigenvalues_beta(:)
-      ENDIF
+      END IF
 
       ! for imag. time, we do not need this
       IF (.NOT. do_im_time) THEN
@@ -482,7 +482,7 @@ CONTAINS
             NULLIFY (mp2_env%ri_grad%mo_coeff_v_beta)
             CALL dbcsr_init_p(mp2_env%ri_grad%mo_coeff_v_beta)
             CALL dbcsr_copy(mp2_env%ri_grad%mo_coeff_v_beta, mo_coeff_v_beta, name="mo_coeff_v_b")
-         ENDIF
+         END IF
          CALL get_group_dist(gd_array, color_sub, my_group_L_start, my_group_L_end, my_group_L_size)
       END IF
       ! Copy mo coeffs for RPA AXK
@@ -493,7 +493,7 @@ CONTAINS
          NULLIFY (mp2_env%ri_rpa%mo_coeff_v)
          CALL dbcsr_init_p(mp2_env%ri_rpa%mo_coeff_v)
          CALL dbcsr_copy(mp2_env%ri_rpa%mo_coeff_v, mo_coeff_v, name="mo_coeff_v")
-      ENDIF
+      END IF
 
       IF (.NOT. do_im_time) THEN
 
@@ -527,7 +527,7 @@ CONTAINS
 
             CALL release_neighbor_list_sets(sab_orb_sub)
 
-         ENDIF
+         END IF
 
       END IF
 
@@ -649,7 +649,7 @@ CONTAINS
                                           my_group_L_start, my_group_L_end, my_group_L_size, &
                                           sab_orb_sub, mat_munu, &
                                           blacs_env_sub)
-               ENDIF
+               END IF
 
                CALL dbcsr_release(mp2_env%ri_grad%mo_coeff_o)
                DEALLOCATE (mp2_env%ri_grad%mo_coeff_o)
@@ -663,7 +663,7 @@ CONTAINS
 
                   CALL dbcsr_release(mp2_env%ri_grad%mo_coeff_v_beta)
                   DEALLOCATE (mp2_env%ri_grad%mo_coeff_v_beta)
-               ENDIF
+               END IF
 
                CALL dbcsr_release(mat_munu%matrix)
                DEALLOCATE (mat_munu%matrix)
@@ -724,7 +724,7 @@ CONTAINS
          ELSE
             CALL solve_z_vector_eq(qs_env, mp2_env, para_env, dft_control, &
                                    atomic_kind_set, mo_coeff, nmo, homo, Eigenval, unit_nr)
-         ENDIF
+         END IF
       END IF
 
       DEALLOCATE (Eigenval)
@@ -771,8 +771,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'replicate_mat_to_subgroup'
 
       INTEGER :: handle, i_global, iiB, j_global, jjB, max_row_col_local, my_mu_end, my_mu_size, &
-         my_mu_start, ncol_local, ncol_rec, nrow_local, nrow_rec, proc_receive, &
-         proc_receive_static, proc_send, proc_send_static, proc_shift, virtual
+                 my_mu_start, ncol_local, ncol_rec, nrow_local, nrow_rec, proc_receive, &
+                 proc_receive_static, proc_send, proc_send_static, proc_shift, virtual
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: proc_map
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: local_col_row_info, rec_col_row_info
       INTEGER, DIMENSION(:), POINTER                     :: col_indices, col_indices_rec, &
@@ -982,7 +982,7 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'build_mo_coeff_v_o_all'
 
       INTEGER :: blk, col, col_offset, col_size, handle, i, i_global, j, j_global, proc_receive, &
-         proc_send, proc_shift, rec_mu_end, rec_mu_size, rec_mu_start, row, row_offset, row_size
+                 proc_send, proc_shift, rec_mu_end, rec_mu_size, rec_mu_start, row, row_offset, row_size
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :)        :: rec_C
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: data_block
       TYPE(dbcsr_iterator_type)                          :: iter
@@ -1007,10 +1007,10 @@ CONTAINS
                DO j = 1, col_size
                   j_global = col_offset + j - 1
                   data_block(i, j) = Cread(i_global - my_mu_start + 1, col_offset + j - 1)
-               ENDDO
+               END DO
             END IF
-         ENDDO
-      ENDDO
+         END DO
+      END DO
       CALL dbcsr_iterator_stop(iter)
 
       ! start ring communication in the subgroup for collecting the data from the other
@@ -1039,10 +1039,10 @@ CONTAINS
                   DO j = 1, col_size
                      j_global = col_offset + j - 1
                      data_block(i, j) = rec_C(i_global - rec_mu_start + 1, col_offset + j - 1)
-                  ENDDO
+                  END DO
                END IF
-            ENDDO
-         ENDDO
+            END DO
+         END DO
          CALL dbcsr_iterator_stop(iter)
 
          DEALLOCATE (rec_C)
@@ -1193,7 +1193,7 @@ CONTAINS
          ELSE
             orb_present(ikind) = .FALSE.
             orb_radius(ikind) = 0.0_dp
-         ENDIF
+         END IF
       END DO
 
       CALL pair_radius_setup(orb_present, orb_present, orb_radius, orb_radius, pair_radius)

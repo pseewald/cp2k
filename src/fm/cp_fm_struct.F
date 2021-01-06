@@ -12,19 +12,19 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE cp_fm_struct
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_release,&
-                                              cp_blacs_env_retain,&
-                                              cp_blacs_env_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_para_env,                     ONLY: cp_para_env_release,&
-                                              cp_para_env_retain
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE kinds,                           ONLY: dp
-   USE machine,                         ONLY: m_flush
-   USE message_passing,                 ONLY: mp_sum
+   USE cp_blacs_env, ONLY: cp_blacs_env_release, &
+                           cp_blacs_env_retain, &
+                           cp_blacs_env_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_para_env, ONLY: cp_para_env_release, &
+                          cp_para_env_retain
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE kinds, ONLY: dp
+   USE machine, ONLY: m_flush
+   USE message_passing, ONLY: mp_sum
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -257,7 +257,7 @@ CONTAINS
          WRITE (iunit, *) "ncol_locals", fmstruct%ncol_locals
          WRITE (iunit, *) "nrow_locals", fmstruct%nrow_locals
          CALL m_flush(iunit)
-      ENDIF
+      END IF
 
       IF (SUM(fmstruct%ncol_locals) .NE. fmstruct%ncol_global) &
          CPABORT("sum of local cols not equal global cols")
@@ -335,7 +335,7 @@ CONTAINS
             CALL cp_para_env_release(fmstruct%para_env)
             IF (ASSOCIATED(fmstruct%row_indices)) THEN
                DEALLOCATE (fmstruct%row_indices)
-            ENDIF
+            END IF
             IF (ASSOCIATED(fmstruct%col_indices)) THEN
                DEALLOCATE (fmstruct%col_indices)
             END IF
@@ -465,14 +465,14 @@ CONTAINS
             DO i = 1, SIZE(row_indices)
                row_indices(i) = &
                   indxl2g(i, fmstruct%nrow_block, myprow, fmstruct%first_p_pos(1), nprow)
-            ENDDO
+            END DO
 #else
             DO i = 1, SIZE(row_indices)
                row_indices(i) = i
-            ENDDO
+            END DO
 #endif
          END IF
-      ENDIF
+      END IF
 
       IF (PRESENT(col_indices)) THEN
          col_indices => fmstruct%col_indices
@@ -483,15 +483,15 @@ CONTAINS
             DO i = 1, SIZE(col_indices)
                col_indices(i) = &
                   indxl2g(i, fmstruct%ncol_block, mypcol, fmstruct%first_p_pos(2), npcol)
-            ENDDO
+            END DO
 #else
             DO i = 1, SIZE(col_indices)
                col_indices(i) = i
-            ENDDO
+            END DO
 #endif
          END IF
 
-      ENDIF
+      END IF
    END SUBROUTINE cp_fm_struct_get
 
 ! **************************************************************************************************
@@ -550,8 +550,8 @@ CONTAINS
       LOGICAL, INTENT(in)                                :: col, row
 
       INTEGER :: n_doubled_items_in_partially_filled_block, ncol_block, ncol_global, newdim_col, &
-         newdim_row, nfilled_blocks, nfilled_blocks_remain, nprocs_col, nprocs_row, nrow_block, &
-         nrow_global
+                 newdim_row, nfilled_blocks, nfilled_blocks_remain, nprocs_col, nprocs_row, nrow_block, &
+                 nrow_global
       TYPE(cp_para_env_type), POINTER                    :: para_env
 
       CALL cp_fm_struct_get(struct, nrow_global=nrow_global, &

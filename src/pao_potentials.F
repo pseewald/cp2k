@@ -10,23 +10,23 @@
 !> \author Ole Schuett
 ! **************************************************************************************************
 MODULE pao_potentials
-   USE ai_overlap,                      ONLY: overlap_aab
-   USE ao_util,                         ONLY: exp_radius
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE basis_set_types,                 ONLY: gto_basis_set_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: gamma1
-   USE mathlib,                         ONLY: multinomial
-   USE orbital_pointers,                ONLY: indco,&
-                                              ncoset,&
-                                              orbital_pointers_maxl => current_maxl
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
+   USE ai_overlap, ONLY: overlap_aab
+   USE ao_util, ONLY: exp_radius
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE basis_set_types, ONLY: gto_basis_set_type
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: gamma1
+   USE mathlib, ONLY: multinomial
+   USE orbital_pointers, ONLY: indco, &
+                               ncoset, &
+                               orbital_pointers_maxl => current_maxl
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -78,7 +78,7 @@ CONTAINS
          Rb = particle_set(jatom)%r
          Rab = pbc(ra, rb, cell)
          CALL pao_calc_gaussian(basis_set, block_V, Rab=Rab, lpot=0, beta=1.0_dp, weight=-1.0_dp)
-      ENDDO
+      END DO
 
       CALL timestop(handle)
    END SUBROUTINE pao_guess_initial_potential
@@ -111,8 +111,8 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'pao_calc_gaussian'
 
       INTEGER :: handle, i, ic, iset, ishell, ishell_abs, jset, jshell, jshell_abs, la1_max, &
-         la1_min, la2_max, la2_min, lb_max, lb_min, N, na1, na2, nb, ncfga1, ncfga2, ncfgb, &
-         npgfa1, npgfa2, npgfb
+                 la1_min, la2_max, la2_min, lb_max, lb_min, N, na1, na2, nb, ncfga1, ncfga2, ncfgb, &
+                 npgfa1, npgfa2, npgfb
       REAL(dp)                                           :: coeff, norm2
       REAL(dp), DIMENSION(:), POINTER                    :: rpgfa1, rpgfa2, rpgfb, zeta1, zeta2, zetb
       REAL(dp), DIMENSION(:, :), POINTER                 :: new_block_V, sab
@@ -134,12 +134,12 @@ CONTAINS
          CPASSERT(SIZE(block_V, 1) == N .AND. SIZE(block_V, 2) == N)
          ALLOCATE (new_block_V(N, N))
          new_block_V = 0.0_dp
-      ENDIF
+      END IF
       IF (PRESENT(block_D)) THEN
          CPASSERT(SIZE(block_D, 1) == N .AND. SIZE(block_D, 2) == N .AND. SIZE(block_D, 3) == 3)
          ALLOCATE (new_block_D(N, N, 3))
          new_block_D = 0.0_dp
-      ENDIF
+      END IF
 
       ! setup description of potential
       lb_min = lpot
@@ -163,11 +163,11 @@ CONTAINS
             jshell_abs = SUM(basis_set%nshell(1:jset - 1)) + jshell
             IF (MIN(ishell_abs, jshell_abs) /= min_shell) CYCLE
             IF (MAX(ishell_abs, jshell_abs) /= max_shell) CYCLE
-         ENDIF
+         END IF
          IF (PRESENT(min_l) .AND. PRESENT(min_l)) THEN
             IF (MIN(basis_set%l(ishell, iset), basis_set%l(jshell, jset)) /= min_l) CYCLE
             IF (MAX(basis_set%l(ishell, iset), basis_set%l(jshell, jset)) /= max_l) CYCLE
-         ENDIF
+         END IF
 
          ! setup iset
          la1_max = basis_set%l(ishell, iset)
@@ -195,7 +195,7 @@ CONTAINS
                              la2_max=la2_max, la2_min=la2_min, npgfa2=npgfa2, rpgfa2=rpgfa2, zeta2=zeta2, &
                              lb_max=lb_max, lb_min=lb_min, npgfb=npgfb, rpgfb=rpgfb, zetb=zetb, &
                              rab=Rab, saab=saab)
-         ENDIF
+         END IF
 
          IF (PRESENT(block_D)) THEN
             ALLOCATE (daab(na1, na2, nb, 3))
@@ -204,7 +204,7 @@ CONTAINS
                              la2_max=la2_max, la2_min=la2_min, npgfa2=npgfa2, rpgfa2=rpgfa2, zeta2=zeta2, &
                              lb_max=lb_max, lb_min=lb_min, npgfb=npgfb, rpgfb=rpgfb, zetb=zetb, &
                              rab=Rab, daab=daab)
-         ENDIF
+         END IF
 
          ! sum potential terms: POW(x**2 + y**2 + z**2, lpot/2)
          IF (PRESENT(block_V)) THEN
@@ -213,11 +213,11 @@ CONTAINS
             DO ic = 1, ncfgb
                coeff = multinomial(lpot/2, indco(:, ncoset(lpot - 1) + ic)/2)
                sab = sab + coeff*saab(:, :, ic)
-            ENDDO
+            END DO
             CALL my_contract(sab=sab, block=new_block_V, basis_set=basis_set, &
                              iset=iset, ishell=ishell, jset=jset, jshell=jshell)
             DEALLOCATE (sab, saab)
-         ENDIF
+         END IF
 
          IF (PRESENT(block_D)) THEN
             ALLOCATE (dab(na1, na2, 3))
@@ -225,17 +225,17 @@ CONTAINS
             DO ic = 1, ncfgb
                coeff = multinomial(lpot/2, indco(:, ncoset(lpot - 1) + ic)/2)
                dab = dab + coeff*daab(:, :, ic, :)
-            ENDDO
+            END DO
             DO i = 1, 3
                CALL my_contract(sab=dab(:, :, i), block=new_block_D(:, :, i), basis_set=basis_set, &
                                 iset=iset, ishell=ishell, jset=jset, jshell=jshell)
-            ENDDO
+            END DO
             DEALLOCATE (dab, daab)
-         ENDIF
-      ENDDO
-      ENDDO
-      ENDDO
-      ENDDO
+         END IF
+      END DO
+      END DO
+      END DO
+      END DO
 
       DEALLOCATE (rpgfb, zetb)
 
@@ -245,15 +245,15 @@ CONTAINS
          block_V = block_V + weight*new_block_V/SQRT(norm2)
          DEALLOCATE (new_block_V)
          block_V = 0.5_dp*(block_V + TRANSPOSE(block_V)) ! symmetrize
-      ENDIF
+      END IF
 
       IF (PRESENT(block_D)) THEN
          block_D = block_D + weight*new_block_D/SQRT(norm2)
          DEALLOCATE (new_block_D)
          DO i = 1, 3
             block_D(:, :, i) = 0.5_dp*(block_D(:, :, i) + TRANSPOSE(block_D(:, :, i))) ! symmetrize
-         ENDDO
-      ENDIF
+         END DO
+      END IF
 
       CALL timestop(handle)
    END SUBROUTINE pao_calc_gaussian
@@ -323,8 +323,8 @@ CONTAINS
 
          ! do the transformation
          V = V + MATMUL(TRANSPOSE(T1), MATMUL(S, T2))
-      ENDDO
-      ENDDO
+      END DO
+      END DO
 
    END SUBROUTINE my_contract
 

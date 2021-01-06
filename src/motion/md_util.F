@@ -11,21 +11,21 @@
 ! **************************************************************************************************
 MODULE md_util
 
-   USE cp_files,                        ONLY: close_file,&
-                                              open_file
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_generate_filename
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_cp2k_restarts,             ONLY: write_restart
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_path_length,&
-                                              dp
-   USE md_energies,                     ONLY: md_write_output
-   USE md_environment_types,            ONLY: md_environment_type
-   USE message_passing,                 ONLY: mp_bcast
+   USE cp_files, ONLY: close_file, &
+                       open_file
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_generate_filename
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_cp2k_restarts, ONLY: write_restart
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_path_length, &
+                    dp
+   USE md_energies, ONLY: md_write_output
+   USE md_environment_types, ONLY: md_environment_type
+   USE message_passing, ONLY: mp_bcast
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

@@ -15,9 +15,9 @@
 ! **************************************************************************************************
 MODULE bessel_lib
 
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fac,&
-                                              pi
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fac, &
+                            pi
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -38,9 +38,9 @@ CONTAINS
       REAL(KIND=dp)                                      :: bessk0
 
       REAL(KIND=dp), PARAMETER :: p1 = -0.57721566_dp, p2 = 0.42278420_dp, p3 = 0.23069756_dp, &
-         p4 = 0.3488590e-1_dp, p5 = 0.262698e-2_dp, p6 = 0.10750e-3_dp, p7 = 0.74e-5_dp, &
-         q1 = 1.25331414_dp, q2 = -0.7832358e-1_dp, q3 = 0.2189568e-1_dp, q4 = -0.1062446e-1_dp, &
-         q5 = 0.587872e-2_dp, q6 = -0.251540e-2_dp, q7 = 0.53208e-3_dp
+                                  p4 = 0.3488590e-1_dp, p5 = 0.262698e-2_dp, p6 = 0.10750e-3_dp, p7 = 0.74e-5_dp, &
+                                  q1 = 1.25331414_dp, q2 = -0.7832358e-1_dp, q3 = 0.2189568e-1_dp, q4 = -0.1062446e-1_dp, &
+                                  q5 = 0.587872e-2_dp, q6 = -0.251540e-2_dp, q7 = 0.53208e-3_dp
 
       REAL(KIND=dp)                                      :: y
 
@@ -67,9 +67,9 @@ CONTAINS
       REAL(KIND=dp)                                      :: bessk1
 
       REAL(KIND=dp), PARAMETER :: p1 = 1.0_dp, p2 = 0.15443144_dp, p3 = -0.67278579_dp, &
-         p4 = -0.18156897_dp, p5 = -0.1919402e-1_dp, p6 = -0.110404e-2_dp, p7 = -0.4686e-4_dp, &
-         q1 = 1.25331414_dp, q2 = 0.23498619_dp, q3 = -0.3655620e-1_dp, q4 = 0.1504268e-1_dp, &
-         q5 = -0.780353e-2_dp, q6 = 0.325614e-2_dp, q7 = -0.68245e-3_dp
+                                  p4 = -0.18156897_dp, p5 = -0.1919402e-1_dp, p6 = -0.110404e-2_dp, p7 = -0.4686e-4_dp, &
+                                  q1 = 1.25331414_dp, q2 = 0.23498619_dp, q3 = -0.3655620e-1_dp, q4 = 0.1504268e-1_dp, &
+                                  q5 = -0.780353e-2_dp, q6 = 0.325614e-2_dp, q7 = -0.68245e-3_dp
 
       REAL(KIND=dp)                                      :: y
 
@@ -97,10 +97,10 @@ CONTAINS
       REAL(KIND=dp)                                      :: bessi0
 
       REAL(KIND=dp), PARAMETER :: p1 = 1.0_dp, p2 = 3.5156229_dp, p3 = 3.0899424_dp, &
-         p4 = 1.2067492_dp, p5 = 0.2659732_dp, p6 = 0.360768e-1_dp, p7 = 0.45813e-2_dp, &
-         q1 = 0.39894228_dp, q2 = 0.1328592e-1_dp, q3 = 0.225319e-2_dp, q4 = -0.157565e-2_dp, &
-         q5 = 0.916281e-2_dp, q6 = -0.2057706e-1_dp, q7 = 0.2635537e-1_dp, q8 = -0.1647633e-1_dp, &
-         q9 = 0.392377e-2_dp
+                                  p4 = 1.2067492_dp, p5 = 0.2659732_dp, p6 = 0.360768e-1_dp, p7 = 0.45813e-2_dp, &
+                                  q1 = 0.39894228_dp, q2 = 0.1328592e-1_dp, q3 = 0.225319e-2_dp, q4 = -0.157565e-2_dp, &
+                                  q5 = 0.916281e-2_dp, q6 = -0.2057706e-1_dp, q7 = 0.2635537e-1_dp, q8 = -0.1647633e-1_dp, &
+                                  q9 = 0.392377e-2_dp
 
       REAL(KIND=dp)                                      :: ax, y
 
@@ -129,10 +129,10 @@ CONTAINS
       REAL(KIND=dp)                                      :: bessi1
 
       REAL(KIND=dp), PARAMETER :: p1 = 0.5_dp, p2 = 0.87890594_dp, p3 = 0.51498869_dp, &
-         p4 = 0.15084934e0_dp, p5 = 0.2658733e-1_dp, p6 = 0.301532e-2_dp, p7 = 0.32411e-3_dp, &
-         q1 = 0.39894228_dp, q2 = -0.3988024e-1_dp, q3 = -0.362018e-2_dp, q4 = 0.163801e-2_dp, &
-         q5 = -0.1031555e-1_dp, q6 = 0.2282967e-1_dp, q7 = -0.2895312e-1_dp, q8 = 0.1787654e-1_dp, &
-         q9 = -0.420059e-2_dp
+                                  p4 = 0.15084934e0_dp, p5 = 0.2658733e-1_dp, p6 = 0.301532e-2_dp, p7 = 0.32411e-3_dp, &
+                                  q1 = 0.39894228_dp, q2 = -0.3988024e-1_dp, q3 = -0.362018e-2_dp, q4 = 0.163801e-2_dp, &
+                                  q5 = -0.1031555e-1_dp, q6 = 0.2282967e-1_dp, q7 = -0.2895312e-1_dp, q8 = 0.1787654e-1_dp, &
+                                  q9 = -0.420059e-2_dp
 
       REAL(KIND=dp)                                      :: ax, y
 
@@ -208,7 +208,7 @@ CONTAINS
             fact = fact*xsq/REAL(i*isvar, KIND=dp)
             bessel0 = bessel0 + fact
             IF (ABS(fact) < tol) EXIT
-         ENDDO
+         END DO
          IF (ABS(fact) > tol) CPABORT("BESSEL0 NOT CONVERGED")
       END IF
 

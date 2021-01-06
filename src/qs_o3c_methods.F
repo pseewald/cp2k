@@ -11,19 +11,19 @@
 !>      - 11.2018 fixed OMP race condition in contract3_o3c routine (A.Bussy)
 ! **************************************************************************************************
 MODULE qs_o3c_methods
-   USE ai_contraction_sphi,             ONLY: abc_contract
-   USE ai_overlap3,                     ONLY: overlap3
-   USE basis_set_types,                 ONLY: gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_p_type,&
-                                              dbcsr_type
-   USE kinds,                           ONLY: dp
-   USE orbital_pointers,                ONLY: ncoset
-   USE qs_o3c_types,                    ONLY: &
-        get_o3c_container, get_o3c_iterator_info, get_o3c_vec, o3c_container_type, o3c_iterate, &
-        o3c_iterator_create, o3c_iterator_release, o3c_iterator_type, o3c_vec_type, &
-        set_o3c_container
+   USE ai_contraction_sphi, ONLY: abc_contract
+   USE ai_overlap3, ONLY: overlap3
+   USE basis_set_types, ONLY: gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE dbcsr_api, ONLY: dbcsr_get_block_p, &
+                        dbcsr_p_type, &
+                        dbcsr_type
+   USE kinds, ONLY: dp
+   USE orbital_pointers, ONLY: ncoset
+   USE qs_o3c_types, ONLY: &
+      get_o3c_container, get_o3c_iterator_info, get_o3c_vec, o3c_container_type, o3c_iterate, &
+      o3c_iterator_create, o3c_iterator_release, o3c_iterator_type, o3c_vec_type, &
+      set_o3c_container
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, omp_get_thread_num
 #include "./base/base_uses.f90"
@@ -53,8 +53,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'calculate_o3c_integrals'
 
       INTEGER :: egfa, egfb, egfc, handle, i, iatom, icol, ikind, irow, iset, ispin, j, jatom, &
-         jkind, jset, katom, kkind, kset, mepos, ncoa, ncob, ncoc, ni, nj, nk, nseta, nsetb, &
-         nsetc, nspin, nthread, sgfa, sgfb, sgfc
+                 jkind, jset, katom, kkind, kset, mepos, ncoa, ncob, ncoc, ni, nj, nk, nseta, nsetb, &
+                 nsetc, nspin, nthread, sgfa, sgfb, sgfc
       INTEGER, DIMENSION(:), POINTER                     :: la_max, la_min, lb_max, lb_min, lc_max, &
                                                             lc_min, npgfa, npgfb, npgfc, nsgfa, &
                                                             nsgfb, nsgfc

@@ -11,28 +11,28 @@
 !> \author jgh
 ! **************************************************************************************************
 MODULE cp_symmetry
-   USE atomic_kind_types,               ONLY: get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              real_to_scaled
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cryssym,                         ONLY: crys_sym_gen,&
-                                              csym_type,&
-                                              print_crys_symmetry,&
-                                              release_csym_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE molsym,                          ONLY: molecular_symmetry,&
-                                              molsym_type,&
-                                              print_symmetry,&
-                                              release_molsym
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: massunit
-   USE string_utilities,                ONLY: uppercase
+   USE atomic_kind_types, ONLY: get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         real_to_scaled
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cryssym, ONLY: crys_sym_gen, &
+                      csym_type, &
+                      print_crys_symmetry, &
+                      release_csym_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE molsym, ONLY: molecular_symmetry, &
+                     molsym_type, &
+                     print_symmetry, &
+                     release_molsym
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: massunit
+   USE string_utilities, ONLY: uppercase
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

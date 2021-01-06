@@ -11,42 +11,42 @@
 !> \author gtb, 05.02.2003
 ! **************************************************************************************************
 MODULE md_conserved_quantities
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE barostat_utils,                  ONLY: get_baro_energies
-   USE cell_types,                      ONLY: cell_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE extended_system_types,           ONLY: npt_info_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE input_constants,                 ONLY: &
-        isokin_ensemble, langevin_ensemble, npe_f_ensemble, npe_i_ensemble, &
-        nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, npt_f_ensemble, npt_i_ensemble, &
-        nve_ensemble, nvt_adiabatic_ensemble, nvt_ensemble, reftraj_ensemble
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: zero
-   USE md_ener_types,                   ONLY: md_ener_type,&
-                                              zero_md_ener
-   USE md_environment_types,            ONLY: get_md_env,&
-                                              md_environment_type,&
-                                              set_md_env
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: kelvin
-   USE qmmm_types,                      ONLY: qmmm_env_type
-   USE qmmm_types_low,                  ONLY: force_mixing_label_QM_dynamics
-   USE qmmmx_types,                     ONLY: qmmmx_env_type
-   USE shell_potential_types,           ONLY: shell_kind_type
-   USE simpar_types,                    ONLY: simpar_type
-   USE thermostat_types,                ONLY: thermostat_type
-   USE thermostat_utils,                ONLY: get_thermostat_energies
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE barostat_utils, ONLY: get_baro_energies
+   USE cell_types, ONLY: cell_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE extended_system_types, ONLY: npt_info_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE input_constants, ONLY: &
+      isokin_ensemble, langevin_ensemble, npe_f_ensemble, npe_i_ensemble, &
+      nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, npt_f_ensemble, npt_i_ensemble, &
+      nve_ensemble, nvt_adiabatic_ensemble, nvt_ensemble, reftraj_ensemble
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: zero
+   USE md_ener_types, ONLY: md_ener_type, &
+                            zero_md_ener
+   USE md_environment_types, ONLY: get_md_env, &
+                                   md_environment_type, &
+                                   set_md_env
+   USE message_passing, ONLY: mp_sum
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: kelvin
+   USE qmmm_types, ONLY: qmmm_env_type
+   USE qmmm_types_low, ONLY: force_mixing_label_QM_dynamics
+   USE qmmmx_types, ONLY: qmmmx_env_type
+   USE shell_potential_types, ONLY: shell_kind_type
+   USE simpar_types, ONLY: simpar_type
+   USE thermostat_types, ONLY: thermostat_type
+   USE thermostat_utils, ONLY: get_thermostat_energies
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

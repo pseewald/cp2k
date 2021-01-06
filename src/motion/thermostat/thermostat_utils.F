@@ -10,55 +10,55 @@
 !> \author teo [tlaino] - University of Zurich - 10.2007
 ! **************************************************************************************************
 MODULE thermostat_utils
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE extended_system_types,           ONLY: lnhc_parameters_type,&
-                                              map_info_type,&
-                                              npt_info_type
-   USE input_constants,                 ONLY: &
-        do_constr_atomic, do_constr_molec, do_region_defined, do_region_global, do_region_massive, &
-        do_region_molecule, do_thermo_al, do_thermo_communication, do_thermo_csvr, do_thermo_gle, &
-        do_thermo_no_communication, do_thermo_nose, isokin_ensemble, langevin_ensemble, &
-        npe_f_ensemble, npe_i_ensemble, nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, &
-        npt_f_ensemble, npt_i_ensemble, nve_ensemble, nvt_adiabatic_ensemble, nvt_ensemble, &
-        reftraj_ensemble
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE machine,                         ONLY: m_flush
-   USE message_passing,                 ONLY: mp_sum
-   USE molecule_kind_types,             ONLY: get_molecule_kind,&
-                                              get_molecule_kind_set,&
-                                              molecule_kind_type
-   USE molecule_list_types,             ONLY: molecule_list_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              global_constraint_type,&
-                                              molecule_type
-   USE motion_utils,                    ONLY: rot_ana
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: femtoseconds
-   USE qmmm_types,                      ONLY: qmmm_env_type
-   USE shell_potential_types,           ONLY: shell_kind_type
-   USE simpar_types,                    ONLY: simpar_type
-   USE thermostat_types,                ONLY: thermostat_info_type,&
-                                              thermostat_type,&
-                                              thermostats_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE extended_system_types, ONLY: lnhc_parameters_type, &
+                                    map_info_type, &
+                                    npt_info_type
+   USE input_constants, ONLY: &
+      do_constr_atomic, do_constr_molec, do_region_defined, do_region_global, do_region_massive, &
+      do_region_molecule, do_thermo_al, do_thermo_communication, do_thermo_csvr, do_thermo_gle, &
+      do_thermo_no_communication, do_thermo_nose, isokin_ensemble, langevin_ensemble, &
+      npe_f_ensemble, npe_i_ensemble, nph_uniaxial_damped_ensemble, nph_uniaxial_ensemble, &
+      npt_f_ensemble, npt_i_ensemble, nve_ensemble, nvt_adiabatic_ensemble, nvt_ensemble, &
+      reftraj_ensemble
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE machine, ONLY: m_flush
+   USE message_passing, ONLY: mp_sum
+   USE molecule_kind_types, ONLY: get_molecule_kind, &
+                                  get_molecule_kind_set, &
+                                  molecule_kind_type
+   USE molecule_list_types, ONLY: molecule_list_type
+   USE molecule_types, ONLY: get_molecule, &
+                             global_constraint_type, &
+                             molecule_type
+   USE motion_utils, ONLY: rot_ana
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: femtoseconds
+   USE qmmm_types, ONLY: qmmm_env_type
+   USE shell_potential_types, ONLY: shell_kind_type
+   USE simpar_types, ONLY: simpar_type
+   USE thermostat_types, ONLY: thermostat_info_type, &
+                               thermostat_type, &
+                               thermostats_type
 #include "../../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -243,8 +243,8 @@ CONTAINS
       TYPE(qmmm_env_type), POINTER                       :: qmmm_env
 
       INTEGER :: dis_type, first_atom, i, ikind, imol, imol_global, ipart, itherm, katom, &
-         last_atom, natom, natom_local, nkind, nmol_local, nmol_per_kind, nmolecule, nshell, &
-         number, stat, sum_of_thermostats
+                 last_atom, natom, natom_local, nkind, nmol_local, nmol_per_kind, nmolecule, nshell, &
+                 number, stat, sum_of_thermostats
       INTEGER, POINTER                                   :: molecule_list(:), thermolist(:)
       LOGICAL                                            :: check, do_shell, nointer, on_therm
       TYPE(molecule_kind_type), POINTER                  :: molecule_kind
@@ -705,7 +705,7 @@ CONTAINS
       CHARACTER(LEN=default_string_length), &
          DIMENSION(:), POINTER                           :: tmpstringlist
       INTEGER :: first_atom, i, ig, ikind, ilist, imol, ipart, jg, last_atom, mregions, n_rep, &
-         natom_local, nmol_per_kind, nregions, output_unit
+                 natom_local, nmol_per_kind, nregions, output_unit
       INTEGER, DIMENSION(:), POINTER                     :: thermolist, tmp, tmplist
       TYPE(cp_logger_type), POINTER                      :: logger
       TYPE(molecule_kind_type), POINTER                  :: molecule_kind
@@ -1414,7 +1414,7 @@ CONTAINS
             CPASSERT(SIZE(array_pot) == number)
          ELSE
             ALLOCATE (array_pot(number))
-         ENDIF
+         END IF
          array_pot = vpot
       END IF
       IF (PRESENT(array_kin)) THEN
@@ -1422,7 +1422,7 @@ CONTAINS
             CPASSERT(SIZE(array_kin) == number)
          ELSE
             ALLOCATE (array_kin(number))
-         ENDIF
+         END IF
          array_kin = akin
       END IF
       DEALLOCATE (akin)
@@ -1478,7 +1478,7 @@ CONTAINS
             CPASSERT(SIZE(array_pot) == number)
          ELSE
             ALLOCATE (array_pot(number))
-         ENDIF
+         END IF
          array_pot = 0.0_dp
       END IF
       IF (PRESENT(array_kin)) THEN
@@ -1486,7 +1486,7 @@ CONTAINS
             CPASSERT(SIZE(array_kin) == number)
          ELSE
             ALLOCATE (array_kin(number))
-         ENDIF
+         END IF
          array_kin = akin
       END IF
       DEALLOCATE (akin)
@@ -1551,7 +1551,7 @@ CONTAINS
             CPASSERT(SIZE(array_temp) == number)
          ELSE
             ALLOCATE (array_temp(number))
-         ENDIF
+         END IF
          DO i = 1, number
             array_temp(i) = akin(i)/deg_of_free(i)
             array_temp(i) = cp_unit_from_cp2k(array_temp(i), "K_temp")

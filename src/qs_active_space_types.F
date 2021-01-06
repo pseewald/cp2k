@@ -13,15 +13,15 @@
 ! **************************************************************************************************
 MODULE qs_active_space_types
 
-   USE cp_dbcsr_operations,             ONLY: dbcsr_deallocate_matrix_set
-   USE cp_fm_types,                     ONLY: cp_fm_p_type,&
-                                              cp_fm_release
-   USE dbcsr_api,                       ONLY: dbcsr_csr_destroy,&
-                                              dbcsr_csr_p_type,&
-                                              dbcsr_p_type
-   USE kinds,                           ONLY: dp
-   USE qs_mo_types,                     ONLY: deallocate_mo_set,&
-                                              mo_set_p_type
+   USE cp_dbcsr_operations, ONLY: dbcsr_deallocate_matrix_set
+   USE cp_fm_types, ONLY: cp_fm_p_type, &
+                          cp_fm_release
+   USE dbcsr_api, ONLY: dbcsr_csr_destroy, &
+                        dbcsr_csr_p_type, &
+                        dbcsr_p_type
+   USE kinds, ONLY: dp
+   USE qs_mo_types, ONLY: deallocate_mo_set, &
+                          mo_set_p_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -334,7 +334,7 @@ CONTAINS
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:) :: erival
       REAL(KIND=dp)                            :: erint
 
-      ASSOCIATE (eri=>this%eri(nspin)%csr_mat, norb=>this%norb)
+      ASSOCIATE (eri => this%eri(nspin)%csr_mat, norb => this%norb)
          nindex = (norb*(norb + 1))/2
          irange = get_irange_csr(nindex, eri%mp_group)
          ALLOCATE (erival(nindex), colind(nindex))

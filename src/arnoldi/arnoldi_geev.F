@@ -13,8 +13,8 @@
 ! **************************************************************************************************
 
 MODULE arnoldi_geev
-   USE kinds,                           ONLY: real_4,&
-                                              real_8
+   USE kinds, ONLY: real_4, &
+                    real_8
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

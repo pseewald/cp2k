@@ -11,13 +11,13 @@
 ! **************************************************************************************************
 MODULE xc_derivative_types
 
-   USE kinds,                           ONLY: dp
-   USE pw_pool_types,                   ONLY: pw_pool_give_back_cr3d,&
-                                              pw_pool_type
-   USE xc_derivative_desc,              ONLY: MAX_DERIVATIVE_DESC_LENGTH,&
-                                              MAX_LABEL_LENGTH,&
-                                              create_split_derivative_desc,&
-                                              standardize_derivative_desc
+   USE kinds, ONLY: dp
+   USE pw_pool_types, ONLY: pw_pool_give_back_cr3d, &
+                            pw_pool_type
+   USE xc_derivative_desc, ONLY: MAX_DERIVATIVE_DESC_LENGTH, &
+                                 MAX_LABEL_LENGTH, &
+                                 create_split_derivative_desc, &
+                                 standardize_derivative_desc
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

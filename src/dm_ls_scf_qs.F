@@ -13,67 +13,67 @@
 !> \author Joost VandeVondele
 ! **************************************************************************************************
 MODULE dm_ls_scf_qs
-   USE atomic_kind_types,               ONLY: atomic_kind_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: dbcsr_allocate_matrix_set
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_unit_nr,&
-                                              cp_logger_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_realspace_grid_cube,          ONLY: cp_pw_to_cube
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_complete_redistribute, dbcsr_copy, dbcsr_copy_into_existing, dbcsr_create, &
-        dbcsr_desymmetrize, dbcsr_distribution_get, dbcsr_distribution_hold, &
-        dbcsr_distribution_new, dbcsr_distribution_release, dbcsr_distribution_type, &
-        dbcsr_finalize, dbcsr_get_info, dbcsr_multiply, dbcsr_nblkrows_total, dbcsr_p_type, &
-        dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_real_4, dbcsr_type_real_8
-   USE dm_ls_scf_types,                 ONLY: ls_cluster_atomic,&
-                                              ls_cluster_molecular,&
-                                              ls_mstruct_type,&
-                                              ls_scf_env_type
-   USE input_constants,                 ONLY: ls_cluster_atomic,&
-                                              ls_cluster_molecular
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_collocate_density,            ONLY: calculate_rho_elec
-   USE qs_density_mixing_types,         ONLY: direct_mixing_nr,&
-                                              gspace_mixing_nr
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_gspace_mixing,                ONLY: gspace_mixing
-   USE qs_initial_guess,                ONLY: calculate_atomic_block_dm,&
-                                              calculate_mopac_dm
-   USE qs_kind_types,                   ONLY: qs_kind_type
-   USE qs_ks_methods,                   ONLY: qs_ks_update_qs_env
-   USE qs_ks_types,                     ONLY: qs_ks_did_change,&
-                                              qs_ks_env_type,&
-                                              set_ks_env
-   USE qs_mixing_utils,                 ONLY: charge_mixing_init,&
-                                              mixing_allocate,&
-                                              mixing_init
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_rho_atom_types,               ONLY: rho_atom_type
-   USE qs_rho_methods,                  ONLY: qs_rho_update_rho
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_subsys_types,                 ONLY: qs_subsys_get,&
-                                              qs_subsys_type
+   USE atomic_kind_types, ONLY: atomic_kind_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: dbcsr_allocate_matrix_set
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_unit_nr, &
+                              cp_logger_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_realspace_grid_cube, ONLY: cp_pw_to_cube
+   USE dbcsr_api, ONLY: &
+      dbcsr_complete_redistribute, dbcsr_copy, dbcsr_copy_into_existing, dbcsr_create, &
+      dbcsr_desymmetrize, dbcsr_distribution_get, dbcsr_distribution_hold, &
+      dbcsr_distribution_new, dbcsr_distribution_release, dbcsr_distribution_type, &
+      dbcsr_finalize, dbcsr_get_info, dbcsr_multiply, dbcsr_nblkrows_total, dbcsr_p_type, &
+      dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_real_4, dbcsr_type_real_8
+   USE dm_ls_scf_types, ONLY: ls_cluster_atomic, &
+                              ls_cluster_molecular, &
+                              ls_mstruct_type, &
+                              ls_scf_env_type
+   USE input_constants, ONLY: ls_cluster_atomic, &
+                              ls_cluster_molecular
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_collocate_density, ONLY: calculate_rho_elec
+   USE qs_density_mixing_types, ONLY: direct_mixing_nr, &
+                                      gspace_mixing_nr
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_gspace_mixing, ONLY: gspace_mixing
+   USE qs_initial_guess, ONLY: calculate_atomic_block_dm, &
+                               calculate_mopac_dm
+   USE qs_kind_types, ONLY: qs_kind_type
+   USE qs_ks_methods, ONLY: qs_ks_update_qs_env
+   USE qs_ks_types, ONLY: qs_ks_did_change, &
+                          qs_ks_env_type, &
+                          set_ks_env
+   USE qs_mixing_utils, ONLY: charge_mixing_init, &
+                              mixing_allocate, &
+                              mixing_init
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_rho_atom_types, ONLY: rho_atom_type
+   USE qs_rho_methods, ONLY: qs_rho_update_rho
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_subsys_types, ONLY: qs_subsys_get, &
+                              qs_subsys_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -125,7 +125,7 @@ CONTAINS
       ! PAO ----------------------------------------------------------------------------------------
       IF (ls_mstruct%do_pao) THEN
          CALL dbcsr_get_info(ls_mstruct%matrix_A, col_blk_size=ls_blk_sizes)
-      ENDIF
+      END IF
 
       ! Clustering ---------------------------------------------------------------------------------
       SELECT CASE (ls_mstruct%cluster_type)
@@ -148,29 +148,29 @@ CONTAINS
                   atom_to_cluster_primus(iatom) = jatom
                ELSE
                   EXIT
-               ENDIF
-            ENDDO
+               END IF
+            END DO
             primus_of_mol(atom_to_cluster(iatom)) = atom_to_cluster_primus(iatom)
-         ENDDO
+         END DO
 
          ! row
          ALLOCATE (clustered_row_dist(nmol))
          DO imol = 1, nmol
             clustered_row_dist(imol) = ls_row_dist(primus_of_mol(imol))
-         ENDDO
+         END DO
 
          ! col
          ALLOCATE (clustered_col_dist(nmol))
          DO imol = 1, nmol
             clustered_col_dist(imol) = ls_col_dist(primus_of_mol(imol))
-         ENDDO
+         END DO
 
          ALLOCATE (clustered_blk_sizes(nmol))
          clustered_blk_sizes = 0
          DO iatom = 1, natom
             clustered_blk_sizes(atom_to_cluster(iatom)) = clustered_blk_sizes(atom_to_cluster(iatom)) + &
                                                           ls_blk_sizes(iatom)
-         ENDDO
+         END DO
          ls_blk_sizes => clustered_blk_sizes ! redirect pointer
 
          ! create new distribution
@@ -250,7 +250,7 @@ CONTAINS
 
          CALL matrix_cluster(matrix_ls, matrix_pao, ls_mstruct)
          CALL dbcsr_release(matrix_pao)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -291,7 +291,7 @@ CONTAINS
             CALL dbcsr_release(matrix_tmp)
          ELSE
             CALL dbcsr_complete_redistribute(matrix_in_nosym, matrix_out); 
-         ENDIF
+         END IF
          CALL dbcsr_release(matrix_in_nosym)
 
       CASE DEFAULT
@@ -344,7 +344,7 @@ CONTAINS
             CALL dbcsr_copy_into_existing(matrix_qs, matrix_declustered) ! preserve sparsity of matrix_qs
          ELSE
             CALL dbcsr_copy(matrix_qs, matrix_declustered) ! overwrite sparsity of matrix_qs
-         ENDIF
+         END IF
          CALL dbcsr_release(matrix_declustered)
 
       ELSE ! using pao
@@ -366,11 +366,11 @@ CONTAINS
             CALL dbcsr_copy_into_existing(matrix_qs, matrix_tmp2) ! preserve sparsity of matrix_qs
          ELSE
             CALL dbcsr_copy(matrix_qs, matrix_tmp2) ! overwrite sparsity of matrix_qs
-         ENDIF
+         END IF
          CALL dbcsr_release(matrix_declustered)
          CALL dbcsr_release(matrix_tmp1)
          CALL dbcsr_release(matrix_tmp2)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -407,7 +407,7 @@ CONTAINS
             CALL dbcsr_release(matrix_tmp)
          ELSE
             CALL dbcsr_complete_redistribute(matrix_in, matrix_out)
-         ENDIF
+         END IF
 
       CASE DEFAULT
          CPABORT("Unknown LS cluster type")
@@ -447,7 +447,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       ! get basic quantities from the qs_env
       CALL get_qs_env(qs_env, dft_control=dft_control, &
@@ -466,9 +466,9 @@ CONTAINS
             CALL dbcsr_create(matrix_ks(ispin)%matrix, template=matrix_s(1)%matrix)
             CALL cp_dbcsr_alloc_block_from_nbl(matrix_ks(ispin)%matrix, sab_orb)
             CALL dbcsr_set(matrix_ks(ispin)%matrix, 0.0_dp)
-         ENDDO
+         END DO
          CALL set_ks_env(ks_env, matrix_ks=matrix_ks)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 
@@ -511,7 +511,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       ! get basic quantities from the qs_env
       CALL get_qs_env(qs_env, dft_control=dft_control, &
@@ -541,7 +541,7 @@ CONTAINS
          CALL calculate_atomic_block_dm(rho_ao, matrix_s(1)%matrix, &
                                         particle_set, atomic_kind_set, qs_kind_set, &
                                         nspin, nelectron_spin, unit_nr, para_env)
-      ENDIF
+      END IF
 
       CALL qs_rho_update_rho(rho, qs_env=qs_env)
       CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
@@ -587,7 +587,7 @@ CONTAINS
          unit_nr = cp_logger_get_default_unit_nr(logger, local=.TRUE.)
       ELSE
          unit_nr = -1
-      ENDIF
+      END IF
 
       nspin = ls_scf_env%nspins
       CALL get_qs_env(qs_env, para_env=para_env, energy=energy, rho=rho)
@@ -620,10 +620,10 @@ CONTAINS
                      1.0_dp - ls_scf_env%mixing_store%alpha, "*rho_old"
                   WRITE (unit_nr, '(A57)') &
                      "*********************************************************"
-               ENDIF
-            ENDIF
-         ENDIF
-      ENDIF
+               END IF
+            END IF
+         END IF
+      END IF
 
       CALL qs_ks_did_change(qs_env%ks_env, rho_changed=.TRUE.)
       CALL qs_ks_update_qs_env(qs_env, calculate_forces=.FALSE., &
@@ -751,8 +751,8 @@ CONTAINS
          ELSE
             CALL mixing_init(ls_scf_env%density_mixing_method, rho, ls_scf_env%mixing_store, &
                              ls_scf_env%para_env)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
       CALL timestop(handle)
    END SUBROUTINE rho_mixing_ls_init
 

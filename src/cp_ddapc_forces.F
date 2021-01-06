@@ -14,31 +14,31 @@
 ! **************************************************************************************************
 MODULE cp_ddapc_forces
 
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind_set
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: ddapc_restraint_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE input_constants,                 ONLY: do_ddapc_constraint,&
-                                              do_ddapc_restraint,&
-                                              weight_type_mass,&
-                                              weight_type_unit
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: fourpi,&
-                                              pi,&
-                                              rootpi,&
-                                              twopi
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE pw_spline_utils,                 ONLY: Eval_d_Interp_Spl3_pbc
-   USE pw_types,                        ONLY: pw_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE spherical_harmonics,             ONLY: dlegendre,&
-                                              legendre
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind_set
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: ddapc_restraint_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE input_constants, ONLY: do_ddapc_constraint, &
+                              do_ddapc_restraint, &
+                              weight_type_mass, &
+                              weight_type_unit
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: fourpi, &
+                            pi, &
+                            rootpi, &
+                            twopi
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE pw_spline_utils, ONLY: Eval_d_Interp_Spl3_pbc
+   USE pw_types, ONLY: pw_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE spherical_harmonics, ONLY: dlegendre, &
+                                  legendre
 !NB for reducing results of calculations that use dq, which is now spread over nodes
 #include "./base/base_uses.f90"
 
@@ -347,7 +347,7 @@ CONTAINS
       DO I = 1, ddapc_restraint_control%natoms
          ind = (ddapc_restraint_control%atoms(I) - 1)*n_gauss
          order_p = order_p + ddapc_restraint_control%coeff(I)*SUM(charges(ind + 1:ind + n_gauss))
-      ENDDO
+      END DO
       ddapc_restraint_control%ddapc_order_p = order_p
 
       SELECT CASE (ddapc_restraint_control%functional_form)
@@ -360,7 +360,7 @@ CONTAINS
          DO I = 1, ddapc_restraint_control%natoms
             ind = (ddapc_restraint_control%atoms(I) - 1)*n_gauss
             uv(ind + 1:ind + n_gauss) = dE*ddapc_restraint_control%coeff(I)
-         ENDDO
+         END DO
       CASE (do_ddapc_constraint)
          energy_res = ddapc_restraint_control%strength*(order_p - ddapc_restraint_control%target)
 
@@ -368,7 +368,7 @@ CONTAINS
          DO I = 1, ddapc_restraint_control%natoms
             ind = (ddapc_restraint_control%atoms(I) - 1)*n_gauss
             uv(ind + 1:ind + n_gauss) = ddapc_restraint_control%strength*ddapc_restraint_control%coeff(I)
-         ENDDO
+         END DO
 
       CASE DEFAULT
          CPABORT("")
@@ -477,8 +477,8 @@ CONTAINS
       INTEGER, DIMENSION(:), POINTER                     :: list
       LOGICAL                                            :: fixed_center
       REAL(KIND=dp) :: center(3), dcos1(3), dcos2(3), dpos1(3), dpos2(3), eps_in, eps_out, &
-         factor1(3), factor2(3), lr, mass, mycos, pos1, pos1i, pos2, pos2i, ptcos, q1t, q2t, &
-         r1(3), r1s, r2(3), r2s, Rs, rvec(3)
+                       factor1(3), factor2(3), lr, mass, mycos, pos1, pos1i, pos2, pos2i, ptcos, q1t, q2t, &
+                       r1(3), r1s, r2(3), r2s, Rs, rvec(3)
       REAL(KIND=dp), DIMENSION(:), POINTER               :: pos, R0
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: d_el, LocP, M
 

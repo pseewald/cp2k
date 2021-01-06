@@ -9,34 +9,34 @@
 !> \brief Set of routines handling the localization for molecular properties
 ! **************************************************************************************************
 MODULE molecular_dipoles
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE input_section_types,             ONLY: section_get_ival,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: twopi
-   USE message_passing,                 ONLY: mp_sum
-   USE molecule_kind_types,             ONLY: get_molecule_kind,&
-                                              molecule_kind_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE moments_utils,                   ONLY: get_reference_point
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: debye
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_loc_types,                    ONLY: qs_loc_env_new_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE input_section_types, ONLY: section_get_ival, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: twopi
+   USE message_passing, ONLY: mp_sum
+   USE molecule_kind_types, ONLY: get_molecule_kind, &
+                                  molecule_kind_type
+   USE molecule_types, ONLY: molecule_type
+   USE moments_utils, ONLY: get_reference_point
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: debye
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_loc_types, ONLY: qs_loc_env_new_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -143,7 +143,7 @@ CONTAINS
                   ! Charges of the wfc involved
                   DO istate = 1, SIZE(molecule_set(imol_now)%lmi(ispin)%states)
                      charge_set(imol_now) = charge_set(imol_now) - zwfc
-                  ENDDO
+                  END DO
 
                   charge_tot = charge_set(imol_now)
                   ria = twopi*MATMUL(cell%h_inv, rcc)
@@ -180,7 +180,7 @@ CONTAINS
                         zeta = CMPLX(COS(theta), SIN(theta), KIND=dp)**(-zwfc)
                         ggamma(j) = ggamma(j)*zeta
                      END DO
-                  ENDDO
+                  END DO
 
                   ggamma = ggamma*zphase
                   ci = AIMAG(LOG(ggamma))/twopi
@@ -207,11 +207,11 @@ CONTAINS
                      ria = pbc(center(1:3, i), cell)
                      dipole = dipole - zwfc*(ria - rcc)
                      charge_set(imol_now) = charge_set(imol_now) - zwfc
-                  ENDDO
+                  END DO
                END IF
                dipole_set(:, imol_now) = dipole_set(:, imol_now) + dipole ! a.u.
-            ENDDO
-         ENDDO
+            END DO
+         END DO
       END DO
       CALL mp_sum(dipole_set, para_env%group)
       CALL mp_sum(charge_set, para_env%group)
@@ -225,9 +225,9 @@ CONTAINS
          DO I = 1, SIZE(dipole_set, 2)
             WRITE (UNIT=iounit, FMT='(T8,I6,T21,5F12.6)') I, charge_set(I), dipole_set(1:3, I), &
                SQRT(DOT_PRODUCT(dipole_set(1:3, I), dipole_set(1:3, I)))
-         ENDDO
+         END DO
          WRITE (UNIT=iounit, FMT="(T2,A,T61,E20.12)") ' DIPOLE : CheckSum  =', SUM(dipole_set)
-      ENDIF
+      END IF
       CALL cp_print_key_finished_output(iounit, logger, loc_print_key, &
                                         "MOLECULAR_DIPOLES")
 

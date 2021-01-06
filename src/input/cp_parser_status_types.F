@@ -11,10 +11,10 @@
 !> \date 08.2008
 ! **************************************************************************************************
 MODULE cp_parser_status_types
-   USE cp_parser_buffer_types,          ONLY: buffer_type,&
-                                              create_buffer_type,&
-                                              release_buffer_type
-   USE kinds,                           ONLY: max_line_length
+   USE cp_parser_buffer_types, ONLY: buffer_type, &
+                                     create_buffer_type, &
+                                     release_buffer_type
+   USE kinds, ONLY: max_line_length
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

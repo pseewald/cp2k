@@ -11,35 +11,35 @@
 !>     jgh (23-05-2004) Last atom of molecule information added
 ! **************************************************************************************************
 MODULE topology_util
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type,&
-                                              cp_to_string
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE graphcon,                        ONLY: graph_type,&
-                                              hash_molecule,&
-                                              reorder_graph,&
-                                              vertex
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get,&
-                                              section_vals_val_set
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mm_mapping_library,              ONLY: amber_map,&
-                                              charmm_map,&
-                                              gromos_map
-   USE periodic_table,                  ONLY: get_ptable_info
-   USE qmmm_types_low,                  ONLY: qmmm_env_mm_type
-   USE string_table,                    ONLY: id2str,&
-                                              str2id
-   USE string_utilities,                ONLY: uppercase
-   USE topology_types,                  ONLY: atom_info_type,&
-                                              connectivity_info_type,&
-                                              topology_parameters_type
-   USE util,                            ONLY: sort
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type, &
+                              cp_to_string
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE graphcon, ONLY: graph_type, &
+                       hash_molecule, &
+                       reorder_graph, &
+                       vertex
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get, &
+                                  section_vals_val_set
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mm_mapping_library, ONLY: amber_map, &
+                                 charmm_map, &
+                                 gromos_map
+   USE periodic_table, ONLY: get_ptable_info
+   USE qmmm_types_low, ONLY: qmmm_env_mm_type
+   USE string_table, ONLY: id2str, &
+                           str2id
+   USE string_utilities, ONLY: uppercase
+   USE topology_types, ONLY: atom_info_type, &
+                             connectivity_info_type, &
+                             topology_parameters_type
+   USE util, ONLY: sort
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -99,12 +99,12 @@ CONTAINS
                                                             tlabel_atmname(:), tlabel_molname(:), &
                                                             tlabel_resname(:)
       INTEGER :: handle, i, iatm, iindex, ikind, imol, imol_ref, iref, iund, iw, j, k, location, &
-         max_mol_num, mm_index, n, n_rep, n_var, natom, natom_loc, nkind, nlinks, old_hash, &
-         old_mol, output_unit, qm_index, unique_mol
+                 max_mol_num, mm_index, n, n_rep, n_var, natom, natom_loc, nkind, nlinks, old_hash, &
+                 old_mol, output_unit, qm_index, unique_mol
       INTEGER, DIMENSION(:), POINTER                     :: mm_link_atoms, qm_atom_index
       INTEGER, POINTER :: atm_map1(:), atm_map2(:), atm_map3(:), map_atom_type(:), &
-         map_mol_hash(:), mm_indexes_n(:), mm_indexes_v(:), mol_bnd(:, :), mol_hash(:), &
-         mol_num(:), new_position(:), order(:), tmp_n(:), tmp_v(:), wrk(:)
+                          map_mol_hash(:), mm_indexes_n(:), mm_indexes_v(:), mol_bnd(:, :), mol_hash(:), &
+                          mol_num(:), new_position(:), order(:), tmp_n(:), tmp_v(:), wrk(:)
       LOGICAL                                            :: explicit, matches, my_qmmm
       REAL(KIND=dp), DIMENSION(:, :), POINTER            :: tr
       REAL(KIND=dp), POINTER                             :: tatm_charge(:), tatm_mass(:)
@@ -163,7 +163,7 @@ CONTAINS
       DO I = 1, natom
          map_atom_type(I) = atom_info%id_atmname(i)
          ALLOCATE (atom_bond_list(I)%array1(0))
-      ENDDO
+      END DO
       N = 0
       IF (ASSOCIATED(conn_info%bond_a)) N = SIZE(conn_info%bond_a)
       CALL reorder_structure(atom_bond_list, conn_info%bond_a, conn_info%bond_b, N)
@@ -190,10 +190,10 @@ CONTAINS
             END IF
             imol = imol + 1
             mol_bnd(1, imol) = i
-         ENDIF
+         END IF
          iindex = iindex + 1
          atm_map2(atm_map1(i)) = iindex
-      ENDDO
+      END DO
       mol_bnd(2, imol) = natom
       ! Indexes of the two molecules to check
       iref = 1
@@ -211,7 +211,7 @@ CONTAINS
          DEALLOCATE (order)
          DO I = 1, SIZE(reference)
             DEALLOCATE (reference(I)%bonds)
-         ENDDO
+         END DO
          DEALLOCATE (reference)
       END DO
       ! Reorder molecules hashes
@@ -252,7 +252,7 @@ CONTAINS
                CALL reorder_graph(reference, unordered, order, matches)
                IF (matches) EXIT
                DEALLOCATE (order)
-            ENDDO
+            END DO
             IF (matches) THEN
                ! Reorder according the correct index
                ALLOCATE (wrk(SIZE(order)))
@@ -280,14 +280,14 @@ CONTAINS
                   mol_num(natom_loc) = unique_mol
                END DO
                DEALLOCATE (atm_map3)
-            ENDIF
+            END IF
             DO I = 1, SIZE(unordered)
                DEALLOCATE (unordered(I)%bonds)
-            ENDDO
+            END DO
             DEALLOCATE (unordered)
             DEALLOCATE (atm_map3)
-         ENDIF
-      ENDDO
+         END IF
+      END DO
       IF (output_unit > 0) THEN
          WRITE (output_unit, '(T2,"REORDER |  ",A,I7,A)') "Number of unique molecules found:", unique_mol, "."
       END IF
@@ -301,7 +301,7 @@ CONTAINS
       ! Deallocate working arrays
       DO I = 1, natom
          DEALLOCATE (atom_bond_list(I)%array1)
-      ENDDO
+      END DO
       DEALLOCATE (atom_bond_list)
       DEALLOCATE (atom_info%map_mol_num)
       ! Deallocate reference_set
@@ -793,7 +793,7 @@ CONTAINS
          work(index2)%array1(1:Nsize) = wrk_tmp
          work(index2)%array1(Nsize + 1) = index1
          DEALLOCATE (wrk_tmp)
-      ENDDO
+      END DO
 
    END SUBROUTINE reorder_structure1d
 
@@ -848,7 +848,7 @@ CONTAINS
          work(index2)%array2(1:Nsize) = wrk_tmp
          work(index2)%array2(Nsize + 1) = -index3
          DEALLOCATE (wrk_tmp)
-      ENDDO
+      END DO
 
    END SUBROUTINE reorder_structure2d
 
@@ -875,8 +875,8 @@ CONTAINS
             my_mol_name = mol_name(I)
             CALL spread_mol(atom_bond_list, mol_info, i, nmol, my_mol_name, &
                             mol_name)
-         ENDIF
-      ENDDO
+         END IF
+      END DO
    END SUBROUTINE find_molecule
 
 ! **************************************************************************************************
@@ -908,7 +908,7 @@ CONTAINS
             CALL spread_mol(atom_bond_list, mol_info, atom_b, imol, my_mol_name, mol_name)
             IF (mol_info(atom_b) /= imol) CPABORT("internal error")
          END IF
-      ENDDO
+      END DO
    END SUBROUTINE spread_mol
 
 ! **************************************************************************************************
@@ -1025,7 +1025,7 @@ CONTAINS
       ALLOCATE (atom_bond_list(natom))
       DO I = 1, natom
          ALLOCATE (atom_bond_list(I)%array1(0))
-      ENDDO
+      END DO
       N = 0
       IF (ASSOCIATED(conn_info%bond_a)) N = SIZE(conn_info%bond_a)
       CALL reorder_structure(atom_bond_list, conn_info%bond_a, conn_info%bond_b, N)
@@ -1089,7 +1089,7 @@ CONTAINS
                              cp_to_string(SIZE(atom_bond_list(first + loc_counter - 1)%array1))//" - "// &
                              cp_to_string(SIZE(atom_bond_list(iatom)%array1))// &
                              " NOT FOUND! Check the connectivity of your system.")
-            ENDIF
+            END IF
 
             DO k = 1, SIZE(atom_bond_list(iatom)%array1)
                IF (ALL(atom_bond_list(first + loc_counter - 1)%array1 - first /= &
@@ -1112,7 +1112,7 @@ CONTAINS
 
       DO I = 1, natom
          DEALLOCATE (atom_bond_list(I)%array1)
-      ENDDO
+      END DO
       DEALLOCATE (atom_bond_list)
       CALL timestop(handle)
       CALL cp_print_key_finished_output(iw, logger, subsys_section, &
@@ -1183,8 +1183,8 @@ CONTAINS
          IF (in_ptable) THEN
             element_out = TRIM(element_symbol)
             found = .TRUE.
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! This is clearly a user error
       IF (.NOT. found .AND. defined_kind_section) &
@@ -1240,8 +1240,8 @@ CONTAINS
          IF (in_ptable) THEN
             element_out = TRIM(element_symbol)
             found = .TRUE.
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! If no element is found the job stops here.
       IF (.NOT. found) THEN

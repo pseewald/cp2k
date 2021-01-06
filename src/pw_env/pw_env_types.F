@@ -12,25 +12,25 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE pw_env_types
-   USE cube_utils,                      ONLY: cube_info_type,&
-                                              destroy_cube_info
-   USE gaussian_gridlevels,             ONLY: destroy_gaussian_gridlevel,&
-                                              gridlevel_info_type
-   USE input_section_types,             ONLY: section_vals_release,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE pw_poisson_types,                ONLY: pw_poisson_release,&
-                                              pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_p_type,&
-                                              pw_pool_release,&
-                                              pw_pool_type,&
-                                              pw_pools_dealloc
-   USE realspace_grid_types,            ONLY: realspace_grid_desc_p_type,&
-                                              realspace_grid_desc_type,&
-                                              realspace_grid_p_type,&
-                                              realspace_grid_type,&
-                                              rs_grid_release,&
-                                              rs_grid_release_descriptor
+   USE cube_utils, ONLY: cube_info_type, &
+                         destroy_cube_info
+   USE gaussian_gridlevels, ONLY: destroy_gaussian_gridlevel, &
+                                  gridlevel_info_type
+   USE input_section_types, ONLY: section_vals_release, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE pw_poisson_types, ONLY: pw_poisson_release, &
+                               pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_p_type, &
+                            pw_pool_release, &
+                            pw_pool_type, &
+                            pw_pools_dealloc
+   USE realspace_grid_types, ONLY: realspace_grid_desc_p_type, &
+                                   realspace_grid_desc_type, &
+                                   realspace_grid_p_type, &
+                                   realspace_grid_type, &
+                                   rs_grid_release, &
+                                   rs_grid_release_descriptor
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE

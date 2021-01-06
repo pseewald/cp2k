@@ -29,17 +29,17 @@
 ! **************************************************************************************************
 MODULE cp_units
 
-   USE cp_log_handling,                 ONLY: cp_to_string
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: radians,&
-                                              twopi
-   USE physcon,                         ONLY: &
-        atm, bar, bohr, e_mass, evolt, femtoseconds, joule, kcalmol, kelvin, kjmol, massunit, &
-        newton, pascal, picoseconds, seconds, wavenumbers
-   USE string_utilities,                ONLY: compress,&
-                                              s2a,&
-                                              uppercase
+   USE cp_log_handling, ONLY: cp_to_string
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathconstants, ONLY: radians, &
+                            twopi
+   USE physcon, ONLY: &
+      atm, bar, bohr, e_mass, evolt, femtoseconds, joule, kcalmol, kelvin, kjmol, massunit, &
+      newton, pascal, picoseconds, seconds, wavenumbers
+   USE string_utilities, ONLY: compress, &
+                               s2a, &
+                               uppercase
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -418,7 +418,7 @@ CONTAINS
                   i_high = i_high + 1
                END DO
             END IF
-         ENDIF
+         END IF
          IF (i_low > len_string) EXIT
          next_power = 1
          IF (i_high <= len_string) THEN
@@ -436,7 +436,7 @@ CONTAINS
                   i_high = i_high + 1
                END DO
             END IF
-         ENDIF
+         END IF
       END DO
       CALL cp_unit_create2(unit, kind_id=kind_id, unit_id=unit_id, &
                            power=power)

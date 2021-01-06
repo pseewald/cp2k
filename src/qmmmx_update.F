@@ -12,23 +12,23 @@
 !> \author Fawzi Mohamed
 ! **************************************************************************************************
 MODULE qmmmx_update
-   USE atomic_kind_list_types,          ONLY: atomic_kind_list_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE input_restart_force_eval,        ONLY: update_force_eval
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_release,&
-                                              section_vals_type
-   USE qmmm_create,                     ONLY: qmmm_env_create
-   USE qmmm_types,                      ONLY: qmmm_env_get
-   USE qmmmx_types,                     ONLY: qmmmx_env_release,&
-                                              qmmmx_env_type
-   USE qmmmx_util,                      ONLY: setup_force_mixing_qmmm_sections,&
-                                              update_force_mixing_labels
+   USE atomic_kind_list_types, ONLY: atomic_kind_list_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE input_restart_force_eval, ONLY: update_force_eval
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_release, &
+                                  section_vals_type
+   USE qmmm_create, ONLY: qmmm_env_create
+   USE qmmm_types, ONLY: qmmm_env_get
+   USE qmmmx_types, ONLY: qmmmx_env_release, &
+                          qmmmx_env_type
+   USE qmmmx_util, ONLY: setup_force_mixing_qmmm_sections, &
+                         update_force_mixing_labels
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -104,7 +104,7 @@ CONTAINS
       CALL cp_subsys_get(subsys_new, atomic_kinds=new_atomic_kinds, local_particles=new_local_particles)
       IF (ASSOCIATED(local_particles%local_particle_set)) THEN
          CALL copy_wiener_process(atomic_kinds, local_particles, new_atomic_kinds, new_local_particles)
-      ENDIF
+      END IF
 
       CALL qmmm_env_get(force_env%qmmmx_env%ext, subsys=subsys)
       CALL cp_subsys_get(subsys, atomic_kinds=atomic_kinds, local_particles=local_particles)
@@ -112,7 +112,7 @@ CONTAINS
       CALL cp_subsys_get(subsys_new, atomic_kinds=new_atomic_kinds, local_particles=new_local_particles)
       IF (ASSOCIATED(local_particles%local_particle_set)) THEN
          CALL copy_wiener_process(atomic_kinds, local_particles, new_atomic_kinds, new_local_particles)
-      ENDIF
+      END IF
 
       CALL section_vals_release(qmmm_core_section)
       CALL section_vals_release(qmmm_extended_section)
@@ -140,8 +140,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'copy_wiener_process'
 
       INTEGER :: from_iparticle_kind, from_iparticle_local(1), from_nparticle_kind, &
-         from_nparticle_local, handle, to_iparticle_global, to_iparticle_kind, to_iparticle_local, &
-         to_nparticle_kind, to_nparticle_local, tot_from_nparticle_local, tot_to_nparticle_local
+                 from_nparticle_local, handle, to_iparticle_global, to_iparticle_kind, to_iparticle_local, &
+                 to_nparticle_kind, to_nparticle_local, tot_from_nparticle_local, tot_to_nparticle_local
       LOGICAL                                            :: found_it
 
       CALL timeset(routineN, handle)
@@ -188,7 +188,7 @@ CONTAINS
                      from_local_particles%local_particle_set(from_iparticle_kind)%rng(from_iparticle_local(1))%stream
                   found_it = .TRUE.
                   EXIT
-               ENDIF
+               END IF
             END DO
             CPASSERT(found_it)
 

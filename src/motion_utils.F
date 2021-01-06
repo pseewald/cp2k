@@ -12,41 +12,41 @@
 ! **************************************************************************************************
 MODULE motion_utils
 
-   USE cell_types,                      ONLY: cell_type
-   USE cp2k_info,                       ONLY: compile_revision,&
-                                              cp2k_version,&
-                                              r_datx,&
-                                              r_host_name,&
-                                              r_user_name
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE force_env_types,                 ONLY: force_env_get,&
-                                              force_env_type
-   USE input_constants,                 ONLY: dump_atomic,&
-                                              dump_dcd,&
-                                              dump_dcd_aligned_cell,&
-                                              dump_pdb,&
-                                              dump_xmol
-   USE input_section_types,             ONLY: section_get_ival,&
-                                              section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp,&
-                                              sp
-   USE machine,                         ONLY: m_flush
-   USE mathlib,                         ONLY: diamat_all
-   USE particle_list_types,             ONLY: particle_list_type
-   USE particle_methods,                ONLY: write_particle_coordinates
-   USE particle_types,                  ONLY: particle_type
-   USE physcon,                         ONLY: angstrom
-   USE virial_types,                    ONLY: virial_type
+   USE cell_types, ONLY: cell_type
+   USE cp2k_info, ONLY: compile_revision, &
+                        cp2k_version, &
+                        r_datx, &
+                        r_host_name, &
+                        r_user_name
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE force_env_types, ONLY: force_env_get, &
+                              force_env_type
+   USE input_constants, ONLY: dump_atomic, &
+                              dump_dcd, &
+                              dump_dcd_aligned_cell, &
+                              dump_pdb, &
+                              dump_xmol
+   USE input_section_types, ONLY: section_get_ival, &
+                                  section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp, &
+                    sp
+   USE machine, ONLY: m_flush
+   USE mathlib, ONLY: diamat_all
+   USE particle_list_types, ONLY: particle_list_type
+   USE particle_methods, ONLY: write_particle_coordinates
+   USE particle_types, ONLY: particle_type
+   USE physcon, ONLY: angstrom
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -361,7 +361,7 @@ CONTAINS
          CALL section_vals_val_get(root_section, "MOTION%PRINT%"//TRIM(my_pk_name)//"%UNIT", &
                                    c_val=unit_str)
          unit_conv = cp_unit_from_cp2k(1.0_dp, TRIM(unit_str))
-      ENDIF
+      END IF
 
       ! Get the output format
       CALL get_output_format(root_section, "MOTION%PRINT%"//TRIM(my_pk_name), my_form, my_ext)
@@ -386,7 +386,7 @@ CONTAINS
                WRITE (UNIT=traj_unit) 2, remark1, remark2
                WRITE (UNIT=traj_unit) nat
                CALL m_flush(traj_unit)
-            ENDIF
+            END IF
          CASE (dump_xmol)
             my_extended_xmol_title = .FALSE.
             IF (PRESENT(extended_xmol_title)) my_extended_xmol_title = extended_xmol_title
@@ -449,8 +449,8 @@ CONTAINS
                      CPASSERT(ii <= SIZE(particle_set))
                      fml_array((ii - 1)*3 + 1:(ii - 1)*3 + 3) = force_mixing_labels(i)
                   END DO
-               ENDIF
-            ENDIF
+               END IF
+            END IF
             CALL write_particle_coordinates(particle_set, traj_unit, outformat, TRIM(id_wpc), TRIM(title), cell, &
                                             array=fml_array)
             DEALLOCATE (fml_array)

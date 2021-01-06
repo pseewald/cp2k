@@ -6,10 +6,10 @@
 !--------------------------------------------------------------------------------------------------!
 MODULE optimize_basis_types
 
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE powell,                          ONLY: opt_state_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE powell, ONLY: opt_state_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

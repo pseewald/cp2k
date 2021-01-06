@@ -12,29 +12,29 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE input_cp2k_tb
-   USE bibliography,                    ONLY: Elstner1998,&
-                                              Grimme2017,&
-                                              Hu2007,&
-                                              Porezag1995,&
-                                              Seifert1996,&
-                                              Zhechkov2005
-   USE input_constants,                 ONLY: dispersion_d3,&
-                                              dispersion_uff,&
-                                              slater
-   USE input_cp2k_mm,                   ONLY: create_GENPOT_section
-   USE input_keyword_types,             ONLY: keyword_create,&
-                                              keyword_release,&
-                                              keyword_type
-   USE input_section_types,             ONLY: section_add_keyword,&
-                                              section_add_subsection,&
-                                              section_create,&
-                                              section_release,&
-                                              section_type
-   USE input_val_types,                 ONLY: char_t,&
-                                              lchar_t
-   USE kinds,                           ONLY: dp
-   USE string_utilities,                ONLY: newline,&
-                                              s2a
+   USE bibliography, ONLY: Elstner1998, &
+                           Grimme2017, &
+                           Hu2007, &
+                           Porezag1995, &
+                           Seifert1996, &
+                           Zhechkov2005
+   USE input_constants, ONLY: dispersion_d3, &
+                              dispersion_uff, &
+                              slater
+   USE input_cp2k_mm, ONLY: create_GENPOT_section
+   USE input_keyword_types, ONLY: keyword_create, &
+                                  keyword_release, &
+                                  keyword_type
+   USE input_section_types, ONLY: section_add_keyword, &
+                                  section_add_subsection, &
+                                  section_create, &
+                                  section_release, &
+                                  section_type
+   USE input_val_types, ONLY: char_t, &
+                              lchar_t
+   USE kinds, ONLY: dp
+   USE string_utilities, ONLY: newline, &
+                               s2a
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

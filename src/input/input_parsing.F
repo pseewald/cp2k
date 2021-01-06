@@ -12,37 +12,37 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE input_parsing
-   USE cp_linked_list_input,            ONLY: &
-        cp_create, cp_dealloc, cp_sll_char_type, cp_sll_int_type, cp_sll_logical_type, &
-        cp_sll_real_type, cp_sll_val_create, cp_sll_val_type, cp_to_array
-   USE cp_log_handling,                 ONLY: cp_logger_get_default_io_unit,&
-                                              cp_to_string
-   USE cp_parser_methods,               ONLY: parser_get_object,&
-                                              parser_location,&
-                                              parser_skip_space,&
-                                              parser_test_next_token
-   USE cp_parser_types,                 ONLY: cp_parser_type
-   USE cp_units,                        ONLY: cp_unit_compatible,&
-                                              cp_unit_create,&
-                                              cp_unit_desc,&
-                                              cp_unit_release,&
-                                              cp_unit_set_type,&
-                                              cp_unit_to_cp2k1,&
-                                              cp_unit_type
-   USE input_enumeration_types,         ONLY: enum_c2i,&
-                                              enumeration_type
-   USE input_keyword_types,             ONLY: keyword_describe,&
-                                              keyword_type
-   USE input_section_types,             ONLY: &
-        section_describe, section_get_keyword, section_get_keyword_index, &
-        section_get_subsection_index, section_type, section_typo_match, section_vals_add_values, &
-        section_vals_type, typo_match_section, typo_matching_line, typo_matching_rank
-   USE input_val_types,                 ONLY: &
-        char_t, enum_t, integer_t, lchar_t, logical_t, no_t, real_t, val_create, val_type
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp,&
-                                              max_line_length
-   USE string_utilities,                ONLY: uppercase
+   USE cp_linked_list_input, ONLY: &
+      cp_create, cp_dealloc, cp_sll_char_type, cp_sll_int_type, cp_sll_logical_type, &
+      cp_sll_real_type, cp_sll_val_create, cp_sll_val_type, cp_to_array
+   USE cp_log_handling, ONLY: cp_logger_get_default_io_unit, &
+                              cp_to_string
+   USE cp_parser_methods, ONLY: parser_get_object, &
+                                parser_location, &
+                                parser_skip_space, &
+                                parser_test_next_token
+   USE cp_parser_types, ONLY: cp_parser_type
+   USE cp_units, ONLY: cp_unit_compatible, &
+                       cp_unit_create, &
+                       cp_unit_desc, &
+                       cp_unit_release, &
+                       cp_unit_set_type, &
+                       cp_unit_to_cp2k1, &
+                       cp_unit_type
+   USE input_enumeration_types, ONLY: enum_c2i, &
+                                      enumeration_type
+   USE input_keyword_types, ONLY: keyword_describe, &
+                                  keyword_type
+   USE input_section_types, ONLY: &
+      section_describe, section_get_keyword, section_get_keyword_index, &
+      section_get_subsection_index, section_type, section_typo_match, section_vals_add_values, &
+      section_vals_type, typo_match_section, typo_matching_line, typo_matching_rank
+   USE input_val_types, ONLY: &
+      char_t, enum_t, integer_t, lchar_t, logical_t, no_t, real_t, val_create, val_type
+   USE kinds, ONLY: default_string_length, &
+                    dp, &
+                    max_line_length
+   USE string_utilities, ONLY: uppercase
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -182,8 +182,8 @@ CONTAINS
                                           typo_matching_rank, typo_matching_line, bonus=0)
                   DO imatch = 1, SIZE(typo_matching_rank)
                      WRITE (output_unit, '(T2,A,1X,I0)') TRIM(typo_matching_line(imatch))//" score: ", typo_matching_rank(imatch)
-                  ENDDO
-               ENDIF
+                  END DO
+               END IF
                CALL cp_abort(__LOCATION__, &
                              "unknown subsection "//TRIM(token(2:))//" of section " &
                              //TRIM(section%name))
@@ -243,8 +243,8 @@ CONTAINS
                         DO imatch = 1, SIZE(typo_matching_rank)
                            WRITE (output_unit, '(T2,A,1X,I0)') &
                               TRIM(typo_matching_line(imatch))//" score: ", typo_matching_rank(imatch)
-                        ENDDO
-                     ENDIF
+                        END DO
+                     END IF
                      CALL cp_abort(__LOCATION__, &
                                    "found an unknown keyword "//TRIM(token)// &
                                    " in section "//TRIM(section%name))
@@ -292,7 +292,7 @@ CONTAINS
                            last_val => previous_last
                         ELSE
                            previous_list => last_val
-                        ENDIF
+                        END IF
                         DO WHILE (ASSOCIATED(last_val%rest))
                            last_val => last_val%rest
                         END DO
@@ -628,7 +628,7 @@ CONTAINS
          CALL parser_get_object(parser, info)
          CALL cp_abort(__LOCATION__, &
                        "found unexpected extra argument "//TRIM(info)//" at "//location)
-      ENDIF
+      END IF
 
       CALL timestop(handle)
 

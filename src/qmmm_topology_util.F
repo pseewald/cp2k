@@ -9,22 +9,22 @@
 !> \author teo
 ! **************************************************************************************************
 MODULE qmmm_topology_util
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_print_key_finished_output,&
-                                              cp_print_key_unit_nr
-   USE input_section_types,             ONLY: section_vals_type
-   USE kinds,                           ONLY: default_string_length
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: get_molecule,&
-                                              molecule_type
-   USE qmmm_types_low,                  ONLY: qmmm_env_mm_type
-   USE string_table,                    ONLY: id2str,&
-                                              s2s,&
-                                              str2id
-   USE string_utilities,                ONLY: compress
-   USE topology_types,                  ONLY: topology_parameters_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_print_key_finished_output, &
+                                 cp_print_key_unit_nr
+   USE input_section_types, ONLY: section_vals_type
+   USE kinds, ONLY: default_string_length
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: get_molecule, &
+                             molecule_type
+   USE qmmm_types_low, ONLY: qmmm_env_mm_type
+   USE string_table, ONLY: id2str, &
+                           s2s, &
+                           str2id
+   USE string_utilities, ONLY: compress
+   USE topology_types, ONLY: topology_parameters_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE

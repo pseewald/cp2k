@@ -36,11 +36,11 @@
 !> \author VW
 ! **************************************************************************************************
 MODULE ai_elec_field
-   USE ai_os_rr,                        ONLY: os_rr_coul
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE orbital_pointers,                ONLY: coset,&
-                                              ncoset
+   USE ai_os_rr, ONLY: os_rr_coul
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE orbital_pointers, ONLY: coset, &
+                               ncoset
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -87,15 +87,15 @@ CONTAINS
       REAL(KIND=dp), DIMENSION(3), INTENT(IN)            :: rac, rbc, rab
       REAL(KIND=dp), DIMENSION(:, :, :), INTENT(INOUT)   :: vab
       INTEGER, INTENT(IN)                                :: ldrr1, ldrr2
-      REAL(KIND=dp), DIMENSION(0:ldrr1-1, ldrr2, *), &
+      REAL(KIND=dp), DIMENSION(0:ldrr1 - 1, ldrr2, *), &
          INTENT(INOUT)                                   :: rr
 
       INTEGER :: ax, ay, az, bx, by, bz, coa, coam1x, coam1y, coam1z, coam2x, coam2y, coam2z, &
-         coamxpy, coamxpz, coamxy, coamxz, coamypx, coamypz, coamyz, coamzpx, coamzpy, coap1x, &
-         coap1y, coap1z, coap2x, coap2y, coap2z, coapxy, coapxz, coapyz, cob, cobm1x, cobm1y, &
-         cobm1z, cobm2x, cobm2y, cobm2z, cobmxpy, cobmxpz, cobmxy, cobmxz, cobmypx, cobmypz, &
-         cobmyz, cobmzpx, cobmzpy, cobp1x, cobp1y, cobp1z, cobp2x, cobp2y, cobp2z, cobpxy, cobpxz, &
-         cobpyz, i, ipgf, j, jpgf, la, lb, ma, mb, na, nb
+                 coamxpy, coamxpz, coamxy, coamxz, coamypx, coamypz, coamyz, coamzpx, coamzpy, coap1x, &
+                 coap1y, coap1z, coap2x, coap2y, coap2z, coapxy, coapxz, coapyz, cob, cobm1x, cobm1y, &
+                 cobm1z, cobm2x, cobm2y, cobm2z, cobmxpy, cobmxpz, cobmxy, cobmxz, cobmypx, cobmypz, &
+                 cobmyz, cobmzpx, cobmzpy, cobp1x, cobp1y, cobp1z, cobp2x, cobp2y, cobp2z, cobpxy, cobpxz, &
+                 cobpyz, i, ipgf, j, jpgf, la, lb, ma, mb, na, nb
       REAL(KIND=dp)                                      :: dab, dum, dumxx, dumxy, dumxz, dumyy, &
                                                             dumyz, dumzz, f0, rab2, xhi, za, zb, &
                                                             zet
@@ -127,11 +127,11 @@ CONTAINS
                      vab(i, j, 4) = 0.0_dp
                      vab(i, j, 5) = 0.0_dp
                      vab(i, j, 6) = 0.0_dp
-                  ENDDO
-               ENDDO
+                  END DO
+               END DO
                nb = nb + ncoset(lb_max)
                CYCLE
-            ENDIF
+            END IF
 
             ! *** Calculate some prefactors ***
 
@@ -302,21 +302,21 @@ CONTAINS
                   vab(ma, mb, 4) = (2.0_dp*dumyy - dumzz - dumxx)/3.0_dp !yy
                   vab(ma, mb, 5) = dumyz !yz
                   vab(ma, mb, 6) = (2.0_dp*dumzz - dumxx - dumyy)/3.0_dp !zz
-               ENDDO
-               ENDDO
-               ENDDO !la
+               END DO
+               END DO
+               END DO !la
 
-            ENDDO
-            ENDDO
-            ENDDO !lb
+            END DO
+            END DO
+            END DO !lb
 
             nb = nb + ncoset(lb_max)
 
-         ENDDO
+         END DO
 
          na = na + ncoset(la_max)
 
-      ENDDO
+      END DO
 
    END SUBROUTINE efg
 

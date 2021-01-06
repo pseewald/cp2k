@@ -13,44 +13,44 @@
 !> \author Joost VandeVondele (09.2002)
 ! **************************************************************************************************
 MODULE preconditioner_makes
-   USE arnoldi_api,                     ONLY: arnoldi_data_type,&
-                                              arnoldi_ev,&
-                                              deallocate_arnoldi_data,&
-                                              get_selected_ritz_val,&
-                                              get_selected_ritz_vector,&
-                                              set_arnoldi_initial_vector,&
-                                              setup_arnoldi_data
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              cp_dbcsr_m_by_n_from_template,&
-                                              cp_dbcsr_sm_fm_multiply,&
-                                              cp_fm_to_dbcsr_row_template
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_triangular_invert,&
-                                              cp_fm_triangular_multiply,&
-                                              cp_fm_upper_to_full
-   USE cp_fm_cholesky,                  ONLY: cp_fm_cholesky_decompose,&
-                                              cp_fm_cholesky_reduce,&
-                                              cp_fm_cholesky_restore
-   USE cp_fm_diag,                      ONLY: choose_eigv_solver
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_diag,&
-                                              cp_fm_get_info,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_get_info, dbcsr_multiply, &
-        dbcsr_p_type, dbcsr_release, dbcsr_type, dbcsr_type_symmetric
-   USE input_constants,                 ONLY: &
-        cholesky_inverse, cholesky_reduce, ot_precond_full_all, ot_precond_full_kinetic, &
-        ot_precond_full_single, ot_precond_full_single_inverse, ot_precond_s_inverse, &
-        ot_precond_solver_default, ot_precond_solver_inv_chol
-   USE kinds,                           ONLY: dp
-   USE preconditioner_types,            ONLY: preconditioner_type
+   USE arnoldi_api, ONLY: arnoldi_data_type, &
+                          arnoldi_ev, &
+                          deallocate_arnoldi_data, &
+                          get_selected_ritz_val, &
+                          get_selected_ritz_vector, &
+                          set_arnoldi_initial_vector, &
+                          setup_arnoldi_data
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  cp_dbcsr_m_by_n_from_template, &
+                                  cp_dbcsr_sm_fm_multiply, &
+                                  cp_fm_to_dbcsr_row_template
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_triangular_invert, &
+                                 cp_fm_triangular_multiply, &
+                                 cp_fm_upper_to_full
+   USE cp_fm_cholesky, ONLY: cp_fm_cholesky_decompose, &
+                             cp_fm_cholesky_reduce, &
+                             cp_fm_cholesky_restore
+   USE cp_fm_diag, ONLY: choose_eigv_solver
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_diag, &
+                          cp_fm_get_info, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_add_on_diag, dbcsr_copy, dbcsr_create, dbcsr_get_info, dbcsr_multiply, &
+      dbcsr_p_type, dbcsr_release, dbcsr_type, dbcsr_type_symmetric
+   USE input_constants, ONLY: &
+      cholesky_inverse, cholesky_reduce, ot_precond_full_all, ot_precond_full_kinetic, &
+      ot_precond_full_single, ot_precond_full_single_inverse, ot_precond_s_inverse, &
+      ot_precond_solver_default, ot_precond_solver_inv_chol
+   USE kinds, ONLY: dp
+   USE preconditioner_types, ONLY: preconditioner_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -120,7 +120,7 @@ CONTAINS
       CASE (ot_precond_full_all)
          IF (my_solver_type .NE. ot_precond_solver_default) THEN
             CPABORT("Only PRECOND_SOLVER DEFAULT for the moment")
-         ENDIF
+         END IF
          IF (PRESENT(matrix_s)) THEN
             CALL make_full_all(preconditioner_env, mo_coeff, matrix_h, matrix_s, &
                                eigenvalues_ot, energy_gap)
@@ -228,7 +228,7 @@ CONTAINS
 
       IF (ASSOCIATED(fm)) THEN
          CALL cp_fm_release(fm)
-      ENDIF
+      END IF
       CALL dbcsr_get_info(matrix_h, nfullrows_total=n)
       ALLOCATE (evals(n))
 
@@ -268,13 +268,13 @@ CONTAINS
                                         invert_tr=.FALSE., uplo_tr="U", n_rows=n, n_cols=n, alpha=1.0_dp)
          DO i = 1, n
             evals(i) = 1.0_dp/MAX(evals(i) - energy_homo, energy_gap)
-         ENDDO
+         END DO
          CALL cp_fm_to_fm(fm, fm_h)
       CASE (cholesky_reduce)
          CALL cp_fm_cholesky_restore(fm, n, fm_s, fm_h, "SOLVE")
          DO i = 1, n
             evals(i) = 1.0_dp/MAX(evals(i) - energy_homo, energy_gap)
-         ENDDO
+         END DO
          CALL cp_fm_to_fm(fm_h, fm)
       END SELECT
 
@@ -317,7 +317,7 @@ CONTAINS
 
       IF (ASSOCIATED(fm)) THEN
          CALL cp_fm_release(fm)
-      ENDIF
+      END IF
       CALL dbcsr_get_info(matrix_h, nfullrows_total=n)
       ALLOCATE (evals(n))
 
@@ -334,7 +334,7 @@ CONTAINS
       CALL choose_eigv_solver(fm_h, fm, evals)
       DO i = 1, n
          evals(i) = 1.0_dp/MAX(evals(i) - energy_homo, energy_gap)
-      ENDDO
+      END DO
       CALL cp_fm_to_fm(fm, fm_h)
       CALL cp_fm_column_scale(fm, evals)
       CALL cp_gemm('N', 'T', n, n, n, 1.0_dp, fm, fm_h, 0.0_dp, fm_s)
@@ -510,7 +510,7 @@ CONTAINS
          DEALLOCATE (norms)
          CALL cp_fm_release(matrix_s1)
          CALL cp_fm_release(matrix_s2)
-      ENDIF
+      END IF
 
       ! 3) replace the lowest k evals and evecs with what they should be
       preconditioner_env%occ_evals = c0_evals
@@ -641,7 +641,7 @@ CONTAINS
          DEALLOCATE (norms)
          CALL cp_fm_release(matrix_s1)
          CALL cp_fm_release(matrix_s2)
-      ENDIF
+      END IF
 
       ! 3) replace the lowest k evals and evecs with what they should be
       preconditioner_env%occ_evals = c0_evals

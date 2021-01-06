@@ -12,40 +12,40 @@
 ! **************************************************************************************************
 MODULE mp2_ri_grad_util
 !
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_create,&
-                                              cp_blacs_env_release,&
-                                              cp_blacs_env_type
-   USE cp_dbcsr_operations,             ONLY: copy_fm_to_dbcsr,&
-                                              cp_dbcsr_m_by_n_from_template,&
-                                              dbcsr_allocate_matrix_set
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_indxg2l,&
-                                              cp_fm_indxg2p,&
-                                              cp_fm_indxl2g,&
-                                              cp_fm_release,&
-                                              cp_fm_set_all,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_type_no_symmetry
-   USE group_dist_types,                ONLY: create_group_dist,&
-                                              get_group_dist,&
-                                              group_dist_d1_type,&
-                                              release_group_dist
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_irecv,&
-                                              mp_isend,&
-                                              mp_sendrecv,&
-                                              mp_sum,&
-                                              mp_wait,&
-                                              mp_waitall
-   USE mp2_types,                       ONLY: integ_mat_buffer_type,&
-                                              mp2_type
-   USE util,                            ONLY: get_limit
+   USE cp_blacs_env, ONLY: cp_blacs_env_create, &
+                           cp_blacs_env_release, &
+                           cp_blacs_env_type
+   USE cp_dbcsr_operations, ONLY: copy_fm_to_dbcsr, &
+                                  cp_dbcsr_m_by_n_from_template, &
+                                  dbcsr_allocate_matrix_set
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_indxg2l, &
+                          cp_fm_indxg2p, &
+                          cp_fm_indxl2g, &
+                          cp_fm_release, &
+                          cp_fm_set_all, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_type_no_symmetry
+   USE group_dist_types, ONLY: create_group_dist, &
+                               get_group_dist, &
+                               group_dist_d1_type, &
+                               release_group_dist
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_irecv, &
+                              mp_isend, &
+                              mp_sendrecv, &
+                              mp_sum, &
+                              mp_wait, &
+                              mp_waitall
+   USE mp2_types, ONLY: integ_mat_buffer_type, &
+                        mp2_type
+   USE util, ONLY: get_limit
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -103,8 +103,8 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'complete_gamma'
 
       INTEGER :: dimen_ia, handle, i, ia_global, iiB, jjB, my_ia_end, my_ia_size, my_ia_start, &
-         my_P_end, my_P_size, my_P_start, ncol_local, nrow_local, pos_group, pos_sub, &
-         proc_receive, proc_send, proc_shift, rec_B_size, rec_B_virtual_end, rec_B_virtual_start
+                 my_P_end, my_P_size, my_P_start, ncol_local, nrow_local, pos_group, pos_sub, &
+                 proc_receive, proc_send, proc_shift, rec_B_size, rec_B_virtual_end, rec_B_virtual_start
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: pos_info, proc_map
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: group_grid_2_mepos, mepos_2_grid_group, &
                                                             sizes
@@ -181,7 +181,7 @@ CONTAINS
                ELSE ! Open-shell beta-beta component
                   Gamma_2D(ia_global - my_ia_start + 1, 1:my_group_L_size) = &
                      mp2_env%ri_grad%Gamma_P_ia_beta(iiB, jjB, 1:my_group_L_size)
-               ENDIF
+               END IF
             END IF
          END DO
       END DO
@@ -203,7 +203,7 @@ CONTAINS
             CALL mp_sendrecv(mp2_env%ri_grad%Gamma_P_ia_beta, proc_send, &
                              BIb_C_rec, proc_receive, &
                              para_env_sub%group)
-         ENDIF
+         END IF
 
          DO iiB = 1, homo
             DO jjB = 1, rec_B_size
@@ -220,7 +220,7 @@ CONTAINS
          DEALLOCATE (mp2_env%ri_grad%Gamma_P_ia)
       ELSE
          DEALLOCATE (mp2_env%ri_grad%Gamma_P_ia_beta)
-      ENDIF
+      END IF
 
       ! create the processor map and size arrays
       CALL create_group_dist(gd_ia_new, para_env%num_pe)
@@ -292,7 +292,7 @@ CONTAINS
                        gd_P_new, gd_array_new, &
                        group_grid_2_mepos, para_env_sub%num_pe, ngroup, &
                        PQ_half)
-      ENDIF
+      END IF
 
       CALL cp_fm_struct_release(fm_struct)
       CALL release_group_dist(gd_P_new)
@@ -379,7 +379,7 @@ CONTAINS
                        sizes, group_grid_2_mepos, mepos_2_grid_group, &
                        para_env_sub%num_pe, ngroup, &
                        fm_Gamma_PQ)
-      ENDIF
+      END IF
 
       ! create the Gamma_ia_P in DBCSR style
       CALL create_dbcsr_gamma(Gamma_2D, homo, virtual, dimen_ia, para_env_sub, sub_proc_map, &
@@ -445,12 +445,12 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'array2fm'
 
       INTEGER :: dummy_proc, end_col_block, end_row_block, handle, handle2, i_global, i_local, &
-         i_sub, iiB, iii, itmp(2), j_global, j_local, j_sub, jjB, my_num_col_blocks, &
-         my_num_row_blocks, mypcol, myprow, ncol_block, ncol_local, npcol, nprow, nrow_block, &
-         nrow_local, num_rec_cols, number_of_rec, number_of_send, proc_receive, proc_send, &
-         proc_shift, rec_col_end, rec_col_size, rec_col_start, rec_counter, rec_pcol, rec_prow, &
-         rec_row_end, rec_row_size, rec_row_start, ref_send_pcol, ref_send_prow, send_counter, &
-         send_pcol, send_prow, size_rec_buffer, size_send_buffer, start_col_block, start_row_block
+                 i_sub, iiB, iii, itmp(2), j_global, j_local, j_sub, jjB, my_num_col_blocks, &
+                 my_num_row_blocks, mypcol, myprow, ncol_block, ncol_local, npcol, nprow, nrow_block, &
+                 nrow_local, num_rec_cols, number_of_rec, number_of_send, proc_receive, proc_send, &
+                 proc_shift, rec_col_end, rec_col_size, rec_col_start, rec_counter, rec_pcol, rec_prow, &
+                 rec_row_end, rec_row_size, rec_row_start, ref_send_pcol, ref_send_prow, send_counter, &
+                 send_pcol, send_prow, size_rec_buffer, size_send_buffer, start_col_block, start_row_block
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: iii_vet, index_col_rec, map_rec_size, &
                                                             map_send_size, req_send
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: blocks_ranges_col, blocks_ranges_row, &
@@ -859,10 +859,10 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER                        :: routineN = 'fm2array'
 
       INTEGER :: dummy_proc, handle, handle2, i_global, iiB, iii, itmp(2), j_global, jjB, mypcol, &
-         myprow, ncol_block, ncol_local, npcol, nprow, nrow_block, nrow_local, num_rec_rows, &
-         number_of_rec, number_of_send, proc_receive, proc_send, proc_shift, rec_col_size, &
-         rec_counter, rec_pcol, rec_prow, rec_row_size, ref_send_pcol, ref_send_prow, &
-         send_counter, send_pcol, send_prow, size_rec_buffer, size_send_buffer
+                 myprow, ncol_block, ncol_local, npcol, nprow, nrow_block, nrow_local, num_rec_rows, &
+                 number_of_rec, number_of_send, proc_receive, proc_send, proc_shift, rec_col_size, &
+                 rec_counter, rec_pcol, rec_prow, rec_row_size, ref_send_pcol, ref_send_prow, &
+                 send_counter, send_pcol, send_prow, size_rec_buffer, size_send_buffer
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: iii_vet, index_row_rec, map_rec_size, &
                                                             map_send_size, req_send
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: grid_2_mepos, grid_ref_2_send_pos, &
@@ -1208,11 +1208,11 @@ CONTAINS
       CHARACTER(LEN=*), PARAMETER :: routineN = 'create_dbcsr_gamma'
 
       INTEGER :: dummy_proc, handle, i_global, i_local, iaia, iiB, iii, itmp(2), j_global, &
-         j_local, jjB, jjj, kkB, mypcol, myprow, ncol_block, ncol_local, npcol, nprow, nrow_block, &
-         nrow_local, number_of_rec, number_of_send, proc_receive, proc_send, proc_shift, &
-         rec_counter, rec_iaia_end, rec_iaia_size, rec_iaia_start, rec_pcol, rec_prow, &
-         ref_send_pcol, ref_send_prow, send_counter, send_pcol, send_prow, size_rec_buffer, &
-         size_send_buffer
+                 j_local, jjB, jjj, kkB, mypcol, myprow, ncol_block, ncol_local, npcol, nprow, nrow_block, &
+                 nrow_local, number_of_rec, number_of_send, proc_receive, proc_send, proc_shift, &
+                 rec_counter, rec_iaia_end, rec_iaia_size, rec_iaia_start, rec_pcol, rec_prow, &
+                 ref_send_pcol, ref_send_prow, send_counter, send_pcol, send_prow, size_rec_buffer, &
+                 size_send_buffer
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: iii_vet, map_rec_size, map_send_size, &
                                                             req_send
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: grid_2_mepos, grid_ref_2_send_pos, &
@@ -1237,7 +1237,7 @@ CONTAINS
          NULLIFY (mp2_env%ri_grad%G_P_ia_beta)
          CALL dbcsr_allocate_matrix_set(mp2_env%ri_grad%G_P_ia_beta, &
                                         my_group_L_size)
-      ENDIF
+      END IF
 
       ! create sub blacs env
       NULLIFY (blacs_env)
@@ -1511,7 +1511,7 @@ CONTAINS
                                                template=mp2_env%ri_grad%mo_coeff_o_beta, &
                                                m=homo, n=virtual, sym=dbcsr_type_no_symmetry)
             CALL copy_fm_to_dbcsr(fm_ia, mp2_env%ri_grad%G_P_ia_beta(kkB)%matrix, keep_sparsity=.FALSE.)
-         ENDIF
+         END IF
 
       END DO
 
@@ -1598,7 +1598,7 @@ CONTAINS
          ! and the opposite, from the global pos to the grid pos
          mepos_2_grid_group(i, 1) = pos_sub
          mepos_2_grid_group(i, 2) = pos_group
-      ENDDO
+      END DO
 
       IF (PRESENT(fm_mat_Gamma) .AND. PRESENT(sizes)) THEN
          CALL cp_fm_get_info(matrix=fm_mat_Gamma, &

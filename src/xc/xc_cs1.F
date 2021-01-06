@@ -14,15 +14,15 @@
 ! **************************************************************************************************
 MODULE xc_cs1
 
-   USE kinds,                           ONLY: dp
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_functionals_utilities,        ONLY: set_util
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
+   USE kinds, ONLY: dp
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_functionals_utilities, ONLY: set_util
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -151,8 +151,8 @@ CONTAINS
       INTEGER, DIMENSION(:, :), POINTER                  :: bo
       REAL(KIND=dp)                                      :: epsilon_rho
       REAL(KIND=dp), DIMENSION(:, :, :), POINTER :: e_0, e_ndrho, e_ndrho_ndrho, &
-         e_ndrho_ndrho_ndrho, e_rho, e_rho_ndrho, e_rho_ndrho_ndrho, e_rho_rho, e_rho_rho_ndrho, &
-         e_rho_rho_rho, grho, rho, rho13
+                                           e_ndrho_ndrho_ndrho, e_rho, e_rho_ndrho, e_rho_ndrho_ndrho, e_rho_rho, e_rho_rho_ndrho, &
+                                                    e_rho_rho_rho, grho, rho, rho13
       TYPE(xc_derivative_type), POINTER                  :: deriv
 
       CALL timeset(routineN, handle)
@@ -498,9 +498,9 @@ CONTAINS
 
       INTEGER                                            :: ip
       REAL(KIND=dp) :: c2p, c3p, c4p, cp, d2rgF2, d2rgF4, d3F1, d3F3, d3gF2, d3gF4, d3rF2, d3rF4, &
-         dpv, dr2gF2, dr2gF4, g, oc, ocp, od, odp, r, r3, t1, t10, t11, t13, t15, t16, t17, t19, &
-         t2, t22, t23, t26, t29, t3, t32, t33, t37, t4, t44, t45, t50, t51, t52, t58, t6, t61, t7, &
-         t74, t76, t77, t8, t80, t81, t82, t9
+                       dpv, dr2gF2, dr2gF4, g, oc, ocp, od, odp, r, r3, t1, t10, t11, t13, t15, t16, t17, t19, &
+                       t2, t22, t23, t26, t29, t3, t32, t33, t37, t4, t44, t45, t50, t51, t52, t58, t6, t61, t7, &
+                       t74, t76, t77, t8, t80, t81, t82, t9
 
       dpv = fsig*d
       cp = c*fsig*fsig

@@ -20,136 +20,136 @@
 !>      - SCCS implementation (16.10.2013,MK)
 ! **************************************************************************************************
 MODULE qs_ks_methods
-   USE admm_dm_methods,                 ONLY: admm_dm_calc_rho_aux,&
-                                              admm_dm_merge_ks_matrix
-   USE admm_methods,                    ONLY: admm_mo_calc_rho_aux,&
-                                              admm_mo_merge_derivs,&
-                                              admm_mo_merge_ks_matrix,&
-                                              admm_update_ks_atom
-   USE admm_types,                      ONLY: admm_type
-   USE cell_types,                      ONLY: cell_type
-   USE cp_blacs_env,                    ONLY: cp_blacs_env_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_dbcsr_cp2k_link,              ONLY: cp_dbcsr_alloc_block_from_nbl
-   USE cp_dbcsr_operations,             ONLY: copy_dbcsr_to_fm,&
-                                              copy_fm_to_dbcsr,&
-                                              cp_dbcsr_plus_fm_fm_t,&
-                                              cp_dbcsr_sm_fm_multiply,&
-                                              dbcsr_allocate_matrix_set,&
-                                              dbcsr_copy_columns_hack
-   USE cp_ddapc,                        ONLY: qs_ks_ddapc
-   USE cp_fm_basic_linalg,              ONLY: cp_fm_column_scale,&
-                                              cp_fm_scale_and_add,&
-                                              cp_fm_symm,&
-                                              cp_fm_transpose,&
-                                              cp_fm_upper_to_full
-   USE cp_fm_struct,                    ONLY: cp_fm_struct_create,&
-                                              cp_fm_struct_release,&
-                                              cp_fm_struct_type
-   USE cp_fm_types,                     ONLY: cp_fm_create,&
-                                              cp_fm_get_info,&
-                                              cp_fm_p_type,&
-                                              cp_fm_release,&
-                                              cp_fm_to_fm,&
-                                              cp_fm_type
-   USE cp_gemm_interface,               ONLY: cp_gemm
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_get_default_io_unit,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_should_output
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: &
-        dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_filter, dbcsr_get_info, dbcsr_multiply, &
-        dbcsr_p_type, dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_symmetric
-   USE dft_plus_u,                      ONLY: plus_u
-   USE efield_utils,                    ONLY: efield_potential
-   USE hartree_local_methods,           ONLY: Vh_1c_gg_integrals
-   USE hartree_local_types,             ONLY: ecoul_1center_type
-   USE hfx_admm_utils,                  ONLY: hfx_admm_init,&
-                                              hfx_ks_matrix
-   USE input_constants,                 ONLY: do_ppl_grid,&
-                                              outer_scf_becke_constraint,&
-                                              outer_scf_hirshfeld_constraint
-   USE input_section_types,             ONLY: section_vals_get,&
-                                              section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kg_correction,                   ONLY: kg_ekin_subset
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE lri_environment_methods,         ONLY: v_int_ppl_energy
-   USE lri_environment_types,           ONLY: lri_density_type,&
-                                              lri_environment_type,&
-                                              lri_kind_type
-   USE mathlib,                         ONLY: abnormal_value
-   USE message_passing,                 ONLY: mp_sum
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_copy,&
-                                              pw_integral_ab,&
-                                              pw_integrate_function,&
-                                              pw_scale,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_poisson_methods,              ONLY: pw_poisson_solve
-   USE pw_poisson_types,                ONLY: pw_poisson_implicit,&
-                                              pw_poisson_type
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_type
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type,&
-                                              pw_release
-   USE qmmm_image_charge,               ONLY: add_image_pot_to_hartree_pot,&
-                                              calculate_image_pot,&
-                                              integrate_potential_devga_rspace
-   USE qs_cdft_types,                   ONLY: cdft_control_type
-   USE qs_charges_types,                ONLY: qs_charges_type
-   USE qs_core_energies,                ONLY: calculate_ptrace
-   USE qs_dftb_matrices,                ONLY: build_dftb_ks_matrix
-   USE qs_efield_berry,                 ONLY: qs_efield_berry_phase
-   USE qs_efield_local,                 ONLY: qs_efield_local_operator
-   USE qs_energy_types,                 ONLY: qs_energy_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_gapw_densities,               ONLY: prepare_gapw_den
-   USE qs_integrate_potential,          ONLY: integrate_ppl_rspace,&
-                                              integrate_rho_nlcc,&
-                                              integrate_v_core_rspace
-   USE qs_ks_apply_restraints,          ONLY: qs_ks_cdft_constraint,&
-                                              qs_ks_mulliken_restraint,&
-                                              qs_ks_s2_restraint
-   USE qs_ks_atom,                      ONLY: update_ks_atom
-   USE qs_ks_qmmm_methods,              ONLY: qmmm_calculate_energy,&
-                                              qmmm_modify_hartree_pot
-   USE qs_ks_types,                     ONLY: qs_ks_env_type,&
-                                              set_ks_env
-   USE qs_ks_utils,                     ONLY: &
-        calc_v_sic_rspace, calculate_zmp_potential, compute_matrix_vxc, &
-        get_embed_potential_energy, low_spin_roks, print_densities, print_detailed_energy, &
-        sic_explicit_orbitals, sum_up_and_integrate
-   USE qs_local_rho_types,              ONLY: local_rho_type
-   USE qs_mo_types,                     ONLY: get_mo_set,&
-                                              mo_set_p_type,&
-                                              mo_set_type
-   USE qs_neighbor_list_types,          ONLY: neighbor_list_set_p_type
-   USE qs_rho0_ggrid,                   ONLY: integrate_vhg0_rspace
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_type
-   USE qs_sccs,                         ONLY: sccs
-   USE qs_vxc,                          ONLY: qs_vxc_create
-   USE qs_vxc_atom,                     ONLY: calculate_vxc_atom
-   USE rtp_admm_methods,                ONLY: rtp_admm_calc_rho_aux,&
-                                              rtp_admm_merge_ks_matrix
-   USE se_fock_matrix,                  ONLY: build_se_fock_matrix
-   USE surface_dipole,                  ONLY: calc_dipsurf_potential
-   USE virial_types,                    ONLY: virial_type
-   USE xtb_matrices,                    ONLY: build_xtb_ks_matrix
+   USE admm_dm_methods, ONLY: admm_dm_calc_rho_aux, &
+                              admm_dm_merge_ks_matrix
+   USE admm_methods, ONLY: admm_mo_calc_rho_aux, &
+                           admm_mo_merge_derivs, &
+                           admm_mo_merge_ks_matrix, &
+                           admm_update_ks_atom
+   USE admm_types, ONLY: admm_type
+   USE cell_types, ONLY: cell_type
+   USE cp_blacs_env, ONLY: cp_blacs_env_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_dbcsr_cp2k_link, ONLY: cp_dbcsr_alloc_block_from_nbl
+   USE cp_dbcsr_operations, ONLY: copy_dbcsr_to_fm, &
+                                  copy_fm_to_dbcsr, &
+                                  cp_dbcsr_plus_fm_fm_t, &
+                                  cp_dbcsr_sm_fm_multiply, &
+                                  dbcsr_allocate_matrix_set, &
+                                  dbcsr_copy_columns_hack
+   USE cp_ddapc, ONLY: qs_ks_ddapc
+   USE cp_fm_basic_linalg, ONLY: cp_fm_column_scale, &
+                                 cp_fm_scale_and_add, &
+                                 cp_fm_symm, &
+                                 cp_fm_transpose, &
+                                 cp_fm_upper_to_full
+   USE cp_fm_struct, ONLY: cp_fm_struct_create, &
+                           cp_fm_struct_release, &
+                           cp_fm_struct_type
+   USE cp_fm_types, ONLY: cp_fm_create, &
+                          cp_fm_get_info, &
+                          cp_fm_p_type, &
+                          cp_fm_release, &
+                          cp_fm_to_fm, &
+                          cp_fm_type
+   USE cp_gemm_interface, ONLY: cp_gemm
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_get_default_io_unit, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_should_output
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: &
+      dbcsr_add, dbcsr_copy, dbcsr_create, dbcsr_filter, dbcsr_get_info, dbcsr_multiply, &
+      dbcsr_p_type, dbcsr_release, dbcsr_set, dbcsr_type, dbcsr_type_symmetric
+   USE dft_plus_u, ONLY: plus_u
+   USE efield_utils, ONLY: efield_potential
+   USE hartree_local_methods, ONLY: Vh_1c_gg_integrals
+   USE hartree_local_types, ONLY: ecoul_1center_type
+   USE hfx_admm_utils, ONLY: hfx_admm_init, &
+                             hfx_ks_matrix
+   USE input_constants, ONLY: do_ppl_grid, &
+                              outer_scf_becke_constraint, &
+                              outer_scf_hirshfeld_constraint
+   USE input_section_types, ONLY: section_vals_get, &
+                                  section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kg_correction, ONLY: kg_ekin_subset
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE lri_environment_methods, ONLY: v_int_ppl_energy
+   USE lri_environment_types, ONLY: lri_density_type, &
+                                    lri_environment_type, &
+                                    lri_kind_type
+   USE mathlib, ONLY: abnormal_value
+   USE message_passing, ONLY: mp_sum
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_copy, &
+                         pw_integral_ab, &
+                         pw_integrate_function, &
+                         pw_scale, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_poisson_methods, ONLY: pw_poisson_solve
+   USE pw_poisson_types, ONLY: pw_poisson_implicit, &
+                               pw_poisson_type
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_type
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type, &
+                       pw_release
+   USE qmmm_image_charge, ONLY: add_image_pot_to_hartree_pot, &
+                                calculate_image_pot, &
+                                integrate_potential_devga_rspace
+   USE qs_cdft_types, ONLY: cdft_control_type
+   USE qs_charges_types, ONLY: qs_charges_type
+   USE qs_core_energies, ONLY: calculate_ptrace
+   USE qs_dftb_matrices, ONLY: build_dftb_ks_matrix
+   USE qs_efield_berry, ONLY: qs_efield_berry_phase
+   USE qs_efield_local, ONLY: qs_efield_local_operator
+   USE qs_energy_types, ONLY: qs_energy_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_gapw_densities, ONLY: prepare_gapw_den
+   USE qs_integrate_potential, ONLY: integrate_ppl_rspace, &
+                                     integrate_rho_nlcc, &
+                                     integrate_v_core_rspace
+   USE qs_ks_apply_restraints, ONLY: qs_ks_cdft_constraint, &
+                                     qs_ks_mulliken_restraint, &
+                                     qs_ks_s2_restraint
+   USE qs_ks_atom, ONLY: update_ks_atom
+   USE qs_ks_qmmm_methods, ONLY: qmmm_calculate_energy, &
+                                 qmmm_modify_hartree_pot
+   USE qs_ks_types, ONLY: qs_ks_env_type, &
+                          set_ks_env
+   USE qs_ks_utils, ONLY: &
+      calc_v_sic_rspace, calculate_zmp_potential, compute_matrix_vxc, &
+      get_embed_potential_energy, low_spin_roks, print_densities, print_detailed_energy, &
+      sic_explicit_orbitals, sum_up_and_integrate
+   USE qs_local_rho_types, ONLY: local_rho_type
+   USE qs_mo_types, ONLY: get_mo_set, &
+                          mo_set_p_type, &
+                          mo_set_type
+   USE qs_neighbor_list_types, ONLY: neighbor_list_set_p_type
+   USE qs_rho0_ggrid, ONLY: integrate_vhg0_rspace
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_type
+   USE qs_sccs, ONLY: sccs
+   USE qs_vxc, ONLY: qs_vxc_create
+   USE qs_vxc_atom, ONLY: calculate_vxc_atom
+   USE rtp_admm_methods, ONLY: rtp_admm_calc_rho_aux, &
+                               rtp_admm_merge_ks_matrix
+   USE se_fock_matrix, ONLY: build_se_fock_matrix
+   USE surface_dipole, ONLY: calc_dipsurf_potential
+   USE virial_types, ONLY: virial_type
+   USE xtb_matrices, ONLY: build_xtb_ks_matrix
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -218,7 +218,7 @@ CONTAINS
       INTEGER                                            :: handle, iatom, img, ispin, nimages, ns, &
                                                             nspins
       LOGICAL :: do_adiabatic_rescaling, do_ddapc, do_hfx, do_ppl, gapw, gapw_xc, &
-         hfx_treat_lsd_in_core, just_energy_xc, lrigpw, my_print, rigpw, use_virial
+                 hfx_treat_lsd_in_core, just_energy_xc, lrigpw, my_print, rigpw, use_virial
       REAL(KIND=dp)                                      :: ecore_ppl, edisp, ee_ener, ekin_mol, &
                                                             mulliken_order_p
       REAL(KIND=dp), DIMENSION(3, 3)                     :: h_stress, pv_loc
@@ -238,7 +238,7 @@ CONTAINS
       TYPE(lri_kind_type), DIMENSION(:), POINTER         :: lri_v_int
       TYPE(pw_env_type), POINTER                         :: pw_env
       TYPE(pw_p_type) :: rho_tot_gspace, v_efield_rspace, v_hartree_gspace, v_hartree_rspace, &
-         v_minus_veps, v_sccs_rspace, v_sic_rspace, v_spin_ddapc_rest_r
+                         v_minus_veps, v_sccs_rspace, v_sic_rspace, v_spin_ddapc_rest_r
       TYPE(pw_p_type), DIMENSION(:), POINTER             :: rho_r, v_rspace_embed, v_rspace_new, &
                                                             v_rspace_new_aux_fit, v_tau_rspace, &
                                                             v_tau_rspace_aux_fit
@@ -334,10 +334,10 @@ CONTAINS
       rigpw = dft_control%qs_control%rigpw
       IF (rigpw) THEN
          CPASSERT(nimages == 1)
-      ENDIF
+      END IF
       IF (lrigpw .AND. rigpw) THEN
          CPABORT(" LRI and RI are not compatible")
-      ENDIF
+      END IF
 
       ! Check for GAPW method : additional terms for local densities
       gapw = dft_control%qs_control%gapw
@@ -347,10 +347,10 @@ CONTAINS
       END IF
       IF ((gapw .AND. lrigpw) .OR. (gapw_xc .AND. lrigpw)) THEN
          CPABORT(" GAPW/GAPW_XC and LRIGPW are not compatible")
-      ENDIF
+      END IF
       IF ((gapw .AND. rigpw) .OR. (gapw_xc .AND. rigpw)) THEN
          CPABORT(" GAPW/GAPW_XC and RIGPW are not compatible")
-      ENDIF
+      END IF
 
       do_ppl = dft_control%qs_control%do_ppl_method == do_ppl_grid
       IF (do_ppl) THEN
@@ -372,7 +372,7 @@ CONTAINS
       ! ***  Prepare densities for gapw ***
       IF (gapw .OR. gapw_xc) THEN
          CALL prepare_gapw_den(qs_env, do_rho0=(.NOT. gapw_xc))
-      ENDIF
+      END IF
 
       ! Calculate the Hartree potential
       CALL pw_pool_create_pw(auxbas_pw_pool, &
@@ -523,8 +523,8 @@ CONTAINS
                      potential=v_hartree_rspace, coeff=qs_env%image_coeff, &
                      forces=qs_env%qmmm_env_qm%image_charge_pot%image_forcesMM, &
                      qmmm_env=qs_env%qmmm_env_qm, qs_env=qs_env)
-               ENDIF
-            ENDIF
+               END IF
+            END IF
             CALL pw_release(qs_env%ks_qmmm_env%v_metal_rspace%pw)
          END IF
          IF (.NOT. just_energy) THEN
@@ -546,8 +546,8 @@ CONTAINS
             END IF
          ELSEIF (dft_control%do_admm_dm) THEN
             CALL admm_dm_calc_rho_aux(ks_env)
-         ENDIF
-      ENDIF
+         END IF
+      END IF
 
       ! only activate stress calculation if
       IF (use_virial .AND. calculate_forces) virial%pv_calculate = .TRUE.
@@ -603,7 +603,7 @@ CONTAINS
             energy%embed_corr = 0.0_dp
             CALL get_embed_potential_energy(qs_env, rho, v_rspace_embed, dft_control, &
                                             energy%embed_corr, just_energy)
-         ENDIF
+         END IF
          ! Everything else
          CALL qs_vxc_create(ks_env=ks_env, rho_struct=rho_struct, xc_section=xc_section, &
                             vxc_rho=v_rspace_new, vxc_tau=v_tau_rspace, exc=energy%exc, &
@@ -613,7 +613,7 @@ CONTAINS
          IF (qs_env%requires_matrix_vxc .AND. ASSOCIATED(v_rspace_new)) THEN
             CALL compute_matrix_vxc(qs_env=qs_env, v_rspace=v_rspace_new, matrix_vxc=matrix_vxc)
             CALL set_ks_env(ks_env, matrix_vxc=matrix_vxc)
-         ENDIF
+         END IF
 
          IF (gapw .OR. gapw_xc) THEN
             CALL calculate_vxc_atom(qs_env, just_energy_xc, energy%exc1, xc_section_external=xc_section)
@@ -623,9 +623,9 @@ CONTAINS
                   CPABORT("MGGA STRESS with GAPW not implemneted")
                END IF
             END IF
-         ENDIF
+         END IF
 
-      ENDIF
+      END IF
 
       NULLIFY (rho_struct)
       IF (use_virial .AND. calculate_forces) THEN
@@ -652,7 +652,7 @@ CONTAINS
             CALL integrate_rho_nlcc(v_rspace_new(ispin), qs_env)
             IF (dft_control%do_admm) CALL integrate_rho_nlcc(v_rspace_new_aux_fit(ispin), qs_env)
          END DO
-      ENDIF
+      END IF
 
       ! calculate KG correction
       IF (dft_control%qs_control%do_kg .AND. just_energy) THEN
@@ -771,7 +771,7 @@ CONTAINS
             ! Integrals of the Hartree potential with g0_soft
             CALL qmmm_modify_hartree_pot(v_hartree=v_hartree_rspace, &
                                          v_qmmm=vee, scale=-1.0_dp)
-         ENDIF
+         END IF
          CALL integrate_vhg0_rspace(qs_env, v_hartree_rspace, para_env, calculate_forces)
       END IF
 
@@ -808,7 +808,7 @@ CONTAINS
             CALL dbcsr_filter(ks_matrix(ispin, img)%matrix, &
                               dft_control%qs_control%eps_filter_matrix)
          END DO
-      ENDDO
+      END DO
 
       !** merge the auxiliary KS matrix and the primary one
       IF (dft_control%do_admm_mo) THEN
@@ -816,10 +816,10 @@ CONTAINS
             CALL rtp_admm_merge_ks_matrix(qs_env)
          ELSE
             CALL admm_mo_merge_ks_matrix(qs_env)
-         ENDIF
+         END IF
       ELSEIF (dft_control%do_admm_dm) THEN
          CALL admm_dm_merge_ks_matrix(ks_env)
-      ENDIF
+      END IF
 
       ! External field (nonperiodic case)
       CALL qs_efield_local_operator(qs_env, just_energy, calculate_forces)
@@ -833,7 +833,7 @@ CONTAINS
          CPASSERT(nimages == 1)
          ksmat => ks_matrix(:, 1)
          CALL calc_mo_derivatives(qs_env, ksmat, mo_derivs)
-      ENDIF
+      END IF
 
       ! deal with low spin roks
       CALL low_spin_roks(energy, qs_env, dft_control, just_energy, &
@@ -991,8 +991,8 @@ CONTAINS
             CALL get_mo_set(mo_set=mo_array(ispin)%mo_set, mo_coeff=mo_coeff) !fm->dbcsr
             NULLIFY (mo_derivs_tmp(ispin)%matrix)
             CALL cp_fm_create(mo_derivs_tmp(ispin)%matrix, mo_coeff%matrix_struct) !fm->dbcsr
-         ENDDO !fm->dbcsr
-      ENDIF !fm->dbcsr
+         END DO !fm->dbcsr
+      END IF !fm->dbcsr
 
       DO ispin = 1, SIZE(mo_derivs)
 
@@ -1051,16 +1051,16 @@ CONTAINS
             CALL dbcsr_add(mo_derivs(1)%matrix, mo_derivs2_tmp2, 1.0_dp, 1.0_dp)
             CALL dbcsr_release(mo_derivs2_tmp1)
             CALL dbcsr_release(mo_derivs2_tmp2)
-         ENDIF
+         END IF
 
-      ENDDO
+      END DO
 
       IF (dft_control%do_admm_mo) THEN !fm->dbcsr
          DO ispin = 1, SIZE(mo_derivs) !fm->dbcsr
             CALL cp_fm_release(mo_derivs_tmp(ispin)%matrix) !fm->dbcsr
-         ENDDO !fm->dbcsr
+         END DO !fm->dbcsr
          DEALLOCATE (mo_derivs_tmp) !fm->dbcsr
-      ENDIF !fm->dbcsr
+      END IF !fm->dbcsr
 
    END SUBROUTINE calc_mo_derivatives
 
@@ -1104,7 +1104,7 @@ CONTAINS
          CALL timeset(routineN//'_forces', handle)
       ELSE
          CALL timeset(routineN, handle)
-      ENDIF
+      END IF
 
       CPASSERT(ASSOCIATED(qs_env))
 
@@ -1265,7 +1265,7 @@ CONTAINS
 
       DO imo = 1, mo_set%homo
          eigocc(imo) = mo_set%eigenvalues(imo)*mo_set%occupation_numbers(imo)
-      ENDDO
+      END DO
       CALL cp_fm_column_scale(weighted_vectors, eigocc)
       DEALLOCATE (eigocc)
 
@@ -1343,7 +1343,7 @@ CONTAINS
          ! needs some investigation to find out if using this is better
          CALL cp_fm_transpose(h_block, h_block_t)
          CALL cp_fm_scale_and_add(0.5_dp, h_block, 0.5_dp, h_block_t)
-      ENDIF
+      END IF
 
       ! this could overwrite the mo_derivs to save the weighted_vectors
       CALL cp_gemm('N', 'N', nrow_global, ncol_global, ncol_global, 1.0_dp, &
@@ -1368,7 +1368,7 @@ CONTAINS
 
          WRITE (*, *) " maxabs difference ", MAXVAL(ABS(weighted_vectors%local_data - 2.0_dp*gradient%local_data))
          CALL cp_fm_release(gradient)
-      ENDIF
+      END IF
 
       IF (do_symm) CALL cp_fm_release(h_block_t)
       CALL cp_fm_release(weighted_vectors)
@@ -1486,8 +1486,8 @@ CONTAINS
                                  name=TRIM(headline), matrix_type=dbcsr_type_symmetric, nze=0)
                CALL cp_dbcsr_alloc_block_from_nbl(matrixkp_ks(ispin, ic)%matrix, sab_orb)
                CALL dbcsr_set(matrixkp_ks(ispin, ic)%matrix, 0.0_dp)
-            ENDDO
-         ENDDO
+            END DO
+         END DO
          CALL set_ks_env(ks_env, matrix_ks_kp=matrixkp_ks)
       END IF
 
@@ -1510,7 +1510,7 @@ CONTAINS
                                  matrix_type=dbcsr_type_symmetric, nze=0)
                CALL cp_dbcsr_alloc_block_from_nbl(matrix_ks_aux_fit(ispin)%matrix, sab_aux_fit)
                CALL dbcsr_set(matrix_ks_aux_fit(ispin)%matrix, 0.0_dp)
-            ENDDO
+            END DO
             CALL set_ks_env(ks_env, matrix_ks_aux_fit=matrix_ks_aux_fit)
          END IF
          ! same allocation procedure for matrix_ks_aux_fit_dft
@@ -1524,7 +1524,7 @@ CONTAINS
                                  matrix_type=dbcsr_type_symmetric, nze=0)
                CALL cp_dbcsr_alloc_block_from_nbl(matrix_ks_aux_fit_dft(ispin)%matrix, sab_aux_fit)
                CALL dbcsr_set(matrix_ks_aux_fit_dft(ispin)%matrix, 0.0_dp)
-            ENDDO
+            END DO
             CALL set_ks_env(ks_env, matrix_ks_aux_fit_dft=matrix_ks_aux_fit_dft)
          END IF
          ! same allocation procedure for matrix_ks_aux_fit_hfx
@@ -1538,7 +1538,7 @@ CONTAINS
                                  matrix_type=dbcsr_type_symmetric, nze=0)
                CALL cp_dbcsr_alloc_block_from_nbl(matrix_ks_aux_fit_hfx(ispin)%matrix, sab_aux_fit)
                CALL dbcsr_set(matrix_ks_aux_fit_hfx(ispin)%matrix, 0.0_dp)
-            ENDDO
+            END DO
             CALL set_ks_env(ks_env, matrix_ks_aux_fit_hfx=matrix_ks_aux_fit_hfx)
          END IF
 

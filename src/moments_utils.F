@@ -13,25 +13,25 @@
 !> \author JGH (20.07.2006)
 ! **************************************************************************************************
 MODULE moments_utils
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type,&
-                                              pbc
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE fist_environment_types,          ONLY: fist_env_get,&
-                                              fist_environment_type
-   USE input_constants,                 ONLY: use_mom_ref_coac,&
-                                              use_mom_ref_com,&
-                                              use_mom_ref_user,&
-                                              use_mom_ref_zero
-   USE kinds,                           ONLY: dp
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type, &
+                         pbc
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE fist_environment_types, ONLY: fist_env_get, &
+                                     fist_environment_type
+   USE input_constants, ONLY: use_mom_ref_coac, &
+                              use_mom_ref_com, &
+                              use_mom_ref_user, &
+                              use_mom_ref_zero
+   USE kinds, ONLY: dp
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -107,8 +107,8 @@ CONTAINS
                IF (mass > mass_low) THEN
                   mass_low = mass
                   center = particle_set(iatom)%r
-               ENDIF
-            ENDDO
+               END IF
+            END DO
             DO iatom = ifirst, ilast
                ria = particle_set(iatom)%r
                ria = pbc(ria - center, cell) + center
@@ -150,8 +150,8 @@ CONTAINS
                IF (mass > mass_low) THEN
                   mass_low = mass
                   center = particle_set(iatom)%r
-               ENDIF
-            ENDDO
+               END IF
+            END DO
             DO iatom = ifirst, ilast
                ria = particle_set(iatom)%r
                ria = pbc(ria - center, cell) + center

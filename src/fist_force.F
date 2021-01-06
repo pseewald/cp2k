@@ -14,64 +14,64 @@
 !> \author CJM & JGH
 ! **************************************************************************************************
 MODULE fist_force
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE atprop_types,                    ONLY: atprop_type
-   USE cell_types,                      ONLY: cell_type,&
-                                              init_cell
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_subsys_types,                 ONLY: cp_subsys_get,&
-                                              cp_subsys_type
-   USE cp_units,                        ONLY: cp_unit_from_cp2k
-   USE distribution_1d_types,           ONLY: distribution_1d_type
-   USE ewald_environment_types,         ONLY: ewald_env_get,&
-                                              ewald_environment_type
-   USE ewald_pw_methods,                ONLY: ewald_pw_grid_update
-   USE ewald_pw_types,                  ONLY: ewald_pw_type
-   USE ewalds,                          ONLY: ewald_evaluate,&
-                                              ewald_print,&
-                                              ewald_self,&
-                                              ewald_self_atom
-   USE ewalds_multipole,                ONLY: ewald_multipole_evaluate
-   USE exclusion_types,                 ONLY: exclusion_type
-   USE fist_efield_methods,             ONLY: fist_dipole,&
-                                              fist_efield_energy_force
-   USE fist_efield_types,               ONLY: fist_efield_type
-   USE fist_energy_types,               ONLY: fist_energy_type
-   USE fist_environment_types,          ONLY: fist_env_get,&
-                                              fist_environment_type
-   USE fist_intra_force,                ONLY: force_intra_control
-   USE fist_neighbor_list_control,      ONLY: list_control
-   USE fist_nonbond_env_types,          ONLY: fist_nonbond_env_type
-   USE fist_nonbond_force,              ONLY: bonded_correct_gaussian,&
-                                              force_nonbond
-   USE fist_pol_scf,                    ONLY: fist_pol_evaluate
-   USE input_constants,                 ONLY: do_fist_pol_none
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type
-   USE kinds,                           ONLY: dp
-   USE manybody_eam,                    ONLY: density_nonbond
-   USE manybody_potential,              ONLY: energy_manybody,&
-                                              force_nonbond_manybody
-   USE message_passing,                 ONLY: mp_sum
-   USE molecule_kind_types,             ONLY: molecule_kind_type
-   USE molecule_types,                  ONLY: molecule_type
-   USE multipole_types,                 ONLY: multipole_type
-   USE particle_types,                  ONLY: particle_type
-   USE pme,                             ONLY: pme_evaluate
-   USE pw_poisson_types,                ONLY: do_ewald_ewald,&
-                                              do_ewald_none,&
-                                              do_ewald_pme,&
-                                              do_ewald_spme
-   USE shell_potential_types,           ONLY: shell_kind_type
-   USE spme,                            ONLY: spme_evaluate
-   USE virial_types,                    ONLY: virial_type
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE atprop_types, ONLY: atprop_type
+   USE cell_types, ONLY: cell_type, &
+                         init_cell
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_subsys_types, ONLY: cp_subsys_get, &
+                              cp_subsys_type
+   USE cp_units, ONLY: cp_unit_from_cp2k
+   USE distribution_1d_types, ONLY: distribution_1d_type
+   USE ewald_environment_types, ONLY: ewald_env_get, &
+                                      ewald_environment_type
+   USE ewald_pw_methods, ONLY: ewald_pw_grid_update
+   USE ewald_pw_types, ONLY: ewald_pw_type
+   USE ewalds, ONLY: ewald_evaluate, &
+                     ewald_print, &
+                     ewald_self, &
+                     ewald_self_atom
+   USE ewalds_multipole, ONLY: ewald_multipole_evaluate
+   USE exclusion_types, ONLY: exclusion_type
+   USE fist_efield_methods, ONLY: fist_dipole, &
+                                  fist_efield_energy_force
+   USE fist_efield_types, ONLY: fist_efield_type
+   USE fist_energy_types, ONLY: fist_energy_type
+   USE fist_environment_types, ONLY: fist_env_get, &
+                                     fist_environment_type
+   USE fist_intra_force, ONLY: force_intra_control
+   USE fist_neighbor_list_control, ONLY: list_control
+   USE fist_nonbond_env_types, ONLY: fist_nonbond_env_type
+   USE fist_nonbond_force, ONLY: bonded_correct_gaussian, &
+                                 force_nonbond
+   USE fist_pol_scf, ONLY: fist_pol_evaluate
+   USE input_constants, ONLY: do_fist_pol_none
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type
+   USE kinds, ONLY: dp
+   USE manybody_eam, ONLY: density_nonbond
+   USE manybody_potential, ONLY: energy_manybody, &
+                                 force_nonbond_manybody
+   USE message_passing, ONLY: mp_sum
+   USE molecule_kind_types, ONLY: molecule_kind_type
+   USE molecule_types, ONLY: molecule_type
+   USE multipole_types, ONLY: multipole_type
+   USE particle_types, ONLY: particle_type
+   USE pme, ONLY: pme_evaluate
+   USE pw_poisson_types, ONLY: do_ewald_ewald, &
+                               do_ewald_none, &
+                               do_ewald_pme, &
+                               do_ewald_spme
+   USE shell_potential_types, ONLY: shell_kind_type
+   USE spme, ONLY: spme_evaluate
+   USE virial_types, ONLY: virial_type
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -118,16 +118,16 @@ CONTAINS
       CHARACTER(len=*), PARAMETER :: routineN = 'fist_calc_energy_force'
 
       INTEGER :: do_ipol, ewald_type, fg_coulomb_size, handle, i, ii, ikind, iparticle_kind, &
-         iparticle_local, iw, iw2, j, natoms, nlocal_particles, node, nparticle_kind, &
-         nparticle_local, nshell, shell_index
+                 iparticle_local, iw, iw2, j, natoms, nlocal_particles, node, nparticle_kind, &
+                 nparticle_local, nshell, shell_index
       LOGICAL                                            :: do_multipoles, shell_model_ad, &
                                                             shell_present, use_virial
       REAL(KIND=dp) :: ef_ener, fc, fs, mass, pot_bend, pot_bond, pot_imptors, pot_manybody, &
-         pot_nonbond, pot_opbend, pot_shell, pot_torsion, pot_urey_bradley, vg_coulomb, xdum1, &
-         xdum2, xdum3
+                       pot_nonbond, pot_opbend, pot_shell, pot_torsion, pot_urey_bradley, vg_coulomb, xdum1, &
+                       xdum2, xdum3
       REAL(KIND=dp), ALLOCATABLE, DIMENSION(:, :) :: ef_f, f_nonbond, f_total, fcore_nonbond, &
-         fcore_shell_bonded, fcore_total, fg_coulomb, fgcore_coulomb, fgshell_coulomb, &
-         fshell_nonbond, fshell_total
+                                                     fcore_shell_bonded, fcore_total, fg_coulomb, fgcore_coulomb, fgshell_coulomb, &
+                                                     fshell_nonbond, fshell_total
       REAL(KIND=dp), DIMENSION(3, 3)                     :: ef_pv, ident, pv_bc, pv_bend, pv_bond, &
                                                             pv_g, pv_imptors, pv_nonbond, &
                                                             pv_opbend, pv_torsion, pv_urey_bradley
@@ -204,7 +204,7 @@ CONTAINS
       nparticle_kind = SIZE(atomic_kind_set)
       DO ikind = 1, nparticle_kind
          nlocal_particles = nlocal_particles + local_particles%n_el(ikind)
-      ENDDO
+      END DO
 
       ALLOCATE (f_nonbond(3, natoms))
       f_nonbond = 0.0_dp
@@ -242,7 +242,7 @@ CONTAINS
          particle_set(i)%f(1) = 0.0_dp
          particle_set(i)%f(2) = 0.0_dp
          particle_set(i)%f(3) = 0.0_dp
-      ENDDO
+      END DO
       IF (nshell > 0) THEN
          DO i = 1, nshell
             shell_particle_set(i)%f(1) = 0.0_dp
@@ -252,7 +252,7 @@ CONTAINS
             core_particle_set(i)%f(2) = 0.0_dp
             core_particle_set(i)%f(3) = 0.0_dp
          END DO
-      ENDIF
+      END IF
 
       IF (use_virial) THEN
          pv_bc = 0.0_dp
@@ -657,7 +657,7 @@ CONTAINS
                   debug%f_g(1, ii) = debug%f_g(1, ii) + fg_coulomb(1, node)
                   debug%f_g(2, ii) = debug%f_g(2, ii) + fg_coulomb(2, node)
                   debug%f_g(3, ii) = debug%f_g(3, ii) + fg_coulomb(3, node)
-               ENDIF
+               END IF
                IF (atprop_env%energy) THEN
                   atprop_env%atener(ii) = atprop_env%atener(ii) + e_coulomb(node)
                END IF

@@ -14,11 +14,11 @@
 ! **************************************************************************************************
 MODULE hirshfeld_types
 
-   USE input_constants,                 ONLY: radius_default,&
-                                              shape_function_gaussian
-   USE kinds,                           ONLY: dp
-   USE pw_types,                        ONLY: pw_p_type,&
-                                              pw_release
+   USE input_constants, ONLY: radius_default, &
+                              shape_function_gaussian
+   USE kinds, ONLY: dp
+   USE pw_types, ONLY: pw_p_type, &
+                       pw_release
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -114,7 +114,7 @@ CONTAINS
          IF (ASSOCIATED(hirshfeld_env%fnorm)) THEN
             CALL pw_release(hirshfeld_env%fnorm%pw)
             DEALLOCATE (hirshfeld_env%fnorm)
-         ENDIF
+         END IF
 
          DEALLOCATE (hirshfeld_env)
 

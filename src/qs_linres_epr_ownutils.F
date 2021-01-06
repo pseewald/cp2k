@@ -11,75 +11,75 @@
 !> \author RD
 ! **************************************************************************************************
 MODULE qs_linres_epr_ownutils
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind
-   USE cell_types,                      ONLY: cell_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_log_handling,                 ONLY: cp_get_default_logger,&
-                                              cp_logger_type
-   USE cp_output_handling,              ONLY: cp_p_file,&
-                                              cp_print_key_finished_output,&
-                                              cp_print_key_should_output,&
-                                              cp_print_key_unit_nr
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_p_type
-   USE input_section_types,             ONLY: section_vals_get_subs_vals,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: default_string_length,&
-                                              dp
-   USE mathlib,                         ONLY: diamat_all
-   USE message_passing,                 ONLY: mp_sum
-   USE particle_types,                  ONLY: particle_type
-   USE pw_env_types,                    ONLY: pw_env_get,&
-                                              pw_env_type
-   USE pw_methods,                      ONLY: pw_axpy,&
-                                              pw_integral_ab,&
-                                              pw_scale,&
-                                              pw_transfer,&
-                                              pw_zero
-   USE pw_pool_types,                   ONLY: pw_pool_create_pw,&
-                                              pw_pool_give_back_pw,&
-                                              pw_pool_p_type,&
-                                              pw_pool_type
-   USE pw_spline_utils,                 ONLY: Eval_Interp_Spl3_pbc,&
-                                              find_coeffs,&
-                                              pw_spline_do_precond,&
-                                              pw_spline_precond_create,&
-                                              pw_spline_precond_release,&
-                                              pw_spline_precond_set_kind,&
-                                              pw_spline_precond_type,&
-                                              spl3_pbc
-   USE pw_types,                        ONLY: COMPLEXDATA1D,&
-                                              REALDATA3D,&
-                                              REALSPACE,&
-                                              RECIPROCALSPACE,&
-                                              pw_p_type
-   USE qs_core_energies,                ONLY: calculate_ptrace
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_grid_atom,                    ONLY: grid_atom_type
-   USE qs_harmonics_atom,               ONLY: harmonics_atom_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              qs_kind_type
-   USE qs_linres_nmr_epr_common_utils,  ONLY: mult_G_ov_G2_grid
-   USE qs_linres_op,                    ONLY: fac_vecp,&
-                                              set_vecp,&
-                                              set_vecp_rev
-   USE qs_linres_types,                 ONLY: current_env_type,&
-                                              epr_env_type,&
-                                              get_current_env,&
-                                              get_epr_env,&
-                                              jrho_atom_type,&
-                                              nablavks_atom_type
-   USE qs_rho_atom_types,               ONLY: get_rho_atom,&
-                                              rho_atom_coeff,&
-                                              rho_atom_type
-   USE qs_rho_types,                    ONLY: qs_rho_get,&
-                                              qs_rho_p_type,&
-                                              qs_rho_type
-   USE realspace_grid_types,            ONLY: realspace_grid_desc_type
-   USE util,                            ONLY: get_limit
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind
+   USE cell_types, ONLY: cell_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_log_handling, ONLY: cp_get_default_logger, &
+                              cp_logger_type
+   USE cp_output_handling, ONLY: cp_p_file, &
+                                 cp_print_key_finished_output, &
+                                 cp_print_key_should_output, &
+                                 cp_print_key_unit_nr
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_p_type
+   USE input_section_types, ONLY: section_vals_get_subs_vals, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: default_string_length, &
+                    dp
+   USE mathlib, ONLY: diamat_all
+   USE message_passing, ONLY: mp_sum
+   USE particle_types, ONLY: particle_type
+   USE pw_env_types, ONLY: pw_env_get, &
+                           pw_env_type
+   USE pw_methods, ONLY: pw_axpy, &
+                         pw_integral_ab, &
+                         pw_scale, &
+                         pw_transfer, &
+                         pw_zero
+   USE pw_pool_types, ONLY: pw_pool_create_pw, &
+                            pw_pool_give_back_pw, &
+                            pw_pool_p_type, &
+                            pw_pool_type
+   USE pw_spline_utils, ONLY: Eval_Interp_Spl3_pbc, &
+                              find_coeffs, &
+                              pw_spline_do_precond, &
+                              pw_spline_precond_create, &
+                              pw_spline_precond_release, &
+                              pw_spline_precond_set_kind, &
+                              pw_spline_precond_type, &
+                              spl3_pbc
+   USE pw_types, ONLY: COMPLEXDATA1D, &
+                       REALDATA3D, &
+                       REALSPACE, &
+                       RECIPROCALSPACE, &
+                       pw_p_type
+   USE qs_core_energies, ONLY: calculate_ptrace
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_grid_atom, ONLY: grid_atom_type
+   USE qs_harmonics_atom, ONLY: harmonics_atom_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            qs_kind_type
+   USE qs_linres_nmr_epr_common_utils, ONLY: mult_G_ov_G2_grid
+   USE qs_linres_op, ONLY: fac_vecp, &
+                           set_vecp, &
+                           set_vecp_rev
+   USE qs_linres_types, ONLY: current_env_type, &
+                              epr_env_type, &
+                              get_current_env, &
+                              get_epr_env, &
+                              jrho_atom_type, &
+                              nablavks_atom_type
+   USE qs_rho_atom_types, ONLY: get_rho_atom, &
+                                rho_atom_coeff, &
+                                rho_atom_type
+   USE qs_rho_types, ONLY: qs_rho_get, &
+                           qs_rho_p_type, &
+                           qs_rho_type
+   USE realspace_grid_types, ONLY: realspace_grid_desc_type
+   USE util, ONLY: get_limit
 #include "./base/base_uses.f90"
 
    IMPLICIT NONE
@@ -209,7 +209,7 @@ CONTAINS
          CALL cp_print_key_finished_output(unit_nr, logger, lr_section,&
               &                            "EPR%PRINT%G_TENSOR")
 
-      ENDIF
+      END IF
 
    END SUBROUTINE epr_g_print
 
@@ -823,8 +823,8 @@ CONTAINS
                                    use_data=COMPLEXDATA1D, &
                                    in_space=RECIPROCALSPACE)
             CALL pw_zero(shift_pw_gspace(idir, ispin)%pw)
-         ENDDO
-      ENDDO
+         END DO
+      END DO
       CALL pw_pool_create_pw(auxbas_pw_pool, shift_pw_rspace%pw, &
                              use_data=REALDATA3D, in_space=REALSPACE)
       CALL pw_zero(shift_pw_rspace%pw)
@@ -841,7 +841,7 @@ CONTAINS
          DO idir3 = 1, 3
             ! set to zero for the calculation of the shift
             CALL pw_zero(shift_pw_gspace(idir3, ispin)%pw)
-         ENDDO
+         END DO
          DO idir = 1, 3
             CALL qs_rho_get(current_env%jrho1_set(idir)%rho, rho_g=jrho1_g)
             rho_gspace => jrho1_g(ispin)
@@ -858,18 +858,18 @@ CONTAINS
                   scale_fac = fac_vecp(idir3, idir2, idir)
                   CALL pw_scale(pw_gspace_work%pw, scale_fac)
                   CALL pw_axpy(pw_gspace_work%pw, shift_pw_gspace(idir3, ispin)%pw)
-               ENDIF
-            ENDDO
+               END IF
+            END DO
             !
-         ENDDO ! idir
-      ENDDO ! ispin
+         END DO ! idir
+      END DO ! ispin
 
       ! Store the total soft induced magnetic field (corrected for sic)
       IF (dft_control%nspins == 2) THEN
          DO idir = 1, 3
             CALL qs_rho_get(epr_env%bind_set(idir, iB)%rho, rho_r=epr_rho_r)
             CALL pw_transfer(shift_pw_gspace(idir, 2)%pw, epr_rho_r(1)%pw)
-         ENDDO
+         END DO
       END IF
       !
       ! Dellocate grids for the calculation of jrho and the shift
@@ -877,8 +877,8 @@ CONTAINS
       DO ispin = 1, dft_control%nspins
          DO idir = 1, 3
             CALL pw_pool_give_back_pw(auxbas_pw_pool, shift_pw_gspace(idir, ispin)%pw)
-         ENDDO
-      ENDDO
+         END DO
+      END DO
       DEALLOCATE (shift_pw_gspace)
       CALL pw_pool_give_back_pw(auxbas_pw_pool, shift_pw_rspace%pw)
       !

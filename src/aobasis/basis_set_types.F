@@ -14,43 +14,43 @@
 ! **************************************************************************************************
 MODULE basis_set_types
 
-   USE ai_coulomb,                      ONLY: coulomb2
-   USE bibliography,                    ONLY: VandeVondele2007,&
-                                              cite_reference
-   USE cp_linked_list_input,            ONLY: cp_sll_val_next,&
-                                              cp_sll_val_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE cp_parser_methods,               ONLY: parser_get_object,&
-                                              parser_search_string
-   USE cp_parser_types,                 ONLY: cp_parser_type,&
-                                              parser_create,&
-                                              parser_release
-   USE input_section_types,             ONLY: section_vals_list_get,&
-                                              section_vals_type,&
-                                              section_vals_val_get
-   USE input_val_types,                 ONLY: val_get,&
-                                              val_type
-   USE kinds,                           ONLY: default_path_length,&
-                                              default_string_length,&
-                                              dp
-   USE mathconstants,                   ONLY: dfac,&
-                                              pi
-   USE memory_utilities,                ONLY: reallocate
-   USE orbital_pointers,                ONLY: coset,&
-                                              indco,&
-                                              init_orbital_pointers,&
-                                              nco,&
-                                              ncoset,&
-                                              nso,&
-                                              nsoset
-   USE orbital_symbols,                 ONLY: cgf_symbol,&
-                                              sgf_symbol
+   USE ai_coulomb, ONLY: coulomb2
+   USE bibliography, ONLY: VandeVondele2007, &
+                           cite_reference
+   USE cp_linked_list_input, ONLY: cp_sll_val_next, &
+                                   cp_sll_val_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE cp_parser_methods, ONLY: parser_get_object, &
+                                parser_search_string
+   USE cp_parser_types, ONLY: cp_parser_type, &
+                              parser_create, &
+                              parser_release
+   USE input_section_types, ONLY: section_vals_list_get, &
+                                  section_vals_type, &
+                                  section_vals_val_get
+   USE input_val_types, ONLY: val_get, &
+                              val_type
+   USE kinds, ONLY: default_path_length, &
+                    default_string_length, &
+                    dp
+   USE mathconstants, ONLY: dfac, &
+                            pi
+   USE memory_utilities, ONLY: reallocate
+   USE orbital_pointers, ONLY: coset, &
+                               indco, &
+                               init_orbital_pointers, &
+                               nco, &
+                               ncoset, &
+                               nso, &
+                               nsoset
+   USE orbital_symbols, ONLY: cgf_symbol, &
+                              sgf_symbol
    USE orbital_transformation_matrices, ONLY: orbtramat
-   USE sto_ng,                          ONLY: get_sto_ng
-   USE string_utilities,                ONLY: integer_to_string,&
-                                              remove_word,&
-                                              uppercase
-   USE util,                            ONLY: sort
+   USE sto_ng, ONLY: get_sto_ng
+   USE string_utilities, ONLY: integer_to_string, &
+                               remove_word, &
+                               uppercase
+   USE util, ONLY: sort
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -204,10 +204,10 @@ CONTAINS
       IF (ASSOCIATED(gto_basis_set)) THEN
          IF (ASSOCIATED(gto_basis_set%cgf_symbol)) THEN
             DEALLOCATE (gto_basis_set%cgf_symbol)
-         ENDIF
+         END IF
          IF (ASSOCIATED(gto_basis_set%sgf_symbol)) THEN
             DEALLOCATE (gto_basis_set%sgf_symbol)
-         ENDIF
+         END IF
          DEALLOCATE (gto_basis_set%norm_cgf)
          DEALLOCATE (gto_basis_set%set_radius)
          DEALLOCATE (gto_basis_set%lmax)
@@ -886,7 +886,7 @@ CONTAINS
                           0.0_dp, gto_basis_set%sphi(1, first_sgf), n)
             END DO
          END DO
-      ENDIF
+      END IF
 
       ! Build the reduced transformation matrix "scon"
       ! This matrix transforms from cartesian primitifs to spherical contracted functions
@@ -1216,11 +1216,11 @@ CONTAINS
       CHARACTER(LEN=default_path_length), DIMENSION(:), &
          POINTER                                         :: cbasis
       CHARACTER(LEN=LEN(basis_set_name))                 :: bsname
-      CHARACTER(LEN=LEN(basis_set_name)+2)               :: bsname2
+      CHARACTER(LEN=LEN(basis_set_name) + 2)               :: bsname2
       CHARACTER(LEN=LEN(element_symbol))                 :: symbol
-      CHARACTER(LEN=LEN(element_symbol)+2)               :: symbol2
+      CHARACTER(LEN=LEN(element_symbol) + 2)               :: symbol2
       INTEGER :: i, ibasis, ico, ipgf, irep, iset, ishell, lshell, m, maxco, maxl, maxpgf, &
-         maxshell, nbasis, ncgf, nmin, nset, nsgf, sort_method, strlen1, strlen2
+                 maxshell, nbasis, ncgf, nmin, nset, nsgf, sort_method, strlen1, strlen2
       INTEGER, DIMENSION(:), POINTER                     :: lmax, lmin, npgf, nshell
       INTEGER, DIMENSION(:, :), POINTER                  :: l, n
       LOGICAL                                            :: basis_found, found, match
@@ -1500,7 +1500,7 @@ CONTAINS
             match = .FALSE.
             ALLOCATE (gto_basis_set%cgf_symbol(ncgf))
             ALLOCATE (gto_basis_set%sgf_symbol(nsgf))
-         ENDIF
+         END IF
 
          CALL parser_release(parser)
 
@@ -1554,7 +1554,7 @@ CONTAINS
       CHARACTER(LEN=242)                                 :: line2
       CHARACTER(LEN=default_path_length)                 :: bsname, bsname2
       CHARACTER(LEN=LEN(element_symbol))                 :: symbol
-      CHARACTER(LEN=LEN(element_symbol)+2)               :: symbol2
+      CHARACTER(LEN=LEN(element_symbol) + 2)               :: symbol2
       INTEGER                                            :: i, ico, ipgf, iset, ishell, lshell, m, &
                                                             maxco, maxl, maxpgf, maxshell, ncgf, &
                                                             nmin, nset, nsgf, sort_method
@@ -1798,7 +1798,7 @@ CONTAINS
       IF (PRESENT(dft_section)) THEN
          CALL section_vals_val_get(dft_section, "SORT_BASIS", i_val=sort_method)
          CALL sort_gto_basis_set(gto_basis_set, sort_method)
-      ENDIF
+      END IF
 
    END SUBROUTINE read_gto_basis_set2
 
@@ -2219,9 +2219,9 @@ CONTAINS
       CHARACTER(LEN=default_path_length), DIMENSION(:), &
          POINTER                                         :: cbasis
       CHARACTER(LEN=LEN(basis_set_name))                 :: bsname
-      CHARACTER(LEN=LEN(basis_set_name)+2)               :: bsname2
+      CHARACTER(LEN=LEN(basis_set_name) + 2)               :: bsname2
       CHARACTER(LEN=LEN(element_symbol))                 :: symbol
-      CHARACTER(LEN=LEN(element_symbol)+2)               :: symbol2
+      CHARACTER(LEN=LEN(element_symbol) + 2)               :: symbol2
       INTEGER                                            :: ibasis, irep, iset, nbasis, nq, nset, &
                                                             strlen1, strlen2
       LOGICAL                                            :: basis_found, found, match
@@ -2341,7 +2341,7 @@ CONTAINS
             END DO search_loop
          ELSE
             match = .FALSE.
-         ENDIF
+         END IF
 
          CALL parser_release(parser)
 
@@ -2691,7 +2691,7 @@ CONTAINS
       CHARACTER(LEN=12), DIMENSION(:), POINTER           :: cgf_symbol
       CHARACTER(LEN=6), DIMENSION(:), POINTER            :: sgf_symbol
       INTEGER :: ic, ic_max, icgf, icgf_new, icgf_old, ico, is, is_max, iset, isgf, isgf_new, &
-         isgf_old, ishell, lshell, maxco, maxpgf, maxshell, mm, nc, ncgf, ns, nset
+                 isgf_old, ishell, lshell, maxco, maxpgf, maxshell, mm, nc, ncgf, ns, nset
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: sort_index
       INTEGER, ALLOCATABLE, DIMENSION(:, :)              :: icgf_set, isgf_set
       INTEGER, DIMENSION(:), POINTER                     :: lx, ly, lz, m, npgf
@@ -2725,7 +2725,7 @@ CONTAINS
       CASE (basis_sort_zet)
          DO iset = 1, nset
             tmp(iset) = MINVAL(basis_set%zet(:npgf(iset), iset))
-         ENDDO
+         END DO
       CASE DEFAULT
          CPABORT("Request basis sort criterion not implemented.")
       END SELECT
@@ -2741,14 +2741,14 @@ CONTAINS
             DO ico = 1, nco(b%l(ishell, iset))
                ic = ic + 1
                IF (ic > ic_max) ic_max = ic
-            ENDDO
+            END DO
             lshell = b%l(ishell, iset)
             DO mm = -lshell, lshell
                is = is + 1
                IF (is > is_max) is_max = is
-            ENDDO
-         ENDDO
-      ENDDO
+            END DO
+         END DO
+      END DO
 
       icgf = 0
       isgf = 0
@@ -2765,15 +2765,15 @@ CONTAINS
                icgf = icgf + 1
                ic = ic + 1
                icgf_set(iset, ic) = icgf
-            ENDDO
+            END DO
             lshell = b%l(ishell, iset)
             DO mm = -lshell, lshell
                isgf = isgf + 1
                is = is + 1
                isgf_set(iset, is) = isgf
-            ENDDO
-         ENDDO
-      ENDDO
+            END DO
+         END DO
+      END DO
 
       ALLOCATE (cgf_symbol(SIZE(b%cgf_symbol)))
       ALLOCATE (norm_cgf(SIZE(b%norm_cgf)))
@@ -2803,7 +2803,7 @@ CONTAINS
             lz(icgf_new) = b%lz(icgf_old)
             cphi(:, icgf_new) = b%cphi(:, icgf_old)
             cgf_symbol(icgf_new) = b%cgf_symbol(icgf_old)
-         ENDDO
+         END DO
          DO is = 1, is_max
             isgf_old = isgf_set(sort_index(iset), is)
             IF (isgf_old == 0) CYCLE
@@ -2812,8 +2812,8 @@ CONTAINS
             sphi(:, isgf_new) = b%sphi(:, isgf_old)
             scon(:, isgf_new) = b%scon(:, isgf_old)
             sgf_symbol(isgf_new) = b%sgf_symbol(isgf_old)
-         ENDDO
-      ENDDO
+         END DO
+      END DO
 
       DEALLOCATE (b%cgf_symbol)
       b%cgf_symbol => cgf_symbol

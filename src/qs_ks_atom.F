@@ -11,55 +11,55 @@
 ! **************************************************************************************************
 MODULE qs_ks_atom
 
-   USE ao_util,                         ONLY: trace_r_AxB
-   USE atomic_kind_types,               ONLY: atomic_kind_type,&
-                                              get_atomic_kind,&
-                                              get_atomic_kind_set
-   USE basis_set_types,                 ONLY: get_gto_basis_set,&
-                                              gto_basis_set_p_type,&
-                                              gto_basis_set_type
-   USE cp_array_utils,                  ONLY: cp_2d_r_p_type
-   USE cp_control_types,                ONLY: dft_control_type
-   USE cp_para_types,                   ONLY: cp_para_env_type
-   USE dbcsr_api,                       ONLY: dbcsr_get_block_p,&
-                                              dbcsr_p_type
-   USE kinds,                           ONLY: dp,&
-                                              int_8
-   USE kpoint_types,                    ONLY: get_kpoint_info,&
-                                              kpoint_type
-   USE message_passing,                 ONLY: mp_bcast
-   USE qs_environment_types,            ONLY: get_qs_env,&
-                                              qs_environment_type
-   USE qs_force_types,                  ONLY: qs_force_type
-   USE qs_kind_types,                   ONLY: get_qs_kind,&
-                                              get_qs_kind_set,&
-                                              qs_kind_type
-   USE qs_neighbor_list_types,          ONLY: get_iterator_task,&
-                                              neighbor_list_iterate,&
-                                              neighbor_list_iterator_create,&
-                                              neighbor_list_iterator_p_type,&
-                                              neighbor_list_iterator_release,&
-                                              neighbor_list_set_p_type,&
-                                              neighbor_list_task_type
-   USE qs_nl_hash_table_types,          ONLY: nl_hash_table_add,&
-                                              nl_hash_table_create,&
-                                              nl_hash_table_get_from_index,&
-                                              nl_hash_table_is_null,&
-                                              nl_hash_table_obj,&
-                                              nl_hash_table_release,&
-                                              nl_hash_table_status
-   USE qs_oce_methods,                  ONLY: prj_gather
-   USE qs_oce_types,                    ONLY: oce_matrix_type
-   USE qs_rho_atom_types,               ONLY: get_rho_atom,&
-                                              rho_atom_coeff,&
-                                              rho_atom_type
-   USE sap_kind_types,                  ONLY: alist_post_align_blk,&
-                                              alist_pre_align_blk,&
-                                              alist_type,&
-                                              get_alist
-   USE util,                            ONLY: get_limit
-   USE virial_methods,                  ONLY: virial_pair_force
-   USE virial_types,                    ONLY: virial_type
+   USE ao_util, ONLY: trace_r_AxB
+   USE atomic_kind_types, ONLY: atomic_kind_type, &
+                                get_atomic_kind, &
+                                get_atomic_kind_set
+   USE basis_set_types, ONLY: get_gto_basis_set, &
+                              gto_basis_set_p_type, &
+                              gto_basis_set_type
+   USE cp_array_utils, ONLY: cp_2d_r_p_type
+   USE cp_control_types, ONLY: dft_control_type
+   USE cp_para_types, ONLY: cp_para_env_type
+   USE dbcsr_api, ONLY: dbcsr_get_block_p, &
+                        dbcsr_p_type
+   USE kinds, ONLY: dp, &
+                    int_8
+   USE kpoint_types, ONLY: get_kpoint_info, &
+                           kpoint_type
+   USE message_passing, ONLY: mp_bcast
+   USE qs_environment_types, ONLY: get_qs_env, &
+                                   qs_environment_type
+   USE qs_force_types, ONLY: qs_force_type
+   USE qs_kind_types, ONLY: get_qs_kind, &
+                            get_qs_kind_set, &
+                            qs_kind_type
+   USE qs_neighbor_list_types, ONLY: get_iterator_task, &
+                                     neighbor_list_iterate, &
+                                     neighbor_list_iterator_create, &
+                                     neighbor_list_iterator_p_type, &
+                                     neighbor_list_iterator_release, &
+                                     neighbor_list_set_p_type, &
+                                     neighbor_list_task_type
+   USE qs_nl_hash_table_types, ONLY: nl_hash_table_add, &
+                                     nl_hash_table_create, &
+                                     nl_hash_table_get_from_index, &
+                                     nl_hash_table_is_null, &
+                                     nl_hash_table_obj, &
+                                     nl_hash_table_release, &
+                                     nl_hash_table_status
+   USE qs_oce_methods, ONLY: prj_gather
+   USE qs_oce_types, ONLY: oce_matrix_type
+   USE qs_rho_atom_types, ONLY: get_rho_atom, &
+                                rho_atom_coeff, &
+                                rho_atom_type
+   USE sap_kind_types, ONLY: alist_post_align_blk, &
+                             alist_pre_align_blk, &
+                             alist_type, &
+                             get_alist
+   USE util, ONLY: get_limit
+   USE virial_methods, ONLY: virial_pair_force
+   USE virial_types, ONLY: virial_type
 
 !$ USE OMP_LIB, ONLY: omp_get_max_threads, &
 !$                    omp_get_thread_num, &
@@ -120,9 +120,9 @@ CONTAINS
       CHARACTER(len=*), PARAMETER                        :: routineN = 'update_ks_atom'
 
       INTEGER :: bo(2), handle, ia_kind, iac, iat, iatom, ibc, ikind, img, ip, ispin, ja_kind, &
-         jatom, jkind, ka_kind, kac, katom, kbc, kkind, ldCPC, max_gau, max_nsgf, maxsoc, mepos, &
-         n_cont_a, n_cont_b, nat, natom, nimages, nkind, nl_table_num_slots, nsetc, nsoctot, &
-         nspins, num_pe, slot_num
+                 jatom, jkind, ka_kind, kac, katom, kbc, kkind, ldCPC, max_gau, max_nsgf, maxsoc, mepos, &
+                 n_cont_a, n_cont_b, nat, natom, nimages, nkind, nl_table_num_slots, nsetc, nsoctot, &
+                 nspins, num_pe, slot_num
       INTEGER(KIND=int_8)                                :: nl_table_key
       INTEGER, ALLOCATABLE, DIMENSION(:)                 :: atom_of_kind
       INTEGER, DIMENSION(3)                              :: cell_b
@@ -279,7 +279,7 @@ CONTAINS
             nl_table_key = natom*task%iatom + task%jatom
          ELSE
             nl_table_key = natom*task%jatom + task%iatom
-         ENDIF
+         END IF
          CALL nl_hash_table_add(nl_hash_table, nl_table_key, task)
       END DO
       CALL neighbor_list_iterator_release(nl_iterator)
@@ -504,7 +504,7 @@ CONTAINS
                      END DO ! kbc
                   END DO ! kac
 
-               ENDDO ! kkind
+               END DO ! kkind
 
                next_task => task%next
                ! We are done with this task, we can deallocate it
@@ -516,7 +516,7 @@ CONTAINS
 
          ELSE
             ! NO KEY/VALUE
-         ENDIF
+         END IF
       END DO
 !$OMP END DO
 

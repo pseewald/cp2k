@@ -12,19 +12,19 @@
 !> \author fawzi
 ! **************************************************************************************************
 MODULE xc_lyp
-   USE bibliography,                    ONLY: Lee1988,&
-                                              cite_reference
-   USE input_section_types,             ONLY: section_vals_type,&
-                                              section_vals_val_get
-   USE kinds,                           ONLY: dp
-   USE mathconstants,                   ONLY: pi
-   USE xc_derivative_set_types,         ONLY: xc_derivative_set_type,&
-                                              xc_dset_get_derivative
-   USE xc_derivative_types,             ONLY: xc_derivative_get,&
-                                              xc_derivative_type
-   USE xc_rho_cflags_types,             ONLY: xc_rho_cflags_type
-   USE xc_rho_set_types,                ONLY: xc_rho_set_get,&
-                                              xc_rho_set_type
+   USE bibliography, ONLY: Lee1988, &
+                           cite_reference
+   USE input_section_types, ONLY: section_vals_type, &
+                                  section_vals_val_get
+   USE kinds, ONLY: dp
+   USE mathconstants, ONLY: pi
+   USE xc_derivative_set_types, ONLY: xc_derivative_set_type, &
+                                      xc_dset_get_derivative
+   USE xc_derivative_types, ONLY: xc_derivative_get, &
+                                  xc_derivative_type
+   USE xc_rho_cflags_types, ONLY: xc_rho_cflags_type
+   USE xc_rho_set_types, ONLY: xc_rho_set_get, &
+                               xc_rho_set_type
 #include "../base/base_uses.f90"
 
    IMPLICIT NONE
@@ -126,8 +126,8 @@ CONTAINS
       INTEGER, DIMENSION(:, :), POINTER                  :: bo
       REAL(kind=dp)                                      :: epsilon_norm_drho, epsilon_rho, sc
       REAL(kind=dp), DIMENSION(:, :, :), POINTER :: dummy, e_0, e_ndrho, e_ndrho_ndrho, &
-         e_ndrho_ndrho_rho, e_ndrho_rho, e_ndrho_rho_rho, e_rho, e_rho_rho, e_rho_rho_rho, &
-         norm_drho, rho, rho_1_3
+                                                 e_ndrho_ndrho_rho, e_ndrho_rho, e_ndrho_rho_rho, e_rho, e_rho_rho, e_rho_rho_rho, &
+                                                    norm_drho, rho, rho_1_3
       TYPE(xc_derivative_type), POINTER                  :: deriv
 
       CALL timeset(routineN, handle)
@@ -260,11 +260,11 @@ CONTAINS
 
       INTEGER                                            :: ii
       REAL(kind=dp) :: cf, epsilon_rho13, my_ndrho, my_rho, my_rho_1_3, t1, t102, t103, t105, &
-         t106, t11, t112, t123, t124, t127, t128, t13, t133, t134, t14, t161, t165, t166, t173, &
-         t176, t184, t185, t189, t192, t193, t196, t199, t2, t200, t201, t202, t203, t215, t22, &
-         t227, t228, t231, t245, t246, t248, t26, t265, t278, t279, t3, t332, t37, t38, t39, t4, &
-         t40, t41, t44, t45, t48, t5, t52, t6, t61, t62, t69, t7, t70, t77, t78, t80, t87, t88, &
-         t89, t93, t94, t95, t98, t99
+                       t106, t11, t112, t123, t124, t127, t128, t13, t133, t134, t14, t161, t165, t166, t173, &
+                       t176, t184, t185, t189, t192, t193, t196, t199, t2, t200, t201, t202, t203, t215, t22, &
+                       t227, t228, t231, t245, t246, t248, t26, t265, t278, t279, t3, t332, t37, t38, t39, t4, &
+                       t40, t41, t44, t45, t48, t5, t52, t6, t61, t62, t69, t7, t70, t77, t78, t80, t87, t88, &
+                       t89, t93, t94, t95, t98, t99
 
       epsilon_rho13 = epsilon_rho**(1.0_dp/3.0_dp)
       cf = 0.3_dp*(3._dp*pi*pi)**(2._dp/3._dp)
@@ -735,9 +735,9 @@ CONTAINS
       INTEGER, DIMENSION(:, :), POINTER                  :: bo
       REAL(kind=dp)                                      :: epsilon_drho, epsilon_rho, sc
       REAL(kind=dp), DIMENSION(:, :, :), POINTER :: dummy, e_0, e_ndr, e_ndr_ndr, e_ndr_ra, &
-         e_ndr_rb, e_ndra, e_ndra_ndra, e_ndra_ra, e_ndra_rb, e_ndrb, e_ndrb_ndrb, e_ndrb_ra, &
-         e_ndrb_rb, e_ra, e_ra_ra, e_ra_rb, e_rb, e_rb_rb, norm_drho, norm_drhoa, norm_drhob, &
-         rhoa, rhob
+                                              e_ndr_rb, e_ndra, e_ndra_ndra, e_ndra_ra, e_ndra_rb, e_ndrb, e_ndrb_ndrb, e_ndrb_ra, &
+                                              e_ndrb_rb, e_ra, e_ra_ra, e_ra_rb, e_rb, e_rb_rb, norm_drho, norm_drhoa, norm_drhob, &
+                                                    rhoa, rhob
       TYPE(xc_derivative_type), POINTER                  :: deriv
 
       CALL timeset(routineN, handle)
@@ -902,23 +902,23 @@ CONTAINS
       REAL(kind=dp), DIMENSION(*), INTENT(in)            :: rhoa, rhob, norm_drho, norm_drhoa, &
                                                             norm_drhob
       REAL(kind=dp), DIMENSION(*), INTENT(inout) :: e_0, e_ra, e_rb, e_ndra_ra, e_ndra_rb, &
-         e_ndrb_ra, e_ndrb_rb, e_ndr_ndr, e_ndra_ndra, e_ndrb_ndrb, e_ndr, e_ndra, e_ndrb, &
-         e_ra_ra, e_ra_rb, e_rb_rb, e_ndr_ra, e_ndr_rb
+                                                 e_ndrb_ra, e_ndrb_rb, e_ndr_ndr, e_ndra_ndra, e_ndrb_ndrb, e_ndr, e_ndra, e_ndrb, &
+                                                    e_ra_ra, e_ra_rb, e_rb_rb, e_ndr_ra, e_ndr_rb
       INTEGER, INTENT(in)                                :: grad_deriv, npoints
       REAL(kind=dp), INTENT(in)                          :: epsilon_rho, sc
 
       INTEGER                                            :: ii
       REAL(kind=dp) :: cf, my_ndrho, my_ndrhoa, my_ndrhob, my_rho, my_rhoa, my_rhob, t1, t100, &
-         t101, t102, t103, t104, t107, t108, t109, t112, t115, t118, t12, t120, t124, t129, t13, &
-         t130, t132, t135, t138, t14, t140, t142, t145, t15, t153, t155, t159, t16, t164, t168, &
-         t17, t171, t176, t18, t181, t182, t185, t189, t194, t195, t198, t2, t20, t202, t205, &
-         t206, t21, t210, t214, t215, t218, t22, t222, t228, t23, t232, t236, t238, t24, t243, &
-         t249, t25, t252, t253, t255, t257, t26, t260, t265, t268, t27, t270, t29, t3, t30, t304, &
-         t31, t310, t313, t316, t319, t322, t326, t329, t332, t334, t341, t35
+                       t101, t102, t103, t104, t107, t108, t109, t112, t115, t118, t12, t120, t124, t129, t13, &
+                       t130, t132, t135, t138, t14, t140, t142, t145, t15, t153, t155, t159, t16, t164, t168, &
+                       t17, t171, t176, t18, t181, t182, t185, t189, t194, t195, t198, t2, t20, t202, t205, &
+                       t206, t21, t210, t214, t215, t218, t22, t222, t228, t23, t232, t236, t238, t24, t243, &
+                       t249, t25, t252, t253, t255, t257, t26, t260, t265, t268, t27, t270, t29, t3, t30, t304, &
+                       t31, t310, t313, t316, t319, t322, t326, t329, t332, t334, t341, t35
       REAL(kind=dp) :: t354, t356, t360, t363, t37, t373, t376, t381, t39, t391, t4, t40, t408, &
-         t41, t415, t419, t422, t430, t44, t445, t449, t45, t452, t46, t467, t47, t48, t483, t487, &
-         t49, t490, t5, t50, t505, t515, t519, t52, t520, t54, t56, t57, t6, t61, t62, t64, t66, &
-         t7, t72, t75, t78, t8, t82, t85, t86, t87, t88, t90, t92, t94, t95, t98, t99
+                       t41, t415, t419, t422, t430, t44, t445, t449, t45, t452, t46, t467, t47, t48, t483, t487, &
+                       t49, t490, t5, t50, t505, t515, t519, t52, t520, t54, t56, t57, t6, t61, t62, t64, t66, &
+                       t7, t72, t75, t78, t8, t82, t85, t86, t87, t88, t90, t92, t94, t95, t98, t99
 
       cf = 0.3_dp*(3._dp*pi*pi)**(2._dp/3._dp)
 
