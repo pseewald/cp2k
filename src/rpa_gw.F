@@ -4703,10 +4703,10 @@ CONTAINS
          CALL dbcsr_t_copy(t_AO_tmp, t_greens_fct_virt)
 
          batch_range_mo(:) = [(i, i=2, nblk_mo)]
-         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_AO, batch_range_3=batch_range_mo)
-         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_RI, batch_range_3=batch_range_mo)
-         CALL dbcsr_t_batched_contract_init(t_3c_ctr_AO, batch_range_3=batch_range_mo)
-         CALL dbcsr_t_batched_contract_init(t_3c_ctr_RI, batch_range_3=batch_range_mo)
+         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_AO, [1,1,nblk_mo]) ! todo: how to implement offset, need copy?
+         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_RI, [1,1,nblk_mo])
+         CALL dbcsr_t_batched_contract_init(t_3c_ctr_AO, [1,1,nblk_mo])
+         CALL dbcsr_t_batched_contract_init(t_3c_ctr_RI, [1,1,nblk_mo])
          CALL dbcsr_t_batched_contract_init(t_W)
          CALL dbcsr_t_batched_contract_init(t_greens_fct_occ)
          CALL dbcsr_t_batched_contract_init(t_greens_fct_virt)
@@ -4812,10 +4812,10 @@ CONTAINS
          CALL dbcsr_t_copy_matrix_to_tensor(mat_SinvVSinv%matrix, t_RI_tmp)
          CALL dbcsr_t_copy(t_RI_tmp, t_SinvVSinv)
 
-         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_AO, batch_range_3=batch_range_mo)
-         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_RI, batch_range_3=batch_range_mo)
-         CALL dbcsr_t_batched_contract_init(t_3c_ctr_RI, batch_range_3=batch_range_mo)
-         CALL dbcsr_t_batched_contract_init(t_3c_ctr_AO, batch_range_3=batch_range_mo)
+         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_AO, [1,1,nblk_mo])
+         CALL dbcsr_t_batched_contract_init(t_3c_overl_int_gw_RI, [1,1,nblk_mo])
+         CALL dbcsr_t_batched_contract_init(t_3c_ctr_RI, [1,1,nblk_mo])
+         CALL dbcsr_t_batched_contract_init(t_3c_ctr_AO, [1,1,nblk_mo])
          CALL dbcsr_t_batched_contract_init(t_dm)
          CALL dbcsr_t_batched_contract_init(t_SinvVSinv)
 

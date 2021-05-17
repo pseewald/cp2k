@@ -630,11 +630,12 @@ CONTAINS
 
       CALL dbcsr_t_get_info(ri_data%t_3c_int_ctr_3(1, 1), nfull_total=dims_3c)
 
+      CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(1, 1))
+      CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_ctr_3(1, 1), [1,ri_data%n_mem, 1])
+      CALL dbcsr_t_batched_contract_init(t_3c_2, [ri_data%n_mem, ri_data%n_mem, 1])
+
       DO i_mem = 1, ri_data%n_mem
          bounds_i(1,:, 1) = [ri_data%starts_array_RI_mem(i_mem), ri_data%ends_array_RI_mem(i_mem)]
-         CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(1, 1))
-         CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_ctr_3(1, 1))
-         CALL dbcsr_t_batched_contract_init(t_3c_2)
          DO j_mem = 1, ri_data%n_mem
             bounds_j(1,:, 1) = [ri_data%starts_array_mem(j_mem), ri_data%ends_array_mem(j_mem)]
             bounds_j(1,:, 2) = [1, dims_3c(3)]
@@ -662,10 +663,10 @@ CONTAINS
 
             CALL timestop(handle2)
          ENDDO
-         CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(1, 1))
-         CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_int_ctr_3(1, 1))
-         CALL dbcsr_t_batched_contract_finalize(t_3c_2)
       ENDDO
+      CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(1, 1))
+      CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_int_ctr_3(1, 1))
+      CALL dbcsr_t_batched_contract_finalize(t_3c_2)
 
       CALL dbcsr_t_clear(ri_data%t_2c_int(1, 1))
       CALL dbcsr_t_destroy(t_3c_2)
@@ -1097,37 +1098,36 @@ CONTAINS
          CALL dbcsr_t_filter(mo_coeff_t_split, ri_data%filter_eps_mo)
          CALL dbcsr_t_destroy(mo_coeff_t)
 
+         CALL dbcsr_t_batched_contract_init(ks_t)
+         CALL dbcsr_t_batched_contract_init(ri_data%t_3c_ctr_KS(ispin, 1, 1), [1,n_mem,1])
+         CALL dbcsr_t_batched_contract_init(ri_data%t_3c_ctr_KS_copy(ispin, 1, 1), [1,n_mem,1])
+
          DO i_mem = 1, n_mem
 
-            IF (i_mem == 2) THEN
-               IF (.NOT. do_initialize) THEN
-                  IF (geometry_did_change) THEN
-                     CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_int_mo(ispin, 1, 1))
-                     CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_ctr_RI(ispin, 1, 1))
-                     CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(ispin, 1))
-                  ENDIF
-               ENDIF
-               CALL dbcsr_t_batched_contract_init(ks_t)
-               CALL dbcsr_t_batched_contract_init(ri_data%t_3c_ctr_KS(ispin, 1, 1), &
-                                                  batch_range_2=batch_ranges_2)
-               CALL dbcsr_t_batched_contract_init(ri_data%t_3c_ctr_KS_copy(ispin, 1, 1), &
-                                                  batch_range_2=batch_ranges_2)
+            !IF (i_mem == 2) THEN
+            !   IF (.NOT. do_initialize) THEN
+            !      IF (geometry_did_change) THEN
+            !         CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_int_mo(ispin, 1, 1))
+            !         CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_ctr_RI(ispin, 1, 1))
+            !         CALL dbcsr_t_batched_contract_finalize(ri_data%t_2c_int(ispin, 1))
+            !      ENDIF
+            !   ENDIF
 
-               IF (do_initialize .OR. geometry_did_change) THEN
-                  CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(ispin, 1))
-                  CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_mo(ispin, 1, 1), &
-                                                     batch_range_2=batch_ranges_2)
-                  CALL dbcsr_t_batched_contract_init(ri_data%t_3c_ctr_RI(ispin, 1, 1), &
-                                                     batch_range_2=batch_ranges_2)
-               ENDIF
-            ENDIF
+            !   IF (do_initialize .OR. geometry_did_change) THEN
+            !      CALL dbcsr_t_batched_contract_init(ri_data%t_2c_int(ispin, 1))
+            !      CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_mo(ispin, 1, 1), &
+            !                                         batch_range_2=batch_ranges_2)
+            !      CALL dbcsr_t_batched_contract_init(ri_data%t_3c_ctr_RI(ispin, 1, 1), &
+            !                                         batch_range_2=batch_ranges_2)
+            !   ENDIF
+            !ENDIF
 
             bounds(1,:, 1) = [mem_start(i_mem), mem_end(i_mem)]
 
-            CALL dbcsr_t_batched_contract_init(mo_coeff_t_split)
-            CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_ctr_1(1, 1))
-            CALL dbcsr_t_batched_contract_init(t_3c_int_mo_1(1, 1), &
-                                               batch_range_3=batch_ranges_1)
+            !CALL dbcsr_t_batched_contract_init(mo_coeff_t_split)
+            !CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_ctr_1(1, 1))
+            !CALL dbcsr_t_batched_contract_init(t_3c_int_mo_1(1, 1), &
+                                               !batch_range_3=batch_ranges_1)
             CALL timeset(routineN//"_MOx3C_R", handle2)
             CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t_split, ri_data%t_3c_int_ctr_1(1, 1), &
                                   dbcsr_scalar(0.0_dp), t_3c_int_mo_1(1, 1), &
@@ -1151,10 +1151,10 @@ CONTAINS
             CALL dbcsr_t_copy(t_3c_int_mo_1(1, 1), ri_data%t_3c_int_mo(ispin, 1, 1), order=[3, 1, 2], move_data=.TRUE.)
             CALL timestop(handle2)
 
-            CALL dbcsr_t_batched_contract_init(mo_coeff_t_split)
-            CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_ctr_2(1, 1))
-            CALL dbcsr_t_batched_contract_init(t_3c_int_mo_2(1, 1), &
-                                               batch_range_1=batch_ranges_1)
+            !CALL dbcsr_t_batched_contract_init(mo_coeff_t_split)
+            !CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_ctr_2(1, 1))
+            !CALL dbcsr_t_batched_contract_init(t_3c_int_mo_2(1, 1), &
+                                               !batch_range_1=batch_ranges_1)
 
             CALL timeset(routineN//"_MOx3C_L", handle2)
             CALL dbcsr_t_contract(dbcsr_scalar(1.0_dp), mo_coeff_t_split, ri_data%t_3c_int_ctr_2(1, 1), &
@@ -1360,18 +1360,17 @@ CONTAINS
          CALL get_tensor_occupancy(rho_ao_t, nze_rho, occ_rho)
 
          CALL dbcsr_t_batched_contract_init(ks_t)
-         CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_ctr_1(1, 1), batch_range_1=batch_ranges_AO, &
-                                            batch_range_2=batch_ranges_RI)
-         CALL dbcsr_t_batched_contract_init(t_3c_3, batch_range_1=batch_ranges_AO, batch_range_2=batch_ranges_RI)
+         CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_ctr_1(1, 1), [ri_data%n_mem, ri_data%n_mem, 1])
+         CALL dbcsr_t_batched_contract_init(t_3c_3, [ri_data%n_mem, ri_data%n_mem, 1])
+         CALL dbcsr_t_batched_contract_init(rho_ao_t)
+         CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_ctr_2(1, 1), [1,ri_data%n_mem, ri_data%n_mem])
+         CALL dbcsr_t_batched_contract_init(t_3c_1, [1, ri_data%n_mem, ri_data%n_mem])
 
          CALL dbcsr_t_create(ri_data%t_3c_int_ctr_1(1, 1), tensor_old)
 
          DO i_mem = 1, n_mem
 
-            CALL dbcsr_t_batched_contract_init(rho_ao_t)
-            CALL dbcsr_t_batched_contract_init(ri_data%t_3c_int_ctr_2(1, 1), batch_range_2=batch_ranges_RI, &
-                                               batch_range_3=batch_ranges_AO)
-            CALL dbcsr_t_batched_contract_init(t_3c_1, batch_range_2=batch_ranges_RI, batch_range_3=batch_ranges_AO)
+
             DO j_mem = 1, n_mem
 
                CALL timeset(routineN//"_Px3C", handle2)
@@ -1433,10 +1432,11 @@ CONTAINS
                ri_data%dbcsr_nflop = ri_data%dbcsr_nflop + nflop
 
             ENDDO
-            CALL dbcsr_t_batched_contract_finalize(rho_ao_t, unit_nr=unit_nr_dbcsr)
-            CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_int_ctr_2(1, 1))
-            CALL dbcsr_t_batched_contract_finalize(t_3c_1)
          ENDDO
+         CALL dbcsr_t_batched_contract_finalize(rho_ao_t, unit_nr=unit_nr_dbcsr)
+         CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_int_ctr_2(1, 1))
+         CALL dbcsr_t_batched_contract_finalize(t_3c_1)
+
          CALL dbcsr_t_batched_contract_finalize(ks_t, unit_nr=unit_nr_dbcsr)
          CALL dbcsr_t_batched_contract_finalize(ri_data%t_3c_int_ctr_1(1, 1))
          CALL dbcsr_t_batched_contract_finalize(t_3c_3)

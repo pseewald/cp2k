@@ -285,18 +285,18 @@ CONTAINS
 
          DO i = 1, SIZE(t_3c_O_occ, 1)
             DO j = 1, SIZE(t_3c_O_occ, 2)
-               CALL dbcsr_t_batched_contract_init(t_3c_O_occ(i, j), batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+               CALL dbcsr_t_batched_contract_init(t_3c_O_occ(i, j), [1, cut_memory, cut_memory])
             ENDDO
          ENDDO
          DO i = 1, SIZE(t_3c_O_virt, 1)
             DO j = 1, SIZE(t_3c_O_virt, 2)
-               CALL dbcsr_t_batched_contract_init(t_3c_O_virt(i, j), batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+               CALL dbcsr_t_batched_contract_init(t_3c_O_virt(i, j), [1, cut_memory, cut_memory])
             ENDDO
          ENDDO
-         CALL dbcsr_t_batched_contract_init(t_3c_M_occ_tmp, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
-         CALL dbcsr_t_batched_contract_init(t_3c_M_virt_tmp, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
-         CALL dbcsr_t_batched_contract_init(t_3c_M_occ, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
-         CALL dbcsr_t_batched_contract_init(t_3c_M_virt, batch_range_2=mc_ranges, batch_range_3=mc_ranges)
+         CALL dbcsr_t_batched_contract_init(t_3c_M_occ_tmp, [1, cut_memory, cut_memory])
+         CALL dbcsr_t_batched_contract_init(t_3c_M_virt_tmp, [1, cut_memory, cut_memory])
+         CALL dbcsr_t_batched_contract_init(t_3c_M_occ, [1, cut_memory, cut_memory])
+         CALL dbcsr_t_batched_contract_init(t_3c_M_virt, [1, cut_memory, cut_memory])
 
          DO i_cell_T = 1, num_cells_dm/2 + 1
 
@@ -361,7 +361,7 @@ CONTAINS
                                                     contract_1=[3], notcontract_1=[1, 2], &
                                                     contract_2=[2], notcontract_2=[1], &
                                                     map_1=[1, 2], map_2=[3], &
-                                                    bounds_2=jbounds_1, bounds_3=ibounds_2, &
+                                                    batch_iter_2=[1, j_mem], batch_iter_3=[i_mem], &
                                                     filter_eps=eps_filter, unit_nr=unit_nr_dbcsr, &
                                                     flop=flops_1_occ)
                               CALL timestop(handle3)
@@ -404,7 +404,7 @@ CONTAINS
                                                     contract_1=[3], notcontract_1=[1, 2], &
                                                     contract_2=[2], notcontract_2=[1], &
                                                     map_1=[1, 2], map_2=[3], &
-                                                    bounds_2=ibounds_1, bounds_3=jbounds_2, &
+                                                    batch_iter_2=[1,i_mem], batch_iter_3=[j_mem], &
                                                     filter_eps=eps_filter, unit_nr=unit_nr_dbcsr, &
                                                     flop=flops_1_virt)
                               CALL timestop(handle3)
